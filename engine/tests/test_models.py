@@ -55,6 +55,49 @@ class TestIncomeStatement:
         assert stmt.gross_margin == 0.0
         assert stmt.net_margin == 0.0
 
+    def test_effective_tax_rate_normal(self):
+        stmt = IncomeStatement(
+            revenue=Decimal("1000"),
+            ebit=Decimal("200"),
+            interest_expense=Decimal("50"),
+            tax_provision=Decimal("30"),
+            net_income=Decimal("120"),
+            shares_outstanding=100,
+        )
+        # pretax = 200 - 50 = 150; tax_rate = 30/150 = 0.20
+        assert stmt.effective_tax_rate == pytest.approx(0.20)
+
+    def test_effective_tax_rate_defaults_when_no_provision(self):
+        stmt = IncomeStatement(
+            revenue=Decimal("1000"),
+            ebit=Decimal("200"),
+            net_income=Decimal("120"),
+            shares_outstanding=100,
+        )
+        assert stmt.effective_tax_rate == 0.21
+
+    def test_effective_tax_rate_defaults_when_zero_ebit(self):
+        stmt = IncomeStatement(
+            revenue=Decimal("1000"),
+            ebit=Decimal("0"),
+            tax_provision=Decimal("10"),
+            net_income=Decimal("-10"),
+            shares_outstanding=100,
+        )
+        assert stmt.effective_tax_rate == 0.21
+
+    def test_effective_tax_rate_defaults_when_negative_pretax(self):
+        stmt = IncomeStatement(
+            revenue=Decimal("1000"),
+            ebit=Decimal("20"),
+            interest_expense=Decimal("50"),
+            tax_provision=Decimal("5"),
+            net_income=Decimal("-25"),
+            shares_outstanding=100,
+        )
+        # pretax = 20 - 50 = -30, so defaults to 0.21
+        assert stmt.effective_tax_rate == 0.21
+
 
 class TestBalanceSheet:
     def test_create_balance_sheet(self):
@@ -167,6 +210,77 @@ class TestFinancialPeriod:
         )
         assert period.period_end == "2024-09-28"
         assert period.revenue_growth == pytest.approx(0.1111, abs=0.001)
+
+    def test_revenue_growth_none_without_prior(self):
+        current_income = IncomeStatement(
+            revenue=Decimal("200"),
+            ebit=Decimal("50"),
+            net_income=Decimal("30"),
+            shares_outstanding=100,
+        )
+        current_balance = BalanceSheet(
+            total_assets=Decimal("500"),
+            total_equity=Decimal("200"),
+            shares_outstanding=100,
+        )
+        current_cf = CashFlowStatement(
+            operating_cash_flow=Decimal("40"),
+            capital_expenditures=Decimal("-10"),
+        )
+        period = FinancialPeriod(
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+            current_income=current_income,
+            current_balance=current_balance,
+            current_cash_flow=current_cf,
+        )
+        assert period.revenue_growth is None
+
+    def test_revenue_growth_none_with_zero_prior_revenue(self):
+        current_income = IncomeStatement(
+            revenue=Decimal("200"),
+            ebit=Decimal("50"),
+            net_income=Decimal("30"),
+            shares_outstanding=100,
+        )
+        prior_income = IncomeStatement(
+            revenue=Decimal("0"),
+            ebit=Decimal("0"),
+            net_income=Decimal("0"),
+            shares_outstanding=100,
+        )
+        current_balance = BalanceSheet(
+            total_assets=Decimal("500"),
+            total_equity=Decimal("200"),
+            shares_outstanding=100,
+        )
+        current_cf = CashFlowStatement(
+            operating_cash_flow=Decimal("40"),
+            capital_expenditures=Decimal("-10"),
+        )
+        period = FinancialPeriod(
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+            current_income=current_income,
+            prior_income=prior_income,
+            current_balance=current_balance,
+            current_cash_flow=current_cf,
+        )
+        assert period.revenue_growth is None
+
+
+class TestGICSSector:
+    def test_cyclical_sectors(self):
+        assert GICSSector.ENERGY.is_cyclical is True
+        assert GICSSector.MATERIALS.is_cyclical is True
+        assert GICSSector.INDUSTRIALS.is_cyclical is True
+        assert GICSSector.CONSUMER_DISCRETIONARY.is_cyclical is True
+
+    def test_non_cyclical_sectors(self):
+        assert GICSSector.TECHNOLOGY.is_cyclical is False
+        assert GICSSector.HEALTHCARE.is_cyclical is False
+        assert GICSSector.CONSUMER_STAPLES.is_cyclical is False
+        assert GICSSector.UTILITIES.is_cyclical is False
 
 
 class TestAssetProfile:
