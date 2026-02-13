@@ -70,8 +70,13 @@ def _add_event_with_notification(
 class TestCreateEvent:
     def test_create_event_success(self, client):
         response = client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=AAPL"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         assert response.status_code == 201
         data = response.json()
@@ -84,16 +89,26 @@ class TestCreateEvent:
 
     def test_create_event_normalizes_ticker(self, client):
         response = client.post(
-            "/api/v1/events?event_type=price_alert&ticker=aapl"
-            "&severity=minor&source=internal"
+            "/api/v1/events",
+            json={
+                "event_type": "price_alert",
+                "ticker": "aapl",
+                "severity": "minor",
+                "source": "internal",
+            },
         )
         assert response.status_code == 201
         assert response.json()["ticker"] == "AAPL"
 
     def test_create_event_also_creates_notification(self, client):
         client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=AAPL"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         response = client.get("/api/v1/notifications")
         assert response.status_code == 200

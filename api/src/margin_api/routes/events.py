@@ -7,12 +7,15 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from margin_api.schemas.events import (
     EventListResponse,
     EventResponse,
+    EventTypeEnum,
     NotificationListResponse,
     NotificationResponse,
+    SeverityEnum,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["events"])
@@ -66,23 +69,29 @@ def add_notification(event: EventResponse) -> NotificationResponse:
     return notification
 
 
-@router.post("/events", response_model=EventResponse, status_code=201)
-async def create_event(
-    event_type: str = Query(...),
-    ticker: str = Query(...),
-    severity: str = Query(...),
-    source: str = Query(...),
-) -> EventResponse:
-    """Create a new event (for testing/internal use).
+class CreateEventRequest(BaseModel):
+    """Request body for creating an event."""
 
-    Accepts event fields as query parameters and stores the event.
+    event_type: EventTypeEnum
+    ticker: str
+    severity: SeverityEnum
+    source: str
+    payload: dict[str, Any] | None = None
+
+
+@router.post("/events", response_model=EventResponse, status_code=201)
+async def create_event(body: CreateEventRequest) -> EventResponse:
+    """Create a new event.
+
+    Accepts event fields as a JSON request body and stores the event.
     Also creates a corresponding notification.
     """
     event = add_event(
-        event_type=event_type,
-        ticker=ticker,
-        severity=severity,
-        source=source,
+        event_type=body.event_type,
+        ticker=body.ticker,
+        severity=body.severity,
+        source=body.source,
+        payload=body.payload,
     )
     add_notification(event)
     return event

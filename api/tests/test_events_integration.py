@@ -40,8 +40,13 @@ class TestCreateAndFetchEvent:
         """POST /events creates an event, GET /events?ticker= returns it."""
         # Create
         resp = client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=AAPL"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         assert resp.status_code == 201
         created = resp.json()
@@ -60,8 +65,13 @@ class TestCreateAndFetchEvent:
     def test_create_event_appears_in_recent(self, client: TestClient):
         """A newly created event should appear in the recent events endpoint."""
         client.post(
-            "/api/v1/events?event_type=sec_filing&ticker=GOOG"
-            "&severity=moderate&source=edgar"
+            "/api/v1/events",
+            json={
+                "event_type": "sec_filing",
+                "ticker": "GOOG",
+                "severity": "moderate",
+                "source": "edgar",
+            },
         )
         resp = client.get("/api/v1/events/recent")
         assert resp.status_code == 200
@@ -73,8 +83,13 @@ class TestCreateAndFetchEvent:
         """Creating multiple events for a ticker returns the correct total count."""
         for i in range(3):
             client.post(
-                "/api/v1/events?event_type=price_alert&ticker=MSFT"
-                "&severity=minor&source=internal"
+                "/api/v1/events",
+                json={
+                    "event_type": "price_alert",
+                    "ticker": "MSFT",
+                    "severity": "minor",
+                    "source": "internal",
+                },
             )
         resp = client.get("/api/v1/events?ticker=MSFT")
         data = resp.json()
@@ -92,16 +107,31 @@ class TestFilterByTicker:
     def test_filter_returns_only_matching_ticker(self, client: TestClient):
         """GET /events?ticker=X only returns events for ticker X."""
         client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=AAPL"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         client.post(
-            "/api/v1/events?event_type=sec_filing&ticker=GOOG"
-            "&severity=moderate&source=edgar"
+            "/api/v1/events",
+            json={
+                "event_type": "sec_filing",
+                "ticker": "GOOG",
+                "severity": "moderate",
+                "source": "edgar",
+            },
         )
         client.post(
-            "/api/v1/events?event_type=price_alert&ticker=NVDA"
-            "&severity=minor&source=internal"
+            "/api/v1/events",
+            json={
+                "event_type": "price_alert",
+                "ticker": "NVDA",
+                "severity": "minor",
+                "source": "internal",
+            },
         )
 
         # Only AAPL
@@ -125,8 +155,13 @@ class TestFilterByTicker:
     def test_filter_case_insensitive(self, client: TestClient):
         """Ticker filtering is case-insensitive."""
         client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=aapl"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "aapl",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         resp = client.get("/api/v1/events?ticker=AAPL")
         assert resp.json()["total"] == 1
@@ -137,8 +172,13 @@ class TestFilterByTicker:
     def test_filter_nonexistent_ticker_returns_empty(self, client: TestClient):
         """Filtering by a ticker that has no events returns an empty list."""
         client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=AAPL"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         resp = client.get("/api/v1/events?ticker=TSLA")
         data = resp.json()
@@ -148,12 +188,22 @@ class TestFilterByTicker:
     def test_recent_returns_events_across_all_tickers(self, client: TestClient):
         """The recent endpoint returns events across all tickers."""
         client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=AAPL"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         client.post(
-            "/api/v1/events?event_type=sec_filing&ticker=GOOG"
-            "&severity=moderate&source=edgar"
+            "/api/v1/events",
+            json={
+                "event_type": "sec_filing",
+                "ticker": "GOOG",
+                "severity": "moderate",
+                "source": "edgar",
+            },
         )
         resp = client.get("/api/v1/events/recent")
         data = resp.json()
@@ -173,8 +223,13 @@ class TestNotificationLifecycle:
     def test_event_creation_auto_creates_notification(self, client: TestClient):
         """Creating an event also creates a corresponding notification."""
         resp = client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=AAPL"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         assert resp.status_code == 201
         event_data = resp.json()
@@ -190,8 +245,13 @@ class TestNotificationLifecycle:
     def test_mark_notification_read(self, client: TestClient):
         """Mark a notification as read and verify the unread count decreases."""
         client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=AAPL"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         # Get the notification ID
         resp = client.get("/api/v1/notifications")
@@ -211,8 +271,13 @@ class TestNotificationLifecycle:
     def test_delete_notification(self, client: TestClient):
         """Delete a notification and verify it's gone."""
         client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=AAPL"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         resp = client.get("/api/v1/notifications")
         nid = resp.json()["notifications"][0]["notification_id"]
@@ -232,8 +297,13 @@ class TestNotificationLifecycle:
         mark notification read -> delete notification."""
         # Step 1: Create event
         resp = client.post(
-            "/api/v1/events?event_type=sec_filing&ticker=NVDA"
-            "&severity=moderate&source=edgar"
+            "/api/v1/events",
+            json={
+                "event_type": "sec_filing",
+                "ticker": "NVDA",
+                "severity": "moderate",
+                "source": "edgar",
+            },
         )
         assert resp.status_code == 201
         event_id = resp.json()["event_id"]
@@ -276,16 +346,31 @@ class TestNotificationLifecycle:
     def test_multiple_events_create_multiple_notifications(self, client: TestClient):
         """Multiple events create independent notifications."""
         client.post(
-            "/api/v1/events?event_type=earnings_release&ticker=AAPL"
-            "&severity=major&source=sec_api"
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "major",
+                "source": "sec_api",
+            },
         )
         client.post(
-            "/api/v1/events?event_type=sec_filing&ticker=GOOG"
-            "&severity=moderate&source=edgar"
+            "/api/v1/events",
+            json={
+                "event_type": "sec_filing",
+                "ticker": "GOOG",
+                "severity": "moderate",
+                "source": "edgar",
+            },
         )
         client.post(
-            "/api/v1/events?event_type=price_alert&ticker=NVDA"
-            "&severity=minor&source=internal"
+            "/api/v1/events",
+            json={
+                "event_type": "price_alert",
+                "ticker": "NVDA",
+                "severity": "minor",
+                "source": "internal",
+            },
         )
 
         resp = client.get("/api/v1/notifications")
