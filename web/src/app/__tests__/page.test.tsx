@@ -1,26 +1,33 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import Page from '../page'
+import { describe, it, expect, vi } from "vitest"
+import { render, screen } from "@testing-library/react"
+import Page from "../page"
 
-// Mock next/image since it's not available in test environment
-vi.mock('next/image', () => ({
-  default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    return <img {...props} />
+// Mock framer-motion to avoid animation issues in tests
+vi.mock("framer-motion", () => ({
+  motion: {
+    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    h2: ({ children, ...props }: any) => <h2 {...props}>{children}</h2>,
   },
 }))
 
-describe('Home Page', () => {
-  it('renders without crashing', () => {
+describe("Landing Page", () => {
+  it("renders hero section with headline", () => {
     render(<Page />)
-    // Just verify the page renders
-    expect(document.body).toBeTruthy()
+    expect(screen.getByText(/once-in-a-generation/i)).toBeInTheDocument()
   })
 
-  it('renders the heading', () => {
+  it("renders Get Started CTA", () => {
     render(<Page />)
-    expect(
-      screen.getByRole('heading', { level: 1 })
-    ).toBeInTheDocument()
+    expect(screen.getByText("Get Started")).toBeInTheDocument()
+  })
+
+  it("renders How It Works section", () => {
+    render(<Page />)
+    expect(screen.getByText("How It Works")).toBeInTheDocument()
+  })
+
+  it("renders Performance section", () => {
+    render(<Page />)
+    expect(screen.getByText("Performance")).toBeInTheDocument()
   })
 })
