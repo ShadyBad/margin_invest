@@ -1,0 +1,482 @@
+"""Tests for the scoring service (engine-to-DB bridge).
+
+Tests build_financial_period, build_asset_profile, and run_scoring_pipeline
+using realistic Apple-like financial data.
+"""
+
+from __future__ import annotations
+
+import datetime
+from decimal import Decimal
+
+import pytest
+from margin_api.services.scoring import (
+    build_asset_profile,
+    build_financial_period,
+    run_scoring_pipeline,
+)
+from margin_engine.models.financial import (
+    AssetProfile,
+    FinancialPeriod,
+    GICSSector,
+)
+from margin_engine.models.scoring import CompositeScore, FactorScore
+
+# ---------------------------------------------------------------------------
+# Test data helpers — Apple-like numbers (FY2024)
+# ---------------------------------------------------------------------------
+
+def _income_raw(
+    revenue: str = "391035000000",
+    cost_of_revenue: str = "214137000000",
+    gross_profit: str = "176898000000",
+    ebit: str = "123216000000",
+    net_income: str = "100913000000",
+    interest_expense: str = "3933000000",
+    tax_provision: str = "18679000000",
+    shares_outstanding: int = 15408095000,
+) -> dict:
+    return {
+        "revenue": revenue,
+        "costOfRevenue": cost_of_revenue,
+        "grossProfit": gross_profit,
+        "ebit": ebit,
+        "netIncome": net_income,
+        "interestExpense": interest_expense,
+        "incomeTaxExpense": tax_provision,
+        "sharesOutstanding": shares_outstanding,
+    }
+
+
+def _balance_raw(
+    total_assets: str = "352583000000",
+    current_assets: str = "152987000000",
+    cash: str = "29965000000",
+    receivables: str = "66243000000",
+    total_liabilities: str = "290437000000",
+    current_liabilities: str = "176392000000",
+    long_term_debt: str = "96807000000",
+    total_equity: str = "62146000000",
+    retained_earnings: str = "-214000000",
+    pp_and_e: str = "44856000000",
+    shares_outstanding: int = 15408095000,
+) -> dict:
+    return {
+        "totalAssets": total_assets,
+        "totalCurrentAssets": current_assets,
+        "cashAndCashEquivalents": cash,
+        "netReceivables": receivables,
+        "totalLiabilities": total_liabilities,
+        "totalCurrentLiabilities": current_liabilities,
+        "longTermDebt": long_term_debt,
+        "totalStockholdersEquity": total_equity,
+        "retainedEarnings": retained_earnings,
+        "propertyPlantEquipmentNet": pp_and_e,
+        "sharesOutstanding": shares_outstanding,
+    }
+
+
+def _cashflow_raw(
+    operating_cf: str = "118254000000",
+    capex: str = "-9959000000",
+    dividends: str = "-15025000000",
+    repurchases: str = "-94949000000",
+    issuance: str = "0",
+) -> dict:
+    return {
+        "operatingCashFlow": operating_cf,
+        "capitalExpenditure": capex,
+        "dividendsPaid": dividends,
+        "commonStockRepurchased": repurchases,
+        "commonStockIssued": issuance,
+    }
+
+
+def _prior_income_raw() -> dict:
+    return _income_raw(
+        revenue="383285000000",
+        cost_of_revenue="209717000000",
+        gross_profit="173568000000",
+        ebit="118658000000",
+        net_income="96995000000",
+        interest_expense="3468000000",
+        tax_provision="16741000000",
+    )
+
+
+def _prior_balance_raw() -> dict:
+    return _balance_raw(
+        total_assets="352755000000",
+        current_assets="143566000000",
+        cash="29965000000",
+        receivables="60985000000",
+        total_liabilities="290020000000",
+        current_liabilities="145308000000",
+        long_term_debt="95281000000",
+        total_equity="62235000000",
+    )
+
+
+def _prior_cashflow_raw() -> dict:
+    return _cashflow_raw(
+        operating_cf="110543000000",
+        capex="-11062000000",
+        dividends="-14996000000",
+        repurchases="-77550000000",
+    )
+
+
+def _price_bars_raw(n_bars: int = 260) -> list[dict]:
+    """Generate ~1 year of daily price bars with a slight uptrend."""
+    bars = []
+    base_date = datetime.date(2024, 9, 28)
+    base_price = 170.0
+    for i in range(n_bars):
+        d = base_date - datetime.timedelta(days=n_bars - 1 - i)
+        # Small uptrend: +0.1 per day on average
+        price = base_price + i * 0.1
+        bars.append({
+            "date": d.isoformat(),
+            "open": str(round(price - 0.5, 2)),
+            "high": str(round(price + 1.0, 2)),
+            "low": str(round(price - 1.0, 2)),
+            "close": str(round(price, 2)),
+            "volume": 50000000,
+        })
+    return bars
+
+
+def _earnings_raw() -> list[dict]:
+    """Generate 4 quarters of earnings surprises."""
+    return [
+        {"quarter": "2024-Q1", "actual_eps": "2.18", "expected_eps": "2.10"},
+        {"quarter": "2024-Q2", "actual_eps": "1.40", "expected_eps": "1.35"},
+        {"quarter": "2024-Q3", "actual_eps": "1.46", "expected_eps": "1.39"},
+        {"quarter": "2024-Q4", "actual_eps": "2.40", "expected_eps": "2.35"},
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+
+class TestBuildFinancialPeriod:
+    """Tests for build_financial_period."""
+
+    def test_returns_valid_financial_period(self):
+        period = build_financial_period(
+            income_raw=_income_raw(),
+            balance_raw=_balance_raw(),
+            cashflow_raw=_cashflow_raw(),
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+        )
+        assert isinstance(period, FinancialPeriod)
+        assert period.period_end == "2024-09-28"
+        assert period.filing_date == "2024-11-01"
+
+    def test_income_statement_fields(self):
+        period = build_financial_period(
+            income_raw=_income_raw(),
+            balance_raw=_balance_raw(),
+            cashflow_raw=_cashflow_raw(),
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+        )
+        assert period.current_income.revenue == Decimal("391035000000")
+        assert period.current_income.gross_profit == Decimal("176898000000")
+        assert period.current_income.net_income == Decimal("100913000000")
+
+    def test_balance_sheet_fields(self):
+        period = build_financial_period(
+            income_raw=_income_raw(),
+            balance_raw=_balance_raw(),
+            cashflow_raw=_cashflow_raw(),
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+        )
+        assert period.current_balance.total_assets == Decimal("352583000000")
+        assert period.current_balance.total_equity == Decimal("62146000000")
+
+    def test_cash_flow_fields(self):
+        period = build_financial_period(
+            income_raw=_income_raw(),
+            balance_raw=_balance_raw(),
+            cashflow_raw=_cashflow_raw(),
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+        )
+        assert period.current_cash_flow.operating_cash_flow == Decimal("118254000000")
+        assert period.current_cash_flow.capital_expenditures == Decimal("-9959000000")
+
+    def test_with_prior_period(self):
+        period = build_financial_period(
+            income_raw=_income_raw(),
+            balance_raw=_balance_raw(),
+            cashflow_raw=_cashflow_raw(),
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+            prior_income_raw=_prior_income_raw(),
+            prior_balance_raw=_prior_balance_raw(),
+            prior_cashflow_raw=_prior_cashflow_raw(),
+        )
+        assert period.prior_income is not None
+        assert period.prior_income.revenue == Decimal("383285000000")
+        assert period.prior_balance is not None
+        assert period.prior_cash_flow is not None
+
+    def test_without_prior_period(self):
+        period = build_financial_period(
+            income_raw=_income_raw(),
+            balance_raw=_balance_raw(),
+            cashflow_raw=_cashflow_raw(),
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+        )
+        assert period.prior_income is None
+        assert period.prior_balance is None
+        assert period.prior_cash_flow is None
+
+
+class TestBuildAssetProfile:
+    """Tests for build_asset_profile."""
+
+    def test_returns_valid_asset_profile(self):
+        profile = build_asset_profile(
+            ticker="AAPL",
+            name="Apple Inc.",
+            sector="Information Technology",
+            market_cap=Decimal("3000000000000"),
+        )
+        assert isinstance(profile, AssetProfile)
+        assert profile.ticker == "AAPL"
+        assert profile.name == "Apple Inc."
+        assert profile.sector == GICSSector.TECHNOLOGY
+        assert profile.market_cap == Decimal("3000000000000")
+
+    def test_sector_enum_conversion(self):
+        """Test various sector strings map to correct GICSSector values."""
+        test_cases = [
+            ("Information Technology", GICSSector.TECHNOLOGY),
+            ("Health Care", GICSSector.HEALTHCARE),
+            ("Financials", GICSSector.FINANCIALS),
+            ("Energy", GICSSector.ENERGY),
+            ("Consumer Discretionary", GICSSector.CONSUMER_DISCRETIONARY),
+            ("Consumer Staples", GICSSector.CONSUMER_STAPLES),
+            ("Industrials", GICSSector.INDUSTRIALS),
+            ("Materials", GICSSector.MATERIALS),
+            ("Real Estate", GICSSector.REAL_ESTATE),
+            ("Utilities", GICSSector.UTILITIES),
+            ("Communication Services", GICSSector.COMMUNICATION_SERVICES),
+        ]
+        for sector_str, expected_enum in test_cases:
+            profile = build_asset_profile(
+                ticker="TEST",
+                name="Test Co.",
+                sector=sector_str,
+                market_cap=Decimal("1000000000"),
+            )
+            assert profile.sector == expected_enum, (
+                f"Sector '{sector_str}' did not map to {expected_enum}"
+            )
+
+    def test_invalid_sector_raises(self):
+        """An invalid sector string should raise a ValueError."""
+        with pytest.raises(ValueError, match="Unknown sector"):
+            build_asset_profile(
+                ticker="TEST",
+                name="Test Co.",
+                sector="Nonexistent Sector",
+                market_cap=Decimal("1000000000"),
+            )
+
+
+class TestRunScoringPipeline:
+    """Integration tests for run_scoring_pipeline."""
+
+    def _build_period_with_priors(self) -> FinancialPeriod:
+        return build_financial_period(
+            income_raw=_income_raw(),
+            balance_raw=_balance_raw(),
+            cashflow_raw=_cashflow_raw(),
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+            prior_income_raw=_prior_income_raw(),
+            prior_balance_raw=_prior_balance_raw(),
+            prior_cashflow_raw=_prior_cashflow_raw(),
+        )
+
+    def _build_profile(self) -> AssetProfile:
+        return build_asset_profile(
+            ticker="AAPL",
+            name="Apple Inc.",
+            sector="Information Technology",
+            market_cap=Decimal("3000000000000"),
+            avg_daily_volume=Decimal("10000000000"),
+            years_of_history=44,
+        )
+
+    def test_returns_composite_score(self):
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        result = run_scoring_pipeline(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        assert isinstance(result, CompositeScore)
+
+    def test_correct_ticker(self):
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        result = run_scoring_pipeline(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        assert result.ticker == "AAPL"
+
+    def test_quality_factor_count(self):
+        """Quality should have 4 sub-factors."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        result = run_scoring_pipeline(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        assert len(result.quality.sub_scores) == 4
+        quality_names = {s.name for s in result.quality.sub_scores}
+        assert "gross_profitability" in quality_names
+        assert "roic_wacc_spread" in quality_names
+        assert "accrual_ratio" in quality_names
+        assert "piotroski_f_score" in quality_names
+
+    def test_value_factor_count(self):
+        """Value should have 4 sub-factors."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        result = run_scoring_pipeline(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        assert len(result.value.sub_scores) == 4
+        value_names = {s.name for s in result.value.sub_scores}
+        assert "ev_fcf" in value_names
+        assert "shareholder_yield" in value_names
+        assert "dcf_margin_of_safety" in value_names
+        assert "acquirers_multiple" in value_names
+
+    def test_momentum_factor_count(self):
+        """Momentum should have 5 sub-factors (including placeholders)."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        result = run_scoring_pipeline(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        assert len(result.momentum.sub_scores) == 5
+        momentum_names = {s.name for s in result.momentum.sub_scores}
+        assert "price_momentum" in momentum_names
+        assert "sue" in momentum_names
+        assert "sentiment" in momentum_names
+        assert "insider_cluster" in momentum_names
+        assert "institutional_accumulation" in momentum_names
+
+    def test_filters_populated(self):
+        """Elimination filters should be populated with results."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        result = run_scoring_pipeline(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        # Apple-like data should pass all filters
+        assert len(result.filters_passed) > 0
+        assert all(f.passed for f in result.filters_passed)
+
+    def test_composite_percentile_valid_range(self):
+        """Composite percentile should be between 0 and 100."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        result = run_scoring_pipeline(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        assert 0.0 <= result.composite_percentile <= 100.0
+
+    def test_data_coverage_valid(self):
+        """Data coverage should be between 0 and 1."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        result = run_scoring_pipeline(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        assert 0.0 <= result.data_coverage <= 1.0
+
+    def test_growth_stage_assigned(self):
+        """Growth stage should be assigned from the classifier."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        result = run_scoring_pipeline(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        assert result.growth_stage is not None
+
+    def test_all_factor_scores_valid(self):
+        """Every sub-score should be a valid FactorScore with percentile 0-100."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        result = run_scoring_pipeline(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        all_scores = (
+            result.quality.sub_scores
+            + result.value.sub_scores
+            + result.momentum.sub_scores
+        )
+        for score in all_scores:
+            assert isinstance(score, FactorScore)
+            assert 0.0 <= score.percentile_rank <= 100.0
+            assert score.name  # non-empty name
