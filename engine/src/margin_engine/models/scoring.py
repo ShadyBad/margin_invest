@@ -2,25 +2,24 @@
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class FilterVerdict(str, Enum):
+class FilterVerdict(StrEnum):
     PASS = "pass"
     FAIL = "fail"
 
 
-class ConvictionLevel(str, Enum):
+class ConvictionLevel(StrEnum):
     EXCEPTIONAL = "exceptional"  # Top 1% (99-100)
     HIGH = "high"  # Top 5% (95-98)
     WATCHLIST = "watchlist"  # Top 10% (90-94)
     NONE = "none"  # Below 90
 
 
-class Signal(str, Enum):
+class Signal(StrEnum):
     BUY = "buy"
     HOLD = "hold"
     WATCH = "watch"
@@ -29,7 +28,7 @@ class Signal(str, Enum):
     NO_ACTION = "no_action"
 
 
-class GrowthStage(str, Enum):
+class GrowthStage(StrEnum):
     HIGH_GROWTH = "high_growth"
     STEADY_GROWTH = "steady_growth"
     MATURE = "mature"
@@ -42,8 +41,8 @@ class FilterResult(BaseModel):
 
     name: str
     passed: bool
-    value: Optional[float] = None
-    threshold: Optional[float] = None
+    value: float | None = None
+    threshold: float | None = None
     detail: str = ""
 
     @property
@@ -91,7 +90,7 @@ class CompositeScore(BaseModel):
     momentum: FactorBreakdown
     filters_passed: list[FilterResult]
     data_coverage: float = Field(ge=0.0, le=1.0)
-    growth_stage: Optional[GrowthStage] = None
+    growth_stage: GrowthStage | None = None
 
     @property
     def conviction_level(self) -> ConvictionLevel:

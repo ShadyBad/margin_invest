@@ -1,15 +1,16 @@
 """Tests for core financial data models."""
 
-import pytest
 from decimal import Decimal
+
+import pytest
 from margin_engine.models.financial import (
-    IncomeStatement,
+    AssetProfile,
     BalanceSheet,
     CashFlowStatement,
     FinancialPeriod,
-    PriceBar,
-    AssetProfile,
     GICSSector,
+    IncomeStatement,
+    PriceBar,
 )
 
 
@@ -139,6 +140,17 @@ class TestBalanceSheet:
             shares_outstanding=100,
         )
         assert bs.debt_to_equity == float("inf")
+
+    def test_zero_current_liabilities_current_ratio(self):
+        bs = BalanceSheet(
+            total_assets=Decimal("1000"),
+            current_assets=Decimal("500"),
+            total_liabilities=Decimal("200"),
+            current_liabilities=Decimal("0"),
+            total_equity=Decimal("800"),
+            shares_outstanding=100,
+        )
+        assert bs.current_ratio == float("inf")
 
 
 class TestCashFlowStatement:

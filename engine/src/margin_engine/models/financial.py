@@ -7,13 +7,12 @@ derive ratios and metrics from raw financial data.
 from __future__ import annotations
 
 from decimal import Decimal
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
-class GICSSector(str, Enum):
+class GICSSector(StrEnum):
     """GICS sector classification. 11 sectors."""
 
     TECHNOLOGY = "Information Technology"
@@ -48,12 +47,12 @@ class IncomeStatement(BaseModel):
     revenue: Decimal
     cost_of_revenue: Decimal = Decimal("0")
     gross_profit: Decimal = Decimal("0")
-    sga_expense: Optional[Decimal] = None
-    rd_expense: Optional[Decimal] = None
-    depreciation: Optional[Decimal] = None
+    sga_expense: Decimal | None = None
+    rd_expense: Decimal | None = None
+    depreciation: Decimal | None = None
     ebit: Decimal = Decimal("0")
-    interest_expense: Optional[Decimal] = None
-    tax_provision: Optional[Decimal] = None
+    interest_expense: Decimal | None = None
+    tax_provision: Decimal | None = None
     net_income: Decimal = Decimal("0")
     shares_outstanding: int = 0
 
@@ -84,14 +83,14 @@ class BalanceSheet(BaseModel):
 
     total_assets: Decimal
     current_assets: Decimal = Decimal("0")
-    cash_and_equivalents: Optional[Decimal] = None
-    receivables: Optional[Decimal] = None
+    cash_and_equivalents: Decimal | None = None
+    receivables: Decimal | None = None
     total_liabilities: Decimal = Decimal("0")
     current_liabilities: Decimal = Decimal("0")
-    long_term_debt: Optional[Decimal] = None
+    long_term_debt: Decimal | None = None
     total_equity: Decimal = Decimal("0")
-    retained_earnings: Optional[Decimal] = None
-    pp_and_e: Optional[Decimal] = None
+    retained_earnings: Decimal | None = None
+    pp_and_e: Decimal | None = None
     shares_outstanding: int = 0
 
     @property
@@ -120,9 +119,9 @@ class CashFlowStatement(BaseModel):
 
     operating_cash_flow: Decimal = Decimal("0")
     capital_expenditures: Decimal = Decimal("0")  # Usually negative
-    dividends_paid: Optional[Decimal] = None  # Usually negative
-    share_repurchases: Optional[Decimal] = None  # Usually negative
-    share_issuance: Optional[Decimal] = None
+    dividends_paid: Decimal | None = None  # Usually negative
+    share_repurchases: Decimal | None = None  # Usually negative
+    share_issuance: Decimal | None = None
 
     @property
     def free_cash_flow(self) -> Decimal:
@@ -142,14 +141,14 @@ class FinancialPeriod(BaseModel):
     filing_date: str  # ISO date: "2024-11-01"
 
     current_income: IncomeStatement
-    prior_income: Optional[IncomeStatement] = None
+    prior_income: IncomeStatement | None = None
     current_balance: BalanceSheet
-    prior_balance: Optional[BalanceSheet] = None
+    prior_balance: BalanceSheet | None = None
     current_cash_flow: CashFlowStatement
-    prior_cash_flow: Optional[CashFlowStatement] = None
+    prior_cash_flow: CashFlowStatement | None = None
 
     @property
-    def revenue_growth(self) -> Optional[float]:
+    def revenue_growth(self) -> float | None:
         if self.prior_income is None or self.prior_income.revenue == 0:
             return None
         return float(
@@ -167,7 +166,7 @@ class PriceBar(BaseModel):
     low: Decimal
     close: Decimal
     volume: int
-    adj_close: Optional[Decimal] = None
+    adj_close: Decimal | None = None
 
 
 class AssetProfile(BaseModel):
@@ -176,7 +175,7 @@ class AssetProfile(BaseModel):
     ticker: str
     name: str
     sector: GICSSector
-    sub_industry: Optional[str] = None
+    sub_industry: str | None = None
     market_cap: Decimal = Decimal("0")
     avg_daily_volume: Decimal = Decimal("0")
     years_of_history: int = 0

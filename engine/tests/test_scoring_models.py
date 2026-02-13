@@ -2,15 +2,15 @@
 
 import pytest
 from margin_engine.models.scoring import (
-    FilterResult,
-    FilterVerdict,
-    FactorScore,
-    FactorBreakdown,
     CompositeScore,
     ConvictionLevel,
-    Signal,
+    FactorBreakdown,
+    FactorScore,
+    FilterResult,
+    FilterVerdict,
     GrowthStage,
     ScoringConfig,
+    Signal,
 )
 
 
@@ -71,6 +71,19 @@ class TestFactorBreakdown:
 
 
 class TestCompositeScore:
+    def test_conviction_level_exceptional(self):
+        score = CompositeScore(
+            ticker="NVDA",
+            composite_percentile=99.5,
+            quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
+            value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
+            momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
+            filters_passed=[],
+            data_coverage=1.0,
+        )
+        assert score.conviction_level == ConvictionLevel.EXCEPTIONAL
+        assert score.signal == Signal.BUY
+
     def test_conviction_level_high(self):
         score = CompositeScore(
             ticker="NVDA",
@@ -148,7 +161,8 @@ class TestScoringConfig:
         assert config.quality_weight == 0.35
         assert config.value_weight == 0.30
         assert config.momentum_weight == 0.35
-        assert config.quality_weight + config.value_weight + config.momentum_weight == pytest.approx(1.0)
+        total = config.quality_weight + config.value_weight + config.momentum_weight
+        assert total == pytest.approx(1.0)
 
     def test_growth_stage_weights(self):
         config = ScoringConfig()

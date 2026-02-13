@@ -1,11 +1,12 @@
 """Verify golden fixture data produces expected computed values."""
 
 import pytest
+
 from tests.fixtures.golden_apple_2024 import (
-    APPLE_INCOME_2024,
-    APPLE_INCOME_2023,
     APPLE_BALANCE_2024,
     APPLE_CASHFLOW_2024,
+    APPLE_INCOME_2023,
+    APPLE_INCOME_2024,
     APPLE_PERIOD_2024,
     APPLE_PROFILE,
     EXPECTED,
