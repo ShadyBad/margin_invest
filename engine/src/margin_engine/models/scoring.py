@@ -96,7 +96,10 @@ class CompositeScore(BaseModel):
     def conviction_level(self) -> ConvictionLevel:
         if self.composite_percentile >= 99.0:
             return ConvictionLevel.EXCEPTIONAL
-        elif self.composite_percentile >= 95.0:
+        high_threshold = (
+            97.0 if self.growth_stage == GrowthStage.TURNAROUND else 95.0
+        )
+        if self.composite_percentile >= high_threshold:
             return ConvictionLevel.HIGH
         elif self.composite_percentile >= 90.0:
             return ConvictionLevel.WATCHLIST

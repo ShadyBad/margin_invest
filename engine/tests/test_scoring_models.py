@@ -142,6 +142,49 @@ class TestCompositeScore:
         assert score.conviction_level == ConvictionLevel.NONE
         assert score.signal == Signal.NO_ACTION
 
+    def test_turnaround_requires_top_3_percent(self):
+        """Turnaround stocks need >= 97th percentile for HIGH conviction, not 95th."""
+        score = CompositeScore(
+            ticker="TURN",
+            composite_percentile=96.0,
+            quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
+            value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
+            momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
+            filters_passed=[],
+            data_coverage=1.0,
+            growth_stage=GrowthStage.TURNAROUND,
+        )
+        # 96th percentile is HIGH for normal stocks, but only WATCHLIST for turnarounds
+        assert score.conviction_level == ConvictionLevel.WATCHLIST
+
+    def test_turnaround_at_97_is_high(self):
+        """Turnaround stock at 97th percentile qualifies as HIGH."""
+        score = CompositeScore(
+            ticker="TURN",
+            composite_percentile=97.5,
+            quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
+            value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
+            momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
+            filters_passed=[],
+            data_coverage=1.0,
+            growth_stage=GrowthStage.TURNAROUND,
+        )
+        assert score.conviction_level == ConvictionLevel.HIGH
+
+    def test_non_turnaround_at_96_is_high(self):
+        """Non-turnaround stock at 96th percentile is still HIGH."""
+        score = CompositeScore(
+            ticker="NORM",
+            composite_percentile=96.0,
+            quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
+            value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
+            momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
+            filters_passed=[],
+            data_coverage=1.0,
+            growth_stage=GrowthStage.STEADY_GROWTH,
+        )
+        assert score.conviction_level == ConvictionLevel.HIGH
+
 
 class TestGrowthStage:
     def test_all_stages_exist(self):
