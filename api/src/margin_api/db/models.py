@@ -92,3 +92,78 @@ class ApiKey(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "provider_name", name="uq_user_provider"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Authentication models
+# ---------------------------------------------------------------------------
+
+
+class CredentialUser(Base):
+    """User with username/password credentials and optional MFA."""
+
+    __tablename__ = "credential_users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(150), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(Text)
+    mfa_enabled: Mapped[bool] = mapped_column(default=False)
+    failed_login_attempts: Mapped[int] = mapped_column(default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_totp_counter: Mapped[int | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    totp_secrets: Mapped[list[TotpSecret]] = relationship(back_populates="user")
+    webauthn_credentials: Mapped[list[WebAuthnCredential]] = relationship(
+        back_populates="user"
+    )
+    challenge_tokens: Mapped[list[MfaChallengeToken]] = relationship(back_populates="user")
+
+
+class TotpSecret(Base):
+    """Encrypted TOTP secret for a credential user."""
+
+    __tablename__ = "totp_secrets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("credential_users.id"), index=True)
+    encrypted_secret: Mapped[str] = mapped_column(Text)
+    confirmed: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+
+    user: Mapped[CredentialUser] = relationship(back_populates="totp_secrets")
+
+
+class WebAuthnCredential(Base):
+    """WebAuthn/passkey credential for a credential user."""
+
+    __tablename__ = "webauthn_credentials"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("credential_users.id"), index=True)
+    credential_id: Mapped[str] = mapped_column(Text, unique=True)
+    public_key: Mapped[str] = mapped_column(Text)
+    sign_count: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+
+    user: Mapped[CredentialUser] = relationship(back_populates="webauthn_credentials")
+
+
+class MfaChallengeToken(Base):
+    """Short-lived challenge token issued after password verification, consumed by MFA step."""
+
+    __tablename__ = "mfa_challenge_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("credential_users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column()
+    used: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+
+    user: Mapped[CredentialUser] = relationship(back_populates="challenge_tokens")
