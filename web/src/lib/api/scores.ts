@@ -14,9 +14,9 @@ export async function getScore(ticker: string): Promise<ScoreResponse> {
 
 export async function listScores(params: ListScoresParams = {}): Promise<ScoreListResponse> {
   const searchParams = new URLSearchParams()
-  if (params.page) searchParams.set('page', String(params.page))
-  if (params.page_size) searchParams.set('page_size', String(params.page_size))
-  if (params.min_percentile) searchParams.set('min_percentile', String(params.min_percentile))
+  if (params.page !== undefined) searchParams.set('page', String(params.page))
+  if (params.page_size !== undefined) searchParams.set('page_size', String(params.page_size))
+  if (params.min_percentile !== undefined) searchParams.set('min_percentile', String(params.min_percentile))
   if (params.conviction) searchParams.set('conviction', params.conviction)
 
   const query = searchParams.toString()

@@ -29,4 +29,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "jwt",
   },
+  callbacks: {
+    authorized({ auth }) {
+      return !!auth?.user
+    },
+  },
 })
