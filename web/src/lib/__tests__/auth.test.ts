@@ -23,16 +23,16 @@ vi.mock("next-auth/providers/google", () => ({
   default: vi.fn(() => ({ id: "google", name: "Google" })),
 }))
 
-vi.mock("next-auth/providers/microsoft-entra-id", () => ({
-  default: vi.fn(() => ({ id: "microsoft-entra-id", name: "Microsoft Entra ID" })),
-}))
-
-vi.mock("next-auth/providers/facebook", () => ({
-  default: vi.fn(() => ({ id: "facebook", name: "Facebook" })),
-}))
-
 vi.mock("next-auth/providers/github", () => ({
   default: vi.fn(() => ({ id: "github", name: "GitHub" })),
+}))
+
+vi.mock("next-auth/providers/credentials", () => ({
+  default: vi.fn((config: Record<string, unknown>) => ({
+    id: "credentials",
+    name: "Credentials",
+    ...config,
+  })),
 }))
 
 // Import after mocks are set up
@@ -51,12 +51,26 @@ describe("Auth configuration", () => {
     expect(handlers.POST).toBeDefined()
   })
 
-  it("calls NextAuth with provider configuration", () => {
+  it("configures exactly 3 providers", () => {
     expect(mockNextAuth).toHaveBeenCalled()
 
     const config = mockNextAuth.mock.calls[0]?.[0] as Record<string, unknown> | undefined
     expect(config).toBeDefined()
-    expect(config!.providers).toHaveLength(4)
+    expect(config!.providers).toHaveLength(3)
+  })
+
+  it("does not include Microsoft Entra ID provider", () => {
+    const config = mockNextAuth.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    const providers = config!.providers as Array<{ id: string }>
+    const providerIds = providers.map((p) => p.id)
+    expect(providerIds).not.toContain("microsoft-entra-id")
+  })
+
+  it("does not include Facebook provider", () => {
+    const config = mockNextAuth.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    const providers = config!.providers as Array<{ id: string }>
+    const providerIds = providers.map((p) => p.id)
+    expect(providerIds).not.toContain("facebook")
   })
 
   it("configures JWT session strategy", () => {
@@ -64,8 +78,36 @@ describe("Auth configuration", () => {
     expect(config!.session).toEqual({ strategy: "jwt" })
   })
 
-  it("configures custom sign-in page", () => {
+  it("configures custom sign-in page at /login", () => {
     const config = mockNextAuth.mock.calls[0]?.[0] as Record<string, unknown> | undefined
-    expect(config!.pages).toEqual({ signIn: "/login" })
+    const pages = config!.pages as Record<string, string>
+    expect(pages.signIn).toBe("/login")
+  })
+
+  it("configures custom error page at /auth/error", () => {
+    const config = mockNextAuth.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    const pages = config!.pages as Record<string, string>
+    expect(pages.error).toBe("/auth/error")
+  })
+
+  it("configures signIn callback", () => {
+    const config = mockNextAuth.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    const callbacks = config!.callbacks as Record<string, unknown>
+    expect(callbacks.signIn).toBeDefined()
+    expect(typeof callbacks.signIn).toBe("function")
+  })
+
+  it("configures jwt callback", () => {
+    const config = mockNextAuth.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    const callbacks = config!.callbacks as Record<string, unknown>
+    expect(callbacks.jwt).toBeDefined()
+    expect(typeof callbacks.jwt).toBe("function")
+  })
+
+  it("configures session callback", () => {
+    const config = mockNextAuth.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    const callbacks = config!.callbacks as Record<string, unknown>
+    expect(callbacks.session).toBeDefined()
+    expect(typeof callbacks.session).toBe("function")
   })
 })
