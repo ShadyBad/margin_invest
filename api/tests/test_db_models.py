@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from margin_api.db.base import Base
-from margin_api.db.models import ApiKey, Asset, Recommendation, Score, User
+from margin_api.db.models import ApiKey, Asset, FinancialData, Recommendation, Score, User
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -102,6 +102,42 @@ class TestApiKeyModel:
             if hasattr(c, "name") and c.name
         ]
         assert "uq_user_provider" in constraints
+
+
+class TestFinancialDataModel:
+    def test_financial_data_has_required_columns(self):
+        """FinancialData model has all expected columns."""
+        from sqlalchemy import inspect
+
+        mapper = inspect(FinancialData)
+        column_names = {c.key for c in mapper.column_attrs}
+        expected = {
+            "id",
+            "asset_id",
+            "period_end",
+            "filing_date",
+            "income_statement",
+            "balance_sheet",
+            "cash_flow",
+            "price_history",
+            "earnings_data",
+            "source",
+            "fetched_at",
+        }
+        assert expected.issubset(column_names)
+
+    def test_financial_data_tablename(self):
+        assert FinancialData.__tablename__ == "financial_data"
+
+
+class TestScoreDetailColumn:
+    def test_score_has_score_detail_column(self):
+        """Score model has the score_detail JSONB column."""
+        from sqlalchemy import inspect
+
+        mapper = inspect(Score)
+        column_names = {c.key for c in mapper.column_attrs}
+        assert "score_detail" in column_names
 
 
 class TestRelationships:

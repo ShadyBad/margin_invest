@@ -5,8 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import JSON, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+# Use JSONB on PostgreSQL, fall back to JSON on other backends (e.g. SQLite for tests).
+JSONVariant = JSON().with_variant(JSONB(), "postgresql")
 
 from margin_api.db.base import Base
 
@@ -28,6 +32,31 @@ class Asset(Base):
 
     scores: Mapped[list[Score]] = relationship(back_populates="asset")
     recommendations: Mapped[list[Recommendation]] = relationship(back_populates="asset")
+    financial_data: Mapped[list[FinancialData]] = relationship(back_populates="asset")
+
+
+class FinancialData(Base):
+    """Raw financial data fetched from data providers."""
+
+    __tablename__ = "financial_data"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
+    period_end: Mapped[str] = mapped_column(String(10))  # ISO date
+    filing_date: Mapped[str] = mapped_column(String(10))
+    income_statement: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    balance_sheet: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    cash_flow: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    price_history: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    earnings_data: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    source: Mapped[str] = mapped_column(String(50), default="yfinance")
+    fetched_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+
+    asset: Mapped[Asset] = relationship(back_populates="financial_data")
+
+    __table_args__ = (
+        UniqueConstraint("asset_id", "period_end", name="uq_financial_data_asset_period"),
+    )
 
 
 class User(Base):
@@ -55,6 +84,7 @@ class Score(Base):
     momentum_percentile: Mapped[float] = mapped_column(default=0.0)
     data_coverage: Mapped[float] = mapped_column(default=1.0)
     growth_stage: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    score_detail: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     scored_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     asset: Mapped[Asset] = relationship(back_populates="scores")
