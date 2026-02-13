@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-secret-change-me"
     jwt_algorithm: str = "HS256"
 
+    # MFA
+    mfa_encryption_key: str = ""
+    webauthn_rp_id: str = "localhost"
+    webauthn_rp_name: str = "Margin Invest"
+    webauthn_rp_origin: str = "http://localhost:3000"
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
 
