@@ -162,7 +162,7 @@ All four must pass:
 1. Altman Z'' (non-manufacturing): `Z'' = 6.56(WC/TA) + 3.26(RE/TA) + 6.72(EBIT/TA) + 1.05(Equity/TL)`. Z'' < 1.1 = FAIL. (Not applied to utilities.)
 2. Negative FCF for 3+ consecutive quarters = FAIL.
 3. Interest Coverage (EBIT/Interest Expense) < threshold = FAIL. (Sector-adjusted: Tech >3.0, Default >1.5, Utilities >1.2.)
-4. Current Ratio < threshold = FAIL. (Sector-adjusted: Tech >1.0, Default >0.8, Utilities >0.6.)
+4. Current Ratio < threshold = FAIL. (Sector-adjusted: Tech >0.8, Default >0.8, Utilities >0.6. Note: Tech threshold calibrated from >1.0 to >0.8 to avoid excluding fundamentally strong mega-caps with aggressive buyback programs.)
 
 #### Filter 3: Minimum Liquidity & Coverage
 

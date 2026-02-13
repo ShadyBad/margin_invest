@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+import pytest
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,
@@ -21,7 +22,7 @@ class TestBeneishMScore:
         assert result.passed is True
         assert result.verdict == FilterVerdict.PASS
         assert result.value is not None
-        assert result.value < -1.78  # Should be around -2.78
+        assert result.value == pytest.approx(-2.79, abs=0.1)  # Golden value
 
     def test_manipulator_fails(self):
         """Synthetic data with high manipulation indicators should FAIL."""

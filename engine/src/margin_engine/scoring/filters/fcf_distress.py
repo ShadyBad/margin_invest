@@ -7,6 +7,11 @@ FCF = operating_cash_flow + capital_expenditures (capex is already negative).
 
 A negative FCF means the company is burning cash and may not be able to
 sustain operations without external financing.
+
+NOTE: The design spec calls for "3+ consecutive quarters with negative FCF = FAIL."
+This implementation uses annual FCF as a simplification since the FinancialPeriod
+model currently carries annual (not quarterly) data. The quarterly check will be
+added when the ingestion layer (Phase 7) provides quarterly time-series data.
 """
 
 from __future__ import annotations
