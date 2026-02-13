@@ -1,0 +1,121 @@
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { useSession, signOut } from "next-auth/react"
+import { useState } from "react"
+
+const navLinks = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/backtesting", label: "Backtesting" },
+  { href: "/settings", label: "Settings" },
+]
+
+export function Nav() {
+  const pathname = usePathname()
+  const { data: session } = useSession()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  return (
+    <nav className="bg-bg-secondary border-b border-border">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link href="/" className="text-gold font-bold text-xl">
+            Margin Invest
+          </Link>
+
+          {/* Desktop Nav */}
+          <div className="hidden md:flex items-center gap-6">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`text-sm font-medium transition-colors ${
+                  pathname === link.href
+                    ? "text-gold"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+
+          {/* User Menu */}
+          <div className="hidden md:flex items-center gap-4">
+            {session?.user ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-text-secondary">
+                  {session.user.name || session.user.email}
+                </span>
+                <button
+                  onClick={() => signOut()}
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="text-sm font-medium text-gold hover:text-gold-hover transition-colors"
+              >
+                Sign In
+              </Link>
+            )}
+          </div>
+
+          {/* Mobile Hamburger */}
+          <button
+            className="md:hidden text-text-primary"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              {mobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-border">
+          <div className="px-4 py-3 space-y-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`block text-sm font-medium py-2 ${
+                  pathname === link.href
+                    ? "text-gold"
+                    : "text-text-secondary"
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
+            {session?.user ? (
+              <button
+                onClick={() => signOut()}
+                className="block w-full text-left text-sm text-text-secondary py-2"
+              >
+                Sign Out
+              </button>
+            ) : (
+              <Link href="/login" className="block text-sm text-gold py-2">
+                Sign In
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+    </nav>
+  )
+}
