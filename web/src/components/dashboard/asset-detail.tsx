@@ -1,0 +1,83 @@
+import { ConvictionBadge, SignalBadge } from "@/components/ui"
+import { FactorBreakdown } from "./factor-breakdown"
+import { FilterList } from "./filter-list"
+import type { ScoreResponse } from "@/lib/api/types"
+
+interface AssetDetailProps {
+  score: ScoreResponse
+  className?: string
+}
+
+function formatScoredAt(isoString: string): string {
+  const date = new Date(isoString)
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })
+}
+
+export function AssetDetail({ score, className = "" }: AssetDetailProps) {
+  return (
+    <div
+      className={`border-t border-border pt-6 mt-4 ${className}`}
+      data-testid={`asset-detail-${score.ticker}`}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <h3 className="text-xl font-bold text-text-primary">{score.ticker}</h3>
+        <span className="text-sm text-text-secondary">{score.name}</span>
+        <span className="text-lg font-bold text-gold ml-auto">
+          {score.composite_percentile.toFixed(0)}
+        </span>
+        <ConvictionBadge level={score.conviction_level} />
+        <SignalBadge signal={score.signal} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left column: Factor Breakdown */}
+        <FactorBreakdown factors={score.factor_breakdown} />
+
+        {/* Right column: Filters + Metadata */}
+        <div className="space-y-6">
+          {score.filters_passed.length > 0 && (
+            <FilterList filters={score.filters_passed} />
+          )}
+
+          {/* Metadata */}
+          <div data-testid="asset-metadata">
+            <h3 className="text-base font-semibold text-text-primary mb-3">
+              Metadata
+            </h3>
+            <dl className="space-y-2 text-sm">
+              {score.growth_stage && (
+                <div className="flex justify-between">
+                  <dt className="text-text-secondary">Growth Stage</dt>
+                  <dd className="text-text-primary capitalize">
+                    {score.growth_stage}
+                  </dd>
+                </div>
+              )}
+              {score.data_coverage !== undefined && (
+                <div className="flex justify-between">
+                  <dt className="text-text-secondary">Data Coverage</dt>
+                  <dd className="text-text-primary">
+                    {(score.data_coverage * 100).toFixed(0)}%
+                  </dd>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <dt className="text-text-secondary">Scored At</dt>
+                <dd className="text-text-primary">
+                  {formatScoredAt(score.scored_at)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -1,3 +1,6 @@
 export { StockCard } from "./stock-card"
 export { PicksGrid } from "./picks-grid"
 export { WatchlistTable } from "./watchlist-table"
+export { AssetDetail } from "./asset-detail"
+export { FactorBreakdown } from "./factor-breakdown"
+export { FilterList } from "./filter-list"
