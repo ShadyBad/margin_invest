@@ -25,8 +25,10 @@ async def create_score(ticker: str, score: ScoreResponse) -> ScoreResponse:
             status_code=400,
             detail=f"Ticker mismatch: URL has {ticker}, body has {score.ticker}",
         )
-    _score_store[ticker] = score
-    return score
+    # Normalize ticker to uppercase on the stored object
+    normalized = score.model_copy(update={"ticker": ticker})
+    _score_store[ticker] = normalized
+    return normalized
 
 
 @router.get("", response_model=ScoreListResponse)

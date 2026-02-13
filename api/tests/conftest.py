@@ -16,6 +16,16 @@ def _clear_settings_cache():
     get_settings.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _clear_score_store():
+    """Clear the in-memory score store before and after each test."""
+    from margin_api.routes.scores import _score_store
+
+    _score_store.clear()
+    yield
+    _score_store.clear()
+
+
 @pytest.fixture
 def app():
     """Create a fresh app instance for testing."""
