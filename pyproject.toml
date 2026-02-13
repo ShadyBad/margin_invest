@@ -1,7 +1,20 @@
 [project]
 name = "margin-invest"
 version = "0.1.0"
-description = "Add your description here"
+description = "Once-in-a-generation, high-conviction investment analysis"
 readme = "README.md"
 requires-python = ">=3.13.5"
-dependencies = []
+
+[tool.uv.workspace]
+members = ["engine", "api"]
+
+[tool.pytest.ini_options]
+testpaths = ["engine/tests", "api/tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
