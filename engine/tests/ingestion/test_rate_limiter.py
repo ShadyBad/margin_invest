@@ -104,18 +104,41 @@ class TestWaitAndAcquire:
         assert elapsed < 0.1  # Should be near-instant
 
     def test_wait_and_acquire_blocks_until_token_available(self):
-        """Use a high rate so the wait is short."""
-        limiter = RateLimiter(requests_per_minute=6000)
-        # Drain all tokens
-        for _ in range(6000):
-            limiter.acquire()
+        """Mock time to verify wait_and_acquire sleeps then acquires."""
+        with patch("margin_engine.ingestion.rate_limiter.time") as mock_time:
+            clock = 1000.0
 
-        start = time.monotonic()
-        limiter.wait_and_acquire()
-        elapsed = time.monotonic() - start
-        # At 6000/min = 100/sec, should wait ~0.01s for 1 token
-        assert elapsed >= 0.005  # Had to wait at least a little
-        assert elapsed < 0.5  # But not too long
+            def monotonic():
+                return clock
+
+            mock_time.monotonic = monotonic
+            mock_time.sleep = lambda _secs: None  # no-op during init
+
+            limiter = RateLimiter(requests_per_minute=60)  # 1 token/sec
+
+            # Drain all tokens
+            for _ in range(60):
+                limiter.acquire()
+            assert limiter.tokens_available == 0
+
+            sleep_calls: list[float] = []
+
+            def fake_sleep(secs: float) -> None:
+                nonlocal clock
+                sleep_calls.append(secs)
+                # Advance the mock clock by the sleep duration
+                clock += secs
+
+            mock_time.sleep = fake_sleep
+
+            limiter.wait_and_acquire()
+
+            # Should have slept at least once
+            assert len(sleep_calls) >= 1
+            # The total sleep should be ~1 second (1 token / 1 token-per-sec)
+            assert sum(sleep_calls) == pytest.approx(1.0, abs=0.1)
+            # Token was consumed: still at 0 after acquiring the single refilled token
+            assert limiter.tokens_available == 0
 
     def test_wait_and_acquire_consumes_token(self):
         limiter = RateLimiter(requests_per_minute=10)

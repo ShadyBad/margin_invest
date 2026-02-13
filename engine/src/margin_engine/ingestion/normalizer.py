@@ -12,6 +12,7 @@ from decimal import Decimal, InvalidOperation
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,
+    EarningsSurprise,
     IncomeStatement,
     PriceBar,
 )
@@ -74,16 +75,26 @@ def normalize_income_statement(raw: dict) -> IncomeStatement:
     - etc.
     """
     return IncomeStatement(
-        revenue=_get_decimal(raw, "revenue", "totalRevenue", "total_revenue"),
-        cost_of_revenue=_get_decimal(
-            raw, "costOfRevenue", "cost_of_revenue", "cogs", "costOfGoodsSold"
+        revenue=_get_decimal(
+            raw, "revenue", "totalRevenue", "total_revenue", "Total Revenue"
         ),
-        gross_profit=_get_decimal(raw, "grossProfit", "gross_profit"),
+        cost_of_revenue=_get_decimal(
+            raw,
+            "costOfRevenue",
+            "cost_of_revenue",
+            "cogs",
+            "costOfGoodsSold",
+            "Cost Of Revenue",
+        ),
+        gross_profit=_get_decimal(
+            raw, "grossProfit", "gross_profit", "Gross Profit"
+        ),
         sga_expense=_get_optional_decimal(
             raw,
             "sellingGeneralAndAdministrative",
             "sga_expense",
             "sgaExpense",
+            "Selling General And Administrative",
         ),
         rd_expense=_get_optional_decimal(
             raw,
@@ -91,23 +102,38 @@ def normalize_income_statement(raw: dict) -> IncomeStatement:
             "rd_expense",
             "rdExpense",
             "researchDevelopment",
+            "Research Development",
         ),
         depreciation=_get_optional_decimal(
             raw,
             "depreciationAndAmortization",
             "depreciation",
             "depreciationAmortization",
+            "Depreciation Amortization Depletion",
         ),
-        ebit=_get_decimal(raw, "ebit", "operatingIncome", "operating_income"),
+        ebit=_get_decimal(
+            raw, "ebit", "operatingIncome", "operating_income", "EBIT"
+        ),
         interest_expense=_get_optional_decimal(
-            raw, "interestExpense", "interest_expense"
+            raw, "interestExpense", "interest_expense", "Interest Expense"
         ),
         tax_provision=_get_optional_decimal(
-            raw, "incomeTaxExpense", "tax_provision", "taxProvision"
+            raw,
+            "incomeTaxExpense",
+            "tax_provision",
+            "taxProvision",
+            "Tax Provision",
         ),
-        net_income=_get_decimal(raw, "netIncome", "net_income"),
+        net_income=_get_decimal(
+            raw, "netIncome", "net_income", "Net Income"
+        ),
         shares_outstanding=_get_int(
-            raw, "sharesOutstanding", "shares_outstanding", "weightedAverageShsOut"
+            raw,
+            "sharesOutstanding",
+            "shares_outstanding",
+            "weightedAverageShsOut",
+            "Basic Average Shares",
+            "Diluted Average Shares",
         ),
     )
 
@@ -115,34 +141,63 @@ def normalize_income_statement(raw: dict) -> IncomeStatement:
 def normalize_balance_sheet(raw: dict) -> BalanceSheet:
     """Convert raw provider data to BalanceSheet model."""
     return BalanceSheet(
-        total_assets=_get_decimal(raw, "totalAssets", "total_assets"),
-        current_assets=_get_decimal(raw, "totalCurrentAssets", "current_assets"),
+        total_assets=_get_decimal(
+            raw, "totalAssets", "total_assets", "Total Assets"
+        ),
+        current_assets=_get_decimal(
+            raw, "totalCurrentAssets", "current_assets", "Current Assets"
+        ),
         cash_and_equivalents=_get_optional_decimal(
-            raw, "cashAndCashEquivalents", "cash_and_equivalents", "cash"
+            raw,
+            "cashAndCashEquivalents",
+            "cash_and_equivalents",
+            "cash",
+            "Cash And Cash Equivalents",
         ),
         receivables=_get_optional_decimal(
-            raw, "netReceivables", "receivables", "accountsReceivable"
+            raw,
+            "netReceivables",
+            "receivables",
+            "accountsReceivable",
+            "Accounts Receivable",
         ),
-        total_liabilities=_get_decimal(raw, "totalLiabilities", "total_liabilities"),
+        total_liabilities=_get_decimal(
+            raw,
+            "totalLiabilities",
+            "total_liabilities",
+            "Total Liabilities Net Minority Interest",
+        ),
         current_liabilities=_get_decimal(
-            raw, "totalCurrentLiabilities", "current_liabilities"
+            raw,
+            "totalCurrentLiabilities",
+            "current_liabilities",
+            "Current Liabilities",
         ),
-        long_term_debt=_get_optional_decimal(raw, "longTermDebt", "long_term_debt"),
+        long_term_debt=_get_optional_decimal(
+            raw, "longTermDebt", "long_term_debt", "Long Term Debt"
+        ),
         total_equity=_get_decimal(
             raw,
             "totalStockholdersEquity",
             "total_equity",
             "stockholdersEquity",
             "totalEquity",
+            "Stockholders Equity",
         ),
         retained_earnings=_get_optional_decimal(
-            raw, "retainedEarnings", "retained_earnings"
+            raw,
+            "retainedEarnings",
+            "retained_earnings",
+            "Retained Earnings",
         ),
         pp_and_e=_get_optional_decimal(
-            raw, "propertyPlantEquipmentNet", "pp_and_e", "ppAndE"
+            raw, "propertyPlantEquipmentNet", "pp_and_e", "ppAndE", "Net PPE"
         ),
         shares_outstanding=_get_int(
-            raw, "sharesOutstanding", "shares_outstanding"
+            raw,
+            "sharesOutstanding",
+            "shares_outstanding",
+            "Ordinary Shares Number",
         ),
     )
 
@@ -155,16 +210,32 @@ def normalize_cash_flow(raw: dict) -> CashFlowStatement:
             "operatingCashFlow",
             "operating_cash_flow",
             "totalCashFromOperatingActivities",
+            "Operating Cash Flow",
         ),
         capital_expenditures=_get_decimal(
-            raw, "capitalExpenditure", "capital_expenditures", "capitalExpenditures"
+            raw,
+            "capitalExpenditure",
+            "capital_expenditures",
+            "capitalExpenditures",
+            "Capital Expenditure",
         ),
-        dividends_paid=_get_optional_decimal(raw, "dividendsPaid", "dividends_paid"),
+        dividends_paid=_get_optional_decimal(
+            raw,
+            "dividendsPaid",
+            "dividends_paid",
+            "Common Stock Dividend Paid",
+        ),
         share_repurchases=_get_optional_decimal(
-            raw, "commonStockRepurchased", "share_repurchases"
+            raw,
+            "commonStockRepurchased",
+            "share_repurchases",
+            "Repurchase Of Capital Stock",
         ),
         share_issuance=_get_optional_decimal(
-            raw, "commonStockIssued", "share_issuance"
+            raw,
+            "commonStockIssued",
+            "share_issuance",
+            "Issuance Of Capital Stock",
         ),
     )
 
@@ -216,3 +287,35 @@ def normalize_fundamentals(
         normalize_balance_sheet(balance_raw),
         normalize_cash_flow(cash_flow_raw),
     )
+
+
+def normalize_earnings_surprise(raw: dict) -> EarningsSurprise:
+    """Convert a raw earnings dict to an EarningsSurprise model.
+
+    Handles key name variations across providers (yfinance, FMP, etc.):
+    - actual EPS: "actual_eps", "actualEps", "Reported EPS", "reportedEPS"
+    - expected EPS: "expected_eps", "expectedEps", "EPS Estimate", "estimatedEPS"
+    - quarter: "quarter", "Quarter", "fiscalDateEnding", "period"
+    """
+    return EarningsSurprise(
+        quarter=_get_str(
+            raw, "quarter", "Quarter", "fiscalDateEnding", "period"
+        ),
+        actual_eps=_get_decimal(
+            raw, "actual_eps", "actualEps", "Reported EPS", "reportedEPS"
+        ),
+        expected_eps=_get_decimal(
+            raw, "expected_eps", "expectedEps", "EPS Estimate", "estimatedEPS"
+        ),
+    )
+
+
+def normalize_earnings_list(raw_list: list[dict]) -> list[EarningsSurprise]:
+    """Convert a list of raw earnings dicts to EarningsSurprise models.
+
+    Skips entries that fail validation (e.g. missing required fields).
+    """
+    results: list[EarningsSurprise] = []
+    for raw in raw_list:
+        results.append(normalize_earnings_surprise(raw))
+    return results

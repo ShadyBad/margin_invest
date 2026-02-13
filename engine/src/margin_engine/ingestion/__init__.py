@@ -3,6 +3,8 @@
 from margin_engine.ingestion.normalizer import (
     normalize_balance_sheet,
     normalize_cash_flow,
+    normalize_earnings_list,
+    normalize_earnings_surprise,
     normalize_fundamentals,
     normalize_income_statement,
     normalize_price_bar,
@@ -23,6 +25,8 @@ __all__ = [
     "FetchResult",
     "normalize_balance_sheet",
     "normalize_cash_flow",
+    "normalize_earnings_list",
+    "normalize_earnings_surprise",
     "normalize_fundamentals",
     "normalize_income_statement",
     "normalize_price_bar",

@@ -7,6 +7,8 @@ from decimal import Decimal
 from margin_engine.ingestion.normalizer import (
     normalize_balance_sheet,
     normalize_cash_flow,
+    normalize_earnings_list,
+    normalize_earnings_surprise,
     normalize_fundamentals,
     normalize_income_statement,
     normalize_price_bar,
@@ -14,6 +16,7 @@ from margin_engine.ingestion.normalizer import (
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,
+    EarningsSurprise,
     IncomeStatement,
     PriceBar,
 )
@@ -90,6 +93,101 @@ class TestNormalizeIncomeStatementCamelCase:
         }
         stmt = normalize_income_statement(raw)
         assert stmt.shares_outstanding == 5000000
+
+
+class TestNormalizeIncomeStatementYFinance:
+    """Test normalizing income statement from yfinance title-case keys."""
+
+    def test_yfinance_title_case_fields(self):
+        raw = {
+            "Total Revenue": 394328000000,
+            "Cost Of Revenue": 223546000000,
+            "Gross Profit": 170782000000,
+            "Selling General And Administrative": 24932000000,
+            "Research Development": 29915000000,
+            "Depreciation Amortization Depletion": 11519000000,
+            "EBIT": 114301000000,
+            "Interest Expense": 3933000000,
+            "Tax Provision": 16741000000,
+            "Net Income": 96995000000,
+            "Basic Average Shares": 15460000000,
+        }
+        stmt = normalize_income_statement(raw)
+
+        assert isinstance(stmt, IncomeStatement)
+        assert stmt.revenue == Decimal("394328000000")
+        assert stmt.cost_of_revenue == Decimal("223546000000")
+        assert stmt.gross_profit == Decimal("170782000000")
+        assert stmt.sga_expense == Decimal("24932000000")
+        assert stmt.rd_expense == Decimal("29915000000")
+        assert stmt.depreciation == Decimal("11519000000")
+        assert stmt.ebit == Decimal("114301000000")
+        assert stmt.interest_expense == Decimal("3933000000")
+        assert stmt.tax_provision == Decimal("16741000000")
+        assert stmt.net_income == Decimal("96995000000")
+        assert stmt.shares_outstanding == 15460000000
+
+    def test_diluted_average_shares_variant(self):
+        raw = {
+            "Total Revenue": 100000,
+            "Diluted Average Shares": 5000000,
+        }
+        stmt = normalize_income_statement(raw)
+        assert stmt.shares_outstanding == 5000000
+
+
+class TestNormalizeBalanceSheetYFinance:
+    """Test normalizing balance sheet from yfinance title-case keys."""
+
+    def test_yfinance_title_case_fields(self):
+        raw = {
+            "Total Assets": 352583000000,
+            "Current Assets": 143566000000,
+            "Cash And Cash Equivalents": 29965000000,
+            "Accounts Receivable": 60932000000,
+            "Total Liabilities Net Minority Interest": 290437000000,
+            "Current Liabilities": 145308000000,
+            "Long Term Debt": 98959000000,
+            "Stockholders Equity": 62146000000,
+            "Retained Earnings": 4336000000,
+            "Net PPE": 43715000000,
+            "Ordinary Shares Number": 15460000000,
+        }
+        bs = normalize_balance_sheet(raw)
+
+        assert isinstance(bs, BalanceSheet)
+        assert bs.total_assets == Decimal("352583000000")
+        assert bs.current_assets == Decimal("143566000000")
+        assert bs.cash_and_equivalents == Decimal("29965000000")
+        assert bs.receivables == Decimal("60932000000")
+        assert bs.total_liabilities == Decimal("290437000000")
+        assert bs.current_liabilities == Decimal("145308000000")
+        assert bs.long_term_debt == Decimal("98959000000")
+        assert bs.total_equity == Decimal("62146000000")
+        assert bs.retained_earnings == Decimal("4336000000")
+        assert bs.pp_and_e == Decimal("43715000000")
+        assert bs.shares_outstanding == 15460000000
+
+
+class TestNormalizeCashFlowYFinance:
+    """Test normalizing cash flow statement from yfinance title-case keys."""
+
+    def test_yfinance_title_case_fields(self):
+        raw = {
+            "Operating Cash Flow": 110543000000,
+            "Capital Expenditure": -10959000000,
+            "Common Stock Dividend Paid": -15025000000,
+            "Repurchase Of Capital Stock": -77550000000,
+            "Issuance Of Capital Stock": 0,
+        }
+        cf = normalize_cash_flow(raw)
+
+        assert isinstance(cf, CashFlowStatement)
+        assert cf.operating_cash_flow == Decimal("110543000000")
+        assert cf.capital_expenditures == Decimal("-10959000000")
+        assert cf.dividends_paid == Decimal("-15025000000")
+        assert cf.share_repurchases == Decimal("-77550000000")
+        assert cf.share_issuance == Decimal("0")
 
 
 class TestNormalizeIncomeStatementSnakeCase:
@@ -509,3 +607,100 @@ class TestModelsAreValidPydantic:
         stmt = normalize_income_statement(raw)
         assert stmt.gross_margin == 0.4
         assert stmt.net_margin == 0.15
+
+
+class TestNormalizeEarningsSurprise:
+    """Test normalizing earnings surprise data from various providers."""
+
+    def test_snake_case_keys(self):
+        raw = {
+            "quarter": "2024-Q4",
+            "actual_eps": 1.50,
+            "expected_eps": 1.40,
+        }
+        es = normalize_earnings_surprise(raw)
+        assert isinstance(es, EarningsSurprise)
+        assert es.quarter == "2024-Q4"
+        assert es.actual_eps == Decimal("1.5")
+        assert es.expected_eps == Decimal("1.4")
+
+    def test_camel_case_keys(self):
+        raw = {
+            "quarter": "2024-Q3",
+            "actualEps": 2.10,
+            "expectedEps": 2.00,
+        }
+        es = normalize_earnings_surprise(raw)
+        assert es.quarter == "2024-Q3"
+        assert es.actual_eps == Decimal("2.1")
+        assert es.expected_eps == Decimal("2.0")
+
+    def test_yfinance_keys(self):
+        raw = {
+            "Quarter": "2024-Q2",
+            "Reported EPS": 3.25,
+            "EPS Estimate": 3.10,
+        }
+        es = normalize_earnings_surprise(raw)
+        assert es.quarter == "2024-Q2"
+        assert es.actual_eps == Decimal("3.25")
+        assert es.expected_eps == Decimal("3.1")
+
+    def test_fmp_keys(self):
+        raw = {
+            "fiscalDateEnding": "2024-Q1",
+            "reportedEPS": 0.95,
+            "estimatedEPS": 1.00,
+        }
+        es = normalize_earnings_surprise(raw)
+        assert es.quarter == "2024-Q1"
+        assert es.actual_eps == Decimal("0.95")
+        assert es.expected_eps == Decimal("1.0")
+
+    def test_period_key_variant(self):
+        raw = {
+            "period": "2023-Q4",
+            "actual_eps": 1.00,
+            "expected_eps": 0.90,
+        }
+        es = normalize_earnings_surprise(raw)
+        assert es.quarter == "2023-Q4"
+
+    def test_surprise_property(self):
+        raw = {
+            "quarter": "2024-Q4",
+            "actual_eps": 1.50,
+            "expected_eps": 1.40,
+        }
+        es = normalize_earnings_surprise(raw)
+        assert es.surprise == Decimal("0.1")
+
+
+class TestNormalizeEarningsList:
+    """Test normalizing a list of earnings dicts."""
+
+    def test_multiple_quarters(self):
+        raw_list = [
+            {"quarter": "2024-Q4", "actual_eps": 1.50, "expected_eps": 1.40},
+            {"quarter": "2024-Q3", "actualEps": 1.30, "expectedEps": 1.25},
+            {"Quarter": "2024-Q2", "Reported EPS": 1.10, "EPS Estimate": 1.15},
+        ]
+        results = normalize_earnings_list(raw_list)
+        assert len(results) == 3
+        assert all(isinstance(r, EarningsSurprise) for r in results)
+        assert results[0].quarter == "2024-Q4"
+        assert results[1].quarter == "2024-Q3"
+        assert results[2].quarter == "2024-Q2"
+
+    def test_empty_list(self):
+        results = normalize_earnings_list([])
+        assert results == []
+
+    def test_single_entry(self):
+        raw_list = [
+            {"quarter": "2024-Q4", "actual_eps": 2.00, "expected_eps": 1.80},
+        ]
+        results = normalize_earnings_list(raw_list)
+        assert len(results) == 1
+        assert results[0].actual_eps == Decimal("2.0")
+        assert results[0].expected_eps == Decimal("1.8")
