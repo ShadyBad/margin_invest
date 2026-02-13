@@ -102,7 +102,7 @@ class BalanceSheet(BaseModel):
     def debt_to_equity(self) -> float:
         if self.total_equity == 0:
             return float("inf")
-        return float((self.long_term_debt or Decimal("0")) / self.total_equity)
+        return float(self.total_debt / self.total_equity)
 
     @property
     def current_ratio(self) -> float:

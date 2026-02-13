@@ -72,7 +72,7 @@ class TestBalanceSheet:
             shares_outstanding=15460000000,
         )
         assert bs.working_capital == Decimal("143566000000") - Decimal("145308000000")
-        assert bs.debt_to_equity == pytest.approx(1.5925, abs=0.001)
+        assert bs.debt_to_equity == pytest.approx(3.9306, abs=0.001)
         assert bs.current_ratio == pytest.approx(0.9880, abs=0.001)
 
     def test_working_capital(self):
