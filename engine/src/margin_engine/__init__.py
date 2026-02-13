@@ -2,9 +2,10 @@
 
 __version__ = "0.1.0"
 
-from margin_engine import events
+from margin_engine import backtesting, events
 
 __all__ = [
     "__version__",
+    "backtesting",
     "events",
 ]
