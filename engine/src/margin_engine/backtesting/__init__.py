@@ -17,12 +17,14 @@ from margin_engine.backtesting.simulator import (
     ScoredUniverseProvider,
     WalkForwardSimulator,
 )
+from margin_engine.backtesting.validation import MethodologyComparison, ValidationGate
 
 __all__ = [
     "BacktestConfig",
     "BacktestResult",
     "BenchmarkProvider",
     "HoldingRecord",
+    "MethodologyComparison",
     "MonthlySnapshot",
     "PassThreshold",
     "PerformanceCalculator",
@@ -30,6 +32,7 @@ __all__ = [
     "RebalanceFrequency",
     "ScoredStock",
     "ScoredUniverseProvider",
+    "ValidationGate",
     "ValidationResult",
     "WalkForwardSimulator",
 ]
