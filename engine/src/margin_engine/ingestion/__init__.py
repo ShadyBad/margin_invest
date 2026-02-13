@@ -1,0 +1,34 @@
+"""Data ingestion layer — provider abstraction, rate limiting, registry, and normalization."""
+
+from margin_engine.ingestion.normalizer import (
+    normalize_balance_sheet,
+    normalize_cash_flow,
+    normalize_fundamentals,
+    normalize_income_statement,
+    normalize_price_bar,
+)
+from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
+from margin_engine.ingestion.rate_limiter import RateLimiter, RateLimiterRegistry
+from margin_engine.ingestion.registry import ProviderRegistry
+from margin_engine.ingestion.types import (
+    DataCategory,
+    DataProvider,
+    FetchResult,
+    ProviderInfo,
+)
+
+__all__ = [
+    "DataCategory",
+    "DataProvider",
+    "FetchResult",
+    "normalize_balance_sheet",
+    "normalize_cash_flow",
+    "normalize_fundamentals",
+    "normalize_income_statement",
+    "normalize_price_bar",
+    "ProviderInfo",
+    "ProviderRegistry",
+    "RateLimiter",
+    "RateLimiterRegistry",
+    "YFinanceProvider",
+]
