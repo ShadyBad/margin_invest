@@ -54,10 +54,7 @@ jobs:
 
       - run: uv sync
 
-      - run: uv run pytest engine/ -v --tb=short --cov=margin_engine --cov-report=term-missing
-
-      - name: Check engine coverage
-        run: uv run pytest engine/ --cov=margin_engine --cov-fail-under=95
+      - run: uv run pytest engine/ -v --tb=short --cov=margin_engine --cov-report=term-missing --cov-fail-under=95
 
       - name: Minimize uv cache
         run: uv cache prune --ci
@@ -81,10 +78,7 @@ jobs:
 
       - run: uv sync
 
-      - run: uv run pytest api/ -v --tb=short --cov=margin_api --cov-report=term-missing
-
-      - name: Check API coverage
-        run: uv run pytest api/ --cov=margin_api --cov-fail-under=90
+      - run: uv run pytest api/ -v --tb=short --cov=margin_api --cov-report=term-missing --cov-fail-under=90
 
       - name: Minimize uv cache
         run: uv cache prune --ci
@@ -103,7 +97,7 @@ jobs:
 
       - run: cd web && npm ci
 
-      - run: cd web && npx vitest run
+      - run: cd web && npx vitest run --coverage --coverage.thresholds.lines=80
 
       - name: Verify production build
         run: cd web && npx next build
