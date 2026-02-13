@@ -7,7 +7,6 @@ import pytest_asyncio
 from cryptography.fernet import Fernet
 from httpx import ASGITransport, AsyncClient
 from margin_api.app import create_app
-from margin_api.config import get_settings
 from margin_api.db.base import Base
 from margin_api.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -32,8 +31,6 @@ async def app_and_db():
     app.dependency_overrides[get_db] = override_db
 
     # Override settings to provide a valid Fernet key
-    original_settings = get_settings()
-
     def override_settings():
         from margin_api.config import Settings
 
@@ -68,7 +65,11 @@ async def _register_user(client: AsyncClient, username: str = "alice") -> dict:
     """Register a user and return the response JSON."""
     resp = await client.post(
         "/api/v1/auth/register",
-        json={"username": username, "email": f"{username}@example.com", "password": _VALID_PASSWORD},
+        json={
+            "username": username,
+            "email": f"{username}@example.com",
+            "password": _VALID_PASSWORD,
+        },
     )
     assert resp.status_code == 201
     return resp.json()

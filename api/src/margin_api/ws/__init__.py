@@ -6,6 +6,8 @@ from margin_api.ws.scores import (
     ConnectionManager,
     ScoreChangeMessage,
     manager,
+)
+from margin_api.ws.scores import (
     router as ws_router,
 )
 

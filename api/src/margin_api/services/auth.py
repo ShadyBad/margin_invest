@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 import secrets
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -34,7 +34,7 @@ _LOCKOUT_MINUTES = 15
 def _ensure_utc(dt: datetime) -> datetime:
     """Ensure a datetime is timezone-aware (UTC). SQLite stores naive datetimes."""
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 
