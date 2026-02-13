@@ -100,10 +100,13 @@ class WalkForwardSimulator:
             # 2. Select top N% by composite score, equal weight
             new_holdings = self._select_holdings(scores)
 
+            # Cache scores as a price lookup map to avoid redundant provider calls
+            score_map = {s.ticker: s.price for s in scores}
+
             # 3. Calculate portfolio value change from previous period
             if i > 0:
                 portfolio_value = self._calculate_portfolio_value(
-                    prev_holdings, rebal_date, portfolio_value
+                    prev_holdings, rebal_date, portfolio_value, score_map
                 )
 
             # 4. Calculate turnover
@@ -261,38 +264,33 @@ class WalkForwardSimulator:
         holdings: list[HoldingRecord],
         current_date: date,
         prev_value: float,
+        score_map: dict[str, float] | None = None,
     ) -> float:
         """Calculate portfolio value based on price changes of holdings.
 
         Each holding's contribution: weight * (current_price / entry_price - 1)
         Total return = sum of weighted returns
         New value = prev_value * (1 + total_return)
+
+        Uses cached score_map for price lookup to avoid redundant provider calls.
+        Falls back to benchmark provider if ticker not in score_map.
         """
         if not holdings:
             return prev_value
 
         total_return = 0.0
         for holding in holdings:
-            current_price = self._get_stock_price(holding.ticker, current_date)
+            if score_map and holding.ticker in score_map:
+                current_price = score_map[holding.ticker]
+            else:
+                current_price = self._benchmark_provider.get_price(
+                    holding.ticker, current_date
+                )
             if holding.entry_price > 0:
                 stock_return = (current_price / holding.entry_price) - 1.0
                 total_return += holding.weight * stock_return
 
         return prev_value * (1.0 + total_return)
-
-    def _get_stock_price(self, ticker: str, as_of_date: date) -> float:
-        """Get the price of a stock at a given date.
-
-        Looks up the price from the universe provider's scored data. Falls back
-        to the benchmark provider as a price source.
-        """
-        scores = self._universe_provider.get_scores(as_of_date)
-        for stock in scores:
-            if stock.ticker == ticker:
-                return stock.price
-
-        # Fallback: use benchmark provider
-        return self._benchmark_provider.get_price(ticker, as_of_date)
 
     @staticmethod
     def _zero_metrics() -> PerformanceMetrics:

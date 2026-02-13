@@ -188,7 +188,8 @@ class PerformanceCalculator:
         n = len(excess)
         mean_excess = sum(excess) / n
 
-        # Downside deviation: sqrt of mean of squared negative excess returns
+        # Downside deviation uses full-sample denominator (n, not n-1)
+        # per Sortino & Price (1994). This differs from Sharpe which uses n-1.
         downside_sq = [min(x, 0.0) ** 2 for x in excess]
         downside_deviation = math.sqrt(sum(downside_sq) / n)
 
