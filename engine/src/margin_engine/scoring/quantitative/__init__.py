@@ -8,6 +8,7 @@ from margin_engine.scoring.quantitative.f_score import (
 )
 from margin_engine.scoring.quantitative.gross_profitability import gross_profitability
 from margin_engine.scoring.quantitative.roic_wacc import compute_roic, roic_wacc_spread
+from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yield
 
 __all__ = [
     "compute_f_score_signals",
@@ -16,5 +17,6 @@ __all__ = [
     "gross_profitability",
     "piotroski_f_score",
     "roic_wacc_spread",
+    "shareholder_yield",
     "sloan_accrual_ratio",
 ]
