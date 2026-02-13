@@ -139,6 +139,10 @@ describe("Dashboard Page", () => {
     mockGetDashboard.mockResolvedValue(mockDashboardData)
     render(<DashboardPage />)
 
+    await waitFor(() => {
+      expect(screen.getByTestId("picks-grid")).toBeInTheDocument()
+    })
+
     expect(
       screen.getByRole("heading", { level: 1, name: "Dashboard" }),
     ).toBeInTheDocument()

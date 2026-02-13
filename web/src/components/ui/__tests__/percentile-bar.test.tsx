@@ -13,9 +13,14 @@ describe("PercentileBar", () => {
     expect(screen.getByText("Quality")).toBeInTheDocument()
   })
 
-  it("clamps value to 0-100", () => {
+  it("clamps value above 100", () => {
     render(<PercentileBar value={150} />)
     expect(screen.getByText("100")).toBeInTheDocument()
+  })
+
+  it("clamps value below 0", () => {
+    render(<PercentileBar value={-10} />)
+    expect(screen.getByText("0")).toBeInTheDocument()
   })
 
   it("hides value when showValue is false", () => {

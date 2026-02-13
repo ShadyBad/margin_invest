@@ -5,8 +5,8 @@ import Page from "../page"
 // Mock framer-motion to avoid animation issues in tests
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-    h2: ({ children, ...props }: any) => <h2 {...props}>{children}</h2>,
+    div: ({ children, initial, animate, whileInView, viewport, transition, ...props }: any) => <div {...props}>{children}</div>,
+    h2: ({ children, initial, animate, whileInView, viewport, transition, ...props }: any) => <h2 {...props}>{children}</h2>,
   },
 }))
 
