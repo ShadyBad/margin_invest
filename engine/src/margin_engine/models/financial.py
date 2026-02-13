@@ -169,6 +169,40 @@ class PriceBar(BaseModel):
     adj_close: Decimal | None = None
 
 
+class EarningsSurprise(BaseModel):
+    """Single quarterly earnings surprise for SUE calculation."""
+
+    quarter: str  # e.g. "2024-Q4"
+    actual_eps: Decimal
+    expected_eps: Decimal
+
+    @property
+    def surprise(self) -> Decimal:
+        return self.actual_eps - self.expected_eps
+
+
+class InsiderTransaction(BaseModel):
+    """Single insider transaction (SEC Form 4)."""
+
+    date: str  # ISO date
+    insider_name: str
+    title: str  # "CEO", "CFO", "Director", etc.
+    transaction_type: str  # "buy" or "sell"
+    shares: int
+    price_per_share: Decimal
+    value: Decimal
+
+
+class InstitutionalHolding(BaseModel):
+    """13F institutional holding snapshot for a single fund."""
+
+    fund_name: str
+    quarter: str  # e.g. "2024-Q3"
+    shares_held: int
+    shares_changed: int  # positive = bought, negative = sold
+    is_new_position: bool = False
+
+
 class AssetProfile(BaseModel):
     """Static asset metadata and classification."""
 
