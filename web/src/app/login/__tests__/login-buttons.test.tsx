@@ -17,23 +17,43 @@ describe("LoginButtons", () => {
     mockSignIn.mockClear()
   })
 
-  it("renders all 4 provider buttons", () => {
+  it("renders Google and GitHub OAuth buttons", () => {
     render(<LoginButtons />)
 
     expect(screen.getByText("Sign in with Google")).toBeInTheDocument()
-    expect(screen.getByText("Sign in with Microsoft")).toBeInTheDocument()
-    expect(screen.getByText("Sign in with Facebook")).toBeInTheDocument()
     expect(screen.getByText("Sign in with GitHub")).toBeInTheDocument()
   })
 
-  it("renders exactly 4 buttons", () => {
+  it("renders exactly 2 OAuth buttons", () => {
     render(<LoginButtons />)
 
-    const buttons = screen.getAllByRole("button")
-    expect(buttons).toHaveLength(4)
+    const oauthButtons = screen.getAllByText(/^Sign in with /)
+    expect(oauthButtons).toHaveLength(2)
   })
 
-  it("calls signIn with 'google' when Google button is clicked", async () => {
+  it("does not render Microsoft or Facebook buttons", () => {
+    render(<LoginButtons />)
+
+    expect(screen.queryByText("Sign in with Microsoft")).not.toBeInTheDocument()
+    expect(screen.queryByText("Sign in with Facebook")).not.toBeInTheDocument()
+  })
+
+  it("renders username and password input fields with labels", () => {
+    render(<LoginButtons />)
+
+    expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
+  })
+
+  it("renders a credentials Sign In button", () => {
+    render(<LoginButtons />)
+
+    // There should be a submit button for credentials separate from OAuth buttons
+    const signInButton = screen.getByRole("button", { name: /^Sign In$/i })
+    expect(signInButton).toBeInTheDocument()
+  })
+
+  it("calls signIn with 'google' on Google button click", async () => {
     const user = userEvent.setup()
     render(<LoginButtons />)
 
@@ -44,36 +64,26 @@ describe("LoginButtons", () => {
     })
   })
 
-  it("calls signIn with 'microsoft-entra-id' when Microsoft button is clicked", async () => {
+  it("calls signIn with 'credentials' including username/password on form submit", async () => {
     const user = userEvent.setup()
     render(<LoginButtons />)
 
-    await user.click(screen.getByText("Sign in with Microsoft"))
+    await user.type(screen.getByLabelText(/username/i), "testuser")
+    await user.type(screen.getByLabelText(/password/i), "testpass123")
+    await user.click(screen.getByRole("button", { name: /^Sign In$/i }))
 
-    expect(mockSignIn).toHaveBeenCalledWith("microsoft-entra-id", {
+    expect(mockSignIn).toHaveBeenCalledWith("credentials", {
+      username: "testuser",
+      password: "testpass123",
       callbackUrl: "/dashboard",
     })
   })
 
-  it("calls signIn with 'facebook' when Facebook button is clicked", async () => {
-    const user = userEvent.setup()
+  it("renders 'Create one' link to /register", () => {
     render(<LoginButtons />)
 
-    await user.click(screen.getByText("Sign in with Facebook"))
-
-    expect(mockSignIn).toHaveBeenCalledWith("facebook", {
-      callbackUrl: "/dashboard",
-    })
-  })
-
-  it("calls signIn with 'github' when GitHub button is clicked", async () => {
-    const user = userEvent.setup()
-    render(<LoginButtons />)
-
-    await user.click(screen.getByText("Sign in with GitHub"))
-
-    expect(mockSignIn).toHaveBeenCalledWith("github", {
-      callbackUrl: "/dashboard",
-    })
+    const link = screen.getByRole("link", { name: /create one/i })
+    expect(link).toBeInTheDocument()
+    expect(link).toHaveAttribute("href", "/register")
   })
 })
