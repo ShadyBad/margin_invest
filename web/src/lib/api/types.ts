@@ -1,14 +1,17 @@
 export interface FilterResultResponse {
   name: string
   passed: boolean
-  reason?: string
+  value: number | null
+  threshold: number | null
+  detail: string
+  verdict: string
 }
 
 export interface FactorScoreResponse {
   name: string
   raw_value: number
-  percentile: number
-  weight: number
+  percentile_rank: number
+  detail: string
 }
 
 export interface FactorBreakdownResponse {
@@ -24,14 +27,13 @@ export interface ScoreResponse {
   composite_percentile: number
   conviction_level: string
   signal: string
-  quality_percentile: number
-  value_percentile: number
-  momentum_percentile: number
-  growth_stage?: string
-  factor_breakdown: Record<string, FactorBreakdownResponse>
+  quality: FactorBreakdownResponse
+  value: FactorBreakdownResponse
+  momentum: FactorBreakdownResponse
   filters_passed: FilterResultResponse[]
-  scored_at: string
-  data_coverage?: number
+  data_coverage: number
+  growth_stage?: string
+  scored_at?: string
 }
 
 export interface ScoreListResponse {
