@@ -210,6 +210,50 @@ async def run_seed(tickers: list[str] | None = None) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Scoring logic
+# ---------------------------------------------------------------------------
+
+
+async def run_scoring(tickers: list[str] | None = None) -> None:
+    """Score all (or specified) tickers from DB data.
+
+    Loads financial data from the database, runs the engine scoring pipeline,
+    and persists scores back to the scores table.
+    """
+    from margin_api.worker import score_ticker
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    if tickers is None:
+        async with session_factory() as session:
+            result = await session.execute(select(Asset.ticker))
+            tickers = [row[0] for row in result.all()]
+
+    if not tickers:
+        print("No tickers found in database. Run 'seed' first.")
+        return
+
+    successes = 0
+    failures = 0
+    total = len(tickers)
+
+    for i, ticker in enumerate(tickers, start=1):
+        async with session_factory() as session:
+            ok = await score_ticker(ticker=ticker, session=session)
+
+        if ok:
+            successes += 1
+            print(f"[{i}/{total}] Scored {ticker}")
+        else:
+            failures += 1
+            print(f"[{i}/{total}] FAILED {ticker}")
+
+    print(f"\nScoring complete: {successes} scored, {failures} failed out of {total} tickers.")
+    await engine.dispose()
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 
@@ -230,10 +274,20 @@ def main() -> None:
         help="Specific tickers to seed (defaults to ~50 S&P 500 tickers)",
     )
 
+    score_parser = subparsers.add_parser("score", help="Score all seeded tickers")
+    score_parser.add_argument(
+        "--tickers",
+        nargs="+",
+        default=None,
+        help="Specific tickers to score (defaults to all seeded tickers)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "seed":
         asyncio.run(run_seed(tickers=args.tickers))
+    elif args.command == "score":
+        asyncio.run(run_scoring(tickers=args.tickers))
     else:
         parser.print_help()
         sys.exit(1)
