@@ -9,10 +9,10 @@ from sqlalchemy import JSON, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from margin_api.db.base import Base
+
 # Use JSONB on PostgreSQL, fall back to JSON on other backends (e.g. SQLite for tests).
 JSONVariant = JSON().with_variant(JSONB(), "postgresql")
-
-from margin_api.db.base import Base
 
 
 class Asset(Base):

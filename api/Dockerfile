@@ -1,26 +1,17 @@
 # Builder stage
 FROM python:3.13-slim AS builder
 
-# Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-# Copy dependency files first for better layer caching
+# Copy workspace files
 COPY pyproject.toml uv.lock ./
-COPY engine/pyproject.toml engine/pyproject.toml
-COPY api/pyproject.toml api/pyproject.toml
-
-# Create minimal package stubs for workspace resolution
-RUN mkdir -p engine/src/margin_engine api/src/margin_api && \
-    touch engine/src/margin_engine/__init__.py api/src/margin_api/__init__.py
-
-# Install dependencies (cached when only source code changes)
-RUN uv sync --frozen --no-dev
-
-# Copy actual source code
 COPY engine/ engine/
 COPY api/ api/
+
+# Install dependencies
+RUN uv sync --frozen --no-dev --package margin-api
 
 # Runtime stage
 FROM python:3.13-slim
@@ -32,7 +23,6 @@ COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/engine/src /app/engine/src
 COPY --from=builder /app/api/src /app/api/src
 
-# Set PATH to use virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000

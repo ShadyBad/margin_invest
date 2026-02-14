@@ -14,12 +14,12 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import yfinance
+from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
+from margin_engine.ingestion.rate_limiter import RateLimiterRegistry
 from sqlalchemy import select
 
 from margin_api.db.models import Asset, FinancialData
 from margin_api.db.session import get_engine, get_session_factory
-from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
-from margin_engine.ingestion.rate_limiter import RateLimiterRegistry
 
 logger = logging.getLogger(__name__)
 
