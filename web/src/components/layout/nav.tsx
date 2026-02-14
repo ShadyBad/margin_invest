@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
+import { useTheme } from "next-themes"
 import { useState } from "react"
 
 const navLinks = [
@@ -14,6 +15,7 @@ const navLinks = [
 export function Nav() {
   const pathname = usePathname()
   const { data: session } = useSession()
+  const { theme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
@@ -44,6 +46,13 @@ export function Nav() {
 
           {/* User Menu */}
           <div className="hidden md:flex items-center gap-4">
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? "\u2600" : "\u25CF"}
+            </button>
             {session?.user ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm text-text-secondary">
@@ -113,6 +122,13 @@ export function Nav() {
                 Sign In
               </Link>
             )}
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="block w-full text-left text-sm text-text-secondary hover:text-text-primary transition-colors py-2"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? "\u2600 Light mode" : "\u25CF Dark mode"}
+            </button>
           </div>
         </div>
       )}

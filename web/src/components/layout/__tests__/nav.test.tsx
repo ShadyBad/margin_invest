@@ -14,6 +14,11 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
 }))
 
+// Mock next-themes
+vi.mock("next-themes", () => ({
+  useTheme: () => ({ theme: "dark", setTheme: vi.fn() }),
+}))
+
 describe("Nav", () => {
   it("renders logo", () => {
     render(<Nav />)
@@ -58,6 +63,11 @@ describe("Nav", () => {
     expect(screen.getAllByText("Dashboard")).toHaveLength(2)
     expect(screen.getAllByText("Backtesting")).toHaveLength(2)
     expect(screen.getAllByText("Settings")).toHaveLength(2)
+  })
+
+  it("renders theme toggle button", () => {
+    render(<Nav />)
+    expect(screen.getByLabelText("Toggle theme")).toBeInTheDocument()
   })
 
   it("closes mobile menu when a link is clicked", async () => {
