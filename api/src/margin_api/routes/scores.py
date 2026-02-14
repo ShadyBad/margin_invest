@@ -29,11 +29,31 @@ def _score_response_from_row(row) -> ScoreResponse:
 
     detail = score.score_detail
     if detail:
+        # Several fields are computed @property on engine models, not in model_dump().
+        detail.setdefault("conviction_level", score.conviction_level)
+        detail.setdefault("signal", score.signal)
+        detail.setdefault("name", row.asset_name if hasattr(row, "asset_name") else "")
+        detail.setdefault(
+            "scored_at", score.scored_at.isoformat() if score.scored_at else None
+        )
+        for f in detail.get("filters_passed", []):
+            f.setdefault("verdict", "pass" if f.get("passed") else "fail")
+        for factor_key in ("quality", "value", "momentum"):
+            factor = detail.get(factor_key, {})
+            if "average_percentile" not in factor:
+                subs = factor.get("sub_scores", [])
+                avg = (
+                    sum(s.get("percentile_rank", 0) for s in subs) / len(subs)
+                    if subs
+                    else 0.0
+                )
+                factor["average_percentile"] = avg
         return ScoreResponse(**detail)
 
     # Fallback: build from summary columns (no sub-score detail)
     return ScoreResponse(
         ticker=ticker,
+        name=row.asset_name if hasattr(row, "asset_name") else "",
         composite_percentile=score.composite_percentile,
         conviction_level=score.conviction_level,
         signal=score.signal,
@@ -58,6 +78,7 @@ def _score_response_from_row(row) -> ScoreResponse:
         filters_passed=[],
         data_coverage=score.data_coverage,
         growth_stage=score.growth_stage,
+        scored_at=score.scored_at.isoformat() if score.scored_at else None,
     )
 
 

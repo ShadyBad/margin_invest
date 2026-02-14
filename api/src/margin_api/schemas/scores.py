@@ -43,6 +43,7 @@ class ScoreResponse(BaseModel):
     """Full scoring result for a single ticker."""
 
     ticker: str
+    name: str = ""
     composite_percentile: float
     conviction_level: str  # "exceptional", "high", "watchlist", "none"
     signal: str  # "buy", "watch", "no_action", etc.
@@ -52,6 +53,7 @@ class ScoreResponse(BaseModel):
     filters_passed: list[FilterResultResponse]
     data_coverage: float
     growth_stage: str | None = None
+    scored_at: str | None = None
 
     @classmethod
     def from_engine(cls, score: CompositeScore) -> ScoreResponse:
