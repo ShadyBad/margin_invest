@@ -22,14 +22,14 @@ function formatScoredAt(isoString: string): string {
 export function AssetDetail({ score, className = "" }: AssetDetailProps) {
   return (
     <div
-      className={`border-t border-border pt-6 mt-4 ${className}`}
+      className={`border-t border-border-primary pt-6 mt-4 ${className}`}
       data-testid={`asset-detail-${score.ticker}`}
     >
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <h3 className="text-xl font-bold text-text-primary">{score.ticker}</h3>
         <span className="text-sm text-text-secondary">{score.name}</span>
-        <span className="text-lg font-bold text-gold ml-auto">
+        <span className="text-lg font-bold text-accent ml-auto">
           {score.composite_percentile.toFixed(0)}
         </span>
         <ConvictionBadge level={score.conviction_level} />

@@ -114,7 +114,7 @@ export function ReturnsHeatmap({ returns, className }: ReturnsHeatmapProps) {
                     key={cellKey}
                     data-testid={`heatmap-cell-${cellKey}`}
                     role="cell"
-                    className="rounded text-center text-xs py-2 bg-bg-secondary border border-border"
+                    className="rounded text-center text-xs py-2 bg-bg-elevated border border-border-primary"
                   />
                 )
               }

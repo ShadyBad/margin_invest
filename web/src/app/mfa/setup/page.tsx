@@ -128,7 +128,7 @@ export default function MfaSetupPage() {
           <div className="flex flex-col gap-4 w-full">
             <button
               onClick={handleChooseAuthenticator}
-              className="w-full px-4 py-4 rounded-lg bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] hover:border-[#D4A843] transition-colors text-left"
+              className="w-full px-4 py-4 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] hover:border-[#D4A843] transition-colors text-left"
             >
               <span className="font-semibold block">Authenticator App</span>
               <span className="text-sm text-[#8A8473]">
@@ -137,7 +137,7 @@ export default function MfaSetupPage() {
             </button>
             <button
               onClick={handleChooseSecurityKey}
-              className="w-full px-4 py-4 rounded-lg bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] hover:border-[#D4A843] transition-colors text-left"
+              className="w-full px-4 py-4 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] hover:border-[#D4A843] transition-colors text-left"
             >
               <span className="font-semibold block">Security Key</span>
               <span className="text-sm text-[#8A8473]">
@@ -153,7 +153,7 @@ export default function MfaSetupPage() {
               Scan this QR code with your authenticator app, then enter the
               verification code below.
             </p>
-            <div className="bg-white p-4 rounded-lg">
+            <div className="bg-white p-4 rounded-sm">
               <QRCodeSVG value={provisioningUri} size={200} />
             </div>
             <form
@@ -173,7 +173,7 @@ export default function MfaSetupPage() {
                   inputMode="numeric"
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] placeholder-[#8A8473] focus:border-[#D4A843] focus:outline-none transition-colors text-center text-lg tracking-widest"
+                  className="w-full px-4 py-3 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] placeholder-[#8A8473] focus:border-[#D4A843] focus:outline-none transition-colors text-center text-lg tracking-widest"
                   placeholder="000000"
                   maxLength={6}
                   required
@@ -181,7 +181,7 @@ export default function MfaSetupPage() {
               </div>
               <button
                 type="submit"
-                className="w-full px-4 py-3 rounded-lg bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+                className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
               >
                 Verify &amp; Enable
               </button>
@@ -197,7 +197,7 @@ export default function MfaSetupPage() {
             </p>
             <button
               onClick={handleRegisterSecurityKey}
-              className="w-full px-4 py-3 rounded-lg bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+              className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
             >
               Register Security Key
             </button>

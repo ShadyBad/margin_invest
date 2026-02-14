@@ -44,7 +44,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
 
   return (
     <div
-      className={`bg-bg-secondary border border-border rounded-xl p-6 cursor-pointer transition-all ${expanded ? "col-span-full" : ""} ${className}`}
+      className={`bg-bg-elevated border border-border-primary rounded-sm p-6 cursor-pointer transition-all ${expanded ? "col-span-full" : ""} ${className}`}
       data-testid={`stock-card-${pick.ticker}`}
       onClick={handleClick}
       role="button"
@@ -65,7 +65,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       <p className="text-sm text-text-secondary mb-4 truncate">{pick.name}</p>
 
       <div className="flex items-center justify-between mb-4">
-        <span className="text-3xl font-bold text-gold">
+        <span className="text-3xl font-bold text-accent">
           {pick.composite_percentile.toFixed(0)}
         </span>
         <SignalBadge signal={pick.signal} />
@@ -79,10 +79,10 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
 
       {expanded && loading && (
         <div
-          className="border-t border-border mt-4 pt-4 flex items-center justify-center"
+          className="border-t border-border-primary mt-4 pt-4 flex items-center justify-center"
           data-testid={`loading-detail-${pick.ticker}`}
         >
-          <div className="animate-spin h-6 w-6 border-2 border-gold border-t-transparent rounded-full" />
+          <div className="animate-spin h-6 w-6 border-2 border-accent border-t-transparent rounded-full" />
           <span className="ml-2 text-sm text-text-secondary">
             Loading details...
           </span>
@@ -90,7 +90,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       )}
 
       {expanded && error && (
-        <div className="border-t border-border mt-4 pt-4">
+        <div className="border-t border-border-primary mt-4 pt-4">
           <p className="text-sm text-bearish">{error}</p>
         </div>
       )}

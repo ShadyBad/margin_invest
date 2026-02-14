@@ -45,9 +45,9 @@ export function HowItWorks() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="bg-bg-secondary border border-border rounded-xl p-8"
+              className="bg-bg-elevated border border-border-primary rounded-sm p-8"
             >
-              <span className="text-gold font-mono text-sm">{step.number}</span>
+              <span className="text-accent font-mono text-sm">{step.number}</span>
               <h3 className="text-xl font-bold text-text-primary mt-2 mb-3">{step.title}</h3>
               <p className="text-text-secondary">{step.description}</p>
             </motion.div>

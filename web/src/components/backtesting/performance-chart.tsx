@@ -58,7 +58,7 @@ export function PerformanceChart({ snapshots, className }: PerformanceChartProps
   if (snapshots.length === 0) {
     return (
       <div
-        className={`bg-bg-secondary border border-border rounded-xl p-8 text-center ${className ?? ""}`}
+        className={`bg-bg-elevated border border-border-primary rounded-sm p-8 text-center ${className ?? ""}`}
         data-testid="performance-chart-empty"
       >
         <p className="text-text-secondary">No chart data available.</p>
@@ -195,7 +195,7 @@ export function PerformanceChart({ snapshots, className }: PerformanceChartProps
           points={portfolioPoints}
           fill="none"
           stroke="currentColor"
-          className="text-gold"
+          className="text-accent"
           strokeWidth={2.5}
           data-testid="portfolio-line"
         />
@@ -207,7 +207,7 @@ export function PerformanceChart({ snapshots, className }: PerformanceChartProps
         data-testid="chart-legend"
       >
         <div className="flex items-center gap-2">
-          <span className="inline-block w-4 h-0.5 bg-gold rounded" />
+          <span className="inline-block w-4 h-0.5 bg-accent rounded" />
           <span className="text-sm text-text-primary">Portfolio</span>
         </div>
         <div className="flex items-center gap-2">

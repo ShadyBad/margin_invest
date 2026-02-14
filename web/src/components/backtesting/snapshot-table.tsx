@@ -67,7 +67,7 @@ export function SnapshotTable({ snapshots, className }: SnapshotTableProps) {
         aria-label="Backtest snapshot data"
       >
         <thead className="sticky top-0 bg-bg-primary z-10">
-          <tr className="border-b border-border">
+          <tr className="border-b border-border-primary">
             {COLUMNS.map((col) => (
               <th
                 key={col}
@@ -86,7 +86,7 @@ export function SnapshotTable({ snapshots, className }: SnapshotTableProps) {
               <tr
                 key={snap.date}
                 data-testid={rowTestId(snap.date)}
-                className="border-b border-border hover:bg-bg-secondary transition-colors"
+                className="border-b border-border-primary hover:bg-bg-elevated transition-colors"
               >
                 <td className="px-3 py-2 text-text-primary whitespace-nowrap">
                   {snap.date}

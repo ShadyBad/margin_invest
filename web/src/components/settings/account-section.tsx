@@ -7,7 +7,7 @@ export function AccountSection() {
   const authMethod = (session as any)?.authMethod
 
   return (
-    <section className="bg-bg-secondary border border-border rounded-xl p-6">
+    <section className="bg-bg-elevated border border-border-primary rounded-sm p-6">
       <h2 className="text-lg font-bold text-text-primary mb-4">Account</h2>
       {session?.user ? (
         <div className="space-y-3">
@@ -16,7 +16,7 @@ export function AccountSection() {
               <img
                 src={session.user.image}
                 alt=""
-                className="w-12 h-12 rounded-full border border-border"
+                className="w-12 h-12 rounded-full border border-border-primary"
               />
             )}
             <div>
@@ -29,7 +29,7 @@ export function AccountSection() {
             </div>
           </div>
           {authMethod === "credentials" && (
-            <div className="border-t border-border pt-4">
+            <div className="border-t border-border-primary pt-4">
               <h3 className="text-md font-medium text-text-primary mb-2">Multi-Factor Authentication</h3>
               <p className="text-sm text-text-secondary">MFA is enabled for your account. You can manage your authentication methods below.</p>
             </div>

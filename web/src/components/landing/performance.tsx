@@ -11,7 +11,7 @@ const metrics = [
 
 export function Performance() {
   return (
-    <section className="py-24 px-4 bg-bg-secondary">
+    <section className="py-24 px-4 bg-bg-elevated">
       <div className="max-w-5xl mx-auto">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
@@ -34,7 +34,7 @@ export function Performance() {
               transition={{ delay: i * 0.1 }}
               className="text-center"
             >
-              <div className="text-4xl font-bold text-gold mb-2">{metric.value}</div>
+              <div className="text-4xl font-bold text-accent mb-2">{metric.value}</div>
               <div className="text-text-primary font-medium">{metric.label}</div>
               <div className="text-sm text-text-secondary mt-1">{metric.description}</div>
             </motion.div>

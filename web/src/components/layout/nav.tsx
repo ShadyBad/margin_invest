@@ -17,11 +17,11 @@ export function Nav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <nav className="bg-bg-secondary border-b border-border">
+    <nav className="bg-bg-elevated border-b border-border-primary">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="text-gold font-bold text-xl">
+          <Link href="/" className="text-accent font-bold text-xl">
             Margin Invest
           </Link>
 
@@ -33,7 +33,7 @@ export function Nav() {
                 href={link.href}
                 className={`text-sm font-medium transition-colors ${
                   pathname === link.href
-                    ? "text-gold"
+                    ? "text-accent"
                     : "text-text-secondary hover:text-text-primary"
                 }`}
               >
@@ -59,7 +59,7 @@ export function Nav() {
             ) : (
               <Link
                 href="/login"
-                className="text-sm font-medium text-gold hover:text-gold-hover transition-colors"
+                className="text-sm font-medium text-accent hover:text-accent-hover transition-colors"
               >
                 Sign In
               </Link>
@@ -85,7 +85,7 @@ export function Nav() {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border">
+        <div className="md:hidden border-t border-border-primary">
           <div className="px-4 py-3 space-y-2">
             {navLinks.map((link) => (
               <Link
@@ -93,7 +93,7 @@ export function Nav() {
                 href={link.href}
                 className={`block text-sm font-medium py-2 ${
                   pathname === link.href
-                    ? "text-gold"
+                    ? "text-accent"
                     : "text-text-secondary"
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
@@ -109,7 +109,7 @@ export function Nav() {
                 Sign Out
               </button>
             ) : (
-              <Link href="/login" className="block text-sm text-gold py-2">
+              <Link href="/login" className="block text-sm text-accent py-2">
                 Sign In
               </Link>
             )}

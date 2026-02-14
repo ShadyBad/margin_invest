@@ -10,7 +10,7 @@ interface MetricCardProps {
 function MetricCard({ label, value, colorClass, testId }: MetricCardProps) {
   return (
     <div
-      className="bg-bg-secondary border border-border rounded-xl p-4"
+      className="bg-bg-elevated border border-border-primary rounded-sm p-4"
       data-testid={testId}
     >
       <p className="text-xs text-text-secondary mb-1">{label}</p>
@@ -34,7 +34,7 @@ function valueColor(value: number): string {
 }
 
 function excessColor(value: number): string {
-  if (value > 0) return "text-gold"
+  if (value > 0) return "text-accent"
   if (value < 0) return "text-bearish"
   return "text-text-primary"
 }

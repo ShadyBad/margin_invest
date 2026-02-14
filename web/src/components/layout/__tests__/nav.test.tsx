@@ -39,7 +39,7 @@ describe("Nav", () => {
     render(<Nav />)
     const dashboardLinks = screen.getAllByText("Dashboard")
     // The first Dashboard link (desktop) should have gold text for active route
-    expect(dashboardLinks[0].className).toContain("text-gold")
+    expect(dashboardLinks[0].className).toContain("text-accent")
   })
 
   it("toggles mobile menu", async () => {

@@ -13,12 +13,12 @@ export function WatchlistTable({ items, className = "" }: WatchlistTableProps) {
 
   return (
     <div
-      className={`bg-bg-secondary border border-border rounded-xl overflow-hidden ${className}`}
+      className={`bg-bg-elevated border border-border-primary rounded-sm overflow-hidden ${className}`}
       data-testid="watchlist-table"
     >
       <table className="w-full">
         <thead>
-          <tr className="border-b border-border">
+          <tr className="border-b border-border-primary">
             <th className="text-left text-sm font-medium text-text-secondary px-6 py-3">
               Ticker
             </th>
@@ -37,7 +37,7 @@ export function WatchlistTable({ items, className = "" }: WatchlistTableProps) {
           {items.map((item) => (
             <tr
               key={item.ticker}
-              className="border-b border-border last:border-b-0"
+              className="border-b border-border-primary last:border-b-0"
               data-testid={`watchlist-row-${item.ticker}`}
             >
               <td className="px-6 py-4 text-sm font-bold text-text-primary">

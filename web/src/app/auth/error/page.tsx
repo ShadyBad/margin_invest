@@ -63,7 +63,7 @@ export default function AuthErrorPage() {
 
         <Link
           href="/login"
-          className="w-full px-4 py-3 rounded-lg bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors text-center block"
+          className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors text-center block"
         >
           Try again
         </Link>

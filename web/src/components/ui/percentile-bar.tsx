@@ -10,7 +10,7 @@ export function PercentileBar({ value, label, showValue = true, className = "" }
 
   const getColor = (v: number) => {
     if (v >= 90) return "bg-bullish"
-    if (v >= 70) return "bg-gold"
+    if (v >= 70) return "bg-accent"
     if (v >= 30) return "bg-text-secondary"
     return "bg-bearish"
   }

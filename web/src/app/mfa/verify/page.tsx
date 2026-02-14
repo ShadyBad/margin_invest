@@ -116,7 +116,7 @@ export default function MfaVerifyPage() {
           <p className="text-red-400 text-sm w-full text-center">{error}</p>
         )}
 
-        <div className="flex w-full rounded-lg overflow-hidden border border-[#1E2740]">
+        <div className="flex w-full rounded-sm overflow-hidden border border-[#1E2740]">
           <button
             onClick={() => setMethod("totp")}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
@@ -157,7 +157,7 @@ export default function MfaVerifyPage() {
                 inputMode="numeric"
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] placeholder-[#8A8473] focus:border-[#D4A843] focus:outline-none transition-colors text-center text-lg tracking-widest"
+                className="w-full px-4 py-3 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] placeholder-[#8A8473] focus:border-[#D4A843] focus:outline-none transition-colors text-center text-lg tracking-widest"
                 placeholder="000000"
                 maxLength={6}
                 required
@@ -165,7 +165,7 @@ export default function MfaVerifyPage() {
             </div>
             <button
               type="submit"
-              className="w-full px-4 py-3 rounded-lg bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+              className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
             >
               Verify
             </button>
@@ -180,7 +180,7 @@ export default function MfaVerifyPage() {
             </p>
             <button
               onClick={handleWebAuthnAuthenticate}
-              className="w-full px-4 py-3 rounded-lg bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+              className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
             >
               Authenticate with Security Key
             </button>

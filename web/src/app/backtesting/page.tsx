@@ -113,7 +113,7 @@ export default function BacktestingPage() {
           <button
             onClick={handleRunBacktest}
             disabled={running}
-            className="px-4 py-2 bg-gold text-bg-primary font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="px-4 py-2 bg-accent text-bg-primary font-medium rounded-sm hover:opacity-90 transition-opacity disabled:opacity-50"
             data-testid="run-backtest-button"
           >
             {running ? "Running..." : "Run Backtest"}
@@ -133,7 +133,7 @@ export default function BacktestingPage() {
 
         {error && (
           <div
-            className="bg-bearish/10 border border-bearish/30 rounded-xl p-4 text-bearish"
+            className="bg-bearish/10 border border-bearish/30 rounded-sm p-4 text-bearish"
             data-testid="error-message"
           >
             {error}

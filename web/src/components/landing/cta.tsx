@@ -20,7 +20,7 @@ export function CTA() {
         </p>
         <Link
           href="/login"
-          className="inline-block px-8 py-4 bg-gold text-bg-primary font-bold text-lg rounded-lg hover:bg-gold-hover transition-colors"
+          className="inline-block px-8 py-4 bg-accent text-bg-primary font-bold text-lg rounded-sm hover:bg-accent-hover transition-colors"
         >
           Start Analyzing
         </Link>

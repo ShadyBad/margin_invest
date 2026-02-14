@@ -10,7 +10,7 @@ describe("ConvictionBadge", () => {
 
   it("applies gold styling for exceptional", () => {
     const { container } = render(<ConvictionBadge level="exceptional" />)
-    expect(container.firstChild).toHaveClass("text-gold")
+    expect(container.firstChild).toHaveClass("text-accent")
   })
 
   it("handles unknown levels gracefully", () => {

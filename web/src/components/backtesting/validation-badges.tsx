@@ -11,11 +11,11 @@ export function ValidationBadges({ validation }: ValidationBadgesProps) {
     <div data-testid="validation-badges">
       {/* Overall verdict banner */}
       <div
-        className={`rounded-xl p-4 mb-4 border ${
+        className={`rounded-sm p-4 mb-4 border ${
           overall_pass
             ? "bg-bullish/10 border-bullish/30 text-bullish"
             : passed_count > 0
-              ? "bg-gold/10 border-gold/30 text-gold"
+              ? "bg-accent/10 border-accent/30 text-accent"
               : "bg-bearish/10 border-bearish/30 text-bearish"
         }`}
         data-testid="validation-verdict"
@@ -32,7 +32,7 @@ export function ValidationBadges({ validation }: ValidationBadgesProps) {
         {checks.map((check) => (
           <div
             key={check.name}
-            className="flex items-center justify-between bg-bg-secondary border border-border rounded-lg px-4 py-3"
+            className="flex items-center justify-between bg-bg-elevated border border-border-primary rounded-sm px-4 py-3"
             data-testid={`check-${check.name}`}
           >
             <div className="flex items-center gap-3">

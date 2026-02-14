@@ -23,7 +23,7 @@ function FactorSection({ factor }: FactorSectionProps) {
           <span className="text-xs text-text-secondary">
             Weight: {(factor.weight * 100).toFixed(0)}%
           </span>
-          <span className="text-sm font-mono font-bold text-gold">
+          <span className="text-sm font-mono font-bold text-accent">
             {factor.average_percentile.toFixed(0)}
           </span>
         </div>

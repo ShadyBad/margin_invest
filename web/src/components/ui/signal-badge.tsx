@@ -5,7 +5,7 @@ interface SignalBadgeProps {
 
 const signalStyles: Record<string, string> = {
   buy: "text-bullish",
-  hold: "text-gold",
+  hold: "text-accent",
   sell: "text-bearish",
   watch: "text-text-secondary",
   "urgent sell": "text-bearish font-bold",
