@@ -1,33 +1,74 @@
 @import "tailwindcss";
 
-/* Design system theme tokens — dark mode only (v1) */
+/* ============================================================
+   Design System — Light/Dark adaptive tokens
+   Accent: muted emerald (≤10% visual weight)
+   Grid: 12-column, max 1280px, 8px spacing base
+   ============================================================ */
+
+/* --- Light mode (default) --- */
 @theme {
-  /* Background colors */
-  --color-bg-primary: #0A0F1C;
-  --color-bg-secondary: #141B2D;
+  /* Backgrounds */
+  --color-bg-primary: #F4F3EF;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-subtle: #ECEAE4;
 
-  /* Accent colors */
-  --color-gold: #D4A843;
-  --color-gold-hover: #E8C468;
+  /* Text */
+  --color-text-primary: #121212;
+  --color-text-secondary: #5C5C5C;
+  --color-text-tertiary: #8A8A86;
 
-  /* Semantic colors */
-  --color-bullish: #2D8B5E;
+  /* Accent — muted emerald */
+  --color-accent: #0E4F3A;
+  --color-accent-hover: #0B3E2E;
+  --color-accent-subtle: rgba(14, 79, 58, 0.08);
+
+  /* Borders */
+  --color-border-primary: #D8D6D0;
+  --color-border-subtle: rgba(18, 18, 18, 0.08);
+
+  /* Semantic */
+  --color-bullish: #0E4F3A;
   --color-bearish: #C74B50;
+  --color-warning: #B8860B;
+  --color-danger: #C74B50;
 
-  /* Text colors */
-  --color-text-primary: #E8E4DD;
-  --color-text-secondary: #8B95A8;
-
-  /* Border colors */
-  --color-border: #1E2740;
+  /* Surface overlay (geometric grids) */
+  --color-surface-overlay: rgba(18, 18, 18, 0.03);
 }
 
-/* Font tokens reference CSS variables set by next/font, so use @theme inline */
+/* --- Dark mode overrides --- */
+.dark {
+  --color-bg-primary: #0D0F12;
+  --color-bg-elevated: #151820;
+  --color-bg-subtle: #1A1D24;
+
+  --color-text-primary: #E8E8E6;
+  --color-text-secondary: #9B9B98;
+  --color-text-tertiary: #6B6B68;
+
+  --color-accent: #1A7A5A;
+  --color-accent-hover: #1F8F6A;
+  --color-accent-subtle: rgba(26, 122, 90, 0.10);
+
+  --color-border-primary: #252830;
+  --color-border-subtle: rgba(232, 232, 230, 0.06);
+
+  --color-bullish: #1A7A5A;
+  --color-bearish: #D45A5F;
+  --color-warning: #D4A843;
+  --color-danger: #D45A5F;
+
+  --color-surface-overlay: rgba(232, 232, 230, 0.03);
+}
+
+/* Font tokens — set by next/font, consumed via @theme inline */
 @theme inline {
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter-tight);
   --font-mono: var(--font-geist-mono);
 }
 
+/* Base body styles */
 body {
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
