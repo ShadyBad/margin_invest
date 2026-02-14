@@ -18,9 +18,9 @@ function FilterItem({ filter }: { filter: FilterResultResponse }) {
         {filter.passed ? "\u2713" : "\u2717"}
       </span>
       <span className="text-text-primary">{filter.name}</span>
-      {filter.reason && (
+      {filter.detail && (
         <span className="text-text-secondary ml-auto text-xs">
-          {filter.reason}
+          {filter.detail}
         </span>
       )}
     </li>

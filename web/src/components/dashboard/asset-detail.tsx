@@ -38,7 +38,11 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left column: Factor Breakdown */}
-        <FactorBreakdown factors={score.factor_breakdown} />
+        <FactorBreakdown
+          quality={score.quality}
+          value={score.value}
+          momentum={score.momentum}
+        />
 
         {/* Right column: Filters + Metadata */}
         <div className="space-y-6">
@@ -68,12 +72,14 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
                   </dd>
                 </div>
               )}
-              <div className="flex justify-between">
-                <dt className="text-text-secondary">Scored At</dt>
-                <dd className="text-text-primary">
-                  {formatScoredAt(score.scored_at)}
-                </dd>
-              </div>
+              {score.scored_at && (
+                <div className="flex justify-between">
+                  <dt className="text-text-secondary">Scored At</dt>
+                  <dd className="text-text-primary">
+                    {formatScoredAt(score.scored_at)}
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
         </div>

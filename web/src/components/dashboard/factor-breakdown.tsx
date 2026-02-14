@@ -2,7 +2,9 @@ import { PercentileBar } from "@/components/ui"
 import type { FactorBreakdownResponse } from "@/lib/api/types"
 
 interface FactorBreakdownProps {
-  factors: Record<string, FactorBreakdownResponse>
+  quality: FactorBreakdownResponse
+  value: FactorBreakdownResponse
+  momentum: FactorBreakdownResponse
   className?: string
 }
 
@@ -30,7 +32,7 @@ function FactorSection({ factor }: FactorSectionProps) {
         {factor.sub_scores.map((sub) => (
           <PercentileBar
             key={sub.name}
-            value={sub.percentile}
+            value={sub.percentile_rank}
             label={sub.name}
             showValue
           />
@@ -40,13 +42,8 @@ function FactorSection({ factor }: FactorSectionProps) {
   )
 }
 
-export function FactorBreakdown({ factors, className = "" }: FactorBreakdownProps) {
-  const factorOrder = ["quality", "value", "momentum"]
-  const sortedEntries = Object.entries(factors).sort(([a], [b]) => {
-    const aIdx = factorOrder.indexOf(a.toLowerCase())
-    const bIdx = factorOrder.indexOf(b.toLowerCase())
-    return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx)
-  })
+export function FactorBreakdown({ quality, value, momentum, className = "" }: FactorBreakdownProps) {
+  const factors = [quality, value, momentum]
 
   return (
     <div className={`space-y-4 ${className}`} data-testid="factor-breakdown">
@@ -54,8 +51,8 @@ export function FactorBreakdown({ factors, className = "" }: FactorBreakdownProp
         Factor Breakdown
       </h3>
       <div className="space-y-5">
-        {sortedEntries.map(([key, factor]) => (
-          <FactorSection key={key} factor={factor} />
+        {factors.map((factor) => (
+          <FactorSection key={factor.factor_name} factor={factor} />
         ))}
       </div>
     </div>
