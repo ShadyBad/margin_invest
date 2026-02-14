@@ -15,22 +15,17 @@ from margin_api.schemas.dashboard import (
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
 
-def _get_score_store() -> dict:
-    """Import the score store lazily to avoid circular imports."""
-    from margin_api.routes.scores import _score_store
-
-    return _score_store
-
-
 @router.get("/dashboard", response_model=DashboardResponse)
 async def get_dashboard() -> DashboardResponse:
     """Get dashboard with high-conviction picks and watchlist.
 
     Picks = scores with conviction_level in ('exceptional', 'high')
     Watchlist = scores with conviction_level == 'watchlist'
+
+    NOTE: This endpoint currently returns empty data.
+    It will be refactored to use DB queries in a later task.
     """
-    score_store = _get_score_store()
-    all_scores = list(score_store.values())
+    all_scores: list = []
 
     picks: list[PickSummary] = []
     watchlist: list[WatchlistItem] = []

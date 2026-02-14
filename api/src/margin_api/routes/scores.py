@@ -1,34 +1,76 @@
-"""Score endpoints for the Margin Invest API."""
+"""Score endpoints for the Margin Invest API — DB-backed."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.schemas.scores import ScoreListResponse, ScoreResponse
+from margin_api.db.models import Asset, Score
+from margin_api.db.session import get_db
+from margin_api.schemas.scores import (
+    FactorBreakdownResponse,
+    ScoreListResponse,
+    ScoreResponse,
+)
 
 router = APIRouter(prefix="/api/v1/scores", tags=["scores"])
 
-# In-memory score store (replaced by DB in later phase)
-_score_store: dict[str, ScoreResponse] = {}
 
+def _score_response_from_row(row) -> ScoreResponse:
+    """Build a ScoreResponse from a DB query row.
 
-@router.post("/{ticker}", response_model=ScoreResponse, status_code=201)
-async def create_score(ticker: str, score: ScoreResponse) -> ScoreResponse:
-    """Store a scoring result for a ticker.
-
-    In production, this will trigger the scoring engine. For now, accepts
-    a pre-computed score and stores it.
+    If score_detail JSONB is present, use it for full factor breakdowns.
+    Otherwise, build a minimal response from summary columns.
     """
-    ticker = ticker.upper()
-    if score.ticker.upper() != ticker:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Ticker mismatch: URL has {ticker}, body has {score.ticker}",
+    # row is a Row tuple: (Score, ticker, asset_name)
+    score = row[0] if hasattr(row[0], "composite_percentile") else row.Score
+    ticker = row.ticker if hasattr(row, "ticker") else row[1]
+
+    detail = score.score_detail
+    if detail:
+        return ScoreResponse(**detail)
+
+    # Fallback: build from summary columns (no sub-score detail)
+    return ScoreResponse(
+        ticker=ticker,
+        composite_percentile=score.composite_percentile,
+        conviction_level=score.conviction_level,
+        signal=score.signal,
+        quality=FactorBreakdownResponse(
+            factor_name="quality",
+            weight=0.35,
+            sub_scores=[],
+            average_percentile=score.quality_percentile,
+        ),
+        value=FactorBreakdownResponse(
+            factor_name="value",
+            weight=0.30,
+            sub_scores=[],
+            average_percentile=score.value_percentile,
+        ),
+        momentum=FactorBreakdownResponse(
+            factor_name="momentum",
+            weight=0.35,
+            sub_scores=[],
+            average_percentile=score.momentum_percentile,
+        ),
+        filters_passed=[],
+        data_coverage=score.data_coverage,
+        growth_stage=score.growth_stage,
+    )
+
+
+def _latest_score_subquery():
+    """Subquery for the most recent score per asset."""
+    return (
+        select(
+            Score.asset_id,
+            func.max(Score.scored_at).label("max_scored_at"),
         )
-    # Normalize ticker to uppercase on the stored object
-    normalized = score.model_copy(update={"ticker": ticker})
-    _score_store[ticker] = normalized
-    return normalized
+        .group_by(Score.asset_id)
+        .subquery()
+    )
 
 
 @router.get("", response_model=ScoreListResponse)
@@ -37,28 +79,39 @@ async def list_scores(
     page_size: int = Query(50, ge=1, le=100),
     min_percentile: float = Query(0.0, ge=0.0, le=100.0),
     conviction: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
 ) -> ScoreListResponse:
-    """List all scored assets, with optional filtering and pagination."""
-    scores = list(_score_store.values())
+    """List all scored assets with optional filtering and pagination."""
+    latest = _latest_score_subquery()
 
-    # Filter by minimum percentile
+    base = (
+        select(Score, Asset.ticker, Asset.name.label("asset_name"))
+        .join(Asset, Score.asset_id == Asset.id)
+        .join(
+            latest,
+            (Score.asset_id == latest.c.asset_id)
+            & (Score.scored_at == latest.c.max_scored_at),
+        )
+    )
+
     if min_percentile > 0:
-        scores = [s for s in scores if s.composite_percentile >= min_percentile]
-
-    # Filter by conviction level
+        base = base.where(Score.composite_percentile >= min_percentile)
     if conviction:
-        scores = [s for s in scores if s.conviction_level == conviction.lower()]
+        base = base.where(Score.conviction_level == conviction.lower())
 
-    # Sort by composite percentile descending
-    scores.sort(key=lambda s: s.composite_percentile, reverse=True)
+    # Count
+    count_q = select(func.count()).select_from(base.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
 
-    total = len(scores)
-    start = (page - 1) * page_size
-    end = start + page_size
-    page_scores = scores[start:end]
+    # Paginate
+    base = base.order_by(Score.composite_percentile.desc())
+    base = base.offset((page - 1) * page_size).limit(page_size)
+
+    result = await db.execute(base)
+    rows = result.all()
 
     return ScoreListResponse(
-        scores=page_scores,
+        scores=[_score_response_from_row(r) for r in rows],
         total=total,
         page=page,
         page_size=page_size,
@@ -66,18 +119,23 @@ async def list_scores(
 
 
 @router.get("/{ticker}", response_model=ScoreResponse)
-async def get_score(ticker: str) -> ScoreResponse:
-    """Get the scoring result for a specific ticker."""
+async def get_score(
+    ticker: str,
+    db: AsyncSession = Depends(get_db),
+) -> ScoreResponse:
+    """Get the latest scoring result for a specific ticker."""
     ticker = ticker.upper()
-    if ticker not in _score_store:
-        raise HTTPException(status_code=404, detail=f"No score found for {ticker}")
-    return _score_store[ticker]
+    query = (
+        select(Score, Asset.ticker, Asset.name.label("asset_name"))
+        .join(Asset, Score.asset_id == Asset.id)
+        .where(Asset.ticker == ticker)
+        .order_by(Score.scored_at.desc())
+        .limit(1)
+    )
+    result = await db.execute(query)
+    row = result.first()
 
-
-@router.delete("/{ticker}", status_code=204)
-async def delete_score(ticker: str) -> None:
-    """Remove a score from the store."""
-    ticker = ticker.upper()
-    if ticker not in _score_store:
+    if row is None:
         raise HTTPException(status_code=404, detail=f"No score found for {ticker}")
-    del _score_store[ticker]
+
+    return _score_response_from_row(row)
