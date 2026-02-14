@@ -82,6 +82,26 @@ async def get_dashboard(
         for row in watchlist_result.all()
     ]
 
+    # Fallback: when the universe is too small for conviction thresholds,
+    # show the top-ranked tickers so the dashboard isn't empty.
+    if not picks and not watchlist:
+        top_result = await db.execute(
+            base.order_by(Score.composite_percentile.desc()).limit(10)
+        )
+        picks = [
+            PickSummary(
+                ticker=row.ticker,
+                name=row.asset_name,
+                composite_percentile=row.Score.composite_percentile,
+                conviction_level=row.Score.conviction_level,
+                signal=row.Score.signal,
+                quality_percentile=row.Score.quality_percentile,
+                value_percentile=row.Score.value_percentile,
+                momentum_percentile=row.Score.momentum_percentile,
+            )
+            for row in top_result.all()
+        ]
+
     # Total scored
     total_result = await db.execute(
         select(func.count(func.distinct(Score.asset_id)))

@@ -242,8 +242,13 @@ def normalize_cash_flow(raw: dict) -> CashFlowStatement:
 
 def normalize_price_bar(raw: dict) -> PriceBar:
     """Convert raw price data to PriceBar model."""
+    # Extract date string, stripping time/timezone if present (e.g. yfinance
+    # stores "2025-02-14T00:00:00-05:00" but PriceBar.date expects "2025-02-14")
+    raw_date = _get_str(raw, "date", "Date")
+    date_str = raw_date[:10] if len(raw_date) > 10 else raw_date
+
     return PriceBar(
-        date=_get_str(raw, "date", "Date"),
+        date=date_str,
         open=_get_decimal(raw, "open", "Open"),
         high=_get_decimal(raw, "high", "High"),
         low=_get_decimal(raw, "low", "Low"),

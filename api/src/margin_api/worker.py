@@ -76,7 +76,11 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
         )
 
         # 4. Extract price bars and earnings from JSONB
-        price_bars_raw: list[dict] = fin_data.price_history or []
+        # price_history is stored as {"bars": [...]}
+        price_data = fin_data.price_history or {}
+        price_bars_raw: list[dict] = (
+            price_data.get("bars", []) if isinstance(price_data, dict) else []
+        )
         earnings_raw: list[dict] = fin_data.earnings_data or []
 
         # 5. Run scoring pipeline

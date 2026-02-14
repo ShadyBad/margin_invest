@@ -9,9 +9,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import math
 import sys
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 import yfinance
 from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
@@ -68,6 +70,22 @@ SECTOR_MAP: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _sanitize_for_json(obj: Any) -> Any:
+    """Replace NaN/Inf floats with None so the data is valid JSON for PostgreSQL JSONB."""
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_json(v) for v in obj]
+    return obj
+
+
+# ---------------------------------------------------------------------------
 # Seed logic
 # ---------------------------------------------------------------------------
 
@@ -121,15 +139,21 @@ async def seed_ticker_data(
         # Build financial data
         today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
 
-        income_statement = (
+        income_statement = _sanitize_for_json(
             fundamentals.raw_data.get("income_statement") if fundamentals.success else None
         )
-        balance_sheet = (
+        balance_sheet = _sanitize_for_json(
             fundamentals.raw_data.get("balance_sheet") if fundamentals.success else None
         )
-        cash_flow = fundamentals.raw_data.get("cash_flow") if fundamentals.success else None
-        price_data = price_history.raw_data if price_history.success else None
-        earnings_data = earnings.raw_data if earnings.success else None
+        cash_flow = _sanitize_for_json(
+            fundamentals.raw_data.get("cash_flow") if fundamentals.success else None
+        )
+        price_data = _sanitize_for_json(
+            price_history.raw_data if price_history.success else None
+        )
+        earnings_data = _sanitize_for_json(
+            earnings.raw_data if earnings.success else None
+        )
 
         # Upsert FinancialData row (by asset_id + period_end)
         fd_result = await session.execute(
@@ -217,10 +241,19 @@ async def run_seed(tickers: list[str] | None = None) -> None:
 async def run_scoring(tickers: list[str] | None = None) -> None:
     """Score all (or specified) tickers from DB data.
 
-    Loads financial data from the database, runs the engine scoring pipeline,
-    and persists scores back to the scores table.
+    Two-pass approach:
+      1. Compute raw factor scores for each ticker (percentile_rank=0.0).
+      2. Rank across sector peers, compute composites, and persist.
     """
-    from margin_api.worker import score_ticker
+    from collections import defaultdict
+
+    from margin_api.db.models import FinancialData, Score
+    from margin_api.services.scoring import (
+        build_asset_profile,
+        build_financial_period,
+        compute_raw_factor_scores,
+        rank_and_compute_composites,
+    )
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
@@ -234,22 +267,102 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
         print("No tickers found in database. Run 'seed' first.")
         return
 
-    successes = 0
-    failures = 0
     total = len(tickers)
+
+    # --- Pass 1: Compute raw factor scores ---
+    raw_results = []
+    asset_ids: dict[str, int] = {}
 
     for i, ticker in enumerate(tickers, start=1):
         async with session_factory() as session:
-            ok = await score_ticker(ticker=ticker, session=session)
+            result = await session.execute(select(Asset).where(Asset.ticker == ticker))
+            asset = result.scalar_one_or_none()
+            if asset is None:
+                print(f"[{i}/{total}] SKIP {ticker} — no asset")
+                continue
 
-        if ok:
+            result = await session.execute(
+                select(FinancialData)
+                .where(FinancialData.asset_id == asset.id)
+                .order_by(FinancialData.fetched_at.desc())
+                .limit(1)
+            )
+            fin_data = result.scalar_one_or_none()
+            if fin_data is None:
+                print(f"[{i}/{total}] SKIP {ticker} — no financial data")
+                continue
+
+            try:
+                period = build_financial_period(
+                    income_raw=fin_data.income_statement or {},
+                    balance_raw=fin_data.balance_sheet or {},
+                    cashflow_raw=fin_data.cash_flow or {},
+                    period_end=fin_data.period_end,
+                    filing_date=fin_data.filing_date,
+                )
+                profile = build_asset_profile(
+                    ticker=asset.ticker,
+                    name=asset.name,
+                    sector=asset.sector,
+                    market_cap=asset.market_cap,
+                )
+
+                # price_history is stored as {"bars": [...]}
+                price_data = fin_data.price_history or {}
+                price_bars = price_data.get("bars", []) if isinstance(price_data, dict) else []
+
+                raw = compute_raw_factor_scores(
+                    ticker=ticker,
+                    period=period,
+                    profile=profile,
+                    price_bars_raw=price_bars,
+                    earnings_raw=fin_data.earnings_data or [],
+                )
+                raw_results.append(raw)
+                asset_ids[ticker] = asset.id
+                print(f"[{i}/{total}] Raw scores: {ticker}")
+            except Exception as e:
+                print(f"[{i}/{total}] FAILED {ticker}: {e}")
+
+    if not raw_results:
+        print("No tickers could be scored.")
+        await engine.dispose()
+        return
+
+    # --- Pass 2: Rank across sector peers and compute composites ---
+    print(f"\nRanking {len(raw_results)} tickers across sector peers...")
+    composites = rank_and_compute_composites(raw_results)
+
+    # --- Pass 3: Persist scores ---
+    successes = 0
+    async with session_factory() as session:
+        for composite in composites:
+            score = Score(
+                asset_id=asset_ids[composite.ticker],
+                composite_percentile=composite.composite_percentile,
+                conviction_level=composite.conviction_level.value,
+                signal=composite.signal.value,
+                quality_percentile=composite.quality.average_percentile,
+                value_percentile=composite.value.average_percentile,
+                momentum_percentile=composite.momentum.average_percentile,
+                data_coverage=composite.data_coverage,
+                growth_stage=composite.growth_stage.value if composite.growth_stage else None,
+                score_detail=composite.model_dump(mode="json"),
+                scored_at=datetime.now(UTC),
+            )
+            session.add(score)
             successes += 1
-            print(f"[{i}/{total}] Scored {ticker}")
-        else:
-            failures += 1
-            print(f"[{i}/{total}] FAILED {ticker}")
+        await session.commit()
 
-    print(f"\nScoring complete: {successes} scored, {failures} failed out of {total} tickers.")
+    # Summary
+    levels = defaultdict(int)
+    for c in composites:
+        levels[c.conviction_level.value] += 1
+    print(f"\nScoring complete: {successes} scored out of {total} tickers.")
+    print("Conviction levels:")
+    for level in ("exceptional", "high", "watchlist", "none"):
+        if levels[level]:
+            print(f"  {level}: {levels[level]}")
     await engine.dispose()
 
 

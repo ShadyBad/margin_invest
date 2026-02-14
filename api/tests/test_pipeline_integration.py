@@ -197,9 +197,9 @@ class TestFullPipeline:
         assert composite.value.factor_name == "value"
         assert len(composite.value.sub_scores) == 4
 
-        # Momentum factor: 5 sub_scores (price_momentum + SUE + 3 placeholders)
+        # Momentum factor: 2 real sub_scores (price_momentum + SUE)
         assert composite.momentum.factor_name == "momentum"
-        assert len(composite.momentum.sub_scores) == 5
+        assert len(composite.momentum.sub_scores) == 2
 
         # All 6 elimination filters ran
         assert len(composite.filters_passed) == 6
@@ -226,7 +226,7 @@ class TestFullPipeline:
         assert reconstructed.data_coverage == response.data_coverage
         assert len(reconstructed.quality.sub_scores) == 4
         assert len(reconstructed.value.sub_scores) == 4
-        assert len(reconstructed.momentum.sub_scores) == 5
+        assert len(reconstructed.momentum.sub_scores) == 2
         assert len(reconstructed.filters_passed) == 6
 
     def test_pipeline_with_different_sectors(self):

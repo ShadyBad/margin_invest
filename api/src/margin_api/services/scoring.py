@@ -2,11 +2,13 @@
 
 Converts raw JSON dicts (as stored in the database) into engine Pydantic models,
 then runs the full scoring pipeline: elimination filters -> factor scoring ->
-growth stage classification -> composite scoring.
+growth stage classification -> percentile ranking -> composite scoring.
 """
 
 from __future__ import annotations
 
+from collections import defaultdict
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from margin_engine.ingestion.normalizer import (
@@ -22,10 +24,11 @@ from margin_engine.models.financial import (
     GICSSector,
     PriceBar,
 )
-from margin_engine.models.scoring import CompositeScore, FactorScore
+from margin_engine.models.scoring import CompositeScore, FactorScore, FilterResult, GrowthStage
 from margin_engine.scoring.classifier import classify_growth_stage
 from margin_engine.scoring.composite import compute_composite_score
 from margin_engine.scoring.filters.pipeline import run_elimination_filters
+from margin_engine.scoring.normalizer import compute_percentile_ranks
 from margin_engine.scoring.quantitative.accrual_ratio import sloan_accrual_ratio
 from margin_engine.scoring.quantitative.acquirers_multiple import acquirers_multiple
 from margin_engine.scoring.quantitative.dcf_mos import dcf_margin_of_safety
@@ -40,6 +43,26 @@ from margin_engine.scoring.quantitative.sue import sue_score
 
 # Sector string -> GICSSector mapping for lookups
 _SECTOR_MAP: dict[str, GICSSector] = {s.value: s for s in GICSSector}
+
+# Factors where lower raw_value = better (higher percentile)
+INVERTED_FACTORS: frozenset[str] = frozenset({
+    "accrual_ratio",
+    "ev_fcf",
+    "acquirers_multiple",
+})
+
+
+@dataclass
+class RawScoringResult:
+    """Intermediate result from raw factor scoring (before percentile ranking)."""
+
+    ticker: str
+    sector: str
+    quality_scores: list[FactorScore] = field(default_factory=list)
+    value_scores: list[FactorScore] = field(default_factory=list)
+    momentum_scores: list[FactorScore] = field(default_factory=list)
+    filter_results: list[FilterResult] = field(default_factory=list)
+    growth_stage: GrowthStage | None = None
 
 
 def build_financial_period(
@@ -137,25 +160,17 @@ def build_asset_profile(
     )
 
 
-def run_scoring_pipeline(
+def compute_raw_factor_scores(
     ticker: str,
     period: FinancialPeriod,
     profile: AssetProfile,
     price_bars_raw: list[dict],
     earnings_raw: list[dict],
-) -> CompositeScore:
-    """Run the full scoring pipeline: filters -> factors -> composite.
+) -> RawScoringResult:
+    """Compute raw factor scores without percentile ranking.
 
-    Steps:
-        1. Run elimination filters (fail-fast check).
-        2. Compute 4 quality factor scores.
-        3. Compute 4 value factor scores (dcf_margin_of_safety uses
-           conservative defaults: growth_rate=0.05, discount_rate=0.10).
-        4. Compute 5 momentum factor scores — price_momentum and sue_score
-           from real data; sentiment, insider_cluster, and institutional_accumulation
-           use zero-value placeholders (data not yet available).
-        5. Classify growth stage.
-        6. Compute weighted composite score.
+    Steps 1-5 of the pipeline (filters, quality, value, momentum, growth stage).
+    Percentile ranking must be done in a batch via rank_and_compute_composites().
 
     Args:
         ticker: Stock ticker symbol.
@@ -165,7 +180,7 @@ def run_scoring_pipeline(
         earnings_raw: List of raw earnings surprise dicts for SUE score.
 
     Returns:
-        A fully populated CompositeScore.
+        A RawScoringResult with unranked factor scores.
     """
     market_cap = profile.market_cap
 
@@ -195,40 +210,109 @@ def run_scoring_pipeline(
     ]
 
     # --- Step 4: Momentum factors (5) ---
-    # Convert raw price bars to PriceBar models
     bars: list[PriceBar] = [normalize_price_bar(b) for b in price_bars_raw]
-
-    # Convert raw earnings to EarningsSurprise models
     surprises = normalize_earnings_list(earnings_raw)
 
     momentum_scores: list[FactorScore] = [
         price_momentum(bars),
-        sue_score(surprises),
-        # Placeholders for data we don't have yet
-        sentiment_score(score=0.0),
-        FactorScore(
-            name="insider_cluster",
-            raw_value=0.0,
-            percentile_rank=0.0,
-            detail="No insider transaction data available",
-        ),
-        FactorScore(
-            name="institutional_accumulation",
-            raw_value=0.0,
-            percentile_rank=0.0,
-            detail="No institutional holding data available",
-        ),
     ]
+    # Only include SUE when real earnings data exists. When all tickers
+    # have no earnings, every SUE is 0.0 → all get 50th percentile,
+    # dragging momentum averages down and capping composites below
+    # conviction thresholds (same issue as the removed placeholders).
+    if earnings_raw:
+        momentum_scores.append(sue_score(surprises))
 
     # --- Step 5: Classify growth stage ---
     growth_stage = classify_growth_stage(period, profile)
 
-    # --- Step 6: Composite score ---
-    return compute_composite_score(
+    return RawScoringResult(
         ticker=ticker,
+        sector=profile.sector.value,
         quality_scores=quality_scores,
         value_scores=value_scores,
         momentum_scores=momentum_scores,
-        filters_passed=filter_results,
+        filter_results=filter_results,
         growth_stage=growth_stage,
     )
+
+
+def rank_and_compute_composites(
+    raw_results: list[RawScoringResult],
+) -> list[CompositeScore]:
+    """Rank factor scores across sector peers and compute composite scores.
+
+    Takes raw scoring results for all tickers and:
+    1. Groups sub-factor scores by (sector, factor_name).
+    2. Runs compute_percentile_ranks() within each sector group.
+    3. Maps ranked scores back to each ticker.
+    4. Computes composite scores with the ranked percentiles.
+
+    Args:
+        raw_results: List of RawScoringResult from compute_raw_factor_scores().
+
+    Returns:
+        List of CompositeScore with sector-neutral percentile ranks.
+    """
+    # Collect: (sector, factor_name) -> [(result_idx, list_attr, score_idx)]
+    groups: dict[tuple[str, str], list[tuple[int, str, int]]] = defaultdict(list)
+    scores_by_key: dict[tuple[str, str], list[FactorScore]] = defaultdict(list)
+
+    for i, result in enumerate(raw_results):
+        for list_attr in ("quality_scores", "value_scores", "momentum_scores"):
+            scores = getattr(result, list_attr)
+            for j, score in enumerate(scores):
+                key = (result.sector, score.name)
+                groups[key].append((i, list_attr, j))
+                scores_by_key[key].append(score)
+
+    # Rank each (sector, factor_name) group
+    for key, entries in groups.items():
+        _, factor_name = key
+        ranked = compute_percentile_ranks(
+            scores_by_key[key], invert=(factor_name in INVERTED_FACTORS)
+        )
+        # Map ranked scores back
+        for (result_idx, list_attr, score_idx), ranked_score in zip(entries, ranked):
+            getattr(raw_results[result_idx], list_attr)[score_idx] = ranked_score
+
+    # Compute composite scores with ranked percentiles
+    return [
+        compute_composite_score(
+            ticker=r.ticker,
+            quality_scores=r.quality_scores,
+            value_scores=r.value_scores,
+            momentum_scores=r.momentum_scores,
+            filters_passed=r.filter_results,
+            growth_stage=r.growth_stage,
+        )
+        for r in raw_results
+    ]
+
+
+def run_scoring_pipeline(
+    ticker: str,
+    period: FinancialPeriod,
+    profile: AssetProfile,
+    price_bars_raw: list[dict],
+    earnings_raw: list[dict],
+) -> CompositeScore:
+    """Run the full scoring pipeline for a single ticker.
+
+    Note: Single-ticker scoring cannot produce meaningful percentile ranks
+    (all sub-factors get 50th percentile). For proper sector-neutral ranking,
+    use compute_raw_factor_scores() + rank_and_compute_composites() in a batch.
+
+    Args:
+        ticker: Stock ticker symbol.
+        period: FinancialPeriod with current (and optionally prior) data.
+        profile: AssetProfile with metadata and sector.
+        price_bars_raw: List of raw price bar dicts for price momentum.
+        earnings_raw: List of raw earnings surprise dicts for SUE score.
+
+    Returns:
+        A CompositeScore (with single-ticker percentile ranks).
+    """
+    raw = compute_raw_factor_scores(ticker, period, profile, price_bars_raw, earnings_raw)
+    composites = rank_and_compute_composites([raw])
+    return composites[0]
