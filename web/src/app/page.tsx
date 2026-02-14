@@ -1,12 +1,23 @@
-import { Hero, HowItWorks, Performance, CTA } from "@/components/landing"
+import {
+  HeroSection,
+  FrictionSection,
+  SystemDiagram,
+  EngineProof,
+  CapabilitiesSection,
+  InvestorPositioning,
+  FinalCTA,
+} from "@/components/landing"
 
 export default function Home() {
   return (
-    <div className="bg-bg-primary min-h-screen">
-      <Hero />
-      <HowItWorks />
-      <Performance />
-      <CTA />
-    </div>
+    <main className="bg-bg-primary min-h-screen">
+      <HeroSection />
+      <FrictionSection />
+      <SystemDiagram />
+      <EngineProof />
+      <CapabilitiesSection />
+      <InvestorPositioning />
+      <FinalCTA />
+    </main>
   )
 }
