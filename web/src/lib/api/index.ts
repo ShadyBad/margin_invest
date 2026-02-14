@@ -1,4 +1,5 @@
 export { apiFetch, ApiError } from './client'
+export { serverFetch } from './server'
 export { getScore, listScores, deleteScore } from './scores'
 export { getDashboard } from './dashboard'
 export { getHealth } from './health'
