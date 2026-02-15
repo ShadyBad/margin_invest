@@ -1,4 +1,4 @@
-// web/src/components/landing-v2/__tests__/page-assembly.test.tsx
+// web/src/components/landing/__tests__/page-assembly.test.tsx
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 

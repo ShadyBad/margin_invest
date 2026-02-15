@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic"
-import { NavMinimal } from "@/components/landing-v2/nav-minimal"
+import { NavMinimal } from "@/components/landing/nav-minimal"
 import {
   HeroSection,
   FrictionSection,
@@ -8,25 +8,25 @@ import {
   CapabilitiesSection,
   InvestorPositioning,
   FinalCTA,
-} from "@/components/landing-v2/sections"
+} from "@/components/landing/sections"
 
 const WebGLScene = dynamic(
-  () => import("@/components/landing-v2/scene/webgl-scene").then((mod) => ({ default: mod.WebGLScene })),
+  () => import("@/components/landing/scene/webgl-scene").then((mod) => ({ default: mod.WebGLScene })),
   { ssr: false }
 )
 
 const EngineNodes = dynamic(
-  () => import("@/components/landing-v2/scene/engine-nodes").then((mod) => ({ default: mod.EngineNodes })),
+  () => import("@/components/landing/scene/engine-nodes").then((mod) => ({ default: mod.EngineNodes })),
   { ssr: false }
 )
 
 const ConnectionLines = dynamic(
-  () => import("@/components/landing-v2/scene/connection-lines").then((mod) => ({ default: mod.ConnectionLines })),
+  () => import("@/components/landing/scene/connection-lines").then((mod) => ({ default: mod.ConnectionLines })),
   { ssr: false }
 )
 
 const CapabilityCards3D = dynamic(
-  () => import("@/components/landing-v2/scene/capability-cards-3d").then((mod) => ({ default: mod.CapabilityCards3D })),
+  () => import("@/components/landing/scene/capability-cards-3d").then((mod) => ({ default: mod.CapabilityCards3D })),
   { ssr: false }
 )
 
