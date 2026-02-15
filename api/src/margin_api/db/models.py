@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, JSON, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,8 +24,11 @@ class Asset(Base):
     sector: Mapped[str] = mapped_column(String(100))
     sub_industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
     market_cap: Mapped[Decimal] = mapped_column(default=Decimal("0"))
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
@@ -50,7 +53,9 @@ class FinancialData(Base):
     price_history: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     earnings_data: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     source: Mapped[str] = mapped_column(String(50), default="yfinance")
-    fetched_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
     asset: Mapped[Asset] = relationship(back_populates="financial_data")
 
@@ -66,7 +71,12 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     provider: Mapped[str] = mapped_column(String(50))  # google, github, etc.
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    subscription_plan: Mapped[str] = mapped_column(String(20), default="free")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
     api_keys: Mapped[list[ApiKey]] = relationship(back_populates="user")
 
@@ -85,7 +95,9 @@ class Score(Base):
     data_coverage: Mapped[float] = mapped_column(default=1.0)
     growth_stage: Mapped[str | None] = mapped_column(String(30), nullable=True)
     score_detail: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
-    scored_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    scored_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
     asset: Mapped[Asset] = relationship(back_populates="scores")
 
@@ -101,8 +113,10 @@ class Recommendation(Base):
     asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
     conviction_level: Mapped[str] = mapped_column(String(20))
     signal: Mapped[str] = mapped_column(String(20))
-    entered_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    exited_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    entered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    exited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True)
 
     asset: Mapped[Asset] = relationship(back_populates="recommendations")
@@ -115,7 +129,9 @@ class ApiKey(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     provider_name: Mapped[str] = mapped_column(String(50))  # "fmp", "polygon", etc.
     encrypted_key: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
     user: Mapped[User] = relationship(back_populates="api_keys")
 
@@ -140,10 +156,16 @@ class CredentialUser(Base):
     password_hash: Mapped[str] = mapped_column(Text)
     mfa_enabled: Mapped[bool] = mapped_column(default=False)
     failed_login_attempts: Mapped[int] = mapped_column(default=0)
-    locked_until: Mapped[datetime | None] = mapped_column(nullable=True)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_totp_counter: Mapped[int | None] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    subscription_plan: Mapped[str] = mapped_column(String(20), default="free")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
@@ -164,7 +186,9 @@ class TotpSecret(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("credential_users.id"), index=True)
     encrypted_secret: Mapped[str] = mapped_column(Text)
     confirmed: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
     user: Mapped[CredentialUser] = relationship(back_populates="totp_secrets")
 
@@ -179,7 +203,9 @@ class WebAuthnCredential(Base):
     credential_id: Mapped[str] = mapped_column(Text, unique=True)
     public_key: Mapped[str] = mapped_column(Text)
     sign_count: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
     user: Mapped[CredentialUser] = relationship(back_populates="webauthn_credentials")
 
@@ -192,8 +218,10 @@ class MfaChallengeToken(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("credential_users.id"), index=True)
     token_hash: Mapped[str] = mapped_column(String(64))
-    expires_at: Mapped[datetime] = mapped_column()
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
     user: Mapped[CredentialUser] = relationship(back_populates="challenge_tokens")
