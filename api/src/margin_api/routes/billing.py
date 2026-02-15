@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from stripe import SignatureVerificationError
 
-from margin_api.config import get_settings
+from margin_api.config import Settings, get_settings
 from margin_api.db.models import User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
@@ -17,8 +17,7 @@ from margin_api.services.billing import BillingService
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
 
 
-def _get_billing_service() -> BillingService:
-    settings = get_settings()
+def _get_billing_service(settings: Settings = Depends(get_settings)) -> BillingService:
     return BillingService(
         stripe_secret_key=settings.stripe_secret_key,
         stripe_price_id=settings.stripe_price_id,
