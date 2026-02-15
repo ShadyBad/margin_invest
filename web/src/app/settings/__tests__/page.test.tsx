@@ -20,7 +20,35 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/settings",
 }))
 
+const mockFetch = vi.fn()
+global.fetch = mockFetch
+
 describe("Settings Page", () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+    // Default: billing status returns active plan, keys endpoint returns empty
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/billing/status") {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              subscription_plan: "margin_invest",
+              is_active: true,
+              stripe_subscription_id: "sub_123",
+            }),
+        })
+      }
+      if (url === "/api/v1/keys/") {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ keys: [] }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+  })
+
   it("renders the settings heading", () => {
     render(<SettingsPage />)
     expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument()
@@ -33,18 +61,14 @@ describe("Settings Page", () => {
     expect(screen.getByText("test@example.com")).toBeInTheDocument()
   })
 
-  it("renders API keys section with all providers", () => {
+  it("renders billing section", async () => {
     render(<SettingsPage />)
-    expect(screen.getByText("API Keys")).toBeInTheDocument()
-    expect(screen.getByText("Financial Modeling Prep")).toBeInTheDocument()
-    expect(screen.getByText("Polygon.io")).toBeInTheDocument()
-    expect(screen.getByText("Finnhub")).toBeInTheDocument()
-    expect(screen.getByText("FRED")).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Billing" })).toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: /manage/i })).toBeInTheDocument()
   })
 
-  it("renders save buttons for each provider", () => {
+  it("renders API keys section", async () => {
     render(<SettingsPage />)
-    const saveButtons = screen.getAllByText("Save")
-    expect(saveButtons).toHaveLength(4)
+    expect(await screen.findByRole("heading", { name: /API Keys/i })).toBeInTheDocument()
   })
 })

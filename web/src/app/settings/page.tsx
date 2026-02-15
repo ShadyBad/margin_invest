@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout"
 import { AccountSection } from "@/components/settings/account-section"
+import { BillingSection } from "@/components/settings/billing-section"
 import { ApiKeysSection } from "@/components/settings/api-keys-section"
 
 export default function SettingsPage() {
@@ -8,6 +9,7 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold text-text-primary mb-8">Settings</h1>
       <div className="space-y-8">
         <AccountSection />
+        <BillingSection />
         <ApiKeysSection />
       </div>
     </AppShell>
