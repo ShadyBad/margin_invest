@@ -16,6 +16,10 @@ class PickSummary(BaseModel):
     quality_percentile: float
     value_percentile: float
     momentum_percentile: float
+    actual_price: float | None = None
+    buy_price: float | None = None
+    sell_price: float | None = None
+    price_upside: float | None = None
 
 
 class WatchlistItem(BaseModel):

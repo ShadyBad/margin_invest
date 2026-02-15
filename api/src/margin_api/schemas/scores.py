@@ -39,6 +39,31 @@ class FactorBreakdownResponse(BaseModel):
     average_percentile: float
 
 
+class PriceBarResponse(BaseModel):
+    """Single OHLCV price bar."""
+
+    date: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+    adj_close: float | None = None
+
+
+class SignalTransitionResponse(BaseModel):
+    """A signal transition record."""
+
+    previous_signal: str
+    new_signal: str
+    previous_conviction: str
+    new_conviction: str
+    actual_price_at_transition: float | None = None
+    intrinsic_value_at_transition: float | None = None
+    composite_percentile: float
+    transitioned_at: str
+
+
 class ScoreResponse(BaseModel):
     """Full scoring result for a single ticker."""
 
@@ -54,6 +79,16 @@ class ScoreResponse(BaseModel):
     data_coverage: float
     growth_stage: str | None = None
     scored_at: str | None = None
+    # Price target fields
+    intrinsic_value: float | None = None
+    buy_price: float | None = None
+    sell_price: float | None = None
+    actual_price: float | None = None
+    price_upside: float | None = None
+    valuation_methods: dict[str, float] | None = None
+    # Conditionally included via ?include=
+    price_history: list[PriceBarResponse] | None = None
+    signal_history: list[SignalTransitionResponse] | None = None
 
     @classmethod
     def from_engine(cls, score: CompositeScore) -> ScoreResponse:
@@ -79,6 +114,12 @@ class ScoreResponse(BaseModel):
             ],
             data_coverage=score.data_coverage,
             growth_stage=score.growth_stage.value if score.growth_stage else None,
+            intrinsic_value=score.intrinsic_value,
+            buy_price=score.buy_price,
+            sell_price=score.sell_price,
+            actual_price=score.actual_price,
+            price_upside=score.price_upside,
+            valuation_methods=score.valuation_methods,
         )
 
 
