@@ -92,6 +92,14 @@ class CompositeScore(BaseModel):
     data_coverage: float = Field(ge=0.0, le=1.0)
     growth_stage: GrowthStage | None = None
 
+    # Price target fields (populated by PriceTargetCalculator)
+    intrinsic_value: float | None = None
+    buy_price: float | None = None
+    sell_price: float | None = None
+    actual_price: float | None = None
+    price_upside: float | None = None
+    valuation_methods: dict[str, float] | None = None
+
     @property
     def conviction_level(self) -> ConvictionLevel:
         if self.composite_percentile >= 99.0:
