@@ -1,7 +1,6 @@
 """Test that ScoreResponse includes name and scored_at fields."""
 
-import pytest
-from margin_api.schemas.scores import ScoreResponse, FactorBreakdownResponse
+from margin_api.schemas.scores import FactorBreakdownResponse, ScoreResponse
 
 
 def test_score_response_includes_name():

@@ -7,13 +7,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 from cryptography.fernet import Fernet
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.db.base import Base
-from margin_api.db.models import ApiKey, ApiKeyEvent, User
+from margin_api.db.models import ApiKey, User
 from margin_api.services.api_keys import ApiKeyService
 from margin_api.worker import rotate_platform_keys
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 _TEST_KEY = Fernet.generate_key()
 

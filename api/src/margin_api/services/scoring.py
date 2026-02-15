@@ -37,7 +37,6 @@ from margin_engine.scoring.quantitative.f_score import piotroski_f_score
 from margin_engine.scoring.quantitative.gross_profitability import gross_profitability
 from margin_engine.scoring.quantitative.price_momentum import price_momentum
 from margin_engine.scoring.quantitative.roic_wacc import roic_wacc_spread
-from margin_engine.scoring.quantitative.sentiment_score import sentiment_score
 from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yield
 from margin_engine.scoring.quantitative.sue import sue_score
 

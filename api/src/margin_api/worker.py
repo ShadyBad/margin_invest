@@ -17,8 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
 from margin_api.db.models import ApiKey, ApiKeyEvent, Asset, FinancialData, Score
-from margin_api.services.api_keys import ApiKeyService
 from margin_api.db.session import get_engine, get_session_factory
+from margin_api.services.api_keys import ApiKeyService
 from margin_api.services.scoring import (
     build_asset_profile,
     build_financial_period,
