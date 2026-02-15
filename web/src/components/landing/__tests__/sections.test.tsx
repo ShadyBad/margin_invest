@@ -13,6 +13,20 @@ vi.mock("framer-motion", () => ({
       <section {...props}>{children}</section>
     ),
   },
+  useInView: () => true,
+  useMotionValue: (init: number) => {
+    let value = init
+    return {
+      get: () => value,
+      set: (v: number) => { value = v },
+      on: (_event: string, _cb: any) => () => {},
+    }
+  },
+  useTransform: (_mv: any, _transform: any) => ({
+    get: () => "0.0",
+    on: (_event: string, _cb: any) => () => {},
+  }),
+  animate: () => ({ stop: () => {} }),
 }))
 
 import {
@@ -83,6 +97,12 @@ describe("EngineProof", () => {
     expect(screen.getAllByText(/Composite Score/i).length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText(/Risk Breakdown/i).length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText(/Factor Weights/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText(/Sample Output/)).toBeInTheDocument()
+  })
+
+  it("renders methodology link", () => {
+    render(<EngineProof />)
+    expect(screen.getByRole("link", { name: /methodology documentation/i })).toBeInTheDocument()
   })
 })
 
