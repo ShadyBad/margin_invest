@@ -38,7 +38,9 @@ export function FinalCTA() {
         <div
           className="mt-16 pt-6 border-t border-divider flex flex-col md:flex-row items-center justify-between gap-4 text-[13px] text-text-secondary"
         >
-          <span>&copy; {new Date().getFullYear()} Margin Invest</span>
+          <span suppressHydrationWarning>
+            &copy; {new Date().getFullYear()} Margin Invest
+          </span>
           <div className="flex items-center gap-6">
             <Link href="/methodology" className="hover:text-text-primary transition-colors">
               Methodology

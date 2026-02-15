@@ -1,4 +1,5 @@
 import { PercentileBar } from "@/components/ui"
+import { formatAttributeLabel } from "@/lib/format"
 import type { FactorBreakdownResponse } from "@/lib/api/types"
 
 interface FactorBreakdownProps {
@@ -33,7 +34,7 @@ function FactorSection({ factor }: FactorSectionProps) {
           <PercentileBar
             key={sub.name}
             value={sub.percentile_rank}
-            label={sub.name}
+            label={formatAttributeLabel(sub.name)}
             showValue
           />
         ))}

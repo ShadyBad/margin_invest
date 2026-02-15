@@ -1,4 +1,5 @@
 import { ConvictionBadge, SignalBadge } from "@/components/ui"
+import { formatAttributeLabel } from "@/lib/format"
 import { FactorBreakdown } from "./factor-breakdown"
 import { FilterList } from "./filter-list"
 import type { ScoreResponse } from "@/lib/api/types"
@@ -8,15 +9,21 @@ interface AssetDetailProps {
   className?: string
 }
 
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+]
+
 function formatScoredAt(isoString: string): string {
-  const date = new Date(isoString)
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })
+  const d = new Date(isoString)
+  const month = MONTHS[d.getMonth()]
+  const day = d.getDate()
+  const year = d.getFullYear()
+  const h = d.getHours()
+  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h
+  const min = String(d.getMinutes()).padStart(2, "0")
+  const ampm = h >= 12 ? "PM" : "AM"
+  return `${month} ${day}, ${year}, ${hour}:${min} ${ampm}`
 }
 
 export function AssetDetail({ score, className = "" }: AssetDetailProps) {
@@ -59,8 +66,8 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
               {score.growth_stage && (
                 <div className="flex justify-between">
                   <dt className="text-text-secondary">Growth Stage</dt>
-                  <dd className="text-text-primary capitalize">
-                    {score.growth_stage}
+                  <dd className="text-text-primary">
+                    {formatAttributeLabel(score.growth_stage)}
                   </dd>
                 </div>
               )}

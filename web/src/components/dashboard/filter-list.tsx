@@ -1,3 +1,4 @@
+import { formatAttributeLabel } from "@/lib/format"
 import type { FilterResultResponse } from "@/lib/api/types"
 
 interface FilterListProps {
@@ -17,7 +18,7 @@ function FilterItem({ filter }: { filter: FilterResultResponse }) {
       >
         {filter.passed ? "\u2713" : "\u2717"}
       </span>
-      <span className="text-text-primary">{filter.name}</span>
+      <span className="text-text-primary">{formatAttributeLabel(filter.name)}</span>
       {filter.detail && (
         <span className="text-text-secondary ml-auto text-xs">
           {filter.detail}
