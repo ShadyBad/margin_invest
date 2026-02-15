@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { PercentileBar, ConvictionBadge, SignalBadge } from "@/components/ui"
+import { ActionPill, Sparkline, PercentileBar, ConvictionBadge } from "@/components/ui"
 import { AssetDetail } from "./asset-detail"
 import { getScore } from "@/lib/api/scores"
 import type { PickSummary, ScoreResponse } from "@/lib/api/types"
@@ -30,7 +30,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       setLoading(true)
       setError(null)
       try {
-        const data = await getScore(pick.ticker)
+        const data = await getScore(pick.ticker, ["price_history", "signal_history"])
         setScoreData(data)
       } catch (err) {
         setError(
@@ -68,7 +68,45 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
         <span className="text-3xl font-bold text-accent">
           {pick.composite_percentile.toFixed(0)}
         </span>
-        <SignalBadge signal={pick.signal} />
+        <ActionPill
+          signal={pick.signal}
+          buyPrice={pick.buy_price}
+          sellPrice={pick.sell_price}
+          actualPrice={pick.actual_price}
+        />
+      </div>
+
+      {/* Price row */}
+      <div className="flex items-center justify-between mb-4 text-sm">
+        <div className="flex items-center gap-4">
+          <span className="text-text-secondary">
+            Price:{" "}
+            <span className="text-text-primary font-medium">
+              {pick.actual_price != null
+                ? `$${pick.actual_price.toFixed(2)}`
+                : "N/A"}
+            </span>
+          </span>
+          <span className="text-text-secondary">
+            Target:{" "}
+            <span className="text-text-primary font-medium">
+              {pick.sell_price != null
+                ? `$${pick.sell_price.toFixed(2)}`
+                : "N/A"}
+            </span>
+          </span>
+          {pick.price_upside != null && (
+            <span className={pick.price_upside >= 0 ? "text-bullish" : "text-bearish"}>
+              {pick.price_upside >= 0 ? "+" : ""}
+              {(pick.price_upside * 100).toFixed(1)}%
+            </span>
+          )}
+        </div>
+        <Sparkline
+          bars={scoreData?.price_history}
+          buyPrice={pick.buy_price}
+          sellPrice={pick.sell_price}
+        />
       </div>
 
       <div className="space-y-2">
