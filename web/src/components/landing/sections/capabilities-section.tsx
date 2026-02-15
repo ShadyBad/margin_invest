@@ -13,6 +13,7 @@ const capabilities = [
     tinted: false,
     className: "col-span-4 md:col-span-8 lg:col-span-5",
     marginTop: "",
+    side: "left" as const,
   },
   {
     title: "Quantified Risk",
@@ -21,6 +22,7 @@ const capabilities = [
     tinted: true,
     className: "col-span-4 md:col-span-8 lg:col-start-7 lg:col-span-6",
     marginTop: "lg:mt-[48px]",
+    side: "right" as const,
   },
   {
     title: "Scenario Modeling",
@@ -29,6 +31,7 @@ const capabilities = [
     tinted: false,
     className: "col-span-4 md:col-span-8 lg:col-start-2 lg:col-span-6",
     marginTop: "lg:mt-[32px]",
+    side: "left" as const,
   },
   {
     title: "Bias Reduction",
@@ -37,6 +40,7 @@ const capabilities = [
     tinted: true,
     className: "col-span-4 md:col-span-8 lg:col-start-8 lg:col-span-5",
     marginTop: "lg:mt-[64px]",
+    side: "right" as const,
   },
 ]
 
@@ -49,18 +53,18 @@ export function CapabilitiesSection() {
           maxWidth: "1280px",
           paddingLeft: "8vw",
           paddingRight: "8vw",
-          paddingTop: "120px",
-          paddingBottom: "120px",
+          paddingTop: "96px",
+          paddingBottom: "96px",
         }}
       >
         {capabilities.map((cap, i) => (
           <motion.div
             key={cap.title}
             className={`${cap.className} ${cap.marginTop}`}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, x: cap.side === "left" ? -30 : 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: i * 0.1, ease }}
+            transition={{ duration: 0.5, delay: i * 0.12, ease }}
           >
             <CapabilityBlock
               title={cap.title}
