@@ -1,13 +1,14 @@
 "use client"
 
 import { useRef, useEffect, useMemo } from "react"
-import { useFrame } from "@react-three/fiber"
+import { useFrame, useThree } from "@react-three/fiber"
 import { useScroll } from "@react-three/drei"
 import * as THREE from "three"
+import { useNodePositions } from "@/lib/stores/node-positions"
 import type { QualityTier } from "@/lib/hooks/use-quality-tier"
 
 const NODE_COUNT = 4
-const NODE_POSITIONS: [number, number, number][] = [
+const FORMATION_POSITIONS: [number, number, number][] = [
   [-4.5, 0, 0],
   [-1.5, 0, 0],
   [1.5, 0, 0],
@@ -15,6 +16,7 @@ const NODE_POSITIONS: [number, number, number][] = [
 ]
 
 const ACCENT_COLOR = new THREE.Color("#0E4F3A")
+const ACCENT_EMISSIVE = new THREE.Color("#1C7A5A")
 const INACTIVE_COLOR = new THREE.Color("#888888")
 
 interface EngineNodesProps {
@@ -24,6 +26,7 @@ interface EngineNodesProps {
 export function EngineNodes({ tier }: EngineNodesProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const scroll = useScroll()
+  const { camera, size } = useThree()
   const tempObj = useMemo(() => new THREE.Object3D(), [])
   const tempColor = useMemo(() => new THREE.Color(), [])
 
@@ -47,20 +50,38 @@ export function EngineNodes({ tier }: EngineNodesProps) {
   useFrame(() => {
     if (!meshRef.current) return
 
-    const assembleProgress = scroll.range(0.3, 0.2)
-    const recedeProgress = scroll.range(0.5, 0.1)
+    const positions = useNodePositions.getState().positions
+
+    const morphProgress = scroll.range(0.32, 0.13)
+    const recedeProgress = scroll.range(0.45, 0.1)
+
     const activeIndex = Math.min(
-      Math.floor(scroll.range(0.3, 0.2) * NODE_COUNT),
+      Math.floor(morphProgress * NODE_COUNT),
       NODE_COUNT - 1
     )
 
     for (let i = 0; i < NODE_COUNT; i++) {
-      const nodeProgress = Math.max(0, Math.min(1, (assembleProgress * NODE_COUNT - i) * 1.5))
-      const target = NODE_POSITIONS[i]
+      const nodeProgress = Math.max(0, Math.min(1, (morphProgress * NODE_COUNT - i) * 1.5))
+      const htmlRect = positions[`node-${i}`]
+      const formationTarget = FORMATION_POSITIONS[i]
 
-      const x = THREE.MathUtils.lerp(10 + i * 2, target[0], nodeProgress)
-      const y = target[1]
-      const z = THREE.MathUtils.lerp(0, target[2], nodeProgress) - recedeProgress * 3
+      let startX = 10 + i * 2
+      let startY = 0
+
+      if (htmlRect && morphProgress < 0.8) {
+        const ndcX = (htmlRect.x / size.width) * 2 - 1
+        const ndcY = -(htmlRect.y / size.height) * 2 + 1
+        const worldPos = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(camera)
+        const dir = worldPos.sub(camera.position).normalize()
+        const distance = -camera.position.z / dir.z
+        const pos = camera.position.clone().add(dir.multiplyScalar(distance))
+        startX = pos.x
+        startY = pos.y
+      }
+
+      const x = THREE.MathUtils.lerp(startX, formationTarget[0], nodeProgress)
+      const y = THREE.MathUtils.lerp(startY, formationTarget[1], nodeProgress)
+      const z = THREE.MathUtils.lerp(0, formationTarget[2], nodeProgress) - recedeProgress * 3
 
       tempObj.position.set(x, y, z)
       const scale = THREE.MathUtils.lerp(0.01, 1, nodeProgress) * (1 - recedeProgress * 0.5)
@@ -86,6 +107,8 @@ export function EngineNodes({ tier }: EngineNodesProps) {
         opacity={0.85}
         roughness={0.4}
         metalness={0.1}
+        emissive={ACCENT_EMISSIVE}
+        emissiveIntensity={0.3}
       />
     </instancedMesh>
   )
