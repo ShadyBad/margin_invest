@@ -110,6 +110,11 @@ describe("FinalCTA", () => {
     expect(screen.getByRole("link", { name: /explore the engine/i })).toBeInTheDocument()
   })
 
+  it("renders the updated CTA subtext", () => {
+    render(<FinalCTA />)
+    expect(screen.getByText("Run any equity through the engine.")).toBeInTheDocument()
+  })
+
   it("renders footer links", () => {
     render(<FinalCTA />)
     expect(screen.getByRole("link", { name: /methodology/i })).toBeInTheDocument()
