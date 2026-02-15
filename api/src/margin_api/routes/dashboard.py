@@ -63,6 +63,9 @@ async def get_dashboard(
             quality_percentile=row.Score.quality_percentile,
             value_percentile=row.Score.value_percentile,
             momentum_percentile=row.Score.momentum_percentile,
+            actual_price=getattr(row.Score, "actual_price", None),
+            buy_price=getattr(row.Score, "buy_price", None),
+            sell_price=getattr(row.Score, "sell_price", None),
         )
         for row in picks_result.all()
     ]
@@ -98,6 +101,9 @@ async def get_dashboard(
                 quality_percentile=row.Score.quality_percentile,
                 value_percentile=row.Score.value_percentile,
                 momentum_percentile=row.Score.momentum_percentile,
+                actual_price=getattr(row.Score, "actual_price", None),
+                buy_price=getattr(row.Score, "buy_price", None),
+                sell_price=getattr(row.Score, "sell_price", None),
             )
             for row in top_result.all()
         ]

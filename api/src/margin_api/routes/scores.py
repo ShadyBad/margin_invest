@@ -48,6 +48,11 @@ def _score_response_from_row(row) -> ScoreResponse:
                     else 0.0
                 )
                 factor["average_percentile"] = avg
+        # Include price target fields from DB columns
+        detail.setdefault("intrinsic_value", getattr(score, "intrinsic_value", None))
+        detail.setdefault("buy_price", getattr(score, "buy_price", None))
+        detail.setdefault("sell_price", getattr(score, "sell_price", None))
+        detail.setdefault("actual_price", getattr(score, "actual_price", None))
         return ScoreResponse(**detail)
 
     # Fallback: build from summary columns (no sub-score detail)
@@ -79,6 +84,10 @@ def _score_response_from_row(row) -> ScoreResponse:
         data_coverage=score.data_coverage,
         growth_stage=score.growth_stage,
         scored_at=score.scored_at.isoformat() if score.scored_at else None,
+        intrinsic_value=getattr(score, "intrinsic_value", None),
+        buy_price=getattr(score, "buy_price", None),
+        sell_price=getattr(score, "sell_price", None),
+        actual_price=getattr(score, "actual_price", None),
     )
 
 
@@ -142,6 +151,7 @@ async def list_scores(
 @router.get("/{ticker}", response_model=ScoreResponse)
 async def get_score(
     ticker: str,
+    include: str | None = Query(None, description="Comma-separated: price_history,signal_history"),
     db: AsyncSession = Depends(get_db),
 ) -> ScoreResponse:
     """Get the latest scoring result for a specific ticker."""
@@ -159,4 +169,57 @@ async def get_score(
     if row is None:
         raise HTTPException(status_code=404, detail=f"No score found for {ticker}")
 
-    return _score_response_from_row(row)
+    response = _score_response_from_row(row)
+
+    includes = set((include or "").split(",")) if include else set()
+
+    if "price_history" in includes:
+        from margin_api.db.models import FinancialData
+        from margin_api.schemas.scores import PriceBarResponse
+
+        fd_query = (
+            select(FinancialData.price_history)
+            .where(FinancialData.asset_id == row[0].asset_id)
+            .order_by(FinancialData.period_end.desc())
+            .limit(1)
+        )
+        fd_result = await db.execute(fd_query)
+        fd_row = fd_result.scalar()
+        if fd_row and isinstance(fd_row, dict) and "bars" in fd_row:
+            response.price_history = [
+                PriceBarResponse(**bar) for bar in fd_row["bars"]
+            ]
+        elif fd_row and isinstance(fd_row, list):
+            response.price_history = [
+                PriceBarResponse(**bar) for bar in fd_row
+            ]
+        else:
+            response.price_history = []
+
+    if "signal_history" in includes:
+        from margin_api.db.models import SignalTransition
+        from margin_api.schemas.scores import SignalTransitionResponse
+
+        st_query = (
+            select(SignalTransition)
+            .where(SignalTransition.asset_id == row[0].asset_id)
+            .order_by(SignalTransition.transitioned_at.desc())
+            .limit(50)
+        )
+        st_result = await db.execute(st_query)
+        transitions = st_result.scalars().all()
+        response.signal_history = [
+            SignalTransitionResponse(
+                previous_signal=t.previous_signal,
+                new_signal=t.new_signal,
+                previous_conviction=t.previous_conviction,
+                new_conviction=t.new_conviction,
+                actual_price_at_transition=t.actual_price_at_transition,
+                intrinsic_value_at_transition=t.intrinsic_value_at_transition,
+                composite_percentile=t.composite_percentile,
+                transitioned_at=t.transitioned_at.isoformat(),
+            )
+            for t in transitions
+        ]
+
+    return response
