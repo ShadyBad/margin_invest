@@ -70,6 +70,53 @@
   --color-divider: rgba(255, 255, 255, 0.06);
 }
 
+/* Responsive typography utilities */
+.heading-1 {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.0;
+  letter-spacing: -0.5px;
+}
+
+.heading-2 {
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.3px;
+}
+
+.heading-3 {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.body-text {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.caption-text {
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0.2px;
+}
+
+@media (min-width: 768px) {
+  .heading-1 { font-size: 56px; }
+  .heading-2 { font-size: 40px; }
+  .heading-3 { font-size: 28px; }
+  .body-text { font-size: 17px; }
+}
+
+@media (min-width: 1024px) {
+  .heading-1 { font-size: 72px; }
+  .heading-2 { font-size: 48px; }
+  .heading-3 { font-size: 32px; }
+  .body-text { font-size: 18px; }
+  .caption-text { font-size: 14px; }
+}
+
 /* Font tokens — set by next/font, consumed via @theme inline */
 @theme inline {
   --font-sans: var(--font-inter-tight);
