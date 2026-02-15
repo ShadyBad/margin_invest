@@ -95,13 +95,14 @@ class TestApiKeyModel:
         assert "provider_name" in columns
         assert "encrypted_key" in columns
 
-    def test_user_provider_unique_constraint(self):
+    def test_no_unique_constraint_allows_rotation_overlap(self):
+        """UniqueConstraint was removed to allow multiple keys per provider during rotation."""
         constraints = [
             c.name
             for c in ApiKey.__table__.constraints
             if hasattr(c, "name") and c.name
         ]
-        assert "uq_user_provider" in constraints
+        assert "uq_user_provider" not in constraints
 
 
 class TestFinancialDataModel:

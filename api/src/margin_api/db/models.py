@@ -127,17 +127,33 @@ class ApiKey(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    provider_name: Mapped[str] = mapped_column(String(50))  # "fmp", "polygon", etc.
+    provider_name: Mapped[str] = mapped_column(String(50))
     encrypted_key: Mapped[str] = mapped_column(Text)
+    is_platform_managed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="api_keys")
+    events: Mapped[list["ApiKeyEvent"]] = relationship(back_populates="api_key")
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "provider_name", name="uq_user_provider"),
+
+class ApiKeyEvent(Base):
+    """Audit trail for API key lifecycle events."""
+
+    __tablename__ = "api_key_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    api_key_id: Mapped[int] = mapped_column(ForeignKey("api_keys.id"), index=True)
+    event_type: Mapped[str] = mapped_column(String(20))  # created, rotated, revoked, accessed
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+
+    api_key: Mapped[ApiKey] = relationship(back_populates="events")
 
 
 # ---------------------------------------------------------------------------
