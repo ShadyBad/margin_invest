@@ -14,14 +14,20 @@ from margin_engine.scoring.quantitative.institutional_accumulation import (
     institutional_accumulation,
 )
 from margin_engine.scoring.quantitative.price_momentum import price_momentum
+from margin_engine.scoring.quantitative.price_targets import (
+    PriceTargets,
+    compute_price_targets,
+)
 from margin_engine.scoring.quantitative.roic_wacc import compute_roic, roic_wacc_spread
 from margin_engine.scoring.quantitative.sentiment_score import sentiment_score
 from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yield
 from margin_engine.scoring.quantitative.sue import sue_score
 
 __all__ = [
+    "PriceTargets",
     "acquirers_multiple",
     "compute_f_score_signals",
+    "compute_price_targets",
     "compute_roic",
     "dcf_margin_of_safety",
     "ev_fcf",
