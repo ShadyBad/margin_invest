@@ -1,8 +1,8 @@
-"""initial schema
+"""initial schema with timestamptz
 
-Revision ID: e13f21453f4a
+Revision ID: 4ee2f8646129
 Revises: 
-Create Date: 2026-02-13 15:47:48.097445
+Create Date: 2026-02-13 17:13:26.725771
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'e13f21453f4a'
+revision: str = '4ee2f8646129'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -28,8 +28,8 @@ def upgrade() -> None:
     sa.Column('sector', sa.String(length=100), nullable=False),
     sa.Column('sub_industry', sa.String(length=255), nullable=True),
     sa.Column('market_cap', sa.Numeric(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_assets_ticker'), 'assets', ['ticker'], unique=True)
@@ -40,10 +40,10 @@ def upgrade() -> None:
     sa.Column('password_hash', sa.Text(), nullable=False),
     sa.Column('mfa_enabled', sa.Boolean(), nullable=False),
     sa.Column('failed_login_attempts', sa.Integer(), nullable=False),
-    sa.Column('locked_until', sa.DateTime(), nullable=True),
+    sa.Column('locked_until', sa.DateTime(timezone=True), nullable=True),
     sa.Column('last_totp_counter', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_credential_users_email'), 'credential_users', ['email'], unique=True)
@@ -53,7 +53,7 @@ def upgrade() -> None:
     sa.Column('email', sa.String(length=320), nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('provider', sa.String(length=50), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
@@ -62,7 +62,7 @@ def upgrade() -> None:
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('provider_name', sa.String(length=50), nullable=False),
     sa.Column('encrypted_key', sa.Text(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id', 'provider_name', name='uq_user_provider')
@@ -79,7 +79,7 @@ def upgrade() -> None:
     sa.Column('price_history', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.Column('earnings_data', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.Column('source', sa.String(length=50), nullable=False),
-    sa.Column('fetched_at', sa.DateTime(), nullable=False),
+    sa.Column('fetched_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('asset_id', 'period_end', name='uq_financial_data_asset_period')
@@ -89,9 +89,9 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('token_hash', sa.String(length=64), nullable=False),
-    sa.Column('expires_at', sa.DateTime(), nullable=False),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('used', sa.Boolean(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['credential_users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -101,8 +101,8 @@ def upgrade() -> None:
     sa.Column('asset_id', sa.Integer(), nullable=False),
     sa.Column('conviction_level', sa.String(length=20), nullable=False),
     sa.Column('signal', sa.String(length=20), nullable=False),
-    sa.Column('entered_at', sa.DateTime(), nullable=False),
-    sa.Column('exited_at', sa.DateTime(), nullable=True),
+    sa.Column('entered_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('exited_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -120,7 +120,7 @@ def upgrade() -> None:
     sa.Column('data_coverage', sa.Float(), nullable=False),
     sa.Column('growth_stage', sa.String(length=30), nullable=True),
     sa.Column('score_detail', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
-    sa.Column('scored_at', sa.DateTime(), nullable=False),
+    sa.Column('scored_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -131,7 +131,7 @@ def upgrade() -> None:
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('encrypted_secret', sa.Text(), nullable=False),
     sa.Column('confirmed', sa.Boolean(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['credential_users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -142,7 +142,7 @@ def upgrade() -> None:
     sa.Column('credential_id', sa.Text(), nullable=False),
     sa.Column('public_key', sa.Text(), nullable=False),
     sa.Column('sign_count', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['credential_users.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('credential_id')
