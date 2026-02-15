@@ -29,6 +29,32 @@ vi.mock("framer-motion", () => ({
       <section {...props}>{children}</section>
     ),
   },
+  useInView: () => true,
+  useMotionValue: (init: number) => {
+    let value = init
+    return {
+      get: () => value,
+      set: (v: number) => { value = v },
+      on: (_event: string, _cb: any) => () => {},
+    }
+  },
+  useTransform: (_mv: any, _transform: any) => ({
+    get: () => "0.0",
+    on: (_event: string, _cb: any) => () => {},
+  }),
+  useScroll: () => ({ scrollYProgress: { get: () => 0, on: () => () => {} } }),
+  animate: () => ({ stop: () => {} }),
+}))
+
+vi.mock("@/lib/stores/node-positions", () => ({
+  useNodePositions: (selector: any) => {
+    const state = {
+      positions: {},
+      setPosition: vi.fn(),
+      clear: vi.fn(),
+    }
+    return typeof selector === "function" ? selector(state) : state
+  },
 }))
 
 import Page from "../../../app/page"

@@ -26,7 +26,19 @@ vi.mock("framer-motion", () => ({
     get: () => "0.0",
     on: (_event: string, _cb: any) => () => {},
   }),
+  useScroll: () => ({ scrollYProgress: { get: () => 0, on: () => () => {} } }),
   animate: () => ({ stop: () => {} }),
+}))
+
+vi.mock("@/lib/stores/node-positions", () => ({
+  useNodePositions: (selector: any) => {
+    const state = {
+      positions: {},
+      setPosition: vi.fn(),
+      clear: vi.fn(),
+    }
+    return typeof selector === "function" ? selector(state) : state
+  },
 }))
 
 import {
