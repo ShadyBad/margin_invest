@@ -1,0 +1,7 @@
+export { HeroSection } from "./hero-section"
+export { FrictionSection } from "./friction-section"
+export { EngineDiagram } from "./engine-diagram"
+export { EngineProof } from "./engine-proof"
+export { CapabilitiesSection } from "./capabilities-section"
+export { InvestorPositioning } from "./investor-positioning"
+export { FinalCTA } from "./final-cta"
