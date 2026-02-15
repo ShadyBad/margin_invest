@@ -1,5 +1,6 @@
 import dynamic from "next/dynamic"
 import { NavMinimal } from "@/components/landing/nav-minimal"
+import { DevAnnotations } from "@/components/landing/dev-annotations"
 import {
   HeroSection,
   FrictionSection,
@@ -50,6 +51,7 @@ export default function Home() {
         <CapabilitiesSection />
         <InvestorPositioning />
         <FinalCTA />
+        <DevAnnotations />
       </div>
     </main>
   )
