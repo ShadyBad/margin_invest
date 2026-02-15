@@ -50,6 +50,10 @@ const mockDashboardData: DashboardResponse = {
       quality_percentile: 88,
       value_percentile: 72,
       momentum_percentile: 95,
+      actual_price: 185.50,
+      buy_price: 150.00,
+      sell_price: 210.00,
+      price_upside: 13.2,
     },
     {
       ticker: "MSFT",
@@ -60,6 +64,10 @@ const mockDashboardData: DashboardResponse = {
       quality_percentile: 90,
       value_percentile: 65,
       momentum_percentile: 80,
+      actual_price: 420.00,
+      buy_price: 380.00,
+      sell_price: 480.00,
+      price_upside: 14.3,
     },
   ],
   watchlist: [

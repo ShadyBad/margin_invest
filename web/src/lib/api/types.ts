@@ -21,6 +21,27 @@ export interface FactorBreakdownResponse {
   average_percentile: number
 }
 
+export interface PriceBar {
+  date: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  adj_close: number | null
+}
+
+export interface SignalTransition {
+  previous_signal: string
+  new_signal: string
+  previous_conviction: string
+  new_conviction: string
+  actual_price_at_transition: number | null
+  intrinsic_value_at_transition: number | null
+  composite_percentile: number
+  transitioned_at: string
+}
+
 export interface ScoreResponse {
   ticker: string
   name: string
@@ -34,6 +55,16 @@ export interface ScoreResponse {
   data_coverage: number
   growth_stage?: string
   scored_at?: string
+  // Price targets
+  intrinsic_value: number | null
+  buy_price: number | null
+  sell_price: number | null
+  actual_price: number | null
+  price_upside: number | null
+  valuation_methods: Record<string, number> | null
+  // Optional includes
+  price_history?: PriceBar[] | null
+  signal_history?: SignalTransition[] | null
 }
 
 export interface ScoreListResponse {
@@ -52,6 +83,10 @@ export interface PickSummary {
   quality_percentile: number
   value_percentile: number
   momentum_percentile: number
+  actual_price: number | null
+  buy_price: number | null
+  sell_price: number | null
+  price_upside: number | null
 }
 
 export interface WatchlistItem {

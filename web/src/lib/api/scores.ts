@@ -8,8 +8,12 @@ export interface ListScoresParams {
   conviction?: string
 }
 
-export async function getScore(ticker: string): Promise<ScoreResponse> {
-  return apiFetch<ScoreResponse>(`/api/v1/scores/${ticker.toUpperCase()}`)
+export async function getScore(
+  ticker: string,
+  include?: string[],
+): Promise<ScoreResponse> {
+  const params = include?.length ? `?include=${include.join(',')}` : ''
+  return apiFetch<ScoreResponse>(`/api/v1/scores/${ticker.toUpperCase()}${params}`)
 }
 
 export async function listScores(params: ListScoresParams = {}): Promise<ScoreListResponse> {

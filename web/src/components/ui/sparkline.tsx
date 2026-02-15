@@ -1,0 +1,77 @@
+import type { PriceBar } from "@/lib/api/types"
+
+interface SparklineProps {
+  bars: PriceBar[] | null | undefined
+  buyPrice?: number | null
+  sellPrice?: number | null
+  width?: number
+  height?: number
+  className?: string
+}
+
+export function Sparkline({
+  bars,
+  buyPrice,
+  sellPrice,
+  width = 120,
+  height = 32,
+  className = "",
+}: SparklineProps) {
+  if (!bars || bars.length < 2) {
+    return (
+      <svg
+        width={width}
+        height={height}
+        className={className}
+        data-testid="sparkline-empty"
+      >
+        <line
+          x1={4}
+          y1={height / 2}
+          x2={width - 4}
+          y2={height / 2}
+          stroke="currentColor"
+          strokeWidth={1}
+          className="text-text-tertiary"
+          strokeDasharray="4 2"
+        />
+      </svg>
+    )
+  }
+
+  const closes = bars.map((b) => b.close)
+  const min = Math.min(...closes)
+  const max = Math.max(...closes)
+  const range = max - min || 1
+  const padding = 4
+
+  const points = closes
+    .map((c, i) => {
+      const x = padding + (i / (closes.length - 1)) * (width - padding * 2)
+      const y = padding + (1 - (c - min) / range) * (height - padding * 2)
+      return `${x},${y}`
+    })
+    .join(" ")
+
+  const lastClose = closes[closes.length - 1]
+  let strokeColor = "text-text-secondary"
+  if (buyPrice != null && lastClose <= buyPrice) strokeColor = "text-bullish"
+  if (sellPrice != null && lastClose > sellPrice) strokeColor = "text-bearish"
+
+  return (
+    <svg
+      width={width}
+      height={height}
+      className={className}
+      data-testid="sparkline"
+    >
+      <polyline
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        points={points}
+        className={strokeColor}
+      />
+    </svg>
+  )
+}
