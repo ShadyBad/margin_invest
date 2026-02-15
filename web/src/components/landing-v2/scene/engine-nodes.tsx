@@ -1,0 +1,92 @@
+"use client"
+
+import { useRef, useEffect, useMemo } from "react"
+import { useFrame } from "@react-three/fiber"
+import { useScroll } from "@react-three/drei"
+import * as THREE from "three"
+import type { QualityTier } from "@/lib/hooks/use-quality-tier"
+
+const NODE_COUNT = 4
+const NODE_POSITIONS: [number, number, number][] = [
+  [-4.5, 0, 0],
+  [-1.5, 0, 0],
+  [1.5, 0, 0],
+  [4.5, 0, 0],
+]
+
+const ACCENT_COLOR = new THREE.Color("#0E4F3A")
+const INACTIVE_COLOR = new THREE.Color("#888888")
+
+interface EngineNodesProps {
+  tier: QualityTier
+}
+
+export function EngineNodes({ tier }: EngineNodesProps) {
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const scroll = useScroll()
+  const tempObj = useMemo(() => new THREE.Object3D(), [])
+  const tempColor = useMemo(() => new THREE.Color(), [])
+
+  const geometry = useMemo(() => {
+    return tier === "high"
+      ? new THREE.OctahedronGeometry(0.5, 1)
+      : new THREE.OctahedronGeometry(0.5, 0)
+  }, [tier])
+
+  useEffect(() => {
+    if (!meshRef.current) return
+    for (let i = 0; i < NODE_COUNT; i++) {
+      tempObj.position.set(10 + i * 2, 0, 0)
+      tempObj.scale.setScalar(0.01)
+      tempObj.updateMatrix()
+      meshRef.current.setMatrixAt(i, tempObj.matrix)
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true
+  }, [tempObj])
+
+  useFrame(() => {
+    if (!meshRef.current) return
+
+    const assembleProgress = scroll.range(0.3, 0.2)
+    const recedeProgress = scroll.range(0.5, 0.1)
+    const activeIndex = Math.min(
+      Math.floor(scroll.range(0.3, 0.2) * NODE_COUNT),
+      NODE_COUNT - 1
+    )
+
+    for (let i = 0; i < NODE_COUNT; i++) {
+      const nodeProgress = Math.max(0, Math.min(1, (assembleProgress * NODE_COUNT - i) * 1.5))
+      const target = NODE_POSITIONS[i]
+
+      const x = THREE.MathUtils.lerp(10 + i * 2, target[0], nodeProgress)
+      const y = target[1]
+      const z = THREE.MathUtils.lerp(0, target[2], nodeProgress) - recedeProgress * 3
+
+      tempObj.position.set(x, y, z)
+      const scale = THREE.MathUtils.lerp(0.01, 1, nodeProgress) * (1 - recedeProgress * 0.5)
+      tempObj.scale.setScalar(scale)
+      tempObj.rotation.y += 0.002
+      tempObj.updateMatrix()
+      meshRef.current.setMatrixAt(i, tempObj.matrix)
+
+      tempColor.copy(i <= activeIndex ? ACCENT_COLOR : INACTIVE_COLOR)
+      meshRef.current.setColorAt(i, tempColor)
+    }
+
+    meshRef.current.instanceMatrix.needsUpdate = true
+    if (meshRef.current.instanceColor) {
+      meshRef.current.instanceColor.needsUpdate = true
+    }
+  })
+
+  return (
+    <instancedMesh ref={meshRef} args={[geometry, undefined, NODE_COUNT]}>
+      <meshStandardMaterial
+        transparent
+        opacity={0.85}
+        roughness={0.4}
+        metalness={0.1}
+      />
+    </instancedMesh>
+  )
+}
