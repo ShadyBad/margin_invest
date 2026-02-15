@@ -4,16 +4,18 @@ import { Canvas } from "@react-three/fiber"
 import { ScrollControls } from "@react-three/drei"
 import { Suspense } from "react"
 import { AmbientGrid } from "./ambient-grid"
+import { EngineNodes } from "./engine-nodes"
+import { ConnectionLines } from "./connection-lines"
+import { CapabilityCards3D } from "./capability-cards-3d"
 import type { QualityTier } from "@/lib/hooks/use-quality-tier"
 
 interface SceneCanvasProps {
   tier: QualityTier
   dpr: number
   pages: number
-  children?: React.ReactNode
 }
 
-export function SceneCanvas({ tier, dpr, pages, children }: SceneCanvasProps) {
+export function SceneCanvas({ tier, dpr, pages }: SceneCanvasProps) {
   return (
     <Canvas
       dpr={[1, dpr]}
@@ -33,7 +35,9 @@ export function SceneCanvas({ tier, dpr, pages, children }: SceneCanvasProps) {
       <Suspense fallback={null}>
         <ScrollControls pages={pages} damping={0.15}>
           <AmbientGrid tier={tier} />
-          {children}
+          <EngineNodes tier={tier} />
+          <ConnectionLines />
+          <CapabilityCards3D />
         </ScrollControls>
       </Suspense>
     </Canvas>
