@@ -1,7 +1,11 @@
-import { ConvictionBadge, SignalBadge } from "@/components/ui"
+import { ConvictionBadge } from "@/components/ui"
+import { ActionPill } from "@/components/ui"
 import { formatAttributeLabel, formatScoredAt } from "@/lib/format"
 import { FactorBreakdown } from "./factor-breakdown"
 import { FilterList } from "./filter-list"
+import { PriceChart } from "./price-chart"
+import { ValuationBreakdown } from "./valuation-breakdown"
+import { SignalTimeline } from "./signal-timeline"
 import type { ScoreResponse } from "@/lib/api/types"
 
 interface AssetDetailProps {
@@ -24,8 +28,22 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
           {score.composite_percentile.toFixed(0)}
         </span>
         <ConvictionBadge level={score.conviction_level} />
-        <SignalBadge signal={score.signal} />
+        <ActionPill
+          signal={score.signal}
+          buyPrice={score.buy_price}
+          sellPrice={score.sell_price}
+          actualPrice={score.actual_price}
+          intrinsicValue={score.intrinsic_value}
+        />
       </div>
+
+      {/* Price Chart — full width */}
+      <PriceChart
+        bars={score.price_history ?? undefined}
+        buyPrice={score.buy_price}
+        sellPrice={score.sell_price}
+        className="mb-6"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left column: Factor Breakdown */}
@@ -35,7 +53,7 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
           momentum={score.momentum}
         />
 
-        {/* Right column: Filters + Metadata */}
+        {/* Right column: Filters + Metadata + Valuation + Signal History */}
         <div className="space-y-6">
           {score.filters_passed.length > 0 && (
             <FilterList filters={score.filters_passed} />
@@ -73,6 +91,13 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
               )}
             </dl>
           </div>
+
+          <ValuationBreakdown
+            methods={score.valuation_methods}
+            intrinsicValue={score.intrinsic_value}
+          />
+
+          <SignalTimeline transitions={score.signal_history ?? undefined} />
         </div>
       </div>
     </div>
