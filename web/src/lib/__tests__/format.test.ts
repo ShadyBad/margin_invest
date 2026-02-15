@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { formatAttributeLabel } from "../format"
+import { formatAttributeLabel, formatScoredAt } from "../format"
 
 describe("formatAttributeLabel", () => {
   it("converts snake_case to Title Case", () => {
@@ -55,5 +55,19 @@ describe("formatAttributeLabel", () => {
     expect(formatAttributeLabel("Quality")).toBe("Quality")
     expect(formatAttributeLabel("Value")).toBe("Value")
     expect(formatAttributeLabel("Momentum")).toBe("Momentum")
+  })
+})
+
+describe("formatScoredAt", () => {
+  it("formats an ISO date string to a readable timestamp", () => {
+    expect(formatScoredAt("2026-02-15T06:42:41.197479Z")).toMatch(
+      /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, 2026, \d{1,2}:\d{2} (AM|PM)$/,
+    )
+  })
+
+  it("handles midnight correctly", () => {
+    // Midnight UTC — local rendering depends on timezone, but format should be valid
+    const result = formatScoredAt("2026-01-01T00:00:00Z")
+    expect(result).toMatch(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}, \d{1,2}:\d{2} (AM|PM)$/)
   })
 })

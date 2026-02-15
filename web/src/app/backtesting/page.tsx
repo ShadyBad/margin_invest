@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { formatScoredAt } from "@/lib/format"
 import { AppShell } from "@/components/layout"
 import { MetricsSummary, ValidationBadges } from "@/components/backtesting"
 import { SkeletonCard, EmptyState } from "@/components/ui"
@@ -99,13 +100,7 @@ export default function BacktestingPage() {
             {result && (
               <p className="text-sm text-text-secondary mt-1">
                 Last run:{" "}
-                {new Date(result.run_at).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                {formatScoredAt(result.run_at)}
                 {" "}({result.duration_seconds.toFixed(1)}s)
               </p>
             )}

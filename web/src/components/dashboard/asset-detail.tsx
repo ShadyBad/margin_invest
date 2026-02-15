@@ -1,5 +1,5 @@
 import { ConvictionBadge, SignalBadge } from "@/components/ui"
-import { formatAttributeLabel } from "@/lib/format"
+import { formatAttributeLabel, formatScoredAt } from "@/lib/format"
 import { FactorBreakdown } from "./factor-breakdown"
 import { FilterList } from "./filter-list"
 import type { ScoreResponse } from "@/lib/api/types"
@@ -9,22 +9,6 @@ interface AssetDetailProps {
   className?: string
 }
 
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-]
-
-function formatScoredAt(isoString: string): string {
-  const d = new Date(isoString)
-  const month = MONTHS[d.getMonth()]
-  const day = d.getDate()
-  const year = d.getFullYear()
-  const h = d.getHours()
-  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h
-  const min = String(d.getMinutes()).padStart(2, "0")
-  const ampm = h >= 12 ? "PM" : "AM"
-  return `${month} ${day}, ${year}, ${hour}:${min} ${ampm}`
-}
 
 export function AssetDetail({ score, className = "" }: AssetDetailProps) {
   return (

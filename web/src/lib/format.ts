@@ -36,6 +36,28 @@ const NAMED_SCORES: Record<string, string> = {
  * - Handles named scoring models (Piotroski F-Score, Beneish M-Score, etc.)
  * - Passes through already-formatted strings unchanged
  */
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+]
+
+/**
+ * Formats an ISO date string into a deterministic, human-readable timestamp.
+ * Avoids toLocaleDateString which causes React hydration mismatches
+ * due to ICU differences between Node.js and browsers.
+ */
+export function formatScoredAt(isoString: string): string {
+  const d = new Date(isoString)
+  const month = MONTHS[d.getMonth()]
+  const day = d.getDate()
+  const year = d.getFullYear()
+  const h = d.getHours()
+  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h
+  const min = String(d.getMinutes()).padStart(2, "0")
+  const ampm = h >= 12 ? "PM" : "AM"
+  return `${month} ${day}, ${year}, ${hour}:${min} ${ampm}`
+}
+
 export function formatAttributeLabel(key: string): string {
   if (!key) return ""
 

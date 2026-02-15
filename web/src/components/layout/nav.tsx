@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import { useTheme } from "next-themes"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -16,7 +16,10 @@ export function Nav() {
   const pathname = usePathname()
   const { data: session } = useSession()
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  useEffect(() => setMounted(true), [])
 
   return (
     <nav className="bg-bg-elevated border-b border-border-primary">
@@ -51,7 +54,7 @@ export function Nav() {
               className="text-sm text-text-secondary hover:text-text-primary transition-colors"
               aria-label="Toggle theme"
             >
-              {theme === "dark" ? "\u2600" : "\u25CF"}
+              {mounted ? (theme === "dark" ? "\u2600" : "\u25CF") : "\u00A0"}
             </button>
             {session?.user ? (
               <div className="flex items-center gap-3">
@@ -127,7 +130,7 @@ export function Nav() {
               className="block w-full text-left text-sm text-text-secondary hover:text-text-primary transition-colors py-2"
               aria-label="Toggle theme"
             >
-              {theme === "dark" ? "\u2600 Light mode" : "\u25CF Dark mode"}
+              {mounted ? (theme === "dark" ? "\u2600 Light mode" : "\u25CF Dark mode") : "\u00A0"}
             </button>
           </div>
         </div>
