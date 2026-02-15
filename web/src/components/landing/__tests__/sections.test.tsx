@@ -54,6 +54,11 @@ describe("FrictionSection", () => {
     expect(screen.getByText("Few operate with structure.")).toBeInTheDocument()
     expect(screen.getByText("Emotion is expensive.")).toBeInTheDocument()
   })
+
+  it("renders the behavioral finance citation", () => {
+    render(<FrictionSection />)
+    expect(screen.getByText(/Barber & Odean/)).toBeInTheDocument()
+  })
 })
 
 describe("EngineDiagram", () => {
