@@ -1,3 +1,4 @@
+export { LandingScene } from "./landing-scene"
 export { WebGLScene } from "./webgl-scene"
 export { SceneCanvas } from "./scene-canvas"
 export { AmbientGrid } from "./ambient-grid"
