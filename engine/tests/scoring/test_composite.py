@@ -574,3 +574,49 @@ class TestFactorBreakdownFields:
         assert sub.raw_value == pytest.approx(0.732)
         assert sub.percentile_rank == pytest.approx(98.0)
         assert sub.detail == "GP/TA = 0.732"
+
+
+# ---------------------------------------------------------------------------
+# Price targets integration
+# ---------------------------------------------------------------------------
+
+class TestPriceTargetsIntegration:
+    """Price targets can be optionally passed into composite scorer."""
+
+    def test_composite_score_with_price_targets(self):
+        from margin_engine.scoring.quantitative.price_targets import PriceTargets
+
+        targets = PriceTargets(
+            intrinsic_value=195.20,
+            buy_price=156.16,
+            sell_price=195.20,
+            actual_price=167.42,
+            price_upside=0.166,
+            valuation_methods={"dcf": 210.0, "ev_fcf": 185.0},
+        )
+        score = compute_composite_score(
+            ticker="AAPL",
+            quality_scores=[FactorScore(name="gp", raw_value=0.5, percentile_rank=80.0)],
+            value_scores=[FactorScore(name="ev", raw_value=12.0, percentile_rank=75.0)],
+            momentum_scores=[FactorScore(name="pm", raw_value=0.1, percentile_rank=60.0)],
+            filters_passed=[],
+            price_targets=targets,
+        )
+        assert score.intrinsic_value == 195.20
+        assert score.buy_price == 156.16
+        assert score.sell_price == 195.20
+        assert score.actual_price == 167.42
+        assert score.price_upside == 0.166
+        assert score.valuation_methods == {"dcf": 210.0, "ev_fcf": 185.0}
+
+    def test_composite_score_without_price_targets(self):
+        """Existing behavior unchanged when no price_targets provided."""
+        score = compute_composite_score(
+            ticker="AAPL",
+            quality_scores=[FactorScore(name="gp", raw_value=0.5, percentile_rank=80.0)],
+            value_scores=[FactorScore(name="ev", raw_value=12.0, percentile_rank=75.0)],
+            momentum_scores=[FactorScore(name="pm", raw_value=0.1, percentile_rank=60.0)],
+            filters_passed=[],
+        )
+        assert score.intrinsic_value is None
+        assert score.buy_price is None

@@ -14,6 +14,7 @@ from margin_engine.models.scoring import (
     GrowthStage,
     ScoringConfig,
 )
+from margin_engine.scoring.quantitative.price_targets import PriceTargets
 
 
 def compute_composite_score(
@@ -24,6 +25,7 @@ def compute_composite_score(
     filters_passed: list[FilterResult],
     growth_stage: GrowthStage | None = None,
     config: ScoringConfig | None = None,
+    price_targets: PriceTargets | None = None,
 ) -> CompositeScore:
     """Compute a weighted composite score from quality, value, and momentum sub-factors.
 
@@ -83,7 +85,19 @@ def compute_composite_score(
         scores_with_data = sum(1 for s in all_scores if s.percentile_rank > 0.0)
         data_coverage = scores_with_data / total_scores
 
-    # 5. Assemble and return CompositeScore
+    # 5. Attach price targets if provided
+    price_kwargs: dict = {}
+    if price_targets:
+        price_kwargs = {
+            "intrinsic_value": price_targets.intrinsic_value,
+            "buy_price": price_targets.buy_price,
+            "sell_price": price_targets.sell_price,
+            "actual_price": price_targets.actual_price,
+            "price_upside": price_targets.price_upside,
+            "valuation_methods": price_targets.valuation_methods,
+        }
+
+    # 6. Assemble and return CompositeScore
     return CompositeScore(
         ticker=ticker,
         composite_percentile=composite_percentile,
@@ -93,4 +107,5 @@ def compute_composite_score(
         filters_passed=filters_passed,
         data_coverage=data_coverage,
         growth_stage=growth_stage,
+        **price_kwargs,
     )
