@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
+import pytest
+
 from margin_api.config import Settings
 
 
@@ -28,3 +30,37 @@ class TestSettings:
         settings = Settings()
         assert settings.jwt_algorithm == "HS256"
         assert len(settings.jwt_secret) > 0
+
+
+class TestStripeSettings:
+    def test_stripe_settings_exist(self):
+        """Settings class has Stripe fields with empty defaults."""
+        s = Settings(
+            database_url="sqlite+aiosqlite:///:memory:",
+            mfa_encryption_key="",
+        )
+        assert s.stripe_secret_key == ""
+        assert s.stripe_publishable_key == ""
+        assert s.stripe_webhook_secret == ""
+        assert s.stripe_price_id == ""
+
+    def test_api_key_encryption_key_exists(self):
+        """Settings class has API key encryption field."""
+        s = Settings(
+            database_url="sqlite+aiosqlite:///:memory:",
+            mfa_encryption_key="",
+        )
+        assert s.api_key_encryption_key == ""
+
+    def test_stripe_settings_from_env(self, monkeypatch):
+        """Stripe settings load from MARGIN_-prefixed env vars."""
+        monkeypatch.setenv("MARGIN_STRIPE_SECRET_KEY", "sk_test_123")
+        monkeypatch.setenv("MARGIN_STRIPE_PUBLISHABLE_KEY", "pk_test_456")
+        monkeypatch.setenv("MARGIN_STRIPE_WEBHOOK_SECRET", "whsec_789")
+        monkeypatch.setenv("MARGIN_STRIPE_PRICE_ID", "price_abc")
+        monkeypatch.setenv("MARGIN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+        s = Settings()
+        assert s.stripe_secret_key == "sk_test_123"
+        assert s.stripe_publishable_key == "pk_test_456"
+        assert s.stripe_webhook_secret == "whsec_789"
+        assert s.stripe_price_id == "price_abc"

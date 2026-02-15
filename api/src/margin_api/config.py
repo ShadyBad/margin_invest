@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     webauthn_rp_name: str = "Margin Invest"
     webauthn_rp_origin: str = "http://localhost:3000"
 
+    # Stripe
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_id: str = ""
+
+    # API Key encryption (separate from MFA encryption key)
+    api_key_encryption_key: str = ""
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
 
