@@ -43,7 +43,7 @@ describe("Landing page assembly", () => {
     // Engine Diagram - use getAllByText since desktop+mobile both render
     expect(screen.getAllByText("Market Data").length).toBeGreaterThan(0)
     // Engine Proof
-    expect(screen.getByText(/WebGL stage morph ends here/i)).toBeInTheDocument()
+    expect(screen.getByText("What the engine produces.")).toBeInTheDocument()
     // Capabilities
     expect(screen.getByText("Structured Allocation")).toBeInTheDocument()
     // Investor Positioning
@@ -53,8 +53,10 @@ describe("Landing page assembly", () => {
     expect(ctaLinks.length).toBeGreaterThanOrEqual(2) // hero + final CTA at minimum
   })
 
-  it("renders the minimal nav", () => {
+  it("renders the minimal nav with Dashboard link", () => {
     render(<Page />)
     expect(screen.getByText("Margin Invest")).toBeInTheDocument()
+    const dashboardLinks = screen.getAllByRole("link", { name: /^dashboard$/i })
+    expect(dashboardLinks.length).toBeGreaterThanOrEqual(1)
   })
 })
