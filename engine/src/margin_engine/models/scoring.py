@@ -116,11 +116,25 @@ class CompositeScore(BaseModel):
     @property
     def signal(self) -> Signal:
         level = self.conviction_level
-        if level in (ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH):
-            return Signal.BUY
-        elif level == ConvictionLevel.WATCHLIST:
+        if level == ConvictionLevel.WATCHLIST:
             return Signal.WATCH
-        return Signal.NO_ACTION
+        if level == ConvictionLevel.NONE:
+            return Signal.NO_ACTION
+        # High/Exceptional conviction: use price-aware signals if available
+        if (
+            self.actual_price is not None
+            and self.sell_price is not None
+            and self.buy_price is not None
+        ):
+            if self.actual_price > self.sell_price * 1.15:
+                return Signal.URGENT_SELL
+            if self.actual_price > self.sell_price:
+                return Signal.SELL
+            if self.actual_price <= self.buy_price:
+                return Signal.BUY
+            return Signal.HOLD
+        # Fallback: conviction-based
+        return Signal.BUY
 
 
 class ScoringConfig(BaseModel):
