@@ -3,11 +3,13 @@ import { auth } from "@/lib/auth"
 
 const API_URL = process.env.API_URL || "http://localhost:8000"
 
-export async function POST() {
+export async function POST(request: Request) {
   const session = await auth()
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  const body = await request.text().catch(() => "{}")
 
   try {
     const response = await fetch(`${API_URL}/api/v1/backtest/run`, {
@@ -16,6 +18,7 @@ export async function POST() {
         "Content-Type": "application/json",
         "X-User-Id": (session.userId as string) || "",
       },
+      body: body || "{}",
     })
 
     if (!response.ok) {

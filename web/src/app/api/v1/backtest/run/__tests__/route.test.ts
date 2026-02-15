@@ -10,6 +10,14 @@ vi.stubGlobal("fetch", mockFetch)
 
 const { POST } = await import("../route")
 
+function mockRequest(body: string = "{}") {
+  return new Request("http://localhost:3000/api/v1/backtest/run", {
+    method: "POST",
+    body,
+    headers: { "Content-Type": "application/json" },
+  })
+}
+
 describe("POST /api/v1/backtest/run", () => {
   beforeEach(() => {
     vi.stubEnv("API_URL", "http://localhost:8000")
@@ -24,14 +32,14 @@ describe("POST /api/v1/backtest/run", () => {
   it("returns 401 when not authenticated", async () => {
     mockAuth.mockResolvedValue(null)
 
-    const response = await POST()
+    const response = await POST(mockRequest())
 
     expect(response.status).toBe(401)
     const body = await response.json()
     expect(body.error).toBe("Unauthorized")
   })
 
-  it("proxies POST request to FastAPI when authenticated", async () => {
+  it("proxies POST request with body to FastAPI when authenticated", async () => {
     mockAuth.mockResolvedValue({ userId: "user-123" })
     mockFetch.mockResolvedValue(
       new Response(JSON.stringify({ id: "new-123", status: "running" }), {
@@ -40,7 +48,7 @@ describe("POST /api/v1/backtest/run", () => {
       }),
     )
 
-    const response = await POST()
+    const response = await POST(mockRequest("{}"))
 
     expect(response.status).toBe(200)
     expect(mockFetch).toHaveBeenCalledWith(
@@ -51,6 +59,7 @@ describe("POST /api/v1/backtest/run", () => {
           "Content-Type": "application/json",
           "X-User-Id": "user-123",
         }),
+        body: "{}",
       }),
     )
   })
@@ -61,7 +70,7 @@ describe("POST /api/v1/backtest/run", () => {
       new Response("Internal Server Error", { status: 500 }),
     )
 
-    const response = await POST()
+    const response = await POST(mockRequest())
 
     expect(response.status).toBe(500)
   })
@@ -70,7 +79,7 @@ describe("POST /api/v1/backtest/run", () => {
     mockAuth.mockResolvedValue({ userId: "user-123" })
     mockFetch.mockRejectedValue(new Error("Connection refused"))
 
-    const response = await POST()
+    const response = await POST(mockRequest())
 
     expect(response.status).toBe(502)
   })

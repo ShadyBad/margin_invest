@@ -2,7 +2,10 @@ import { apiFetch } from "./client"
 import type { BacktestResult, BacktestListResponse } from "./types"
 
 export async function runBacktest(): Promise<BacktestResult> {
-  return apiFetch<BacktestResult>("/api/v1/backtest/run", { method: "POST" })
+  return apiFetch<BacktestResult>("/api/v1/backtest/run", {
+    method: "POST",
+    body: JSON.stringify({}),
+  })
 }
 
 export async function getBacktestResults(): Promise<BacktestListResponse> {
