@@ -95,6 +95,10 @@ class Score(Base):
     data_coverage: Mapped[float] = mapped_column(default=1.0)
     growth_stage: Mapped[str | None] = mapped_column(String(30), nullable=True)
     score_detail: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    intrinsic_value: Mapped[float | None] = mapped_column(nullable=True)
+    buy_price: Mapped[float | None] = mapped_column(nullable=True)
+    sell_price: Mapped[float | None] = mapped_column(nullable=True)
+    actual_price: Mapped[float | None] = mapped_column(nullable=True)
     scored_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -120,6 +124,31 @@ class Recommendation(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
 
     asset: Mapped[Asset] = relationship(back_populates="recommendations")
+
+
+class SignalTransition(Base):
+    """Audit trail for signal changes on scored assets."""
+
+    __tablename__ = "signal_transitions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
+    previous_signal: Mapped[str] = mapped_column(String(20))
+    new_signal: Mapped[str] = mapped_column(String(20))
+    previous_conviction: Mapped[str] = mapped_column(String(20))
+    new_conviction: Mapped[str] = mapped_column(String(20))
+    actual_price_at_transition: Mapped[float | None] = mapped_column(nullable=True)
+    intrinsic_value_at_transition: Mapped[float | None] = mapped_column(nullable=True)
+    composite_percentile: Mapped[float]
+    transitioned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    asset: Mapped[Asset] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("asset_id", "transitioned_at", name="uq_signal_transition_asset_time"),
+    )
 
 
 class ApiKey(Base):
