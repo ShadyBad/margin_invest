@@ -33,6 +33,8 @@ export function SceneCanvas({ tier, dpr, pages }: SceneCanvasProps) {
       }}
     >
       <Suspense fallback={null}>
+        <ambientLight intensity={0.5} />
+        <pointLight position={[5, 5, 5]} intensity={0.3} />
         <ScrollControls pages={pages} damping={0.15}>
           <AmbientGrid tier={tier} />
           <EngineNodes tier={tier} />

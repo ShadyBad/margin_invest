@@ -15,7 +15,7 @@ describe("NavMinimal", () => {
 
   it("renders a CTA link", () => {
     render(<NavMinimal />)
-    const cta = screen.getByRole("link", { name: /explore/i })
+    const cta = screen.getByRole("link", { name: /dashboard/i })
     expect(cta).toHaveAttribute("href", "/dashboard")
   })
 

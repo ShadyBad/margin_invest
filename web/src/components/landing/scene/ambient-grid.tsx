@@ -22,7 +22,7 @@ export function AmbientGrid({ tier }: AmbientGridProps) {
       new THREE.LineBasicMaterial({
         color: new THREE.Color(0x888888),
         transparent: true,
-        opacity: 0.04,
+        opacity: 0.08,
       }),
     []
   )
@@ -32,6 +32,11 @@ export function AmbientGrid({ tier }: AmbientGridProps) {
     const offset = scroll.offset
     groupRef.current.position.y = offset * 2
     groupRef.current.rotation.x = -0.3 + offset * 0.1
+
+    // Brighten during engine section (scroll 0.3-0.5)
+    const engineProximity = 1 - Math.abs(offset - 0.4) * 5
+    const brightening = Math.max(0, Math.min(1, engineProximity))
+    material.opacity = 0.08 + brightening * 0.04
   })
 
   return (
