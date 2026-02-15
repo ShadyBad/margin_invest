@@ -33,7 +33,7 @@ describe("HeroSection", () => {
 
   it("renders the subline", () => {
     render(<HeroSection />)
-    expect(screen.getByText(/institutional-grade analytics/i)).toBeInTheDocument()
+    expect(screen.getByText("A deterministic scoring engine for capital allocation.")).toBeInTheDocument()
   })
 
   it("renders the primary CTA", () => {
@@ -65,16 +65,19 @@ describe("EngineDiagram", () => {
     expect(screen.getAllByText("Decision Clarity").length).toBeGreaterThanOrEqual(1)
   })
 
-  it("renders the WebGL annotation", () => {
+  it("renders the section label", () => {
     render(<EngineDiagram />)
-    expect(screen.getByText(/transitions into interactive WebGL/i)).toBeInTheDocument()
+    expect(screen.getByText(/how the engine works/i)).toBeInTheDocument()
   })
 })
 
 describe("EngineProof", () => {
-  it("renders the annotation", () => {
+  it("renders the heading and dashboard panels", () => {
     render(<EngineProof />)
-    expect(screen.getByText(/WebGL stage morph ends here/i)).toBeInTheDocument()
+    expect(screen.getByText("What the engine produces.")).toBeInTheDocument()
+    expect(screen.getAllByText(/Composite Score/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/Risk Breakdown/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/Factor Weights/i).length).toBeGreaterThanOrEqual(1)
   })
 })
 
@@ -96,10 +99,15 @@ describe("InvestorPositioning", () => {
 })
 
 describe("FinalCTA", () => {
-  it("renders the primary CTA only", () => {
+  it("renders the CTA heading and button", () => {
     render(<FinalCTA />)
-    const links = screen.getAllByRole("link")
-    expect(links).toHaveLength(1)
-    expect(links[0]).toHaveTextContent(/explore the engine/i)
+    expect(screen.getByText("Start with structure.")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /explore the engine/i })).toBeInTheDocument()
+  })
+
+  it("renders footer links", () => {
+    render(<FinalCTA />)
+    expect(screen.getByRole("link", { name: /methodology/i })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /dashboard/i })).toBeInTheDocument()
   })
 })

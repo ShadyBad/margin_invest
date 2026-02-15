@@ -19,23 +19,23 @@ export function HeroSection() {
           paddingBottom: "120px",
         }}
       >
-        <div className="col-span-4 md:col-span-8 lg:col-span-8 flex flex-col justify-center">
+        <div className="col-span-4 md:col-span-8 lg:col-span-8 flex flex-col justify-center lg:mt-[20px]">
           <motion.h1
             className="text-[48px] md:text-[56px] lg:text-[72px] font-bold leading-[0.98] tracking-[-0.5px] text-text-primary"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2, ease }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.2, ease }}
           >
             Structure outperforms emotion.
           </motion.h1>
 
           <motion.p
-            className="mt-6 text-lg md:text-xl text-text-secondary max-w-[640px] leading-relaxed"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 text-lg md:text-xl text-text-secondary leading-relaxed"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.4, ease }}
           >
-            Institutional-grade analytics for serious retail investors.
+            A deterministic scoring engine for capital allocation.
           </motion.p>
 
           <motion.div
