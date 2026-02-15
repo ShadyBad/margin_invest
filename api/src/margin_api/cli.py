@@ -349,6 +349,10 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                 growth_stage=composite.growth_stage.value if composite.growth_stage else None,
                 score_detail=composite.model_dump(mode="json"),
                 scored_at=datetime.now(UTC),
+                intrinsic_value=composite.intrinsic_value,
+                buy_price=composite.buy_price,
+                sell_price=composite.sell_price,
+                actual_price=composite.actual_price,
             )
             session.add(score)
             successes += 1

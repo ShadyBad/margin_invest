@@ -40,8 +40,8 @@ export function Sparkline({
   }
 
   const closes = bars.map((b) => b.close)
-  const min = Math.min(...closes)
-  const max = Math.max(...closes)
+  const min = closes.reduce((a, b) => Math.min(a, b))
+  const max = closes.reduce((a, b) => Math.max(a, b))
   const range = max - min || 1
   const padding = 4
 

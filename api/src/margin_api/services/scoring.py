@@ -37,6 +37,7 @@ from margin_engine.scoring.quantitative.f_score import piotroski_f_score
 from margin_engine.scoring.quantitative.gross_profitability import gross_profitability
 from margin_engine.scoring.quantitative.price_momentum import price_momentum
 from margin_engine.scoring.quantitative.roic_wacc import roic_wacc_spread
+from margin_engine.scoring.quantitative.price_targets import compute_price_targets
 from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yield
 from margin_engine.scoring.quantitative.sue import sue_score
 
@@ -62,6 +63,9 @@ class RawScoringResult:
     momentum_scores: list[FactorScore] = field(default_factory=list)
     filter_results: list[FilterResult] = field(default_factory=list)
     growth_stage: GrowthStage | None = None
+    period: FinancialPeriod | None = None
+    profile: AssetProfile | None = None
+    price_bars: list[PriceBar] = field(default_factory=list)
 
 
 def build_financial_period(
@@ -233,6 +237,9 @@ def compute_raw_factor_scores(
         momentum_scores=momentum_scores,
         filter_results=filter_results,
         growth_stage=growth_stage,
+        period=period,
+        profile=profile,
+        price_bars=bars,
     )
 
 
@@ -275,9 +282,11 @@ def rank_and_compute_composites(
         for (result_idx, list_attr, score_idx), ranked_score in zip(entries, ranked):
             getattr(raw_results[result_idx], list_attr)[score_idx] = ranked_score
 
-    # Compute composite scores with ranked percentiles
-    return [
-        compute_composite_score(
+    # Compute composite scores with ranked percentiles and price targets
+    composites: list[CompositeScore] = []
+    for r in raw_results:
+        # First pass: compute composite without price targets to get conviction_level
+        base_composite = compute_composite_score(
             ticker=r.ticker,
             quality_scores=r.quality_scores,
             value_scores=r.value_scores,
@@ -285,8 +294,34 @@ def rank_and_compute_composites(
             filters_passed=r.filter_results,
             growth_stage=r.growth_stage,
         )
-        for r in raw_results
-    ]
+
+        # Second pass: compute price targets using the derived conviction_level
+        price_targets = None
+        if r.period is not None and r.profile is not None:
+            price_targets = compute_price_targets(
+                period=r.period,
+                profile=r.profile,
+                price_bars=r.price_bars,
+                conviction_level=base_composite.conviction_level,
+            )
+
+        if price_targets is not None:
+            # Re-compute with price targets attached
+            composite = compute_composite_score(
+                ticker=r.ticker,
+                quality_scores=r.quality_scores,
+                value_scores=r.value_scores,
+                momentum_scores=r.momentum_scores,
+                filters_passed=r.filter_results,
+                growth_stage=r.growth_stage,
+                price_targets=price_targets,
+            )
+        else:
+            composite = base_composite
+
+        composites.append(composite)
+
+    return composites
 
 
 def run_scoring_pipeline(

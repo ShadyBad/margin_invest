@@ -69,8 +69,6 @@ def compute_price_targets(
     if shares is None or shares <= 0:
         return PriceTargets(actual_price=actual_price)
 
-    market_cap = profile.market_cap
-
     # Compute each valuation method (returns None if data is invalid)
     methods: dict[str, float | None] = {
         "dcf": _dcf_intrinsic_per_share(
@@ -83,17 +81,14 @@ def compute_price_targets(
         ),
         "ev_fcf": _ev_fcf_implied_per_share(
             period=period,
-            market_cap=market_cap,
             shares=shares,
         ),
         "acquirers_multiple": _acquirers_implied_per_share(
             period=period,
-            market_cap=market_cap,
             shares=shares,
         ),
         "shareholder_yield": _shareholder_yield_implied_per_share(
             period=period,
-            market_cap=market_cap,
             shares=shares,
         ),
     }
@@ -126,7 +121,7 @@ def compute_price_targets(
         sell_price=round(sell_price, 2),
         actual_price=actual_price,
         price_upside=price_upside,
-        valuation_methods=valid_methods,
+        valuation_methods={k: round(v, 2) for k, v in valid_methods.items()},
     )
 
 
@@ -181,7 +176,6 @@ def _dcf_intrinsic_per_share(
 
 def _ev_fcf_implied_per_share(
     period: FinancialPeriod,
-    market_cap: Decimal,
     shares: int,
     target_multiple: float = 15.0,
 ) -> float | None:
@@ -211,7 +205,6 @@ def _ev_fcf_implied_per_share(
 
 def _acquirers_implied_per_share(
     period: FinancialPeriod,
-    market_cap: Decimal,
     shares: int,
     target_multiple: float = 12.0,
 ) -> float | None:
@@ -241,7 +234,6 @@ def _acquirers_implied_per_share(
 
 def _shareholder_yield_implied_per_share(
     period: FinancialPeriod,
-    market_cap: Decimal,
     shares: int,
     target_yield: float = 0.04,
 ) -> float | None:

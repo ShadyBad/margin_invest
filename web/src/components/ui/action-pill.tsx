@@ -3,7 +3,6 @@ interface ActionPillProps {
   buyPrice?: number | null
   sellPrice?: number | null
   actualPrice?: number | null
-  intrinsicValue?: number | null
   className?: string
 }
 
@@ -26,15 +25,14 @@ function getSubtext(
   buyPrice?: number | null,
   sellPrice?: number | null,
   actualPrice?: number | null,
-  intrinsicValue?: number | null,
 ): string {
   const s = signal.toLowerCase()
-  if (s === "buy" && buyPrice != null) return `Below ${formatPrice(buyPrice)}`
+  if (s === "buy" && buyPrice != null) return `Buy below ${formatPrice(buyPrice)}`
   if (s === "hold" && actualPrice != null && buyPrice != null) {
     const pct = ((actualPrice - buyPrice) / buyPrice * 100)
-    return `+${pct.toFixed(1)}%`
+    return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
   }
-  if (s === "sell" && sellPrice != null) return `Above ${formatPrice(sellPrice)}`
+  if (s === "sell" && sellPrice != null) return `Sell above ${formatPrice(sellPrice)}`
   if (s === "urgent_sell" && actualPrice != null && sellPrice != null) {
     const pct = ((actualPrice - sellPrice) / sellPrice * 100)
     return `+${pct.toFixed(0)}% over FV`
@@ -48,11 +46,10 @@ export function ActionPill({
   buyPrice,
   sellPrice,
   actualPrice,
-  intrinsicValue,
   className = "",
 }: ActionPillProps) {
   const config = pillConfig[signal.toLowerCase()] ?? pillConfig.no_action
-  const subtext = getSubtext(signal, buyPrice, sellPrice, actualPrice, intrinsicValue)
+  const subtext = getSubtext(signal, buyPrice, sellPrice, actualPrice)
 
   return (
     <div

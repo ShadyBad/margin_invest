@@ -98,6 +98,7 @@ export function PriceChart({
             className="text-text-tertiary"
           />
           <YAxis
+            yAxisId="price"
             domain={["auto", "auto"]}
             tick={{ fontSize: 10 }}
             className="text-text-tertiary"
@@ -112,6 +113,7 @@ export function PriceChart({
               fontSize: "12px",
             }}
           />
+          <YAxis yAxisId="volume" orientation="right" hide />
           <Bar
             dataKey="volume"
             fill="currentColor"
@@ -119,7 +121,6 @@ export function PriceChart({
             opacity={0.15}
             yAxisId="volume"
           />
-          <YAxis yAxisId="volume" orientation="right" hide />
           <Line
             type="monotone"
             dataKey="close"
@@ -127,21 +128,26 @@ export function PriceChart({
             strokeWidth={1.5}
             dot={false}
             className="text-accent"
+            yAxisId="price"
           />
           {buyPrice != null && (
             <ReferenceLine
               y={buyPrice}
+              yAxisId="price"
               stroke="currentColor"
               strokeDasharray="4 2"
               className="text-bullish"
+              label={{ value: "Buy", position: "left", fontSize: 10 }}
             />
           )}
           {sellPrice != null && (
             <ReferenceLine
               y={sellPrice}
+              yAxisId="price"
               stroke="currentColor"
               strokeDasharray="4 2"
               className="text-warning"
+              label={{ value: "Sell", position: "left", fontSize: 10 }}
             />
           )}
         </ComposedChart>

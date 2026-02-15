@@ -33,7 +33,6 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
           buyPrice={score.buy_price}
           sellPrice={score.sell_price}
           actualPrice={score.actual_price}
-          intrinsicValue={score.intrinsic_value}
         />
       </div>
 

@@ -37,7 +37,7 @@ export function SignalTimeline({
             day: "numeric",
           })
           return (
-            <div key={i} className="flex items-center gap-3 text-sm">
+            <div key={t.transitioned_at} className="flex items-center gap-3 text-sm">
               <span className="text-text-tertiary w-14 shrink-0">{date}</span>
               <span className={`uppercase text-xs font-medium ${signalColor[t.previous_signal] ?? ""}`}>
                 {t.previous_signal.replace("_", " ")}

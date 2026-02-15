@@ -66,6 +66,11 @@ async def get_dashboard(
             actual_price=getattr(row.Score, "actual_price", None),
             buy_price=getattr(row.Score, "buy_price", None),
             sell_price=getattr(row.Score, "sell_price", None),
+            price_upside=(
+                round((row.Score.intrinsic_value - row.Score.actual_price) / row.Score.actual_price, 4)
+                if getattr(row.Score, "intrinsic_value", None) and getattr(row.Score, "actual_price", None)
+                else None
+            ),
         )
         for row in picks_result.all()
     ]
@@ -104,6 +109,11 @@ async def get_dashboard(
                 actual_price=getattr(row.Score, "actual_price", None),
                 buy_price=getattr(row.Score, "buy_price", None),
                 sell_price=getattr(row.Score, "sell_price", None),
+                price_upside=(
+                    round((row.Score.intrinsic_value - row.Score.actual_price) / row.Score.actual_price, 4)
+                    if getattr(row.Score, "intrinsic_value", None) and getattr(row.Score, "actual_price", None)
+                    else None
+                ),
             )
             for row in top_result.all()
         ]

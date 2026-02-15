@@ -88,6 +88,11 @@ def _score_response_from_row(row) -> ScoreResponse:
         buy_price=getattr(score, "buy_price", None),
         sell_price=getattr(score, "sell_price", None),
         actual_price=getattr(score, "actual_price", None),
+        price_upside=(
+            round((score.intrinsic_value - score.actual_price) / score.actual_price, 4)
+            if getattr(score, "intrinsic_value", None) and getattr(score, "actual_price", None)
+            else None
+        ),
     )
 
 
