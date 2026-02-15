@@ -212,6 +212,7 @@ class AssetProfile(BaseModel):
     sub_industry: str | None = None
     market_cap: Decimal = Decimal("0")
     avg_daily_volume: Decimal = Decimal("0")
+    shares_outstanding: int | None = None
     years_of_history: int = 0
 
     @property
