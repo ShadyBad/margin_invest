@@ -1,23 +1,56 @@
+import dynamic from "next/dynamic"
+import { NavMinimal } from "@/components/landing-v2/nav-minimal"
 import {
   HeroSection,
   FrictionSection,
-  SystemDiagram,
+  EngineDiagram,
   EngineProof,
   CapabilitiesSection,
   InvestorPositioning,
   FinalCTA,
-} from "@/components/landing"
+} from "@/components/landing-v2/sections"
+
+const WebGLScene = dynamic(
+  () => import("@/components/landing-v2/scene/webgl-scene").then((mod) => ({ default: mod.WebGLScene })),
+  { ssr: false }
+)
+
+const EngineNodes = dynamic(
+  () => import("@/components/landing-v2/scene/engine-nodes").then((mod) => ({ default: mod.EngineNodes })),
+  { ssr: false }
+)
+
+const ConnectionLines = dynamic(
+  () => import("@/components/landing-v2/scene/connection-lines").then((mod) => ({ default: mod.ConnectionLines })),
+  { ssr: false }
+)
+
+const CapabilityCards3D = dynamic(
+  () => import("@/components/landing-v2/scene/capability-cards-3d").then((mod) => ({ default: mod.CapabilityCards3D })),
+  { ssr: false }
+)
 
 export default function Home() {
   return (
-    <main className="bg-bg-primary min-h-screen">
-      <HeroSection />
-      <FrictionSection />
-      <SystemDiagram />
-      <EngineProof />
-      <CapabilitiesSection />
-      <InvestorPositioning />
-      <FinalCTA />
+    <main className="relative bg-bg-primary min-h-screen">
+      {/* WebGL canvas — fixed behind content */}
+      <WebGLScene pages={7}>
+        <EngineNodes tier="high" />
+        <ConnectionLines />
+        <CapabilityCards3D />
+      </WebGLScene>
+
+      {/* HTML overlay — scrollable content */}
+      <div className="relative z-10">
+        <NavMinimal />
+        <HeroSection />
+        <FrictionSection />
+        <EngineDiagram />
+        <EngineProof />
+        <CapabilitiesSection />
+        <InvestorPositioning />
+        <FinalCTA />
+      </div>
     </main>
   )
 }
