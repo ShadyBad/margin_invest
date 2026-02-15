@@ -9,14 +9,15 @@ and persists Score rows. Designed to be run via:
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from arq.connections import RedisSettings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
-from margin_api.db.models import Asset, FinancialData, Score
+from margin_api.db.models import ApiKey, ApiKeyEvent, Asset, FinancialData, Score
+from margin_api.services.api_keys import ApiKeyService
 from margin_api.db.session import get_engine, get_session_factory
 from margin_api.services.scoring import (
     build_asset_profile,
@@ -147,6 +148,55 @@ async def score_single_ticker(ctx: dict, ticker: str) -> bool:
 
     async with session_factory() as session:
         return await score_ticker(ticker=ticker, session=session)
+
+
+_ROTATION_AGE_DAYS = 90
+_OVERLAP_HOURS = 24
+
+
+async def rotate_platform_keys(
+    *,
+    session: AsyncSession,
+    service: ApiKeyService,
+) -> int:
+    """Rotate platform-managed API keys older than 90 days.
+
+    Sets expires_at on the old key (24-hour overlap window) and creates
+    a new key with the same plaintext value. Returns count of rotated keys.
+    """
+    cutoff = datetime.now(UTC) - timedelta(days=_ROTATION_AGE_DAYS)
+    stmt = select(ApiKey).where(
+        ApiKey.is_platform_managed.is_(True),
+        ApiKey.revoked_at.is_(None),
+        ApiKey.expires_at.is_(None),
+        ApiKey.created_at < cutoff,
+    )
+    result = await session.execute(stmt)
+    old_keys = list(result.scalars().all())
+
+    rotated = 0
+    for old_key in old_keys:
+        # Set overlap window on old key
+        old_key.expires_at = datetime.now(UTC) + timedelta(hours=_OVERLAP_HOURS)
+        session.add(
+            ApiKeyEvent(api_key_id=old_key.id, event_type="rotated")
+        )
+
+        # Create new key with same plaintext
+        plaintext = service.decrypt(old_key.encrypted_key)
+        new_key = ApiKey(
+            user_id=old_key.user_id,
+            provider_name=old_key.provider_name,
+            encrypted_key=service.encrypt(plaintext),
+            is_platform_managed=True,
+        )
+        session.add(new_key)
+        rotated += 1
+
+    if rotated:
+        await session.commit()
+
+    return rotated
 
 
 def _parse_redis_settings() -> RedisSettings:
