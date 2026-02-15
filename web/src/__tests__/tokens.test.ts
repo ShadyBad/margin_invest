@@ -11,7 +11,7 @@ describe("Design Tokens", () => {
 
     it("defines text tokens", () => {
       expect(colors.light.textPrimary).toBe("#121212")
-      expect(colors.light.textSecondary).toBe("#5C5C5C")
+      expect(colors.light.textSecondary).toBe("#4A4A4A")
       expect(colors.light.textTertiary).toBe("#8A8A86")
     })
 
@@ -28,6 +28,11 @@ describe("Design Tokens", () => {
       expect(colors.light.danger).toBe("#C74B50")
       expect(colors.light.warning).toBe("#B8860B")
     })
+
+    it("defines grid and divider tokens", () => {
+      expect(colors.light.gridLine).toBe("rgba(18, 18, 18, 0.04)")
+      expect(colors.light.divider).toBe("rgba(18, 18, 18, 0.06)")
+    })
   })
 
   describe("dark mode colors", () => {
@@ -39,12 +44,12 @@ describe("Design Tokens", () => {
 
     it("defines text tokens", () => {
       expect(colors.dark.textPrimary).toBe("#E8E8E6")
-      expect(colors.dark.textSecondary).toBe("#9B9B98")
+      expect(colors.dark.textSecondary).toBe("#A5A5A3")
       expect(colors.dark.textTertiary).toBe("#6B6B68")
     })
 
     it("defines accent tokens", () => {
-      expect(colors.dark.accent).toBe("#1A7A5A")
+      expect(colors.dark.accent).toBe("#1C7A5A")
       expect(colors.dark.accentHover).toBe("#1F8F6A")
     })
 
@@ -55,6 +60,11 @@ describe("Design Tokens", () => {
     it("defines semantic tokens", () => {
       expect(colors.dark.danger).toBe("#D45A5F")
       expect(colors.dark.warning).toBe("#D4A843")
+    })
+
+    it("defines grid and divider tokens", () => {
+      expect(colors.dark.gridLine).toBe("rgba(255, 255, 255, 0.04)")
+      expect(colors.dark.divider).toBe("rgba(255, 255, 255, 0.06)")
     })
   })
 

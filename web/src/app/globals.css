@@ -15,7 +15,7 @@
 
   /* Text */
   --color-text-primary: #121212;
-  --color-text-secondary: #5C5C5C;
+  --color-text-secondary: #4A4A4A;
   --color-text-tertiary: #8A8A86;
 
   /* Accent — muted emerald */
@@ -35,6 +35,10 @@
 
   /* Surface overlay (geometric grids) */
   --color-surface-overlay: rgba(18, 18, 18, 0.03);
+
+  /* Grid & dividers */
+  --color-grid-line: rgba(18, 18, 18, 0.04);
+  --color-divider: rgba(18, 18, 18, 0.06);
 }
 
 /* --- Dark mode overrides --- */
@@ -44,10 +48,10 @@
   --color-bg-subtle: #1A1D24;
 
   --color-text-primary: #E8E8E6;
-  --color-text-secondary: #9B9B98;
+  --color-text-secondary: #A5A5A3;
   --color-text-tertiary: #6B6B68;
 
-  --color-accent: #1A7A5A;
+  --color-accent: #1C7A5A;
   --color-accent-hover: #1F8F6A;
   --color-accent-subtle: rgba(26, 122, 90, 0.10);
 
@@ -60,6 +64,10 @@
   --color-danger: #D45A5F;
 
   --color-surface-overlay: rgba(232, 232, 230, 0.03);
+
+  /* Grid & dividers */
+  --color-grid-line: rgba(255, 255, 255, 0.04);
+  --color-divider: rgba(255, 255, 255, 0.06);
 }
 
 /* Font tokens — set by next/font, consumed via @theme inline */
