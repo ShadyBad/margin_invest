@@ -16,6 +16,7 @@ from margin_api.schemas.dashboard import (
     WatchlistItem,
 )
 from margin_api.schemas.universe import UniverseSummary, Warning
+from margin_api.services.freshness import compute_freshness
 from margin_api.services.universe import get_active_snapshot
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
@@ -73,6 +74,10 @@ async def get_dashboard(
                 if getattr(row.Score, "intrinsic_value", None) and getattr(row.Score, "actual_price", None)
                 else None
             ),
+            data_freshness=compute_freshness(row.Score.scored_at),
+            scored_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
+            price_source="daily_close",
+            price_updated_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
         )
         for row in picks_result.all()
     ]
@@ -116,6 +121,10 @@ async def get_dashboard(
                     if getattr(row.Score, "intrinsic_value", None) and getattr(row.Score, "actual_price", None)
                     else None
                 ),
+                data_freshness=compute_freshness(row.Score.scored_at),
+                scored_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
+                price_source="daily_close",
+                price_updated_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
             )
             for row in top_result.all()
         ]

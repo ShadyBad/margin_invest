@@ -38,8 +38,8 @@ def generate_universe_yaml(
 
     lines = [
         f'version: "{today}"',
-        f'description: "US equities, excluding financials and REITs"',
-        f'source: "yfinance_screener"',
+        'description: "US equities, excluding financials and REITs"',
+        'source: "yfinance_screener"',
         f'generated_at: "{now}"',
         "",
         "exclusions:",

@@ -15,6 +15,10 @@ def compute_freshness(scored_at: datetime | None) -> str:
     if scored_at is None:
         return "expired"
 
+    # Handle naive datetimes from SQLite (assume UTC)
+    if scored_at.tzinfo is None:
+        scored_at = scored_at.replace(tzinfo=UTC)
+
     age = datetime.now(UTC) - scored_at
 
     if age < FRESH_THRESHOLD:

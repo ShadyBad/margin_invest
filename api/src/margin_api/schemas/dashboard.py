@@ -22,6 +22,10 @@ class PickSummary(BaseModel):
     buy_price: float | None = None
     sell_price: float | None = None
     price_upside: float | None = None
+    data_freshness: str = "expired"
+    scored_at: str | None = None
+    price_source: str = "daily_close"
+    price_updated_at: str | None = None
 
 
 class WatchlistItem(BaseModel):
