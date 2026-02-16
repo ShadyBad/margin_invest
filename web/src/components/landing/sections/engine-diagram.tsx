@@ -6,11 +6,55 @@ import { useNodePositions } from "@/lib/stores/node-positions"
 
 const ease = [0.22, 1, 0.36, 1] as const
 
-const nodes = [
-  { label: "Market Data", desc: "Real-time feeds" },
-  { label: "Risk Modeling", desc: "Factor analysis" },
-  { label: "Allocation Engine", desc: "Score synthesis" },
-  { label: "Decision Clarity", desc: "Actionable output" },
+function MarketDataIcon({ size = 36 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" stroke="currentColor">
+      <line x1="6" y1="22" x2="30" y2="22" />
+      <line x1="9" y1="22" x2="9" y2="8" />
+      <line x1="18" y1="22" x2="18" y2="4" />
+      <line x1="27" y1="22" x2="27" y2="12" />
+    </svg>
+  )
+}
+
+function RiskModelingIcon({ size = 36 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" stroke="currentColor">
+      <polyline points="14,7 22,10 14,13" />
+      <polyline points="12,15 22,18 12,21" />
+      <polyline points="10,23 22,26 10,29" />
+    </svg>
+  )
+}
+
+function AllocationEngineIcon({ size = 36 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" stroke="currentColor">
+      <circle cx="18" cy="18" r="12" />
+      <line x1="18" y1="18" x2="18" y2="6" />
+      <line x1="18" y1="18" x2="7.6" y2="24" />
+      <line x1="18" y1="18" x2="27.2" y2="23.3" />
+    </svg>
+  )
+}
+
+function DecisionClarityIcon({ size = 36 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" stroke="currentColor">
+      <line x1="6" y1="18" x2="30" y2="18" />
+      <line x1="18" y1="6" x2="18" y2="30" />
+      <circle cx="18" cy="18" r="3" />
+    </svg>
+  )
+}
+
+type IconComponent = ({ size }: { size?: number }) => React.JSX.Element
+
+const nodes: { label: string; desc: string; Icon: IconComponent }[] = [
+  { label: "Market Data", desc: "Real-time feeds", Icon: MarketDataIcon },
+  { label: "Risk Modeling", desc: "Factor analysis", Icon: RiskModelingIcon },
+  { label: "Allocation Engine", desc: "Score synthesis", Icon: AllocationEngineIcon },
+  { label: "Decision Clarity", desc: "Actionable output", Icon: DecisionClarityIcon },
 ]
 
 function Arrow() {
@@ -65,8 +109,8 @@ function DiagramNode({ node, index, morphProgress }: DiagramNodeProps) {
       className="flex flex-col items-center gap-3 px-2"
       style={{ opacity, scale, y }}
     >
-      <div className="w-20 h-20 border border-border-primary rounded-[6px] flex items-center justify-center bg-bg-elevated">
-        <div className="w-3 h-3 rounded-full bg-accent opacity-60" />
+      <div className="w-20 h-20 border border-border-primary rounded-[6px] flex items-center justify-center bg-bg-elevated text-text-primary">
+        <node.Icon size={36} />
       </div>
       <span className="text-[15px] font-semibold text-text-primary tracking-[-0.01em]">
         {node.label}
@@ -135,8 +179,8 @@ export function EngineDiagram() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.08, ease }}
             >
-              <div className="w-10 h-10 border border-border-primary rounded-[4px] flex items-center justify-center flex-shrink-0">
-                <div className="w-2 h-2 rounded-full bg-accent opacity-60" />
+              <div className="w-10 h-10 border border-border-primary rounded-[4px] flex items-center justify-center flex-shrink-0 text-text-primary">
+                <node.Icon size={20} />
               </div>
               <div>
                 <span className="text-[14px] font-semibold text-text-primary block">
@@ -161,8 +205,8 @@ export function EngineDiagram() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.08, ease }}
             >
-              <div className="w-8 h-8 border border-border-primary rounded-[4px] flex items-center justify-center flex-shrink-0">
-                <div className="w-1.5 h-1.5 rounded-full bg-accent opacity-60" />
+              <div className="w-8 h-8 border border-border-primary rounded-[4px] flex items-center justify-center flex-shrink-0 text-text-primary">
+                <node.Icon size={16} />
               </div>
               <div>
                 <span className="text-[14px] font-semibold text-text-primary block">
