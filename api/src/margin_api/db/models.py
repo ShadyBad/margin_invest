@@ -147,6 +147,8 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    oauth_avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     api_keys: Mapped[list[ApiKey]] = relationship(back_populates="user")
 
@@ -284,6 +286,7 @@ class CredentialUser(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     totp_secrets: Mapped[list[TotpSecret]] = relationship(back_populates="user")
     webauthn_credentials: Mapped[list[WebAuthnCredential]] = relationship(
