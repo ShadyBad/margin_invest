@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 import boto3
 
@@ -37,7 +38,7 @@ class AvatarStorageService:
             Body=image_bytes,
             ContentType="image/webp",
         )
-        return self.get_public_url(user_id)
+        return f"{self.public_url}/{key}?v={int(time.time())}"
 
     def delete(self, user_id: int) -> None:
         """Delete avatar from R2."""

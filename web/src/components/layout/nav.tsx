@@ -61,8 +61,8 @@ export function Nav() {
               <div className="flex items-center gap-3">
                 <Avatar
                   name={session.user.name || session.user.email || ""}
-                  avatarUrl={(session as any).avatarUrl}
-                  oauthAvatarUrl={(session as any).oauthAvatarUrl ?? session.user.image}
+                  avatarUrl={session.avatarUrl}
+                  oauthAvatarUrl={session.oauthAvatarUrl ?? session.user.image}
                   size="sm"
                 />
                 <span className="text-sm text-text-secondary">
@@ -124,8 +124,8 @@ export function Nav() {
               <div className="flex items-center gap-3 py-2">
                 <Avatar
                   name={session.user.name || session.user.email || ""}
-                  avatarUrl={(session as any).avatarUrl}
-                  oauthAvatarUrl={(session as any).oauthAvatarUrl ?? session.user.image}
+                  avatarUrl={session.avatarUrl}
+                  oauthAvatarUrl={session.oauthAvatarUrl ?? session.user.image}
                   size="sm"
                 />
                 <button

@@ -6,9 +6,9 @@ import { Avatar } from "@/components/ui/avatar"
 
 export function AccountSection() {
   const { data: session, update } = useSession()
-  const authMethod = (session as any)?.authMethod
-  const avatarUrl = (session as any)?.avatarUrl as string | null
-  const oauthAvatarUrl = (session as any)?.oauthAvatarUrl ?? session?.user?.image
+  const authMethod = session?.authMethod
+  const avatarUrl = session?.avatarUrl ?? null
+  const oauthAvatarUrl = session?.oauthAvatarUrl ?? session?.user?.image
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)

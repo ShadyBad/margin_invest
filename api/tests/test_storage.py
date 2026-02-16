@@ -94,7 +94,10 @@ def test_upload_calls_put_object(
         Body=image_data,
         ContentType="image/webp",
     )
-    assert url == "https://cdn.example.com/avatars/42.webp"
+    assert url.startswith("https://cdn.example.com/avatars/42.webp?v=")
+    # Verify the cache-buster is a numeric timestamp
+    version = url.split("?v=")[1]
+    assert version.isdigit()
 
 
 @patch("boto3.client")
