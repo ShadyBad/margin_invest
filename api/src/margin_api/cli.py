@@ -207,10 +207,10 @@ async def _get_universe_tickers() -> list[str]:
     async with session_factory() as session:
         snapshot = await get_active_snapshot(session)
     if snapshot is None:
-        print("No active universe snapshot. Run 'universe activate' first.")
-        print("Or use --tickers to seed a specific subset.")
+        logger.error("No active universe snapshot. Run 'universe activate' first.")
+        logger.error("Or use --tickers to seed a specific subset.")
         sys.exit(1)
-    print(f"Using universe v{snapshot.version} ({snapshot.ticker_count} tickers)")
+    logger.info("Using universe v%s (%d tickers)", snapshot.version, snapshot.ticker_count)
     return list(snapshot.tickers)
 
 
@@ -237,19 +237,19 @@ async def run_seed(tickers: list[str] | None = None) -> None:
 
     for i, ticker in enumerate(tickers, start=1):
         limiter.wait_and_acquire()
-        print(f"[{i}/{total}] Seeding {ticker}...")
+        logger.info("[%d/%d] Seeding %s...", i, total, ticker)
 
         async with session_factory() as session:
             ok = await seed_ticker_data(ticker=ticker, provider=provider, session=session)
 
         if ok:
             successes += 1
-            print(f"  {ticker} OK")
+            logger.info("  %s OK", ticker)
         else:
             failures += 1
-            print(f"  {ticker} FAILED")
+            logger.error("  %s FAILED", ticker)
 
-    print(f"\nSeed complete: {successes} succeeded, {failures} failed out of {total} tickers.")
+    logger.info("Seed complete: %d succeeded, %d failed out of %d tickers", successes, failures, total)
 
 
 # ---------------------------------------------------------------------------
@@ -281,7 +281,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
         tickers = await _get_universe_tickers()
 
     if not tickers:
-        print("No tickers found in database. Run 'seed' first.")
+        logger.warning("No tickers found in database. Run 'seed' first.")
         return
 
     total = len(tickers)
@@ -295,7 +295,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
             result = await session.execute(select(Asset).where(Asset.ticker == ticker))
             asset = result.scalar_one_or_none()
             if asset is None:
-                print(f"[{i}/{total}] SKIP {ticker} — no asset")
+                logger.warning("[%d/%d] SKIP %s — no asset", i, total, ticker)
                 continue
 
             result = await session.execute(
@@ -306,7 +306,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
             )
             fin_data = result.scalar_one_or_none()
             if fin_data is None:
-                print(f"[{i}/{total}] SKIP {ticker} — no financial data")
+                logger.warning("[%d/%d] SKIP %s — no financial data", i, total, ticker)
                 continue
 
             try:
@@ -338,17 +338,17 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                 )
                 raw_results.append(raw)
                 asset_ids[ticker] = asset.id
-                print(f"[{i}/{total}] Raw scores: {ticker}")
+                logger.info("[%d/%d] Raw scores: %s", i, total, ticker)
             except Exception as e:
-                print(f"[{i}/{total}] FAILED {ticker}: {e}")
+                logger.error("[%d/%d] FAILED %s: %s", i, total, ticker, e)
 
     if not raw_results:
-        print("No tickers could be scored.")
+        logger.warning("No tickers could be scored.")
         await engine.dispose()
         return
 
     # --- Pass 2: Rank across sector peers and compute composites ---
-    print(f"\nRanking {len(raw_results)} tickers across sector peers...")
+    logger.info("Ranking %d tickers across sector peers...", len(raw_results))
     composites = rank_and_compute_composites(raw_results)
 
     # --- Pass 3: Persist scores ---
@@ -358,6 +358,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
             score = Score(
                 asset_id=asset_ids[composite.ticker],
                 composite_percentile=composite.composite_percentile,
+                composite_raw_score=composite.composite_raw_score,
                 conviction_level=composite.conviction_level.value,
                 signal=composite.signal.value,
                 quality_percentile=composite.quality.average_percentile,
@@ -380,11 +381,11 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
     levels = defaultdict(int)
     for c in composites:
         levels[c.conviction_level.value] += 1
-    print(f"\nScoring complete: {successes} scored out of {total} tickers.")
-    print("Conviction levels:")
+    logger.info("Scoring complete: %d scored out of %d tickers", successes, total)
+    logger.info("Conviction levels:")
     for level in ("exceptional", "high", "watchlist", "none"):
         if levels[level]:
-            print(f"  {level}: {levels[level]}")
+            logger.info("  %s: %d", level, levels[level])
     await engine.dispose()
 
 
@@ -425,9 +426,8 @@ def run_universe_generate(output: str | None = None) -> None:
     min_market_cap = 0
     min_avg_volume = 0
 
-    print("Screening Yahoo Finance for all US publicly traded equities...")
-    print(f"  Excluded sectors: {', '.join(excluded_sectors)}")
-    print()
+    logger.info("Screening Yahoo Finance for all US publicly traded equities...")
+    logger.info("  Excluded sectors: %s", ", ".join(excluded_sectors))
 
     raw = screen_us_equities(
         min_market_cap=min_market_cap,
@@ -435,7 +435,7 @@ def run_universe_generate(output: str | None = None) -> None:
         excluded_sectors=excluded_sectors,
     )
     tickers = sorted(set(r["ticker"] for r in raw))
-    print(f"\nFound {len(tickers)} tickers after filtering")
+    logger.info("Found %d tickers after filtering", len(tickers))
 
     yaml_content = generate_universe_yaml(
         tickers=tickers,
@@ -449,7 +449,7 @@ def run_universe_generate(output: str | None = None) -> None:
         output = str(Path(__file__).resolve().parents[3] / "engine" / "universe.yaml")
 
     Path(output).write_text(yaml_content)
-    print(f"Written to {output}")
+    logger.info("Written to %s", output)
 
 
 async def run_universe_activate(config_path: str | None = None) -> None:
@@ -458,14 +458,14 @@ async def run_universe_activate(config_path: str | None = None) -> None:
         # Default to engine/universe.yaml relative to repo root
         candidate = Path(__file__).resolve().parents[3] / "engine" / "universe.yaml"
         if not candidate.exists():
-            print(f"Default universe config not found at {candidate}")
-            print("Use --config to specify a path.")
+            logger.error("Default universe config not found at %s", candidate)
+            logger.error("Use --config to specify a path.")
             sys.exit(1)
         config_path = str(candidate)
 
     path = Path(config_path)
     if not path.exists():
-        print(f"Config file not found: {path}")
+        logger.error("Config file not found: %s", path)
         sys.exit(1)
 
     engine = get_engine()
@@ -474,9 +474,9 @@ async def run_universe_activate(config_path: str | None = None) -> None:
         snapshot = await activate_universe(session, path)
     await engine.dispose()
 
-    print(f"Activated universe v{snapshot.version}")
-    print(f"  Tickers: {snapshot.ticker_count}")
-    print(f"  Hash: {snapshot.config_hash}")
+    logger.info("Activated universe v%s", snapshot.version)
+    logger.info("  Tickers: %d", snapshot.ticker_count)
+    logger.info("  Hash: %s", snapshot.config_hash)
 
 
 # ---------------------------------------------------------------------------
@@ -486,11 +486,11 @@ async def run_universe_activate(config_path: str | None = None) -> None:
 
 async def run_pipeline(tickers: list[str] | None = None) -> None:
     """Run the full pipeline: seed → score."""
-    print("=== Step 1/2: Seeding financial data ===\n")
+    logger.info("=== Step 1/2: Seeding financial data ===")
     await run_seed(tickers=tickers)
-    print("\n=== Step 2/2: Scoring tickers ===\n")
+    logger.info("=== Step 2/2: Scoring tickers ===")
     await run_scoring(tickers=tickers)
-    print("\n=== Pipeline complete ===")
+    logger.info("=== Pipeline complete ===")
 
 
 # ---------------------------------------------------------------------------
@@ -500,6 +500,11 @@ async def run_pipeline(tickers: list[str] | None = None) -> None:
 
 def main() -> None:
     """CLI entry point with argparse."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     parser = argparse.ArgumentParser(
         prog="margin-cli",
         description="Margin Invest data management CLI",
