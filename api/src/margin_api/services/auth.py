@@ -135,6 +135,7 @@ class AuthService:
             "username": user.username,
             "email": user.email,
             "mfa_enabled": user.mfa_enabled,
+            "avatar_url": user.avatar_url,
         }
 
     async def create_challenge_token(

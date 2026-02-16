@@ -91,6 +91,7 @@ async def verify_credentials(
         email=result["email"],
         mfa_status=mfa_status,
         challenge_token=challenge_token,
+        avatar_url=result.get("avatar_url"),
     )
 
 

@@ -42,6 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           mfaStatus: data.mfaStatus,
           challengeToken: data.challengeToken,
           mfaToken: credentials.mfaToken as string | undefined,
+          avatarUrl: data.avatar_url,
         }
       },
     }),
@@ -83,6 +84,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.mfaVerified = token.authMethod === "oauth"
           ? true
           : !!(user as Record<string, unknown>).mfaToken
+
+        // Avatar: OAuth providers include image in user profile
+        if (token.authMethod === "oauth" && user.image) {
+          token.oauthAvatarUrl = user.image
+        }
+        // Avatar: credentials provider returns avatar_url from API
+        const avatarUrl = (user as Record<string, unknown>).avatarUrl as string | undefined
+        if (avatarUrl) {
+          token.avatarUrl = avatarUrl
+        }
       }
       return token
     },
@@ -90,6 +101,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.userId = token.userId as string
       session.authMethod = token.authMethod as string
       session.mfaVerified = token.mfaVerified as boolean
+      session.avatarUrl = (token.avatarUrl as string) || null
+      session.oauthAvatarUrl = (token.oauthAvatarUrl as string) || null
       return session
     },
   },

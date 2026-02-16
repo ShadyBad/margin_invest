@@ -36,6 +36,7 @@ class VerifyCredentialsResponse(BaseModel):
     email: str
     mfa_status: str
     challenge_token: str
+    avatar_url: str | None = None
 
 
 class SetupTotpRequest(BaseModel):
