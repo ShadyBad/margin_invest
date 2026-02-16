@@ -1,18 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import BacktestingPage from "../page"
 import type {
   BacktestResult,
   BacktestListResponse,
 } from "@/lib/api/types"
 
-const mockRunBacktest = vi.fn()
 const mockGetBacktestResults = vi.fn()
 const mockGetBacktestResult = vi.fn()
 
 vi.mock("@/lib/api/backtest", () => ({
-  runBacktest: (...args: unknown[]) => mockRunBacktest(...args),
   getBacktestResults: (...args: unknown[]) => mockGetBacktestResults(...args),
   getBacktestResult: (...args: unknown[]) => mockGetBacktestResult(...args),
 }))
@@ -88,14 +85,35 @@ const mockListResponse: BacktestListResponse = {
   total: 1,
 }
 
+const mockMultipleResults: BacktestListResponse = {
+  results: [
+    {
+      id: "bt-002",
+      run_at: "2026-02-14T08:00:00Z",
+      config: mockBacktestResult.config,
+      overall_pass: true,
+      excess_cagr: 0.051,
+      sharpe_ratio: 1.6,
+    },
+    {
+      id: "bt-001",
+      run_at: "2026-02-12T10:30:00Z",
+      config: mockBacktestResult.config,
+      overall_pass: true,
+      excess_cagr: 0.0456,
+      sharpe_ratio: 1.52,
+    },
+  ],
+  total: 2,
+}
+
 const mockEmptyListResponse: BacktestListResponse = {
   results: [],
   total: 0,
 }
 
-describe("Backtesting Page", () => {
+describe("Backtesting Page (read-only)", () => {
   beforeEach(() => {
-    mockRunBacktest.mockReset()
     mockGetBacktestResults.mockReset()
     mockGetBacktestResult.mockReset()
   })
@@ -105,6 +123,32 @@ describe("Backtesting Page", () => {
     render(<BacktestingPage />)
 
     expect(screen.getByTestId("loading-skeleton")).toBeInTheDocument()
+  })
+
+  it("does not render a Run Backtest button", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockEmptyListResponse)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("loading-skeleton")).not.toBeInTheDocument()
+    })
+
+    expect(screen.queryByTestId("run-backtest-button")).not.toBeInTheDocument()
+    expect(screen.queryByText("Run Backtest")).not.toBeInTheDocument()
+  })
+
+  it("shows automatic validation note", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockEmptyListResponse)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("loading-skeleton")).not.toBeInTheDocument()
+    })
+
+    expect(screen.getByTestId("auto-validation-note")).toBeInTheDocument()
+    expect(
+      screen.getByText(/runs automatically after each scoring cycle/i),
+    ).toBeInTheDocument()
   })
 
   it("renders metrics when data loads", async () => {
@@ -127,17 +171,17 @@ describe("Backtesting Page", () => {
     expect(screen.getByTestId("metric-benchmark-return")).toBeInTheDocument()
   })
 
-  it("shows empty state when no backtests", async () => {
+  it("shows empty state when no validations exist", async () => {
     mockGetBacktestResults.mockResolvedValue(mockEmptyListResponse)
     render(<BacktestingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText("No backtests yet")).toBeInTheDocument()
+      expect(screen.getByText("No validations yet")).toBeInTheDocument()
     })
 
     expect(
       screen.getByText(
-        "Run your first backtest to see performance metrics and validation results.",
+        "Validation results will appear here after the next scoring cycle completes.",
       ),
     ).toBeInTheDocument()
   })
@@ -151,31 +195,6 @@ describe("Backtesting Page", () => {
     })
 
     expect(screen.getByText("Network error")).toBeInTheDocument()
-  })
-
-  it("Run Backtest button triggers API call", async () => {
-    const user = userEvent.setup()
-    mockGetBacktestResults.mockResolvedValue(mockEmptyListResponse)
-    render(<BacktestingPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText("No backtests yet")).toBeInTheDocument()
-    })
-
-    mockRunBacktest.mockResolvedValue(mockBacktestResult)
-    mockGetBacktestResults.mockResolvedValue(mockListResponse)
-    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
-
-    const runButton = screen.getByTestId("run-backtest-button")
-    await user.click(runButton)
-
-    await waitFor(() => {
-      expect(mockRunBacktest).toHaveBeenCalledTimes(1)
-    })
-
-    await waitFor(() => {
-      expect(screen.getByTestId("metrics-summary")).toBeInTheDocument()
-    })
   })
 
   it("validation badges shown when validation data present", async () => {
@@ -204,23 +223,14 @@ describe("Backtesting Page", () => {
       expect(screen.getByTestId("metrics-summary")).toBeInTheDocument()
     })
 
-    // CAGR: 0.1234 -> 12.34%
     expect(screen.getByTestId("metric-cagr")).toHaveTextContent("12.34%")
-    // Excess CAGR: 0.0456 -> 4.56%
     expect(screen.getByTestId("metric-excess-cagr")).toHaveTextContent("4.56%")
-    // Sharpe Ratio: 1.52 -> 1.52
     expect(screen.getByTestId("metric-sharpe-ratio")).toHaveTextContent("1.52")
-    // Sortino Ratio: 2.13 -> 2.13
     expect(screen.getByTestId("metric-sortino-ratio")).toHaveTextContent("2.13")
-    // Max Drawdown: 0.2145 -> 21.45%
     expect(screen.getByTestId("metric-max-drawdown")).toHaveTextContent("21.45%")
-    // Win Rate: 0.5832 -> 58.32%
     expect(screen.getByTestId("metric-win-rate")).toHaveTextContent("58.32%")
-    // Information Ratio: 0.87 -> 0.87
     expect(screen.getByTestId("metric-information-ratio")).toHaveTextContent("0.87")
-    // Total Return: 0.7523 -> 75.23%
     expect(screen.getByTestId("metric-total-return")).toHaveTextContent("75.23%")
-    // Benchmark Return: 0.5012 -> 50.12%
     expect(screen.getByTestId("metric-benchmark-return")).toHaveTextContent("50.12%")
   })
 
@@ -265,12 +275,34 @@ describe("Backtesting Page", () => {
 
     expect(screen.getByText("2/4 CHECKS PASSED")).toBeInTheDocument()
 
-    // Check PASS badges
     const excessCheck = screen.getByTestId("check-excess_cagr")
     expect(excessCheck).toHaveTextContent("PASS")
 
-    // Check FAIL badges
     const drawdownCheck = screen.getByTestId("check-max_drawdown")
     expect(drawdownCheck).toHaveTextContent("FAIL")
+  })
+
+  it("renders validation history section with past results", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockMultipleResults)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("validation-history")).toBeInTheDocument()
+    })
+
+    const historyItems = screen.getAllByTestId(/^history-item-/)
+    expect(historyItems).toHaveLength(2)
+  })
+
+  it("shows page title as Validation instead of Backtesting", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockEmptyListResponse)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("loading-skeleton")).not.toBeInTheDocument()
+    })
+
+    expect(screen.getByText("Methodology Validation")).toBeInTheDocument()
   })
 })

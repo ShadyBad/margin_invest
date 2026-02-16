@@ -1,42 +1,21 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { formatScoredAt } from "@/lib/format"
 import { AppShell } from "@/components/layout"
 import { MetricsSummary, ValidationBadges } from "@/components/backtesting"
 import { SkeletonCard, EmptyState } from "@/components/ui"
 import {
-  runBacktest,
   getBacktestResults,
   getBacktestResult,
 } from "@/lib/api/backtest"
-import type { BacktestResult } from "@/lib/api/types"
+import type { BacktestResult, BacktestSummary } from "@/lib/api/types"
 
 export default function BacktestingPage() {
   const [result, setResult] = useState<BacktestResult | null>(null)
+  const [history, setHistory] = useState<BacktestSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [running, setRunning] = useState(false)
-
-  const fetchLatest = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const listResponse = await getBacktestResults()
-      if (listResponse.results.length > 0) {
-        const latest = await getBacktestResult(listResponse.results[0].id)
-        setResult(latest)
-      } else {
-        setResult(null)
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load backtest results",
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -47,6 +26,7 @@ export default function BacktestingPage() {
         setError(null)
         const listResponse = await getBacktestResults()
         if (cancelled) return
+        setHistory(listResponse.results)
         if (listResponse.results.length > 0) {
           const latest = await getBacktestResult(listResponse.results[0].id)
           if (cancelled) return
@@ -59,7 +39,7 @@ export default function BacktestingPage() {
         setError(
           err instanceof Error
             ? err.message
-            : "Failed to load backtest results",
+            : "Failed to load validation results",
         )
       } finally {
         if (!cancelled) {
@@ -74,45 +54,31 @@ export default function BacktestingPage() {
     }
   }, [])
 
-  async function handleRunBacktest() {
-    try {
-      setRunning(true)
-      setError(null)
-      await runBacktest()
-      await fetchLatest()
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to run backtest",
-      )
-    } finally {
-      setRunning(false)
-    }
-  }
-
   return (
     <AppShell>
       <div data-testid="backtesting-page">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary">
-              Backtesting
-            </h1>
-            {result && (
-              <p className="text-sm text-text-secondary mt-1">
-                Last run:{" "}
-                {formatScoredAt(result.run_at)}
-                {" "}({result.duration_seconds.toFixed(1)}s)
-              </p>
-            )}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary">
+                Methodology Validation
+              </h1>
+              {result && (
+                <p className="text-sm text-text-secondary mt-1">
+                  Last validated:{" "}
+                  {formatScoredAt(result.run_at)}
+                  {" "}({result.duration_seconds.toFixed(1)}s)
+                </p>
+              )}
+            </div>
           </div>
-          <button
-            onClick={handleRunBacktest}
-            disabled={running}
-            className="px-4 py-2 bg-accent text-bg-primary font-medium rounded-sm hover:opacity-90 transition-opacity disabled:opacity-50"
-            data-testid="run-backtest-button"
+          <p
+            className="text-sm text-text-secondary mt-2"
+            data-testid="auto-validation-note"
           >
-            {running ? "Running..." : "Run Backtest"}
-          </button>
+            Backtesting runs automatically after each scoring cycle. Results
+            are read-only.
+          </p>
         </div>
 
         {loading && (
@@ -137,8 +103,8 @@ export default function BacktestingPage() {
 
         {!loading && !error && !result && (
           <EmptyState
-            title="No backtests yet"
-            description="Run your first backtest to see performance metrics and validation results."
+            title="No validations yet"
+            description="Validation results will appear here after the next scoring cycle completes."
           />
         )}
 
@@ -146,7 +112,7 @@ export default function BacktestingPage() {
           <div className="space-y-8">
             <section>
               <h2 className="text-lg font-semibold text-text-primary mb-4">
-                Performance Metrics
+                Latest Performance Metrics
               </h2>
               <MetricsSummary metrics={result.metrics} />
             </section>
@@ -154,12 +120,67 @@ export default function BacktestingPage() {
             {result.validation && (
               <section>
                 <h2 className="text-lg font-semibold text-text-primary mb-4">
-                  Validation
+                  Validation Checks
                 </h2>
                 <ValidationBadges validation={result.validation} />
               </section>
             )}
           </div>
+        )}
+
+        {!loading && !error && history.length > 0 && (
+          <section className="mt-8" data-testid="validation-history">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
+              Validation History
+            </h2>
+            <div className="space-y-2">
+              {history.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between bg-bg-elevated border border-border-primary rounded-sm px-4 py-3"
+                  data-testid={`history-item-${entry.id}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full ${
+                        entry.overall_pass === true
+                          ? "bg-bullish"
+                          : entry.overall_pass === false
+                            ? "bg-bearish"
+                            : "bg-text-secondary"
+                      }`}
+                    />
+                    <span className="text-sm text-text-primary">
+                      {formatScoredAt(entry.run_at)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs text-text-secondary">
+                      Excess CAGR: {(entry.excess_cagr * 100).toFixed(2)}%
+                    </span>
+                    <span className="text-xs text-text-secondary">
+                      Sharpe: {entry.sharpe_ratio.toFixed(2)}
+                    </span>
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                        entry.overall_pass === true
+                          ? "bg-bullish/10 text-bullish"
+                          : entry.overall_pass === false
+                            ? "bg-bearish/10 text-bearish"
+                            : "bg-bg-primary text-text-secondary"
+                      }`}
+                    >
+                      {entry.overall_pass === true
+                        ? "PASS"
+                        : entry.overall_pass === false
+                          ? "FAIL"
+                          : "N/A"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </AppShell>
