@@ -4,7 +4,19 @@ from __future__ import annotations
 
 import pytest
 from margin_api.db.base import Base
-from margin_api.db.models import ApiKey, Asset, FinancialData, Recommendation, Score, User
+from margin_api.db.models import (
+    ApiKey,
+    Asset,
+    BacktestResult,
+    BacktestRun,
+    FinancialData,
+    IngestionRun,
+    MetricsDerived,
+    PriceIntraday,
+    Recommendation,
+    Score,
+    User,
+)
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -170,6 +182,10 @@ class TestTableCreation:
         assert "scores" in table_names
         assert "recommendations" in table_names
         assert "api_keys" in table_names
+        assert "prices_intraday" in table_names
+        assert "metrics_derived" in table_names
+        assert "backtest_runs" in table_names
+        assert "backtest_results" in table_names
 
     def test_insert_and_query_asset(self, sync_engine):
         Base.metadata.create_all(sync_engine)
@@ -200,3 +216,142 @@ class TestTableCreation:
             session.add(score)
             session.commit()
             assert score.asset_id == asset.id
+
+
+class TestPriceIntradayModel:
+    def test_table_name(self):
+        assert PriceIntraday.__tablename__ == "prices_intraday"
+
+    def test_columns(self):
+        columns = {c.name for c in PriceIntraday.__table__.columns}
+        expected = {"time", "ticker", "open", "high", "low", "close", "volume", "source"}
+        assert expected.issubset(columns)
+
+    def test_composite_primary_key(self):
+        pk_cols = {c.name for c in PriceIntraday.__table__.primary_key.columns}
+        assert pk_cols == {"time", "ticker"}
+
+    def test_open_not_nullable(self):
+        col = PriceIntraday.__table__.columns["open"]
+        assert col.nullable is False
+
+    def test_volume_nullable(self):
+        col = PriceIntraday.__table__.columns["volume"]
+        assert col.nullable is True
+
+
+class TestMetricsDerivedModel:
+    def test_table_name(self):
+        assert MetricsDerived.__tablename__ == "metrics_derived"
+
+    def test_columns(self):
+        columns = {c.name for c in MetricsDerived.__table__.columns}
+        expected = {
+            "id", "asset_id", "as_of_date",
+            "roe", "roic", "gross_margin", "debt_to_equity",
+            "pe_ratio", "pb_ratio", "ev_ebitda", "fcf_yield",
+            "return_1m", "return_3m", "return_6m", "return_12m",
+            "extra", "computed_at",
+        }
+        assert expected.issubset(columns)
+
+    def test_unique_constraint(self):
+        constraint_names = [
+            c.name for c in MetricsDerived.__table__.constraints
+            if hasattr(c, "name") and c.name
+        ]
+        assert "uq_metrics_asset_date" in constraint_names
+
+    def test_asset_fk(self):
+        col = MetricsDerived.__table__.columns["asset_id"]
+        fks = list(col.foreign_keys)
+        assert len(fks) == 1
+        assert str(fks[0].target_fullname) == "assets.id"
+
+
+class TestBacktestRunModel:
+    def test_table_name(self):
+        assert BacktestRun.__tablename__ == "backtest_runs"
+
+    def test_columns(self):
+        columns = {c.name for c in BacktestRun.__table__.columns}
+        expected = {
+            "id", "name", "universe_snapshot_id", "start_date", "end_date",
+            "rebalance_frequency", "config", "config_hash", "status",
+            "total_return", "annualized_return", "sharpe_ratio", "max_drawdown",
+            "summary_stats", "started_at", "completed_at", "created_at",
+        }
+        assert expected.issubset(columns)
+
+    def test_config_not_nullable(self):
+        col = BacktestRun.__table__.columns["config"]
+        assert col.nullable is False
+
+    def test_config_hash_not_nullable(self):
+        col = BacktestRun.__table__.columns["config_hash"]
+        assert col.nullable is False
+
+    def test_universe_snapshot_fk(self):
+        col = BacktestRun.__table__.columns["universe_snapshot_id"]
+        fks = list(col.foreign_keys)
+        assert len(fks) == 1
+        assert str(fks[0].target_fullname) == "universe_snapshots.id"
+
+
+class TestBacktestResultModel:
+    def test_table_name(self):
+        assert BacktestResult.__tablename__ == "backtest_results"
+
+    def test_columns(self):
+        columns = {c.name for c in BacktestResult.__table__.columns}
+        expected = {
+            "id", "run_id", "asset_id", "as_of_date", "signal",
+            "conviction_level", "composite_percentile",
+            "entry_price", "exit_price", "position_return", "detail",
+        }
+        assert expected.issubset(columns)
+
+    def test_signal_not_nullable(self):
+        col = BacktestResult.__table__.columns["signal"]
+        assert col.nullable is False
+
+    def test_composite_percentile_not_nullable(self):
+        col = BacktestResult.__table__.columns["composite_percentile"]
+        assert col.nullable is False
+
+    def test_cascade_delete(self):
+        col = BacktestResult.__table__.columns["run_id"]
+        fks = list(col.foreign_keys)
+        assert fks[0].ondelete == "CASCADE"
+
+    def test_unique_constraint(self):
+        constraint_names = [
+            c.name for c in BacktestResult.__table__.constraints
+            if hasattr(c, "name") and c.name
+        ]
+        assert "uq_backtest_result" in constraint_names
+
+    def test_has_relationship_to_run(self):
+        assert hasattr(BacktestResult, "run")
+
+
+class TestScoreUniverseLink:
+    def test_score_has_universe_snapshot_id(self):
+        columns = {c.name for c in Score.__table__.columns}
+        assert "universe_snapshot_id" in columns
+
+    def test_universe_snapshot_id_nullable(self):
+        col = Score.__table__.columns["universe_snapshot_id"]
+        assert col.nullable is True
+
+    def test_universe_snapshot_id_fk(self):
+        col = Score.__table__.columns["universe_snapshot_id"]
+        fks = list(col.foreign_keys)
+        assert len(fks) == 1
+        assert str(fks[0].target_fullname) == "universe_snapshots.id"
+
+
+class TestIngestionRunDataTypes:
+    def test_ingestion_run_has_data_types(self):
+        columns = {c.name for c in IngestionRun.__table__.columns}
+        assert "data_types" in columns
