@@ -1,0 +1,62 @@
+version: "2026.02.15"
+description: "US equities, excluding financials and REITs — initial seed"
+source: "manual"
+generated_at: "2026-02-15T00:00:00Z"
+
+exclusions:
+  sectors:
+    - "Financial Services"
+    - "Real Estate"
+  min_market_cap: 300000000
+  min_avg_volume: 1000000
+
+tickers:
+  - AAPL
+  - ABBV
+  - AMD
+  - AMZN
+  - AMT
+  - APD
+  - AVGO
+  - BAC
+  - CAT
+  - CMCSA
+  - COST
+  - CRM
+  - CVX
+  - DIS
+  - DUK
+  - GE
+  - GOOGL
+  - GS
+  - HD
+  - HON
+  - JNJ
+  - JPM
+  - KO
+  - LIN
+  - LLY
+  - MA
+  - MCD
+  - META
+  - MRK
+  - MSFT
+  - NEE
+  - NFLX
+  - NKE
+  - NVDA
+  - ORCL
+  - PEP
+  - PG
+  - PLD
+  - RTX
+  - SBUX
+  - SHW
+  - SO
+  - TJX
+  - TSLA
+  - UNH
+  - UNP
+  - V
+  - WMT
+  - XOM
