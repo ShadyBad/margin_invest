@@ -19,7 +19,32 @@ def get_engine(url: str | None = None):
         # Explicit URL bypasses cache (used in tests)
         return create_async_engine(url, echo=False)
     if _engine is None:
-        _engine = create_async_engine(get_settings().database_url, echo=False)
+        settings = get_settings()
+        connect_args: dict = {}
+        engine_kwargs: dict = {"echo": False}
+
+        # Pool parameters are only valid for non-SQLite backends
+        # (SQLite uses StaticPool which rejects pool_size/max_overflow/pool_timeout)
+        if not settings.database_url.startswith("sqlite"):
+            engine_kwargs.update(
+                pool_size=settings.db_pool_size,
+                max_overflow=settings.db_max_overflow,
+                pool_timeout=settings.db_pool_timeout,
+                pool_recycle=settings.db_pool_recycle,
+                pool_pre_ping=settings.db_pool_pre_ping,
+            )
+
+        # Timescale Cloud (and other managed PG) requires SSL
+        if "sslmode=require" in settings.database_url:
+            import ssl
+
+            ssl_ctx = ssl.create_default_context()
+            connect_args["ssl"] = ssl_ctx
+
+        if connect_args:
+            engine_kwargs["connect_args"] = connect_args
+
+        _engine = create_async_engine(settings.database_url, **engine_kwargs)
     return _engine
 
 
