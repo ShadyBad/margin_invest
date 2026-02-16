@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,7 @@ class Asset(Base):
     sector: Mapped[str] = mapped_column(String(100))
     sub_industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
     market_cap: Mapped[Decimal] = mapped_column(default=Decimal("0"))
+    shares_outstanding: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

@@ -115,6 +115,7 @@ async def seed_ticker_data(
         sector = SECTOR_MAP.get(raw_sector, raw_sector)
         sub_industry = info.get("industry")
         market_cap = Decimal(str(info.get("marketCap", 0)))
+        shares_outstanding = info.get("sharesOutstanding")
 
         # Upsert Asset row
         result = await session.execute(select(Asset).where(Asset.ticker == ticker))
@@ -127,6 +128,7 @@ async def seed_ticker_data(
                 sector=sector,
                 sub_industry=sub_industry,
                 market_cap=market_cap,
+                shares_outstanding=shares_outstanding,
             )
             session.add(asset)
             await session.flush()  # Get the id
@@ -135,6 +137,7 @@ async def seed_ticker_data(
             asset.sector = sector
             asset.sub_industry = sub_industry
             asset.market_cap = market_cap
+            asset.shares_outstanding = shares_outstanding
 
         # Build financial data
         today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
@@ -305,6 +308,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                     name=asset.name,
                     sector=asset.sector,
                     market_cap=asset.market_cap,
+                    shares_outstanding=asset.shares_outstanding,
                 )
 
                 # price_history is stored as {"bars": [...]}

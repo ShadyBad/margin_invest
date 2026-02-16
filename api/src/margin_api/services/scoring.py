@@ -129,6 +129,7 @@ def build_asset_profile(
     market_cap: Decimal,
     avg_daily_volume: Decimal = Decimal("0"),
     years_of_history: int = 0,
+    shares_outstanding: int | None = None,
 ) -> AssetProfile:
     """Build an AssetProfile engine model from basic metadata.
 
@@ -139,6 +140,7 @@ def build_asset_profile(
         market_cap: Market capitalization as a Decimal.
         avg_daily_volume: Average daily dollar volume. Defaults to 0.
         years_of_history: Years of trading history. Defaults to 0.
+        shares_outstanding: Total shares outstanding. Defaults to None.
 
     Returns:
         A populated AssetProfile.
@@ -160,6 +162,7 @@ def build_asset_profile(
         market_cap=market_cap,
         avg_daily_volume=avg_daily_volume,
         years_of_history=years_of_history,
+        shares_outstanding=shares_outstanding,
     )
 
 
