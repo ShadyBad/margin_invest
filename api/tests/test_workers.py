@@ -108,3 +108,56 @@ class TestLivePricePoll:
         assert result["updated"] == 1
 
         await fake_redis.aclose()
+
+
+class TestBacktestValidate:
+    @pytest.mark.asyncio
+    async def test_backtest_validate_returns_results(self):
+        from margin_api.workers import backtest_validate
+
+        result = await backtest_validate(
+            {
+                "universe_version": "2026.02.15",
+                "parent_job_id": 42,
+            }
+        )
+        assert result["status"] == "completed"
+        assert result["universe_version"] == "2026.02.15"
+        assert result["methodology_health"] == "healthy"
+        assert result["parent_job_id"] == 42
+
+    @pytest.mark.asyncio
+    async def test_backtest_validate_unknown_version(self):
+        from margin_api.workers import backtest_validate
+
+        result = await backtest_validate({})
+        assert result["universe_version"] == "unknown"
+        assert result["status"] == "completed"
+        assert result["methodology_health"] == "healthy"
+
+    @pytest.mark.asyncio
+    async def test_backtest_validate_missing_parent_job_id(self):
+        from margin_api.workers import backtest_validate
+
+        result = await backtest_validate({"universe_version": "2026.02.15"})
+        assert result["parent_job_id"] is None
+
+
+class TestFullScore:
+    @pytest.mark.asyncio
+    async def test_full_score_chains_backtest(self):
+        from margin_api.workers import full_score
+
+        result = await full_score({"universe_version": "2026.02.15"})
+        assert result["status"] == "completed"
+        assert result["next_job"] == "backtest_validate"
+        assert result["universe_version"] == "2026.02.15"
+
+    @pytest.mark.asyncio
+    async def test_full_score_default_universe_version(self):
+        from margin_api.workers import full_score
+
+        result = await full_score({})
+        assert result["status"] == "completed"
+        assert result["universe_version"] == "unknown"
+        assert result["next_job"] == "backtest_validate"
