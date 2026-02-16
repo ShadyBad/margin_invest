@@ -108,10 +108,10 @@ class TestPriceTargets:
         assert result.intrinsic_value is not None
         assert result.intrinsic_value > 0
 
-    def test_buy_price_below_intrinsic(
+    def test_buy_price_equals_intrinsic(
         self, healthy_period, healthy_profile, price_bars
     ):
-        """buy_price should always be less than sell_price."""
+        """buy_price should equal intrinsic_value (floor), sell_price above it."""
         result = compute_price_targets(
             period=healthy_period,
             profile=healthy_profile,
@@ -120,6 +120,8 @@ class TestPriceTargets:
         )
         assert result.buy_price is not None
         assert result.sell_price is not None
+        assert result.intrinsic_value is not None
+        assert result.buy_price == result.intrinsic_value
         assert result.buy_price < result.sell_price
 
     def test_actual_price_from_latest_bar(
@@ -135,27 +137,34 @@ class TestPriceTargets:
         # Latest bar is 2025-09-28 with close=197
         assert result.actual_price == pytest.approx(197.0)
 
-    def test_margin_of_safety_varies_by_conviction(
+    def test_margin_of_safety_varies_by_growth_stage(
         self, healthy_period, healthy_profile, price_bars
     ):
-        """EXCEPTIONAL buy_price > WATCHLIST buy_price (tighter MoS = higher buy price)."""
-        exceptional = compute_price_targets(
+        """Steady growth gets tighter MoS than turnaround (lower sell price)."""
+        from margin_engine.models.scoring import GrowthStage
+
+        steady = compute_price_targets(
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.EXCEPTIONAL,
+            conviction_level=ConvictionLevel.HIGH,
+            growth_stage=GrowthStage.STEADY_GROWTH,
         )
-        watchlist = compute_price_targets(
+        turnaround = compute_price_targets(
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.WATCHLIST,
+            conviction_level=ConvictionLevel.HIGH,
+            growth_stage=GrowthStage.TURNAROUND,
         )
-        assert exceptional.buy_price is not None
-        assert watchlist.buy_price is not None
-        # EXCEPTIONAL has 15% MoS (tighter), WATCHLIST has 25% MoS (wider)
-        # So EXCEPTIONAL buy_price should be higher (closer to intrinsic)
-        assert exceptional.buy_price > watchlist.buy_price
+        assert steady.margin_of_safety is not None
+        assert turnaround.margin_of_safety is not None
+        # Steady (25% base) should have tighter MoS than Turnaround (40% base)
+        assert steady.margin_of_safety < turnaround.margin_of_safety
+        # Both buy_prices equal intrinsic (same inputs -> same intrinsic)
+        assert steady.buy_price == turnaround.buy_price
+        # Tighter MoS = lower sell price
+        assert steady.sell_price < turnaround.sell_price
 
     def test_no_price_bars_returns_none_actual(
         self, healthy_period, healthy_profile

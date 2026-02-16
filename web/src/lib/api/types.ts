@@ -61,6 +61,7 @@ export interface ScoreResponse {
   sell_price: number | null
   actual_price: number | null
   price_upside: number | null
+  margin_of_safety: number | null
   valuation_methods: Record<string, number> | null
   // Optional includes
   price_history?: PriceBar[] | null

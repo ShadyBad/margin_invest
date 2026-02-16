@@ -98,6 +98,7 @@ class CompositeScore(BaseModel):
     sell_price: float | None = None
     actual_price: float | None = None
     price_upside: float | None = None
+    margin_of_safety: float | None = None
     valuation_methods: dict[str, float] | None = None
 
     @property

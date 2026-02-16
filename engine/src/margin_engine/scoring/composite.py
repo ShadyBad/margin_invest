@@ -94,6 +94,7 @@ def compute_composite_score(
             "sell_price": price_targets.sell_price,
             "actual_price": price_targets.actual_price,
             "price_upside": price_targets.price_upside,
+            "margin_of_safety": price_targets.margin_of_safety,
             "valuation_methods": price_targets.valuation_methods,
         }
 

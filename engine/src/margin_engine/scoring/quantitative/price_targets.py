@@ -8,16 +8,28 @@ Synthesizes four valuation methods into a consensus intrinsic value:
 
 Only methods with valid data contribute; weights renormalize when a method
 returns None.
+
+The intrinsic value IS the buy price (floor) — you buy at fair value.
+The sell price applies the margin of safety upward: sell = intrinsic * (1 + MoS).
+This protects against calculation error and caps expected upside.
+
+Margin of safety uses a two-layer approach inspired by top value investors:
+1. Quality tier base (Graham/Buffett/Klarman): business predictability sets the
+   floor — steady businesses get 25%, turnarounds get 40%.
+2. Dispersion adjustment: when valuation methods disagree (high coefficient of
+   variation), MoS widens by up to 10%. When they agree, it tightens by up to 5%.
+   This makes sell prices naturally adjust as fundamentals change.
 """
 
 from __future__ import annotations
 
+import math
 from decimal import Decimal
 
 from pydantic import BaseModel
 
 from margin_engine.models.financial import AssetProfile, FinancialPeriod, PriceBar
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import ConvictionLevel, GrowthStage
 
 # Method weights (must sum to 1.0)
 _METHOD_WEIGHTS: dict[str, float] = {
@@ -27,13 +39,28 @@ _METHOD_WEIGHTS: dict[str, float] = {
     "shareholder_yield": 0.20,
 }
 
-# Margin of safety by conviction level
-_MARGIN_OF_SAFETY: dict[ConvictionLevel, float] = {
-    ConvictionLevel.EXCEPTIONAL: 0.15,
-    ConvictionLevel.HIGH: 0.20,
-    ConvictionLevel.WATCHLIST: 0.25,
-    ConvictionLevel.NONE: 0.30,
+# Quality-tier base margin of safety by growth stage.
+# Informed by practitioner norms: Buffett ~25% for quality, Graham 33%+ for
+# deep value, Klarman 30-50% for uncertain situations.
+_BASE_MOS: dict[GrowthStage, float] = {
+    GrowthStage.STEADY_GROWTH: 0.25,
+    GrowthStage.MATURE: 0.25,
+    GrowthStage.HIGH_GROWTH: 0.30,
+    GrowthStage.CYCLICAL: 0.35,
+    GrowthStage.TURNAROUND: 0.40,
 }
+
+_DEFAULT_BASE_MOS = 0.30  # When growth stage is unknown
+
+# Dispersion adjustment bounds
+_DISPERSION_TIGHTEN_MAX = 0.05   # Max reduction when methods agree closely
+_DISPERSION_WIDEN_MAX = 0.10     # Max increase when methods diverge
+_LOW_CV_THRESHOLD = 0.10         # CV below this = methods agree well
+_HIGH_CV_THRESHOLD = 0.50        # CV above this = max widening
+
+# Hard floor/ceiling regardless of adjustments
+_MOS_FLOOR = 0.15
+_MOS_CEILING = 0.50
 
 
 class PriceTargets(BaseModel):
@@ -44,6 +71,7 @@ class PriceTargets(BaseModel):
     sell_price: float | None = None
     actual_price: float | None = None
     price_upside: float | None = None
+    margin_of_safety: float | None = None
     valuation_methods: dict[str, float] | None = None
 
 
@@ -52,12 +80,17 @@ def compute_price_targets(
     profile: AssetProfile,
     price_bars: list[PriceBar],
     conviction_level: ConvictionLevel,
+    growth_stage: GrowthStage | None = None,
     growth_rate: float = 0.05,
     discount_rate: float = 0.10,
     terminal_growth_rate: float = 0.025,
     projection_years: int = 10,
 ) -> PriceTargets:
     """Compute consensus price targets from multiple valuation methods.
+
+    Margin of safety is dynamic:
+    1. Quality-tier base from growth_stage (steady=25%, turnaround=40%)
+    2. Adjusted ±based on valuation method dispersion (CV)
 
     Returns a PriceTargets model with intrinsic value, buy/sell prices,
     and the per-method implied prices. If shares_outstanding is missing or
@@ -107,8 +140,11 @@ def compute_price_targets(
         _METHOD_WEIGHTS[k] / total_weight * v for k, v in valid_methods.items()
     )
 
-    mos = _MARGIN_OF_SAFETY[conviction_level]
-    buy_price = intrinsic_value * (1 - mos)
+    # Dynamic margin of safety — intrinsic value IS the buy price (floor).
+    # MoS only applies upward for the sell price, protecting against
+    # calculation error and capping expected upside.
+    mos = _compute_margin_of_safety(valid_methods, intrinsic_value, growth_stage)
+    buy_price = intrinsic_value
     sell_price = intrinsic_value * (1 + mos)
 
     price_upside: float | None = None
@@ -121,8 +157,52 @@ def compute_price_targets(
         sell_price=round(sell_price, 2),
         actual_price=actual_price,
         price_upside=price_upside,
+        margin_of_safety=round(mos, 4),
         valuation_methods={k: round(v, 2) for k, v in valid_methods.items()},
     )
+
+
+def _compute_margin_of_safety(
+    valid_methods: dict[str, float],
+    intrinsic_value: float,
+    growth_stage: GrowthStage | None,
+) -> float:
+    """Compute dynamic margin of safety from quality tier + valuation dispersion.
+
+    Layer 1 — Quality tier base:
+        Steady/Mature businesses (predictable cash flows) start at 25%.
+        Turnarounds (high uncertainty) start at 40%.
+
+    Layer 2 — Dispersion adjustment:
+        Coefficient of variation (CV) across valuation methods measures how
+        much they agree. Low CV tightens MoS (up to -5%), high CV widens
+        (up to +10%). This makes buy/sell prices adjust naturally as the
+        underlying fundamentals change day-to-day.
+    """
+    # Layer 1: Quality-tier base
+    base = _BASE_MOS.get(growth_stage, _DEFAULT_BASE_MOS) if growth_stage else _DEFAULT_BASE_MOS
+
+    # Layer 2: Dispersion adjustment (need 2+ methods to measure agreement)
+    adjustment = 0.0
+    if len(valid_methods) >= 2 and intrinsic_value > 0:
+        values = list(valid_methods.values())
+        mean = sum(values) / len(values)
+        variance = sum((v - mean) ** 2 for v in values) / len(values)
+        std_dev = math.sqrt(variance)
+        cv = std_dev / mean if mean > 0 else 0.0
+
+        if cv <= _LOW_CV_THRESHOLD:
+            # Methods agree well — tighten proportionally
+            adjustment = -_DISPERSION_TIGHTEN_MAX * (1 - cv / _LOW_CV_THRESHOLD)
+        elif cv >= _HIGH_CV_THRESHOLD:
+            # Methods diverge significantly — max widening
+            adjustment = _DISPERSION_WIDEN_MAX
+        else:
+            # Linear interpolation between thresholds
+            t = (cv - _LOW_CV_THRESHOLD) / (_HIGH_CV_THRESHOLD - _LOW_CV_THRESHOLD)
+            adjustment = t * _DISPERSION_WIDEN_MAX
+
+    return max(_MOS_FLOOR, min(_MOS_CEILING, base + adjustment))
 
 
 def _latest_close(bars: list[PriceBar]) -> float | None:

@@ -306,6 +306,7 @@ def rank_and_compute_composites(
                 profile=r.profile,
                 price_bars=r.price_bars,
                 conviction_level=base_composite.conviction_level,
+                growth_stage=r.growth_stage,
             )
 
         if price_targets is not None:

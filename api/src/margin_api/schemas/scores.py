@@ -85,6 +85,7 @@ class ScoreResponse(BaseModel):
     sell_price: float | None = None
     actual_price: float | None = None
     price_upside: float | None = None
+    margin_of_safety: float | None = None
     valuation_methods: dict[str, float] | None = None
     # Conditionally included via ?include=
     price_history: list[PriceBarResponse] | None = None
@@ -119,6 +120,7 @@ class ScoreResponse(BaseModel):
             sell_price=score.sell_price,
             actual_price=score.actual_price,
             price_upside=score.price_upside,
+            margin_of_safety=score.margin_of_safety,
             valuation_methods=score.valuation_methods,
         )
 

@@ -13,14 +13,14 @@ def test_composite_score_price_fields():
         filters_passed=[],
         data_coverage=1.0,
         intrinsic_value=195.20,
-        buy_price=156.16,
+        buy_price=195.20,
         sell_price=234.24,
         actual_price=167.42,
         price_upside=0.166,
         valuation_methods={"dcf": 210.0, "ev_fcf": 185.0},
     )
     assert score.intrinsic_value == 195.20
-    assert score.buy_price == 156.16
+    assert score.buy_price == 195.20
     assert score.sell_price == 234.24
     assert score.actual_price == 167.42
     assert score.price_upside == 0.166

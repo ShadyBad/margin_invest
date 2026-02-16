@@ -588,7 +588,7 @@ class TestPriceTargetsIntegration:
 
         targets = PriceTargets(
             intrinsic_value=195.20,
-            buy_price=156.16,
+            buy_price=195.20,
             sell_price=234.24,
             actual_price=167.42,
             price_upside=0.166,
@@ -603,7 +603,7 @@ class TestPriceTargetsIntegration:
             price_targets=targets,
         )
         assert score.intrinsic_value == 195.20
-        assert score.buy_price == 156.16
+        assert score.buy_price == 195.20
         assert score.sell_price == 234.24
         assert score.actual_price == 167.42
         assert score.price_upside == 0.166
