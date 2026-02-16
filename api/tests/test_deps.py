@@ -55,6 +55,45 @@ async def setup():
     await engine.dispose()
 
 
+class TestGetCurrentUserId:
+    """Tests for the get_current_user_id dependency."""
+
+    @pytest_asyncio.fixture()
+    async def user_id_app(self):
+        """Minimal FastAPI app with a route that uses get_current_user_id."""
+        app = FastAPI()
+
+        @app.get("/me")
+        async def me(user_id: int = Depends(get_current_user_id)):
+            return {"user_id": user_id}
+
+        yield app
+
+    @pytest.mark.asyncio
+    async def test_valid_header_returns_user_id(self, user_id_app):
+        transport = ASGITransport(app=user_id_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/me", headers={"X-User-Id": "42"})
+        assert resp.status_code == 200
+        assert resp.json() == {"user_id": 42}
+
+    @pytest.mark.asyncio
+    async def test_missing_header_returns_401(self, user_id_app):
+        transport = ASGITransport(app=user_id_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/me")
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Not authenticated"
+
+    @pytest.mark.asyncio
+    async def test_non_integer_header_returns_401(self, user_id_app):
+        transport = ASGITransport(app=user_id_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/me", headers={"X-User-Id": "not-a-number"})
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Invalid user ID"
+
+
 class TestRequirePlan:
     @pytest.mark.asyncio
     async def test_free_user_denied(self, setup):

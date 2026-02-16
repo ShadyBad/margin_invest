@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,13 +12,20 @@ from margin_api.db.models import User
 from margin_api.db.session import get_db
 
 
-def get_current_user_id() -> int:
-    """Placeholder: returns the current user's ID.
+def get_current_user_id(
+    x_user_id: str | None = Header(None),
+) -> int:
+    """Extract the current user's ID from the X-User-Id header.
 
-    In production this will extract the user ID from the JWT/session.
-    Override in tests or replace with real auth logic.
+    The Next.js frontend injects this header via serverFetch after
+    authenticating with NextAuth.
     """
-    raise HTTPException(status_code=401, detail="Not authenticated")
+    if x_user_id is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        return int(x_user_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid user ID")
 
 
 def require_plan(plan: str) -> Callable:
