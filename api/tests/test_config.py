@@ -62,3 +62,29 @@ class TestStripeSettings:
         assert s.stripe_publishable_key == "pk_test_456"
         assert s.stripe_webhook_secret == "whsec_789"
         assert s.stripe_price_id == "price_abc"
+
+
+class TestPoolSettings:
+    def test_pool_defaults(self):
+        settings = Settings()
+        assert settings.db_pool_size == 5
+        assert settings.db_max_overflow == 10
+        assert settings.db_pool_timeout == 30
+        assert settings.db_pool_recycle == 1800
+        assert settings.db_pool_pre_ping is True
+
+    def test_environment_default(self):
+        settings = Settings()
+        assert settings.environment == "development"
+
+    def test_environment_from_env(self, monkeypatch):
+        monkeypatch.setenv("MARGIN_ENVIRONMENT", "production")
+        monkeypatch.setenv("MARGIN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+        settings = Settings()
+        assert settings.environment == "production"
+
+    def test_pool_size_from_env(self, monkeypatch):
+        monkeypatch.setenv("MARGIN_DB_POOL_SIZE", "20")
+        monkeypatch.setenv("MARGIN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+        settings = Settings()
+        assert settings.db_pool_size == 20

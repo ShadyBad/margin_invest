@@ -16,6 +16,16 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://margin:margin_dev@localhost:5432/margin_invest"
 
+    # Connection pool
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_timeout: int = 30
+    db_pool_recycle: int = 1800
+    db_pool_pre_ping: bool = True
+
+    # Environment
+    environment: str = "development"
+
     # Redis
     redis_url: str = "redis://localhost:6379"
 
