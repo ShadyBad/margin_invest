@@ -24,11 +24,16 @@ export async function serverFetch<T>(
     // Auth not available — continue without user context
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-    cache: options.cache ?? "no-store",
-  })
+  let response: Response
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+      cache: options.cache ?? "no-store",
+    })
+  } catch (err) {
+    throw new ApiError(503, "Service Unavailable", "API server is not reachable")
+  }
 
   if (!response.ok) {
     const message = await response.text().catch(() => undefined)

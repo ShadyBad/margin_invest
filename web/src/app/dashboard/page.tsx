@@ -22,20 +22,38 @@ export default async function DashboardPage() {
     redirect("/login")
   }
 
-  const data = await serverFetch<DashboardResponse>("/api/v1/dashboard")
+  let data: DashboardResponse | null = null
+  let apiError: string | null = null
+
+  try {
+    data = await serverFetch<DashboardResponse>("/api/v1/dashboard")
+  } catch (err) {
+    apiError = err instanceof Error ? err.message : "Failed to load dashboard data"
+  }
 
   return (
     <AppShell>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-        {data.last_updated && (
+        {data?.last_updated && (
           <p className="text-sm text-text-secondary mt-1">
             Last updated: {formatLastUpdated(data.last_updated)}
           </p>
         )}
       </div>
 
-      {data.universe && (
+      {apiError && (
+        <div className="rounded-lg border border-yellow-600/30 bg-yellow-950/20 p-4 mb-8">
+          <p className="text-sm text-yellow-400">
+            Unable to reach the API server. Start it with:{" "}
+            <code className="bg-surface-secondary px-1.5 py-0.5 rounded text-xs">
+              uvicorn margin_api.app:create_app --factory
+            </code>
+          </p>
+        </div>
+      )}
+
+      {data?.universe && (
         <IngestionBanner universe={data.universe} warnings={data.warnings} />
       )}
 
@@ -43,15 +61,15 @@ export default async function DashboardPage() {
         <h2 className="text-lg font-semibold text-text-primary mb-4">
           Top Picks
         </h2>
-        <PicksGrid picks={data.picks} />
+        <PicksGrid picks={data?.picks ?? []} />
       </section>
 
-      {data.watchlist.length > 0 && (
+      {(data?.watchlist?.length ?? 0) > 0 && (
         <section>
           <h2 className="text-lg font-semibold text-text-primary mb-4">
             Watchlist
           </h2>
-          <WatchlistTable items={data.watchlist} />
+          <WatchlistTable items={data!.watchlist} />
         </section>
       )}
     </AppShell>
