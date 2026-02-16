@@ -26,6 +26,12 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
 
+    if settings.environment == "production" and "localhost" in settings.database_url:
+        raise RuntimeError(
+            "MARGIN_DATABASE_URL points to localhost in production mode. "
+            "Set MARGIN_DATABASE_URL to your Timescale Cloud connection string."
+        )
+
     app = FastAPI(
         title="Margin Invest API",
         version=__version__,
