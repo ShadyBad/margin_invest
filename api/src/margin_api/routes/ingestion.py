@@ -28,6 +28,35 @@ class IngestionRunResponse(BaseModel):
     duration_seconds: float | None
 
 
+class LastRunInfo(BaseModel):
+    status: str
+    succeeded: int
+    failed: int
+    started_at: str
+    duration_seconds: float | None
+
+
+class IngestionStatusResponse(BaseModel):
+    universe_version: str | None
+    total_tickers: int
+    fresh_tickers: int
+    quarantined_tickers: int
+    coverage_pct: float
+    last_run: LastRunInfo | None
+
+
+class CompletenessResponse(BaseModel):
+    ready: bool
+    coverage_pct: float
+    scored_tickers: int
+    total_tickers: int
+    reason: str | None = None
+    message: str | None = None
+
+
+MINIMUM_COVERAGE = 0.90
+
+
 @router.get("/ingestion/runs", response_model=list[IngestionRunResponse])
 async def get_ingestion_runs(
     limit: int = 10,
