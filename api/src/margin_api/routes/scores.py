@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,19 +15,41 @@ from margin_api.schemas.scores import (
     ScoreListResponse,
     ScoreResponse,
 )
+from margin_api.services.freshness import compute_freshness
 
 router = APIRouter(prefix="/api/v1/scores", tags=["scores"])
 
 
-def _score_response_from_row(row) -> ScoreResponse:
+def _score_response_from_row(
+    row,
+    live_price_data: dict | None = None,
+) -> ScoreResponse:
     """Build a ScoreResponse from a DB query row.
 
     If score_detail JSONB is present, use it for full factor breakdowns.
     Otherwise, build a minimal response from summary columns.
+
+    Args:
+        row: DB query row (Score, ticker, asset_name).
+        live_price_data: Optional dict from LivePriceService.get_price().
     """
     # row is a Row tuple: (Score, ticker, asset_name)
     score = row[0] if hasattr(row[0], "composite_percentile") else row.Score
     ticker = row.ticker if hasattr(row, "ticker") else row[1]
+
+    # Compute freshness and price source
+    # Ensure scored_at is tz-aware (SQLite returns naive datetimes)
+    scored_at: datetime | None = score.scored_at
+    if scored_at is not None and scored_at.tzinfo is None:
+        scored_at = scored_at.replace(tzinfo=UTC)
+    freshness = compute_freshness(scored_at)
+
+    if live_price_data:
+        price_source = "live"
+        price_updated_at = live_price_data.get("updated_at")
+    else:
+        price_source = "daily_close"
+        price_updated_at = scored_at.isoformat() if scored_at else None
 
     detail = score.score_detail
     if detail:
@@ -34,7 +58,7 @@ def _score_response_from_row(row) -> ScoreResponse:
         detail.setdefault("signal", score.signal)
         detail.setdefault("name", row.asset_name if hasattr(row, "asset_name") else "")
         detail.setdefault(
-            "scored_at", score.scored_at.isoformat() if score.scored_at else None
+            "scored_at", scored_at.isoformat() if scored_at else None
         )
         for f in detail.get("filters_passed", []):
             f.setdefault("verdict", "pass" if f.get("passed") else "fail")
@@ -53,9 +77,20 @@ def _score_response_from_row(row) -> ScoreResponse:
         detail.setdefault("buy_price", getattr(score, "buy_price", None))
         detail.setdefault("sell_price", getattr(score, "sell_price", None))
         detail.setdefault("actual_price", getattr(score, "actual_price", None))
+        # Override actual_price with live price if available
+        if live_price_data:
+            detail["actual_price"] = live_price_data["price"]
+        # Add freshness fields
+        detail["data_freshness"] = freshness
+        detail["price_source"] = price_source
+        detail["price_updated_at"] = price_updated_at
         return ScoreResponse(**detail)
 
     # Fallback: build from summary columns (no sub-score detail)
+    actual_price = getattr(score, "actual_price", None)
+    if live_price_data:
+        actual_price = live_price_data["price"]
+
     return ScoreResponse(
         ticker=ticker,
         name=row.asset_name if hasattr(row, "asset_name") else "",
@@ -83,16 +118,19 @@ def _score_response_from_row(row) -> ScoreResponse:
         filters_passed=[],
         data_coverage=score.data_coverage,
         growth_stage=score.growth_stage,
-        scored_at=score.scored_at.isoformat() if score.scored_at else None,
+        scored_at=scored_at.isoformat() if scored_at else None,
         intrinsic_value=getattr(score, "intrinsic_value", None),
         buy_price=getattr(score, "buy_price", None),
         sell_price=getattr(score, "sell_price", None),
-        actual_price=getattr(score, "actual_price", None),
+        actual_price=actual_price,
         price_upside=(
             round((score.intrinsic_value - score.actual_price) / score.actual_price, 4)
             if getattr(score, "intrinsic_value", None) and getattr(score, "actual_price", None)
             else None
         ),
+        data_freshness=freshness,
+        price_source=price_source,
+        price_updated_at=price_updated_at,
     )
 
 
@@ -153,6 +191,23 @@ async def list_scores(
     )
 
 
+async def _try_get_live_price(ticker: str) -> dict | None:
+    """Try to fetch a live price from Redis. Returns None if unavailable."""
+    try:
+        import redis.asyncio as aioredis
+
+        from margin_api.services.live_prices import LivePriceService
+
+        client = aioredis.Redis(host="localhost", port=6379, socket_connect_timeout=1)
+        service = LivePriceService(client)
+        try:
+            return await service.get_price(ticker)
+        finally:
+            await client.aclose()
+    except Exception:
+        return None
+
+
 @router.get("/{ticker}", response_model=ScoreResponse)
 async def get_score(
     ticker: str,
@@ -174,7 +229,10 @@ async def get_score(
     if row is None:
         raise HTTPException(status_code=404, detail=f"No score found for {ticker}")
 
-    response = _score_response_from_row(row)
+    # Try to get live price from Redis (graceful fallback)
+    live_price_data = await _try_get_live_price(ticker)
+
+    response = _score_response_from_row(row, live_price_data=live_price_data)
 
     includes = set((include or "").split(",")) if include else set()
 

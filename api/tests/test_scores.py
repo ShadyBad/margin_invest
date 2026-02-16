@@ -244,3 +244,40 @@ class TestListScores:
         assert data["total"] == 3
         assert len(data["scores"]) == 1
         assert data["scores"][0]["ticker"] == "NVDA"
+
+
+@pytest.mark.asyncio
+class TestScoreFreshness:
+    async def test_score_response_includes_freshness(self, client):
+        """Score responses include data_freshness field."""
+        response = await client.get("/api/v1/scores/AAPL")
+        assert response.status_code == 200
+        data = response.json()
+        assert "data_freshness" in data
+        assert data["data_freshness"] in ("fresh", "stale", "expired")
+
+    async def test_score_response_includes_price_source(self, client):
+        """Score responses include price_source field (daily_close when no Redis)."""
+        response = await client.get("/api/v1/scores/AAPL")
+        assert response.status_code == 200
+        data = response.json()
+        assert "price_source" in data
+        assert data["price_source"] == "daily_close"
+
+    async def test_score_response_includes_price_updated_at(self, client):
+        """Score responses include price_updated_at field."""
+        response = await client.get("/api/v1/scores/AAPL")
+        assert response.status_code == 200
+        data = response.json()
+        assert "price_updated_at" in data
+
+    async def test_list_scores_include_freshness(self, client):
+        """List score responses also include data_freshness."""
+        response = await client.get("/api/v1/scores")
+        assert response.status_code == 200
+        data = response.json()
+        for score in data["scores"]:
+            assert "data_freshness" in score
+            assert score["data_freshness"] in ("fresh", "stale", "expired")
+            assert "price_source" in score
+            assert "price_updated_at" in score

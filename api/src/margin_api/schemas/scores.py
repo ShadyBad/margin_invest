@@ -87,6 +87,10 @@ class ScoreResponse(BaseModel):
     price_upside: float | None = None
     margin_of_safety: float | None = None
     valuation_methods: dict[str, float] | None = None
+    # Live price and freshness fields
+    data_freshness: str = "expired"  # "fresh", "stale", "expired"
+    price_source: str = "daily_close"  # "live" or "daily_close"
+    price_updated_at: str | None = None
     # Conditionally included via ?include=
     price_history: list[PriceBarResponse] | None = None
     signal_history: list[SignalTransitionResponse] | None = None
