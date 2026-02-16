@@ -32,8 +32,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://margin:margin_dev@db:5432/margin_invest
-      REDIS_URL: redis://redis:6379
+      MARGIN_DATABASE_URL: postgresql+asyncpg://margin:margin_dev@db:5432/margin_invest
+      MARGIN_REDIS_URL: redis://redis:6379
+      MARGIN_ENVIRONMENT: development
     depends_on:
       db:
         condition: service_healthy
