@@ -14,11 +14,13 @@ class TestGetEngine:
         import margin_api.db.session as mod
 
         mod._engine = None
+        get_settings.cache_clear()
 
     def teardown_method(self):
         import margin_api.db.session as mod
 
         mod._engine = None
+        get_settings.cache_clear()
 
     def test_explicit_url_bypasses_cache(self):
         engine = get_engine(url="sqlite+aiosqlite:///:memory:")

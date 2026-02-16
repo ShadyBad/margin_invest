@@ -26,9 +26,12 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
 
-    if settings.environment == "production" and "localhost" in settings.database_url:
+    _local_hosts = ("localhost", "127.0.0.1", "0.0.0.0")
+    if settings.environment == "production" and any(
+        h in settings.database_url for h in _local_hosts
+    ):
         raise RuntimeError(
-            "MARGIN_DATABASE_URL points to localhost in production mode. "
+            "MARGIN_DATABASE_URL points to a local address in production mode. "
             "Set MARGIN_DATABASE_URL to your Timescale Cloud connection string."
         )
 

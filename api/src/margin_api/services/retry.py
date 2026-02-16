@@ -24,7 +24,10 @@ async def with_retry(
     max_delay: float = MAX_DELAY,
     **kwargs,
 ) -> T:
-    """Call fn with exponential backoff on failure."""
+    """Call a synchronous fn with exponential backoff on failure.
+
+    Note: fn must be synchronous. Async callables are not awaited.
+    """
     for attempt in range(1, retries + 1):
         try:
             return fn(*args, **kwargs)

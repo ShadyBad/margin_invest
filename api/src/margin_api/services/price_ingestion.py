@@ -77,11 +77,23 @@ async def upsert_price_bars(
         )
         await session.execute(stmt)
     else:
-        # SQLite fallback for tests
-        from sqlalchemy import insert as sa_insert
+        # SQLite fallback for tests — use INSERT OR REPLACE for idempotency
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
         for val in values:
-            await session.execute(sa_insert(PriceIntraday).values(**val))
+            stmt = sqlite_insert(PriceIntraday).values(**val)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["ticker", "time"],
+                set_={
+                    "open": stmt.excluded.open,
+                    "high": stmt.excluded.high,
+                    "low": stmt.excluded.low,
+                    "close": stmt.excluded.close,
+                    "volume": stmt.excluded.volume,
+                    "source": stmt.excluded.source,
+                },
+            )
+            await session.execute(stmt)
 
     return len(values)
 
