@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
+import { Avatar } from "@/components/ui/avatar"
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -58,6 +59,12 @@ export function Nav() {
             </button>
             {session?.user ? (
               <div className="flex items-center gap-3">
+                <Avatar
+                  name={session.user.name || session.user.email || ""}
+                  avatarUrl={(session as any).avatarUrl}
+                  oauthAvatarUrl={(session as any).oauthAvatarUrl ?? session.user.image}
+                  size="sm"
+                />
                 <span className="text-sm text-text-secondary">
                   {session.user.name || session.user.email}
                 </span>
@@ -114,12 +121,20 @@ export function Nav() {
               </Link>
             ))}
             {session?.user ? (
-              <button
-                onClick={() => signOut()}
-                className="block w-full text-left text-sm text-text-secondary py-2"
-              >
-                Sign Out
-              </button>
+              <div className="flex items-center gap-3 py-2">
+                <Avatar
+                  name={session.user.name || session.user.email || ""}
+                  avatarUrl={(session as any).avatarUrl}
+                  oauthAvatarUrl={(session as any).oauthAvatarUrl ?? session.user.image}
+                  size="sm"
+                />
+                <button
+                  onClick={() => signOut()}
+                  className="text-sm text-text-secondary"
+                >
+                  Sign Out
+                </button>
+              </div>
             ) : (
               <Link href="/login" className="block text-sm text-accent py-2">
                 Sign In

@@ -1,6 +1,7 @@
 "use client"
 
 import { useSession } from "next-auth/react"
+import { Avatar } from "@/components/ui/avatar"
 
 export function AccountSection() {
   const { data: session } = useSession()
@@ -12,13 +13,12 @@ export function AccountSection() {
       {session?.user ? (
         <div className="space-y-3">
           <div className="flex items-center gap-4">
-            {session.user.image && (
-              <img
-                src={session.user.image}
-                alt=""
-                className="w-12 h-12 rounded-full border border-border-primary"
-              />
-            )}
+            <Avatar
+              name={session.user.name || session.user.email || ""}
+              avatarUrl={(session as any).avatarUrl}
+              oauthAvatarUrl={(session as any).oauthAvatarUrl ?? session.user.image}
+              size="lg"
+            />
             <div>
               <div className="text-text-primary font-medium">
                 {session.user.name || "User"}
