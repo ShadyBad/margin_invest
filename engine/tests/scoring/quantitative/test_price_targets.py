@@ -111,7 +111,7 @@ class TestPriceTargets:
     def test_buy_price_below_intrinsic(
         self, healthy_period, healthy_profile, price_bars
     ):
-        """buy_price should always be less than sell_price (intrinsic)."""
+        """buy_price should always be less than sell_price."""
         result = compute_price_targets(
             period=healthy_period,
             profile=healthy_profile,

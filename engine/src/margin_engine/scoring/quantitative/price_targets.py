@@ -109,7 +109,7 @@ def compute_price_targets(
 
     mos = _MARGIN_OF_SAFETY[conviction_level]
     buy_price = intrinsic_value * (1 - mos)
-    sell_price = intrinsic_value  # Fair value
+    sell_price = intrinsic_value * (1 + mos)
 
     price_upside: float | None = None
     if actual_price is not None and actual_price > 0:
