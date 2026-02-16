@@ -1,8 +1,12 @@
 """ARQ worker configuration and job definitions."""
 from __future__ import annotations
 
+import redis.asyncio as aioredis
+import yfinance as yf
 from arq import cron
 from arq.connections import RedisSettings
+
+from margin_api.services.live_prices import LivePriceService
 
 
 async def full_ingest(ctx: dict) -> dict:
@@ -22,7 +26,32 @@ async def backtest_validate(ctx: dict) -> dict:
 
 async def live_price_poll(ctx: dict) -> dict:
     """Poll live prices for recommended candidates."""
-    return {"status": "not_implemented"}
+    recommended = ctx.get("recommended_tickers", [])
+    if not recommended:
+        return {"status": "no_recommendations", "updated": 0}
+
+    redis_client = aioredis.Redis(host="localhost", port=6379)
+    service = LivePriceService(redis_client)
+
+    try:
+        # Batch fetch from yfinance
+        prices: dict[str, float] = {}
+        for ticker in recommended:
+            try:
+                t = yf.Ticker(ticker)
+                info = t.fast_info
+                current = getattr(info, "last_price", None)
+                if current and current > 0:
+                    prices[ticker] = float(current)
+            except Exception:
+                continue
+
+        if prices:
+            await service.set_prices(prices)
+
+        return {"status": "completed", "updated": len(prices)}
+    finally:
+        await redis_client.aclose()
 
 
 async def retry_quarantined(ctx: dict) -> dict:
