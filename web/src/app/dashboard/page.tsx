@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { AppShell } from "@/components/layout"
-import { PicksGrid, WatchlistTable } from "@/components/dashboard"
+import { PicksGrid, WatchlistTable, IngestionBanner } from "@/components/dashboard"
 import { serverFetch } from "@/lib/api/server"
 import type { DashboardResponse } from "@/lib/api/types"
 
@@ -34,6 +34,10 @@ export default async function DashboardPage() {
           </p>
         )}
       </div>
+
+      {data.universe && (
+        <IngestionBanner universe={data.universe} warnings={data.warnings} />
+      )}
 
       <section className="mb-10">
         <h2 className="text-lg font-semibold text-text-primary mb-4">
