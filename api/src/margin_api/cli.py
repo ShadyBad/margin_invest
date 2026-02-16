@@ -1,7 +1,7 @@
 """CLI for seeding financial data from yfinance into the database.
 
-Fetches fundamentals, price history, and earnings for ~50 S&P 500 tickers
-across all 11 GICS sectors and upserts them into the database.
+Fetches fundamentals, price history, and earnings for tickers defined
+in the active universe snapshot and upserts them into the database.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import math
 import sys
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import yfinance
@@ -22,6 +23,7 @@ from sqlalchemy import select
 
 from margin_api.db.models import Asset, FinancialData
 from margin_api.db.session import get_engine, get_session_factory
+from margin_api.services.universe import activate_universe, get_active_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +200,20 @@ async def seed_ticker_data(
         return False
 
 
+async def _get_universe_tickers() -> list[str]:
+    """Read ticker list from the active universe snapshot."""
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+    async with session_factory() as session:
+        snapshot = await get_active_snapshot(session)
+    if snapshot is None:
+        print("No active universe snapshot. Run 'universe activate' first.")
+        print("Or use --tickers to seed a specific subset.")
+        sys.exit(1)
+    print(f"Using universe v{snapshot.version} ({snapshot.ticker_count} tickers)")
+    return list(snapshot.tickers)
+
+
 async def run_seed(tickers: list[str] | None = None) -> None:
     """Seed financial data for all (or specified) tickers.
 
@@ -205,7 +221,7 @@ async def run_seed(tickers: list[str] | None = None) -> None:
     through tickers and calls :func:`seed_ticker_data` for each one.
     """
     if tickers is None:
-        tickers = SP500_TICKERS
+        tickers = await _get_universe_tickers()
 
     provider = YFinanceProvider()
     registry = RateLimiterRegistry()
@@ -262,9 +278,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
     session_factory = get_session_factory(engine)
 
     if tickers is None:
-        async with session_factory() as session:
-            result = await session.execute(select(Asset.ticker))
-            tickers = [row[0] for row in result.all()]
+        tickers = await _get_universe_tickers()
 
     if not tickers:
         print("No tickers found in database. Run 'seed' first.")
@@ -399,6 +413,52 @@ def determine_run_type(tickers_override: list[str] | None) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Universe activation
+# ---------------------------------------------------------------------------
+
+
+async def run_universe_activate(config_path: str | None = None) -> None:
+    """Activate a universe from a YAML config file."""
+    if config_path is None:
+        # Default to engine/universe.yaml relative to repo root
+        candidate = Path(__file__).resolve().parents[3] / "engine" / "universe.yaml"
+        if not candidate.exists():
+            print(f"Default universe config not found at {candidate}")
+            print("Use --config to specify a path.")
+            sys.exit(1)
+        config_path = str(candidate)
+
+    path = Path(config_path)
+    if not path.exists():
+        print(f"Config file not found: {path}")
+        sys.exit(1)
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+    async with session_factory() as session:
+        snapshot = await activate_universe(session, path)
+    await engine.dispose()
+
+    print(f"Activated universe v{snapshot.version}")
+    print(f"  Tickers: {snapshot.ticker_count}")
+    print(f"  Hash: {snapshot.config_hash}")
+
+
+# ---------------------------------------------------------------------------
+# Full pipeline
+# ---------------------------------------------------------------------------
+
+
+async def run_pipeline(tickers: list[str] | None = None) -> None:
+    """Run the full pipeline: seed → score."""
+    print("=== Step 1/2: Seeding financial data ===\n")
+    await run_seed(tickers=tickers)
+    print("\n=== Step 2/2: Scoring tickers ===\n")
+    await run_scoring(tickers=tickers)
+    print("\n=== Pipeline complete ===")
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 
@@ -411,28 +471,57 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command")
 
+    # universe activate
+    universe_parser = subparsers.add_parser("universe", help="Universe management")
+    universe_sub = universe_parser.add_subparsers(dest="universe_command")
+    activate_parser = universe_sub.add_parser("activate", help="Activate universe from YAML")
+    activate_parser.add_argument(
+        "--config",
+        default=None,
+        help="Path to universe YAML (defaults to engine/universe.yaml)",
+    )
+
+    # seed
     seed_parser = subparsers.add_parser("seed", help="Seed financial data from yfinance")
     seed_parser.add_argument(
         "--tickers",
         nargs="+",
         default=None,
-        help="Specific tickers to seed (defaults to ~50 S&P 500 tickers)",
+        help="Specific tickers to seed (defaults to active universe)",
     )
 
-    score_parser = subparsers.add_parser("score", help="Score all seeded tickers")
+    # score
+    score_parser = subparsers.add_parser("score", help="Score tickers")
     score_parser.add_argument(
         "--tickers",
         nargs="+",
         default=None,
-        help="Specific tickers to score (defaults to all seeded tickers)",
+        help="Specific tickers to score (defaults to active universe)",
+    )
+
+    # pipeline (seed + score in one go)
+    pipeline_parser = subparsers.add_parser("pipeline", help="Run full pipeline: seed → score")
+    pipeline_parser.add_argument(
+        "--tickers",
+        nargs="+",
+        default=None,
+        help="Specific tickers (defaults to active universe)",
     )
 
     args = parser.parse_args()
 
-    if args.command == "seed":
+    if args.command == "universe":
+        if args.universe_command == "activate":
+            asyncio.run(run_universe_activate(config_path=args.config))
+        else:
+            universe_parser.print_help()
+            sys.exit(1)
+    elif args.command == "seed":
         asyncio.run(run_seed(tickers=args.tickers))
     elif args.command == "score":
         asyncio.run(run_scoring(tickers=args.tickers))
+    elif args.command == "pipeline":
+        asyncio.run(run_pipeline(tickers=args.tickers))
     else:
         parser.print_help()
         sys.exit(1)
