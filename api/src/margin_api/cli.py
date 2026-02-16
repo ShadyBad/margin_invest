@@ -418,16 +418,14 @@ def determine_run_type(tickers_override: list[str] | None) -> str:
 
 
 def run_universe_generate(output: str | None = None) -> None:
-    """Screen Yahoo Finance for US equities and generate universe.yaml."""
+    """Screen Yahoo Finance for all US equities and generate universe.yaml."""
     from margin_engine.universe.screener import generate_universe_yaml, screen_us_equities
 
     excluded_sectors = ["Financial Services", "Real Estate"]
-    min_market_cap = 300_000_000
-    min_avg_volume = 100_000
+    min_market_cap = 0
+    min_avg_volume = 0
 
-    print("Screening Yahoo Finance for US equities...")
-    print(f"  Min market cap: ${min_market_cap:,}")
-    print(f"  Min avg volume: {min_avg_volume:,}")
+    print("Screening Yahoo Finance for all US publicly traded equities...")
     print(f"  Excluded sectors: {', '.join(excluded_sectors)}")
     print()
 
@@ -444,6 +442,7 @@ def run_universe_generate(output: str | None = None) -> None:
         excluded_sectors=excluded_sectors,
         min_market_cap=min_market_cap,
         min_avg_volume=min_avg_volume,
+        description="All US equities, excluding financials and REITs",
     )
 
     if output is None:

@@ -26,11 +26,11 @@ ALL_SECTORS = [
 
 def screen_us_equities(
     *,
-    min_market_cap: int = 300_000_000,
-    min_avg_volume: int = 100_000,
+    min_market_cap: int = 0,
+    min_avg_volume: int = 0,
     excluded_sectors: list[str] | None = None,
 ) -> list[dict]:
-    """Screen Yahoo Finance for US equities meeting market cap and volume thresholds.
+    """Screen Yahoo Finance for all US equities.
 
     Queries each included sector separately (Yahoo screener has no NOT operator).
     Returns a list of dicts with keys: ticker, name, market_cap, avg_volume, sector.
@@ -44,12 +44,18 @@ def screen_us_equities(
     results: list[dict] = []
 
     for sector in included_sectors:
-        query = EquityQuery("and", [
+        conditions = [
             EquityQuery("eq", ["region", "us"]),
             EquityQuery("eq", ["sector", sector]),
-            EquityQuery("gt", ["intradaymarketcap", min_market_cap]),
-            EquityQuery("gt", ["avgdailyvol3m", min_avg_volume]),
-        ])
+        ]
+        if min_market_cap > 0:
+            conditions.append(EquityQuery("gt", ["intradaymarketcap", min_market_cap]))
+        else:
+            # Yahoo requires at least some filter — use $1 as floor
+            conditions.append(EquityQuery("gt", ["intradaymarketcap", 1]))
+        if min_avg_volume > 0:
+            conditions.append(EquityQuery("gt", ["avgdailyvol3m", min_avg_volume]))
+        query = EquityQuery("and", conditions)
 
         # First page to get total
         response = yf.screen(
