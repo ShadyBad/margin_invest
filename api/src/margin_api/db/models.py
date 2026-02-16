@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Float, JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +13,70 @@ from margin_api.db.base import Base
 
 # Use JSONB on PostgreSQL, fall back to JSON on other backends (e.g. SQLite for tests).
 JSONVariant = JSON().with_variant(JSONB(), "postgresql")
+
+
+class UniverseSnapshot(Base):
+    __tablename__ = "universe_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version: Mapped[str] = mapped_column(String(50))
+    config_hash: Mapped[str] = mapped_column(String(64))
+    ticker_count: Mapped[int]
+    tickers: Mapped[dict | None] = mapped_column(JSONVariant)  # actually a list, stored as JSON
+    exclusion_rules: Mapped[dict | None] = mapped_column(JSONVariant, default=dict)
+    is_active: Mapped[bool] = mapped_column(default=False)
+    activated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class IngestionTickerStatus(Base):
+    __tablename__ = "ingestion_ticker_status"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"))
+    ticker: Mapped[str] = mapped_column(String(10))
+    status: Mapped[str] = mapped_column(String(20))  # pending | ingesting | succeeded | failed
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data_fetched: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    run: Mapped[IngestionRun] = relationship(back_populates="ticker_statuses")
+
+
+class IngestionRun(Base):
+    __tablename__ = "ingestion_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    snapshot_id: Mapped[int] = mapped_column(ForeignKey("universe_snapshots.id"))
+    run_type: Mapped[str] = mapped_column(String(20))  # "full" | "subset"
+    tickers_requested: Mapped[int]
+    tickers_succeeded: Mapped[int] = mapped_column(default=0)
+    tickers_failed: Mapped[int] = mapped_column(default=0)
+    tickers_skipped: Mapped[int] = mapped_column(default=0)
+    failed_tickers: Mapped[dict | None] = mapped_column(JSONVariant, default=list)
+    status: Mapped[str] = mapped_column(String(20))  # running | completed | failed | cancelled
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    snapshot: Mapped[UniverseSnapshot] = relationship()
+    ticker_statuses: Mapped[list[IngestionTickerStatus]] = relationship(back_populates="run")
+
+
+class JobRun(Base):
+    __tablename__ = "job_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_type: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20))  # queued | running | completed | failed | cancelled
+    progress: Mapped[float] = mapped_column(Float, default=0.0)
+    progress_detail: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    triggered_by: Mapped[str] = mapped_column(String(20))  # schedule | cli | chained
+    parent_job_id: Mapped[int | None] = mapped_column(ForeignKey("job_runs.id"), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Asset(Base):
@@ -33,6 +97,11 @@ class Asset(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+    ingestion_status: Mapped[str] = mapped_column(String(30), default="active")
+    consecutive_failures: Mapped[int] = mapped_column(default=0)
+    last_failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quarantined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     scores: Mapped[list[Score]] = relationship(back_populates="asset")
     recommendations: Mapped[list[Recommendation]] = relationship(back_populates="asset")
