@@ -88,6 +88,11 @@ export interface PickSummary {
   buy_price: number | null
   sell_price: number | null
   price_upside: number | null
+  data_freshness?: "fresh" | "stale" | "expired"
+  scored_at?: string
+  price_source?: "live" | "daily_close"
+  price_updated_at?: string | null
+  ingestion_status?: "complete" | "processing" | "failed" | "pending"
 }
 
 export interface WatchlistItem {
@@ -97,11 +102,27 @@ export interface WatchlistItem {
   conviction_level: string
 }
 
+export interface UniverseSummary {
+  version: string
+  size: number
+  scoring_coverage: number
+  is_complete: boolean
+  last_scoring_run: string | null
+}
+
+export interface Warning {
+  code: string
+  message: string
+  severity: "warning" | "error"
+}
+
 export interface DashboardResponse {
   picks: PickSummary[]
   watchlist: WatchlistItem[]
   last_updated: string
   total_scored: number
+  universe: UniverseSummary | null
+  warnings?: Warning[]
 }
 
 export interface HealthResponse {

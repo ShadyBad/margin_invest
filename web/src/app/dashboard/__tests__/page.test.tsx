@@ -86,6 +86,7 @@ const mockDashboardData: DashboardResponse = {
   ],
   last_updated: "2026-02-12T10:30:00Z",
   total_scored: 500,
+  universe: null,
 }
 
 describe("Dashboard Page (Server Component)", () => {
