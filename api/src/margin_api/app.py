@@ -15,6 +15,7 @@ from margin_api.routes.events import router as events_router
 from margin_api.routes.health import router as health_router
 from margin_api.routes.keys import router as keys_router
 from margin_api.routes.scores import router as scores_router
+from margin_api.routes.universe import router as universe_router
 from margin_api.ws.scores import router as ws_router
 
 
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router)
     app.include_router(events_router)
     app.include_router(backtest_router)
+    app.include_router(universe_router)
     app.include_router(ws_router)
 
     return app

@@ -23,6 +23,11 @@ from margin_api.schemas.scores import (
     ScoreListResponse,
     ScoreResponse,
 )
+from margin_api.schemas.universe import (
+    UniverseStatusResponse,
+    UniverseSummary,
+    Warning,
+)
 
 __all__ = [
     "BacktestConfigRequest",
@@ -41,7 +46,10 @@ __all__ = [
     "PickSummary",
     "ScoreListResponse",
     "ScoreResponse",
+    "UniverseStatusResponse",
+    "UniverseSummary",
     "ValidationCheckResponse",
     "ValidationResponse",
+    "Warning",
     "WatchlistItem",
 ]
