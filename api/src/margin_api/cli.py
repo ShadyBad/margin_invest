@@ -417,6 +417,42 @@ def determine_run_type(tickers_override: list[str] | None) -> str:
 # ---------------------------------------------------------------------------
 
 
+def run_universe_generate(output: str | None = None) -> None:
+    """Screen Yahoo Finance for US equities and generate universe.yaml."""
+    from margin_engine.universe.screener import generate_universe_yaml, screen_us_equities
+
+    excluded_sectors = ["Financial Services", "Real Estate"]
+    min_market_cap = 300_000_000
+    min_avg_volume = 100_000
+
+    print("Screening Yahoo Finance for US equities...")
+    print(f"  Min market cap: ${min_market_cap:,}")
+    print(f"  Min avg volume: {min_avg_volume:,}")
+    print(f"  Excluded sectors: {', '.join(excluded_sectors)}")
+    print()
+
+    raw = screen_us_equities(
+        min_market_cap=min_market_cap,
+        min_avg_volume=min_avg_volume,
+        excluded_sectors=excluded_sectors,
+    )
+    tickers = sorted(set(r["ticker"] for r in raw))
+    print(f"\nFound {len(tickers)} tickers after filtering")
+
+    yaml_content = generate_universe_yaml(
+        tickers=tickers,
+        excluded_sectors=excluded_sectors,
+        min_market_cap=min_market_cap,
+        min_avg_volume=min_avg_volume,
+    )
+
+    if output is None:
+        output = str(Path(__file__).resolve().parents[3] / "engine" / "universe.yaml")
+
+    Path(output).write_text(yaml_content)
+    print(f"Written to {output}")
+
+
 async def run_universe_activate(config_path: str | None = None) -> None:
     """Activate a universe from a YAML config file."""
     if config_path is None:
@@ -471,9 +507,17 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    # universe activate
+    # universe subcommands
     universe_parser = subparsers.add_parser("universe", help="Universe management")
     universe_sub = universe_parser.add_subparsers(dest="universe_command")
+
+    generate_parser = universe_sub.add_parser(
+        "generate", help="Screen Yahoo Finance and generate universe.yaml"
+    )
+    generate_parser.add_argument(
+        "--output", default=None, help="Output path (defaults to engine/universe.yaml)",
+    )
+
     activate_parser = universe_sub.add_parser("activate", help="Activate universe from YAML")
     activate_parser.add_argument(
         "--config",
@@ -511,7 +555,9 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "universe":
-        if args.universe_command == "activate":
+        if args.universe_command == "generate":
+            run_universe_generate(output=args.output)
+        elif args.universe_command == "activate":
             asyncio.run(run_universe_activate(config_path=args.config))
         else:
             universe_parser.print_help()

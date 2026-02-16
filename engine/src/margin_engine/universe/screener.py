@@ -1,7 +1,94 @@
 """Universe screener — discover US equities via yfinance."""
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
+
+logger = logging.getLogger(__name__)
+
+_PAGE_SIZE = 250
+
+# Yahoo Finance sector names (yfinance uses these, not GICS)
+ALL_SECTORS = [
+    "Technology",
+    "Healthcare",
+    "Consumer Cyclical",
+    "Consumer Defensive",
+    "Energy",
+    "Industrials",
+    "Basic Materials",
+    "Utilities",
+    "Communication Services",
+    "Financial Services",
+    "Real Estate",
+]
+
+
+def screen_us_equities(
+    *,
+    min_market_cap: int = 300_000_000,
+    min_avg_volume: int = 100_000,
+    excluded_sectors: list[str] | None = None,
+) -> list[dict]:
+    """Screen Yahoo Finance for US equities meeting market cap and volume thresholds.
+
+    Queries each included sector separately (Yahoo screener has no NOT operator).
+    Returns a list of dicts with keys: ticker, name, market_cap, avg_volume, sector.
+    """
+    import yfinance as yf
+    from yfinance import EquityQuery
+
+    excluded = set(excluded_sectors or [])
+    included_sectors = [s for s in ALL_SECTORS if s not in excluded]
+
+    results: list[dict] = []
+
+    for sector in included_sectors:
+        query = EquityQuery("and", [
+            EquityQuery("eq", ["region", "us"]),
+            EquityQuery("eq", ["sector", sector]),
+            EquityQuery("gt", ["intradaymarketcap", min_market_cap]),
+            EquityQuery("gt", ["avgdailyvol3m", min_avg_volume]),
+        ])
+
+        # First page to get total
+        response = yf.screen(
+            query, sortField="intradaymarketcap", sortAsc=False,
+            size=_PAGE_SIZE, offset=0,
+        )
+        sector_total = response.get("total", 0)
+        logger.info("  %s: %d tickers", sector, sector_total)
+
+        offset = 0
+        while offset < sector_total:
+            if offset > 0:
+                response = yf.screen(
+                    query, sortField="intradaymarketcap", sortAsc=False,
+                    size=_PAGE_SIZE, offset=offset,
+                )
+
+            quotes = response.get("quotes", [])
+            if not quotes:
+                break
+
+            for q in quotes:
+                symbol = q.get("symbol", "")
+                # Skip non-standard tickers (warrants, units, etc.)
+                if not symbol or "." in symbol or "-" in symbol or len(symbol) > 5:
+                    continue
+
+                results.append({
+                    "ticker": symbol,
+                    "name": q.get("shortName") or q.get("longName") or symbol,
+                    "market_cap": q.get("marketCap", 0),
+                    "avg_volume": q.get("averageDailyVolume3Month", 0),
+                    "sector": sector,
+                })
+
+            offset += _PAGE_SIZE
+
+    logger.info("Total: %d tickers across %d sectors", len(results), len(included_sectors))
+    return results
 
 
 def filter_universe(
@@ -31,6 +118,7 @@ def generate_universe_yaml(
     excluded_sectors: list[str],
     min_market_cap: int,
     min_avg_volume: int,
+    description: str = "US equities, excluding financials and REITs",
 ) -> str:
     """Generate a universe.yaml string from filtered tickers."""
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -38,7 +126,7 @@ def generate_universe_yaml(
 
     lines = [
         f'version: "{today}"',
-        'description: "US equities, excluding financials and REITs"',
+        f'description: "{description}"',
         'source: "yfinance_screener"',
         f'generated_at: "{now}"',
         "",
