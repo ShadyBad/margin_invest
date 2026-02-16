@@ -10,7 +10,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from margin_api.app import create_app
 from margin_api.db.base import Base
-from margin_api.db.models import Asset, Score
+from margin_api.db.models import Asset, Score, UniverseSnapshot
 from margin_api.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -249,3 +249,135 @@ class TestDashboardMixed:
         # Should parse without error
         dt = datetime.fromisoformat(data["last_updated"])
         assert isinstance(dt, datetime)
+
+
+@pytest_asyncio.fixture
+async def universe_seeded_session(async_engine):
+    """Seed DB with scores AND an active universe snapshot."""
+    factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+    async with factory() as session:
+        # Create universe snapshot with 10 tickers
+        snapshot = UniverseSnapshot(
+            version="2026.02.15",
+            config_hash="abc123",
+            ticker_count=10,
+            tickers=["AAPL", "NVDA", "MSFT", "LOW", "GOOG", "AMZN", "META", "TSLA", "JPM", "V"],
+            is_active=True,
+            activated_at=datetime.now(UTC),
+        )
+        session.add(snapshot)
+
+        # Create 4 scored assets
+        aapl = Asset(
+            ticker="AAPL", name="Apple Inc.",
+            sector="Information Technology", market_cap=Decimal("3500000000000"),
+        )
+        nvda = Asset(
+            ticker="NVDA", name="NVIDIA Corp",
+            sector="Information Technology", market_cap=Decimal("1500000000000"),
+        )
+        msft = Asset(
+            ticker="MSFT", name="Microsoft Corp",
+            sector="Information Technology", market_cap=Decimal("2800000000000"),
+        )
+        low = Asset(
+            ticker="LOW", name="Lowes Companies",
+            sector="Consumer Discretionary", market_cap=Decimal("50000000000"),
+        )
+        session.add_all([aapl, nvda, msft, low])
+        await session.flush()
+
+        now = datetime.now(UTC)
+        scores = [
+            Score(
+                asset_id=aapl.id, composite_percentile=99.5,
+                conviction_level="exceptional", signal="buy",
+                quality_percentile=98.0, value_percentile=95.0,
+                momentum_percentile=97.0, data_coverage=1.0, scored_at=now,
+            ),
+            Score(
+                asset_id=nvda.id, composite_percentile=96.0,
+                conviction_level="high", signal="buy",
+                quality_percentile=94.0, value_percentile=93.0,
+                momentum_percentile=95.0, data_coverage=1.0, scored_at=now,
+            ),
+            Score(
+                asset_id=msft.id, composite_percentile=80.0,
+                conviction_level="watchlist", signal="hold",
+                quality_percentile=78.0, value_percentile=82.0,
+                momentum_percentile=75.0, data_coverage=1.0, scored_at=now,
+            ),
+            Score(
+                asset_id=low.id, composite_percentile=50.0,
+                conviction_level="none", signal="no_action",
+                quality_percentile=45.0, value_percentile=50.0,
+                momentum_percentile=55.0, data_coverage=1.0, scored_at=now,
+            ),
+        ]
+        session.add_all(scores)
+        await session.commit()
+
+    return factory
+
+
+@pytest_asyncio.fixture
+async def universe_client(universe_seeded_session):
+    """AsyncClient with universe snapshot and scored assets."""
+    app = create_app()
+
+    async def override_get_db():
+        async with universe_seeded_session() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+
+@pytest.mark.asyncio
+class TestDashboardUniverseMetadata:
+    async def test_no_universe_returns_warning(self, empty_client):
+        """When no universe snapshot exists, universe is None and warning is returned."""
+        response = await empty_client.get("/api/v1/dashboard")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["universe"] is None
+        assert len(data["warnings"]) == 1
+        assert data["warnings"][0]["code"] == "NO_UNIVERSE"
+        assert data["warnings"][0]["severity"] == "warning"
+
+    async def test_no_universe_without_snapshot_seeded(self, client):
+        """Seeded DB without universe snapshot returns NO_UNIVERSE warning."""
+        response = await client.get("/api/v1/dashboard")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["universe"] is None
+        assert any(w["code"] == "NO_UNIVERSE" for w in data["warnings"])
+
+    async def test_universe_metadata_with_active_snapshot(self, universe_client):
+        """With an active snapshot, universe field is populated."""
+        response = await universe_client.get("/api/v1/dashboard")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["universe"] is not None
+        assert data["universe"]["version"] == "2026.02.15"
+        assert data["universe"]["size"] == 10
+
+    async def test_low_coverage_warning(self, universe_client):
+        """4 scored out of 10 universe tickers -> LOW_COVERAGE warning."""
+        response = await universe_client.get("/api/v1/dashboard")
+        data = response.json()
+        assert data["universe"]["scoring_coverage"] == 0.4
+        assert data["universe"]["is_complete"] is False
+        low_cov = [w for w in data["warnings"] if w["code"] == "LOW_COVERAGE"]
+        assert len(low_cov) == 1
+        assert low_cov[0]["severity"] == "error"  # <50% coverage -> error
+
+    async def test_existing_fields_still_work(self, universe_client):
+        """Existing dashboard fields remain intact."""
+        response = await universe_client.get("/api/v1/dashboard")
+        data = response.json()
+        assert data["total_scored"] == 4
+        assert len(data["picks"]) == 2
+        assert len(data["watchlist"]) == 1

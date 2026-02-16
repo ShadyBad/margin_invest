@@ -15,6 +15,8 @@ from margin_api.schemas.dashboard import (
     PickSummary,
     WatchlistItem,
 )
+from margin_api.schemas.universe import UniverseSummary, Warning
+from margin_api.services.universe import get_active_snapshot
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
@@ -132,9 +134,44 @@ async def get_dashboard(
         else datetime.now(UTC).isoformat()
     )
 
+    # Universe metadata
+    snapshot = await get_active_snapshot(db)
+    universe: UniverseSummary | None = None
+    warnings: list[Warning] = []
+
+    if snapshot is None:
+        warnings.append(
+            Warning(
+                code="NO_UNIVERSE",
+                message="No active universe snapshot. Run 'margin ingest universe activate' first.",
+                severity="warning",
+            )
+        )
+    else:
+        scoring_coverage = total_scored / snapshot.ticker_count if snapshot.ticker_count > 0 else 0.0
+        is_complete = scoring_coverage >= 0.95
+        universe = UniverseSummary(
+            version=snapshot.version,
+            size=snapshot.ticker_count,
+            scoring_coverage=round(scoring_coverage, 4),
+            is_complete=is_complete,
+            last_scoring_run=last_updated_dt,
+        )
+        if not is_complete:
+            pct = round(scoring_coverage * 100, 1)
+            warnings.append(
+                Warning(
+                    code="LOW_COVERAGE",
+                    message=f"Only {pct}% of the universe has been scored.",
+                    severity="warning" if scoring_coverage >= 0.5 else "error",
+                )
+            )
+
     return DashboardResponse(
         picks=picks,
         watchlist=watchlist,
         last_updated=last_updated,
         total_scored=total_scored,
+        universe=universe,
+        warnings=warnings,
     )

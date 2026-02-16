@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from margin_api.schemas.universe import UniverseSummary, Warning
+
 
 class PickSummary(BaseModel):
     """Summary of a high-conviction pick for the dashboard."""
@@ -38,3 +40,5 @@ class DashboardResponse(BaseModel):
     watchlist: list[WatchlistItem]
     last_updated: str  # ISO datetime
     total_scored: int
+    universe: UniverseSummary | None = None
+    warnings: list[Warning] = []
