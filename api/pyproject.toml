@@ -17,6 +17,8 @@ dependencies = [
     "cryptography>=44.0.0",
     "webauthn>=2.5.0",
     "stripe>=14.3.0",
+    "pillow>=12.1.1",
+    "boto3>=1.42.49",
 ]
 
 [project.optional-dependencies]
