@@ -375,6 +375,30 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Ingest precondition helpers
+# ---------------------------------------------------------------------------
+
+
+def validate_ingest_preconditions(
+    active_snapshot: object | None,
+    tickers_override: list[str] | None,
+) -> None:
+    """Validate that ingestion preconditions are met."""
+    if tickers_override:
+        return  # Explicit subset bypasses snapshot check
+    if active_snapshot is None:
+        raise SystemExit(
+            "No active universe snapshot. Run 'universe activate' first.\n"
+            "Or use --tickers to ingest a specific subset."
+        )
+
+
+def determine_run_type(tickers_override: list[str] | None) -> str:
+    """Determine whether this is a 'full' or 'subset' run."""
+    return "subset" if tickers_override else "full"
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 
