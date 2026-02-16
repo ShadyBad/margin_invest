@@ -6,6 +6,17 @@ import { AssetDetail } from "./asset-detail"
 import { getScore } from "@/lib/api/scores"
 import type { PickSummary, ScoreResponse } from "@/lib/api/types"
 
+function formatTimeAgo(isoString: string): string {
+  const now = Date.now()
+  const then = new Date(isoString).getTime()
+  const diffMs = now - then
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  if (diffHours < 1) return "< 1h ago"
+  if (diffHours < 24) return `${diffHours}h ago`
+  const diffDays = Math.floor(diffHours / 24)
+  return `${diffDays}d ago`
+}
+
 interface StockCardProps {
   pick: PickSummary
   className?: string
@@ -58,7 +69,25 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       aria-expanded={expanded}
     >
       <div className="flex items-center justify-between mb-1">
-        <h3 className="text-lg font-bold text-text-primary">{pick.ticker}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-bold text-text-primary">{pick.ticker}</h3>
+          {pick.data_freshness && pick.data_freshness !== "fresh" && (
+            <span
+              className={`text-xs px-1.5 py-0.5 rounded ${
+                pick.data_freshness === "expired"
+                  ? "bg-danger/10 text-danger"
+                  : "bg-warning/10 text-warning"
+              }`}
+              data-testid={`freshness-${pick.ticker}`}
+            >
+              {pick.data_freshness === "expired"
+                ? "Expired"
+                : pick.price_updated_at
+                  ? `Updated ${formatTimeAgo(pick.price_updated_at)}`
+                  : "Stale"}
+            </span>
+          )}
+        </div>
         <ConvictionBadge level={pick.conviction_level} />
       </div>
 
@@ -79,7 +108,14 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       {/* Price row */}
       <div className="flex items-center justify-between mb-4 text-sm">
         <div className="flex items-center gap-4">
-          <span className="text-text-secondary">
+          <span className="text-text-secondary flex items-center gap-1">
+            {pick.price_source === "live" && (
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full bg-bullish"
+                data-testid={`live-price-${pick.ticker}`}
+                title="Live price"
+              />
+            )}
             Price:{" "}
             <span className="text-text-primary font-medium">
               {pick.actual_price != null
