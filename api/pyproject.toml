@@ -19,6 +19,7 @@ dependencies = [
     "stripe>=14.3.0",
     "pillow>=12.1.1",
     "boto3>=1.42.49",
+    "python-multipart>=0.0.22",
 ]
 
 [project.optional-dependencies]
