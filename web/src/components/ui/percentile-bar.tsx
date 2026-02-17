@@ -25,12 +25,12 @@ export function PercentileBar({ value, label, showValue = true, className = "" }
       )}
       <div className="flex-1 h-[6px] bg-bg-primary rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-r-full transition-all ${getColor(clampedValue)}`}
+          className={`h-full rounded-r-full transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${getColor(clampedValue)}`}
           style={{ width: `${clampedValue}%` }}
         />
       </div>
       {showValue && (
-        <span className="text-sm font-mono text-text-primary w-10 text-right">
+        <span className="text-sm font-mono text-text-primary w-10 text-right tabular-nums">
           {clampedValue.toFixed(0)}
         </span>
       )}

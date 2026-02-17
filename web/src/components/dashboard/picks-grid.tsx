@@ -1,6 +1,18 @@
+"use client"
+
+import { motion } from "framer-motion"
 import { StockCard } from "./stock-card"
 import { EmptyState } from "@/components/ui"
 import type { PickSummary } from "@/lib/api/types"
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] },
+  }),
+}
 
 interface PicksGridProps {
   picks: PickSummary[]
@@ -27,8 +39,16 @@ export function PicksGrid({ picks, className = "" }: PicksGridProps) {
       className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${className}`}
       data-testid="picks-grid"
     >
-      {sorted.map((pick) => (
-        <StockCard key={pick.ticker} pick={pick} />
+      {sorted.map((pick, index) => (
+        <motion.div
+          key={pick.ticker}
+          custom={index}
+          initial="hidden"
+          animate="visible"
+          variants={cardVariants}
+        >
+          <StockCard pick={pick} />
+        </motion.div>
       ))}
     </div>
   )

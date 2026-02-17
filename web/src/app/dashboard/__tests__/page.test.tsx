@@ -129,7 +129,7 @@ describe("Dashboard Page (Server Component)", () => {
     render(jsx)
 
     const grid = screen.getByTestId("picks-grid")
-    const cards = grid.children
+    const cards = grid.querySelectorAll("[data-testid^='stock-card-']")
     expect(cards[0]).toHaveAttribute("data-testid", "stock-card-AAPL")
     expect(cards[1]).toHaveAttribute("data-testid", "stock-card-MSFT")
   })
