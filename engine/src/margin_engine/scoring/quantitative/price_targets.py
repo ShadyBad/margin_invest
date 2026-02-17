@@ -80,6 +80,12 @@ _MAX_PRICE_MULTIPLE = 100.0
 _OUTLIER_LOW_RATIO = 0.1
 _OUTLIER_HIGH_RATIO = 10.0
 
+# Layer 4: Final output validation bounds
+_MIN_PRICE_RATIO = 0.01       # Intrinsic value must be >= 1% of actual_price
+_MAX_PRICE_RATIO = 50.0       # Intrinsic value must be <= 50x actual_price
+_ABS_MIN_INTRINSIC = 0.10     # Absolute floor when no actual_price
+_ABS_MAX_INTRINSIC = 1_000_000.0  # Absolute ceiling when no actual_price
+
 
 class PriceTargets(BaseModel):
     """Multi-method intrinsic value and price target result."""
@@ -216,6 +222,18 @@ def compute_price_targets(
         _METHOD_WEIGHTS[k] / total_weight * v for k, v in valid_methods.items()
     )
 
+    # Layer 4: Final output validation
+    final_reason = _validate_final_output(intrinsic_value, actual_price)
+    if final_reason:
+        logger.warning(
+            "Layer 4 reject: %s intrinsic_value=%.2f actual_price=%s reason=%s",
+            profile.ticker, intrinsic_value, actual_price, final_reason,
+        )
+        return PriceTargets(
+            actual_price=actual_price,
+            invalid_reason=final_reason,
+        )
+
     # Dynamic margin of safety — intrinsic value IS the buy price (floor).
     # MoS only applies upward for the sell price, protecting against
     # calculation error and capping expected upside.
@@ -297,6 +315,24 @@ def _filter_outlier_methods(methods: dict[str, float]) -> dict[str, float]:
         k: v for k, v in methods.items()
         if _OUTLIER_LOW_RATIO * median <= v <= _OUTLIER_HIGH_RATIO * median
     }
+
+
+def _validate_final_output(
+    intrinsic_value: float,
+    actual_price: float | None,
+) -> str | None:
+    """Return an invalid_reason string if intrinsic_value is out of bounds, else None."""
+    if actual_price is not None and actual_price > 0:
+        if intrinsic_value < _MIN_PRICE_RATIO * actual_price:
+            return "intrinsic_value_extreme"
+        if intrinsic_value > _MAX_PRICE_RATIO * actual_price:
+            return "intrinsic_value_extreme"
+    else:
+        if intrinsic_value < _ABS_MIN_INTRINSIC:
+            return "intrinsic_value_extreme"
+        if intrinsic_value > _ABS_MAX_INTRINSIC:
+            return "intrinsic_value_extreme"
+    return None
 
 
 def _latest_close(bars: list[PriceBar]) -> float | None:

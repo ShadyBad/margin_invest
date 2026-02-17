@@ -18,6 +18,7 @@ from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.quantitative.price_targets import (
     PriceTargets,
     _filter_outlier_methods,
+    _validate_final_output,
     compute_price_targets,
 )
 
@@ -628,3 +629,37 @@ class TestLayer3CrossMethodConsistency:
         methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 52.0, "shareholder_yield": 2.0}
         filtered = _filter_outlier_methods(methods)
         assert "shareholder_yield" not in filtered
+
+
+class TestLayer4FinalOutputValidation:
+    """Layer 4: Final intrinsic value must be within bounds."""
+
+    def test_extreme_low_relative_to_price(self):
+        """Intrinsic value < 1% of actual_price -> invalid."""
+        reason = _validate_final_output(intrinsic_value=0.50, actual_price=100.0)
+        assert reason == "intrinsic_value_extreme"
+
+    def test_extreme_high_relative_to_price(self):
+        """Intrinsic value > 50x actual_price -> invalid."""
+        reason = _validate_final_output(intrinsic_value=6000.0, actual_price=100.0)
+        assert reason == "intrinsic_value_extreme"
+
+    def test_within_bounds_returns_none(self):
+        """Intrinsic value within 1%-50x of actual_price -> valid."""
+        reason = _validate_final_output(intrinsic_value=150.0, actual_price=100.0)
+        assert reason is None
+
+    def test_no_actual_price_absolute_low(self):
+        """Without actual_price, intrinsic_value < $0.10 -> invalid."""
+        reason = _validate_final_output(intrinsic_value=0.05, actual_price=None)
+        assert reason == "intrinsic_value_extreme"
+
+    def test_no_actual_price_absolute_high(self):
+        """Without actual_price, intrinsic_value > $1M -> invalid."""
+        reason = _validate_final_output(intrinsic_value=1_500_000.0, actual_price=None)
+        assert reason == "intrinsic_value_extreme"
+
+    def test_no_actual_price_within_absolute_bounds(self):
+        """Without actual_price, value in $0.10-$1M range -> valid."""
+        reason = _validate_final_output(intrinsic_value=50.0, actual_price=None)
+        assert reason is None
