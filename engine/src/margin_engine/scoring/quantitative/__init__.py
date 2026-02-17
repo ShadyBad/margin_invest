@@ -3,6 +3,10 @@
 from margin_engine.scoring.quantitative.accrual_ratio import sloan_accrual_ratio
 from margin_engine.scoring.quantitative.acquirers_multiple import acquirers_multiple
 from margin_engine.scoring.quantitative.dcf_mos import dcf_margin_of_safety
+from margin_engine.scoring.quantitative.ensemble_valuation import (
+    EnsembleResult,
+    compute_ensemble_valuation,
+)
 from margin_engine.scoring.quantitative.ev_fcf import ev_fcf
 from margin_engine.scoring.quantitative.f_score import (
     compute_f_score_signals,
@@ -24,8 +28,10 @@ from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yie
 from margin_engine.scoring.quantitative.sue import sue_score
 
 __all__ = [
+    "EnsembleResult",
     "PriceTargets",
     "acquirers_multiple",
+    "compute_ensemble_valuation",
     "compute_f_score_signals",
     "compute_price_targets",
     "compute_roic",
