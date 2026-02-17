@@ -66,7 +66,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
 
   return (
     <div
-      className={`bg-bg-elevated border border-border-primary rounded-sm p-6 cursor-pointer transition-all ${expanded ? "col-span-full" : ""} ${getCardTierClasses(pick.conviction_level)} ${className}`}
+      className={`bg-bg-elevated border border-border-primary rounded-sm p-6 cursor-pointer transition-all shadow-card hover:shadow-card-hover hover:border-accent/20 ${expanded ? "col-span-full" : ""} ${getCardTierClasses(pick.conviction_level)} ${className}`}
       data-testid={`stock-card-${pick.ticker}`}
       onClick={handleClick}
       role="button"
