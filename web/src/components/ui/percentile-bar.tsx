@@ -19,11 +19,11 @@ export function PercentileBar({ value, label, showValue = true, className = "" }
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       {label && (
-        <span className="text-sm text-text-secondary w-40 shrink-0 truncate" title={label}>
+        <span className="text-[11px] text-text-tertiary w-40 shrink-0 truncate uppercase tracking-[0.1em]" title={label}>
           {label}
         </span>
       )}
-      <div className="flex-1 h-[6px] bg-bg-primary rounded-full overflow-hidden">
+      <div className="flex-1 h-[8px] bg-bg-primary rounded-full overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]">
         <div
           className={`h-full rounded-r-full transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${getColor(clampedValue)}`}
           style={{ width: `${clampedValue}%` }}

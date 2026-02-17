@@ -41,7 +41,7 @@ export default async function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="mb-8 flex items-start justify-between">
+      <div className="mb-10 pt-12 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
           {data?.last_updated && (

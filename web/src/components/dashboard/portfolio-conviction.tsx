@@ -13,7 +13,7 @@ export function PortfolioConviction({ score, label, className = "" }: PortfolioC
         Portfolio Conviction
       </span>
       <div className="flex items-baseline gap-2">
-        <span className="text-[40px] font-bold font-mono text-accent leading-none tracking-[-1px]">
+        <span className="text-[40px] font-display text-accent leading-none tracking-[-0.04em]">
           {score.toFixed(0)}
         </span>
         <span className="text-[13px] text-text-secondary font-mono">/100</span>
