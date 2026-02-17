@@ -33,4 +33,34 @@ describe("PanelValuation", () => {
     render(<PanelValuation {...baseProps} methods={{}} />)
     expect(screen.getByText("No valuation data")).toBeInTheDocument()
   })
+
+  it("renders buy below price when provided", () => {
+    render(<PanelValuation {...baseProps} buyBelow={22.0} />)
+    expect(screen.getByText("Buy Below")).toBeInTheDocument()
+    expect(screen.getByText("$22.00")).toBeInTheDocument()
+  })
+
+  it("renders attractive explanation when current price is below buy below", () => {
+    render(<PanelValuation {...baseProps} buyBelow={25.0} />)
+    expect(
+      screen.getByText(/looks attractively priced/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders wait explanation when current price is above buy below", () => {
+    render(<PanelValuation {...baseProps} buyBelow={18.0} />)
+    expect(
+      screen.getByText(/Consider waiting/)
+    ).toBeInTheDocument()
+  })
+
+  it("does not render buy below row when buyBelow is null", () => {
+    render(<PanelValuation {...baseProps} buyBelow={null} />)
+    expect(screen.queryByText("Buy Below")).not.toBeInTheDocument()
+  })
+
+  it("does not render buy below row when buyBelow is undefined", () => {
+    render(<PanelValuation {...baseProps} />)
+    expect(screen.queryByText("Buy Below")).not.toBeInTheDocument()
+  })
 })

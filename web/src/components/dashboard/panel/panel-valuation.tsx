@@ -10,6 +10,7 @@ interface PanelValuationProps {
   currentPrice: number | null
   marginOfSafety: number | null
   methods: Record<string, number> | null
+  buyBelow?: number | null
 }
 
 export function PanelValuation({
@@ -17,6 +18,7 @@ export function PanelValuation({
   currentPrice,
   marginOfSafety,
   methods,
+  buyBelow,
 }: PanelValuationProps) {
   const entries = methods ? Object.entries(methods) : []
 
@@ -57,6 +59,28 @@ export function PanelValuation({
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {buyBelow != null && (
+        <div className="mb-4 pt-3 border-t border-white/[0.06]">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[12px] text-[#9A9590]">Buy Below</span>
+            <span
+              className={`text-[18px] font-mono font-medium ${
+                currentPrice != null && currentPrice < buyBelow
+                  ? "text-[#1A7A5A]"
+                  : "text-[#9A9590]"
+              }`}
+            >
+              ${buyBelow.toFixed(2)}
+            </span>
+          </div>
+          <p className="text-[11px] text-[#5C5955] mt-1 leading-relaxed">
+            {currentPrice != null && currentPrice < buyBelow
+              ? "This stock trades below our entry price. Based on its fundamentals, it looks attractively priced right now."
+              : "Consider waiting for a pullback before buying. This stock trades above our fundamentals-based entry price."}
+          </p>
         </div>
       )}
 
