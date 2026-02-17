@@ -32,7 +32,7 @@ export function FinalCTA() {
           <p className="text-[15px] text-text-secondary mb-8">
             See every stock through the lens of conviction.
           </p>
-          <ButtonPrimary href="/dashboard">Start free</ButtonPrimary>
+          <ButtonPrimary href="/onboarding">Start free</ButtonPrimary>
         </motion.div>
 
         <div

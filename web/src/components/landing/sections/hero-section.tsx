@@ -44,7 +44,7 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.55, ease }}
           >
-            <ButtonPrimary href="/dashboard">Score your first position</ButtonPrimary>
+            <ButtonPrimary href="/onboarding">Score your first position</ButtonPrimary>
             <ButtonSecondary href="/methodology">See the methodology</ButtonSecondary>
           </motion.div>
         </div>

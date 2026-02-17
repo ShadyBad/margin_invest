@@ -29,7 +29,7 @@ const tiers: Tier[] = [
       "5-ticker watchlist",
     ],
     cta: "Start free",
-    href: "/dashboard",
+    href: "/onboarding",
     highlighted: false,
   },
   {
@@ -45,7 +45,7 @@ const tiers: Tier[] = [
       "Conviction change alerts",
     ],
     cta: "Start trial",
-    href: "/dashboard",
+    href: "/onboarding",
     highlighted: true,
   },
   {
@@ -61,7 +61,7 @@ const tiers: Tier[] = [
       "API access",
     ],
     cta: "Get started",
-    href: "/dashboard",
+    href: "/onboarding",
     highlighted: false,
   },
 ]
