@@ -62,22 +62,26 @@ import {
 describe("HeroSection", () => {
   it("renders the headline", () => {
     render(<HeroSection />)
-    expect(screen.getByText("Structure outperforms emotion.")).toBeInTheDocument()
+    expect(screen.getByText("Conviction scoring for serious investors.")).toBeInTheDocument()
   })
 
   it("renders the subline", () => {
     render(<HeroSection />)
-    expect(screen.getByText("A deterministic scoring engine for capital allocation.")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /deterministic engine that scores every stock across 6 factors/
+      )
+    ).toBeInTheDocument()
   })
 
   it("renders the primary CTA", () => {
     render(<HeroSection />)
-    expect(screen.getByRole("link", { name: /explore the engine/i })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /score your first position/i })).toBeInTheDocument()
   })
 
   it("renders the secondary link", () => {
     render(<HeroSection />)
-    expect(screen.getByRole("link", { name: /view methodology/i })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /see the methodology/i })).toBeInTheDocument()
   })
 })
 

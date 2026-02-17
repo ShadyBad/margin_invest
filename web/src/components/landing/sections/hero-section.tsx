@@ -26,7 +26,7 @@ export function HeroSection() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.2, ease }}
           >
-            Structure outperforms emotion.
+            Conviction scoring for serious investors.
           </motion.h1>
 
           <motion.p
@@ -35,7 +35,7 @@ export function HeroSection() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.4, ease }}
           >
-            A deterministic scoring engine for capital allocation.
+            A deterministic engine that scores every stock across 6 factors — so you hold with structure, not hope.
           </motion.p>
 
           <motion.div
@@ -44,8 +44,8 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.55, ease }}
           >
-            <ButtonPrimary href="/dashboard">Explore the Engine</ButtonPrimary>
-            <ButtonSecondary href="/methodology">View methodology</ButtonSecondary>
+            <ButtonPrimary href="/dashboard">Score your first position</ButtonPrimary>
+            <ButtonSecondary href="/methodology">See the methodology</ButtonSecondary>
           </motion.div>
         </div>
       </div>
