@@ -162,3 +162,97 @@ class TestFactorBreakdownWeighted:
     def test_weighted_average_empty_sub_scores(self):
         bd = FactorBreakdown(factor_name="test", weight=1.0, sub_scores=[])
         assert bd.average_percentile == 0.0
+
+
+# ---------------------------------------------------------------------------
+# CompositeScore v2 fields tests
+# ---------------------------------------------------------------------------
+
+
+def _make_composite(**kwargs):
+    """Create a minimal CompositeScore with sensible defaults."""
+    defaults = dict(
+        ticker="TEST",
+        composite_percentile=50.0,
+        quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
+        value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
+        momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
+        filters_passed=[],
+        data_coverage=1.0,
+    )
+    defaults.update(kwargs)
+    return CompositeScore(**defaults)
+
+
+class TestCompositeScoreV2Fields:
+    def test_opportunity_type_defaults_to_none(self):
+        score = _make_composite()
+        assert score.opportunity_type is None
+
+    def test_winning_track_defaults_to_none(self):
+        score = _make_composite()
+        assert score.winning_track is None
+
+    def test_asymmetry_ratio_defaults_to_none(self):
+        score = _make_composite()
+        assert score.asymmetry_ratio is None
+
+    def test_max_position_pct_defaults_to_none(self):
+        score = _make_composite()
+        assert score.max_position_pct is None
+
+    def test_timing_signal_defaults_to_none(self):
+        score = _make_composite()
+        assert score.timing_signal is None
+
+    def test_capital_allocation_defaults_to_none(self):
+        score = _make_composite()
+        assert score.capital_allocation is None
+
+    def test_catalyst_defaults_to_none(self):
+        score = _make_composite()
+        assert score.catalyst is None
+
+    def test_opportunity_type_can_be_set(self):
+        score = _make_composite(opportunity_type=OpportunityType.COMPOUNDER)
+        assert score.opportunity_type == OpportunityType.COMPOUNDER
+
+    def test_winning_track_can_be_set(self):
+        score = _make_composite(winning_track="compounder")
+        assert score.winning_track == "compounder"
+
+    def test_asymmetry_ratio_can_be_set(self):
+        score = _make_composite(asymmetry_ratio=3.5)
+        assert score.asymmetry_ratio == 3.5
+
+    def test_max_position_pct_can_be_set(self):
+        score = _make_composite(max_position_pct=5.0)
+        assert score.max_position_pct == 5.0
+
+    def test_timing_signal_can_be_set(self):
+        score = _make_composite(timing_signal="buy_now")
+        assert score.timing_signal == "buy_now"
+
+    def test_capital_allocation_pillar(self):
+        cap_alloc = FactorBreakdown(
+            factor_name="capital_allocation",
+            weight=0.25,
+            sub_scores=[
+                FactorScore(name="roic_stability", raw_value=0.85, percentile_rank=75.0),
+            ],
+        )
+        score = _make_composite(capital_allocation=cap_alloc)
+        assert score.capital_allocation is not None
+        assert score.capital_allocation.factor_name == "capital_allocation"
+
+    def test_catalyst_pillar(self):
+        catalyst = FactorBreakdown(
+            factor_name="catalyst",
+            weight=0.20,
+            sub_scores=[
+                FactorScore(name="contrarian_signal", raw_value=0.9, percentile_rank=88.0),
+            ],
+        )
+        score = _make_composite(catalyst=catalyst)
+        assert score.catalyst is not None
+        assert score.catalyst.factor_name == "catalyst"

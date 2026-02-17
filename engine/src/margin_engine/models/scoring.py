@@ -118,6 +118,18 @@ class CompositeScore(BaseModel):
     valuation_methods: dict[str, float] | None = None
     price_target_invalid_reason: str | None = None
 
+    # v2 conviction engine fields
+    opportunity_type: OpportunityType | None = None
+    winning_track: str | None = None  # "compounder" or "mispricing"
+    asymmetry_ratio: float | None = None
+    max_position_pct: float | None = None
+    timing_signal: str | None = None  # "buy_now", "add_on_pullback", "wait_for_catalyst"
+
+    # Capital allocation pillar (Track A)
+    capital_allocation: FactorBreakdown | None = None
+    # Catalyst pillar (Track B)
+    catalyst: FactorBreakdown | None = None
+
     @property
     def conviction_level(self) -> ConvictionLevel:
         if self.composite_percentile >= 99.95:
