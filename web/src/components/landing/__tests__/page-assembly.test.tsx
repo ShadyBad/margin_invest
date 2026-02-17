@@ -74,7 +74,7 @@ vi.mock("@/lib/stores/node-positions", () => ({
 import Page from "../../../app/page"
 
 describe("Landing page assembly", () => {
-  it("renders all 7 sections", () => {
+  it("renders all 8 sections", () => {
     render(<Page />)
     // Hero
     expect(screen.getByText("Conviction scoring for serious investors.")).toBeInTheDocument()
@@ -86,6 +86,10 @@ describe("Landing page assembly", () => {
     expect(screen.getByText("What the engine produces.")).toBeInTheDocument()
     // Capabilities
     expect(screen.getByText("Structured Allocation")).toBeInTheDocument()
+    // Pricing
+    expect(screen.getByText("Scout")).toBeInTheDocument()
+    expect(screen.getByText("Operator")).toBeInTheDocument()
+    expect(screen.getByText("Allocator")).toBeInTheDocument()
     // Investor Positioning
     expect(screen.getByText(/not trading/i)).toBeInTheDocument()
     // Final CTA
