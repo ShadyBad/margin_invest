@@ -214,13 +214,15 @@ describe("InvestorPositioning", () => {
 describe("FinalCTA", () => {
   it("renders the CTA heading and button", () => {
     render(<FinalCTA />)
-    expect(screen.getByText("Start with structure.")).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: /explore the engine/i })).toBeInTheDocument()
+    expect(screen.getByText("Score your first position.")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /start free/i })).toBeInTheDocument()
   })
 
   it("renders the updated CTA subtext", () => {
     render(<FinalCTA />)
-    expect(screen.getByText("Run any equity through the engine.")).toBeInTheDocument()
+    expect(
+      screen.getByText("See every stock through the lens of conviction.")
+    ).toBeInTheDocument()
   })
 
   it("renders footer links", () => {

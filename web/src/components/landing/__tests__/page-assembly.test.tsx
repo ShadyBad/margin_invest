@@ -92,8 +92,8 @@ describe("Landing page assembly", () => {
     expect(screen.getByText("Allocator")).toBeInTheDocument()
     // Investor Positioning
     expect(screen.getByText(/not trading/i)).toBeInTheDocument()
-    // Final CTA
-    expect(screen.getByRole("link", { name: /explore the engine/i })).toBeInTheDocument()
+    // Final CTA (also matches Pricing "Start free", so use getAllByRole)
+    expect(screen.getAllByRole("link", { name: /start free/i }).length).toBeGreaterThanOrEqual(2)
   })
 
   it("renders the floating nav with Dashboard CTA", () => {

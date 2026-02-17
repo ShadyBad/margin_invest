@@ -27,12 +27,12 @@ export function FinalCTA() {
           transition={{ duration: 0.5, ease }}
         >
           <h2 className="text-[28px] md:text-[32px] font-bold text-text-primary leading-tight tracking-[-0.3px] mb-3">
-            Start with structure.
+            Score your first position.
           </h2>
           <p className="text-[15px] text-text-secondary mb-8">
-            Run any equity through the engine.
+            See every stock through the lens of conviction.
           </p>
-          <ButtonPrimary href="/dashboard">Explore the Engine</ButtonPrimary>
+          <ButtonPrimary href="/dashboard">Start free</ButtonPrimary>
         </motion.div>
 
         <div
