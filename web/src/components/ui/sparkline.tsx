@@ -17,27 +17,7 @@ export function Sparkline({
   height = 32,
   className = "",
 }: SparklineProps) {
-  if (!bars || bars.length < 2) {
-    return (
-      <svg
-        width={width}
-        height={height}
-        className={className}
-        data-testid="sparkline-empty"
-      >
-        <line
-          x1={4}
-          y1={height / 2}
-          x2={width - 4}
-          y2={height / 2}
-          stroke="currentColor"
-          strokeWidth={1}
-          className="text-text-tertiary"
-          strokeDasharray="4 2"
-        />
-      </svg>
-    )
-  }
+  if (!bars || bars.length < 2) return null
 
   const closes = bars.map((b) => b.close)
   const min = closes.reduce((a, b) => Math.min(a, b))
