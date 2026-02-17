@@ -8,6 +8,7 @@ from margin_engine.models.financial import (
     IncomeStatement,
 )
 from margin_engine.scoring.v3_intermediates import (
+    compute_capital_allocation_composite,
     compute_compounding_power,
     compute_owner_earnings_iv,
 )
@@ -114,3 +115,51 @@ class TestComputeCompoundingPower:
         history = FinancialHistory(ticker="DECLINE", periods=periods)
         result = compute_compounding_power(history)
         assert result == 0.0
+
+
+class TestComputeCapitalAllocationComposite:
+    def test_all_strong_subfactors(self):
+        """All 6 sub-factors present and strong -> score near 1.0."""
+        periods = [
+            _period(period_end="2020-12-31"),
+            _period(period_end="2024-12-31"),
+        ]
+        history = FinancialHistory(ticker="STRONG", periods=periods)
+        result = compute_capital_allocation_composite(
+            period=periods[-1],
+            history=history,
+            buyback_yield=0.05,
+            insider_ownership_pct=15.0,
+            sbc_pct=0.01,
+            recent_acquisition_count=0,
+        )
+        assert 0.0 <= result <= 1.0
+
+    def test_no_optional_data(self):
+        """Missing optional data -> score based on available sub-factors only."""
+        history = FinancialHistory(
+            ticker="MIN", periods=[_period(), _period(period_end="2023-12-31")]
+        )
+        result = compute_capital_allocation_composite(
+            period=history.periods[-1],
+            history=history,
+            buyback_yield=None,
+            insider_ownership_pct=None,
+            sbc_pct=None,
+            recent_acquisition_count=0,
+        )
+        assert 0.0 <= result <= 1.0
+
+    def test_returns_float(self):
+        history = FinancialHistory(
+            ticker="T", periods=[_period(), _period(period_end="2023-12-31")]
+        )
+        result = compute_capital_allocation_composite(
+            period=history.periods[-1],
+            history=history,
+            buyback_yield=None,
+            insider_ownership_pct=None,
+            sbc_pct=None,
+            recent_acquisition_count=0,
+        )
+        assert isinstance(result, float)

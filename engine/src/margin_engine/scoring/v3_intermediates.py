@@ -10,6 +10,14 @@ import statistics
 from decimal import Decimal
 
 from margin_engine.models.financial import FinancialHistory, FinancialPeriod
+from margin_engine.scoring.quantitative.capital_allocation import (
+    buyback_effectiveness,
+    debt_discipline,
+    insider_ownership_score,
+    ma_discipline,
+    organic_reinvestment_ratio,
+    sbc_dilution_tax,
+)
 
 
 def compute_owner_earnings_iv(
@@ -83,3 +91,64 @@ def compute_compounding_power(history: FinancialHistory) -> float:
         cv = min(abs(stdev_roic / mean_roic), 1.0)
 
     return inc_roic * reinvestment_rate * (1.0 - cv)
+
+
+def _normalize_factor(raw_value: float, max_value: float) -> float:
+    """Normalize a raw factor value to 0-1 range."""
+    if max_value <= 0:
+        return 0.0
+    return min(max(raw_value / max_value, 0.0), 1.0)
+
+
+def compute_capital_allocation_composite(
+    period: FinancialPeriod,
+    history: FinancialHistory,
+    buyback_yield: float | None,
+    insider_ownership_pct: float | None,
+    sbc_pct: float | None,
+    recent_acquisition_count: int,
+) -> float:
+    """Compute capital allocation composite from available sub-factors.
+
+    Runs available capital allocation sub-factors, normalizes each to 0-1,
+    returns simple average of available factors.
+    """
+    scores: list[float] = []
+
+    # 1. Debt discipline — needs 2+ periods
+    if len(history.periods) >= 2:
+        dd = debt_discipline(history)
+        # Negative slope = improving discipline, so negate for scoring
+        scores.append(_normalize_factor(-dd.raw_value, 3.0))
+
+    # 2. Organic reinvestment ratio — always available
+    orr = organic_reinvestment_ratio(period)
+    scores.append(min(max(orr.raw_value, 0.0), 1.0))
+
+    # 3. Buyback effectiveness — if buyback_yield provided and > 0
+    if buyback_yield is not None and buyback_yield > 0:
+        scores.append(_normalize_factor(buyback_yield, 0.10))
+
+    # 4. Insider ownership — if provided
+    if insider_ownership_pct is not None:
+        io = insider_ownership_score(insider_ownership_pct)
+        scores.append(_normalize_factor(io.raw_value, 3.0))
+
+    # 5. SBC dilution tax — if sbc_pct provided
+    if sbc_pct is not None:
+        sbc_amount = Decimal(str(sbc_pct * float(period.current_income.revenue)))
+        sbc = sbc_dilution_tax(sbc_amount, period.current_income.revenue)
+        # raw_value is ratio (lower = better), invert: 1.0 - ratio
+        scores.append(min(max(1.0 - sbc.raw_value, 0.0), 1.0))
+
+    # 6. M&A discipline
+    if recent_acquisition_count == 0:
+        scores.append(1.0)
+    else:
+        ma = ma_discipline(None, None)
+        scores.append(_normalize_factor(ma.raw_value, 1.0))
+
+    if not scores:
+        return 0.0
+
+    return sum(scores) / len(scores)
