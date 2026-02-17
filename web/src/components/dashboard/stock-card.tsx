@@ -89,13 +89,31 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
           )}
         </div>
         <ConvictionBadge level={pick.conviction_level} />
+          {pick.opportunity_type && pick.opportunity_type !== "neither" && (
+            <span
+              className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                pick.opportunity_type === "compounder"
+                  ? "bg-accent/10 text-accent"
+                  : pick.opportunity_type === "mispricing"
+                    ? "bg-purple-500/10 text-purple-400"
+                    : "bg-text-secondary/10 text-text-secondary"
+              }`}
+              data-testid={`opportunity-type-${pick.ticker}`}
+            >
+              {pick.opportunity_type === "compounder"
+                ? "Compounder"
+                : pick.opportunity_type === "mispricing"
+                  ? "Mispricing"
+                  : "Both"}
+            </span>
+          )}
       </div>
 
       <p className="text-sm text-text-secondary mb-4 truncate">{pick.name}</p>
 
       <div className="flex items-center justify-between mb-4">
         <span className="text-3xl font-bold text-accent">
-          {pick.composite_percentile.toFixed(0)}
+          {(pick.score || pick.composite_percentile).toFixed(0)}
         </span>
         <ActionPill
           signal={pick.signal}
@@ -137,6 +155,14 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
               {(pick.price_upside * 100).toFixed(1)}%
             </span>
           )}
+          {pick.margin_of_safety != null && (
+            <span className="text-text-secondary">
+              MoS:{" "}
+              <span className="text-bullish font-medium">
+                {(pick.margin_of_safety * 100).toFixed(0)}%
+              </span>
+            </span>
+          )}
         </div>
         <Sparkline
           bars={scoreData?.price_history}
@@ -145,10 +171,57 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
         />
       </div>
 
+      {(pick.max_position_pct != null || pick.timing_signal) && (
+        <div className="flex items-center justify-between mb-4 text-sm">
+          {pick.max_position_pct != null && (
+            <span className="text-text-secondary">
+              Max position:{" "}
+              <span className="text-text-primary font-medium">
+                {pick.max_position_pct.toFixed(0)}%
+              </span>
+            </span>
+          )}
+          {pick.timing_signal && (
+            <span
+              className={`text-xs px-2 py-0.5 rounded ${
+                pick.timing_signal === "buy_now"
+                  ? "bg-bullish/10 text-bullish"
+                  : pick.timing_signal === "add_on_pullback"
+                    ? "bg-accent/10 text-accent"
+                    : "bg-text-secondary/10 text-text-secondary"
+              }`}
+              data-testid={`timing-signal-${pick.ticker}`}
+            >
+              {pick.timing_signal === "buy_now"
+                ? "Buy now"
+                : pick.timing_signal === "add_on_pullback"
+                  ? "Add on pullback"
+                  : "Wait for catalyst"}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="space-y-2">
-        <PercentileBar value={pick.quality_percentile} label="Quality" />
-        <PercentileBar value={pick.value_percentile} label="Value" />
-        <PercentileBar value={pick.momentum_percentile} label="Momentum" />
+        {pick.winning_track === "compounder" ? (
+          <>
+            <PercentileBar value={pick.quality_percentile} label="Quality" />
+            <PercentileBar value={pick.value_percentile} label="Value" />
+            <PercentileBar value={pick.momentum_percentile} label="Momentum" />
+          </>
+        ) : pick.winning_track === "mispricing" ? (
+          <>
+            <PercentileBar value={pick.value_percentile} label="Value" />
+            <PercentileBar value={pick.quality_percentile} label="Quality Floor" />
+            <PercentileBar value={pick.momentum_percentile} label="Catalyst" />
+          </>
+        ) : (
+          <>
+            <PercentileBar value={pick.quality_percentile} label="Quality" />
+            <PercentileBar value={pick.value_percentile} label="Value" />
+            <PercentileBar value={pick.momentum_percentile} label="Momentum" />
+          </>
+        )}
       </div>
 
       {expanded && loading && (

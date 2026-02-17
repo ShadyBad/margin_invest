@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import { ConvictionBadge } from "@/components/ui"
 import { ActionPill } from "@/components/ui"
 import { formatAttributeLabel, formatScoredAt } from "@/lib/format"
@@ -15,6 +18,9 @@ interface AssetDetailProps {
 
 
 export function AssetDetail({ score, className = "" }: AssetDetailProps) {
+  const [showData, setShowData] = useState(false)
+  const hasV2 = score.opportunity_type != null
+
   return (
     <div
       className={`border-t border-border-primary pt-6 mt-4 ${className}`}
@@ -25,7 +31,7 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
         <h3 className="text-xl font-bold text-text-primary">{score.ticker}</h3>
         <span className="text-sm text-text-secondary">{score.name}</span>
         <span className="text-lg font-bold text-accent ml-auto">
-          {score.composite_percentile.toFixed(0)}
+          {(score.score || score.composite_percentile).toFixed(0)}
         </span>
         <ConvictionBadge level={score.conviction_level} />
         <ActionPill
@@ -34,7 +40,61 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
           sellPrice={score.sell_price}
           actualPrice={score.actual_price}
         />
+        {hasV2 && (
+          <>
+            {score.winning_track && (
+              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                score.winning_track === "compounder"
+                  ? "bg-accent/10 text-accent"
+                  : "bg-purple-500/10 text-purple-400"
+              }`}>
+                {score.winning_track === "compounder" ? "Compounder" : "Mispricing"} Track
+              </span>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowData(!showData) }}
+              className="text-xs text-accent hover:text-accent/80 underline ml-2"
+              data-testid="thesis-data-toggle"
+            >
+              {showData ? "Show Thesis" : "Show Data"}
+            </button>
+          </>
+        )}
       </div>
+
+      {hasV2 && score.asymmetry_ratio != null && (
+        <div className="flex items-center gap-4 mb-4 text-sm">
+          <span className="text-text-secondary">
+            Asymmetry:{" "}
+            <span className="text-text-primary font-bold">
+              {score.asymmetry_ratio.toFixed(1)}x
+            </span>
+          </span>
+          {score.max_position_pct != null && (
+            <span className="text-text-secondary">
+              Max position:{" "}
+              <span className="text-text-primary font-medium">
+                {score.max_position_pct.toFixed(0)}%
+              </span>
+            </span>
+          )}
+          {score.timing_signal && (
+            <span className={`text-xs px-2 py-0.5 rounded ${
+              score.timing_signal === "buy_now"
+                ? "bg-bullish/10 text-bullish"
+                : score.timing_signal === "add_on_pullback"
+                  ? "bg-accent/10 text-accent"
+                  : "bg-text-secondary/10 text-text-secondary"
+            }`}>
+              {score.timing_signal === "buy_now"
+                ? "Buy now"
+                : score.timing_signal === "add_on_pullback"
+                  ? "Add on pullback"
+                  : "Wait for catalyst"}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Price Chart — full width */}
       <PriceChart
@@ -50,6 +110,10 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
           quality={score.quality}
           value={score.value}
           momentum={score.momentum}
+          capitalAllocation={score.capital_allocation}
+          catalyst={score.catalyst}
+          winningTrack={score.winning_track}
+          showAllFactors={showData}
         />
 
         {/* Right column: Filters + Metadata + Valuation + Signal History */}
@@ -94,6 +158,9 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
           <ValuationBreakdown
             methods={score.valuation_methods}
             intrinsicValue={score.intrinsic_value}
+            actualPrice={score.actual_price}
+            marginOfSafety={score.margin_of_safety}
+            invalidReason={score.price_target_invalid_reason}
           />
 
           <SignalTimeline transitions={score.signal_history ?? undefined} />

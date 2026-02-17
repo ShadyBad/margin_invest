@@ -6,6 +6,10 @@ interface FactorBreakdownProps {
   quality: FactorBreakdownResponse
   value: FactorBreakdownResponse
   momentum: FactorBreakdownResponse
+  capitalAllocation?: FactorBreakdownResponse | null
+  catalyst?: FactorBreakdownResponse | null
+  winningTrack?: string | null
+  showAllFactors?: boolean
   className?: string
 }
 
@@ -43,13 +47,37 @@ function FactorSection({ factor }: FactorSectionProps) {
   )
 }
 
-export function FactorBreakdown({ quality, value, momentum, className = "" }: FactorBreakdownProps) {
-  const factors = [quality, value, momentum]
+export function FactorBreakdown({
+  quality, value, momentum,
+  capitalAllocation, catalyst,
+  winningTrack, showAllFactors = false,
+  className = "",
+}: FactorBreakdownProps) {
+  let factors: FactorBreakdownResponse[]
+
+  if (showAllFactors || !winningTrack) {
+    // Data view or v1: show all
+    factors = [quality, value, momentum]
+    if (capitalAllocation) factors.push(capitalAllocation)
+    if (catalyst) factors.push(catalyst)
+  } else if (winningTrack === "compounder") {
+    factors = [quality, value]
+    if (capitalAllocation) factors.push(capitalAllocation)
+  } else {
+    // mispricing
+    factors = [value, quality]
+    if (catalyst) factors.push(catalyst)
+  }
 
   return (
     <div className={`space-y-4 ${className}`} data-testid="factor-breakdown">
       <h3 className="text-base font-semibold text-text-primary">
         Factor Breakdown
+        {winningTrack && !showAllFactors && (
+          <span className="text-xs font-normal text-text-secondary ml-2">
+            ({winningTrack === "compounder" ? "Compounder" : "Mispricing"} Track)
+          </span>
+        )}
       </h3>
       <div className="space-y-5">
         {factors.map((factor) => (

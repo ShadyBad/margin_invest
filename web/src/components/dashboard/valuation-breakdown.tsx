@@ -1,6 +1,9 @@
 interface ValuationBreakdownProps {
   methods: Record<string, number> | null | undefined
   intrinsicValue: number | null | undefined
+  actualPrice?: number | null
+  marginOfSafety?: number | null
+  invalidReason?: string | null
   className?: string
 }
 
@@ -14,6 +17,9 @@ const METHOD_LABELS: Record<string, string> = {
 export function ValuationBreakdown({
   methods,
   intrinsicValue,
+  actualPrice,
+  marginOfSafety,
+  invalidReason,
   className = "",
 }: ValuationBreakdownProps) {
   if (!methods || Object.keys(methods).length === 0) {
@@ -21,6 +27,15 @@ export function ValuationBreakdown({
       <div className={`${className}`} data-testid="valuation-empty">
         <h4 className="text-sm font-semibold text-text-primary mb-3">Valuation</h4>
         <p className="text-sm text-text-tertiary">No valuation data available</p>
+      </div>
+    )
+  }
+
+  if (invalidReason) {
+    return (
+      <div className={className} data-testid="valuation-invalid">
+        <h4 className="text-sm font-semibold text-text-primary mb-3">Valuation</h4>
+        <p className="text-sm text-warning">{invalidReason}</p>
       </div>
     )
   }
@@ -50,9 +65,25 @@ export function ValuationBreakdown({
         ))}
       </div>
       {intrinsicValue != null && (
-        <div className="mt-3 pt-3 border-t border-border-primary flex justify-between text-sm">
-          <span className="text-text-secondary">Consensus</span>
-          <span className="text-text-primary font-semibold">${intrinsicValue.toFixed(2)}</span>
+        <div className="mt-3 pt-3 border-t border-border-primary">
+          <div className="flex justify-between text-sm">
+            <span className="text-text-secondary">Consensus</span>
+            <span className="text-text-primary font-semibold">${intrinsicValue.toFixed(2)}</span>
+          </div>
+          {actualPrice != null && (
+            <div className="flex justify-between text-sm mt-1">
+              <span className="text-text-secondary">Current Price</span>
+              <span className="text-text-primary">${actualPrice.toFixed(2)}</span>
+            </div>
+          )}
+          {marginOfSafety != null && (
+            <div className="flex justify-between text-sm mt-1">
+              <span className="text-text-secondary">Margin of Safety</span>
+              <span className={marginOfSafety > 0 ? "text-bullish font-semibold" : "text-bearish"}>
+                {(marginOfSafety * 100).toFixed(0)}%
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

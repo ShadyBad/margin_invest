@@ -69,6 +69,15 @@ export interface ScoreResponse {
   // Optional includes
   price_history?: PriceBar[] | null
   signal_history?: SignalTransition[] | null
+  // v2 Conviction Engine fields
+  opportunity_type?: string | null
+  winning_track?: string | null
+  asymmetry_ratio?: number | null
+  max_position_pct?: number | null
+  timing_signal?: string | null
+  capital_allocation?: FactorBreakdownResponse | null
+  catalyst?: FactorBreakdownResponse | null
+  price_target_invalid_reason?: string | null
 }
 
 export interface ScoreListResponse {
@@ -98,6 +107,12 @@ export interface PickSummary {
   price_source?: "live" | "daily_close"
   price_updated_at?: string | null
   ingestion_status?: "complete" | "processing" | "failed" | "pending"
+  // v2 Conviction Engine fields
+  opportunity_type?: string | null
+  winning_track?: string | null
+  margin_of_safety?: number | null
+  max_position_pct?: number | null
+  timing_signal?: string | null
 }
 
 export interface WatchlistItem {
