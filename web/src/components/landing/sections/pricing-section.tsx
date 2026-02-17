@@ -14,6 +14,8 @@ interface Tier {
   cta: string
   href: string
   highlighted: boolean
+  badge?: string
+  monthlyPrice?: string
 }
 
 const tiers: Tier[] = [
@@ -47,6 +49,8 @@ const tiers: Tier[] = [
     cta: "Start trial",
     href: "/onboarding",
     highlighted: true,
+    badge: "Most popular",
+    monthlyPrice: "$39",
   },
   {
     name: "Allocator",
@@ -63,15 +67,16 @@ const tiers: Tier[] = [
     cta: "Get started",
     href: "/onboarding",
     highlighted: false,
+    monthlyPrice: "$99",
   },
 ]
 
 function TierCard({ tier, index }: { tier: Tier; index: number }) {
   return (
     <motion.div
-      className={`flex flex-col p-6 rounded-[6px] border ${
+      className={`relative flex flex-col p-6 rounded-[6px] border ${
         tier.highlighted
-          ? "border-accent bg-bg-elevated"
+          ? "border-accent bg-gradient-to-t from-bg-elevated to-accent/[0.04]"
           : "border-border-primary bg-bg-primary"
       }`}
       initial={{ opacity: 0, y: 20 }}
@@ -79,12 +84,17 @@ function TierCard({ tier, index }: { tier: Tier; index: number }) {
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.1, ease }}
     >
+      {tier.badge && (
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-medium bg-accent text-white px-3 py-1 rounded-full">
+          {tier.badge}
+        </span>
+      )}
       <div className="mb-4">
         <span className="text-[13px] font-medium text-text-secondary tracking-[0.2px] uppercase">
           {tier.name}
         </span>
       </div>
-      <div className="flex items-baseline gap-1 mb-2">
+      <div className="flex items-baseline gap-1 mb-1">
         <span className="text-[36px] font-bold text-text-primary leading-none tracking-[-1px]">
           {tier.price}
         </span>
@@ -92,6 +102,13 @@ function TierCard({ tier, index }: { tier: Tier; index: number }) {
           <span className="text-[15px] text-text-secondary">{tier.period}</span>
         )}
       </div>
+      {tier.monthlyPrice && (
+        <p className="text-[12px] text-text-tertiary mb-4">
+          <span className="line-through">{tier.monthlyPrice}/mo</span>{" "}
+          — billed annually, save {Math.round((1 - parseInt(tier.price.replace("$", "")) / parseInt(tier.monthlyPrice.replace("$", ""))) * 100)}%
+        </p>
+      )}
+      {!tier.monthlyPrice && <div className="mb-4" />}
       <p className="text-[14px] text-text-secondary leading-relaxed mb-6">
         {tier.description}
       </p>
