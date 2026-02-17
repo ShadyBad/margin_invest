@@ -372,6 +372,12 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                 buy_price=composite.buy_price,
                 sell_price=composite.sell_price,
                 actual_price=composite.actual_price,
+                price_target_invalid_reason=composite.price_target_invalid_reason,
+                opportunity_type=composite.opportunity_type.value if composite.opportunity_type else None,
+                winning_track=composite.winning_track,
+                asymmetry_ratio=composite.asymmetry_ratio,
+                max_position_pct=composite.max_position_pct,
+                timing_signal=composite.timing_signal,
             )
             session.add(score)
             successes += 1

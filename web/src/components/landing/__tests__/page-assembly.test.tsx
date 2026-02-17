@@ -77,7 +77,7 @@ describe("Landing page assembly", () => {
   it("renders all 7 sections", () => {
     render(<Page />)
     // Hero
-    expect(screen.getByText("Structure outperforms emotion.")).toBeInTheDocument()
+    expect(screen.getByText("Conviction scoring for serious investors.")).toBeInTheDocument()
     // Friction
     expect(screen.getByText("Most investors react.")).toBeInTheDocument()
     // Engine Diagram - use getAllByText since desktop+mobile both render
@@ -89,8 +89,7 @@ describe("Landing page assembly", () => {
     // Investor Positioning
     expect(screen.getByText(/not trading/i)).toBeInTheDocument()
     // Final CTA
-    const ctaLinks = screen.getAllByRole("link", { name: /explore the engine/i })
-    expect(ctaLinks.length).toBeGreaterThanOrEqual(2) // hero + final CTA at minimum
+    expect(screen.getByRole("link", { name: /explore the engine/i })).toBeInTheDocument()
   })
 
   it("renders the floating nav with Dashboard CTA", () => {

@@ -62,9 +62,9 @@ def _score_response_from_row(
         )
         for f in detail.get("filters_passed", []):
             f.setdefault("verdict", "pass" if f.get("passed") else "fail")
-        for factor_key in ("quality", "value", "momentum"):
-            factor = detail.get(factor_key, {})
-            if "average_percentile" not in factor:
+        for factor_key in ("quality", "value", "momentum", "capital_allocation", "catalyst"):
+            factor = detail.get(factor_key)
+            if factor is not None and isinstance(factor, dict) and "average_percentile" not in factor:
                 subs = factor.get("sub_scores", [])
                 avg = (
                     sum(s.get("percentile_rank", 0) for s in subs) / len(subs)
@@ -72,11 +72,21 @@ def _score_response_from_row(
                     else 0.0
                 )
                 factor["average_percentile"] = avg
+        # Populate score and universe_percentile from raw score / percentile
+        detail.setdefault("score", detail.get("composite_raw_score", score.composite_raw_score))
+        detail.setdefault("universe_percentile", detail.get("composite_percentile", score.composite_percentile))
         # Include price target fields from DB columns
         detail.setdefault("intrinsic_value", getattr(score, "intrinsic_value", None))
         detail.setdefault("buy_price", getattr(score, "buy_price", None))
         detail.setdefault("sell_price", getattr(score, "sell_price", None))
         detail.setdefault("actual_price", getattr(score, "actual_price", None))
+        detail.setdefault("price_target_invalid_reason", getattr(score, "price_target_invalid_reason", None))
+        # v2 conviction engine fields from DB columns
+        detail.setdefault("opportunity_type", getattr(score, "opportunity_type", None))
+        detail.setdefault("winning_track", getattr(score, "winning_track", None))
+        detail.setdefault("asymmetry_ratio", getattr(score, "asymmetry_ratio", None))
+        detail.setdefault("max_position_pct", getattr(score, "max_position_pct", None))
+        detail.setdefault("timing_signal", getattr(score, "timing_signal", None))
         # Override actual_price with live price if available
         if live_price_data:
             detail["actual_price"] = live_price_data["price"]
@@ -91,9 +101,12 @@ def _score_response_from_row(
     if live_price_data:
         actual_price = live_price_data["price"]
 
+    invalid_reason = getattr(score, "price_target_invalid_reason", None)
     return ScoreResponse(
         ticker=ticker,
         name=row.asset_name if hasattr(row, "asset_name") else "",
+        score=score.composite_raw_score,
+        universe_percentile=score.composite_percentile,
         composite_percentile=score.composite_percentile,
         conviction_level=score.conviction_level,
         signal=score.signal,
@@ -125,9 +138,17 @@ def _score_response_from_row(
         actual_price=actual_price,
         price_upside=(
             round((score.intrinsic_value - score.actual_price) / score.actual_price, 4)
-            if getattr(score, "intrinsic_value", None) and getattr(score, "actual_price", None)
+            if getattr(score, "intrinsic_value", None)
+            and getattr(score, "actual_price", None)
+            and not invalid_reason
             else None
         ),
+        price_target_invalid_reason=invalid_reason,
+        opportunity_type=getattr(score, "opportunity_type", None),
+        winning_track=getattr(score, "winning_track", None),
+        asymmetry_ratio=getattr(score, "asymmetry_ratio", None),
+        max_position_pct=getattr(score, "max_position_pct", None),
+        timing_signal=getattr(score, "timing_signal", None),
         data_freshness=freshness,
         price_source=price_source,
         price_updated_at=price_updated_at,

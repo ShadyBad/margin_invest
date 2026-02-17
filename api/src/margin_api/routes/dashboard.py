@@ -60,6 +60,8 @@ async def get_dashboard(
         PickSummary(
             ticker=row.ticker,
             name=row.asset_name,
+            score=row.Score.composite_raw_score,
+            universe_percentile=row.Score.composite_percentile,
             composite_percentile=row.Score.composite_percentile,
             conviction_level=row.Score.conviction_level,
             signal=row.Score.signal,
@@ -71,13 +73,31 @@ async def get_dashboard(
             sell_price=getattr(row.Score, "sell_price", None),
             price_upside=(
                 round((row.Score.intrinsic_value - row.Score.actual_price) / row.Score.actual_price, 4)
-                if getattr(row.Score, "intrinsic_value", None) and getattr(row.Score, "actual_price", None)
+                if getattr(row.Score, "intrinsic_value", None)
+                and getattr(row.Score, "actual_price", None)
+                and not getattr(row.Score, "price_target_invalid_reason", None)
                 else None
             ),
             data_freshness=compute_freshness(row.Score.scored_at),
             scored_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
             price_source="daily_close",
             price_updated_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
+            opportunity_type=getattr(row.Score, "opportunity_type", None),
+            winning_track=getattr(row.Score, "winning_track", None),
+            max_position_pct=getattr(row.Score, "max_position_pct", None),
+            timing_signal=getattr(row.Score, "timing_signal", None),
+            margin_of_safety=(
+                round(
+                    (row.Score.intrinsic_value - row.Score.actual_price)
+                    / row.Score.intrinsic_value,
+                    4,
+                )
+                if getattr(row.Score, "intrinsic_value", None)
+                and getattr(row.Score, "actual_price", None)
+                and row.Score.actual_price < row.Score.intrinsic_value
+                and not getattr(row.Score, "price_target_invalid_reason", None)
+                else None
+            ),
         )
         for row in picks_result.all()
     ]
@@ -107,6 +127,8 @@ async def get_dashboard(
             PickSummary(
                 ticker=row.ticker,
                 name=row.asset_name,
+                score=row.Score.composite_raw_score,
+                universe_percentile=row.Score.composite_percentile,
                 composite_percentile=row.Score.composite_percentile,
                 conviction_level=row.Score.conviction_level,
                 signal=row.Score.signal,
@@ -118,13 +140,31 @@ async def get_dashboard(
                 sell_price=getattr(row.Score, "sell_price", None),
                 price_upside=(
                     round((row.Score.intrinsic_value - row.Score.actual_price) / row.Score.actual_price, 4)
-                    if getattr(row.Score, "intrinsic_value", None) and getattr(row.Score, "actual_price", None)
+                    if getattr(row.Score, "intrinsic_value", None)
+                    and getattr(row.Score, "actual_price", None)
+                    and not getattr(row.Score, "price_target_invalid_reason", None)
                     else None
                 ),
                 data_freshness=compute_freshness(row.Score.scored_at),
                 scored_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
                 price_source="daily_close",
                 price_updated_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
+                opportunity_type=getattr(row.Score, "opportunity_type", None),
+                winning_track=getattr(row.Score, "winning_track", None),
+                max_position_pct=getattr(row.Score, "max_position_pct", None),
+                timing_signal=getattr(row.Score, "timing_signal", None),
+                margin_of_safety=(
+                    round(
+                        (row.Score.intrinsic_value - row.Score.actual_price)
+                        / row.Score.intrinsic_value,
+                        4,
+                    )
+                    if getattr(row.Score, "intrinsic_value", None)
+                    and getattr(row.Score, "actual_price", None)
+                    and row.Score.actual_price < row.Score.intrinsic_value
+                    and not getattr(row.Score, "price_target_invalid_reason", None)
+                    else None
+                ),
             )
             for row in top_result.all()
         ]

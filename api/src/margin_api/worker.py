@@ -97,6 +97,7 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
         score = Score(
             asset_id=asset.id,
             composite_percentile=composite.composite_percentile,
+            composite_raw_score=composite.composite_raw_score,
             conviction_level=composite.conviction_level.value,
             signal=composite.signal.value,
             quality_percentile=composite.quality.average_percentile,
@@ -106,6 +107,16 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
             growth_stage=composite.growth_stage.value if composite.growth_stage else None,
             score_detail=composite.model_dump(mode="json"),
             scored_at=datetime.now(UTC),
+            intrinsic_value=composite.intrinsic_value,
+            buy_price=composite.buy_price,
+            sell_price=composite.sell_price,
+            actual_price=composite.actual_price,
+            price_target_invalid_reason=composite.price_target_invalid_reason,
+            opportunity_type=composite.opportunity_type.value if composite.opportunity_type else None,
+            winning_track=composite.winning_track,
+            asymmetry_ratio=composite.asymmetry_ratio,
+            max_position_pct=composite.max_position_pct,
+            timing_signal=composite.timing_signal,
         )
         session.add(score)
         await session.commit()
