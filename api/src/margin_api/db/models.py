@@ -107,6 +107,7 @@ class Asset(Base):
     scores: Mapped[list[Score]] = relationship(back_populates="asset")
     recommendations: Mapped[list[Recommendation]] = relationship(back_populates="asset")
     financial_data: Mapped[list[FinancialData]] = relationship(back_populates="asset")
+    v3_scores: Mapped[list[V3Score]] = relationship(back_populates="asset")
 
 
 class FinancialData(Base):
@@ -190,6 +191,30 @@ class Score(Base):
 
     __table_args__ = (
         Index("ix_scores_asset_scored", "asset_id", "scored_at"),
+    )
+
+
+class V3Score(Base):
+    __tablename__ = "v3_scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
+    scored_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    opportunity_type: Mapped[str] = mapped_column(String(20))
+    conviction: Mapped[str] = mapped_column(String(20))
+    track_a: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    track_b: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    timing_signal: Mapped[str] = mapped_column(String(30))
+    max_position_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    regime: Mapped[str] = mapped_column(String(20))
+    composite_score: Mapped[float] = mapped_column(Float, default=0.0)
+
+    asset: Mapped["Asset"] = relationship(back_populates="v3_scores")
+
+    __table_args__ = (
+        Index("ix_v3_scores_asset_scored", "asset_id", "scored_at"),
     )
 
 
