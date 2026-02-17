@@ -17,6 +17,17 @@ function formatTimeAgo(isoString: string): string {
   return `${diffDays}d ago`
 }
 
+function getCardTierClasses(convictionLevel: string): string {
+  switch (convictionLevel) {
+    case "exceptional":
+      return "border-l-2 border-l-accent bg-accent/[0.03]"
+    case "high":
+      return "border-l border-l-border-primary"
+    default:
+      return ""
+  }
+}
+
 interface StockCardProps {
   pick: PickSummary
   className?: string
@@ -55,7 +66,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
 
   return (
     <div
-      className={`bg-bg-elevated border border-border-primary rounded-sm p-6 cursor-pointer transition-all ${expanded ? "col-span-full" : ""} ${className}`}
+      className={`bg-bg-elevated border border-border-primary rounded-sm p-6 cursor-pointer transition-all ${expanded ? "col-span-full" : ""} ${getCardTierClasses(pick.conviction_level)} ${className}`}
       data-testid={`stock-card-${pick.ticker}`}
       onClick={handleClick}
       role="button"
@@ -112,7 +123,11 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       <p className="text-sm text-text-secondary mb-4 truncate">{pick.name}</p>
 
       <div className="flex items-center justify-between mb-4">
-        <span className="text-3xl font-bold text-accent">
+        <span className={`text-3xl font-bold ${
+          pick.conviction_level === "exceptional" ? "text-accent" :
+          pick.conviction_level === "high" ? "text-text-primary" :
+          "text-text-secondary"
+        }`}>
           {(pick.score || pick.composite_percentile).toFixed(0)}
         </span>
         <ActionPill
