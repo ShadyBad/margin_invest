@@ -38,8 +38,15 @@ def assess_track_a_conviction(
     compounding_power: float,
     moat_durability: int,
     growth_gap: float,
+    growth_gap_adjustment: float = 0.0,
 ) -> ConvictionLevel:
-    """Determine Track A conviction level from absolute thresholds."""
+    """Determine Track A conviction level from absolute thresholds.
+
+    Args:
+        growth_gap_adjustment: Offset applied to growth_gap thresholds for
+            market regime adjustments. Positive tightens (expensive regime),
+            negative relaxes (cheap regime).
+    """
     if gates_passed < _A_MIN_GATES_WATCHLIST or moat_durability < _A_WATCHLIST_MOAT:
         return ConvictionLevel.NONE
 
@@ -47,7 +54,7 @@ def assess_track_a_conviction(
         gates_passed >= _A_MIN_GATES_FULL
         and compounding_power > _A_EXCEPTIONAL_POWER
         and moat_durability >= _A_EXCEPTIONAL_MOAT
-        and growth_gap > _A_EXCEPTIONAL_GAP
+        and growth_gap > _A_EXCEPTIONAL_GAP + growth_gap_adjustment
     ):
         return ConvictionLevel.EXCEPTIONAL
 
@@ -55,7 +62,7 @@ def assess_track_a_conviction(
         gates_passed >= _A_MIN_GATES_FULL
         and compounding_power > _A_HIGH_POWER
         and moat_durability >= _A_HIGH_MOAT
-        and growth_gap > _A_HIGH_GAP
+        and growth_gap > _A_HIGH_GAP + growth_gap_adjustment
     ):
         return ConvictionLevel.HIGH
 
@@ -71,22 +78,37 @@ def assess_track_b_conviction(
     asymmetry_ratio: float,
     catalyst_percentile: float,
     converging_methods: int,
+    asymmetry_adjustment: float = 0.0,
+    catalyst_percentile_override: float | None = None,
 ) -> ConvictionLevel:
-    """Determine Track B conviction level from absolute thresholds."""
+    """Determine Track B conviction level from absolute thresholds.
+
+    Args:
+        asymmetry_adjustment: Offset applied to asymmetry_ratio thresholds for
+            market regime adjustments. Positive tightens, negative relaxes.
+        catalyst_percentile_override: If set, replaces the EXCEPTIONAL catalyst
+            percentile threshold (e.g., euphoria regime raises the bar).
+    """
     if gates_passed < _B_MIN_GATES_WATCHLIST or asymmetry_ratio < _B_WATCHLIST_ASYMMETRY:
         return ConvictionLevel.NONE
 
+    exceptional_catalyst = (
+        catalyst_percentile_override
+        if catalyst_percentile_override is not None
+        else _B_EXCEPTIONAL_CATALYST
+    )
+
     if (
         gates_passed >= _B_MIN_GATES_FULL
-        and asymmetry_ratio > _B_EXCEPTIONAL_ASYMMETRY
-        and catalyst_percentile > _B_EXCEPTIONAL_CATALYST
+        and asymmetry_ratio > _B_EXCEPTIONAL_ASYMMETRY + asymmetry_adjustment
+        and catalyst_percentile > exceptional_catalyst
         and converging_methods >= _B_EXCEPTIONAL_CONVERGING
     ):
         return ConvictionLevel.EXCEPTIONAL
 
     if (
         gates_passed >= _B_MIN_GATES_FULL
-        and asymmetry_ratio > _B_HIGH_ASYMMETRY
+        and asymmetry_ratio > _B_HIGH_ASYMMETRY + asymmetry_adjustment
         and catalyst_percentile > _B_HIGH_CATALYST
         and converging_methods >= _B_HIGH_CONVERGING
     ):
