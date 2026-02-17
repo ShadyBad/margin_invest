@@ -125,3 +125,30 @@ class TestSuePercentile:
             sue_percentile=None,
         )
         assert result == "buy_now"
+
+
+# ---------------------------------------------------------------------------
+# V3 timing signals — 3-tier Track A with accumulate_slowly
+# ---------------------------------------------------------------------------
+
+
+class TestV3TimingSignals:
+    def test_track_a_buy_now(self):
+        from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
+        assert compute_v3_timing_signal(60.0, is_mispricing_track=False) == "buy_now"
+
+    def test_track_a_add_on_pullback(self):
+        from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
+        assert compute_v3_timing_signal(40.0, is_mispricing_track=False) == "add_on_pullback"
+
+    def test_track_a_accumulate_slowly(self):
+        from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
+        assert compute_v3_timing_signal(20.0, is_mispricing_track=False) == "accumulate_slowly"
+
+    def test_track_b_buy_now(self):
+        from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
+        assert compute_v3_timing_signal(30.0, is_mispricing_track=True) == "buy_now"
+
+    def test_track_b_wait(self):
+        from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
+        assert compute_v3_timing_signal(60.0, is_mispricing_track=True) == "wait_for_catalyst"
