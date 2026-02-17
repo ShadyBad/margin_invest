@@ -340,4 +340,18 @@ class TestImportsFromPackage:
             "check_track_a_gates",
             "check_track_b_gates",
             "mediocrity_gate",
+            # v3 exports
+            "MarketRegime",
+            "MAX_POSITIONS",
+            "V3Result",
+            "V3TrackResult",
+            "assess_track_a_conviction",
+            "assess_track_b_conviction",
+            "compute_track_a_score",
+            "compute_track_b_score",
+            "compute_v3_position_size",
+            "compute_v3_timing_signal",
+            "detect_regime",
+            "orchestrate_v3",
+            "regime_adjustments",
         }

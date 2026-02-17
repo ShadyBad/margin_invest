@@ -26,6 +26,17 @@ from margin_engine.scoring.quantitative.roic_wacc import compute_roic, roic_wacc
 from margin_engine.scoring.quantitative.sentiment_score import sentiment_score
 from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yield
 from margin_engine.scoring.quantitative.sue import sue_score
+# v3 quantitative exports
+from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
+from margin_engine.scoring.quantitative.capital_allocation import (
+    ma_discipline,
+    sbc_dilution_tax,
+)
+from margin_engine.scoring.quantitative.moat_durability import moat_durability_score
+from margin_engine.scoring.quantitative.reverse_dcf import (
+    reverse_dcf_growth_gap,
+    solve_implied_growth_rate,
+)
 
 __all__ = [
     "EnsembleResult",
@@ -47,4 +58,11 @@ __all__ = [
     "shareholder_yield",
     "sloan_accrual_ratio",
     "sue_score",
+    # v3 quantitative exports
+    "asset_floor_valuation",
+    "ma_discipline",
+    "moat_durability_score",
+    "reverse_dcf_growth_gap",
+    "sbc_dilution_tax",
+    "solve_implied_growth_rate",
 ]

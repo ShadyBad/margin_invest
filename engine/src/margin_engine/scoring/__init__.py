@@ -1,4 +1,4 @@
-"""Scoring package — exports for the conviction engine (v1 + v2 dual-track)."""
+"""Scoring package — exports for the conviction engine (v1 + v2 + v3)."""
 
 from margin_engine.scoring.classifier import classify_growth_stage
 from margin_engine.scoring.composite import compute_composite_score
@@ -15,6 +15,13 @@ from margin_engine.scoring.normalizer import (
 from margin_engine.scoring.opportunity_classifier import classify_opportunity_type
 from margin_engine.scoring.position_sizing import compute_position_size
 from margin_engine.scoring.timing_overlay import compute_timing_signal
+# v3 exports
+from margin_engine.scoring.market_regime import MarketRegime, detect_regime, regime_adjustments
+from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
+from margin_engine.scoring.v3_composite import compute_track_a_score, compute_track_b_score
+from margin_engine.scoring.v3_orchestrator import V3Result, V3TrackResult, orchestrate_v3
+from margin_engine.scoring.v3_position_sizing import MAX_POSITIONS, compute_v3_position_size
+from margin_engine.scoring.v3_thresholds import assess_track_a_conviction, assess_track_b_conviction
 
 __all__ = [
     # v1 exports
@@ -33,4 +40,18 @@ __all__ = [
     "check_track_a_gates",
     "check_track_b_gates",
     "mediocrity_gate",
+    # v3 exports
+    "MarketRegime",
+    "MAX_POSITIONS",
+    "V3Result",
+    "V3TrackResult",
+    "assess_track_a_conviction",
+    "assess_track_b_conviction",
+    "compute_track_a_score",
+    "compute_track_b_score",
+    "compute_v3_position_size",
+    "compute_v3_timing_signal",
+    "detect_regime",
+    "orchestrate_v3",
+    "regime_adjustments",
 ]
