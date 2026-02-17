@@ -1,0 +1,5 @@
+export { MethodologyHero } from "./sections/methodology-hero"
+export { PipelineSection } from "./sections/pipeline-section"
+export { FactorSection } from "./sections/factor-section"
+export { TransparencySection } from "./sections/transparency-section"
+export { MethodologyCTA } from "./sections/methodology-cta"
