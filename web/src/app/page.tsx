@@ -1,5 +1,5 @@
 import { LandingScene } from "@/components/landing/scene/landing-scene"
-import { NavMinimal } from "@/components/landing/nav-minimal"
+import { FloatingNav } from "@/components/nav/floating-nav"
 import { DevAnnotations } from "@/components/landing/dev-annotations"
 import {
   HeroSection,
@@ -19,7 +19,7 @@ export default function Home() {
 
       {/* HTML overlay — scrollable content */}
       <div className="relative z-10">
-        <NavMinimal />
+        <FloatingNav variant="public" />
         <HeroSection />
         <FrictionSection />
         <EngineDiagram />
