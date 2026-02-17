@@ -23,8 +23,11 @@ Margin of safety uses a two-layer approach inspired by top value investors:
 
 from __future__ import annotations
 
+import logging
 import math
 from decimal import Decimal
+
+logger = logging.getLogger(__name__)
 
 from pydantic import BaseModel, model_validator
 
@@ -61,6 +64,12 @@ _HIGH_CV_THRESHOLD = 0.50        # CV above this = max widening
 # Hard floor/ceiling regardless of adjustments
 _MOS_FLOOR = 0.15
 _MOS_CEILING = 0.50
+
+# Input validation bounds
+_MIN_SHARES = 100_000
+_MAX_SHARES = 50_000_000_000
+_MIN_IMPLIED_MARKET_CAP = 1_000_000
+_MAX_IMPLIED_MARKET_CAP = 10_000_000_000_000
 
 
 class PriceTargets(BaseModel):
@@ -122,6 +131,30 @@ def compute_price_targets(
 
     if shares is None or shares <= 0:
         return PriceTargets(actual_price=actual_price)
+
+    # Layer 1: Fixed share bounds
+    if shares < _MIN_SHARES or shares > _MAX_SHARES:
+        logger.warning(
+            "Layer 1 reject: %s shares_outstanding=%d outside [%d, %d]",
+            profile.ticker, shares, _MIN_SHARES, _MAX_SHARES,
+        )
+        return PriceTargets(
+            actual_price=actual_price,
+            invalid_reason="shares_outstanding_out_of_bounds",
+        )
+
+    # Layer 1: Market-cap cross-validation
+    if actual_price is not None and actual_price > 0:
+        implied_mcap = actual_price * shares
+        if implied_mcap < _MIN_IMPLIED_MARKET_CAP or implied_mcap > _MAX_IMPLIED_MARKET_CAP:
+            logger.warning(
+                "Layer 1 reject: %s implied_market_cap=%.2f outside [%d, %d]",
+                profile.ticker, implied_mcap, _MIN_IMPLIED_MARKET_CAP, _MAX_IMPLIED_MARKET_CAP,
+            )
+            return PriceTargets(
+                actual_price=actual_price,
+                invalid_reason="implied_market_cap_unreasonable",
+            )
 
     # Compute each valuation method (returns None if data is invalid)
     methods: dict[str, float | None] = {

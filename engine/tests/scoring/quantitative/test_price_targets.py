@@ -309,3 +309,150 @@ class TestPriceTargets:
         assert result.actual_price is not None
         expected_upside = (result.intrinsic_value - result.actual_price) / result.actual_price
         assert result.price_upside == pytest.approx(expected_upside, abs=1e-4)
+
+
+class TestLayer1InputValidation:
+    """Tests for Layer 1 input validation: share bounds and market-cap cross-check."""
+
+    def test_shares_too_low_returns_invalid(self, healthy_period, price_bars):
+        """shares_outstanding=50 should be rejected as out of bounds."""
+        profile = AssetProfile(
+            ticker="TINY",
+            name="Tiny Corp",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("1000000"),
+            shares_outstanding=50,
+        )
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.invalid_reason == "shares_outstanding_out_of_bounds"
+
+    def test_shares_too_high_returns_invalid(self, healthy_period, price_bars):
+        """shares_outstanding=100B should be rejected as out of bounds."""
+        profile = AssetProfile(
+            ticker="HUGE",
+            name="Huge Corp",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("10000000000000"),
+            shares_outstanding=100_000_000_000,
+        )
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.invalid_reason == "shares_outstanding_out_of_bounds"
+
+    def test_shares_at_lower_bound_accepted(self, healthy_period, price_bars):
+        """shares_outstanding=100,000 (lower bound) should be accepted."""
+        profile = AssetProfile(
+            ticker="LBND",
+            name="Lower Bound Corp",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("50000000"),
+            shares_outstanding=100_000,
+        )
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.invalid_reason is None
+
+    def test_shares_at_upper_bound_accepted(self, healthy_period, price_bars):
+        """shares_outstanding=50B (upper bound) should be accepted."""
+        profile = AssetProfile(
+            ticker="UBND",
+            name="Upper Bound Corp",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("5000000000000"),
+            shares_outstanding=50_000_000_000,
+        )
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.invalid_reason is None
+
+    def test_implied_market_cap_too_low(self, healthy_period):
+        """actual_price * shares < $1M should be rejected."""
+        profile = AssetProfile(
+            ticker="MCLO",
+            name="MicroCap Low",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("500000"),
+            shares_outstanding=100_000,
+        )
+        # price=0.50 * 100,000 shares = $50K implied market cap (< $1M)
+        bars = [
+            PriceBar(
+                date="2025-09-28",
+                open=Decimal("0.50"),
+                high=Decimal("0.55"),
+                low=Decimal("0.45"),
+                close=Decimal("0.50"),
+                volume=1000,
+            ),
+        ]
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=profile,
+            price_bars=bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.invalid_reason == "implied_market_cap_unreasonable"
+
+    def test_implied_market_cap_too_high(self, healthy_period):
+        """actual_price * shares > $10T should be rejected."""
+        profile = AssetProfile(
+            ticker="MCHI",
+            name="MegaCap High",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("15000000000000"),
+            shares_outstanding=50_000_000_000,
+        )
+        # price=500,000 * 50B shares = $25,000T implied market cap (> $10T)
+        bars = [
+            PriceBar(
+                date="2025-09-28",
+                open=Decimal("500000"),
+                high=Decimal("510000"),
+                low=Decimal("490000"),
+                close=Decimal("500000"),
+                volume=1000,
+            ),
+        ]
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=profile,
+            price_bars=bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.invalid_reason == "implied_market_cap_unreasonable"
+
+    def test_no_actual_price_skips_market_cap_check(self, healthy_period):
+        """No price bars means no actual_price, so market cap check is skipped."""
+        profile = AssetProfile(
+            ticker="NOPR",
+            name="No Price Corp",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("500000"),
+            shares_outstanding=100_000,
+        )
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=profile,
+            price_bars=[],
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        # Market cap check skipped because actual_price is None
+        # invalid_reason should NOT be "implied_market_cap_unreasonable"
+        assert result.invalid_reason != "implied_market_cap_unreasonable"
