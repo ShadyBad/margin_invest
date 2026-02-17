@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { ActionPill, Sparkline, PercentileBar, ConvictionBadge } from "@/components/ui"
+import { ActionPill, Sparkline, PercentileBar, ConvictionBadge, AnimatedScore } from "@/components/ui"
 import { AssetDetail } from "./asset-detail"
 import { getScore } from "@/lib/api/scores"
 import type { PickSummary, ScoreResponse } from "@/lib/api/types"
@@ -150,9 +150,10 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <span className={getScoreClasses(pick.conviction_level)}>
-            {(pick.score || pick.composite_percentile).toFixed(0)}
-          </span>
+          <AnimatedScore
+            value={pick.score || pick.composite_percentile}
+            className={getScoreClasses(pick.conviction_level)}
+          />
           <span className="block text-[11px] font-medium text-text-tertiary tracking-[0.15em] uppercase mt-1">
             conviction
           </span>

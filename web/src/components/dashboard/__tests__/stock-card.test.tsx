@@ -14,6 +14,9 @@ vi.mock("@/components/ui", () => ({
   Sparkline: () => <div data-testid="sparkline" />,
   PercentileBar: ({ label }: { label: string }) => <div data-testid={`percentile-bar-${label}`} />,
   ConvictionBadge: ({ level }: { level: string }) => <div data-testid={`conviction-badge-${level}`} />,
+  AnimatedScore: ({ value, className }: { value: number; className?: string }) => (
+    <span className={className} data-testid="animated-score">{Math.round(value)}</span>
+  ),
 }))
 
 // Mock AssetDetail
