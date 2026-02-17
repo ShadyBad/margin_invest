@@ -1,8 +1,8 @@
-"""Tests for AssetProfile shares_outstanding field."""
+"""Tests for financial model fields and computed properties."""
 
 from decimal import Decimal
 
-from margin_engine.models.financial import AssetProfile, GICSSector
+from margin_engine.models.financial import AssetProfile, BalanceSheet, GICSSector
 
 
 def test_asset_profile_shares_outstanding():
@@ -24,3 +24,35 @@ def test_asset_profile_shares_outstanding_default():
         market_cap=Decimal("3000000000000"),
     )
     assert profile.shares_outstanding is None
+
+
+class TestBalanceSheetTotalDebt:
+    def test_total_debt_uses_short_term_debt_not_current_liabilities(self):
+        """total_debt = long_term_debt + short_term_debt, NOT current_liabilities."""
+        bs = BalanceSheet(
+            total_assets=Decimal("1000"),
+            current_liabilities=Decimal("300"),  # includes AP, accrued expenses, etc.
+            long_term_debt=Decimal("200"),
+            short_term_debt=Decimal("50"),  # only the financial debt portion
+            total_equity=Decimal("500"),
+        )
+        assert bs.total_debt == Decimal("250")  # 200 + 50, NOT 200 + 300
+
+    def test_total_debt_defaults_short_term_to_zero(self):
+        """If short_term_debt is not set, total_debt = long_term_debt only."""
+        bs = BalanceSheet(
+            total_assets=Decimal("1000"),
+            current_liabilities=Decimal("300"),
+            long_term_debt=Decimal("200"),
+            total_equity=Decimal("500"),
+        )
+        assert bs.total_debt == Decimal("200")
+
+    def test_total_debt_with_none_long_term(self):
+        """If long_term_debt is None, total_debt = short_term_debt only."""
+        bs = BalanceSheet(
+            total_assets=Decimal("1000"),
+            short_term_debt=Decimal("75"),
+            total_equity=Decimal("500"),
+        )
+        assert bs.total_debt == Decimal("75")

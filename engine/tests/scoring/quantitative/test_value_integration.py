@@ -47,10 +47,10 @@ class TestValueFactorIntegration:
         )
         am = acquirers_multiple(APPLE_PERIOD_2024, market_cap)
 
-        assert ev.raw_value == pytest.approx(34.5654, rel=1e-3)
+        assert ev.raw_value == pytest.approx(33.1294, rel=1e-3)
         assert sy.raw_value == pytest.approx(0.0315, rel=1e-2)
         assert dcf.raw_value == pytest.approx(-0.9713, rel=1e-2)
-        assert am.raw_value == pytest.approx(30.5395, rel=1e-3)
+        assert am.raw_value == pytest.approx(29.2708, rel=1e-3)
 
     def test_all_percentiles_are_placeholders(self):
         """All percentile_ranks should be 0.0 (filled in Phase 6)."""

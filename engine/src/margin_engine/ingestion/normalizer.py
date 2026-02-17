@@ -176,6 +176,14 @@ def normalize_balance_sheet(raw: dict) -> BalanceSheet:
         long_term_debt=_get_optional_decimal(
             raw, "longTermDebt", "long_term_debt", "Long Term Debt"
         ),
+        short_term_debt=_get_decimal(
+            raw,
+            "currentDebt",
+            "current_debt",
+            "Current Debt",
+            "Current Debt And Capital Lease Obligation",
+            default="0",
+        ),
         total_equity=_get_decimal(
             raw,
             "totalStockholdersEquity",

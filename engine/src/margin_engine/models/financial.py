@@ -88,6 +88,7 @@ class BalanceSheet(BaseModel):
     total_liabilities: Decimal = Decimal("0")
     current_liabilities: Decimal = Decimal("0")
     long_term_debt: Decimal | None = None
+    short_term_debt: Decimal = Decimal("0")
     total_equity: Decimal = Decimal("0")
     retained_earnings: Decimal | None = None
     pp_and_e: Decimal | None = None
@@ -111,7 +112,11 @@ class BalanceSheet(BaseModel):
 
     @property
     def total_debt(self) -> Decimal:
-        return (self.long_term_debt or Decimal("0")) + self.current_liabilities
+        """Total financial debt = long-term debt + short-term financial debt.
+
+        Does NOT include non-financial current liabilities (AP, accrued expenses, etc.).
+        """
+        return (self.long_term_debt or Decimal("0")) + self.short_term_debt
 
 
 class CashFlowStatement(BaseModel):

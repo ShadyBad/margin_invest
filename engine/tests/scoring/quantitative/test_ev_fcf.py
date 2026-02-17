@@ -14,11 +14,11 @@ from margin_engine.scoring.quantitative.ev_fcf import ev_fcf
 
 class TestEvFcf:
     def test_apple_golden_value(self):
-        """Apple FY2024: EV/FCF = 3,743,260,000,000 / 108,295,000,000 ~ 34.5654."""
+        """Apple FY2024: EV/FCF = 3,587,747,000,000 / 108,295,000,000 ~ 33.1294."""
         from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024, APPLE_PROFILE
 
         result = ev_fcf(APPLE_PERIOD_2024, APPLE_PROFILE.market_cap)
-        assert result.raw_value == pytest.approx(34.5654, rel=1e-3)
+        assert result.raw_value == pytest.approx(33.1294, rel=1e-3)
 
     def test_name(self):
         """Factor name should be 'ev_fcf'."""
@@ -39,7 +39,7 @@ class TestEvFcf:
         period = _make_period(
             operating_cash_flow=Decimal("5000"),
             capital_expenditures=Decimal("-8000"),
-            current_liabilities=Decimal("1000"),
+            short_term_debt=Decimal("1000"),
             long_term_debt=Decimal("2000"),
             cash_and_equivalents=Decimal("500"),
         )
@@ -53,7 +53,7 @@ class TestEvFcf:
         period = _make_period(
             operating_cash_flow=Decimal("5000"),
             capital_expenditures=Decimal("-5000"),
-            current_liabilities=Decimal("1000"),
+            short_term_debt=Decimal("1000"),
             long_term_debt=Decimal("2000"),
             cash_and_equivalents=Decimal("500"),
         )
@@ -66,7 +66,7 @@ class TestEvFcf:
         period = _make_period(
             operating_cash_flow=Decimal("10000"),
             capital_expenditures=Decimal("-2000"),
-            current_liabilities=Decimal("1000"),
+            short_term_debt=Decimal("1000"),
             long_term_debt=Decimal("3000"),
             cash_and_equivalents=Decimal("500"),
         )
@@ -79,7 +79,7 @@ class TestEvFcf:
         period = _make_period(
             operating_cash_flow=Decimal("10000"),
             capital_expenditures=Decimal("-2000"),
-            current_liabilities=Decimal("1000"),
+            short_term_debt=Decimal("1000"),
             long_term_debt=Decimal("3000"),
             cash_and_equivalents=Decimal("500"),
         )
@@ -91,21 +91,21 @@ class TestEvFcf:
         from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024, APPLE_PROFILE
 
         result = ev_fcf(APPLE_PERIOD_2024, APPLE_PROFILE.market_cap)
-        assert "3743260000000" in result.detail
+        assert "3587747000000" in result.detail
         assert "108295000000" in result.detail
-        assert "34.56" in result.detail
+        assert "33.12" in result.detail
 
     def test_simple_synthetic_computation(self):
         """Verify computation with simple synthetic values.
 
-        market_cap=100, total_debt=30, cash=10 -> EV=120
+        market_cap=100, total_debt=30 (LTD=20 + STD=10), cash=10 -> EV=120
         CFO=20, CapEx=-5 -> FCF=15
         EV/FCF = 120/15 = 8.0
         """
         period = _make_period(
             operating_cash_flow=Decimal("20"),
             capital_expenditures=Decimal("-5"),
-            current_liabilities=Decimal("10"),
+            short_term_debt=Decimal("10"),
             long_term_debt=Decimal("20"),
             cash_and_equivalents=Decimal("10"),
         )
@@ -116,7 +116,7 @@ class TestEvFcf:
 def _make_period(
     operating_cash_flow: Decimal,
     capital_expenditures: Decimal,
-    current_liabilities: Decimal = Decimal("0"),
+    short_term_debt: Decimal = Decimal("0"),
     long_term_debt: Decimal | None = None,
     cash_and_equivalents: Decimal | None = None,
 ) -> FinancialPeriod:
@@ -124,7 +124,7 @@ def _make_period(
     income = IncomeStatement(revenue=Decimal("0"))
     balance = BalanceSheet(
         total_assets=Decimal("100000"),
-        current_liabilities=current_liabilities,
+        short_term_debt=short_term_debt,
         long_term_debt=long_term_debt,
         cash_and_equivalents=cash_and_equivalents,
     )

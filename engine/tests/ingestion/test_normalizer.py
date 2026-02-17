@@ -292,6 +292,50 @@ class TestNormalizeBalanceSheet:
         bs = normalize_balance_sheet(raw)
         assert bs.total_equity == Decimal("200000000")
 
+    def test_short_term_debt_yfinance_current_debt(self):
+        """short_term_debt should map from yfinance 'Current Debt' key."""
+        raw = {
+            "Total Assets": 1000,
+            "Current Debt": 75,
+            "Long Term Debt": 200,
+            "Stockholders Equity": 500,
+        }
+        bs = normalize_balance_sheet(raw)
+        assert bs.short_term_debt == Decimal("75")
+        assert bs.total_debt == Decimal("275")  # 200 + 75
+
+    def test_short_term_debt_camel_case(self):
+        """short_term_debt should map from camelCase 'currentDebt' key."""
+        raw = {
+            "totalAssets": 1000,
+            "currentDebt": 50,
+            "longTermDebt": 100,
+        }
+        bs = normalize_balance_sheet(raw)
+        assert bs.short_term_debt == Decimal("50")
+        assert bs.total_debt == Decimal("150")
+
+    def test_short_term_debt_capital_lease_variant(self):
+        """short_term_debt should map from 'Current Debt And Capital Lease Obligation'."""
+        raw = {
+            "Total Assets": 1000,
+            "Current Debt And Capital Lease Obligation": 80,
+            "Long Term Debt": 120,
+        }
+        bs = normalize_balance_sheet(raw)
+        assert bs.short_term_debt == Decimal("80")
+        assert bs.total_debt == Decimal("200")
+
+    def test_short_term_debt_defaults_to_zero(self):
+        """short_term_debt defaults to 0 when no matching key exists."""
+        raw = {
+            "Total Assets": 1000,
+            "Long Term Debt": 200,
+        }
+        bs = normalize_balance_sheet(raw)
+        assert bs.short_term_debt == Decimal("0")
+        assert bs.total_debt == Decimal("200")
+
 
 class TestNormalizeCashFlow:
     """Test normalizing cash flow statement."""
@@ -518,6 +562,7 @@ class TestMissingFieldsUseDefaults:
         assert bs.current_assets == Decimal("0")
         assert bs.total_liabilities == Decimal("0")
         assert bs.current_liabilities == Decimal("0")
+        assert bs.short_term_debt == Decimal("0")
         assert bs.total_equity == Decimal("0")
         assert bs.shares_outstanding == 0
         assert bs.cash_and_equivalents is None
