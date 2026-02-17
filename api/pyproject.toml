@@ -20,6 +20,7 @@ dependencies = [
     "pillow>=12.1.1",
     "boto3>=1.42.49",
     "python-multipart>=0.0.22",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]
