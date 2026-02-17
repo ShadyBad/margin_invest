@@ -316,8 +316,10 @@ def _dcf_intrinsic_per_share(
 
     result = intrinsic_total / shares
     if result < _MIN_PER_SHARE_PRICE:
+        logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "DCF", result, _MIN_PER_SHARE_PRICE)
         return None
     if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
+        logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "DCF", result, _MAX_PRICE_MULTIPLE, actual_price)
         return None
     return result
 
@@ -351,8 +353,10 @@ def _ev_fcf_implied_per_share(
 
     result = implied_equity / shares
     if result < _MIN_PER_SHARE_PRICE:
+        logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "EV/FCF", result, _MIN_PER_SHARE_PRICE)
         return None
     if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
+        logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "EV/FCF", result, _MAX_PRICE_MULTIPLE, actual_price)
         return None
     return result
 
@@ -386,8 +390,10 @@ def _acquirers_implied_per_share(
 
     result = implied_equity / shares
     if result < _MIN_PER_SHARE_PRICE:
+        logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "Acquirer's Multiple", result, _MIN_PER_SHARE_PRICE)
         return None
     if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
+        logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "Acquirer's Multiple", result, _MAX_PRICE_MULTIPLE, actual_price)
         return None
     return result
 
@@ -417,7 +423,9 @@ def _shareholder_yield_implied_per_share(
 
     result = implied_market_cap / shares
     if result < _MIN_PER_SHARE_PRICE:
+        logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "Shareholder Yield", result, _MIN_PER_SHARE_PRICE)
         return None
     if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
+        logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "Shareholder Yield", result, _MAX_PRICE_MULTIPLE, actual_price)
         return None
     return result

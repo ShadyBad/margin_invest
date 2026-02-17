@@ -501,6 +501,47 @@ class TestLayer2PerMethodBounds:
             for method_price in result.valuation_methods.values():
                 assert method_price >= 0.01
 
+    def test_method_exceeding_100x_actual_excluded(self, healthy_profile, price_bars):
+        """A method producing > 100x actual_price should be excluded."""
+        # actual_price from price_bars is $197. 100x = $19,700.
+        # Create financials with extremely high cash flows to inflate valuations
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("100000000000000"),
+                gross_profit=Decimal("50000000000000"),
+                ebit=Decimal("40000000000000"),
+                net_income=Decimal("30000000000000"),
+                shares_outstanding=15000000000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("500000000000000"),
+                current_assets=Decimal("200000000000000"),
+                cash_and_equivalents=Decimal("100000000000000"),
+                current_liabilities=Decimal("50000000000000"),
+                long_term_debt=Decimal("10000000000000"),
+                total_equity=Decimal("400000000000000"),
+                shares_outstanding=15000000000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("35000000000000"),
+                capital_expenditures=Decimal("-5000000000000"),
+                dividends_paid=Decimal("-1000000000000"),
+                share_repurchases=Decimal("-2000000000000"),
+            ),
+        )
+        result = compute_price_targets(
+            period=period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        # Any surviving method must be <= 100x actual_price ($19,700)
+        if result.valuation_methods:
+            for method_price in result.valuation_methods.values():
+                assert method_price <= 100.0 * 197.0
+
     def test_healthy_data_passes_layer2(self, healthy_period, healthy_profile, price_bars):
         """Healthy data should not trigger Layer 2 rejection."""
         result = compute_price_targets(
