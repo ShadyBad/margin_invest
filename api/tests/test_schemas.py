@@ -269,6 +269,12 @@ class TestScoreResponse:
         assert data["score"] == 87.4
         assert data["universe_percentile"] == 100.0
 
+    def test_from_engine_propagates_price_target_invalid_reason(self) -> None:
+        """price_target_invalid_reason from engine should surface in response."""
+        engine_score = _make_composite_score(ticker="BAD", percentile=50.0)
+        response = ScoreResponse.from_engine(engine_score)
+        assert response.price_target_invalid_reason is None
+
     def test_from_engine_populates_score_and_universe_percentile(self) -> None:
         """from_engine() must populate score from composite_raw_score and
         universe_percentile from composite_percentile."""

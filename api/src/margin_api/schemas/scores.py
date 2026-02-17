@@ -90,6 +90,7 @@ class ScoreResponse(BaseModel):
     price_upside: float | None = None
     margin_of_safety: float | None = None
     valuation_methods: dict[str, float] | None = None
+    price_target_invalid_reason: str | None = None
     # Live price and freshness fields
     data_freshness: str = "expired"  # "fresh", "stale", "expired"
     price_source: str = "daily_close"  # "live" or "daily_close"
@@ -132,6 +133,7 @@ class ScoreResponse(BaseModel):
             price_upside=score.price_upside,
             margin_of_safety=score.margin_of_safety,
             valuation_methods=score.valuation_methods,
+            price_target_invalid_reason=score.price_target_invalid_reason,
         )
 
 

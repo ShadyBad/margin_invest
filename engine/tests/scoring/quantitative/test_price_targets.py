@@ -313,6 +313,31 @@ class TestPriceTargets:
         assert result.price_upside == pytest.approx(expected_upside, abs=1e-4)
 
 
+class TestDeterminism:
+    """Verify same inputs always produce same outputs."""
+
+    def test_deterministic_across_runs(self, healthy_period, healthy_profile, price_bars):
+        """Running compute_price_targets 10 times with same inputs produces identical results."""
+        results = [
+            compute_price_targets(
+                period=healthy_period,
+                profile=healthy_profile,
+                price_bars=price_bars,
+                conviction_level=ConvictionLevel.HIGH,
+            )
+            for _ in range(10)
+        ]
+        first = results[0]
+        for r in results[1:]:
+            assert r.intrinsic_value == first.intrinsic_value
+            assert r.buy_price == first.buy_price
+            assert r.sell_price == first.sell_price
+            assert r.price_upside == first.price_upside
+            assert r.margin_of_safety == first.margin_of_safety
+            assert r.valuation_methods == first.valuation_methods
+            assert r.invalid_reason == first.invalid_reason
+
+
 class TestLayer1InputValidation:
     """Tests for Layer 1 input validation: share bounds and market-cap cross-check."""
 

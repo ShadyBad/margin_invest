@@ -96,12 +96,14 @@ def compute_composite_score(
             "price_upside": price_targets.price_upside,
             "margin_of_safety": price_targets.margin_of_safety,
             "valuation_methods": price_targets.valuation_methods,
+            "price_target_invalid_reason": price_targets.invalid_reason,
         }
 
     # 6. Assemble and return CompositeScore
     return CompositeScore(
         ticker=ticker,
         composite_percentile=composite_percentile,
+        composite_raw_score=composite_percentile,
         quality=quality,
         value=value,
         momentum=momentum,
