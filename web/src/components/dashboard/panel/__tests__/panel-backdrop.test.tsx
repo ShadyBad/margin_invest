@@ -7,7 +7,7 @@ vi.mock("framer-motion", async () => {
   return {
     ...actual,
     motion: {
-      ...actual.motion,
+      ...(actual as any).motion,
       div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
     },
   }
