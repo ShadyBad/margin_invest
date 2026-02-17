@@ -1,0 +1,60 @@
+"use client"
+
+import { useState } from "react"
+import { useNavigation } from "@/hooks/use-navigation"
+import { NavLogo } from "./nav-logo"
+import { NavLinks } from "./nav-links"
+import { NavCTA } from "./nav-cta"
+import { UserDropdown } from "./user-dropdown"
+import { MobileMenu } from "./mobile-menu"
+import { UsagePill } from "./usage-pill"
+
+export function Navbar() {
+  const nav = useNavigation()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  return (
+    <nav
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-[900px]"
+      aria-label="Main navigation"
+    >
+      <div className="flex items-center justify-between bg-[#111113] dark:bg-[#111113] light:bg-[#FAFAF9] border border-border-subtle rounded-2xl px-6 py-3 shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+        <NavLogo href={nav.logoHref} />
+
+        <NavLinks links={nav.links} />
+
+        <div className="hidden md:flex items-center gap-3">
+          {nav.isAuthenticated && (
+            <UsagePill used={0} limit={3} />
+          )}
+          {nav.user ? (
+            <UserDropdown user={nav.user} />
+          ) : nav.cta ? (
+            <NavCTA cta={nav.cta} />
+          ) : null}
+        </div>
+
+        <button
+          className="md:hidden text-text-primary"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle menu"
+          aria-expanded={mobileMenuOpen}
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            {mobileMenuOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+      </div>
+
+      <MobileMenu
+        nav={nav}
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
+    </nav>
+  )
+}
