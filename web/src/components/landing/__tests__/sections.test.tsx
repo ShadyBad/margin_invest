@@ -57,6 +57,7 @@ import {
   CapabilitiesSection,
   InvestorPositioning,
   FinalCTA,
+  PricingSection,
 } from "../sections"
 
 describe("HeroSection", () => {
@@ -160,6 +161,36 @@ describe("EngineProof", () => {
   it("renders methodology link", () => {
     render(<EngineProof />)
     expect(screen.getByRole("link", { name: /methodology documentation/i })).toBeInTheDocument()
+  })
+})
+
+describe("PricingSection", () => {
+  it("renders three tier names", () => {
+    render(<PricingSection />)
+    expect(screen.getByText("Scout")).toBeInTheDocument()
+    expect(screen.getByText("Operator")).toBeInTheDocument()
+    expect(screen.getByText("Allocator")).toBeInTheDocument()
+  })
+
+  it("renders tier prices", () => {
+    render(<PricingSection />)
+    expect(screen.getByText("Free")).toBeInTheDocument()
+    expect(screen.getByText("$29")).toBeInTheDocument()
+    expect(screen.getByText("$79")).toBeInTheDocument()
+  })
+
+  it("renders CTA buttons for each tier", () => {
+    render(<PricingSection />)
+    const links = screen.getAllByRole("link")
+    const pricingLinks = links.filter(
+      (l) => l.textContent?.match(/start free|start trial|get started/i)
+    )
+    expect(pricingLinks.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it("renders the section heading", () => {
+    render(<PricingSection />)
+    expect(screen.getByText(/simple, transparent pricing/i)).toBeInTheDocument()
   })
 })
 
