@@ -143,6 +143,14 @@ def _score_response_from_row(
             and not invalid_reason
             else None
         ),
+        margin_of_safety=(
+            round((score.intrinsic_value - actual_price) / score.intrinsic_value, 4)
+            if getattr(score, "intrinsic_value", None)
+            and actual_price is not None
+            and actual_price < score.intrinsic_value
+            and not invalid_reason
+            else None
+        ),
         price_target_invalid_reason=invalid_reason,
         opportunity_type=getattr(score, "opportunity_type", None),
         winning_track=getattr(score, "winning_track", None),

@@ -22,6 +22,53 @@ from margin_api.services.universe import get_active_snapshot
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
 
+def _pick_summary_from_row(row) -> PickSummary:
+    """Build a PickSummary from a DB query row (Score, ticker, asset_name)."""
+    s = row.Score
+    invalid_reason = getattr(s, "price_target_invalid_reason", None)
+    return PickSummary(
+        ticker=row.ticker,
+        name=row.asset_name,
+        score=s.composite_raw_score,
+        universe_percentile=s.composite_percentile,
+        composite_percentile=s.composite_percentile,
+        conviction_level=s.conviction_level,
+        signal=s.signal,
+        quality_percentile=s.quality_percentile,
+        value_percentile=s.value_percentile,
+        momentum_percentile=s.momentum_percentile,
+        actual_price=getattr(s, "actual_price", None),
+        buy_price=getattr(s, "buy_price", None),
+        sell_price=getattr(s, "sell_price", None),
+        price_upside=(
+            round((s.intrinsic_value - s.actual_price) / s.actual_price, 4)
+            if getattr(s, "intrinsic_value", None)
+            and getattr(s, "actual_price", None)
+            and not invalid_reason
+            else None
+        ),
+        data_freshness=compute_freshness(s.scored_at),
+        scored_at=s.scored_at.isoformat() if s.scored_at else None,
+        price_source="daily_close",
+        price_updated_at=s.scored_at.isoformat() if s.scored_at else None,
+        opportunity_type=getattr(s, "opportunity_type", None),
+        winning_track=getattr(s, "winning_track", None),
+        max_position_pct=getattr(s, "max_position_pct", None),
+        timing_signal=getattr(s, "timing_signal", None),
+        margin_of_safety=(
+            round(
+                (s.intrinsic_value - s.actual_price) / s.intrinsic_value,
+                4,
+            )
+            if getattr(s, "intrinsic_value", None)
+            and getattr(s, "actual_price", None)
+            and s.actual_price < s.intrinsic_value
+            and not invalid_reason
+            else None
+        ),
+    )
+
+
 def _latest_score_subquery():
     """Subquery for the most recent score per asset."""
     return (
@@ -56,51 +103,7 @@ async def get_dashboard(
         base.where(Score.conviction_level.in_(["exceptional", "high"]))
         .order_by(Score.composite_percentile.desc())
     )
-    picks = [
-        PickSummary(
-            ticker=row.ticker,
-            name=row.asset_name,
-            score=row.Score.composite_raw_score,
-            universe_percentile=row.Score.composite_percentile,
-            composite_percentile=row.Score.composite_percentile,
-            conviction_level=row.Score.conviction_level,
-            signal=row.Score.signal,
-            quality_percentile=row.Score.quality_percentile,
-            value_percentile=row.Score.value_percentile,
-            momentum_percentile=row.Score.momentum_percentile,
-            actual_price=getattr(row.Score, "actual_price", None),
-            buy_price=getattr(row.Score, "buy_price", None),
-            sell_price=getattr(row.Score, "sell_price", None),
-            price_upside=(
-                round((row.Score.intrinsic_value - row.Score.actual_price) / row.Score.actual_price, 4)
-                if getattr(row.Score, "intrinsic_value", None)
-                and getattr(row.Score, "actual_price", None)
-                and not getattr(row.Score, "price_target_invalid_reason", None)
-                else None
-            ),
-            data_freshness=compute_freshness(row.Score.scored_at),
-            scored_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
-            price_source="daily_close",
-            price_updated_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
-            opportunity_type=getattr(row.Score, "opportunity_type", None),
-            winning_track=getattr(row.Score, "winning_track", None),
-            max_position_pct=getattr(row.Score, "max_position_pct", None),
-            timing_signal=getattr(row.Score, "timing_signal", None),
-            margin_of_safety=(
-                round(
-                    (row.Score.intrinsic_value - row.Score.actual_price)
-                    / row.Score.intrinsic_value,
-                    4,
-                )
-                if getattr(row.Score, "intrinsic_value", None)
-                and getattr(row.Score, "actual_price", None)
-                and row.Score.actual_price < row.Score.intrinsic_value
-                and not getattr(row.Score, "price_target_invalid_reason", None)
-                else None
-            ),
-        )
-        for row in picks_result.all()
-    ]
+    picks = [_pick_summary_from_row(row) for row in picks_result.all()]
 
     # Watchlist
     watchlist_result = await db.execute(
@@ -123,51 +126,7 @@ async def get_dashboard(
         top_result = await db.execute(
             base.order_by(Score.composite_percentile.desc()).limit(10)
         )
-        picks = [
-            PickSummary(
-                ticker=row.ticker,
-                name=row.asset_name,
-                score=row.Score.composite_raw_score,
-                universe_percentile=row.Score.composite_percentile,
-                composite_percentile=row.Score.composite_percentile,
-                conviction_level=row.Score.conviction_level,
-                signal=row.Score.signal,
-                quality_percentile=row.Score.quality_percentile,
-                value_percentile=row.Score.value_percentile,
-                momentum_percentile=row.Score.momentum_percentile,
-                actual_price=getattr(row.Score, "actual_price", None),
-                buy_price=getattr(row.Score, "buy_price", None),
-                sell_price=getattr(row.Score, "sell_price", None),
-                price_upside=(
-                    round((row.Score.intrinsic_value - row.Score.actual_price) / row.Score.actual_price, 4)
-                    if getattr(row.Score, "intrinsic_value", None)
-                    and getattr(row.Score, "actual_price", None)
-                    and not getattr(row.Score, "price_target_invalid_reason", None)
-                    else None
-                ),
-                data_freshness=compute_freshness(row.Score.scored_at),
-                scored_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
-                price_source="daily_close",
-                price_updated_at=row.Score.scored_at.isoformat() if row.Score.scored_at else None,
-                opportunity_type=getattr(row.Score, "opportunity_type", None),
-                winning_track=getattr(row.Score, "winning_track", None),
-                max_position_pct=getattr(row.Score, "max_position_pct", None),
-                timing_signal=getattr(row.Score, "timing_signal", None),
-                margin_of_safety=(
-                    round(
-                        (row.Score.intrinsic_value - row.Score.actual_price)
-                        / row.Score.intrinsic_value,
-                        4,
-                    )
-                    if getattr(row.Score, "intrinsic_value", None)
-                    and getattr(row.Score, "actual_price", None)
-                    and row.Score.actual_price < row.Score.intrinsic_value
-                    and not getattr(row.Score, "price_target_invalid_reason", None)
-                    else None
-                ),
-            )
-            for row in top_result.all()
-        ]
+        picks = [_pick_summary_from_row(row) for row in top_result.all()]
 
     # Total scored
     total_result = await db.execute(
