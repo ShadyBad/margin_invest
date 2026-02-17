@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import math
+import statistics
 from decimal import Decimal
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,10 @@ _MAX_IMPLIED_MARKET_CAP = 10_000_000_000_000
 # Layer 2: Per-method output bounds
 _MIN_PER_SHARE_PRICE = 0.01
 _MAX_PRICE_MULTIPLE = 100.0
+
+# Layer 3: Cross-method consistency bounds
+_OUTLIER_LOW_RATIO = 0.1
+_OUTLIER_HIGH_RATIO = 10.0
 
 
 class PriceTargets(BaseModel):
@@ -196,6 +201,15 @@ def compute_price_targets(
     if not valid_methods:
         return PriceTargets(actual_price=actual_price)
 
+    # Layer 3: Cross-method consistency — exclude outlier methods
+    valid_methods = _filter_outlier_methods(valid_methods)
+    if not valid_methods:
+        logger.warning("Layer 3 reject: %s all methods filtered as inconsistent", profile.ticker)
+        return PriceTargets(
+            actual_price=actual_price,
+            invalid_reason="methods_inconsistent",
+        )
+
     # Renormalize weights for valid methods
     total_weight = sum(_METHOD_WEIGHTS[k] for k in valid_methods)
     intrinsic_value = sum(
@@ -265,6 +279,24 @@ def _compute_margin_of_safety(
             adjustment = t * _DISPERSION_WIDEN_MAX
 
     return max(_MOS_FLOOR, min(_MOS_CEILING, base + adjustment))
+
+
+def _filter_outlier_methods(methods: dict[str, float]) -> dict[str, float]:
+    """Remove methods whose value is < 0.1x or > 10x the median.
+
+    Requires 2+ methods to filter. Returns the dict unchanged if < 2 methods.
+    """
+    if len(methods) < 2:
+        return methods
+
+    median = statistics.median(methods.values())
+    if median <= 0:
+        return methods
+
+    return {
+        k: v for k, v in methods.items()
+        if _OUTLIER_LOW_RATIO * median <= v <= _OUTLIER_HIGH_RATIO * median
+    }
 
 
 def _latest_close(bars: list[PriceBar]) -> float | None:

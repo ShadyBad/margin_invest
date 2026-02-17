@@ -17,6 +17,7 @@ from margin_engine.models.financial import (
 from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.quantitative.price_targets import (
     PriceTargets,
+    _filter_outlier_methods,
     compute_price_targets,
 )
 
@@ -552,3 +553,78 @@ class TestLayer2PerMethodBounds:
         )
         assert result.intrinsic_value is not None
         assert result.invalid_reason is None
+
+
+class TestFilterOutlierMethods:
+    """Unit tests for _filter_outlier_methods helper."""
+
+    def test_high_outlier_excluded(self):
+        """A method 20x the median should be excluded."""
+        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 52.0, "shareholder_yield": 5000.0}
+        filtered = _filter_outlier_methods(methods)
+        assert "shareholder_yield" not in filtered
+        assert len(filtered) == 3
+
+    def test_all_methods_agree_kept(self):
+        """When all methods are within 10x of median, all are kept."""
+        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 48.0, "shareholder_yield": 60.0}
+        filtered = _filter_outlier_methods(methods)
+        assert len(filtered) == 4
+
+    def test_single_method_kept(self):
+        """A single method cannot be outlier-filtered."""
+        methods = {"dcf": 50.0}
+        filtered = _filter_outlier_methods(methods)
+        assert len(filtered) == 1
+
+    def test_low_outlier_excluded(self):
+        """A method < 0.1x median should be excluded."""
+        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 52.0, "shareholder_yield": 2.0}
+        filtered = _filter_outlier_methods(methods)
+        assert "shareholder_yield" not in filtered
+
+    def test_empty_dict_returns_empty(self):
+        """Empty input returns empty output."""
+        filtered = _filter_outlier_methods({})
+        assert len(filtered) == 0
+
+    def test_two_methods_both_kept_when_close(self):
+        """Two methods within 10x of each other are both kept."""
+        methods = {"dcf": 50.0, "ev_fcf": 55.0}
+        filtered = _filter_outlier_methods(methods)
+        assert len(filtered) == 2
+
+    def test_zero_median_returns_all(self):
+        """If median is zero or negative, no filtering occurs."""
+        methods = {"dcf": 0.0, "ev_fcf": 0.0, "acquirers_multiple": 50.0}
+        filtered = _filter_outlier_methods(methods)
+        assert len(filtered) == 3
+
+
+class TestLayer3CrossMethodConsistency:
+    """Layer 3: Exclude methods that differ > 10x from median."""
+
+    def test_outlier_method_excluded(self):
+        """A method 20x the median should be excluded."""
+        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 52.0, "shareholder_yield": 5000.0}
+        filtered = _filter_outlier_methods(methods)
+        assert "shareholder_yield" not in filtered
+        assert len(filtered) == 3
+
+    def test_all_methods_agree_kept(self):
+        """When all methods are within 10x of median, all are kept."""
+        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 48.0, "shareholder_yield": 60.0}
+        filtered = _filter_outlier_methods(methods)
+        assert len(filtered) == 4
+
+    def test_single_method_kept(self):
+        """A single method cannot be outlier-filtered."""
+        methods = {"dcf": 50.0}
+        filtered = _filter_outlier_methods(methods)
+        assert len(filtered) == 1
+
+    def test_low_outlier_excluded(self):
+        """A method < 0.1x median should be excluded."""
+        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 52.0, "shareholder_yield": 2.0}
+        filtered = _filter_outlier_methods(methods)
+        assert "shareholder_yield" not in filtered
