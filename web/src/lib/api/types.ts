@@ -45,7 +45,10 @@ export interface SignalTransition {
 export interface ScoreResponse {
   ticker: string
   name: string
-  composite_percentile: number
+  score: number                // Raw weighted average — the true quality measure
+  universe_percentile: number  // Universe-level rank (0-100)
+  composite_percentile: number // Kept for backwards compat
+  composite_raw_score: number  // Kept for backwards compat
   conviction_level: string
   signal: string
   quality: FactorBreakdownResponse
@@ -78,7 +81,9 @@ export interface ScoreListResponse {
 export interface PickSummary {
   ticker: string
   name: string
-  composite_percentile: number
+  score: number                // Raw weighted average
+  universe_percentile: number  // Universe-level rank (0-100)
+  composite_percentile: number // Kept for backwards compat
   conviction_level: string
   signal: string
   quality_percentile: number
