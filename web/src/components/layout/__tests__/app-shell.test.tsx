@@ -17,9 +17,10 @@ describe("AppShell", () => {
     expect(screen.getByTestId("child")).toBeInTheDocument()
   })
 
-  it("includes navigation", () => {
+  it("includes floating navigation", () => {
     render(<AppShell><div>Content</div></AppShell>)
-    expect(screen.getByText("Margin Invest")).toBeInTheDocument()
+    const nav = screen.getByRole("navigation", { name: "Main navigation" })
+    expect(nav).toBeInTheDocument()
   })
 
   it("renders children inside main element", () => {
