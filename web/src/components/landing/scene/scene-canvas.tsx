@@ -7,6 +7,7 @@ import { AmbientGrid } from "./ambient-grid"
 import { EngineNodes } from "./engine-nodes"
 import { ConnectionLines } from "./connection-lines"
 import { CapabilityCards3D } from "./capability-cards-3d"
+import { PostprocessingStack } from "./postprocessing-stack"
 import type { QualityTier } from "@/lib/hooks/use-quality-tier"
 
 interface SceneCanvasProps {
@@ -19,7 +20,7 @@ export function SceneCanvas({ tier, dpr, pages }: SceneCanvasProps) {
   return (
     <Canvas
       dpr={[1, dpr]}
-      frameloop="demand"
+      frameloop="always"
       gl={{ antialias: tier === "high", alpha: true, powerPreference: "high-performance" }}
       camera={{ position: [0, 0, 10], fov: 50 }}
       style={{
@@ -41,6 +42,7 @@ export function SceneCanvas({ tier, dpr, pages }: SceneCanvasProps) {
           <ConnectionLines />
           <CapabilityCards3D />
         </ScrollControls>
+        <PostprocessingStack tier={tier} />
       </Suspense>
     </Canvas>
   )
