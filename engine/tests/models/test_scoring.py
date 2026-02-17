@@ -126,3 +126,39 @@ class TestOpportunityType:
 
     def test_neither_value(self):
         assert OpportunityType.NEITHER == "neither"
+
+
+# ---------------------------------------------------------------------------
+# FactorBreakdown weighted percentile tests
+# ---------------------------------------------------------------------------
+
+
+class TestFactorBreakdownWeighted:
+    def test_weighted_average_with_weights(self):
+        scores = [
+            FactorScore(name="a", raw_value=1.0, percentile_rank=90.0, weight=0.6),
+            FactorScore(name="b", raw_value=2.0, percentile_rank=70.0, weight=0.4),
+        ]
+        bd = FactorBreakdown(factor_name="test", weight=1.0, sub_scores=scores)
+        assert bd.average_percentile == pytest.approx(82.0)
+
+    def test_weighted_average_falls_back_to_simple_when_no_weights(self):
+        scores = [
+            FactorScore(name="a", raw_value=1.0, percentile_rank=90.0),
+            FactorScore(name="b", raw_value=2.0, percentile_rank=70.0),
+        ]
+        bd = FactorBreakdown(factor_name="test", weight=1.0, sub_scores=scores)
+        assert bd.average_percentile == pytest.approx(80.0)
+
+    def test_weighted_average_partial_weights_falls_back_to_simple(self):
+        """When only some sub-scores have weights, fall back to simple average."""
+        scores = [
+            FactorScore(name="a", raw_value=1.0, percentile_rank=90.0, weight=0.6),
+            FactorScore(name="b", raw_value=2.0, percentile_rank=70.0),
+        ]
+        bd = FactorBreakdown(factor_name="test", weight=1.0, sub_scores=scores)
+        assert bd.average_percentile == pytest.approx(80.0)
+
+    def test_weighted_average_empty_sub_scores(self):
+        bd = FactorBreakdown(factor_name="test", weight=1.0, sub_scores=[])
+        assert bd.average_percentile == 0.0

@@ -64,6 +64,7 @@ class FactorScore(BaseModel):
     raw_value: float
     percentile_rank: float = Field(ge=0.0, le=100.0)
     detail: str = ""
+    weight: float | None = None  # optional sub-factor weight within pillar
 
     @field_validator("percentile_rank")
     @classmethod
@@ -84,6 +85,13 @@ class FactorBreakdown(BaseModel):
     def average_percentile(self) -> float:
         if not self.sub_scores:
             return 0.0
+        weights = [s.weight for s in self.sub_scores if s.weight is not None]
+        if weights and len(weights) == len(self.sub_scores):
+            total_weight = sum(weights)
+            if total_weight > 0:
+                return sum(
+                    s.percentile_rank * s.weight for s in self.sub_scores
+                ) / total_weight
         return sum(s.percentile_rank for s in self.sub_scores) / len(self.sub_scores)
 
 
