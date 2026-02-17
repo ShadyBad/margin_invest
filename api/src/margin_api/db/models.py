@@ -176,6 +176,12 @@ class Score(Base):
     buy_price: Mapped[float | None] = mapped_column(nullable=True)
     sell_price: Mapped[float | None] = mapped_column(nullable=True)
     actual_price: Mapped[float | None] = mapped_column(nullable=True)
+    price_target_invalid_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    opportunity_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    winning_track: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    asymmetry_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_position_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    timing_signal: Mapped[str | None] = mapped_column(String(30), nullable=True)
     scored_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
