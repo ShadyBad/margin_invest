@@ -396,6 +396,166 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
 
 
 # ---------------------------------------------------------------------------
+# V3 Scoring logic
+# ---------------------------------------------------------------------------
+
+
+async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = None) -> None:
+    """Score tickers using the v3 gate cascade pipeline."""
+    from margin_api.data.fred_client import fetch_shiller_cape
+    from margin_api.db.models import V3Score
+    from margin_api.services.scoring import build_asset_profile, build_financial_history_from_rows
+    from margin_engine.scoring.v3_pipeline import TickerV3Data, score_universe_v3
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    if tickers is None:
+        tickers = await _get_universe_tickers()
+    if not tickers:
+        logger.warning("No tickers found. Run 'seed' first.")
+        return
+
+    # Fetch CAPE
+    if cape is None:
+        cape = await fetch_shiller_cape()
+    logger.info("Using Shiller CAPE: %.1f", cape)
+
+    # Build TickerV3Data for each ticker
+    ticker_data_list: list[TickerV3Data] = []
+    total = len(tickers)
+    asset_ids: dict[str, int] = {}
+
+    for i, ticker in enumerate(tickers, start=1):
+        async with session_factory() as session:
+            # Fetch asset
+            result = await session.execute(select(Asset).where(Asset.ticker == ticker))
+            asset = result.scalar_one_or_none()
+            if not asset:
+                logger.warning("[%d/%d] SKIP %s — no asset", i, total, ticker)
+                continue
+
+            # Fetch last 5 years of financial data
+            result = await session.execute(
+                select(FinancialData)
+                .where(FinancialData.asset_id == asset.id)
+                .order_by(FinancialData.period_end.desc())
+                .limit(5)
+            )
+            fin_rows = result.scalars().all()
+            if not fin_rows:
+                logger.warning("[%d/%d] SKIP %s — no financial data", i, total, ticker)
+                continue
+
+            try:
+                rows = [
+                    {
+                        "period_end": fd.period_end,
+                        "filing_date": fd.filing_date,
+                        "income_statement": fd.income_statement or {},
+                        "balance_sheet": fd.balance_sheet or {},
+                        "cash_flow": fd.cash_flow or {},
+                    }
+                    for fd in fin_rows
+                ]
+                history = build_financial_history_from_rows(ticker, rows)
+                profile = build_asset_profile(
+                    ticker=asset.ticker,
+                    name=asset.name,
+                    sector=asset.sector,
+                    market_cap=asset.market_cap,
+                    shares_outstanding=asset.shares_outstanding,
+                )
+                latest = history.periods[-1]
+
+                # Get current price from most recent price bar
+                latest_fd = max(fin_rows, key=lambda fd: fd.period_end)
+                price_data = latest_fd.price_history or {}
+                bars = price_data.get("bars", []) if isinstance(price_data, dict) else []
+                current_price = (
+                    float(bars[-1]["close"])
+                    if bars
+                    else float(profile.market_cap) / max(asset.shares_outstanding or 1, 1)
+                )
+
+                # FCF per share
+                fcf = float(latest.current_cash_flow.free_cash_flow)
+                shares = asset.shares_outstanding or 1
+                fcf_ps = fcf / shares
+
+                # DCF IV: compute intrinsic value from DCF margin of safety
+                from margin_engine.scoring.quantitative.dcf_mos import dcf_margin_of_safety
+
+                dcf_result = dcf_margin_of_safety(
+                    latest, profile.market_cap, growth_rate=0.05, discount_rate=0.10
+                )
+                # MoS = (IV - mktcap) / IV  =>  IV = mktcap / (1 - MoS)
+                if dcf_result.raw_value < 1.0 and dcf_result.raw_value != 0.0:
+                    dcf_iv = float(profile.market_cap) / (1.0 - dcf_result.raw_value) / shares
+                else:
+                    dcf_iv = current_price
+
+                td = TickerV3Data(
+                    ticker=ticker,
+                    history=history,
+                    latest_period=latest,
+                    profile=profile,
+                    current_price=current_price,
+                    current_fcf_per_share=fcf_ps,
+                    sustainable_growth_rate=0.08,  # default
+                    buyback_yield=None,
+                    insider_ownership_pct=None,
+                    sbc_pct=None,
+                    recent_acquisition_count=0,
+                    insider_percentile=50.0,
+                    institutional_percentile=50.0,
+                    sue_percentile=50.0,
+                    momentum_percentile=50.0,
+                    dcf_iv=dcf_iv,
+                )
+                ticker_data_list.append(td)
+                asset_ids[ticker] = asset.id
+                logger.info("[%d/%d] Prepared: %s", i, total, ticker)
+            except Exception as e:
+                logger.error("[%d/%d] FAILED %s: %s", i, total, ticker, e)
+
+    if not ticker_data_list:
+        logger.warning("No tickers could be prepared for v3 scoring.")
+        await engine.dispose()
+        return
+
+    # Run v3 pipeline
+    results = score_universe_v3(ticker_data_list, shiller_cape=cape)
+
+    # Persist results
+    from margin_engine.scoring.market_regime import detect_regime
+
+    regime = detect_regime(cape)
+    successes = 0
+    async with session_factory() as session:
+        for v3r in results:
+            if v3r.ticker not in asset_ids:
+                continue
+            score = V3Score(
+                asset_id=asset_ids[v3r.ticker],
+                opportunity_type=v3r.opportunity_type,
+                conviction=v3r.conviction.value,
+                track_a=v3r.track_a.model_dump(mode="json"),
+                track_b=v3r.track_b.model_dump(mode="json"),
+                timing_signal=v3r.timing_signal,
+                max_position_pct=v3r.max_position_pct,
+                regime=regime.value,
+                composite_score=max(v3r.track_a.score, v3r.track_b.score),
+            )
+            session.add(score)
+            successes += 1
+        await session.commit()
+
+    logger.info("V3 scoring complete: %d scored out of %d tickers", successes, total)
+    await engine.dispose()
+
+
+# ---------------------------------------------------------------------------
 # Ingest precondition helpers
 # ---------------------------------------------------------------------------
 
@@ -553,6 +713,23 @@ def main() -> None:
         help="Specific tickers to score (defaults to active universe)",
     )
 
+    # score-v3
+    score_v3_parser = subparsers.add_parser(
+        "score-v3", help="Score tickers using v3 conviction engine"
+    )
+    score_v3_parser.add_argument(
+        "--tickers",
+        nargs="+",
+        default=None,
+        help="Specific tickers to score (defaults to active universe)",
+    )
+    score_v3_parser.add_argument(
+        "--cape",
+        type=float,
+        default=None,
+        help="Shiller CAPE override (fetches from FRED if omitted)",
+    )
+
     # pipeline (seed + score in one go)
     pipeline_parser = subparsers.add_parser("pipeline", help="Run full pipeline: seed → score")
     pipeline_parser.add_argument(
@@ -576,6 +753,8 @@ def main() -> None:
         asyncio.run(run_seed(tickers=args.tickers))
     elif args.command == "score":
         asyncio.run(run_scoring(tickers=args.tickers))
+    elif args.command == "score-v3":
+        asyncio.run(run_scoring_v3(tickers=args.tickers, cape=args.cape))
     elif args.command == "pipeline":
         asyncio.run(run_pipeline(tickers=args.tickers))
     else:
