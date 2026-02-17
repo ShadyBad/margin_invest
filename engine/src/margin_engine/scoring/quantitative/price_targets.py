@@ -71,6 +71,10 @@ _MAX_SHARES = 50_000_000_000
 _MIN_IMPLIED_MARKET_CAP = 1_000_000
 _MAX_IMPLIED_MARKET_CAP = 10_000_000_000_000
 
+# Layer 2: Per-method output bounds
+_MIN_PER_SHARE_PRICE = 0.01
+_MAX_PRICE_MULTIPLE = 100.0
+
 
 class PriceTargets(BaseModel):
     """Multi-method intrinsic value and price target result."""
@@ -165,18 +169,22 @@ def compute_price_targets(
             discount_rate=discount_rate,
             terminal_growth_rate=terminal_growth_rate,
             projection_years=projection_years,
+            actual_price=actual_price,
         ),
         "ev_fcf": _ev_fcf_implied_per_share(
             period=period,
             shares=shares,
+            actual_price=actual_price,
         ),
         "acquirers_multiple": _acquirers_implied_per_share(
             period=period,
             shares=shares,
+            actual_price=actual_price,
         ),
         "shareholder_yield": _shareholder_yield_implied_per_share(
             period=period,
             shares=shares,
+            actual_price=actual_price,
         ),
     }
 
@@ -274,6 +282,7 @@ def _dcf_intrinsic_per_share(
     discount_rate: float,
     terminal_growth_rate: float,
     projection_years: int,
+    actual_price: float | None = None,
 ) -> float | None:
     """Two-stage DCF intrinsic value per share.
 
@@ -305,13 +314,19 @@ def _dcf_intrinsic_per_share(
     if intrinsic_total <= 0:
         return None
 
-    return intrinsic_total / shares
+    result = intrinsic_total / shares
+    if result < _MIN_PER_SHARE_PRICE:
+        return None
+    if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
+        return None
+    return result
 
 
 def _ev_fcf_implied_per_share(
     period: FinancialPeriod,
     shares: int,
     target_multiple: float = 15.0,
+    actual_price: float | None = None,
 ) -> float | None:
     """Implied price from target EV/FCF multiple.
 
@@ -334,13 +349,19 @@ def _ev_fcf_implied_per_share(
     if implied_equity <= 0:
         return None
 
-    return implied_equity / shares
+    result = implied_equity / shares
+    if result < _MIN_PER_SHARE_PRICE:
+        return None
+    if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
+        return None
+    return result
 
 
 def _acquirers_implied_per_share(
     period: FinancialPeriod,
     shares: int,
     target_multiple: float = 12.0,
+    actual_price: float | None = None,
 ) -> float | None:
     """Implied price from target EV/EBIT (Acquirer's Multiple).
 
@@ -363,13 +384,19 @@ def _acquirers_implied_per_share(
     if implied_equity <= 0:
         return None
 
-    return implied_equity / shares
+    result = implied_equity / shares
+    if result < _MIN_PER_SHARE_PRICE:
+        return None
+    if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
+        return None
+    return result
 
 
 def _shareholder_yield_implied_per_share(
     period: FinancialPeriod,
     shares: int,
     target_yield: float = 0.04,
+    actual_price: float | None = None,
 ) -> float | None:
     """Implied price from target shareholder yield.
 
@@ -388,4 +415,9 @@ def _shareholder_yield_implied_per_share(
 
     implied_market_cap = float(total_return) / target_yield
 
-    return implied_market_cap / shares
+    result = implied_market_cap / shares
+    if result < _MIN_PER_SHARE_PRICE:
+        return None
+    if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
+        return None
+    return result

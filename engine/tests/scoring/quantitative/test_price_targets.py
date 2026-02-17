@@ -456,3 +456,58 @@ class TestLayer1InputValidation:
         # Market cap check skipped because actual_price is None
         # invalid_reason should NOT be "implied_market_cap_unreasonable"
         assert result.invalid_reason != "implied_market_cap_unreasonable"
+
+
+class TestLayer2PerMethodBounds:
+    """Layer 2: Per-method output must be >= $0.01 and <= 100x actual_price."""
+
+    def test_tiny_method_result_excluded(self, healthy_profile, price_bars):
+        """A method producing < $0.01/share should be excluded from valuation_methods."""
+        # Create period with tiny cash flows relative to 15B shares
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("1000"),
+                gross_profit=Decimal("500"),
+                ebit=Decimal("100"),
+                net_income=Decimal("50"),
+                shares_outstanding=15000000000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("10000"),
+                current_assets=Decimal("5000"),
+                cash_and_equivalents=Decimal("1000"),
+                current_liabilities=Decimal("3000"),
+                long_term_debt=Decimal("2000"),
+                total_equity=Decimal("5000"),
+                shares_outstanding=15000000000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("200"),
+                capital_expenditures=Decimal("-50"),
+                dividends_paid=Decimal("-10"),
+                share_repurchases=Decimal("-20"),
+            ),
+        )
+        result = compute_price_targets(
+            period=period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        # With 15B shares and tiny cash flows, methods producing < $0.01 are excluded
+        if result.valuation_methods:
+            for method_price in result.valuation_methods.values():
+                assert method_price >= 0.01
+
+    def test_healthy_data_passes_layer2(self, healthy_period, healthy_profile, price_bars):
+        """Healthy data should not trigger Layer 2 rejection."""
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.intrinsic_value is not None
+        assert result.invalid_reason is None
