@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef } from "react"
-import { motion, useScroll, useTransform, type MotionValue } from "framer-motion"
+import { motion, useScroll, useTransform, useReducedMotion, type MotionValue } from "framer-motion"
 import {
   getConstellationData,
   type ConstellationNode,
@@ -117,6 +117,7 @@ function EdgeLine({
 }
 
 export function ConstellationNarrative() {
+  const prefersReducedMotion = useReducedMotion()
   const containerRef = useRef<HTMLDivElement>(null)
   const { nodes, edges } = getConstellationData()
 
@@ -125,10 +126,13 @@ export function ConstellationNarrative() {
     offset: ["start end", "end start"],
   })
 
-  const progress = useTransform(scrollYProgress, [0.15, 0.55], [0, 1])
+  // Map scroll to 0-1 animation progress
+  const rawProgress = useTransform(scrollYProgress, [0.15, 0.55], [0, 1])
+  // When reduced motion is preferred, pin progress to 1 (structured state)
+  const progress = useTransform(rawProgress, (v: number) => prefersReducedMotion ? 1 : v)
 
   return (
-    <div ref={containerRef} className="w-full h-full" style={{ willChange: "transform" }}>
+    <div ref={containerRef} className="w-full h-full">
       <svg
         className="w-full h-full"
         viewBox="0 0 400 280"

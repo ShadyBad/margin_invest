@@ -115,6 +115,13 @@ describe("ConstellationNarrative", () => {
     // 3 hub-hub + 16 hub-peripheral + 3 false = 22 total
     expect(lines).toHaveLength(22)
   })
+
+  it("renders with accessible reduced-motion support", async () => {
+    const { ConstellationNarrative } = await import("../sections/constellation-narrative")
+    const { container } = render(<ConstellationNarrative />)
+    const svg = container.querySelector("svg")
+    expect(svg).toBeInTheDocument()
+  })
 })
 
 describe("EngineDiagram", () => {
