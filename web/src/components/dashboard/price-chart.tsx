@@ -6,6 +6,7 @@ import {
   ComposedChart,
   Bar,
   Line,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -90,28 +91,37 @@ export function PriceChart({
       </div>
       <ResponsiveContainer width="100%" height={240}>
         <ComposedChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+          <defs>
+            <linearGradient id="accentGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-grid-line)" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 11, fontFamily: "var(--font-mono)", fill: "var(--color-text-tertiary)" }}
             interval="preserveStartEnd"
-            className="text-text-tertiary"
+            stroke="var(--color-grid-line)"
           />
           <YAxis
             yAxisId="price"
             domain={["auto", "auto"]}
-            tick={{ fontSize: 10 }}
-            className="text-text-tertiary"
+            tick={{ fontSize: 11, fontFamily: "var(--font-mono)", fill: "var(--color-text-tertiary)" }}
             width={60}
             tickFormatter={(v: number) => `$${v}`}
+            stroke="var(--color-grid-line)"
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "var(--bg-elevated)",
-              border: "1px solid var(--border-primary)",
-              borderRadius: "2px",
+              backgroundColor: "var(--color-bg-elevated)",
+              border: "1px solid var(--color-border-primary)",
+              borderRadius: "8px",
               fontSize: "12px",
+              fontFamily: "var(--font-sans)",
+              boxShadow: "var(--shadow-card)",
             }}
+            labelStyle={{ fontFamily: "var(--font-display)", fontSize: "14px" }}
           />
           <YAxis yAxisId="volume" orientation="right" hide />
           <Bar
@@ -120,6 +130,13 @@ export function PriceChart({
             className="text-text-tertiary"
             opacity={0.15}
             yAxisId="volume"
+          />
+          <Area
+            type="monotone"
+            dataKey="close"
+            fill="url(#accentGradient)"
+            stroke="none"
+            yAxisId="price"
           />
           <Line
             type="monotone"
