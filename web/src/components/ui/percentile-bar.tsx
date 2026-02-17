@@ -25,7 +25,7 @@ export function PercentileBar({ value, label, showValue = true, className = "" }
       )}
       <div className="flex-1 h-[8px] bg-bg-primary rounded-full overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]">
         <div
-          className={`h-full rounded-r-full transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${getColor(clampedValue)}`}
+          className={`h-full rounded-r-full transition-[width] duration-[600ms] delay-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${getColor(clampedValue)}`}
           style={{ width: `${clampedValue}%` }}
         />
       </div>

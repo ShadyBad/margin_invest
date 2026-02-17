@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { motion } from "framer-motion"
 import { ActionPill, Sparkline, PercentileBar, ConvictionBadge, AnimatedScore } from "@/components/ui"
 import { AssetDetail } from "./asset-detail"
 import { getScore } from "@/lib/api/scores"
 import type { PickSummary, ScoreResponse } from "@/lib/api/types"
+
+const INTERACTION_EASE = "cubic-bezier(0.19, 1, 0.22, 1)"
 
 function formatTimeAgo(isoString: string): string {
   const now = Date.now()
@@ -87,6 +90,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
   return (
     <div
       className={`relative bg-bg-elevated border border-border-primary p-8 cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 ${expanded ? "col-span-full" : ""} ${getCardTierClasses(pick.conviction_level)} ${getCardShadow(pick.conviction_level)} ${className}`}
+      style={{ transition: `transform 200ms ${INTERACTION_EASE}, box-shadow 200ms ${INTERACTION_EASE}, border-color 200ms ${INTERACTION_EASE}` }}
       data-testid={`stock-card-${pick.ticker}`}
       onClick={handleClick}
       role="button"
@@ -125,7 +129,13 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
             </span>
           )}
         </div>
-        <ConvictionBadge level={pick.conviction_level} />
+        <motion.div
+          initial={{ scale: 0.95 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 15 }}
+        >
+          <ConvictionBadge level={pick.conviction_level} />
+        </motion.div>
           {pick.opportunity_type && pick.opportunity_type !== "neither" && (
             <span
               className={`text-xs px-1.5 py-0.5 rounded font-medium ${
