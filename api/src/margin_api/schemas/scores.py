@@ -91,6 +91,14 @@ class ScoreResponse(BaseModel):
     margin_of_safety: float | None = None
     valuation_methods: dict[str, float] | None = None
     price_target_invalid_reason: str | None = None
+    # v2 Conviction Engine fields
+    opportunity_type: str | None = None
+    winning_track: str | None = None
+    asymmetry_ratio: float | None = None
+    max_position_pct: float | None = None
+    timing_signal: str | None = None
+    capital_allocation: FactorBreakdownResponse | None = None
+    catalyst: FactorBreakdownResponse | None = None
     # Live price and freshness fields
     data_freshness: str = "expired"  # "fresh", "stale", "expired"
     price_source: str = "daily_close"  # "live" or "daily_close"
@@ -134,6 +142,13 @@ class ScoreResponse(BaseModel):
             margin_of_safety=score.margin_of_safety,
             valuation_methods=score.valuation_methods,
             price_target_invalid_reason=score.price_target_invalid_reason,
+            opportunity_type=score.opportunity_type.value if score.opportunity_type else None,
+            winning_track=score.winning_track,
+            asymmetry_ratio=score.asymmetry_ratio,
+            max_position_pct=score.max_position_pct,
+            timing_signal=score.timing_signal,
+            capital_allocation=_breakdown_from_engine(score.capital_allocation) if score.capital_allocation else None,
+            catalyst=_breakdown_from_engine(score.catalyst) if score.catalyst else None,
         )
 
 

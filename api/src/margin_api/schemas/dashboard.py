@@ -28,6 +28,12 @@ class PickSummary(BaseModel):
     scored_at: str | None = None
     price_source: str = "daily_close"
     price_updated_at: str | None = None
+    # v2 Conviction Engine fields
+    opportunity_type: str | None = None
+    winning_track: str | None = None
+    margin_of_safety: float | None = None
+    max_position_pct: float | None = None
+    timing_signal: str | None = None
 
 
 class WatchlistItem(BaseModel):
