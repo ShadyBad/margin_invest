@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from margin_engine.models.financial import AssetProfile, FinancialPeriod, PriceBar
 from margin_engine.models.scoring import ConvictionLevel, GrowthStage
@@ -73,6 +73,27 @@ class PriceTargets(BaseModel):
     price_upside: float | None = None
     margin_of_safety: float | None = None
     valuation_methods: dict[str, float] | None = None
+    invalid_reason: str | None = None
+
+    @model_validator(mode="after")
+    def check_invalid_reason_consistency(self) -> PriceTargets:
+        """If invalid_reason is set, all price fields must be None."""
+        if self.invalid_reason is not None:
+            price_fields = [self.intrinsic_value, self.buy_price, self.sell_price, self.price_upside]
+            if any(f is not None for f in price_fields):
+                raise ValueError(
+                    "Price fields must be None when invalid_reason is set"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def check_positive_prices(self) -> PriceTargets:
+        """intrinsic_value, buy_price, sell_price must be > 0 when present."""
+        for field_name in ("intrinsic_value", "buy_price", "sell_price"):
+            val = getattr(self, field_name)
+            if val is not None and val <= 0:
+                raise ValueError(f"{field_name} must be > 0 when set, got {val}")
+        return self
 
 
 def compute_price_targets(

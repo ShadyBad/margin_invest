@@ -3,6 +3,8 @@
 from decimal import Decimal
 
 import pytest
+from pydantic import ValidationError
+
 from margin_engine.models.financial import (
     AssetProfile,
     BalanceSheet,
@@ -17,6 +19,39 @@ from margin_engine.scoring.quantitative.price_targets import (
     PriceTargets,
     compute_price_targets,
 )
+
+
+class TestPriceTargetsModel:
+    def test_invalid_reason_default_none(self):
+        """invalid_reason should default to None."""
+        pt = PriceTargets(intrinsic_value=100.0, buy_price=100.0, sell_price=125.0)
+        assert pt.invalid_reason is None
+
+    def test_invalid_reason_with_null_prices(self):
+        """When invalid_reason is set, price fields should be None."""
+        pt = PriceTargets(
+            actual_price=197.0,
+            invalid_reason="shares_outstanding_out_of_bounds",
+        )
+        assert pt.invalid_reason == "shares_outstanding_out_of_bounds"
+        assert pt.intrinsic_value is None
+        assert pt.buy_price is None
+        assert pt.sell_price is None
+
+    def test_invalid_reason_set_with_prices_raises(self):
+        """Setting invalid_reason AND price fields should raise ValidationError."""
+        with pytest.raises(ValidationError):
+            PriceTargets(
+                intrinsic_value=100.0,
+                buy_price=100.0,
+                sell_price=125.0,
+                invalid_reason="shares_outstanding_out_of_bounds",
+            )
+
+    def test_positive_price_fields_when_present(self):
+        """intrinsic_value, buy_price, sell_price must be > 0 when set."""
+        with pytest.raises(ValidationError):
+            PriceTargets(intrinsic_value=-5.0, buy_price=-5.0, sell_price=-3.0)
 
 
 @pytest.fixture
