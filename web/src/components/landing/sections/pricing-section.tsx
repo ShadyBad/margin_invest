@@ -95,7 +95,7 @@ function TierCard({ tier, index }: { tier: Tier; index: number }) {
         </span>
       </div>
       <div className="flex items-baseline gap-1 mb-1">
-        <span className="text-[36px] font-bold text-text-primary leading-none tracking-[-1px]">
+        <span className="text-[36px] font-display text-text-primary leading-none tracking-[-1px]">
           {tier.price}
         </span>
         {tier.period && (
@@ -157,7 +157,7 @@ export function PricingSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          <h2 className="text-[28px] md:text-[32px] lg:text-[40px] font-bold text-text-primary leading-tight tracking-[-0.3px]">
+          <h2 className="font-display text-[32px] md:text-[40px] lg:text-[48px] font-normal text-text-primary leading-[1.05] tracking-[-0.04em]">
             Simple, transparent pricing.
           </h2>
           <p className="mt-3 text-[15px] text-text-secondary">

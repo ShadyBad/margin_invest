@@ -28,7 +28,7 @@ export function FrictionSection() {
           {lines.map((line, i) => (
             <motion.h3
               key={line}
-              className="text-[28px] md:text-[32px] font-semibold text-text-primary leading-tight"
+              className="font-display text-[32px] md:text-[36px] font-normal text-text-primary leading-[1.05] tracking-[-0.04em]"
               initial={{ opacity: 0, x: -40 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}

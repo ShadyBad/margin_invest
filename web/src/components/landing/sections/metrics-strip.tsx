@@ -3,8 +3,8 @@
 import { motion } from "framer-motion"
 
 const metrics = [
-  { label: "Scoring 2,400+ equities daily" },
-  { label: "6 quantitative factors" },
+  { number: "2,400+", label: "equities scored daily" },
+  { number: "6", label: "quantitative factors" },
   { label: "Updated every market close" },
 ]
 
@@ -21,7 +21,10 @@ export function MetricsStrip() {
       {metrics.map((m, i) => (
         <span key={m.label} className="flex items-center gap-6">
           {i > 0 && <span className="text-border-primary">|</span>}
-          {m.label}
+          <span>
+            {m.number && <span className="font-display text-[15px]">{m.number} </span>}
+            {m.label}
+          </span>
         </span>
       ))}
     </motion.div>

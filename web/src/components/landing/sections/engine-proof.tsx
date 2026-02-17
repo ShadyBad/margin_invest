@@ -60,7 +60,7 @@ function CompositeScorePanel() {
         <span className="text-[11px] font-mono text-text-secondary">Sample Output</span>
       </div>
       <div className="flex items-baseline gap-2 mb-4">
-        <span className="text-[36px] font-bold text-text-primary leading-none tracking-[-1px]">
+        <span className="text-[36px] font-display text-text-primary leading-none tracking-[-1px]">
           <AnimatedNumber value={78.4} />
         </span>
         <span className="text-[13px] text-accent font-medium">/100</span>
@@ -189,7 +189,7 @@ export function EngineProof() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          <h2 className="text-[32px] md:text-[40px] lg:text-[48px] font-bold text-text-primary leading-tight tracking-[-0.5px]">
+          <h2 className="font-display text-[36px] md:text-[44px] lg:text-[56px] font-normal text-text-primary leading-[1.05] tracking-[-0.04em]">
             What the engine produces.
           </h2>
           <p className="mt-4 text-[16px] md:text-[17px] lg:text-[18px] text-text-secondary leading-relaxed">

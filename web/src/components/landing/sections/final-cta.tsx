@@ -26,7 +26,7 @@ export function FinalCTA() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          <h2 className="text-[28px] md:text-[32px] font-bold text-text-primary leading-tight tracking-[-0.3px] mb-3">
+          <h2 className="font-display text-[32px] md:text-[40px] lg:text-[48px] font-normal text-text-primary leading-[1.05] tracking-[-0.04em] mb-4">
             Score your first position.
           </h2>
           <p className="text-[15px] text-text-secondary mb-8">
