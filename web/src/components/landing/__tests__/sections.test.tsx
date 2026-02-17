@@ -32,6 +32,10 @@ vi.mock("framer-motion", () => ({
   useScroll: () => ({ scrollYProgress: { get: () => 0, on: () => () => {} } }),
   animate: () => ({ stop: () => {} }),
   useReducedMotion: () => false,
+  useTime: () => ({
+    get: () => 0,
+    on: (_event: string, _cb: any) => () => {},
+  }),
 }))
 
 vi.mock("@/lib/stores/node-positions", () => ({

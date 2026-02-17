@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef } from "react"
-import { motion, useScroll, useTransform, useReducedMotion, type MotionValue } from "framer-motion"
+import { motion, useScroll, useTransform, useReducedMotion, useTime, type MotionValue } from "framer-motion"
 import {
   getConstellationData,
   type ConstellationNode,
@@ -20,14 +20,25 @@ function NodeCircle({
   node: ConstellationNode
   progress: MotionValue<number>
 }) {
-  const cx = useTransform(progress, (p: number) => {
-    const t = getNodeProgress(p, node.stagger)
-    return node.chaosPos.x + (node.structuredPos.x - node.chaosPos.x) * t
+  const prefersReducedMotion = useReducedMotion()
+  const time = useTime()
+
+  const cx = useTransform([progress, time] as MotionValue[], ([p, t]: number[]) => {
+    const nodeP = getNodeProgress(p, node.stagger)
+    const baseX = node.chaosPos.x + (node.structuredPos.x - node.chaosPos.x) * nodeP
+    // Drift: dampens from ±2px to 0 as nodeProgress increases
+    if (prefersReducedMotion || nodeP > 0.8) return baseX
+    const amplitude = 2 * (1 - nodeP)
+    return baseX + Math.sin((t / 1000) * node.driftFreq * Math.PI * 2) * amplitude
   })
 
-  const cy = useTransform(progress, (p: number) => {
-    const t = getNodeProgress(p, node.stagger)
-    return node.chaosPos.y + (node.structuredPos.y - node.chaosPos.y) * t
+  const cy = useTransform([progress, time] as MotionValue[], ([p, t]: number[]) => {
+    const nodeP = getNodeProgress(p, node.stagger)
+    const baseY = node.chaosPos.y + (node.structuredPos.y - node.chaosPos.y) * nodeP
+    if (prefersReducedMotion || nodeP > 0.8) return baseY
+    const amplitude = 1.5 * (1 - nodeP)
+    // Phase offset by node.id for variety
+    return baseY + Math.cos((t / 1000) * node.driftFreq * Math.PI * 2 + node.id) * amplitude
   })
 
   const r = useTransform(progress, (p: number) => {
@@ -37,7 +48,7 @@ function NodeCircle({
 
   const opacity = useTransform(progress, (p: number) => {
     const t = getNodeProgress(p, node.stagger)
-    const chaosOpacity = 0.15 + node.id * 0.005 // slight per-node variation: 0.15-0.25
+    const chaosOpacity = 0.15 + node.id * 0.005
     return chaosOpacity + (node.structuredOpacity - chaosOpacity) * t
   })
 
