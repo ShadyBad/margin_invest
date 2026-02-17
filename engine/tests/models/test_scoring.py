@@ -1,6 +1,14 @@
 """Tests for scoring result models."""
 
-from margin_engine.models.scoring import CompositeScore, FactorBreakdown, Signal
+import pytest
+
+from margin_engine.models.scoring import (
+    CompositeScore,
+    FactorBreakdown,
+    FactorScore,
+    OpportunityType,
+    Signal,
+)
 
 
 def test_composite_score_price_fields():
@@ -67,27 +75,27 @@ def _make_score(percentile, actual=None, buy=None, sell=None, growth_stage=None)
 
 
 def test_signal_buy_when_below_buy_price():
-    score = _make_score(96.0, actual=100.0, buy=120.0, sell=150.0)
+    score = _make_score(99.4, actual=100.0, buy=120.0, sell=150.0)
     assert score.signal == Signal.BUY
 
 
 def test_signal_hold_when_between_buy_and_sell():
-    score = _make_score(96.0, actual=135.0, buy=120.0, sell=150.0)
+    score = _make_score(99.4, actual=135.0, buy=120.0, sell=150.0)
     assert score.signal == Signal.HOLD
 
 
 def test_signal_sell_when_above_sell_price():
-    score = _make_score(96.0, actual=155.0, buy=120.0, sell=150.0)
+    score = _make_score(99.4, actual=155.0, buy=120.0, sell=150.0)
     assert score.signal == Signal.SELL
 
 
 def test_signal_urgent_sell_when_far_above_sell():
-    score = _make_score(96.0, actual=175.0, buy=120.0, sell=150.0)
+    score = _make_score(99.4, actual=175.0, buy=120.0, sell=150.0)
     assert score.signal == Signal.URGENT_SELL
 
 
 def test_signal_watch_for_watchlist_conviction():
-    score = _make_score(92.0, actual=100.0, buy=120.0, sell=150.0)
+    score = _make_score(98.5, actual=100.0, buy=120.0, sell=150.0)
     assert score.signal == Signal.WATCH
 
 
@@ -97,5 +105,24 @@ def test_signal_no_action_for_low_conviction():
 
 
 def test_signal_fallback_buy_when_no_prices():
-    score = _make_score(96.0)
+    score = _make_score(99.4)
     assert score.signal == Signal.BUY
+
+
+# ---------------------------------------------------------------------------
+# OpportunityType enum tests
+# ---------------------------------------------------------------------------
+
+
+class TestOpportunityType:
+    def test_compounder_value(self):
+        assert OpportunityType.COMPOUNDER == "compounder"
+
+    def test_mispricing_value(self):
+        assert OpportunityType.MISPRICING == "mispricing"
+
+    def test_both_value(self):
+        assert OpportunityType.BOTH == "both"
+
+    def test_neither_value(self):
+        assert OpportunityType.NEITHER == "neither"

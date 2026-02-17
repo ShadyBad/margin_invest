@@ -20,6 +20,7 @@ from margin_engine.models.scoring import (
     FilterResult,
     FilterVerdict,
     GrowthStage,
+    OpportunityType,
     ScoringConfig,
     Signal,
 )
@@ -39,6 +40,7 @@ __all__ = [
     "GICSSector",
     "GrowthStage",
     "IncomeStatement",
+    "OpportunityType",
     "InsiderTransaction",
     "InstitutionalHolding",
     "PriceBar",

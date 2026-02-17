@@ -36,6 +36,13 @@ class GrowthStage(StrEnum):
     TURNAROUND = "turnaround"
 
 
+class OpportunityType(StrEnum):
+    COMPOUNDER = "compounder"
+    MISPRICING = "mispricing"
+    BOTH = "both"
+    NEITHER = "neither"
+
+
 class FilterResult(BaseModel):
     """Result of a single elimination filter."""
 
