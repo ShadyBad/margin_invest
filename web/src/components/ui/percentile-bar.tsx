@@ -9,10 +9,11 @@ export function PercentileBar({ value, label, showValue = true, className = "" }
   const clampedValue = Math.max(0, Math.min(100, value))
 
   const getColor = (v: number) => {
-    if (v >= 90) return "bg-bullish"
-    if (v >= 70) return "bg-accent"
-    if (v >= 30) return "bg-text-secondary"
-    return "bg-bearish"
+    if (v >= 90) return "bg-percentile-exceptional"
+    if (v >= 70) return "bg-percentile-strong"
+    if (v >= 50) return "bg-percentile-average"
+    if (v >= 30) return "bg-percentile-below"
+    return "bg-percentile-weak"
   }
 
   return (
@@ -22,9 +23,9 @@ export function PercentileBar({ value, label, showValue = true, className = "" }
           {label}
         </span>
       )}
-      <div className="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden">
+      <div className="flex-1 h-[6px] bg-bg-primary rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${getColor(clampedValue)}`}
+          className={`h-full rounded-r-full transition-all ${getColor(clampedValue)}`}
           style={{ width: `${clampedValue}%` }}
         />
       </div>

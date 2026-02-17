@@ -39,6 +39,13 @@
   /* Grid & dividers */
   --color-grid-line: rgba(18, 18, 18, 0.04);
   --color-divider: rgba(18, 18, 18, 0.06);
+
+  /* 5-tier percentile encoding */
+  --color-percentile-exceptional: #10B981;
+  --color-percentile-strong: #1C7A5A;
+  --color-percentile-average: #6B7280;
+  --color-percentile-below: #D97706;
+  --color-percentile-weak: #DC2626;
 }
 
 /* --- Dark mode overrides --- */
