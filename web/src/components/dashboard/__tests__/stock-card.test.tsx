@@ -90,3 +90,27 @@ describe("StockCard visual hierarchy", () => {
     expect(stripe).toBeInTheDocument()
   })
 })
+
+describe("StockCard Buy Below row", () => {
+  it("renders Buy Below price on card", () => {
+    render(<StockCard pick={basePick} />)
+    expect(screen.getByText("Buy Below:")).toBeInTheDocument()
+    expect(screen.getByText("$140.00")).toBeInTheDocument()
+  })
+
+  it("renders Buy Below in green when actual price is below buy price", () => {
+    render(<StockCard pick={{ ...basePick, actual_price: 130, buy_price: 140 }} />)
+    const buyBelowValue = screen.getByTestId("buy-below-value")
+    expect(buyBelowValue).toHaveClass("text-bullish")
+  })
+
+  it("renders Buy Below explanation text", () => {
+    render(<StockCard pick={basePick} />)
+    expect(screen.getByText("Fundamentals-based entry price")).toBeInTheDocument()
+  })
+
+  it("does not render Buy Below row when buy_price is null", () => {
+    render(<StockCard pick={{ ...basePick, buy_price: null }} />)
+    expect(screen.queryByText("Buy Below:")).not.toBeInTheDocument()
+  })
+})
