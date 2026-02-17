@@ -189,12 +189,12 @@ class TestScoreResponse:
     def test_score_response_from_engine(self) -> None:
         """Convert an engine CompositeScore via from_engine() and verify all fields."""
         engine_score = _make_composite_score(
-            ticker="MSFT", percentile=96.0, growth_stage=GrowthStage.STEADY_GROWTH
+            ticker="MSFT", percentile=99.4, growth_stage=GrowthStage.STEADY_GROWTH
         )
         response = ScoreResponse.from_engine(engine_score)
 
         assert response.ticker == "MSFT"
-        assert response.composite_percentile == 96.0
+        assert response.composite_percentile == 99.4
         assert response.conviction_level == "high"
         assert response.signal == "buy"
 
@@ -242,6 +242,41 @@ class TestScoreResponse:
         engine_score = _make_composite_score(growth_stage=None)
         response = ScoreResponse.from_engine(engine_score)
         assert response.growth_stage is None
+
+    def test_score_response_has_score_field(self) -> None:
+        """ScoreResponse must include score and universe_percentile."""
+        response = ScoreResponse(
+            ticker="AAPL",
+            composite_percentile=100.0,
+            composite_raw_score=87.4,
+            score=87.4,
+            universe_percentile=100.0,
+            conviction_level="exceptional",
+            signal="buy",
+            quality=FactorBreakdownResponse(
+                factor_name="quality", weight=0.35, sub_scores=[], average_percentile=90.0,
+            ),
+            value=FactorBreakdownResponse(
+                factor_name="value", weight=0.30, sub_scores=[], average_percentile=85.0,
+            ),
+            momentum=FactorBreakdownResponse(
+                factor_name="momentum", weight=0.35, sub_scores=[], average_percentile=88.0,
+            ),
+            filters_passed=[],
+            data_coverage=0.95,
+        )
+        data = response.model_dump()
+        assert data["score"] == 87.4
+        assert data["universe_percentile"] == 100.0
+
+    def test_from_engine_populates_score_and_universe_percentile(self) -> None:
+        """from_engine() must populate score from composite_raw_score and
+        universe_percentile from composite_percentile."""
+        engine_score = _make_composite_score(ticker="TEST", percentile=99.0)
+        engine_score = engine_score.model_copy(update={"composite_raw_score": 82.5})
+        response = ScoreResponse.from_engine(engine_score)
+        assert response.score == 82.5
+        assert response.universe_percentile == 99.0
 
 
 class TestScoreListResponse:
@@ -321,6 +356,24 @@ class TestPickSummary:
         assert data["quality_percentile"] == 97.0
         assert data["value_percentile"] == 85.0
         assert data["momentum_percentile"] == 98.0
+
+    def test_pick_summary_has_score_field(self) -> None:
+        """PickSummary must include score and universe_percentile."""
+        pick = PickSummary(
+            ticker="NVDA",
+            name="NVIDIA Corporation",
+            composite_percentile=99.5,
+            score=91.2,
+            universe_percentile=99.5,
+            conviction_level="exceptional",
+            signal="buy",
+            quality_percentile=97.0,
+            value_percentile=85.0,
+            momentum_percentile=98.0,
+        )
+        data = pick.model_dump()
+        assert data["score"] == 91.2
+        assert data["universe_percentile"] == 99.5
 
 
 class TestWatchlistItem:

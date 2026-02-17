@@ -69,7 +69,10 @@ class ScoreResponse(BaseModel):
 
     ticker: str
     name: str = ""
-    composite_percentile: float
+    score: float = 0.0  # Raw weighted average — the true quality measure
+    universe_percentile: float = 0.0  # Universe-level rank (0-100)
+    composite_percentile: float  # Kept for backwards compat
+    composite_raw_score: float = 0.0  # Kept for backwards compat
     conviction_level: str  # "exceptional", "high", "watchlist", "none"
     signal: str  # "buy", "watch", "no_action", etc.
     quality: FactorBreakdownResponse
@@ -100,7 +103,10 @@ class ScoreResponse(BaseModel):
         """Convert an engine CompositeScore to an API response."""
         return cls(
             ticker=score.ticker,
+            score=score.composite_raw_score,
+            universe_percentile=score.composite_percentile,
             composite_percentile=score.composite_percentile,
+            composite_raw_score=score.composite_raw_score,
             conviction_level=score.conviction_level.value,
             signal=score.signal.value,
             quality=_breakdown_from_engine(score.quality),

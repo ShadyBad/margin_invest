@@ -12,7 +12,9 @@ class PickSummary(BaseModel):
 
     ticker: str
     name: str
-    composite_percentile: float
+    score: float = 0.0  # Raw weighted average
+    universe_percentile: float = 0.0  # Universe-level rank
+    composite_percentile: float  # Kept for backwards compat
     conviction_level: str
     signal: str
     quality_percentile: float
