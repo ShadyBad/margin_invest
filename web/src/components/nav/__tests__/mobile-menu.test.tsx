@@ -22,7 +22,6 @@ const appNav: NavigationState = {
   isAuthenticated: true,
   links: [
     { href: "/dashboard", label: "Dashboard", isActive: true },
-    { href: "/", label: "Mainpage", isActive: false },
   ],
   cta: null,
   user: {

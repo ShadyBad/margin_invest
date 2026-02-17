@@ -44,7 +44,6 @@ const PUBLIC_LINKS = [
 
 const APP_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/", label: "Mainpage" },
 ]
 
 export function useNavigation(): NavigationState {

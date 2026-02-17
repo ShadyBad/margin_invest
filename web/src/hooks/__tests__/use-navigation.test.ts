@@ -79,7 +79,7 @@ describe("useNavigation", () => {
     it("returns app links", () => {
       const { result } = renderHook(() => useNavigation())
       const labels = result.current.links.map((l) => l.label)
-      expect(labels).toEqual(["Dashboard", "Mainpage"])
+      expect(labels).toEqual(["Dashboard"])
     })
 
     it("returns cta as null", () => {

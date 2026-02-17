@@ -14,7 +14,6 @@ vi.mock("@/hooks/use-navigation", () => ({
         isAuthenticated: true,
         links: [
           { href: "/dashboard", label: "Dashboard", isActive: true },
-          { href: "/", label: "Mainpage", isActive: false },
         ],
         cta: null,
         user: {
@@ -95,7 +94,6 @@ describe("Navbar", () => {
     it("renders app links", () => {
       render(<Navbar />)
       expect(screen.getByText("Dashboard")).toBeInTheDocument()
-      expect(screen.getByText("Mainpage")).toBeInTheDocument()
     })
 
     it("renders user avatar button", () => {
