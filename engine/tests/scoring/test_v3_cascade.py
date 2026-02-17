@@ -8,7 +8,12 @@ from margin_engine.models.financial import (
     FinancialPeriod, GICSSector, IncomeStatement,
 )
 from margin_engine.models.scoring import ConvictionLevel
-from margin_engine.scoring.v3_cascade import TrackAInputs, run_track_a_cascade
+from margin_engine.scoring.v3_cascade import (
+    TrackAInputs,
+    TrackBInputs,
+    run_track_a_cascade,
+    run_track_b_cascade,
+)
 
 
 def _period(
@@ -122,3 +127,73 @@ class TestRunTrackACascade:
         )
         result = run_track_a_cascade(inputs)
         assert result.track == "compounder"
+
+
+class TestRunTrackBCascade:
+    def test_returns_v3_track_result(self):
+        result = run_track_b_cascade(TrackBInputs(
+            history=FinancialHistory(ticker="T", periods=[_period()]),
+            period=_period(), profile=_profile(),
+            current_price=50.0,
+            dcf_iv=100.0, owner_earnings_iv=95.0,
+            asset_floor_iv=90.0, peer_comparison_iv=105.0,
+            insider_percentile=60.0, institutional_percentile=70.0,
+            sue_percentile=50.0, wacc=0.10,
+            regime_adjustments=None,
+        ))
+        assert result.track == "mispricing"
+        assert result.total_gates == 4
+
+    def test_undervalued_stock_passes_gates(self):
+        """Price well below IV, strong catalyst, good quality -> gates pass."""
+        result = run_track_b_cascade(TrackBInputs(
+            history=FinancialHistory(ticker="CHEAP", periods=[
+                _period(ebit=Decimal("150"), total_equity=Decimal("500"),
+                        period_end="2022-12-31"),
+                _period(ebit=Decimal("180"), total_equity=Decimal("500"),
+                        period_end="2024-12-31"),
+            ]),
+            period=_period(ebit=Decimal("180"), total_equity=Decimal("500")),
+            profile=_profile(),
+            current_price=50.0,
+            dcf_iv=100.0, owner_earnings_iv=95.0,
+            asset_floor_iv=90.0, peer_comparison_iv=105.0,
+            insider_percentile=80.0, institutional_percentile=75.0,
+            sue_percentile=70.0, wacc=0.10,
+            regime_adjustments=None,
+        ))
+        assert result.gates_passed >= 2
+
+    def test_overvalued_stock_fails(self):
+        """Price above IV -> not mispriced."""
+        result = run_track_b_cascade(TrackBInputs(
+            history=FinancialHistory(ticker="EXPN", periods=[_period()]),
+            period=_period(), profile=_profile(),
+            current_price=200.0,
+            dcf_iv=100.0, owner_earnings_iv=95.0,
+            asset_floor_iv=90.0, peer_comparison_iv=105.0,
+            insider_percentile=20.0, institutional_percentile=10.0,
+            sue_percentile=15.0, wacc=0.10,
+            regime_adjustments=None,
+        ))
+        assert result.qualifies is False
+
+    def test_regime_adjustments_accepted(self):
+        from margin_engine.scoring.market_regime import RegimeAdjustments, MarketRegime
+        adj = RegimeAdjustments(
+            regime=MarketRegime.EUPHORIA,
+            track_a_growth_gap_adjustment=0.05,
+            track_b_asymmetry_adjustment=0.0,
+            track_b_catalyst_percentile_override=90.0,
+        )
+        result = run_track_b_cascade(TrackBInputs(
+            history=FinancialHistory(ticker="E", periods=[_period()]),
+            period=_period(), profile=_profile(),
+            current_price=50.0,
+            dcf_iv=100.0, owner_earnings_iv=95.0,
+            asset_floor_iv=90.0, peer_comparison_iv=105.0,
+            insider_percentile=70.0, institutional_percentile=60.0,
+            sue_percentile=50.0, wacc=0.10,
+            regime_adjustments=adj,
+        ))
+        assert result.track == "mispricing"
