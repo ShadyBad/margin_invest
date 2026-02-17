@@ -20,11 +20,31 @@ function formatTimeAgo(isoString: string): string {
 function getCardTierClasses(convictionLevel: string): string {
   switch (convictionLevel) {
     case "exceptional":
-      return "border-l-2 border-l-accent bg-accent/[0.03]"
+      return "border-accent/30 rounded-lg"
     case "high":
-      return "border-l border-l-border-primary"
+      return "border-l-2 border-l-accent rounded-lg"
     default:
-      return ""
+      return "rounded-lg"
+  }
+}
+
+function getCardShadow(convictionLevel: string): string {
+  switch (convictionLevel) {
+    case "exceptional":
+      return "shadow-[0_0_30px_rgba(26,122,90,0.08),0_4px_16px_rgba(0,0,0,0.3)] hover:shadow-[0_0_40px_rgba(26,122,90,0.12),0_6px_20px_rgba(0,0,0,0.35)]"
+    default:
+      return "shadow-card hover:shadow-card-hover"
+  }
+}
+
+function getScoreClasses(convictionLevel: string): string {
+  switch (convictionLevel) {
+    case "exceptional":
+      return "text-[56px] font-display text-accent leading-none tracking-[-0.04em]"
+    case "high":
+      return "text-[48px] font-display text-text-primary leading-none tracking-[-0.04em]"
+    default:
+      return "text-[48px] font-display text-text-secondary leading-none tracking-[-0.04em]"
   }
 }
 
@@ -66,7 +86,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
 
   return (
     <div
-      className={`bg-bg-elevated border border-border-primary rounded-sm p-6 cursor-pointer transition-all shadow-card hover:shadow-card-hover hover:border-accent/20 ${expanded ? "col-span-full" : ""} ${getCardTierClasses(pick.conviction_level)} ${className}`}
+      className={`relative bg-bg-elevated border border-border-primary p-8 cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 ${expanded ? "col-span-full" : ""} ${getCardTierClasses(pick.conviction_level)} ${getCardShadow(pick.conviction_level)} ${className}`}
       data-testid={`stock-card-${pick.ticker}`}
       onClick={handleClick}
       role="button"
@@ -79,7 +99,13 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       }}
       aria-expanded={expanded}
     >
-      <div className="flex items-center justify-between mb-1">
+      {pick.conviction_level === "exceptional" && (
+        <>
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent rounded-t-lg" />
+          <div className="absolute inset-0 rounded-lg pointer-events-none bg-[radial-gradient(ellipse_at_top_left,rgba(180,160,130,0.04),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(26,122,90,0.03),transparent_50%)]" />
+        </>
+      )}
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-bold text-text-primary">{pick.ticker}</h3>
           {pick.data_freshness && pick.data_freshness !== "fresh" && (
@@ -122,14 +148,15 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
 
       <p className="text-sm text-text-secondary mb-4 truncate">{pick.name}</p>
 
-      <div className="flex items-center justify-between mb-4">
-        <span className={`text-3xl font-bold ${
-          pick.conviction_level === "exceptional" ? "text-accent" :
-          pick.conviction_level === "high" ? "text-text-primary" :
-          "text-text-secondary"
-        }`}>
-          {(pick.score || pick.composite_percentile).toFixed(0)}
-        </span>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <span className={getScoreClasses(pick.conviction_level)}>
+            {(pick.score || pick.composite_percentile).toFixed(0)}
+          </span>
+          <span className="block text-[11px] font-medium text-text-tertiary tracking-[0.15em] uppercase mt-1">
+            conviction
+          </span>
+        </div>
         <ActionPill
           signal={pick.signal}
           buyPrice={pick.buy_price}

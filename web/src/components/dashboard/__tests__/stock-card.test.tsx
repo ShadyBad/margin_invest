@@ -39,33 +39,50 @@ const basePick: PickSummary = {
 }
 
 describe("StockCard visual hierarchy", () => {
-  it("renders exceptional card with left accent border", () => {
+  it("renders exceptional card with accent border and rounded-lg", () => {
     render(<StockCard pick={{ ...basePick, conviction_level: "exceptional", score: 92 }} />)
+    const card = screen.getByTestId("stock-card-AAPL")
+    expect(card.className).toContain("border-accent/30")
+    expect(card.className).toContain("rounded-lg")
+  })
+
+  it("renders high card with left accent border", () => {
+    render(<StockCard pick={{ ...basePick, conviction_level: "high", score: 80 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
     expect(card.className).toContain("border-l-2")
     expect(card.className).toContain("border-l-accent")
+    expect(card.className).toContain("rounded-lg")
   })
 
-  it("renders high card with subtle left border", () => {
-    render(<StockCard pick={{ ...basePick, conviction_level: "high", score: 80 }} />)
-    const card = screen.getByTestId("stock-card-AAPL")
-    expect(card.className).toContain("border-l")
-    expect(card.className).not.toContain("border-l-2")
-  })
-
-  it("renders watchlist card with no left border", () => {
+  it("renders watchlist card with no accent border", () => {
     render(<StockCard pick={{ ...basePick, conviction_level: "watchlist", score: 55 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
+    expect(card.className).not.toContain("border-accent/30")
     expect(card.className).not.toContain("border-l-accent")
+    expect(card.className).toContain("rounded-lg")
   })
 
-  it("renders exceptional score in accent color", () => {
+  it("renders exceptional score in accent color with display font", () => {
     render(<StockCard pick={{ ...basePick, conviction_level: "exceptional", score: 92 }} />)
     expect(screen.getByText("92")).toHaveClass("text-accent")
+    expect(screen.getByText("92")).toHaveClass("font-display")
   })
 
   it("renders watchlist score in muted color", () => {
     render(<StockCard pick={{ ...basePick, conviction_level: "watchlist", score: 55 }} />)
     expect(screen.getByText("55")).toHaveClass("text-text-secondary")
+  })
+
+  it("renders conviction label below score", () => {
+    render(<StockCard pick={{ ...basePick, conviction_level: "exceptional", score: 92 }} />)
+    expect(screen.getByText("conviction")).toBeInTheDocument()
+  })
+
+  it("renders exceptional card with top accent stripe", () => {
+    render(<StockCard pick={{ ...basePick, conviction_level: "exceptional", score: 92 }} />)
+    const card = screen.getByTestId("stock-card-AAPL")
+    // The stripe is a child div with bg-accent
+    const stripe = card.querySelector(".bg-accent.h-\\[2px\\]")
+    expect(stripe).toBeInTheDocument()
   })
 })

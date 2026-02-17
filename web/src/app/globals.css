@@ -175,6 +175,15 @@ body {
   animation: login-scene-enter 800ms ease-out both;
 }
 
+@keyframes score-glow-pulse {
+  0%, 100% { opacity: 0.03; }
+  50% { opacity: 0.06; }
+}
+
+.score-glow-pulse {
+  animation: score-glow-pulse 2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-card-enter,
   .login-scene-enter {
