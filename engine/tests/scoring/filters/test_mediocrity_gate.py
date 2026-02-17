@@ -71,3 +71,12 @@ class TestMediocrityGate:
         )
         result = mediocrity_gate(history, sector=GICSSector.UTILITIES)
         assert result.passed is True  # 15% > 10% threshold for utilities
+
+    def test_energy_lower_gm_threshold(self):
+        """Energy has 15% GM threshold. 15% should pass."""
+        history = FinancialHistory(
+            ticker="ENRG",
+            periods=[_make_period(y, gross_margin_pct=0.16) for y in range(2019, 2024)],
+        )
+        result = mediocrity_gate(history, sector=GICSSector.ENERGY)
+        assert result.passed is True  # 16% > 15% threshold for energy

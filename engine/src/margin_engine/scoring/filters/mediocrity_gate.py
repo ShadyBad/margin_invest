@@ -12,7 +12,7 @@ from __future__ import annotations
 import statistics
 from decimal import Decimal
 
-from margin_engine.models.financial import FinancialHistory, GICSSector
+from margin_engine.models.financial import FinancialHistory, FinancialPeriod, GICSSector
 from margin_engine.models.scoring import FilterResult
 
 _ROIC_THRESHOLD = 0.08
@@ -31,7 +31,7 @@ def _sector_gm_threshold(sector: GICSSector) -> float:
     return _DEFAULT_GM_THRESHOLD
 
 
-def _compute_roic(period) -> float | None:
+def _compute_roic(period: FinancialPeriod) -> float | None:
     ci = period.current_income
     cb = period.current_balance
     ebit = float(ci.ebit)
