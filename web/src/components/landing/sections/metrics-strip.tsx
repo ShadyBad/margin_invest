@@ -12,7 +12,7 @@ export function MetricsStrip() {
   return (
     <motion.div
       className="flex flex-wrap items-center justify-center gap-6 text-[13px] font-mono text-text-tertiary tracking-[0.3px] py-4"
-      style={{ maxWidth: "1280px", margin: "0 auto", paddingLeft: "8vw", paddingRight: "8vw" }}
+      style={{ maxWidth: "1200px", margin: "0 auto", paddingLeft: "10vw", paddingRight: "10vw" }}
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
       viewport={{ once: true }}

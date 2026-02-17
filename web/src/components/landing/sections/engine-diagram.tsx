@@ -137,11 +137,11 @@ export function EngineDiagram() {
       <div
         className="mx-auto"
         style={{
-          maxWidth: "1280px",
-          paddingLeft: "8vw",
-          paddingRight: "8vw",
-          paddingTop: "96px",
-          paddingBottom: "96px",
+          maxWidth: "1200px",
+          paddingLeft: "10vw",
+          paddingRight: "10vw",
+          paddingTop: "140px",
+          paddingBottom: "140px",
         }}
       >
         <motion.p

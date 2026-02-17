@@ -17,11 +17,11 @@ export function FrictionSection() {
       <div
         className="mx-auto grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-6"
         style={{
-          maxWidth: "1280px",
-          paddingLeft: "8vw",
-          paddingRight: "8vw",
-          paddingTop: "80px",
-          paddingBottom: "96px",
+          maxWidth: "1200px",
+          paddingLeft: "10vw",
+          paddingRight: "10vw",
+          paddingTop: "120px",
+          paddingBottom: "140px",
         }}
       >
         <div className="col-span-4 md:col-span-4 lg:col-span-6 flex flex-col gap-6">

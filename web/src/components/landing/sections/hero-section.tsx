@@ -12,16 +12,16 @@ export function HeroSection() {
       <div
         className="mx-auto grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-6"
         style={{
-          maxWidth: "1280px",
-          paddingLeft: "8vw",
-          paddingRight: "8vw",
-          paddingTop: "160px",
-          paddingBottom: "120px",
+          maxWidth: "1200px",
+          paddingLeft: "10vw",
+          paddingRight: "10vw",
+          paddingTop: "180px",
+          paddingBottom: "140px",
         }}
       >
         <div className="col-span-4 md:col-span-8 lg:col-span-8 flex flex-col justify-center lg:mt-[20px]">
           <motion.h1
-            className="text-[48px] md:text-[56px] lg:text-[72px] font-bold leading-[0.98] tracking-[-0.5px] text-text-primary"
+            className="font-display text-[56px] md:text-[72px] lg:text-[88px] font-normal leading-[1.05] tracking-[-0.04em] text-text-primary"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.2, ease }}
@@ -30,7 +30,7 @@ export function HeroSection() {
           </motion.h1>
 
           <motion.p
-            className="mt-6 text-lg md:text-xl text-text-secondary leading-relaxed"
+            className="mt-8 text-lg md:text-xl text-text-secondary leading-relaxed"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.4, ease }}
@@ -39,7 +39,7 @@ export function HeroSection() {
           </motion.p>
 
           <motion.div
-            className="mt-10 flex items-center gap-6"
+            className="mt-12 flex items-center gap-6"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.55, ease }}

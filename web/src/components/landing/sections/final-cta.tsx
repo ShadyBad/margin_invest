@@ -12,11 +12,11 @@ export function FinalCTA() {
       <div
         className="mx-auto"
         style={{
-          maxWidth: "1280px",
-          paddingLeft: "8vw",
-          paddingRight: "8vw",
-          paddingTop: "120px",
-          paddingBottom: "160px",
+          maxWidth: "1200px",
+          paddingLeft: "10vw",
+          paddingRight: "10vw",
+          paddingTop: "160px",
+          paddingBottom: "180px",
         }}
       >
         <motion.div

@@ -175,11 +175,11 @@ export function EngineProof() {
       <div
         className="mx-auto grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-6"
         style={{
-          maxWidth: "1280px",
-          paddingLeft: "8vw",
-          paddingRight: "8vw",
-          paddingTop: "64px",
-          paddingBottom: "80px",
+          maxWidth: "1200px",
+          paddingLeft: "10vw",
+          paddingRight: "10vw",
+          paddingTop: "100px",
+          paddingBottom: "120px",
         }}
       >
         <motion.div
