@@ -477,3 +477,48 @@ class TestRunScoringPipeline:
             assert isinstance(score, FactorScore)
             assert 0.0 <= score.percentile_rank <= 100.0
             assert score.name  # non-empty name
+
+
+class TestBuildFinancialHistory:
+    def test_builds_history_from_multiple_periods(self):
+        """Given multiple row dicts, build a FinancialHistory."""
+        from margin_api.services.scoring import build_financial_history_from_rows
+
+        rows = [
+            {
+                "period_end": "2022-12-31",
+                "filing_date": "2023-02-15",
+                "income_statement": {
+                    "revenue": 1000,
+                    "cost_of_revenue": 600,
+                    "gross_profit": 400,
+                    "ebit": 200,
+                    "net_income": 160,
+                },
+                "balance_sheet": {"total_assets": 1500, "total_equity": 500},
+                "cash_flow": {
+                    "operating_cash_flow": 250,
+                    "capital_expenditures": -80,
+                },
+            },
+            {
+                "period_end": "2023-12-31",
+                "filing_date": "2024-02-15",
+                "income_statement": {
+                    "revenue": 1200,
+                    "cost_of_revenue": 700,
+                    "gross_profit": 500,
+                    "ebit": 250,
+                    "net_income": 200,
+                },
+                "balance_sheet": {"total_assets": 1800, "total_equity": 600},
+                "cash_flow": {
+                    "operating_cash_flow": 300,
+                    "capital_expenditures": -100,
+                },
+            },
+        ]
+        history = build_financial_history_from_rows("TEST", rows)
+        assert history.ticker == "TEST"
+        assert len(history.periods) == 2
+        assert history.periods[0].period_end < history.periods[1].period_end

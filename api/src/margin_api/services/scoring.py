@@ -20,6 +20,7 @@ from margin_engine.ingestion.normalizer import (
 )
 from margin_engine.models.financial import (
     AssetProfile,
+    FinancialHistory,
     FinancialPeriod,
     GICSSector,
     PriceBar,
@@ -28,7 +29,7 @@ from margin_engine.models.scoring import CompositeScore, FactorScore, FilterResu
 from margin_engine.scoring.classifier import classify_growth_stage
 from margin_engine.scoring.composite import compute_composite_score
 from margin_engine.scoring.filters.pipeline import run_elimination_filters
-from margin_engine.scoring.normalizer import compute_percentile_ranks
+from margin_engine.scoring.normalizer import compute_percentile_ranks, rerank_composites
 from margin_engine.scoring.quantitative.accrual_ratio import sloan_accrual_ratio
 from margin_engine.scoring.quantitative.acquirers_multiple import acquirers_multiple
 from margin_engine.scoring.quantitative.dcf_mos import dcf_margin_of_safety
@@ -325,6 +326,10 @@ def rank_and_compute_composites(
 
         composites.append(composite)
 
+    # Final re-rank: convert weighted-average composite scores to proper
+    # percentile ranks across the full universe so conviction thresholds work.
+    composites = rerank_composites(composites)
+
     return composites
 
 
@@ -354,3 +359,24 @@ def run_scoring_pipeline(
     raw = compute_raw_factor_scores(ticker, period, profile, price_bars_raw, earnings_raw)
     composites = rank_and_compute_composites([raw])
     return composites[0]
+
+
+def build_financial_history_from_rows(
+    ticker: str,
+    rows: list[dict],
+) -> FinancialHistory:
+    """Build a FinancialHistory from multiple DB rows (sorted oldest-first).
+
+    Each row should have: period_end, filing_date, income_statement, balance_sheet, cash_flow.
+    """
+    periods = []
+    for row in sorted(rows, key=lambda r: r["period_end"]):
+        period = build_financial_period(
+            income_raw=row.get("income_statement") or {},
+            balance_raw=row.get("balance_sheet") or {},
+            cashflow_raw=row.get("cash_flow") or {},
+            period_end=row["period_end"],
+            filing_date=row.get("filing_date", ""),
+        )
+        periods.append(period)
+    return FinancialHistory(ticker=ticker, periods=periods)
