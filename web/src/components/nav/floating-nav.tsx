@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import { useState } from "react"
 import { Avatar } from "@/components/ui/avatar"
+import { UsagePill } from "./usage-pill"
 
 const publicLinks = [
   { href: "/methodology", label: "Methodology" },
@@ -81,6 +82,10 @@ export function FloatingNav({ variant }: FloatingNavProps) {
 
         {/* Desktop right side */}
         <div className="hidden md:flex items-center gap-3">
+          {variant === "app" && (
+            // TODO: Wire to real usage API endpoint
+            <UsagePill used={0} limit={3} />
+          )}
           {variant === "public" ? (
             <Link
               href="/dashboard"
