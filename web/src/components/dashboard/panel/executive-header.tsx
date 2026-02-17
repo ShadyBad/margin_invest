@@ -11,6 +11,9 @@ interface ExecutiveHeaderProps {
   conviction: string
   signal: string
   opportunityType: "compounder" | "mispricing"
+  buyPrice?: number | null
+  sellPrice?: number | null
+  actualPrice?: number | null
   timeRange: TimeRange
   onTimeRangeChange: (range: TimeRange) => void
   onClose: () => void
@@ -24,6 +27,9 @@ export function ExecutiveHeader({
   conviction,
   signal,
   opportunityType,
+  buyPrice,
+  sellPrice,
+  actualPrice,
   timeRange,
   onTimeRangeChange,
   onClose,
@@ -64,9 +70,9 @@ export function ExecutiveHeader({
         </span>
         <ActionPill
           signal={signal}
-          buyPrice={null}
-          sellPrice={null}
-          actualPrice={null}
+          buyPrice={buyPrice}
+          sellPrice={sellPrice}
+          actualPrice={actualPrice}
         />
       </div>
 

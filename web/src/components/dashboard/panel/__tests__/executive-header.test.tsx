@@ -4,7 +4,9 @@ import { ExecutiveHeader } from "../executive-header"
 
 vi.mock("@/components/ui", () => ({
   ConvictionBadge: ({ level }: { level: string }) => <span data-testid="conviction-badge">{level}</span>,
-  ActionPill: () => <span data-testid="action-pill" />,
+  ActionPill: (props: any) => (
+    <span data-testid="action-pill" data-buy-price={props.buyPrice ?? "none"} data-sell-price={props.sellPrice ?? "none"} data-actual-price={props.actualPrice ?? "none"} />
+  ),
   AnimatedScore: ({ value }: { value: number }) => <span data-testid="animated-score">{value}</span>,
 }))
 
@@ -55,5 +57,13 @@ describe("ExecutiveHeader", () => {
   it("passes timeRange to TimeRangeSelector", () => {
     render(<ExecutiveHeader {...baseProps} />)
     expect(screen.getByTestId("time-range-selector")).toHaveTextContent("3M")
+  })
+
+  it("passes price props to ActionPill", () => {
+    render(<ExecutiveHeader {...baseProps} buyPrice={140} sellPrice={200} actualPrice={150} />)
+    const pill = screen.getByTestId("action-pill")
+    expect(pill).toHaveAttribute("data-buy-price", "140")
+    expect(pill).toHaveAttribute("data-sell-price", "200")
+    expect(pill).toHaveAttribute("data-actual-price", "150")
   })
 })

@@ -125,6 +125,9 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult }: AssetPanel
               conviction={scoredResult.conviction_level}
               signal={scoredResult.signal}
               opportunityType={(scoredResult.winning_track as "compounder" | "mispricing") ?? "compounder"}
+              buyPrice={scoredResult.buy_price}
+              sellPrice={scoredResult.sell_price}
+              actualPrice={scoredResult.actual_price}
               timeRange={timeRange}
               onTimeRangeChange={setTimeRange}
               onClose={onClose}
