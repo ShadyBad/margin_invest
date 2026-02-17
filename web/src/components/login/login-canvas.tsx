@@ -59,9 +59,9 @@ function GradientOrbs() {
     () => ({
       uTime: { value: 0 },
       uColor1: { value: new THREE.Color("#0A1628") },
-      uColor2: { value: new THREE.Color("#0D3B4F") },
-      uColor3: { value: new THREE.Color("#121830") },
-      uColor4: { value: new THREE.Color("#2A1A0E") },
+      uColor2: { value: new THREE.Color("#1B6B8A") },
+      uColor3: { value: new THREE.Color("#0E1E3D") },
+      uColor4: { value: new THREE.Color("#4A2A12") },
     }),
     []
   )
@@ -92,14 +92,42 @@ function GradientOrbs() {
           varying vec2 vUv;
           void main() {
             vec2 uv = vUv;
-            float n1 = snoise(vec3(uv * 1.5 + uTime * 0.3, uTime * 0.1)) * 0.5 + 0.5;
-            float n2 = snoise(vec3(uv * 2.0 - uTime * 0.2, uTime * 0.15 + 10.0)) * 0.5 + 0.5;
-            float n3 = snoise(vec3(uv * 1.0 + uTime * 0.1, uTime * 0.08 + 20.0)) * 0.5 + 0.5;
-            vec3 color = mix(uColor1, uColor2, n1);
-            color = mix(color, uColor3, n2 * 0.6);
-            color = mix(color, uColor4, n3 * 0.15);
-            float vignette = 1.0 - smoothstep(0.2, 0.9, length(uv - 0.5) * 1.4);
-            color *= 0.6 + vignette * 0.4;
+            vec3 color = uColor1;
+
+            // Orb 1 — teal, upper-left drift
+            vec2 orb1Center = vec2(0.3, 0.6) + vec2(
+              sin(uTime * 0.4) * 0.08,
+              cos(uTime * 0.3) * 0.06
+            );
+            float orb1Dist = length(uv - orb1Center);
+            float orb1Noise = snoise(vec3(uv * 2.0, uTime * 0.12)) * 0.08;
+            float orb1 = smoothstep(0.35 + orb1Noise, 0.0, orb1Dist);
+            color = mix(color, uColor2, orb1 * 0.7);
+
+            // Orb 2 — deep blue, center-right drift
+            vec2 orb2Center = vec2(0.7, 0.4) + vec2(
+              cos(uTime * 0.35) * 0.06,
+              sin(uTime * 0.25) * 0.08
+            );
+            float orb2Dist = length(uv - orb2Center);
+            float orb2Noise = snoise(vec3(uv * 2.5, uTime * 0.1 + 5.0)) * 0.06;
+            float orb2 = smoothstep(0.3 + orb2Noise, 0.0, orb2Dist);
+            color = mix(color, uColor3, orb2 * 0.65);
+
+            // Orb 3 — warm accent, lower-center drift
+            vec2 orb3Center = vec2(0.5, 0.3) + vec2(
+              sin(uTime * 0.28 + 2.0) * 0.07,
+              cos(uTime * 0.32 + 1.0) * 0.05
+            );
+            float orb3Dist = length(uv - orb3Center);
+            float orb3Noise = snoise(vec3(uv * 1.8, uTime * 0.09 + 10.0)) * 0.07;
+            float orb3 = smoothstep(0.25 + orb3Noise, 0.0, orb3Dist);
+            color = mix(color, uColor4, orb3 * 0.5);
+
+            // Soft vignette — darken edges
+            float vignette = 1.0 - smoothstep(0.3, 1.0, length(uv - 0.5) * 1.2);
+            color *= 0.7 + vignette * 0.3;
+
             gl_FragColor = vec4(color, 1.0);
           }
         `}
@@ -143,7 +171,7 @@ function Particles() {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
       </bufferGeometry>
-      <pointsMaterial size={0.03} color="#4A6A7A" transparent opacity={0.25} sizeAttenuation />
+      <pointsMaterial size={0.04} color="#6A9AB0" transparent opacity={0.35} sizeAttenuation />
     </points>
   )
 }
