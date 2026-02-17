@@ -19,9 +19,10 @@ vi.mock("@/components/ui", () => ({
   ),
 }))
 
-// Mock AssetDetail
-vi.mock("../asset-detail", () => ({
-  AssetDetail: () => <div data-testid="asset-detail" />,
+// Mock AssetPanel (slide-over panel)
+vi.mock("../panel", () => ({
+  AssetPanel: ({ isOpen, ticker }: any) =>
+    isOpen ? <div data-testid={`asset-panel-${ticker}`} /> : null,
 }))
 
 const basePick: PickSummary = {
