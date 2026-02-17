@@ -133,6 +133,7 @@
 @theme inline {
   --font-sans: var(--font-inter-tight);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-instrument-serif);
 }
 
 /* Base body styles */
