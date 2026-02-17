@@ -11,9 +11,15 @@ vi.mock("next/dynamic", () => ({
   },
 }))
 
-// Mock next-themes for NavMinimal
-vi.mock("next-themes", () => ({
-  useTheme: () => ({ theme: "dark", setTheme: vi.fn() }),
+// Mock next-auth/react for FloatingNav
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: null, status: "unauthenticated" }),
+  signOut: vi.fn(),
+}))
+
+// Mock next/navigation for FloatingNav
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
 }))
 
 // Mock framer-motion to avoid IntersectionObserver issues in jsdom
@@ -87,9 +93,10 @@ describe("Landing page assembly", () => {
     expect(ctaLinks.length).toBeGreaterThanOrEqual(2) // hero + final CTA at minimum
   })
 
-  it("renders the minimal nav with Dashboard link", () => {
+  it("renders the floating nav with Dashboard CTA", () => {
     render(<Page />)
-    expect(screen.getByText("Margin Invest")).toBeInTheDocument()
+    const nav = screen.getByRole("navigation", { name: "Main navigation" })
+    expect(nav).toBeInTheDocument()
     const dashboardLinks = screen.getAllByRole("link", { name: /^dashboard$/i })
     expect(dashboardLinks.length).toBeGreaterThanOrEqual(1)
   })
