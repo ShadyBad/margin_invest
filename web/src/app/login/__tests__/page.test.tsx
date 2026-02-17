@@ -2,23 +2,23 @@ import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import LoginPage from "../page"
 
-// Mock the LoginButtons client component
-vi.mock("../login-buttons", () => ({
-  LoginButtons: () => <div data-testid="login-buttons">Mocked LoginButtons</div>,
+// Mock the client components
+vi.mock("@/components/login/login-scene", () => ({
+  LoginScene: () => <div data-testid="login-scene">Mocked LoginScene</div>,
+}))
+
+vi.mock("@/components/login/login-card", () => ({
+  LoginCard: () => <div data-testid="login-card">Mocked LoginCard</div>,
 }))
 
 describe("Login Page", () => {
-  it("renders the sign-in heading", () => {
+  it("renders the LoginCard component", () => {
     render(<LoginPage />)
-
-    expect(
-      screen.getByRole("heading", { name: /sign in to margin invest/i })
-    ).toBeInTheDocument()
+    expect(screen.getByTestId("login-card")).toBeInTheDocument()
   })
 
-  it("renders the LoginButtons component", () => {
+  it("renders the LoginScene component", () => {
     render(<LoginPage />)
-
-    expect(screen.getByTestId("login-buttons")).toBeInTheDocument()
+    expect(screen.getByTestId("login-scene")).toBeInTheDocument()
   })
 })

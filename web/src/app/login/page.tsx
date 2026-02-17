@@ -1,13 +1,18 @@
-import { LoginButtons } from "./login-buttons"
+import type { Metadata } from "next"
+import { LoginScene } from "@/components/login/login-scene"
+import { LoginCard } from "@/components/login/login-card"
+
+export const metadata: Metadata = {
+  title: "Sign In | Margin Invest",
+  description: "Sign in to your Margin Invest account.",
+}
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
-      <div className="flex flex-col items-center gap-8 p-8">
-        <h1 className="text-3xl font-bold text-[#E8E4DD]">
-          Sign in to Margin Invest
-        </h1>
-        <LoginButtons />
+    <div className="relative min-h-screen flex items-center justify-center bg-bg-primary overflow-hidden">
+      <LoginScene />
+      <div className="relative z-10">
+        <LoginCard />
       </div>
     </div>
   )

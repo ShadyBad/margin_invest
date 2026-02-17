@@ -131,3 +131,35 @@ body {
   background-image: url('/noise.svg');
   background-repeat: repeat;
 }
+
+/* Login page animations */
+@keyframes login-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes login-scene-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.login-card-enter {
+  animation: login-card-enter 500ms ease-out 100ms both;
+}
+
+.login-scene-enter {
+  animation: login-scene-enter 800ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-card-enter,
+  .login-scene-enter {
+    animation: none;
+  }
+}
