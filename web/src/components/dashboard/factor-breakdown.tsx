@@ -1,5 +1,6 @@
 import { PercentileBar } from "@/components/ui"
 import { formatAttributeLabel } from "@/lib/format"
+import { getFactorInterpretation } from "@/lib/score-interpretation"
 import type { FactorBreakdownResponse } from "@/lib/api/types"
 
 interface FactorBreakdownProps {
@@ -33,6 +34,9 @@ function FactorSection({ factor }: FactorSectionProps) {
           </span>
         </div>
       </div>
+      <p className="text-[12px] text-text-tertiary mb-2 leading-relaxed">
+        {getFactorInterpretation(factor.factor_name, factor.average_percentile)}
+      </p>
       <div className="space-y-1.5">
         {factor.sub_scores.map((sub) => (
           <PercentileBar
