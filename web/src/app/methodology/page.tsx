@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { FloatingNav } from "@/components/nav/floating-nav"
+import { Navbar } from "@/components/nav/navbar"
 import {
   MethodologyHero,
   PipelineSection,
@@ -18,7 +18,7 @@ export default function MethodologyPage() {
   return (
     <main className="relative bg-bg-primary min-h-screen">
       <div className="relative z-10">
-        <FloatingNav variant="public" />
+        <Navbar />
         <MethodologyHero />
         <PipelineSection />
         <FactorSection />

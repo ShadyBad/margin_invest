@@ -1,9 +1,9 @@
-import { FloatingNav } from "@/components/nav/floating-nav"
+import { Navbar } from "@/components/nav/navbar"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-bg-primary">
-      <FloatingNav variant="app" />
+      <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
         {children}
       </main>

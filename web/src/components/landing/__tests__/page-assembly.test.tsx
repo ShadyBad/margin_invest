@@ -11,13 +11,13 @@ vi.mock("next/dynamic", () => ({
   },
 }))
 
-// Mock next-auth/react for FloatingNav
+// Mock next-auth/react for Navbar
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: null, status: "unauthenticated" }),
   signOut: vi.fn(),
 }))
 
-// Mock next/navigation for FloatingNav
+// Mock next/navigation for Navbar
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }))
@@ -96,7 +96,7 @@ describe("Landing page assembly", () => {
     expect(screen.getAllByRole("link", { name: /start free/i }).length).toBeGreaterThanOrEqual(2)
   })
 
-  it("renders the floating nav with Dashboard CTA", () => {
+  it("renders the navbar with Dashboard CTA", () => {
     render(<Page />)
     const nav = screen.getByRole("navigation", { name: "Main navigation" })
     expect(nav).toBeInTheDocument()
