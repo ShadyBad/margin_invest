@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { AppShell } from "@/components/layout"
-import { PicksGrid, WatchlistTable, IngestionBanner } from "@/components/dashboard"
+import { PicksGrid, WatchlistTable, IngestionBanner, PortfolioConviction } from "@/components/dashboard"
 import { serverFetch } from "@/lib/api/server"
-import type { DashboardResponse } from "@/lib/api/types"
+import type { DashboardResponse, PickSummary } from "@/lib/api/types"
 
 function formatLastUpdated(isoString: string): string {
   const date = new Date(isoString)
@@ -14,6 +14,14 @@ function formatLastUpdated(isoString: string): string {
     hour: "numeric",
     minute: "2-digit",
   })
+}
+
+function computePortfolioConviction(picks: PickSummary[]): { score: number; label: string } | null {
+  if (picks.length === 0) return null
+  const avg = picks.reduce((sum, p) => sum + (p.score || p.composite_percentile), 0) / picks.length
+  const score = Math.round(avg)
+  const label = score >= 60 ? "Operating" : score >= 30 ? "Building" : "Reviewing"
+  return { score, label }
 }
 
 export default async function DashboardPage() {
@@ -33,13 +41,21 @@ export default async function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-        {data?.last_updated && (
-          <p className="text-sm text-text-secondary mt-1">
-            Last updated: {formatLastUpdated(data.last_updated)}
-          </p>
-        )}
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
+          {data?.last_updated && (
+            <p className="text-sm text-text-secondary mt-1">
+              Last updated: {formatLastUpdated(data.last_updated)}
+            </p>
+          )}
+        </div>
+        {data?.picks && (() => {
+          const conviction = computePortfolioConviction(data.picks)
+          return conviction ? (
+            <PortfolioConviction score={conviction.score} label={conviction.label} />
+          ) : null
+        })()}
       </div>
 
       {apiError && (
