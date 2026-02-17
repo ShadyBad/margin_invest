@@ -9,7 +9,7 @@ from __future__ import annotations
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class GICSSector(StrEnum):
@@ -223,3 +223,24 @@ class AssetProfile(BaseModel):
     @property
     def is_excluded(self) -> bool:
         return self.sector.is_excluded_v1
+
+
+class FinancialHistory(BaseModel):
+    """Multi-year financial data for temporal analysis.
+
+    Periods are sorted by period_end ascending on construction.
+    """
+
+    ticker: str
+    periods: list[FinancialPeriod]
+
+    @field_validator("periods")
+    @classmethod
+    def validate_periods(cls, v: list[FinancialPeriod]) -> list[FinancialPeriod]:
+        if len(v) < 1:
+            raise ValueError("FinancialHistory requires at least 1 period")
+        return sorted(v, key=lambda p: p.period_end)
+
+    @property
+    def years_of_data(self) -> int:
+        return len(self.periods)
