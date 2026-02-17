@@ -12,6 +12,9 @@ vi.mock("framer-motion", () => ({
     section: ({ children, ...props }: any) => (
       <section {...props}>{children}</section>
     ),
+    // SVG element mocks for ConstellationNarrative
+    circle: (props: any) => <circle {...props} />,
+    line: (props: any) => <line {...props} />,
   },
   useInView: () => true,
   useMotionValue: (init: number) => {
@@ -28,6 +31,7 @@ vi.mock("framer-motion", () => ({
   }),
   useScroll: () => ({ scrollYProgress: { get: () => 0, on: () => () => {} } }),
   animate: () => ({ stop: () => {} }),
+  useReducedMotion: () => false,
 }))
 
 vi.mock("@/lib/stores/node-positions", () => ({
@@ -84,6 +88,32 @@ describe("FrictionSection", () => {
   it("renders the behavioral finance citation", () => {
     render(<FrictionSection />)
     expect(screen.getByText(/Barber & Odean/)).toBeInTheDocument()
+  })
+})
+
+describe("ConstellationNarrative", () => {
+  it("renders an SVG with aria-hidden", async () => {
+    const { ConstellationNarrative } = await import("../sections/constellation-narrative")
+    const { container } = render(<ConstellationNarrative />)
+    const svg = container.querySelector("svg")
+    expect(svg).toBeInTheDocument()
+    expect(svg).toHaveAttribute("aria-hidden", "true")
+    expect(svg).toHaveAttribute("viewBox", "0 0 400 280")
+  })
+
+  it("renders 20 circle nodes", async () => {
+    const { ConstellationNarrative } = await import("../sections/constellation-narrative")
+    const { container } = render(<ConstellationNarrative />)
+    const circles = container.querySelectorAll("circle")
+    expect(circles).toHaveLength(20)
+  })
+
+  it("renders edges as line elements", async () => {
+    const { ConstellationNarrative } = await import("../sections/constellation-narrative")
+    const { container } = render(<ConstellationNarrative />)
+    const lines = container.querySelectorAll("line")
+    // 3 hub-hub + 16 hub-peripheral + 3 false = 22 total
+    expect(lines).toHaveLength(22)
   })
 })
 
