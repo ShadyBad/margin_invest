@@ -2,13 +2,9 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 
-// Mock next/dynamic to render nothing for WebGL components
-vi.mock("next/dynamic", () => ({
-  default: () => {
-    const MockComponent = () => null
-    MockComponent.displayName = "DynamicMock"
-    return MockComponent
-  },
+// Mock FluidShaderLoader to render nothing (WebGL can't render in jsdom)
+vi.mock("@/components/landing/fluid-shader-loader", () => ({
+  FluidShaderLoader: () => null,
 }))
 
 // Mock auth to return null (unauthenticated)

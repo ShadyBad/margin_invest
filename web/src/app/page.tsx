@@ -1,17 +1,12 @@
-import dynamic from "next/dynamic"
 import { auth } from "@/lib/auth"
 import { Navbar } from "@/components/nav/navbar"
 import { DNAProvider } from "@/components/landing/dna-provider"
+import { FluidShaderLoader } from "@/components/landing/fluid-shader-loader"
 import { ChapterHero } from "@/components/landing/chapter-hero"
 import { ChapterEngine } from "@/components/landing/chapter-engine"
 import { ChapterProof } from "@/components/landing/chapter-proof"
 import { ChapterPath } from "@/components/landing/chapter-path"
 import { ChapterIndicator } from "@/components/landing/chapter-indicator"
-
-const FluidShader = dynamic(
-  () => import("@/components/landing/fluid-shader").then((m) => ({ default: m.FluidShader })),
-  { ssr: false },
-)
 
 async function getDNA() {
   try {
@@ -37,7 +32,7 @@ export default async function Home() {
   return (
     <DNAProvider dna={dna}>
       <main>
-        <FluidShader
+        <FluidShaderLoader
           baseColor={dna?.base}
           midColor={dna?.mid}
           accentColor={dna?.accent}
