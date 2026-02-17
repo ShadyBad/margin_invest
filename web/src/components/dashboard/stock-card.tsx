@@ -296,9 +296,9 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
         </div>
       )}
     </div>
-    {expanded && scoreData && !loading && (
+    {scoreData && (
       <AssetPanel
-        isOpen={true}
+        isOpen={expanded && !loading}
         onClose={() => setExpanded(false)}
         ticker={pick.ticker}
         scoredResult={scoreData}

@@ -53,7 +53,7 @@ export function PanelFactorBreakdown({
         {factors.map((factor) => (
           <FactorRow
             key={factor.factor_name}
-            name={factor.factor_name.charAt(0).toUpperCase() + factor.factor_name.slice(1).replace("_", " ")}
+            name={factor.factor_name.charAt(0).toUpperCase() + factor.factor_name.slice(1).replace(/_/g, " ")}
             weight={Math.round(factor.weight * 100)}
             score={factor.average_percentile}
             interpretation={getFactorInterpretation(factor.factor_name, factor.average_percentile)}

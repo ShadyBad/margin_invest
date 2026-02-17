@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react"
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -58,11 +59,20 @@ export function ScoreChart({
     )
   }
 
+  const gradientId = useId()
+
   const sorted = [...data].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   )
   const rangeDays = RANGE_DAYS[timeRange]
-  const sliced = rangeDays ? sorted.slice(-rangeDays) : sorted
+  const sliced = rangeDays
+    ? (() => {
+        const cutoff = new Date()
+        cutoff.setDate(cutoff.getDate() - rangeDays)
+        const cutoffMs = cutoff.getTime()
+        return sorted.filter((d) => new Date(d.date).getTime() >= cutoffMs)
+      })()
+    : sorted
 
   const chartData = sliced.map((d) => ({
     ...d,
@@ -74,7 +84,7 @@ export function ScoreChart({
       <ResponsiveContainer width="100%" height={320}>
         <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
           <defs>
-            <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#1A7A5A" stopOpacity={0.25} />
               <stop offset="100%" stopColor="#1A7A5A" stopOpacity={0} />
             </linearGradient>
@@ -99,7 +109,7 @@ export function ScoreChart({
           <Area
             type="monotone"
             dataKey="score"
-            fill="url(#scoreGradient)"
+            fill={`url(#${gradientId})`}
             stroke="none"
             animationDuration={800}
             animationEasing="ease-out"

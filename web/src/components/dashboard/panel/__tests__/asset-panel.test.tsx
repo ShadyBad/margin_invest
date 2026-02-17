@@ -119,4 +119,18 @@ describe("AssetPanel", () => {
     render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} />)
     expect(screen.getByTestId("executive-header")).toHaveTextContent("AAPL")
   })
+
+  it("calls onClose when Escape key is pressed", () => {
+    const onClose = vi.fn()
+    render(<AssetPanel isOpen={true} onClose={onClose} ticker="AAPL" scoredResult={mockScore} />)
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it("has role=dialog and aria-modal on the panel container", () => {
+    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} />)
+    const dialog = screen.getByRole("dialog")
+    expect(dialog).toHaveAttribute("aria-modal", "true")
+    expect(dialog).toHaveAttribute("aria-label", "AAPL analysis panel")
+  })
 })

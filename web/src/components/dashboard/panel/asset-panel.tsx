@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "framer-motion"
 import { PanelBackdrop } from "./panel-backdrop"
@@ -63,6 +63,16 @@ function computeInsights(score: ScoreResponse) {
 export function AssetPanel({ isOpen, onClose, ticker, scoredResult }: AssetPanelProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("3M")
 
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape") onClose()
+  }, [onClose])
+
+  useEffect(() => {
+    if (!isOpen) return
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [isOpen, handleKeyDown])
+
   const metrics = useMemo(
     () => computeInstitutionalMetrics(scoredResult),
     [scoredResult],
@@ -98,6 +108,9 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult }: AssetPanel
         <div data-testid="asset-panel" className="fixed inset-0 z-50">
           <PanelBackdrop onClose={onClose} />
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${ticker} analysis panel`}
             className="fixed top-0 right-0 bottom-0 w-[70vw] min-w-[900px] max-w-[1200px] bg-[#0B0D10] shadow-[0_0_80px_rgba(0,0,0,0.6)] overflow-y-auto z-50"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
