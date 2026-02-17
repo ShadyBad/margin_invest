@@ -104,3 +104,62 @@ class TestInsiderOwnership:
     def test_zero(self):
         result = insider_ownership_score(ownership_pct=0.0)
         assert result.raw_value == 0.0
+
+
+class TestSbcDilutionTax:
+    def test_low_sbc_good_score(self):
+        """SBC < 3% of revenue -> low dilution."""
+        from margin_engine.scoring.quantitative.capital_allocation import sbc_dilution_tax
+        result = sbc_dilution_tax(
+            sbc_amount=Decimal("30"),
+            revenue=Decimal("1000"),
+        )
+        assert result.name == "sbc_dilution_tax"
+        assert result.raw_value == pytest.approx(0.03)
+
+    def test_high_sbc_bad_score(self):
+        """SBC > 10% of revenue -> heavy dilution."""
+        from margin_engine.scoring.quantitative.capital_allocation import sbc_dilution_tax
+        result = sbc_dilution_tax(
+            sbc_amount=Decimal("120"),
+            revenue=Decimal("1000"),
+        )
+        assert result.raw_value == pytest.approx(0.12)
+
+    def test_zero_revenue(self):
+        from margin_engine.scoring.quantitative.capital_allocation import sbc_dilution_tax
+        result = sbc_dilution_tax(
+            sbc_amount=Decimal("30"),
+            revenue=Decimal("0"),
+        )
+        assert result.raw_value == 1.0  # Worst case
+
+
+class TestMaDiscipline:
+    def test_roic_stable_after_acquisition(self):
+        """ROIC doesn't decline after acquisition -> good discipline."""
+        from margin_engine.scoring.quantitative.capital_allocation import ma_discipline
+        result = ma_discipline(
+            roic_before_acquisition=0.20,
+            roic_after_acquisition=0.22,
+        )
+        assert result.name == "ma_discipline"
+        assert result.raw_value > 0.0
+
+    def test_roic_declines_after_acquisition(self):
+        """ROIC declines after acquisition -> bad discipline."""
+        from margin_engine.scoring.quantitative.capital_allocation import ma_discipline
+        result = ma_discipline(
+            roic_before_acquisition=0.20,
+            roic_after_acquisition=0.12,
+        )
+        assert result.raw_value < 0.0
+
+    def test_no_acquisition(self):
+        """No acquisition data -> neutral."""
+        from margin_engine.scoring.quantitative.capital_allocation import ma_discipline
+        result = ma_discipline(
+            roic_before_acquisition=None,
+            roic_after_acquisition=None,
+        )
+        assert result.raw_value == 0.0

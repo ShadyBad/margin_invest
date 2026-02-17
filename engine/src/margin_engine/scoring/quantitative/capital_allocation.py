@@ -130,3 +130,47 @@ def insider_ownership_score(ownership_pct: float) -> FactorScore:
         percentile_rank=0.0,
         detail=f"insider_ownership={ownership_pct:.4f}",
     )
+
+
+def sbc_dilution_tax(
+    sbc_amount: Decimal,
+    revenue: Decimal,
+) -> FactorScore:
+    """SBC as % of revenue. Lower = better. Inverted at ranking time."""
+    if revenue <= 0:
+        return FactorScore(
+            name="sbc_dilution_tax",
+            raw_value=1.0,
+            percentile_rank=0.0,
+            detail="zero revenue, worst case",
+        )
+
+    ratio = float(abs(sbc_amount) / revenue)
+    return FactorScore(
+        name="sbc_dilution_tax",
+        raw_value=ratio,
+        percentile_rank=0.0,
+        detail=f"SBC={float(sbc_amount):,.2f}, revenue={float(revenue):,.2f}, ratio={ratio:.4f}",
+    )
+
+
+def ma_discipline(
+    roic_before_acquisition: float | None,
+    roic_after_acquisition: float | None,
+) -> FactorScore:
+    """ROIC change after large acquisitions. Positive = value-creating."""
+    if roic_before_acquisition is None or roic_after_acquisition is None:
+        return FactorScore(
+            name="ma_discipline",
+            raw_value=0.0,
+            percentile_rank=0.0,
+            detail="No acquisition data, neutral",
+        )
+
+    delta = roic_after_acquisition - roic_before_acquisition
+    return FactorScore(
+        name="ma_discipline",
+        raw_value=delta,
+        percentile_rank=0.0,
+        detail=f"ROIC_before={roic_before_acquisition:.4f}, after={roic_after_acquisition:.4f}, delta={delta:.4f}",
+    )
