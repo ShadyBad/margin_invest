@@ -9,10 +9,10 @@ import type { QualityTier } from "@/lib/hooks/use-quality-tier"
 
 const NODE_COUNT = 4
 const FORMATION_POSITIONS: [number, number, number][] = [
-  [-4.5, 0, 0],
-  [-1.5, 0, 0],
-  [1.5, 0, 0],
-  [4.5, 0, 0],
+  [-6.3, 0, 0],
+  [-2.1, 0, 0],
+  [2.1, 0, 0],
+  [6.3, 0, 0],
 ]
 
 const ACCENT_COLOR = new THREE.Color("#0E4F3A")
@@ -84,8 +84,12 @@ export function EngineNodes({ tier }: EngineNodesProps) {
       const z = THREE.MathUtils.lerp(0, formationTarget[2], nodeProgress) - recedeProgress * 3
 
       tempObj.position.set(x, y, z)
-      const scale = THREE.MathUtils.lerp(0.01, 1, nodeProgress) * (1 - recedeProgress * 0.5)
-      tempObj.scale.setScalar(scale)
+      // Breathing animation — each node oscillates at its own rate
+      const time = performance.now() / 1000
+      const breathPeriod = 3 + i * 0.8 // 3-6.2s per node
+      const breathScale = 0.95 + 0.1 * (0.5 + 0.5 * Math.sin(time * (2 * Math.PI / breathPeriod)))
+      const finalScale = THREE.MathUtils.lerp(0.01, 1, nodeProgress) * (1 - recedeProgress * 0.5) * breathScale
+      tempObj.scale.setScalar(finalScale)
       tempObj.rotation.y += 0.002
       tempObj.updateMatrix()
       meshRef.current.setMatrixAt(i, tempObj.matrix)

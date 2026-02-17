@@ -6,10 +6,10 @@ import { useScroll, Line } from "@react-three/drei"
 import * as THREE from "three"
 
 const NODE_POSITIONS: [number, number, number][] = [
-  [-4.5, 0, 0],
-  [-1.5, 0, 0],
-  [1.5, 0, 0],
-  [4.5, 0, 0],
+  [-6.3, 0, 0],
+  [-2.1, 0, 0],
+  [2.1, 0, 0],
+  [6.3, 0, 0],
 ]
 
 function DrawLine({ start, end, index }: {
@@ -41,7 +41,7 @@ function DrawLine({ start, end, index }: {
       if ((child as THREE.Line).material) {
         const mat = (child as THREE.Line).material as THREE.LineBasicMaterial
         if (mat.opacity !== undefined) {
-          mat.opacity = drawProgress * 0.3
+          mat.opacity = drawProgress * 0.4
           mat.needsUpdate = true
         }
       }
@@ -55,7 +55,7 @@ function DrawLine({ start, end, index }: {
         color="#888888"
         lineWidth={1}
         transparent
-        opacity={0.3}
+        opacity={0.4}
       />
     </group>
   )
