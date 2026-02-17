@@ -265,10 +265,10 @@ class TestConvictionLevelsFromPipeline:
     """Synthetic stocks hitting conviction thresholds from the pipeline."""
 
     def test_exceptional_conviction(self):
-        """Stock with all sub-scores at 99th percentile -> EXCEPTIONAL."""
-        quality = [_make_factor_score("gp", percentile_rank=99.0)]
-        value = [_make_factor_score("ev_fcf", percentile_rank=99.0)]
-        momentum = [_make_factor_score("price_mom", percentile_rank=99.0)]
+        """Stock with all sub-scores at 99.97th percentile -> EXCEPTIONAL."""
+        quality = [_make_factor_score("gp", percentile_rank=99.97)]
+        value = [_make_factor_score("ev_fcf", percentile_rank=99.97)]
+        momentum = [_make_factor_score("price_mom", percentile_rank=99.97)]
 
         result = compute_composite_score(
             ticker="TOP1",
@@ -278,14 +278,14 @@ class TestConvictionLevelsFromPipeline:
             filters_passed=[_make_filter()],
         )
 
-        assert result.composite_percentile >= 99.0
+        assert result.composite_percentile >= 99.95
         assert result.conviction_level == ConvictionLevel.EXCEPTIONAL
 
     def test_high_conviction(self):
-        """Stock with all sub-scores at 95th percentile -> HIGH."""
-        quality = [_make_factor_score("gp", percentile_rank=95.0)]
-        value = [_make_factor_score("ev_fcf", percentile_rank=95.0)]
-        momentum = [_make_factor_score("price_mom", percentile_rank=95.0)]
+        """Stock with all sub-scores at 99.4th percentile -> HIGH."""
+        quality = [_make_factor_score("gp", percentile_rank=99.4)]
+        value = [_make_factor_score("ev_fcf", percentile_rank=99.4)]
+        momentum = [_make_factor_score("price_mom", percentile_rank=99.4)]
 
         result = compute_composite_score(
             ticker="TOP5",
@@ -295,8 +295,8 @@ class TestConvictionLevelsFromPipeline:
             filters_passed=[_make_filter()],
         )
 
-        assert result.composite_percentile >= 95.0
-        assert result.composite_percentile < 99.0
+        assert result.composite_percentile >= 99.3
+        assert result.composite_percentile < 99.95
         assert result.conviction_level == ConvictionLevel.HIGH
 
 
@@ -324,8 +324,20 @@ class TestImportsFromPackage:
 
         assert hasattr(scoring_pkg, "__all__")
         assert set(scoring_pkg.__all__) == {
+            # v1 exports
             "classify_growth_stage",
             "compute_composite_score",
             "compute_percentile_ranks",
+            "rerank_composites",
             "sector_neutral_ranks",
+            # v2 dual-track exports
+            "classify_opportunity_type",
+            "compute_compounder_score",
+            "compute_mispricing_score",
+            "score_dual_track",
+            "compute_timing_signal",
+            "compute_position_size",
+            "check_track_a_gates",
+            "check_track_b_gates",
+            "mediocrity_gate",
         }
