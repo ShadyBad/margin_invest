@@ -22,6 +22,18 @@ from margin_engine.scoring.v3_composite import compute_track_a_score, compute_tr
 from margin_engine.scoring.v3_orchestrator import V3Result, V3TrackResult, orchestrate_v3
 from margin_engine.scoring.v3_position_sizing import MAX_POSITIONS, compute_v3_position_size
 from margin_engine.scoring.v3_thresholds import assess_track_a_conviction, assess_track_b_conviction
+# v3 cascade exports
+from margin_engine.scoring.v3_cascade import TrackAInputs, TrackBInputs, run_track_a_cascade, run_track_b_cascade
+from margin_engine.scoring.v3_intermediates import (
+    compute_capital_allocation_composite,
+    compute_catalyst_strength,
+    compute_compounding_power,
+    compute_downside_protection,
+    compute_owner_earnings_iv,
+    compute_quality_floor_factor,
+    compute_valuation_convergence_factor,
+)
+from margin_engine.scoring.v3_pipeline import TickerV3Data, score_universe_v3
 
 __all__ = [
     # v1 exports
@@ -54,4 +66,18 @@ __all__ = [
     "detect_regime",
     "orchestrate_v3",
     "regime_adjustments",
+    # v3 cascade exports
+    "TrackAInputs",
+    "TrackBInputs",
+    "TickerV3Data",
+    "compute_capital_allocation_composite",
+    "compute_catalyst_strength",
+    "compute_compounding_power",
+    "compute_downside_protection",
+    "compute_owner_earnings_iv",
+    "compute_quality_floor_factor",
+    "compute_valuation_convergence_factor",
+    "run_track_a_cascade",
+    "run_track_b_cascade",
+    "score_universe_v3",
 ]

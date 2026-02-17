@@ -37,6 +37,7 @@ from margin_engine.scoring.quantitative.reverse_dcf import (
     reverse_dcf_growth_gap,
     solve_implied_growth_rate,
 )
+from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
 
 __all__ = [
     "EnsembleResult",
@@ -65,4 +66,5 @@ __all__ = [
     "reverse_dcf_growth_gap",
     "sbc_dilution_tax",
     "solve_implied_growth_rate",
+    "get_sector_wacc",
 ]

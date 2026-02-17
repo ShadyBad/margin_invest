@@ -354,4 +354,18 @@ class TestImportsFromPackage:
             "detect_regime",
             "orchestrate_v3",
             "regime_adjustments",
+            # v3 cascade exports
+            "TrackAInputs",
+            "TrackBInputs",
+            "TickerV3Data",
+            "compute_capital_allocation_composite",
+            "compute_catalyst_strength",
+            "compute_compounding_power",
+            "compute_downside_protection",
+            "compute_owner_earnings_iv",
+            "compute_quality_floor_factor",
+            "compute_valuation_convergence_factor",
+            "run_track_a_cascade",
+            "run_track_b_cascade",
+            "score_universe_v3",
         }
