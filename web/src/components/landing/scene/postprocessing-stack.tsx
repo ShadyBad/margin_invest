@@ -5,6 +5,8 @@ import { BlendFunction } from "postprocessing"
 import { Vector2 } from "three"
 import type { QualityTier } from "@/lib/hooks/use-quality-tier"
 
+const CHROMATIC_OFFSET = new Vector2(0.001, 0.001)
+
 interface PostprocessingStackProps {
   tier: QualityTier
 }
@@ -28,7 +30,7 @@ export function PostprocessingStack({ tier }: PostprocessingStackProps) {
       />
       {tier === "high" && (
         <ChromaticAberration
-          offset={new Vector2(0.001, 0.001)}
+          offset={CHROMATIC_OFFSET}
           blendFunction={BlendFunction.NORMAL}
         />
       )}

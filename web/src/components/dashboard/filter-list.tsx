@@ -19,11 +19,9 @@ function FilterItem({ filter }: { filter: FilterResultResponse }) {
         {filter.passed ? "\u2713" : "\u2717"}
       </span>
       <span className="text-text-primary">{formatAttributeLabel(filter.name)}</span>
-      {filter.detail && (
-        <span className="text-text-secondary ml-auto text-xs">
-          {filter.detail}
-        </span>
-      )}
+      <span className="text-xs font-mono text-text-tertiary ml-auto">
+        {filter.passed ? "passed" : "failed"}
+      </span>
     </li>
   )
 }
@@ -31,7 +29,7 @@ function FilterItem({ filter }: { filter: FilterResultResponse }) {
 export function FilterList({ filters, className = "" }: FilterListProps) {
   return (
     <div className={className} data-testid="filter-list">
-      <h3 className="text-base font-semibold text-text-primary mb-3">
+      <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-3">
         Elimination Filters
       </h3>
       <ul className="space-y-2">

@@ -21,7 +21,7 @@ export function SignalTimeline({
   if (!transitions || transitions.length === 0) {
     return (
       <div className={className} data-testid="signal-timeline-empty">
-        <h4 className="text-sm font-semibold text-text-primary mb-3">Signal History</h4>
+        <h4 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-3">Signal History</h4>
         <p className="text-sm text-text-tertiary">No transitions recorded</p>
       </div>
     )
@@ -29,7 +29,7 @@ export function SignalTimeline({
 
   return (
     <div className={className} data-testid="signal-timeline">
-      <h4 className="text-sm font-semibold text-text-primary mb-3">Signal History</h4>
+      <h4 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-3">Signal History</h4>
       <div className="space-y-3">
         {transitions.map((t, i) => {
           const date = new Date(t.transitioned_at).toLocaleDateString("en-US", {
@@ -39,15 +39,15 @@ export function SignalTimeline({
           return (
             <div key={t.transitioned_at} className="flex items-center gap-3 text-sm">
               <span className="text-text-tertiary w-14 shrink-0">{date}</span>
-              <span className={`uppercase text-xs font-medium ${signalColor[t.previous_signal] ?? ""}`}>
+              <span className={`uppercase text-xs font-semibold ${signalColor[t.previous_signal] ?? ""}`}>
                 {t.previous_signal.replace("_", " ")}
               </span>
-              <span className="text-text-tertiary">&rarr;</span>
-              <span className={`uppercase text-xs font-medium ${signalColor[t.new_signal] ?? ""}`}>
+              <span className="text-text-tertiary/40">&rarr;</span>
+              <span className={`uppercase text-xs font-semibold ${signalColor[t.new_signal] ?? ""}`}>
                 {t.new_signal.replace("_", " ")}
               </span>
               {t.actual_price_at_transition != null && (
-                <span className="text-text-secondary ml-auto">
+                <span className="text-text-secondary font-mono ml-auto">
                   @${t.actual_price_at_transition.toFixed(2)}
                 </span>
               )}

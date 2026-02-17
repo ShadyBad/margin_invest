@@ -52,7 +52,7 @@ function DrawLine({ start, end, index }: {
     <group ref={groupRef}>
       <Line
         points={[start, end]}
-        color="#888888"
+        color="#0E4F3A"
         lineWidth={1}
         transparent
         opacity={0.4}

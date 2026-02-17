@@ -89,7 +89,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
 
   return (
     <div
-      className={`relative bg-bg-elevated border border-border-primary p-8 cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 ${expanded ? "col-span-full" : ""} ${getCardTierClasses(pick.conviction_level)} ${getCardShadow(pick.conviction_level)} ${className}`}
+      className={`relative bg-bg-elevated border border-border-primary cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 ${expanded ? "col-span-full p-8 shadow-[0_4px_24px_rgba(0,0,0,0.15)] border-accent/15" : "p-6"} ${getCardTierClasses(pick.conviction_level)} ${getCardShadow(pick.conviction_level)} ${className}`}
       style={{ transition: `transform 200ms ${INTERACTION_EASE}, box-shadow 200ms ${INTERACTION_EASE}, border-color 200ms ${INTERACTION_EASE}` }}
       data-testid={`stock-card-${pick.ticker}`}
       onClick={handleClick}

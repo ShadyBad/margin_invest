@@ -184,9 +184,23 @@ body {
   animation: score-glow-pulse 2s ease-in-out infinite;
 }
 
+@keyframes chart-glow {
+  0% { box-shadow: 0 0 40px 0 color-mix(in srgb, var(--accent) 8%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.animate-chart-glow {
+  animation: chart-glow 1.5s ease-out 0.9s 1 both;
+}
+
+.dark .asset-detail-ambient {
+  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 60%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-card-enter,
-  .login-scene-enter {
+  .login-scene-enter,
+  .animate-chart-glow {
     animation: none;
   }
 }

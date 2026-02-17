@@ -29,6 +29,8 @@ export function EngineNodes({ tier }: EngineNodesProps) {
   const { camera, size } = useThree()
   const tempObj = useMemo(() => new THREE.Object3D(), [])
   const tempColor = useMemo(() => new THREE.Color(), [])
+  const tempVec3 = useMemo(() => new THREE.Vector3(), [])
+  const tempDir = useMemo(() => new THREE.Vector3(), [])
 
   const geometry = useMemo(() => {
     return tier === "high"
@@ -71,12 +73,12 @@ export function EngineNodes({ tier }: EngineNodesProps) {
       if (htmlRect && morphProgress < 0.8) {
         const ndcX = (htmlRect.x / size.width) * 2 - 1
         const ndcY = -(htmlRect.y / size.height) * 2 + 1
-        const worldPos = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(camera)
-        const dir = worldPos.sub(camera.position).normalize()
-        const distance = -camera.position.z / dir.z
-        const pos = camera.position.clone().add(dir.multiplyScalar(distance))
-        startX = pos.x
-        startY = pos.y
+        tempVec3.set(ndcX, ndcY, 0.5).unproject(camera)
+        tempDir.copy(tempVec3).sub(camera.position).normalize()
+        const distance = -camera.position.z / tempDir.z
+        tempVec3.copy(camera.position).add(tempDir.multiplyScalar(distance))
+        startX = tempVec3.x
+        startY = tempVec3.y
       }
 
       const x = THREE.MathUtils.lerp(startX, formationTarget[0], nodeProgress)

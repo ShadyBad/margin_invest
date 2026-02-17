@@ -20,24 +20,27 @@ interface FactorSectionProps {
 
 function FactorSection({ factor }: FactorSectionProps) {
   return (
-    <div data-testid={`factor-section-${factor.factor_name.toLowerCase()}`}>
+    <div
+      className="pb-6 border-b border-border-primary/30 last:border-b-0 last:pb-0"
+      data-testid={`factor-section-${factor.factor_name.toLowerCase()}`}
+    >
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-semibold text-text-primary capitalize">
-          {factor.factor_name}
+        <h4 className="text-sm font-semibold text-text-primary">
+          {factor.factor_name.charAt(0).toUpperCase() + factor.factor_name.slice(1).replace("_", " ")}
         </h4>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-text-secondary">
-            Weight: {(factor.weight * 100).toFixed(0)}%
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono text-text-tertiary">
+            {(factor.weight * 100).toFixed(0)}%
           </span>
-          <span className="text-sm font-mono font-bold text-accent">
+          <span className="text-lg font-mono font-bold text-accent">
             {factor.average_percentile.toFixed(0)}
           </span>
         </div>
       </div>
-      <p className="text-[12px] text-text-tertiary mb-2 leading-relaxed">
+      <p className="text-xs text-text-tertiary leading-relaxed mb-3">
         {getFactorInterpretation(factor.factor_name, factor.average_percentile)}
       </p>
-      <div className="space-y-1.5">
+      <div className="space-y-2.5">
         {factor.sub_scores.map((sub) => (
           <PercentileBar
             key={sub.name}
@@ -74,8 +77,8 @@ export function FactorBreakdown({
   }
 
   return (
-    <div className={`space-y-4 ${className}`} data-testid="factor-breakdown">
-      <h3 className="text-base font-semibold text-text-primary">
+    <div className={`space-y-5 ${className}`} data-testid="factor-breakdown">
+      <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary">
         Factor Breakdown
         {winningTrack && !showAllFactors && (
           <span className="text-xs font-normal text-text-secondary ml-2">
