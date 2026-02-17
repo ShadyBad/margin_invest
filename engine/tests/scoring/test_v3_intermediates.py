@@ -9,8 +9,12 @@ from margin_engine.models.financial import (
 )
 from margin_engine.scoring.v3_intermediates import (
     compute_capital_allocation_composite,
+    compute_catalyst_strength,
     compute_compounding_power,
+    compute_downside_protection,
     compute_owner_earnings_iv,
+    compute_quality_floor_factor,
+    compute_valuation_convergence_factor,
 )
 
 
@@ -163,3 +167,68 @@ class TestComputeCapitalAllocationComposite:
             recent_acquisition_count=0,
         )
         assert isinstance(result, float)
+
+
+class TestComputeCatalystStrength:
+    def test_max_of_three(self):
+        assert compute_catalyst_strength(30.0, 70.0, 50.0) == pytest.approx(70.0)
+
+    def test_all_zero(self):
+        assert compute_catalyst_strength(0.0, 0.0, 0.0) == pytest.approx(0.0)
+
+    def test_single_strong_signal(self):
+        assert compute_catalyst_strength(90.0, 10.0, 20.0) == pytest.approx(90.0)
+
+
+class TestComputeQualityFloorFactor:
+    def test_above_threshold(self):
+        assert compute_quality_floor_factor(0.12, roic_improving=False) == pytest.approx(1.0)
+
+    def test_below_threshold_improving(self):
+        result = compute_quality_floor_factor(0.04, roic_improving=True)
+        assert 0.5 <= result < 1.0
+
+    def test_below_threshold_not_improving(self):
+        assert compute_quality_floor_factor(0.04, roic_improving=False) == pytest.approx(0.0)
+
+    def test_zero_roic_improving(self):
+        assert compute_quality_floor_factor(0.0, roic_improving=True) == pytest.approx(0.5)
+
+    def test_exactly_at_threshold(self):
+        assert compute_quality_floor_factor(0.08, roic_improving=False) == pytest.approx(1.0)
+
+
+class TestComputeValuationConvergenceFactor:
+    def test_four_converging(self):
+        assert compute_valuation_convergence_factor(4) == pytest.approx(1.0)
+
+    def test_three_converging(self):
+        assert compute_valuation_convergence_factor(3) == pytest.approx(0.75)
+
+    def test_two_converging(self):
+        assert compute_valuation_convergence_factor(2) == pytest.approx(0.75)
+
+    def test_zero_converging(self):
+        assert compute_valuation_convergence_factor(0) == pytest.approx(0.75)
+
+
+class TestComputeDownsideProtection:
+    def test_price_well_above_floor(self):
+        loss, passed = compute_downside_protection(100.0, 30.0)
+        assert loss == pytest.approx(0.70)
+        assert passed is False
+
+    def test_price_near_floor(self):
+        loss, passed = compute_downside_protection(100.0, 60.0)
+        assert loss == pytest.approx(0.40)
+        assert passed is True
+
+    def test_floor_above_price(self):
+        loss, passed = compute_downside_protection(50.0, 60.0)
+        assert loss == pytest.approx(0.0)
+        assert passed is True
+
+    def test_zero_price(self):
+        loss, passed = compute_downside_protection(0.0, 10.0)
+        assert loss == pytest.approx(0.0)
+        assert passed is True

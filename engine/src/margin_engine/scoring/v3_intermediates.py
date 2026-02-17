@@ -152,3 +152,53 @@ def compute_capital_allocation_composite(
         return 0.0
 
     return sum(scores) / len(scores)
+
+
+def compute_catalyst_strength(
+    insider_percentile: float,
+    institutional_percentile: float,
+    sue_percentile: float,
+) -> float:
+    """Catalyst strength = max of three catalyst signals.
+
+    Each input is a percentile (0-100). Returns the strongest signal.
+    """
+    return max(insider_percentile, institutional_percentile, sue_percentile)
+
+
+def compute_quality_floor_factor(roic: float, roic_improving: bool) -> float:
+    """Quality floor factor for Track B multiplicative scoring.
+
+    Returns:
+        1.0 if ROIC >= 8%
+        0.5-1.0 if ROIC < 8% but improving (scaled linearly)
+        0.0 if ROIC < 8% and not improving
+    """
+    threshold = 0.08
+    if roic >= threshold:
+        return 1.0
+    if roic_improving:
+        return 0.5 + 0.5 * min(roic / threshold, 1.0)
+    return 0.0
+
+
+def compute_valuation_convergence_factor(converging_count: int) -> float:
+    """Valuation convergence factor for Track B multiplicative scoring.
+
+    Returns converging_count/4, floored at 0.75.
+    """
+    return max(converging_count / 4.0, 0.75)
+
+
+def compute_downside_protection(
+    current_price: float,
+    asset_floor_per_share: float,
+) -> tuple[float, bool]:
+    """Compute max loss percentage and whether downside protection gate passes.
+
+    Returns (max_loss_pct, passed) where passed = max_loss_pct < 0.50.
+    """
+    if current_price <= 0:
+        return 0.0, True
+    max_loss = max(0.0, (current_price - asset_floor_per_share) / current_price)
+    return max_loss, max_loss < 0.50
