@@ -11,6 +11,11 @@ vi.mock("next/dynamic", () => ({
   },
 }))
 
+// Mock auth to return null (unauthenticated)
+vi.mock("@/lib/auth", () => ({
+  auth: vi.fn().mockResolvedValue(null),
+}))
+
 // Mock next-auth/react for Navbar
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: null, status: "unauthenticated" }),
@@ -22,7 +27,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }))
 
-// Mock framer-motion to avoid IntersectionObserver issues in jsdom
+// Mock framer-motion
 vi.mock("framer-motion", () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
@@ -34,73 +39,51 @@ vi.mock("framer-motion", () => ({
     section: ({ children, ...props }: any) => (
       <section {...props}>{children}</section>
     ),
-    // SVG element mocks for ConstellationNarrative
-    circle: (props: any) => <circle {...props} />,
-    line: (props: any) => <line {...props} />,
   },
   useInView: () => true,
-  useMotionValue: (init: number) => {
-    let value = init
-    return {
-      get: () => value,
-      set: (v: number) => { value = v },
-      on: (_event: string, _cb: any) => () => {},
-    }
-  },
-  useTransform: (_mv: any, _transform: any) => ({
-    get: () => "0.0",
-    on: (_event: string, _cb: any) => () => {},
-  }),
-  useScroll: () => ({ scrollYProgress: { get: () => 0, on: () => () => {} } }),
-  animate: () => ({ stop: () => {} }),
   useReducedMotion: () => false,
-  useTime: () => ({
-    get: () => 0,
-    on: (_event: string, _cb: any) => () => {},
-  }),
-}))
-
-vi.mock("@/lib/stores/node-positions", () => ({
-  useNodePositions: (selector: any) => {
-    const state = {
-      positions: {},
-      setPosition: vi.fn(),
-      clear: vi.fn(),
-    }
-    return typeof selector === "function" ? selector(state) : state
-  },
 }))
 
 import Page from "../../../app/page"
 
 describe("Landing page assembly", () => {
-  it("renders all 8 sections", () => {
-    render(<Page />)
-    // Hero
-    expect(screen.getByText("Conviction scoring for serious investors.")).toBeInTheDocument()
-    // Friction
-    expect(screen.getByText("Most investors react.")).toBeInTheDocument()
-    // Engine Diagram - use getAllByText since desktop+mobile both render
-    expect(screen.getAllByText("Market Data").length).toBeGreaterThan(0)
-    // Engine Proof
-    expect(screen.getByText("What the engine produces.")).toBeInTheDocument()
-    // Capabilities
-    expect(screen.getByText("Structured Allocation")).toBeInTheDocument()
-    // Pricing
+  it("renders all 4 chapters", async () => {
+    const jsx = await Page()
+    render(jsx)
+    // Chapter 1: Hero (WordReveal splits text into individual <span> words)
+    expect(screen.getByText("Conviction,")).toBeInTheDocument()
+    expect(screen.getByText("Quantified.")).toBeInTheDocument()
+    // Chapter 2: Engine
+    expect(screen.getByText("Raw Signal")).toBeInTheDocument()
+    expect(screen.getByText("Structured Analysis")).toBeInTheDocument()
+    expect(screen.getByText("Conviction Output")).toBeInTheDocument()
+    // Chapter 3: Proof
+    expect(screen.getByText("Sample Analysis")).toBeInTheDocument()
+    expect(screen.getByText("Factor Depth")).toBeInTheDocument()
+    expect(screen.getByText("Portfolio View")).toBeInTheDocument()
+    // Chapter 4: Path (pricing)
     expect(screen.getByText("Scout")).toBeInTheDocument()
     expect(screen.getByText("Operator")).toBeInTheDocument()
     expect(screen.getByText("Allocator")).toBeInTheDocument()
-    // Investor Positioning
-    expect(screen.getByText(/not trading/i)).toBeInTheDocument()
-    // Final CTA (also matches Pricing "Start free", so use getAllByRole)
-    expect(screen.getAllByRole("link", { name: /start free/i }).length).toBeGreaterThanOrEqual(2)
   })
 
-  it("renders the navbar with Dashboard CTA", () => {
-    render(<Page />)
+  it("renders the navbar", async () => {
+    const jsx = await Page()
+    render(jsx)
     const nav = screen.getByRole("navigation", { name: "Main navigation" })
     expect(nav).toBeInTheDocument()
-    const dashboardLinks = screen.getAllByRole("link", { name: /^dashboard$/i })
-    expect(dashboardLinks.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("renders chapter breaks between sections", async () => {
+    const jsx = await Page()
+    const { container } = render(jsx)
+    const breaks = container.querySelectorAll(".h-\\[50vh\\]")
+    expect(breaks.length).toBe(3)
+  })
+
+  it("renders chapter indicator", async () => {
+    const jsx = await Page()
+    render(jsx)
+    expect(screen.getByLabelText("Page chapters")).toBeInTheDocument()
   })
 })
