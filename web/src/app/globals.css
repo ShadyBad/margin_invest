@@ -259,4 +259,8 @@ body {
   .animate-chart-glow {
     animation: none;
   }
+
+  .glass, .glass-elevated {
+    backdrop-filter: blur(20px);
+  }
 }

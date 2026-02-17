@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useMemo } from "react"
+import { useRef, useMemo, useState, useEffect } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Color, ShaderMaterial, Vector2 } from "three"
 
@@ -200,6 +200,19 @@ export function FluidShader({
   density = 0.5,
   scrollProgress = 0,
 }: FluidShaderProps) {
+  const [isDesktop, setIsDesktop] = useState(false)
+
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 768px)")
+    setIsDesktop(mql.matches)
+
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mql.addEventListener("change", handler)
+    return () => mql.removeEventListener("change", handler)
+  }, [])
+
+  if (!isDesktop) return null
+
   return (
     <Canvas
       style={{

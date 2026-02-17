@@ -1,5 +1,22 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render } from "@testing-library/react"
+
+// Mock matchMedia for desktop viewport (>= 768px)
+beforeEach(() => {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query === "(min-width: 768px)",
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    })),
+  })
+})
 
 // Mock Three.js / R3F — jsdom can't do WebGL
 vi.mock("@react-three/fiber", () => ({
@@ -62,5 +79,24 @@ describe("FluidShader", () => {
   it("accepts scrollProgress prop", () => {
     const { getByTestId } = render(<FluidShader scrollProgress={0.5} />)
     expect(getByTestId("r3f-canvas")).toBeDefined()
+  })
+
+  it("does not render on mobile viewports", () => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+      })),
+    })
+
+    const { container } = render(<FluidShader />)
+    expect(container.querySelector("[data-testid='r3f-canvas']")).toBeNull()
   })
 })
