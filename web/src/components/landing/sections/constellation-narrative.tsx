@@ -76,24 +76,30 @@ function EdgeLine({
   const fromNode = nodes[edge.from]
   const toNode = nodes[edge.to]
 
+  // Fallback node for hooks stability — ensures hooks are always called in the same order.
+  // If an edge references an invalid index, we render nothing but still call all hooks.
+  const safeFrom = fromNode ?? nodes[0]
+  const safeTo = toNode ?? nodes[0]
+  const valid = !!fromNode && !!toNode
+
   const x1 = useTransform(progress, (p: number) => {
-    const t = getNodeProgress(p, fromNode.stagger)
-    return fromNode.chaosPos.x + (fromNode.structuredPos.x - fromNode.chaosPos.x) * t
+    const t = getNodeProgress(p, safeFrom.stagger)
+    return safeFrom.chaosPos.x + (safeFrom.structuredPos.x - safeFrom.chaosPos.x) * t
   })
 
   const y1 = useTransform(progress, (p: number) => {
-    const t = getNodeProgress(p, fromNode.stagger)
-    return fromNode.chaosPos.y + (fromNode.structuredPos.y - fromNode.chaosPos.y) * t
+    const t = getNodeProgress(p, safeFrom.stagger)
+    return safeFrom.chaosPos.y + (safeFrom.structuredPos.y - safeFrom.chaosPos.y) * t
   })
 
   const x2 = useTransform(progress, (p: number) => {
-    const t = getNodeProgress(p, toNode.stagger)
-    return toNode.chaosPos.x + (toNode.structuredPos.x - toNode.chaosPos.x) * t
+    const t = getNodeProgress(p, safeTo.stagger)
+    return safeTo.chaosPos.x + (safeTo.structuredPos.x - safeTo.chaosPos.x) * t
   })
 
   const y2 = useTransform(progress, (p: number) => {
-    const t = getNodeProgress(p, toNode.stagger)
-    return toNode.chaosPos.y + (toNode.structuredPos.y - toNode.chaosPos.y) * t
+    const t = getNodeProgress(p, safeTo.stagger)
+    return safeTo.chaosPos.y + (safeTo.structuredPos.y - safeTo.chaosPos.y) * t
   })
 
   const opacity = useTransform(progress, (p: number) => {
@@ -111,6 +117,8 @@ function EdgeLine({
     // Real edges: transition from broken to solid
     return p > 0.5 ? "none" : "4 8"
   })
+
+  if (!valid) return null
 
   return (
     <motion.line

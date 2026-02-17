@@ -28,6 +28,9 @@ vi.mock("framer-motion", () => ({
     section: ({ children, ...props }: any) => (
       <section {...props}>{children}</section>
     ),
+    // SVG element mocks for ConstellationNarrative
+    circle: (props: any) => <circle {...props} />,
+    line: (props: any) => <line {...props} />,
   },
   useInView: () => true,
   useMotionValue: (init: number) => {
@@ -44,6 +47,11 @@ vi.mock("framer-motion", () => ({
   }),
   useScroll: () => ({ scrollYProgress: { get: () => 0, on: () => () => {} } }),
   animate: () => ({ stop: () => {} }),
+  useReducedMotion: () => false,
+  useTime: () => ({
+    get: () => 0,
+    on: (_event: string, _cb: any) => () => {},
+  }),
 }))
 
 vi.mock("@/lib/stores/node-positions", () => ({
