@@ -153,6 +153,32 @@ class TestMoatDurability:
         result = moat_durability_score(history)
         assert "pricing_power" in result.detail
 
+    def test_switching_costs_detected(self):
+        """Revenue growth exceeds cost growth -> switching costs signature."""
+        periods = [
+            _make_period(
+                revenue=Decimal("1000"),
+                cost_of_revenue=Decimal("700"),
+                gross_profit=Decimal("300"),
+                period_end="2019-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1200"),
+                cost_of_revenue=Decimal("800"),
+                gross_profit=Decimal("400"),
+                period_end="2020-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1500"),
+                cost_of_revenue=Decimal("900"),
+                gross_profit=Decimal("600"),
+                period_end="2021-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="SWITCH", periods=periods)
+        result = moat_durability_score(history)
+        assert "switching_costs" in result.detail
+
     def test_no_moat_signatures(self):
         """Declining ROIC with flat margins -> 0 signatures."""
         periods = [

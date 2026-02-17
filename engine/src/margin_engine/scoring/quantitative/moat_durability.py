@@ -14,11 +14,11 @@ from __future__ import annotations
 import statistics
 from decimal import Decimal
 
-from margin_engine.models.financial import FinancialHistory
+from margin_engine.models.financial import FinancialHistory, FinancialPeriod
 from margin_engine.models.scoring import FactorScore
 
 
-def _compute_roic(period) -> float | None:
+def _compute_roic(period: FinancialPeriod) -> float | None:
     """Compute ROIC for a single period. Returns None if IC <= 0."""
     ci = period.current_income
     cb = period.current_balance
