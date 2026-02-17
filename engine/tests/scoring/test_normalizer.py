@@ -1,8 +1,17 @@
 """Tests for percentile ranking normalizer."""
 
 import pytest
-from margin_engine.models.scoring import FactorScore
-from margin_engine.scoring.normalizer import compute_percentile_ranks, sector_neutral_ranks
+from margin_engine.models.scoring import (
+    CompositeScore,
+    ConvictionLevel,
+    FactorBreakdown,
+    FactorScore,
+)
+from margin_engine.scoring.normalizer import (
+    compute_percentile_ranks,
+    rerank_composites,
+    sector_neutral_ranks,
+)
 
 
 def _make_score(
@@ -215,3 +224,151 @@ class TestSectorNeutralRanks:
         result = sector_neutral_ranks(scores_by_sector)
         for s in result:
             assert 0.0 <= s.percentile_rank <= 100.0
+
+
+# ---------------------------------------------------------------------------
+# rerank_composites tests
+# ---------------------------------------------------------------------------
+
+def _make_composite(
+    ticker: str,
+    raw_score: float,
+) -> CompositeScore:
+    """Helper to build a CompositeScore with a given raw weighted-average score."""
+    dummy_factor = FactorScore(name="test", raw_value=1.0, percentile_rank=50.0)
+    return CompositeScore(
+        ticker=ticker,
+        composite_percentile=raw_score,
+        composite_raw_score=raw_score,
+        quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[dummy_factor]),
+        value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[dummy_factor]),
+        momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[dummy_factor]),
+        filters_passed=[],
+        data_coverage=1.0,
+    )
+
+
+class TestRerankComposites:
+    def test_five_composites_proper_percentiles(self):
+        """Raw scores [30, 40, 50, 60, 70] -> percentiles [20, 40, 60, 80, 100]."""
+        composites = [
+            _make_composite("A", 30.0),
+            _make_composite("B", 40.0),
+            _make_composite("C", 50.0),
+            _make_composite("D", 60.0),
+            _make_composite("E", 70.0),
+        ]
+        result = rerank_composites(composites)
+        percentiles = [c.composite_percentile for c in result]
+        assert percentiles == pytest.approx([20.0, 40.0, 60.0, 80.0, 100.0])
+
+    def test_single_composite_gets_50(self):
+        """A single composite should get percentile 50.0."""
+        composites = [_make_composite("AAPL", 72.5)]
+        result = rerank_composites(composites)
+        assert result[0].composite_percentile == pytest.approx(50.0)
+
+    def test_empty_list_returns_empty(self):
+        """Empty input returns empty output."""
+        result = rerank_composites([])
+        assert result == []
+
+    def test_all_identical_raw_scores_get_50(self):
+        """All identical raw_scores should all get percentile 50.0."""
+        composites = [_make_composite(f"T{i}", 55.0) for i in range(4)]
+        result = rerank_composites(composites)
+        for c in result:
+            assert c.composite_percentile == pytest.approx(50.0)
+
+    def test_ties_are_averaged(self):
+        """Tied raw_scores should share the average percentile."""
+        composites = [
+            _make_composite("A", 30.0),
+            _make_composite("B", 50.0),
+            _make_composite("C", 50.0),
+            _make_composite("D", 50.0),
+            _make_composite("E", 70.0),
+        ]
+        result = rerank_composites(composites)
+        # ranks: [1, 3, 3, 3, 5], percentiles: [20, 60, 60, 60, 100]
+        percentiles = [c.composite_percentile for c in result]
+        assert percentiles == pytest.approx([20.0, 60.0, 60.0, 60.0, 100.0])
+
+    def test_original_objects_not_mutated(self):
+        """rerank_composites should return new objects, not mutate inputs."""
+        composites = [_make_composite("A", 30.0), _make_composite("B", 70.0)]
+        original_pcts = [c.composite_percentile for c in composites]
+        result = rerank_composites(composites)
+        # Originals unchanged
+        assert [c.composite_percentile for c in composites] == original_pcts
+        # Results are different objects
+        assert result[0] is not composites[0]
+
+    def test_composite_raw_score_preserved(self):
+        """composite_raw_score should be unchanged after re-ranking."""
+        composites = [
+            _make_composite("A", 30.0),
+            _make_composite("B", 70.0),
+        ]
+        result = rerank_composites(composites)
+        assert result[0].composite_raw_score == pytest.approx(30.0)
+        assert result[1].composite_raw_score == pytest.approx(70.0)
+
+    def test_conviction_levels_after_rerank(self):
+        """After re-ranking 100 composites, the top ticker should not be 'none'."""
+        composites = [_make_composite(f"T{i}", 40.0 + i * 0.2) for i in range(100)]
+        result = rerank_composites(composites)
+        # Top ticker (T99) should have percentile 100.0 -> exceptional
+        top = max(result, key=lambda c: c.composite_percentile)
+        assert top.conviction_level != ConvictionLevel.NONE
+        assert top.composite_percentile >= 99.95
+
+    def test_preserves_all_fields(self):
+        """Ticker, quality, value, momentum, filters, data_coverage should be preserved."""
+        composites = [_make_composite("AAPL", 60.0), _make_composite("MSFT", 80.0)]
+        result = rerank_composites(composites)
+        assert result[0].ticker == "AAPL"
+        assert result[1].ticker == "MSFT"
+        assert result[0].data_coverage == 1.0
+        assert result[0].quality.factor_name == "quality"
+
+    def test_percentiles_in_valid_range(self):
+        """All re-ranked percentiles must be in [0, 100]."""
+        composites = [_make_composite(f"T{i}", 20.0 + i * 4.0) for i in range(20)]
+        result = rerank_composites(composites)
+        for c in result:
+            assert 0.0 <= c.composite_percentile <= 100.0
+
+    def test_raw_score_differs_from_percentile_after_rerank(self):
+        """After re-ranking, composite_raw_score and composite_percentile should differ."""
+        composites = [
+            _make_composite("A", 45.0),
+            _make_composite("B", 52.0),
+            _make_composite("C", 58.0),
+            _make_composite("D", 63.0),
+            _make_composite("E", 71.0),
+        ]
+        result = rerank_composites(composites)
+
+        # Raw scores should be preserved as-is
+        raw_scores = [c.composite_raw_score for c in result]
+        assert raw_scores == pytest.approx([45.0, 52.0, 58.0, 63.0, 71.0])
+
+        # Percentiles should be [20, 40, 60, 80, 100]
+        percentiles = [c.composite_percentile for c in result]
+        assert percentiles == pytest.approx([20.0, 40.0, 60.0, 80.0, 100.0])
+
+        # The top stock's raw score (71.0) is NOT 100.0
+        top = max(result, key=lambda c: c.composite_percentile)
+        assert top.composite_raw_score == pytest.approx(71.0)
+        assert top.composite_raw_score != top.composite_percentile
+
+    def test_top_stock_raw_score_not_100(self):
+        """The highest-ranked stock should NOT have raw_score = 100
+        unless all factors genuinely average to 100."""
+        composites = [_make_composite(f"T{i}", 40.0 + i * 0.5) for i in range(10)]
+        result = rerank_composites(composites)
+        top = max(result, key=lambda c: c.composite_percentile)
+        # Top raw score is 40.0 + 9*0.5 = 44.5, definitely not 100
+        assert top.composite_raw_score == pytest.approx(44.5)
+        assert top.composite_raw_score < 100.0
