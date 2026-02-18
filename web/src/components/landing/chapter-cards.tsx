@@ -70,6 +70,35 @@ const proofCards = [
   },
 ]
 
+/**
+ * Compute opacity and blur for a card based on its index distance from the
+ * current focal point. The focal card shifts as the section scrolls:
+ * progress 0 → focal index ~1, progress 0.5 → focal index 2, progress 1 → focal index ~3
+ */
+function useCardSpotlight(
+  scrollYProgress: MotionValue<number>,
+  cardIndex: number,
+  prefersReducedMotion: boolean | null,
+) {
+  // Focal card index shifts from 1 to 3 as scroll progresses
+  const opacity = useTransform(scrollYProgress, (progress) => {
+    const focal = 1 + progress * 2
+    const distance = Math.abs(cardIndex - focal)
+    // Smooth falloff: 1.0 at center, 0.6 at distance 1, 0.3 at 2, 0.15 at 3+
+    return Math.max(0.15, 1 - distance * 0.35)
+  })
+
+  const filter = useTransform(scrollYProgress, (progress) => {
+    if (prefersReducedMotion) return "blur(0px)"
+    const focal = 1 + progress * 2
+    const distance = Math.abs(cardIndex - focal)
+    const blurAmount = Math.min(4, distance * 1.5)
+    return `blur(${blurAmount}px)`
+  })
+
+  return { opacity, filter }
+}
+
 function CardRow({
   cards,
   direction,
@@ -98,14 +127,40 @@ function CardRow({
       className="flex gap-6 py-4"
       style={{ x }}
     >
-      {cards.map((card) => (
-        <FlowCard key={card.title} title={card.title} subtitle={card.subtitle}>
-          <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-            {card.content}
-          </p>
-        </FlowCard>
+      {cards.map((card, index) => (
+        <SpotlightCard
+          key={card.title}
+          card={card}
+          index={index}
+          scrollYProgress={scrollYProgress}
+        />
       ))}
     </motion.div>
+  )
+}
+
+function SpotlightCard({
+  card,
+  index,
+  scrollYProgress,
+}: {
+  card: (typeof engineCards)[number]
+  index: number
+  scrollYProgress: MotionValue<number>
+}) {
+  const prefersReducedMotion = useReducedMotion()
+  const { opacity, filter } = useCardSpotlight(scrollYProgress, index, prefersReducedMotion)
+
+  return (
+    <FlowCard
+      title={card.title}
+      subtitle={card.subtitle}
+      motionStyle={{ opacity, filter }}
+    >
+      <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+        {card.content}
+      </p>
+    </FlowCard>
   )
 }
 
@@ -122,7 +177,7 @@ export function ChapterCards() {
       ref={sectionRef}
       data-chapter-cards
       id="engine"
-      className="relative h-[200vh] overflow-hidden"
+      className="relative h-[200vh] overflow-clip"
     >
       <div className="sticky top-0 h-screen flex flex-col items-center justify-center gap-8">
         {/* Desktop: two counter-flowing rows */}
@@ -139,7 +194,7 @@ export function ChapterCards() {
           />
         </div>
 
-        {/* Mobile: single interleaved column */}
+        {/* Mobile: single interleaved column (FlowCard self-tracks vertically) */}
         <div className="md:hidden flex flex-col items-center gap-4 px-6 max-w-[360px] mx-auto overflow-y-auto max-h-screen py-8">
           {engineCards.map((card, i) => (
             <div key={card.title} className="w-full">

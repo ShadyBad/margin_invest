@@ -1,44 +1,50 @@
 "use client"
 
-import { useRef, type ReactNode } from "react"
-import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion"
+import { useRef, type ReactNode, type CSSProperties } from "react"
+import { motion, useScroll, useTransform, useReducedMotion, type MotionStyle } from "framer-motion"
 import { GlassSurface } from "../ui/glass-surface"
 
 interface FlowCardProps {
   title: string
   subtitle: string
   children: ReactNode
+  /** When provided, uses these motion styles instead of self-tracking scroll position */
+  motionStyle?: MotionStyle
 }
 
-export function FlowCard({ title, subtitle, children }: FlowCardProps) {
+export function FlowCard({ title, subtitle, children, motionStyle }: FlowCardProps) {
   const ref = useRef<HTMLDivElement>(null)
   const prefersReducedMotion = useReducedMotion()
 
+  // Self-tracking mode: used in mobile layout where cards scroll vertically
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "end start"],
   })
 
-  const opacity = useTransform(
+  const selfOpacity = useTransform(
     scrollYProgress,
     [0, 0.3, 0.5, 0.7, 1],
     [0.15, 0.6, 1, 0.6, 0.15],
   )
 
-  const blur = useTransform(
+  const selfBlur = useTransform(
     scrollYProgress,
     [0, 0.3, 0.5, 0.7, 1],
     prefersReducedMotion ? [0, 0, 0, 0, 0] : [4, 1.5, 0, 1.5, 4],
   )
 
-  const filterBlur = useTransform(blur, (v) => `blur(${v}px)`)
+  const selfFilter = useTransform(selfBlur, (v) => `blur(${v}px)`)
+
+  // Use parent-provided motion styles (desktop) or self-tracking (mobile)
+  const style: MotionStyle = motionStyle ?? { opacity: selfOpacity, filter: selfFilter }
 
   return (
     <motion.div
       ref={ref}
       data-flow-card
       className="w-full md:w-[320px] flex-shrink-0"
-      style={{ opacity, filter: filterBlur }}
+      style={style}
     >
       <GlassSurface className="p-6 md:p-8 h-full">
         <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)] mb-3">
