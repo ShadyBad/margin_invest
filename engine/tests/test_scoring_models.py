@@ -74,7 +74,7 @@ class TestCompositeScore:
     def test_conviction_level_exceptional(self):
         score = CompositeScore(
             ticker="NVDA",
-            composite_percentile=99.5,
+            composite_percentile=99.97,
             quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
             value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
             momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
@@ -87,7 +87,7 @@ class TestCompositeScore:
     def test_conviction_level_high(self):
         score = CompositeScore(
             ticker="NVDA",
-            composite_percentile=96.0,
+            composite_percentile=99.5,
             quality=FactorBreakdown(
                 factor_name="quality", weight=0.35, sub_scores=[]
             ),
@@ -106,7 +106,7 @@ class TestCompositeScore:
     def test_conviction_level_high_boundary(self):
         score = CompositeScore(
             ticker="COST",
-            composite_percentile=95.5,
+            composite_percentile=99.3,
             quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
             value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
             momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
@@ -119,7 +119,7 @@ class TestCompositeScore:
     def test_conviction_level_watchlist(self):
         score = CompositeScore(
             ticker="XYZ",
-            composite_percentile=92.0,
+            composite_percentile=98.5,
             quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
             value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
             momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
@@ -142,11 +142,11 @@ class TestCompositeScore:
         assert score.conviction_level == ConvictionLevel.NONE
         assert score.signal == Signal.NO_ACTION
 
-    def test_turnaround_requires_top_3_percent(self):
-        """Turnaround stocks need >= 97th percentile for HIGH conviction, not 95th."""
+    def test_turnaround_requires_higher_bar(self):
+        """Turnaround stocks need >= 99.5 for HIGH conviction, not 99.3."""
         score = CompositeScore(
             ticker="TURN",
-            composite_percentile=96.0,
+            composite_percentile=99.4,
             quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
             value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
             momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
@@ -154,14 +154,14 @@ class TestCompositeScore:
             data_coverage=1.0,
             growth_stage=GrowthStage.TURNAROUND,
         )
-        # 96th percentile is HIGH for normal stocks, but only WATCHLIST for turnarounds
+        # 99.4 is HIGH for normal stocks, but only WATCHLIST for turnarounds
         assert score.conviction_level == ConvictionLevel.WATCHLIST
 
-    def test_turnaround_at_97_is_high(self):
-        """Turnaround stock at 97th percentile qualifies as HIGH."""
+    def test_turnaround_at_99_5_is_high(self):
+        """Turnaround stock at 99.5 percentile qualifies as HIGH."""
         score = CompositeScore(
             ticker="TURN",
-            composite_percentile=97.5,
+            composite_percentile=99.6,
             quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
             value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
             momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
@@ -171,11 +171,11 @@ class TestCompositeScore:
         )
         assert score.conviction_level == ConvictionLevel.HIGH
 
-    def test_non_turnaround_at_96_is_high(self):
-        """Non-turnaround stock at 96th percentile is still HIGH."""
+    def test_non_turnaround_at_99_4_is_high(self):
+        """Non-turnaround stock at 99.4 percentile is HIGH."""
         score = CompositeScore(
             ticker="NORM",
-            composite_percentile=96.0,
+            composite_percentile=99.4,
             quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
             value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
             momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
