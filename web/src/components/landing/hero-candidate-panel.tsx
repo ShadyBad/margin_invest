@@ -46,7 +46,7 @@ function FactorBar({ label, value }: { label: string; value: number }) {
           transition={{ duration: 0.8, ease }}
         />
       </div>
-      <span className="font-mono text-xs text-text-secondary w-8 text-right">{value}</span>
+      <span className="font-mono text-xs text-text-secondary w-8 text-right">{Math.round(value)}</span>
     </div>
   )
 }

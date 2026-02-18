@@ -30,7 +30,7 @@ function PercentileBar({ label, value }: { label: string; value: number }) {
           transition={{ duration: 1, ease }}
         />
       </div>
-      <span className="font-mono text-xs text-text-primary w-8 text-right">{value}</span>
+      <span className="font-mono text-xs text-text-primary w-8 text-right">{Math.round(value)}</span>
     </div>
   )
 }
@@ -126,16 +126,13 @@ export function ProofSection({ pick }: ProofSectionProps) {
           {/* Card 3: Portfolio View (mock) */}
           <ProofCard title="Portfolio View">
             <div className="grid grid-cols-5 gap-1">
-              {Array.from({ length: 25 }, (_, i) => {
-                const opacity = 0.15 + Math.random() * 0.85
-                return (
+              {[0.92, 0.45, 0.78, 0.31, 0.67, 0.54, 0.88, 0.22, 0.73, 0.41, 0.96, 0.35, 0.62, 0.83, 0.27, 0.71, 0.49, 0.85, 0.38, 0.59, 0.76, 0.43, 0.91, 0.33, 0.68].map((opacity, i) => (
                   <div
                     key={i}
                     className="aspect-square rounded-sm bg-accent"
                     style={{ opacity }}
                   />
-                )
-              })}
+                ))}
             </div>
             <p className="text-xs text-text-tertiary mt-4">
               Correlation heatmap identifies position overlap before it matters.
