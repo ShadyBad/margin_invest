@@ -20,6 +20,9 @@ export async function serverFetch<T>(
     if (session?.userId) {
       headers["X-User-Id"] = session.userId as string
     }
+    if (session?.user?.email) {
+      headers["X-User-Email"] = session.user.email
+    }
   } catch {
     // Auth not available — continue without user context
   }

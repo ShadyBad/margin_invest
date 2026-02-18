@@ -16,6 +16,7 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         "X-User-Id": (session.userId as string) || "",
+        "X-User-Email": session.user?.email || "",
       },
       body: formData,
     })
@@ -47,6 +48,7 @@ export async function DELETE() {
       method: "DELETE",
       headers: {
         "X-User-Id": (session.userId as string) || "",
+        "X-User-Email": session.user?.email || "",
       },
     })
 
