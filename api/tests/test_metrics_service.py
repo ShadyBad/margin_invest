@@ -90,6 +90,24 @@ class TestAvgProfitMargin:
         assert result is None
 
 
+class TestNaNHandling:
+    def test_sharpe_ratio_with_nan_values(self):
+        closes = [100.0, float("nan"), 101.0, 102.0, float("nan"), 103.0, 104.0, 105.0, 106.0, 107.0]
+        result = compute_sharpe_ratio(closes)
+        # Should not crash — either returns a valid number or None (never NaN)
+        assert result is None or (isinstance(result, float) and not math.isnan(result))
+
+    def test_max_drawdown_with_nan_values(self):
+        closes = [100.0, float("nan"), 95.0, 80.0, 85.0, 90.0]
+        result = compute_max_drawdown(closes)
+        assert isinstance(result, float) and not math.isnan(result)
+
+    def test_volatility_with_nan_values(self):
+        closes = [100.0, float("nan"), 101.0, 99.5, 102.0, 98.0, 103.0, 97.5, 104.0, 96.0]
+        result = compute_volatility(closes)
+        assert result is None or (isinstance(result, float) and not math.isnan(result))
+
+
 class TestRiskClassification:
     def test_conservative(self):
         assert classify_risk(10.0) == "Conservative"

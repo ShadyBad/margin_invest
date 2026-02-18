@@ -21,6 +21,8 @@ MIN_BARS_FOR_STATS = 5
 def _daily_returns(closes: list[float]) -> list[float]:
     returns = []
     for i in range(1, len(closes)):
+        if math.isnan(closes[i]) or math.isnan(closes[i - 1]):
+            continue
         if closes[i - 1] > 0:
             returns.append((closes[i] - closes[i - 1]) / closes[i - 1])
     return returns
@@ -61,6 +63,8 @@ def compute_max_drawdown(closes: list[float]) -> float:
     peak = -math.inf
     max_dd = 0.0
     for close in closes:
+        if math.isnan(close):
+            continue
         if close > peak:
             peak = close
         dd = (close - peak) / peak if peak > 0 else 0.0
