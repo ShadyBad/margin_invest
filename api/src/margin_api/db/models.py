@@ -88,6 +88,7 @@ class Asset(Base):
     name: Mapped[str] = mapped_column(String(255))
     sector: Mapped[str] = mapped_column(String(100))
     sub_industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
     market_cap: Mapped[Decimal] = mapped_column(default=Decimal("0"))
     shares_outstanding: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -140,6 +141,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    oauth_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     provider: Mapped[str] = mapped_column(String(50))  # google, github, etc.
@@ -421,6 +423,9 @@ class CredentialUser(Base):
     failed_login_attempts: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_totp_counter: Mapped[int | None] = mapped_column(nullable=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subscription_plan: Mapped[str] = mapped_column(String(20), default="free")
