@@ -47,6 +47,19 @@
   --color-percentile-below: #D97706;
   --color-percentile-weak: #DC2626;
 
+  /* Sector accent colors (card left-bar, DNA blending) */
+  --color-sector-tech: #5B7A8A;
+  --color-sector-healthcare: #4F7A6B;
+  --color-sector-financials: #4A5E7A;
+  --color-sector-consumer-disc: #8A6254;
+  --color-sector-consumer-staples: #7A7250;
+  --color-sector-energy: #8A6E3A;
+  --color-sector-industrials: #6B6E72;
+  --color-sector-materials: #7A6050;
+  --color-sector-real-estate: #7A7060;
+  --color-sector-utilities: #5A7A5A;
+  --color-sector-comms: #6E5A7A;
+
   /* Elevation shadows */
   --shadow-card: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
   --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.3);
@@ -115,6 +128,18 @@
   --color-accent-glow: rgba(14, 79, 58, 0.15);
   --color-warm-under: #2A1F14;
   --color-caustic: rgba(237, 233, 227, 0.12);
+
+  --color-sector-tech: #7A9AAA;
+  --color-sector-healthcare: #6A9A8A;
+  --color-sector-financials: #6A7E9A;
+  --color-sector-consumer-disc: #AA8274;
+  --color-sector-consumer-staples: #9A9270;
+  --color-sector-energy: #AA8E5A;
+  --color-sector-industrials: #8B8E92;
+  --color-sector-materials: #9A8070;
+  --color-sector-real-estate: #9A9080;
+  --color-sector-utilities: #7A9A7A;
+  --color-sector-comms: #8E7A9A;
 }
 
 /* Responsive typography utilities */
