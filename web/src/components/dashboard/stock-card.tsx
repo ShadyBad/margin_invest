@@ -4,6 +4,7 @@ import { useState, useCallback } from "react"
 import { motion } from "framer-motion"
 import { ActionPill, Sparkline, PercentileBar, ConvictionBadge, AnimatedScore } from "@/components/ui"
 import { AssetPanel } from "./panel"
+import { PanelErrorBoundary } from "./panel/panel-error-boundary"
 import { getScore, getMetrics } from "@/lib/api/scores"
 import { ApiError } from "@/lib/api/client"
 import { getSectorColor } from "@/lib/sector-colors"
@@ -365,13 +366,15 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       )}
     </div>
     {scoreData && (
-      <AssetPanel
-        isOpen={expanded && !loading}
-        onClose={() => setExpanded(false)}
-        ticker={pick.ticker}
-        scoredResult={scoreData}
-        metrics={metricsData}
-      />
+      <PanelErrorBoundary onDismiss={() => setExpanded(false)}>
+        <AssetPanel
+          isOpen={expanded && !loading}
+          onClose={() => setExpanded(false)}
+          ticker={pick.ticker}
+          scoredResult={scoreData}
+          metrics={metricsData}
+        />
+      </PanelErrorBoundary>
     )}
     </>
   )
