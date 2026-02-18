@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { ScoreResponse, ScoreListResponse } from './types'
+import type { ScoreResponse, ScoreListResponse, InstitutionalMetricsResponse } from './types'
 
 export interface ListScoresParams {
   page?: number
@@ -14,6 +14,12 @@ export async function getScore(
 ): Promise<ScoreResponse> {
   const params = include?.length ? `?include=${include.join(',')}` : ''
   return apiFetch<ScoreResponse>(`/api/v1/scores/${ticker.toUpperCase()}${params}`)
+}
+
+export async function getMetrics(
+  ticker: string,
+): Promise<InstitutionalMetricsResponse> {
+  return apiFetch<InstitutionalMetricsResponse>(`/api/v1/scores/${ticker.toUpperCase()}/metrics`)
 }
 
 export async function listScores(params: ListScoresParams = {}): Promise<ScoreListResponse> {

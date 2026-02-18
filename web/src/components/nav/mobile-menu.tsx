@@ -30,8 +30,19 @@ export function MobileMenu({ nav, isOpen, onClose }: MobileMenuProps) {
         ))}
       </div>
       <div className="mt-3 pt-3 border-t border-border-subtle">
-        {nav.user ? (
+        {nav.cta && (
           <div className="flex flex-col gap-2">
+            <Link
+              href={nav.cta.primary.href}
+              className="block text-center bg-bg-elevated text-text-primary text-[13px] font-semibold rounded-full px-5 py-2.5 hover:bg-bg-subtle transition-colors duration-200 ease-out"
+              onClick={onClose}
+            >
+              {nav.cta.primary.label}
+            </Link>
+          </div>
+        )}
+        {nav.user && (
+          <div className="flex flex-col gap-2 mt-3">
             <div className="flex items-center gap-3 py-2">
               <Avatar
                 name={nav.user.name}
@@ -73,26 +84,7 @@ export function MobileMenu({ nav, isOpen, onClose }: MobileMenuProps) {
                 )
               )}
           </div>
-        ) : nav.cta ? (
-          <div className="flex flex-col gap-2">
-            <Link
-              href={nav.cta.primary.href}
-              className="block text-center bg-bg-elevated text-text-primary text-[13px] font-semibold rounded-full px-5 py-2.5 hover:bg-bg-subtle transition-colors duration-200 ease-out"
-              onClick={onClose}
-            >
-              {nav.cta.primary.label}
-            </Link>
-            {nav.cta.secondary && (
-              <Link
-                href={nav.cta.secondary.href}
-                className="block text-center text-[13px] text-text-secondary hover:text-text-primary transition-colors duration-200 ease-out py-1"
-                onClick={onClose}
-              >
-                {nav.cta.secondary.label}
-              </Link>
-            )}
-          </div>
-        ) : null}
+        )}
       </div>
     </div>
   )

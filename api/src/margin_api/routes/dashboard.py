@@ -26,6 +26,22 @@ def _pick_summary_from_row(row) -> PickSummary:
     """Build a PickSummary from a DB query row (Score, ticker, asset_name)."""
     s = row.Score
     invalid_reason = getattr(s, "price_target_invalid_reason", None)
+
+    # Extract optional factor percentiles from score_detail JSONB
+    detail = s.score_detail or {}
+    sentiment_pct = None
+    growth_pct = None
+    for factor_key in ("sentiment", "growth"):
+        factor_data = detail.get(factor_key)
+        if isinstance(factor_data, dict):
+            sub_scores = factor_data.get("sub_scores", [])
+            if sub_scores:
+                total = sum(ss.get("percentile_rank", 0) for ss in sub_scores)
+                if factor_key == "sentiment":
+                    sentiment_pct = round(total / len(sub_scores), 1)
+                else:
+                    growth_pct = round(total / len(sub_scores), 1)
+
     return PickSummary(
         ticker=row.ticker,
         name=row.asset_name,
@@ -37,6 +53,8 @@ def _pick_summary_from_row(row) -> PickSummary:
         quality_percentile=s.quality_percentile,
         value_percentile=s.value_percentile,
         momentum_percentile=s.momentum_percentile,
+        sentiment_percentile=sentiment_pct,
+        growth_percentile=growth_pct,
         actual_price=getattr(s, "actual_price", None),
         buy_price=getattr(s, "buy_price", None),
         sell_price=getattr(s, "sell_price", None),
@@ -66,6 +84,8 @@ def _pick_summary_from_row(row) -> PickSummary:
             and not invalid_reason
             else None
         ),
+        sector=getattr(row, "asset_sector", None),
+        price_target_invalid_reason=invalid_reason,
     )
 
 
@@ -88,8 +108,15 @@ async def get_dashboard(
     """Get dashboard with high-conviction picks and watchlist."""
     latest = _latest_score_subquery()
 
+    # Only show tickers in the active universe (excludes OTC/foreign stocks
+    # from previous scoring runs).
+    snapshot = await get_active_snapshot(db)
+    active_tickers: list[str] | None = None
+    if snapshot and snapshot.tickers:
+        active_tickers = snapshot.tickers  # type: ignore[assignment]
+
     base = (
-        select(Score, Asset.ticker, Asset.name.label("asset_name"))
+        select(Score, Asset.ticker, Asset.name.label("asset_name"), Asset.sector.label("asset_sector"))
         .join(Asset, Score.asset_id == Asset.id)
         .join(
             latest,
@@ -97,6 +124,9 @@ async def get_dashboard(
             & (Score.scored_at == latest.c.max_scored_at),
         )
     )
+
+    if active_tickers is not None:
+        base = base.where(Asset.ticker.in_(active_tickers))
 
     # Picks: exceptional + high conviction
     picks_result = await db.execute(
@@ -142,8 +172,7 @@ async def get_dashboard(
         else datetime.now(UTC).isoformat()
     )
 
-    # Universe metadata
-    snapshot = await get_active_snapshot(db)
+    # Universe metadata (reuse snapshot fetched above)
     universe: UniverseSummary | None = None
     warnings: list[Warning] = []
 

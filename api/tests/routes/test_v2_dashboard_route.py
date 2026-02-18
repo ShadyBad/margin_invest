@@ -32,6 +32,7 @@ class TestV2DashboardRoute:
         row.Score = score
         row.ticker = "COST"
         row.asset_name = "Costco"
+        row.asset_sector = "Consumer Staples"
 
         pick = _pick_summary_from_row(row)
 
@@ -67,6 +68,7 @@ class TestV2DashboardRoute:
         row.Score = score
         row.ticker = "TEST"
         row.asset_name = "Test Inc"
+        row.asset_sector = "Information Technology"
 
         pick = _pick_summary_from_row(row)
 
@@ -102,6 +104,7 @@ class TestV2DashboardRoute:
         row.Score = score
         row.ticker = "OVER"
         row.asset_name = "Overpriced Inc"
+        row.asset_sector = "Information Technology"
 
         pick = _pick_summary_from_row(row)
 
@@ -133,6 +136,7 @@ class TestV2DashboardRoute:
         row.Score = score
         row.ticker = "INV"
         row.asset_name = "Invalid Targets Inc"
+        row.asset_sector = "Information Technology"
 
         pick = _pick_summary_from_row(row)
 

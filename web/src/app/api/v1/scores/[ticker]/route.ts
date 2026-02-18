@@ -13,12 +13,14 @@ export async function GET(
   }
 
   const { ticker } = await params
+  const { search } = new URL(_request.url)
 
   try {
-    const response = await fetch(`${API_URL}/api/v1/scores/${ticker}`, {
+    const response = await fetch(`${API_URL}/api/v1/scores/${ticker}${search}`, {
       headers: {
         "Content-Type": "application/json",
         "X-User-Id": (session.userId as string) || "",
+        "X-User-Email": session.user?.email || "",
       },
       cache: "no-store",
     })

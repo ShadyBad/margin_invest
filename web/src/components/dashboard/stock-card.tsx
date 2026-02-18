@@ -4,8 +4,9 @@ import { useState, useCallback } from "react"
 import { motion } from "framer-motion"
 import { ActionPill, Sparkline, PercentileBar, ConvictionBadge, AnimatedScore } from "@/components/ui"
 import { AssetPanel } from "./panel"
-import { getScore } from "@/lib/api/scores"
-import type { PickSummary, ScoreResponse } from "@/lib/api/types"
+import { getScore, getMetrics } from "@/lib/api/scores"
+import { getSectorColor } from "@/lib/sector-colors"
+import type { PickSummary, ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/types"
 
 const INTERACTION_EASE = "cubic-bezier(0.19, 1, 0.22, 1)"
 
@@ -23,9 +24,9 @@ function formatTimeAgo(isoString: string): string {
 function getCardTierClasses(convictionLevel: string): string {
   switch (convictionLevel) {
     case "exceptional":
-      return "border-accent/30 rounded-lg"
+      return "rounded-lg"
     case "high":
-      return "border-l-2 border-l-accent rounded-lg"
+      return "rounded-lg"
     default:
       return "rounded-lg"
   }
@@ -59,6 +60,7 @@ interface StockCardProps {
 export function StockCard({ pick, className = "" }: StockCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [scoreData, setScoreData] = useState<ScoreResponse | null>(null)
+  const [metricsData, setMetricsData] = useState<InstitutionalMetricsResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -75,8 +77,12 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       setLoading(true)
       setError(null)
       try {
-        const data = await getScore(pick.ticker, ["price_history", "signal_history"])
-        setScoreData(data)
+        const [score, metrics] = await Promise.all([
+          getScore(pick.ticker, ["price_history", "signal_history"]),
+          getMetrics(pick.ticker),
+        ])
+        setScoreData(score)
+        setMetricsData(metrics)
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load details",
@@ -90,8 +96,11 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
   return (
     <>
     <div
-      className={`relative bg-bg-elevated border border-border-primary cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 p-6 ${getCardTierClasses(pick.conviction_level)} ${getCardShadow(pick.conviction_level)} ${className}`}
-      style={{ transition: `transform 200ms ${INTERACTION_EASE}, box-shadow 200ms ${INTERACTION_EASE}, border-color 200ms ${INTERACTION_EASE}` }}
+      className={`relative bg-bg-elevated border border-border-primary border-l-2 cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 p-6 ${getCardTierClasses(pick.conviction_level)} ${getCardShadow(pick.conviction_level)} ${className}`}
+      style={{
+        borderLeftColor: getSectorColor(pick.sector),
+        transition: `transform 200ms ${INTERACTION_EASE}, box-shadow 200ms ${INTERACTION_EASE}, border-color 200ms ${INTERACTION_EASE}`,
+      }}
       data-testid={`stock-card-${pick.ticker}`}
       onClick={handleClick}
       role="button"
@@ -105,10 +114,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       aria-expanded={expanded}
     >
       {pick.conviction_level === "exceptional" && (
-        <>
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent rounded-t-lg" />
-          <div className="absolute inset-0 rounded-lg pointer-events-none bg-[radial-gradient(ellipse_at_top_left,rgba(180,160,130,0.04),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(26,122,90,0.03),transparent_50%)]" />
-        </>
+        <div className="absolute inset-0 rounded-lg pointer-events-none bg-[radial-gradient(ellipse_at_top_left,rgba(180,160,130,0.04),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(26,122,90,0.03),transparent_50%)]" />
       )}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -197,10 +203,18 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
           </span>
           <span className="text-text-secondary">
             Target:{" "}
-            <span className="text-text-primary font-medium">
+            <span className={`font-medium ${pick.sell_price != null ? "text-text-primary" : "text-text-tertiary"}`}>
               {pick.sell_price != null
                 ? `$${pick.sell_price.toFixed(2)}`
-                : "N/A"}
+                : pick.price_target_invalid_reason === "insufficient_data"
+                  ? "Needs data"
+                  : pick.price_target_invalid_reason === "single_method"
+                    ? "Low confidence"
+                    : pick.price_target_invalid_reason === "low_agreement"
+                      ? "Methods diverge"
+                      : pick.price_target_invalid_reason
+                        ? "Unavailable"
+                        : "N/A"}
             </span>
           </span>
           {pick.price_upside != null && (
@@ -322,6 +336,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
         onClose={() => setExpanded(false)}
         ticker={pick.ticker}
         scoredResult={scoreData}
+        metrics={metricsData}
       />
     )}
     </>

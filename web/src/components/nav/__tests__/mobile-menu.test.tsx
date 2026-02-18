@@ -6,14 +6,8 @@ import type { NavigationState } from "@/hooks/use-navigation"
 
 const publicNav: NavigationState = {
   isAuthenticated: false,
-  links: [
-    { href: "/methodology", label: "Methodology", isActive: false },
-    { href: "/guides", label: "Guides", isActive: false },
-  ],
-  cta: {
-    primary: { label: "Login", href: "/login" },
-    secondary: { label: "Sign Up", href: "/register" },
-  },
+  links: [],
+  cta: { primary: { label: "Dashboard", href: "/login" } },
   user: null,
   logoHref: "/",
 }
@@ -21,7 +15,8 @@ const publicNav: NavigationState = {
 const appNav: NavigationState = {
   isAuthenticated: true,
   links: [
-    { href: "/dashboard", label: "Dashboard", isActive: true },
+    { href: "/dashboard", label: "Dashboard", isActive: false },
+    { href: "/guides", label: "Guides", isActive: false },
   ],
   cta: null,
   user: {
@@ -31,7 +26,6 @@ const appNav: NavigationState = {
     oauthAvatarUrl: null,
     dropdownItems: [
       { label: "Account", href: "/account", type: "link" },
-      { label: "Settings", href: "/settings", type: "link" },
       { label: "", type: "divider" },
       { label: "Sign Out", onClick: vi.fn(), type: "action" },
     ],
@@ -47,15 +41,20 @@ describe("MobileMenu", () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it("renders links when open", () => {
-    render(<MobileMenu nav={publicNav} isOpen={true} onClose={vi.fn()} />)
-    expect(screen.getByText("Methodology")).toBeInTheDocument()
+  it("renders Guides link for authenticated", () => {
+    render(<MobileMenu nav={appNav} isOpen={true} onClose={vi.fn()} />)
     expect(screen.getByText("Guides")).toBeInTheDocument()
   })
 
-  it("renders Login CTA for unauthenticated", () => {
+  it("renders Dashboard button for unauthenticated", () => {
     render(<MobileMenu nav={publicNav} isOpen={true} onClose={vi.fn()} />)
-    expect(screen.getByText("Login")).toBeInTheDocument()
+    expect(screen.getByText("Dashboard")).toBeInTheDocument()
+  })
+
+  it("renders Dashboard link AND user info for authenticated", () => {
+    render(<MobileMenu nav={appNav} isOpen={true} onClose={vi.fn()} />)
+    expect(screen.getByText("Dashboard")).toBeInTheDocument()
+    expect(screen.getByText("Jane Doe")).toBeInTheDocument()
   })
 
   it("renders user info for authenticated", () => {
@@ -66,8 +65,8 @@ describe("MobileMenu", () => {
   it("calls onClose when a link is clicked", async () => {
     const onClose = vi.fn()
     const u = userEvent.setup()
-    render(<MobileMenu nav={publicNav} isOpen={true} onClose={onClose} />)
-    await u.click(screen.getByText("Methodology"))
+    render(<MobileMenu nav={appNav} isOpen={true} onClose={onClose} />)
+    await u.click(screen.getByText("Guides"))
     expect(onClose).toHaveBeenCalled()
   })
 })

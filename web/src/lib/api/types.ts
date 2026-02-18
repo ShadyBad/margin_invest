@@ -87,6 +87,16 @@ export interface ScoreListResponse {
   page_size: number
 }
 
+export interface InstitutionalMetricsResponse {
+  sharpe_ratio: number | null
+  max_drawdown: number | null
+  volatility: number | null
+  avg_profit_margin: number | null
+  risk_classification: string
+  allocation_weight: number | null
+  margin_of_safety: number | null
+}
+
 export interface PickSummary {
   ticker: string
   name: string
@@ -98,6 +108,8 @@ export interface PickSummary {
   quality_percentile: number
   value_percentile: number
   momentum_percentile: number
+  sentiment_percentile?: number | null
+  growth_percentile?: number | null
   actual_price: number | null
   buy_price: number | null
   sell_price: number | null
@@ -113,6 +125,8 @@ export interface PickSummary {
   margin_of_safety?: number | null
   max_position_pct?: number | null
   timing_signal?: string | null
+  sector?: string | null
+  price_target_invalid_reason?: string | null
 }
 
 export interface WatchlistItem {

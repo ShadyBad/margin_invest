@@ -5,29 +5,29 @@ import type { NavigationCTA } from "@/hooks/use-navigation"
 
 describe("NavCTA", () => {
   const cta: NavigationCTA = {
-    primary: { label: "Login", href: "/login" },
-    secondary: { label: "Sign Up", href: "/register" },
+    primary: { label: "Dashboard", href: "/login" },
   }
 
   it("renders primary CTA as a pill button", () => {
     render(<NavCTA cta={cta} />)
-    const login = screen.getByText("Login")
-    expect(login.closest("a")).toHaveAttribute("href", "/login")
-    expect(login.className).toContain("rounded-full")
-  })
-
-  it("renders secondary CTA as a text link", () => {
-    render(<NavCTA cta={cta} />)
-    const signup = screen.getByText("Sign Up")
-    expect(signup.closest("a")).toHaveAttribute("href", "/register")
+    const dashboard = screen.getByText("Dashboard")
+    expect(dashboard.closest("a")).toHaveAttribute("href", "/login")
+    expect(dashboard.className).toContain("rounded-full")
   })
 
   it("renders without secondary CTA", () => {
-    const ctaNoSecondary: NavigationCTA = {
-      primary: { label: "Login", href: "/login" },
-    }
-    render(<NavCTA cta={ctaNoSecondary} />)
-    expect(screen.getByText("Login")).toBeInTheDocument()
+    render(<NavCTA cta={cta} />)
+    expect(screen.getByText("Dashboard")).toBeInTheDocument()
     expect(screen.queryByText("Sign Up")).not.toBeInTheDocument()
+  })
+
+  it("renders with secondary CTA when provided", () => {
+    const ctaWithSecondary: NavigationCTA = {
+      primary: { label: "Dashboard", href: "/login" },
+      secondary: { label: "Learn More", href: "/about" },
+    }
+    render(<NavCTA cta={ctaWithSecondary} />)
+    expect(screen.getByText("Dashboard")).toBeInTheDocument()
+    expect(screen.getByText("Learn More")).toBeInTheDocument()
   })
 })

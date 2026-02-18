@@ -37,13 +37,11 @@ export interface NavigationState {
   logoHref: string
 }
 
-const PUBLIC_LINKS = [
-  { href: "/methodology", label: "Methodology" },
-  { href: "/guides", label: "Guides" },
-]
+const PUBLIC_LINKS: { href: string; label: string }[] = []
 
 const APP_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/guides", label: "Guides" },
 ]
 
 export function useNavigation(): NavigationState {
@@ -59,20 +57,16 @@ export function useNavigation(): NavigationState {
 
   const cta: NavigationCTA | null = isAuthenticated
     ? null
-    : {
-        primary: { label: "Login", href: "/login" },
-        secondary: { label: "Sign Up", href: "/register" },
-      }
+    : { primary: { label: "Dashboard", href: "/login" } }
 
   const user: NavigationUser | null = isAuthenticated
     ? {
-        name: session.user.name || session.user.email || "",
-        email: session.user.email || "",
-        avatarUrl: session.avatarUrl ?? null,
-        oauthAvatarUrl: session.oauthAvatarUrl ?? session.user.image ?? null,
+        name: session!.user?.name || session!.user?.email || "",
+        email: session!.user?.email || "",
+        avatarUrl: session!.avatarUrl ?? null,
+        oauthAvatarUrl: session!.oauthAvatarUrl ?? session!.user?.image ?? null,
         dropdownItems: [
           { label: "Account", href: "/account", type: "link" as const },
-          { label: "Settings", href: "/settings", type: "link" as const },
           { label: "", type: "divider" as const },
           { label: "Sign Out", onClick: () => signOut(), type: "action" as const },
         ],

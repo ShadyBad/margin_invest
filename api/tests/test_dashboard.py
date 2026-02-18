@@ -200,6 +200,13 @@ class TestDashboardPicks:
         assert aapl_pick["conviction_level"] == "exceptional"
         assert aapl_pick["name"] == "Apple Inc."
 
+    async def test_pick_includes_sector(self, client):
+        """Each pick includes the asset's GICS sector."""
+        response = await client.get("/api/v1/dashboard")
+        data = response.json()
+        aapl_pick = data["picks"][0]
+        assert aapl_pick["sector"] == "Information Technology"
+
 
 @pytest.mark.asyncio
 class TestDashboardWatchlist:

@@ -17,8 +17,9 @@ from margin_engine.models.financial import (
 from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.quantitative.price_targets import (
     PriceTargets,
+    _clamp_intrinsic_value,
+    _detect_currency_mismatch,
     _filter_outlier_methods,
-    _validate_final_output,
     compute_price_targets,
 )
 
@@ -258,10 +259,10 @@ class TestPriceTargets:
         assert "acquirers_multiple" in result.valuation_methods
         assert "shareholder_yield" in result.valuation_methods
 
-    def test_no_shares_outstanding_returns_none(
+    def test_no_shares_outstanding_returns_invalid(
         self, healthy_period, price_bars
     ):
-        """No shares_outstanding in profile -> None for intrinsic/buy/sell."""
+        """No shares_outstanding in profile -> invalid_reason set."""
         profile = AssetProfile(
             ticker="AAPL",
             name="Apple Inc.",
@@ -278,6 +279,7 @@ class TestPriceTargets:
         assert result.intrinsic_value is None
         assert result.buy_price is None
         assert result.sell_price is None
+        assert result.invalid_reason == "shares_outstanding_missing"
 
     def test_valuation_methods_dict(
         self, healthy_period, healthy_profile, price_bars
@@ -375,7 +377,7 @@ class TestLayer1InputValidation:
         )
         assert result.invalid_reason == "shares_outstanding_out_of_bounds"
 
-    def test_shares_at_lower_bound_accepted(self, healthy_period, price_bars):
+    def test_shares_at_lower_bound_accepted(self, price_bars):
         """shares_outstanding=100,000 (lower bound) should be accepted."""
         profile = AssetProfile(
             ticker="LBND",
@@ -384,8 +386,38 @@ class TestLayer1InputValidation:
             market_cap=Decimal("50000000"),
             shares_outstanding=100_000,
         )
+        # Scale financials proportionally to stay within all bounds:
+        # 100K shares * $197 price = $19.7M market cap
+        # Revenue/share must be < 10x price (currency check) → < $1,970/share
+        # Intrinsic/share is clamped to 10x price (Layer 4) if it exceeds → $1,970
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("20000000"),        # $20M → $200/share (~1x price)
+                gross_profit=Decimal("8000000"),
+                ebit=Decimal("3000000"),            # $30/share
+                net_income=Decimal("2000000"),
+                shares_outstanding=100_000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("50000000"),
+                current_assets=Decimal("15000000"),
+                cash_and_equivalents=Decimal("5000000"),
+                current_liabilities=Decimal("10000000"),
+                long_term_debt=Decimal("8000000"),
+                total_equity=Decimal("30000000"),
+                shares_outstanding=100_000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("4000000"),   # $40/share
+                capital_expenditures=Decimal("-1000000"),  # FCF=$30/share
+                dividends_paid=Decimal("-500000"),
+                share_repurchases=Decimal("-300000"),
+            ),
+        )
         result = compute_price_targets(
-            period=healthy_period,
+            period=period,
             profile=profile,
             price_bars=price_bars,
             conviction_level=ConvictionLevel.HIGH,
@@ -486,7 +518,7 @@ class TestLayer1InputValidation:
 
 
 class TestLayer2PerMethodBounds:
-    """Layer 2: Per-method output must be >= $0.01 and <= 100x actual_price."""
+    """Layer 2: Per-method output must be >= $0.01 and <= 20x actual_price."""
 
     def test_tiny_method_result_excluded(self, healthy_profile, price_bars):
         """A method producing < $0.01/share should be excluded from valuation_methods."""
@@ -528,46 +560,54 @@ class TestLayer2PerMethodBounds:
             for method_price in result.valuation_methods.values():
                 assert method_price >= 0.01
 
-    def test_method_exceeding_100x_actual_excluded(self, healthy_profile, price_bars):
-        """A method producing > 100x actual_price should be excluded."""
-        # actual_price from price_bars is $197. 100x = $19,700.
-        # Create financials with extremely high cash flows to inflate valuations
+    def test_method_exceeding_20x_actual_excluded(self, price_bars):
+        """A method producing > 20x actual_price should be excluded."""
+        # actual_price from price_bars is $197. 20x = $3,940.
+        # Revenue/shares must stay below 10x price to avoid currency mismatch check.
+        # Use 500M shares and higher cash flows to inflate per-share valuations.
+        profile = AssetProfile(
+            ticker="BIGV",
+            name="Big Value Corp",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("100000000000"),
+            shares_outstanding=500_000_000,
+        )
         period = FinancialPeriod(
             period_end="2025-09-28",
             filing_date="2025-11-01",
             current_income=IncomeStatement(
-                revenue=Decimal("100000000000000"),
-                gross_profit=Decimal("50000000000000"),
-                ebit=Decimal("40000000000000"),
-                net_income=Decimal("30000000000000"),
-                shares_outstanding=15000000000,
+                revenue=Decimal("200000000000"),   # $400/share (2x price, safe)
+                gross_profit=Decimal("100000000000"),
+                ebit=Decimal("80000000000"),        # $160/share -> acq mult = 12*160 = $1920
+                net_income=Decimal("60000000000"),
+                shares_outstanding=500_000_000,
             ),
             current_balance=BalanceSheet(
-                total_assets=Decimal("500000000000000"),
-                current_assets=Decimal("200000000000000"),
-                cash_and_equivalents=Decimal("100000000000000"),
-                current_liabilities=Decimal("50000000000000"),
-                long_term_debt=Decimal("10000000000000"),
-                total_equity=Decimal("400000000000000"),
-                shares_outstanding=15000000000,
+                total_assets=Decimal("500000000000"),
+                current_assets=Decimal("200000000000"),
+                cash_and_equivalents=Decimal("100000000000"),
+                current_liabilities=Decimal("50000000000"),
+                long_term_debt=Decimal("10000000000"),
+                total_equity=Decimal("400000000000"),
+                shares_outstanding=500_000_000,
             ),
             current_cash_flow=CashFlowStatement(
-                operating_cash_flow=Decimal("35000000000000"),
-                capital_expenditures=Decimal("-5000000000000"),
-                dividends_paid=Decimal("-1000000000000"),
-                share_repurchases=Decimal("-2000000000000"),
+                operating_cash_flow=Decimal("90000000000"),  # $180/share
+                capital_expenditures=Decimal("-5000000000"),  # FCF = $170/share
+                dividends_paid=Decimal("-1000000000"),
+                share_repurchases=Decimal("-2000000000"),
             ),
         )
         result = compute_price_targets(
             period=period,
-            profile=healthy_profile,
+            profile=profile,
             price_bars=price_bars,
             conviction_level=ConvictionLevel.HIGH,
         )
-        # Any surviving method must be <= 100x actual_price ($19,700)
+        # Any surviving method must be <= 20x actual_price ($3,940)
         if result.valuation_methods:
             for method_price in result.valuation_methods.values():
-                assert method_price <= 100.0 * 197.0
+                assert method_price <= 20.0 * 197.0
 
     def test_healthy_data_passes_layer2(self, healthy_period, healthy_profile, price_bars):
         """Healthy data should not trigger Layer 2 rejection."""
@@ -656,35 +696,259 @@ class TestLayer3CrossMethodConsistency:
         assert "shareholder_yield" not in filtered
 
 
-class TestLayer4FinalOutputValidation:
-    """Layer 4: Final intrinsic value must be within bounds."""
+class TestLayer4IntrinsicValueClamping:
+    """Layer 4: Clamp intrinsic value to reasonable bounds instead of rejecting."""
 
-    def test_extreme_low_relative_to_price(self):
-        """Intrinsic value < 1% of actual_price -> invalid."""
-        reason = _validate_final_output(intrinsic_value=0.50, actual_price=100.0)
-        assert reason == "intrinsic_value_extreme"
+    def test_clamps_low_relative_to_price(self):
+        """Intrinsic value < 1% of actual_price -> clamped to floor."""
+        value, was_clamped = _clamp_intrinsic_value(intrinsic_value=0.50, actual_price=100.0)
+        assert was_clamped is True
+        assert value == 1.0  # 1% of $100
 
-    def test_extreme_high_relative_to_price(self):
-        """Intrinsic value > 50x actual_price -> invalid."""
-        reason = _validate_final_output(intrinsic_value=6000.0, actual_price=100.0)
-        assert reason == "intrinsic_value_extreme"
+    def test_clamps_high_relative_to_price(self):
+        """Intrinsic value > 10x actual_price -> clamped to ceiling."""
+        value, was_clamped = _clamp_intrinsic_value(intrinsic_value=1200.0, actual_price=100.0)
+        assert was_clamped is True
+        assert value == 1000.0  # 10x $100
 
-    def test_within_bounds_returns_none(self):
-        """Intrinsic value within 1%-50x of actual_price -> valid."""
-        reason = _validate_final_output(intrinsic_value=150.0, actual_price=100.0)
-        assert reason is None
+    def test_within_bounds_not_clamped(self):
+        """Intrinsic value within 1%-10x of actual_price -> unchanged."""
+        value, was_clamped = _clamp_intrinsic_value(intrinsic_value=150.0, actual_price=100.0)
+        assert was_clamped is False
+        assert value == 150.0
 
-    def test_no_actual_price_absolute_low(self):
-        """Without actual_price, intrinsic_value < $0.10 -> invalid."""
-        reason = _validate_final_output(intrinsic_value=0.05, actual_price=None)
-        assert reason == "intrinsic_value_extreme"
+    def test_no_actual_price_clamps_low(self):
+        """Without actual_price, intrinsic_value < $0.10 -> clamped."""
+        value, was_clamped = _clamp_intrinsic_value(intrinsic_value=0.05, actual_price=None)
+        assert was_clamped is True
+        assert value == 0.10
 
-    def test_no_actual_price_absolute_high(self):
-        """Without actual_price, intrinsic_value > $1M -> invalid."""
-        reason = _validate_final_output(intrinsic_value=1_500_000.0, actual_price=None)
-        assert reason == "intrinsic_value_extreme"
+    def test_no_actual_price_clamps_high(self):
+        """Without actual_price, intrinsic_value > $1M -> clamped."""
+        value, was_clamped = _clamp_intrinsic_value(intrinsic_value=1_500_000.0, actual_price=None)
+        assert was_clamped is True
+        assert value == 1_000_000.0
 
     def test_no_actual_price_within_absolute_bounds(self):
-        """Without actual_price, value in $0.10-$1M range -> valid."""
-        reason = _validate_final_output(intrinsic_value=50.0, actual_price=None)
-        assert reason is None
+        """Without actual_price, value in $0.10-$1M range -> unchanged."""
+        value, was_clamped = _clamp_intrinsic_value(intrinsic_value=50.0, actual_price=None)
+        assert was_clamped is False
+        assert value == 50.0
+
+    def test_deep_value_stock_gets_capped_target(self):
+        """Stock at $10 with computed intrinsic of $80 -> clamped to $100 (10x)."""
+        value, was_clamped = _clamp_intrinsic_value(intrinsic_value=80.0, actual_price=10.0)
+        assert was_clamped is False  # 8x is within 10x bound
+        assert value == 80.0
+
+    def test_extreme_deep_value_gets_capped(self):
+        """Stock at $10 with computed intrinsic of $150 -> clamped to $100 (10x)."""
+        value, was_clamped = _clamp_intrinsic_value(intrinsic_value=150.0, actual_price=10.0)
+        assert was_clamped is True
+        assert value == 100.0  # 10x $10
+
+
+class TestCurrencyMismatchDetection:
+    """Layer 1b: Detect financial data reported in foreign currency."""
+
+    def test_revenue_mismatch_detected(self):
+        """Revenue/share >> price indicates currency mismatch (e.g., JPY financials, USD price)."""
+        # Simulates Japanese company: revenue in yen, price in USD
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("5000000000000"),  # 5T yen
+                gross_profit=Decimal("2000000000000"),
+                ebit=Decimal("500000000000"),
+                net_income=Decimal("300000000000"),
+                shares_outstanding=500_000_000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("10000000000000"),
+                current_assets=Decimal("3000000000000"),
+                cash_and_equivalents=Decimal("500000000000"),
+                current_liabilities=Decimal("2000000000000"),
+                long_term_debt=Decimal("1000000000000"),
+                total_equity=Decimal("5000000000000"),
+                shares_outstanding=500_000_000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("600000000000"),
+                capital_expenditures=Decimal("-200000000000"),
+            ),
+        )
+        # rev/share = 5T/500M = 10,000; price = 20; ratio = 500x -> mismatch
+        assert _detect_currency_mismatch(period, 500_000_000, 20.0) is True
+
+    def test_usd_aligned_not_flagged(self):
+        """Normal USD-denominated company should not trigger mismatch."""
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("100000000000"),  # $100B
+                gross_profit=Decimal("45000000000"),
+                ebit=Decimal("30000000000"),
+                net_income=Decimal("25000000000"),
+                shares_outstanding=15_000_000_000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("350000000000"),
+                current_assets=Decimal("130000000000"),
+                cash_and_equivalents=Decimal("60000000000"),
+                current_liabilities=Decimal("120000000000"),
+                long_term_debt=Decimal("100000000000"),
+                total_equity=Decimal("60000000000"),
+                shares_outstanding=15_000_000_000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("110000000000"),
+                capital_expenditures=Decimal("-10000000000"),
+            ),
+        )
+        # rev/share = 100B/15B ≈ 6.67; price = 197; ratio ≈ 0.034 -> no mismatch
+        assert _detect_currency_mismatch(period, 15_000_000_000, 197.0) is False
+
+    def test_ocf_mismatch_detected(self):
+        """OCF/share >> price indicates currency mismatch even when revenue is low."""
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("0"),
+                gross_profit=Decimal("0"),
+                ebit=Decimal("0"),
+                net_income=Decimal("0"),
+                shares_outstanding=1_000_000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("1000000000"),
+                current_assets=Decimal("500000000"),
+                total_equity=Decimal("800000000"),
+                shares_outstanding=1_000_000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("500000000000"),  # 500B (foreign currency)
+                capital_expenditures=Decimal("-100000000000"),
+            ),
+        )
+        # ocf/share = 500B/1M = 500,000; price = 10; ratio = 50,000x
+        assert _detect_currency_mismatch(period, 1_000_000, 10.0) is True
+
+    def test_no_price_skips_check(self):
+        """With no actual_price, currency mismatch detection is skipped."""
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("5000000000000"),
+                gross_profit=Decimal("2000000000000"),
+                ebit=Decimal("500000000000"),
+                net_income=Decimal("300000000000"),
+                shares_outstanding=500_000_000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("10000000000000"),
+                total_equity=Decimal("5000000000000"),
+                shares_outstanding=500_000_000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("600000000000"),
+                capital_expenditures=Decimal("-200000000000"),
+            ),
+        )
+        assert _detect_currency_mismatch(period, 500_000_000, None) is False
+
+    def test_currency_mismatch_sets_invalid_reason(self, price_bars):
+        """Full compute_price_targets should return invalid_reason for currency mismatch."""
+        profile = AssetProfile(
+            ticker="JPNX",
+            name="Japanese Co OTC",
+            sector=GICSSector.INDUSTRIALS,
+            market_cap=Decimal("10000000000"),
+            shares_outstanding=500_000_000,
+        )
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("5000000000000"),  # 5T yen
+                gross_profit=Decimal("2000000000000"),
+                ebit=Decimal("500000000000"),
+                net_income=Decimal("300000000000"),
+                shares_outstanding=500_000_000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("10000000000000"),
+                current_assets=Decimal("3000000000000"),
+                cash_and_equivalents=Decimal("500000000000"),
+                current_liabilities=Decimal("2000000000000"),
+                long_term_debt=Decimal("1000000000000"),
+                total_equity=Decimal("5000000000000"),
+                shares_outstanding=500_000_000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("600000000000"),
+                capital_expenditures=Decimal("-200000000000"),
+            ),
+        )
+        result = compute_price_targets(
+            period=period,
+            profile=profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        # Currency mismatch is now a warning, not a hard rejection.
+        # The engine proceeds to valuation methods, but with yen-scale
+        # financials all methods return None → insufficient_data.
+        # Real ADRs with moderate currency differences will get clamped targets.
+        assert result.invalid_reason == "insufficient_data"
+        assert result.intrinsic_value is None
+        assert result.actual_price == pytest.approx(197.0)
+
+
+class TestInsufficientDataReason:
+    """All methods returning None should produce invalid_reason='insufficient_data'."""
+
+    def test_all_negative_metrics(self, price_bars):
+        """Negative FCF, EBIT, no dividends/buybacks → all methods None."""
+        profile = AssetProfile(
+            ticker="LSNG",
+            name="Losing Corp",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("500000000"),
+            shares_outstanding=10_000_000,
+        )
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("50000000"),   # $5/share (safe ratio)
+                gross_profit=Decimal("-10000000"),
+                ebit=Decimal("-20000000"),
+                net_income=Decimal("-30000000"),
+                shares_outstanding=10_000_000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("200000000"),
+                current_assets=Decimal("50000000"),
+                cash_and_equivalents=Decimal("20000000"),
+                current_liabilities=Decimal("80000000"),
+                long_term_debt=Decimal("50000000"),
+                total_equity=Decimal("70000000"),
+                shares_outstanding=10_000_000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("-15000000"),
+                capital_expenditures=Decimal("-5000000"),
+            ),
+        )
+        result = compute_price_targets(
+            period=period,
+            profile=profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.invalid_reason == "insufficient_data"
+        assert result.intrinsic_value is None

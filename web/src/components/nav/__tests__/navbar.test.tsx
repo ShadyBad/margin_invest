@@ -13,7 +13,8 @@ vi.mock("@/hooks/use-navigation", () => ({
       return {
         isAuthenticated: true,
         links: [
-          { href: "/dashboard", label: "Dashboard", isActive: true },
+          { href: "/dashboard", label: "Dashboard", isActive: false },
+          { href: "/guides", label: "Guides", isActive: false },
         ],
         cta: null,
         user: {
@@ -23,7 +24,6 @@ vi.mock("@/hooks/use-navigation", () => ({
           oauthAvatarUrl: null,
           dropdownItems: [
             { label: "Account", href: "/account", type: "link" },
-            { label: "Settings", href: "/settings", type: "link" },
             { label: "", type: "divider" },
             { label: "Sign Out", onClick: mockSignOut, type: "action" },
           ],
@@ -33,14 +33,8 @@ vi.mock("@/hooks/use-navigation", () => ({
     }
     return {
       isAuthenticated: false,
-      links: [
-        { href: "/methodology", label: "Methodology", isActive: false },
-        { href: "/guides", label: "Guides", isActive: false },
-      ],
-      cta: {
-        primary: { label: "Login", href: "/login" },
-        secondary: { label: "Sign Up", href: "/register" },
-      },
+      links: [],
+      cta: { primary: { label: "Dashboard", href: "/login" } },
       user: null,
       logoHref: "/",
     }
@@ -64,20 +58,11 @@ describe("Navbar", () => {
   })
 
   describe("unauthenticated", () => {
-    it("renders public links", () => {
+    it("renders Dashboard button linking to /login", () => {
       render(<Navbar />)
-      expect(screen.getByText("Methodology")).toBeInTheDocument()
-      expect(screen.getByText("Guides")).toBeInTheDocument()
-    })
-
-    it("renders Login CTA", () => {
-      render(<Navbar />)
-      expect(screen.getByText("Login")).toBeInTheDocument()
-    })
-
-    it("renders Sign Up link", () => {
-      render(<Navbar />)
-      expect(screen.getByText("Sign Up")).toBeInTheDocument()
+      const dashboardLink = screen.getByText("Dashboard")
+      expect(dashboardLink).toBeInTheDocument()
+      expect(dashboardLink.closest("a")).toHaveAttribute("href", "/login")
     })
 
     it("does not render user dropdown", () => {
@@ -91,9 +76,18 @@ describe("Navbar", () => {
       mockIsAuthenticated = true
     })
 
-    it("renders app links", () => {
+    it("renders Dashboard and Guides center links", () => {
       render(<Navbar />)
       expect(screen.getByText("Dashboard")).toBeInTheDocument()
+      expect(screen.getByText("Guides")).toBeInTheDocument()
+    })
+
+    it("does not render Dashboard CTA button", () => {
+      render(<Navbar />)
+      // Dashboard appears as a center link, not as a CTA pill button
+      const dashboard = screen.getByText("Dashboard")
+      expect(dashboard.closest("a")).toHaveAttribute("href", "/dashboard")
+      expect(dashboard.className).not.toContain("rounded-full")
     })
 
     it("renders user avatar button", () => {
@@ -101,9 +95,10 @@ describe("Navbar", () => {
       expect(screen.getByRole("button", { name: /user menu/i })).toBeInTheDocument()
     })
 
-    it("does not render Login CTA", () => {
+    it("does not render Login or Sign Up", () => {
       render(<Navbar />)
       expect(screen.queryByText("Login")).not.toBeInTheDocument()
+      expect(screen.queryByText("Sign Up")).not.toBeInTheDocument()
     })
   })
 
@@ -118,16 +113,16 @@ describe("Navbar", () => {
       render(<Navbar />)
       const toggle = screen.getByLabelText("Toggle menu")
 
-      // Menu closed — only desktop links
-      expect(screen.getAllByText("Methodology")).toHaveLength(1)
+      // Menu closed — only desktop CTA "Dashboard"
+      expect(screen.getAllByText("Dashboard")).toHaveLength(1)
 
       await u.click(toggle)
-      // Menu open — desktop + mobile links
-      expect(screen.getAllByText("Methodology")).toHaveLength(2)
+      // Menu open — desktop CTA + mobile CTA
+      expect(screen.getAllByText("Dashboard")).toHaveLength(2)
 
       await u.click(toggle)
       // Closed again
-      expect(screen.getAllByText("Methodology")).toHaveLength(1)
+      expect(screen.getAllByText("Dashboard")).toHaveLength(1)
     })
   })
 })

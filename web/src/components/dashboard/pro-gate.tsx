@@ -44,7 +44,7 @@ export function ProGate({ children, className = "" }: ProGateProps) {
           Pro Insight
         </span>
         <a
-          href="/settings"
+          href="/account"
           className="ml-auto text-accent/60 hover:text-accent transition-colors"
           aria-label="Upgrade to Pro"
         >

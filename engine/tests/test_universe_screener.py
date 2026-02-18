@@ -4,9 +4,21 @@ from __future__ import annotations
 import pytest
 
 from margin_engine.universe.screener import (
+    US_EXCHANGES,
     filter_universe,
     generate_universe_yaml,
 )
+
+
+class TestUSExchanges:
+    def test_includes_major_exchanges(self):
+        assert "NMS" in US_EXCHANGES  # NASDAQ Global Select
+        assert "NYQ" in US_EXCHANGES  # NYSE
+        assert "ASE" in US_EXCHANGES  # NYSE American (AMEX)
+
+    def test_excludes_otc(self):
+        assert "PNK" not in US_EXCHANGES
+        assert "OTC" not in US_EXCHANGES
 
 
 class TestFilterUniverse:
@@ -49,3 +61,25 @@ class TestGenerateUniverseYaml:
         assert "AAPL" in yaml_str
         assert "MSFT" in yaml_str
         assert "Financial Services" in yaml_str
+
+    def test_includes_exchange_filter(self):
+        yaml_str = generate_universe_yaml(
+            tickers=["AAPL"],
+            excluded_sectors=[],
+            min_market_cap=0,
+            min_avg_volume=0,
+            exchanges=["NMS", "NYQ"],
+        )
+        assert "exchanges:" in yaml_str
+        assert '"NMS"' in yaml_str
+        assert '"NYQ"' in yaml_str
+
+    def test_defaults_to_us_exchanges(self):
+        yaml_str = generate_universe_yaml(
+            tickers=["AAPL"],
+            excluded_sectors=[],
+            min_market_cap=0,
+            min_avg_volume=0,
+        )
+        assert "exchanges:" in yaml_str
+        assert '"NMS"' in yaml_str

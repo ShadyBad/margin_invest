@@ -11,7 +11,12 @@ from margin_api.config import Settings, get_settings
 from margin_api.db.models import User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
-from margin_api.schemas.billing import BillingStatusResponse, CheckoutResponse, PortalResponse
+from margin_api.schemas.billing import (
+    BillingStatusResponse,
+    CheckoutRequest,
+    CheckoutResponse,
+    PortalResponse,
+)
 from margin_api.services.billing import BillingService
 
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
@@ -20,25 +25,28 @@ router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
 def _get_billing_service(settings: Settings = Depends(get_settings)) -> BillingService:
     return BillingService(
         stripe_secret_key=settings.stripe_secret_key,
-        stripe_price_id=settings.stripe_price_id,
+        stripe_portfolio_price_id=settings.stripe_portfolio_price_id,
+        stripe_institutional_price_id=settings.stripe_institutional_price_id,
         stripe_webhook_secret=settings.stripe_webhook_secret,
     )
 
 
 @router.post("/checkout", response_model=CheckoutResponse)
 async def create_checkout(
+    body: CheckoutRequest,
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
     billing: BillingService = Depends(_get_billing_service),
 ) -> CheckoutResponse:
-    """Create a Stripe Checkout Session for the Margin Invest subscription."""
+    """Create a Stripe Checkout Session for the selected plan."""
     settings = get_settings()
     origin = settings.cors_origins[0] if settings.cors_origins else "http://localhost:3000"
     url = await billing.create_checkout_session(
         db,
         user_id=user_id,
-        success_url=f"{origin}/settings?subscription=active",
-        cancel_url=f"{origin}/settings",
+        plan=body.plan,
+        success_url=f"{origin}/account?subscription=active",
+        cancel_url=f"{origin}/account",
     )
     return CheckoutResponse(checkout_url=url)
 
@@ -54,7 +62,7 @@ async def create_portal(
     origin = settings.cors_origins[0] if settings.cors_origins else "http://localhost:3000"
     try:
         url = await billing.create_portal_session(
-            db, user_id=user_id, return_url=f"{origin}/settings"
+            db, user_id=user_id, return_url=f"{origin}/account"
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -82,11 +90,24 @@ async def stripe_webhook(
         "customer.subscription.deleted",
     ):
         subscription = event.data.object
+
+        # Extract price_id from subscription items
+        price_id = None
+        if hasattr(subscription, "items") and subscription.items:
+            items_data = subscription.items.get("data", [])
+            if items_data:
+                price_id = items_data[0].get("price", {}).get("id")
+
+        # Extract current_period_end
+        current_period_end = getattr(subscription, "current_period_end", None)
+
         await billing.handle_subscription_change(
             db,
             stripe_customer_id=subscription.customer,
             stripe_subscription_id=subscription.id,
             status=subscription.status,
+            price_id=price_id,
+            current_period_end=current_period_end,
         )
 
     return {"received": True}
@@ -104,8 +125,10 @@ async def billing_status(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+    is_active = user.subscription_plan in ("portfolio", "institutional")
     return BillingStatusResponse(
-        subscription_plan=user.subscription_plan,
-        stripe_subscription_id=user.stripe_subscription_id,
-        is_active=user.subscription_plan == "margin_invest",
+        plan=user.subscription_plan,
+        status=user.subscription_status,
+        current_period_end=user.current_period_end,
+        is_active=is_active,
     )

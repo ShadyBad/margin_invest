@@ -1,38 +1,53 @@
-import { LandingScene } from "@/components/landing/scene/landing-scene"
 import { Navbar } from "@/components/nav/navbar"
-import { DevAnnotations } from "@/components/landing/dev-annotations"
-import {
-  HeroSection,
-  FrictionSection,
-  EngineDiagram,
-  EngineProof,
-  CapabilitiesSection,
-  PricingSection,
-  InvestorPositioning,
-  MetricsStrip,
-  FinalCTA,
-} from "@/components/landing/sections"
+import { serverFetch } from "@/lib/api/server"
+import { HomepageClient } from "@/components/landing/homepage-client"
+import type { DashboardResponse } from "@/lib/api/types"
+import type { HomepageData, CandidateCard } from "@/components/landing/types"
 
-export default function Home() {
+function toCandidateCard(pick: DashboardResponse["picks"][0]): CandidateCard {
+  return {
+    ticker: pick.ticker,
+    name: pick.name,
+    sector: pick.sector ?? "Unknown",
+    actual_price: pick.actual_price ?? 0,
+    buy_price: pick.buy_price ?? 0,
+    margin_of_safety: pick.margin_of_safety ?? 0,
+    composite_percentile: pick.composite_percentile,
+    conviction_level: pick.conviction_level,
+    quality_percentile: pick.quality_percentile,
+    value_percentile: pick.value_percentile,
+    momentum_percentile: pick.momentum_percentile,
+    sentiment_percentile: pick.sentiment_percentile ?? 0,
+    growth_percentile: pick.growth_percentile ?? 0,
+    scored_at: pick.scored_at ?? new Date().toISOString(),
+    filters_passed: 8,
+    filters_total: 8,
+  }
+}
+
+async function getHomepageData(): Promise<HomepageData | null> {
+  try {
+    const data = await serverFetch<DashboardResponse>("/api/v1/dashboard")
+    if (!data.picks || data.picks.length === 0) return null
+    return {
+      candidates: data.picks.slice(0, 5).map(toCandidateCard),
+      last_updated: data.last_updated,
+      universe_size: data.universe?.size ?? 0,
+      eligible_count: data.total_scored,
+      total_scored: data.total_scored,
+    }
+  } catch {
+    return null
+  }
+}
+
+export default async function Home() {
+  const data = await getHomepageData()
+
   return (
-    <main className="relative bg-bg-primary min-h-screen">
-      {/* WebGL canvas — fixed behind content */}
-      <LandingScene pages={8} />
-
-      {/* HTML overlay — scrollable content */}
-      <div className="relative z-10">
-        <Navbar />
-        <HeroSection />
-        <MetricsStrip />
-        <EngineDiagram />
-        <FrictionSection />
-        <EngineProof />
-        <CapabilitiesSection />
-        <PricingSection />
-        <InvestorPositioning />
-        <FinalCTA />
-        <DevAnnotations />
-      </div>
+    <main>
+      <Navbar />
+      <HomepageClient data={data} />
     </main>
   )
 }

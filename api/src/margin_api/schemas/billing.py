@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel
+
+
+class CheckoutRequest(BaseModel):
+    """Request to create a Stripe Checkout session."""
+
+    plan: str  # "portfolio" | "institutional"
 
 
 class CheckoutResponse(BaseModel):
@@ -20,6 +28,7 @@ class PortalResponse(BaseModel):
 class BillingStatusResponse(BaseModel):
     """Current subscription status."""
 
-    subscription_plan: str  # "free" | "margin_invest"
-    stripe_subscription_id: str | None = None
+    plan: str  # "analyst" | "portfolio" | "institutional"
+    status: str | None = None  # "active" | "trialing" | "past_due" | "canceled"
+    current_period_end: datetime | None = None
     is_active: bool

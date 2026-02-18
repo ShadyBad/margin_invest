@@ -156,6 +156,35 @@ class AuthService:
         await session.commit()
         return raw_token
 
+    async def change_password(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        current_password: str,
+        new_password: str,
+    ) -> None:
+        """Change a credential user's password.
+
+        Validates current password, enforces strength rules, updates hash,
+        sets password_changed_at, and resets failed attempts.
+        """
+        stmt = select(CredentialUser).where(CredentialUser.id == user_id)
+        user = (await session.execute(stmt)).scalar_one_or_none()
+        if user is None:
+            raise LookupError("User not found")
+
+        try:
+            _hasher.verify(user.password_hash, current_password)
+        except VerifyMismatchError:
+            raise PermissionError("Invalid current password")
+
+        _validate_password(new_password)
+
+        user.password_hash = _hasher.hash(new_password)
+        user.password_changed_at = datetime.now(UTC)
+        user.failed_login_attempts = 0
+        await session.commit()
+
     async def verify_challenge_token(
         self,
         session: AsyncSession,

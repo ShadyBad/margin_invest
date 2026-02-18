@@ -14,6 +14,7 @@ export async function GET() {
       headers: {
         "Content-Type": "application/json",
         "X-User-Id": (session.userId as string) || "",
+        "X-User-Email": session.user?.email || "",
       },
       cache: "no-store",
     })
