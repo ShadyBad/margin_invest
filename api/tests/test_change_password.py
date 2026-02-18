@@ -90,7 +90,7 @@ class TestChangePassword:
                 },
             )
         assert resp.status_code == 401
-        assert "Invalid current password" in resp.json()["detail"]
+        assert "Invalid current password" in resp.json()["message"]
 
     @pytest.mark.asyncio
     async def test_weak_new_password_too_short(self, setup):

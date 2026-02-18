@@ -166,7 +166,7 @@ class TestUploadAvatar:
         )
 
         assert resp.status_code == 400
-        assert "exceeds maximum" in resp.json()["detail"]
+        assert "exceeds maximum" in resp.json()["message"]
 
     @pytest.mark.asyncio
     async def test_upload_rejects_wrong_type(self, authed_client):
@@ -178,7 +178,7 @@ class TestUploadAvatar:
         )
 
         assert resp.status_code == 400
-        assert "Unsupported image type" in resp.json()["detail"]
+        assert "Unsupported image type" in resp.json()["message"]
 
 
 class TestDeleteAvatar:
@@ -225,4 +225,4 @@ class TestAvatarAuth:
         )
 
         assert resp.status_code == 401
-        assert resp.json()["detail"] == "Not authenticated"
+        assert resp.json()["message"] == "Not authenticated"

@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+import logging
+import uuid
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+from margin_api.schemas.errors import ErrorResponse
 
 from margin_api import __version__
 from margin_api.config import get_settings
@@ -23,6 +30,38 @@ from margin_api.routes.scores import router as scores_router
 from margin_api.routes.universe import router as universe_router
 from margin_api.routes.v3_scores import router as v3_scores_router
 from margin_api.ws.scores import router as ws_router
+
+
+logger = logging.getLogger(__name__)
+
+
+class RequestIdMiddleware:
+    """Attach a unique request ID to every request/response.
+
+    Implemented as a pure ASGI middleware (not BaseHTTPMiddleware)
+    to avoid the task-context issues that BaseHTTPMiddleware causes
+    with asyncpg and other async database drivers.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        request_id = str(uuid.uuid4())
+        scope.setdefault("state", {})["request_id"] = request_id
+
+        async def send_with_request_id(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.append((b"x-request-id", request_id.encode()))
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_with_request_id)
 
 
 def create_app() -> FastAPI:
@@ -55,6 +94,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Request ID
+    app.add_middleware(RequestIdMiddleware)
+
     # Routes
     app.include_router(auth_router)
     app.include_router(avatar_router)
@@ -72,5 +114,33 @@ def create_app() -> FastAPI:
     app.include_router(backtest_router)
     app.include_router(universe_router)
     app.include_router(ws_router)
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        request_id = getattr(request.state, "request_id", "unknown")
+        detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=ErrorResponse(
+                error_code=detail.upper().replace(" ", "_") if exc.status_code == 404 else "HTTP_ERROR",
+                message=detail,
+                request_id=request_id,
+                status_code=exc.status_code,
+            ).model_dump(),
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        request_id = getattr(request.state, "request_id", "unknown")
+        logger.error("[%s] Unhandled exception: %s", request_id, exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content=ErrorResponse(
+                error_code="INTERNAL_ERROR",
+                message="An unexpected error occurred.",
+                request_id=request_id,
+                status_code=500,
+            ).model_dump(),
+        )
 
     return app
