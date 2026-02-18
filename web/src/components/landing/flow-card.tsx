@@ -1,7 +1,7 @@
 "use client"
 
-import { useRef, type ReactNode, type CSSProperties } from "react"
-import { motion, useScroll, useTransform, useReducedMotion, type MotionStyle } from "framer-motion"
+import { useRef, type ReactNode } from "react"
+import { motion, useScroll, useTransform, type MotionStyle } from "framer-motion"
 import { GlassSurface } from "../ui/glass-surface"
 
 interface FlowCardProps {
@@ -14,7 +14,6 @@ interface FlowCardProps {
 
 export function FlowCard({ title, subtitle, children, motionStyle }: FlowCardProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const prefersReducedMotion = useReducedMotion()
 
   // Self-tracking mode: used in mobile layout where cards scroll vertically
   const { scrollYProgress } = useScroll({
@@ -28,16 +27,8 @@ export function FlowCard({ title, subtitle, children, motionStyle }: FlowCardPro
     [0.15, 0.6, 1, 0.6, 0.15],
   )
 
-  const selfBlur = useTransform(
-    scrollYProgress,
-    [0, 0.3, 0.5, 0.7, 1],
-    prefersReducedMotion ? [0, 0, 0, 0, 0] : [4, 1.5, 0, 1.5, 4],
-  )
-
-  const selfFilter = useTransform(selfBlur, (v) => `blur(${v}px)`)
-
   // Use parent-provided motion styles (desktop) or self-tracking (mobile)
-  const style: MotionStyle = motionStyle ?? { opacity: selfOpacity, filter: selfFilter }
+  const style: MotionStyle = motionStyle ?? { opacity: selfOpacity }
 
   return (
     <motion.div

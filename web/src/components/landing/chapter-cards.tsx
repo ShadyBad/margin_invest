@@ -71,14 +71,13 @@ const proofCards = [
 ]
 
 /**
- * Compute opacity and blur for a card based on its index distance from the
- * current focal point. The focal card shifts as the section scrolls:
+ * Compute opacity for a card based on its index distance from the current
+ * focal point. The focal card shifts as the section scrolls:
  * progress 0 → focal index ~1, progress 0.5 → focal index 2, progress 1 → focal index ~3
  */
 function useCardSpotlight(
   scrollYProgress: MotionValue<number>,
   cardIndex: number,
-  prefersReducedMotion: boolean | null,
 ) {
   // Focal card index shifts from 1 to 3 as scroll progresses
   const opacity = useTransform(scrollYProgress, (progress) => {
@@ -88,15 +87,7 @@ function useCardSpotlight(
     return Math.max(0.15, 1 - distance * 0.35)
   })
 
-  const filter = useTransform(scrollYProgress, (progress) => {
-    if (prefersReducedMotion) return "blur(0px)"
-    const focal = 1 + progress * 2
-    const distance = Math.abs(cardIndex - focal)
-    const blurAmount = Math.min(4, distance * 1.5)
-    return `blur(${blurAmount}px)`
-  })
-
-  return { opacity, filter }
+  return { opacity }
 }
 
 function CardRow({
@@ -148,14 +139,13 @@ function SpotlightCard({
   index: number
   scrollYProgress: MotionValue<number>
 }) {
-  const prefersReducedMotion = useReducedMotion()
-  const { opacity, filter } = useCardSpotlight(scrollYProgress, index, prefersReducedMotion)
+  const { opacity } = useCardSpotlight(scrollYProgress, index)
 
   return (
     <FlowCard
       title={card.title}
       subtitle={card.subtitle}
-      motionStyle={{ opacity, filter }}
+      motionStyle={{ opacity }}
     >
       <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
         {card.content}
