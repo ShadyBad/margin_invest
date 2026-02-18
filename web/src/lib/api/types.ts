@@ -87,6 +87,16 @@ export interface ScoreListResponse {
   page_size: number
 }
 
+export interface InstitutionalMetricsResponse {
+  sharpe_ratio: number | null
+  max_drawdown: number | null
+  volatility: number | null
+  avg_profit_margin: number | null
+  risk_classification: string
+  allocation_weight: number | null
+  margin_of_safety: number | null
+}
+
 export interface PickSummary {
   ticker: string
   name: string
