@@ -116,6 +116,7 @@ async def seed_ticker_data(
         raw_sector = info.get("sector", "")
         sector = SECTOR_MAP.get(raw_sector, raw_sector)
         sub_industry = info.get("industry")
+        country = info.get("country")
         market_cap = Decimal(str(info.get("marketCap", 0)))
         shares_outstanding = info.get("sharesOutstanding")
 
@@ -129,6 +130,7 @@ async def seed_ticker_data(
                 name=name,
                 sector=sector,
                 sub_industry=sub_industry,
+                country=country,
                 market_cap=market_cap,
                 shares_outstanding=shares_outstanding,
             )
@@ -138,6 +140,7 @@ async def seed_ticker_data(
             asset.name = name
             asset.sector = sector
             asset.sub_industry = sub_industry
+            asset.country = country
             asset.market_cap = market_cap
             asset.shares_outstanding = shares_outstanding
 
@@ -585,9 +588,10 @@ def determine_run_type(tickers_override: list[str] | None) -> str:
 
 
 def run_universe_generate(output: str | None = None) -> None:
-    """Screen Yahoo Finance for US equities on major exchanges and generate universe.yaml."""
+    """Screen Yahoo Finance for US-domiciled equities and generate universe.yaml."""
     from margin_engine.universe.screener import (
         US_EXCHANGES,
+        filter_by_country,
         generate_universe_yaml,
         screen_us_equities,
     )
@@ -596,7 +600,7 @@ def run_universe_generate(output: str | None = None) -> None:
     min_market_cap = 0
     min_avg_volume = 0
 
-    logger.info("Screening Yahoo Finance for US equities on major exchanges...")
+    logger.info("Screening Yahoo Finance for US-domiciled equities...")
     logger.info("  Exchanges: %s", ", ".join(US_EXCHANGES))
     logger.info("  Excluded sectors: %s", ", ".join(excluded_sectors))
 
@@ -605,9 +609,14 @@ def run_universe_generate(output: str | None = None) -> None:
         min_avg_volume=min_avg_volume,
         excluded_sectors=excluded_sectors,
         exchanges=US_EXCHANGES,
+        us_domiciled_only=True,
     )
-    tickers = sorted(set(r["ticker"] for r in raw))
-    logger.info("Found %d tickers after filtering", len(tickers))
+    logger.info("Found %d tickers after currency filter", len(raw))
+
+    # Second pass: verify country of domicile via yfinance Ticker.info
+    us_only = filter_by_country(raw, allowed_country="United States")
+    tickers = sorted(set(r["ticker"] for r in us_only))
+    logger.info("Found %d US-domiciled tickers", len(tickers))
 
     yaml_content = generate_universe_yaml(
         tickers=tickers,
@@ -615,7 +624,7 @@ def run_universe_generate(output: str | None = None) -> None:
         min_market_cap=min_market_cap,
         min_avg_volume=min_avg_volume,
         exchanges=US_EXCHANGES,
-        description="US exchange-listed equities, excluding financials and REITs",
+        description="US-domiciled equities, excluding financials and REITs",
     )
 
     if output is None:
@@ -655,6 +664,55 @@ async def run_universe_activate(config_path: str | None = None) -> None:
 # ---------------------------------------------------------------------------
 # Full pipeline
 # ---------------------------------------------------------------------------
+
+
+async def run_backfill_country() -> None:
+    """Backfill country field for existing assets using yfinance.
+
+    Fetches country from yfinance Ticker.info for all assets where
+    country is NULL. Uses rate limiting to avoid API throttling.
+    """
+    provider = YFinanceProvider()
+    registry = RateLimiterRegistry()
+    registry.register("yfinance", provider.info.requests_per_minute)
+    limiter = registry.get("yfinance")
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Get all assets missing country
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Asset).where(Asset.country.is_(None)).order_by(Asset.ticker)
+        )
+        assets = result.scalars().all()
+
+    total = len(assets)
+    logger.info("Backfilling country for %d assets...", total)
+
+    updated = 0
+    for i, asset in enumerate(assets, start=1):
+        limiter.wait_and_acquire()
+        try:
+            info = yfinance.Ticker(asset.ticker).info or {}
+            country = info.get("country")
+            if country:
+                async with session_factory() as session:
+                    result = await session.execute(
+                        select(Asset).where(Asset.id == asset.id)
+                    )
+                    db_asset = result.scalar_one()
+                    db_asset.country = country
+                    await session.commit()
+                updated += 1
+                logger.info("[%d/%d] %s → %s", i, total, asset.ticker, country)
+            else:
+                logger.info("[%d/%d] %s → no country info", i, total, asset.ticker)
+        except Exception as e:
+            logger.warning("[%d/%d] %s failed: %s", i, total, asset.ticker, e)
+
+    logger.info("Backfill complete: %d/%d updated", updated, total)
+    await engine.dispose()
 
 
 async def run_pipeline(tickers: list[str] | None = None) -> None:
@@ -737,6 +795,12 @@ def main() -> None:
         help="Shiller CAPE override (fetches from FRED if omitted)",
     )
 
+    # backfill-country
+    subparsers.add_parser(
+        "backfill-country",
+        help="Backfill country field for assets missing it (from yfinance)",
+    )
+
     # pipeline (seed + score in one go)
     pipeline_parser = subparsers.add_parser("pipeline", help="Run full pipeline: seed → score")
     pipeline_parser.add_argument(
@@ -756,6 +820,8 @@ def main() -> None:
         else:
             universe_parser.print_help()
             sys.exit(1)
+    elif args.command == "backfill-country":
+        asyncio.run(run_backfill_country())
     elif args.command == "seed":
         asyncio.run(run_seed(tickers=args.tickers))
     elif args.command == "score":

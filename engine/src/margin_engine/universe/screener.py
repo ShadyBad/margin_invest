@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
 _PAGE_SIZE = 250
+_COUNTRY_CHECK_WORKERS = 8  # Keep low to avoid yfinance crumb invalidation
 
 # Major US exchanges — excludes OTC/Pink Sheets where foreign stocks trade
 # NMS = NASDAQ Global Select, NGM = NASDAQ Global Market, NCM = NASDAQ Capital Market
@@ -35,6 +37,7 @@ def screen_us_equities(
     min_avg_volume: int = 0,
     excluded_sectors: list[str] | None = None,
     exchanges: list[str] | None = None,
+    us_domiciled_only: bool = True,
 ) -> list[dict]:
     """Screen Yahoo Finance for US equities listed on major exchanges.
 
@@ -45,6 +48,8 @@ def screen_us_equities(
         exchanges: Exchange codes to include (default: US_EXCHANGES).
             Uses ``is-in`` filter to restrict to major US exchanges,
             excluding OTC/Pink Sheets where foreign stocks trade.
+        us_domiciled_only: If True, exclude ADRs and foreign-domiciled companies
+            by filtering out tickers whose financialCurrency is not USD.
     """
     import yfinance as yf
     from yfinance import EquityQuery
@@ -54,6 +59,7 @@ def screen_us_equities(
     exchange_list = exchanges or US_EXCHANGES
 
     results: list[dict] = []
+    foreign_skipped = 0
 
     for sector in included_sectors:
         conditions = [
@@ -96,6 +102,13 @@ def screen_us_equities(
                 if not symbol or "." in symbol or "-" in symbol or len(symbol) > 5:
                     continue
 
+                # Skip foreign-domiciled companies (ADRs report in home currency)
+                if us_domiciled_only:
+                    fin_currency = q.get("financialCurrency", "")
+                    if fin_currency and fin_currency != "USD":
+                        foreign_skipped += 1
+                        continue
+
                 results.append({
                     "ticker": symbol,
                     "name": q.get("shortName") or q.get("longName") or symbol,
@@ -106,8 +119,69 @@ def screen_us_equities(
 
             offset += _PAGE_SIZE
 
+    if foreign_skipped:
+        logger.info("Skipped %d foreign-domiciled tickers (non-USD financials)", foreign_skipped)
     logger.info("Total: %d tickers across %d sectors", len(results), len(included_sectors))
     return results
+
+
+def _get_country(ticker: str) -> tuple[str, str | None]:
+    """Fetch country of domicile for a single ticker. Returns (ticker, country).
+
+    Retries once on failure (yfinance crumb invalidation is transient).
+    """
+    import time
+
+    import yfinance as yf
+
+    for attempt in range(2):
+        try:
+            info = yf.Ticker(ticker).info or {}
+            return ticker, info.get("country")
+        except Exception:
+            if attempt == 0:
+                time.sleep(1)
+    return ticker, None
+
+
+def filter_by_country(
+    tickers: list[dict],
+    allowed_country: str = "United States",
+) -> list[dict]:
+    """Remove tickers not domiciled in the allowed country.
+
+    Uses parallel yfinance lookups to check each ticker's country.
+    """
+    symbols = [t["ticker"] for t in tickers]
+    ticker_map = {t["ticker"]: t for t in tickers}
+
+    logger.info("Checking country of domicile for %d tickers...", len(symbols))
+    countries: dict[str, str | None] = {}
+
+    with ThreadPoolExecutor(max_workers=_COUNTRY_CHECK_WORKERS) as pool:
+        futures = {pool.submit(_get_country, s): s for s in symbols}
+        done = 0
+        for future in as_completed(futures):
+            ticker, country = future.result()
+            countries[ticker] = country
+            done += 1
+            if done % 500 == 0:
+                logger.info("  Country check: %d/%d done", done, len(symbols))
+
+    kept: list[dict] = []
+    removed = 0
+    for sym in symbols:
+        country = countries.get(sym)
+        if country is None or country == allowed_country:
+            kept.append(ticker_map[sym])
+        else:
+            removed += 1
+
+    logger.info(
+        "Country filter: kept %d, removed %d foreign-domiciled",
+        len(kept), removed,
+    )
+    return kept
 
 
 def filter_universe(
