@@ -113,6 +113,7 @@ export interface PickSummary {
   margin_of_safety?: number | null
   max_position_pct?: number | null
   timing_signal?: string | null
+  sector?: string | null
 }
 
 export interface WatchlistItem {
