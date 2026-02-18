@@ -22,64 +22,64 @@ describe("BillingSection", () => {
     expect(screen.getByText("Billing").closest("section")!.querySelector(".animate-pulse")).toBeTruthy()
   })
 
-  it("shows Scout plan badge", async () => {
+  it("shows Analyst plan badge", async () => {
     mockBillingFetch({
-      plan: "scout",
+      plan: "analyst",
       status: null,
       current_period_end: null,
       is_active: true,
     })
     render(<BillingSection />)
     await waitFor(() => {
-      expect(screen.getByText("Scout")).toBeInTheDocument()
+      expect(screen.getByText("Analyst")).toBeInTheDocument()
     })
   })
 
-  it("shows Operator plan badge with Active status", async () => {
+  it("shows Portfolio plan badge with Active status", async () => {
     mockBillingFetch({
-      plan: "operator",
+      plan: "portfolio",
       status: "active",
       current_period_end: "2026-04-01T00:00:00Z",
       is_active: true,
     })
     render(<BillingSection />)
     await waitFor(() => {
-      expect(screen.getByText("Operator")).toBeInTheDocument()
+      expect(screen.getByText("Portfolio")).toBeInTheDocument()
       expect(screen.getByText("Active")).toBeInTheDocument()
     })
   })
 
-  it("shows Allocator plan badge with Active status", async () => {
+  it("shows Institutional plan badge with Active status", async () => {
     mockBillingFetch({
-      plan: "allocator",
+      plan: "institutional",
       status: "active",
       current_period_end: "2026-04-01T00:00:00Z",
       is_active: true,
     })
     render(<BillingSection />)
     await waitFor(() => {
-      expect(screen.getByText("Allocator")).toBeInTheDocument()
+      expect(screen.getByText("Institutional")).toBeInTheDocument()
       expect(screen.getByText("Active")).toBeInTheDocument()
     })
   })
 
-  it("shows upgrade buttons for Scout users", async () => {
+  it("shows upgrade buttons for Analyst users", async () => {
     mockBillingFetch({
-      plan: "scout",
+      plan: "analyst",
       status: null,
       current_period_end: null,
       is_active: true,
     })
     render(<BillingSection />)
     await waitFor(() => {
-      expect(screen.getByText("Upgrade to Operator - $29/mo")).toBeInTheDocument()
-      expect(screen.getByText("Upgrade to Allocator - $79/mo")).toBeInTheDocument()
+      expect(screen.getByText("Upgrade to Portfolio - $29/mo")).toBeInTheDocument()
+      expect(screen.getByText("Upgrade to Institutional - $79/mo")).toBeInTheDocument()
     })
   })
 
   it("shows manage subscription button for paid users", async () => {
     mockBillingFetch({
-      plan: "operator",
+      plan: "portfolio",
       status: "active",
       current_period_end: "2026-04-01T00:00:00Z",
       is_active: true,
@@ -92,7 +92,7 @@ describe("BillingSection", () => {
 
   it("shows renewal date for active subscription", async () => {
     mockBillingFetch({
-      plan: "operator",
+      plan: "portfolio",
       status: "active",
       current_period_end: "2026-04-15T12:00:00Z",
       is_active: true,
@@ -106,7 +106,7 @@ describe("BillingSection", () => {
 
   it('shows "Access until" for canceled subscription', async () => {
     mockBillingFetch({
-      plan: "operator",
+      plan: "portfolio",
       status: "canceled",
       current_period_end: "2026-05-15T12:00:00Z",
       is_active: false,
@@ -129,7 +129,7 @@ describe("BillingSection", () => {
 
   it("shows past due warning", async () => {
     mockBillingFetch({
-      plan: "operator",
+      plan: "portfolio",
       status: "past_due",
       current_period_end: "2026-03-01T00:00:00Z",
       is_active: true,

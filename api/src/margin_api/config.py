@@ -43,8 +43,8 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
     stripe_webhook_secret: str = ""
-    stripe_operator_price_id: str = ""
-    stripe_allocator_price_id: str = ""
+    stripe_portfolio_price_id: str = ""
+    stripe_institutional_price_id: str = ""
 
     # API Key encryption (separate from MFA encryption key)
     api_key_encryption_key: str = ""

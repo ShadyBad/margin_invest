@@ -10,7 +10,7 @@ from pydantic import BaseModel
 class CheckoutRequest(BaseModel):
     """Request to create a Stripe Checkout session."""
 
-    plan: str  # "operator" | "allocator"
+    plan: str  # "portfolio" | "institutional"
 
 
 class CheckoutResponse(BaseModel):
@@ -28,7 +28,7 @@ class PortalResponse(BaseModel):
 class BillingStatusResponse(BaseModel):
     """Current subscription status."""
 
-    plan: str  # "scout" | "operator" | "allocator"
+    plan: str  # "analyst" | "portfolio" | "institutional"
     status: str | None = None  # "active" | "trialing" | "past_due" | "canceled"
     current_period_end: datetime | None = None
     is_active: bool

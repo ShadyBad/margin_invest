@@ -46,8 +46,8 @@ async def setup():
             mfa_encryption_key=_TEST_FERNET_KEY,
             api_key_encryption_key=_TEST_FERNET_KEY,
             stripe_secret_key="sk_test_fake",
-            stripe_operator_price_id="price_operator_123",
-            stripe_allocator_price_id="price_allocator_456",
+            stripe_portfolio_price_id="price_portfolio_123",
+            stripe_institutional_price_id="price_institutional_456",
             stripe_webhook_secret="whsec_fake",
         )
 
@@ -78,7 +78,7 @@ class TestCheckout:
 
                 resp = await client.post(
                     "/api/v1/billing/checkout",
-                    json={"plan": "operator"},
+                    json={"plan": "portfolio"},
                 )
 
         assert resp.status_code == 200
@@ -87,12 +87,12 @@ class TestCheckout:
 
 class TestBillingStatus:
     @pytest.mark.asyncio
-    async def test_status_returns_scout_by_default(self, setup):
+    async def test_status_returns_analyst_by_default(self, setup):
         app, _ = setup
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/api/v1/billing/status")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["plan"] == "scout"
+        assert data["plan"] == "analyst"
         assert data["is_active"] is False

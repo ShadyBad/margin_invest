@@ -10,16 +10,16 @@ interface BillingStatus {
 }
 
 const PLAN_BADGES: Record<string, { label: string; className: string }> = {
-  scout: {
-    label: "Scout",
+  analyst: {
+    label: "Analyst",
     className: "bg-bg-subtle text-text-secondary border-border-primary",
   },
-  operator: {
-    label: "Operator",
+  portfolio: {
+    label: "Portfolio",
     className: "bg-accent/10 text-accent border-accent/30",
   },
-  allocator: {
-    label: "Allocator",
+  institutional: {
+    label: "Institutional",
     className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
   },
 }
@@ -109,7 +109,7 @@ export function BillingSection() {
     )
   }
 
-  const planBadge = PLAN_BADGES[status.plan] || PLAN_BADGES.scout
+  const planBadge = PLAN_BADGES[status.plan] || PLAN_BADGES.analyst
   const statusPill = status.status ? STATUS_PILLS[status.status] : null
   const isCanceled = status.status === "canceled"
   const isPastDue = status.status === "past_due"
@@ -159,21 +159,21 @@ export function BillingSection() {
       )}
 
       {/* Actions */}
-      {status.plan === "scout" ? (
+      {status.plan === "analyst" ? (
         <div className="flex flex-col sm:flex-row gap-3">
           <button
-            onClick={() => handleCheckout("operator")}
+            onClick={() => handleCheckout("portfolio")}
             disabled={actionLoading !== null}
             className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {actionLoading === "operator" ? "Loading..." : "Upgrade to Operator - $29/mo"}
+            {actionLoading === "portfolio" ? "Loading..." : "Upgrade to Portfolio - $29/mo"}
           </button>
           <button
-            onClick={() => handleCheckout("allocator")}
+            onClick={() => handleCheckout("institutional")}
             disabled={actionLoading !== null}
             className="px-4 py-2 bg-amber-500 text-bg-primary font-medium text-sm rounded-sm hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {actionLoading === "allocator" ? "Loading..." : "Upgrade to Allocator - $79/mo"}
+            {actionLoading === "institutional" ? "Loading..." : "Upgrade to Institutional - $79/mo"}
           </button>
         </div>
       ) : (

@@ -36,15 +36,15 @@ async def user(db):
 def service():
     return BillingService(
         stripe_secret_key="sk_test_fake",
-        stripe_operator_price_id="price_operator_123",
-        stripe_allocator_price_id="price_allocator_456",
+        stripe_portfolio_price_id="price_portfolio_123",
+        stripe_institutional_price_id="price_institutional_456",
         stripe_webhook_secret="whsec_fake",
     )
 
 
 class TestCreateCheckoutSession:
     @pytest.mark.asyncio
-    async def test_creates_operator_checkout_and_sets_customer(self, db, user, service):
+    async def test_creates_portfolio_checkout_and_sets_customer(self, db, user, service):
         mock_session = MagicMock()
         mock_session.url = "https://checkout.stripe.com/session_123"
 
@@ -58,7 +58,7 @@ class TestCreateCheckoutSession:
             url = await service.create_checkout_session(
                 db,
                 user_id=user.id,
-                plan="operator",
+                plan="portfolio",
                 success_url="http://localhost:3000/account?subscription=active",
                 cancel_url="http://localhost:3000/account",
             )
@@ -70,15 +70,15 @@ class TestCreateCheckoutSession:
         # Verify correct price_id used
         call_args = mock_stripe.v1.checkout.sessions.create.call_args
         line_items = call_args[1]["params"]["line_items"]
-        assert line_items[0]["price"] == "price_operator_123"
+        assert line_items[0]["price"] == "price_portfolio_123"
 
     @pytest.mark.asyncio
-    async def test_creates_allocator_checkout(self, db, user, service):
+    async def test_creates_institutional_checkout(self, db, user, service):
         user.stripe_customer_id = "cus_existing"
         await db.commit()
 
         mock_session = MagicMock()
-        mock_session.url = "https://checkout.stripe.com/session_alloc"
+        mock_session.url = "https://checkout.stripe.com/session_inst"
 
         with patch.object(service, "_stripe") as mock_stripe:
             mock_stripe.v1.checkout.sessions.create.return_value = mock_session
@@ -86,15 +86,15 @@ class TestCreateCheckoutSession:
             url = await service.create_checkout_session(
                 db,
                 user_id=user.id,
-                plan="allocator",
+                plan="institutional",
                 success_url="http://localhost:3000/account?subscription=active",
                 cancel_url="http://localhost:3000/account",
             )
 
-        assert url == "https://checkout.stripe.com/session_alloc"
+        assert url == "https://checkout.stripe.com/session_inst"
         call_args = mock_stripe.v1.checkout.sessions.create.call_args
         line_items = call_args[1]["params"]["line_items"]
-        assert line_items[0]["price"] == "price_allocator_456"
+        assert line_items[0]["price"] == "price_institutional_456"
 
     @pytest.mark.asyncio
     async def test_unknown_plan_raises(self, db, user, service):
@@ -121,7 +121,7 @@ class TestCreateCheckoutSession:
             url = await service.create_checkout_session(
                 db,
                 user_id=user.id,
-                plan="operator",
+                plan="portfolio",
                 success_url="http://localhost:3000/account",
                 cancel_url="http://localhost:3000/account",
             )
@@ -133,7 +133,7 @@ class TestCreateCheckoutSession:
 
 class TestHandleSubscriptionCreated:
     @pytest.mark.asyncio
-    async def test_sets_operator_plan_and_subscription_id(self, db, user, service):
+    async def test_sets_portfolio_plan_and_subscription_id(self, db, user, service):
         user.stripe_customer_id = "cus_123"
         await db.commit()
 
@@ -142,18 +142,18 @@ class TestHandleSubscriptionCreated:
             stripe_customer_id="cus_123",
             stripe_subscription_id="sub_abc",
             status="active",
-            price_id="price_operator_123",
+            price_id="price_portfolio_123",
             current_period_end=1700000000,
         )
 
         await db.refresh(user)
-        assert user.subscription_plan == "operator"
+        assert user.subscription_plan == "portfolio"
         assert user.stripe_subscription_id == "sub_abc"
         assert user.subscription_status == "active"
         assert user.current_period_end is not None
 
     @pytest.mark.asyncio
-    async def test_sets_allocator_plan(self, db, user, service):
+    async def test_sets_institutional_plan(self, db, user, service):
         user.stripe_customer_id = "cus_123"
         await db.commit()
 
@@ -162,16 +162,16 @@ class TestHandleSubscriptionCreated:
             stripe_customer_id="cus_123",
             stripe_subscription_id="sub_abc",
             status="active",
-            price_id="price_allocator_456",
+            price_id="price_institutional_456",
         )
 
         await db.refresh(user)
-        assert user.subscription_plan == "allocator"
+        assert user.subscription_plan == "institutional"
         assert user.stripe_subscription_id == "sub_abc"
         assert user.subscription_status == "active"
 
     @pytest.mark.asyncio
-    async def test_defaults_to_operator_when_no_price_id(self, db, user, service):
+    async def test_defaults_to_portfolio_when_no_price_id(self, db, user, service):
         user.stripe_customer_id = "cus_123"
         await db.commit()
 
@@ -183,14 +183,14 @@ class TestHandleSubscriptionCreated:
         )
 
         await db.refresh(user)
-        assert user.subscription_plan == "operator"
+        assert user.subscription_plan == "portfolio"
 
 
 class TestHandleSubscriptionDeleted:
     @pytest.mark.asyncio
-    async def test_downgrades_to_scout(self, db, user, service):
+    async def test_downgrades_to_analyst(self, db, user, service):
         user.stripe_customer_id = "cus_123"
-        user.subscription_plan = "operator"
+        user.subscription_plan = "portfolio"
         user.stripe_subscription_id = "sub_abc"
         await db.commit()
 
@@ -202,15 +202,15 @@ class TestHandleSubscriptionDeleted:
         )
 
         await db.refresh(user)
-        assert user.subscription_plan == "scout"
+        assert user.subscription_plan == "analyst"
         assert user.subscription_status == "canceled"
 
 
 class TestHandleSubscriptionPastDue:
     @pytest.mark.asyncio
-    async def test_past_due_downgrades_to_scout(self, db, user, service):
+    async def test_past_due_downgrades_to_analyst(self, db, user, service):
         user.stripe_customer_id = "cus_123"
-        user.subscription_plan = "operator"
+        user.subscription_plan = "portfolio"
         await db.commit()
 
         await service.handle_subscription_change(
@@ -221,5 +221,5 @@ class TestHandleSubscriptionPastDue:
         )
 
         await db.refresh(user)
-        assert user.subscription_plan == "scout"
+        assert user.subscription_plan == "analyst"
         assert user.subscription_status == "past_due"

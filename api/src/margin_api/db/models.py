@@ -147,7 +147,7 @@ class User(Base):
     provider: Mapped[str] = mapped_column(String(50))  # google, github, etc.
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    subscription_plan: Mapped[str] = mapped_column(String(20), default="scout")
+    subscription_plan: Mapped[str] = mapped_column(String(20), default="analyst")
     subscription_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     current_period_end: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -432,7 +432,7 @@ class CredentialUser(Base):
     )
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    subscription_plan: Mapped[str] = mapped_column(String(20), default="scout")
+    subscription_plan: Mapped[str] = mapped_column(String(20), default="analyst")
     subscription_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     current_period_end: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

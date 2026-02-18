@@ -25,8 +25,8 @@ router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
 def _get_billing_service(settings: Settings = Depends(get_settings)) -> BillingService:
     return BillingService(
         stripe_secret_key=settings.stripe_secret_key,
-        stripe_operator_price_id=settings.stripe_operator_price_id,
-        stripe_allocator_price_id=settings.stripe_allocator_price_id,
+        stripe_portfolio_price_id=settings.stripe_portfolio_price_id,
+        stripe_institutional_price_id=settings.stripe_institutional_price_id,
         stripe_webhook_secret=settings.stripe_webhook_secret,
     )
 
@@ -125,7 +125,7 @@ async def billing_status(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    is_active = user.subscription_plan in ("operator", "allocator")
+    is_active = user.subscription_plan in ("portfolio", "institutional")
     return BillingStatusResponse(
         plan=user.subscription_plan,
         status=user.subscription_status,

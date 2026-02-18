@@ -19,15 +19,15 @@ class BillingService:
     def __init__(
         self,
         stripe_secret_key: str,
-        stripe_operator_price_id: str,
-        stripe_allocator_price_id: str,
+        stripe_portfolio_price_id: str,
+        stripe_institutional_price_id: str,
         stripe_webhook_secret: str,
     ) -> None:
         self._stripe = stripe.StripeClient(api_key=stripe_secret_key)
         self._webhook_secret = stripe_webhook_secret
         self._price_to_plan = {
-            stripe_operator_price_id: "operator",
-            stripe_allocator_price_id: "allocator",
+            stripe_portfolio_price_id: "portfolio",
+            stripe_institutional_price_id: "institutional",
         }
         self._plan_to_price = {v: k for k, v in self._price_to_plan.items()}
 
@@ -120,10 +120,10 @@ class BillingService:
             )
 
         if status in _ACTIVE_STATUSES:
-            plan = self._price_to_plan.get(price_id or "", "operator")
+            plan = self._price_to_plan.get(price_id or "", "portfolio")
             user.subscription_plan = plan
         else:
-            user.subscription_plan = "scout"
+            user.subscription_plan = "analyst"
 
         await session.commit()
 
