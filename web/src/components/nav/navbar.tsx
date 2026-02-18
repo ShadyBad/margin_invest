@@ -24,14 +24,13 @@ export function Navbar() {
         <NavLinks links={nav.links} />
 
         <div className="hidden md:flex items-center gap-3">
+          <NavCTA cta={nav.cta} />
           {nav.isAuthenticated && (
             <UsagePill used={0} limit={3} />
           )}
-          {nav.user ? (
+          {nav.user && (
             <UserDropdown user={nav.user} />
-          ) : nav.cta ? (
-            <NavCTA cta={nav.cta} />
-          ) : null}
+          )}
         </div>
 
         <button

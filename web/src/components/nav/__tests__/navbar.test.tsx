@@ -13,9 +13,9 @@ vi.mock("@/hooks/use-navigation", () => ({
       return {
         isAuthenticated: true,
         links: [
-          { href: "/dashboard", label: "Dashboard", isActive: true },
+          { href: "/guides", label: "Guides", isActive: false },
         ],
-        cta: null,
+        cta: { primary: { label: "Dashboard", href: "/dashboard" } },
         user: {
           name: "Jane Doe",
           email: "jane@example.com",
@@ -33,14 +33,8 @@ vi.mock("@/hooks/use-navigation", () => ({
     }
     return {
       isAuthenticated: false,
-      links: [
-        { href: "/methodology", label: "Methodology", isActive: false },
-        { href: "/guides", label: "Guides", isActive: false },
-      ],
-      cta: {
-        primary: { label: "Login", href: "/login" },
-        secondary: { label: "Sign Up", href: "/register" },
-      },
+      links: [],
+      cta: { primary: { label: "Dashboard", href: "/login" } },
       user: null,
       logoHref: "/",
     }
@@ -64,20 +58,11 @@ describe("Navbar", () => {
   })
 
   describe("unauthenticated", () => {
-    it("renders public links", () => {
+    it("renders Dashboard button linking to /login", () => {
       render(<Navbar />)
-      expect(screen.getByText("Methodology")).toBeInTheDocument()
-      expect(screen.getByText("Guides")).toBeInTheDocument()
-    })
-
-    it("renders Login CTA", () => {
-      render(<Navbar />)
-      expect(screen.getByText("Login")).toBeInTheDocument()
-    })
-
-    it("renders Sign Up link", () => {
-      render(<Navbar />)
-      expect(screen.getByText("Sign Up")).toBeInTheDocument()
+      const dashboardLink = screen.getByText("Dashboard")
+      expect(dashboardLink).toBeInTheDocument()
+      expect(dashboardLink.closest("a")).toHaveAttribute("href", "/login")
     })
 
     it("does not render user dropdown", () => {
@@ -91,9 +76,18 @@ describe("Navbar", () => {
       mockIsAuthenticated = true
     })
 
-    it("renders app links", () => {
+    it("renders Guides center link", () => {
       render(<Navbar />)
-      expect(screen.getByText("Dashboard")).toBeInTheDocument()
+      expect(screen.getByText("Guides")).toBeInTheDocument()
+    })
+
+    it("renders Dashboard button linking to /dashboard", () => {
+      render(<Navbar />)
+      const dashboardLinks = screen.getAllByText("Dashboard")
+      const ctaLink = dashboardLinks.find(
+        (el) => el.closest("a")?.getAttribute("href") === "/dashboard"
+      )
+      expect(ctaLink).toBeDefined()
     })
 
     it("renders user avatar button", () => {
@@ -101,9 +95,10 @@ describe("Navbar", () => {
       expect(screen.getByRole("button", { name: /user menu/i })).toBeInTheDocument()
     })
 
-    it("does not render Login CTA", () => {
+    it("does not render Login or Sign Up", () => {
       render(<Navbar />)
       expect(screen.queryByText("Login")).not.toBeInTheDocument()
+      expect(screen.queryByText("Sign Up")).not.toBeInTheDocument()
     })
   })
 
@@ -118,16 +113,16 @@ describe("Navbar", () => {
       render(<Navbar />)
       const toggle = screen.getByLabelText("Toggle menu")
 
-      // Menu closed — only desktop links
-      expect(screen.getAllByText("Methodology")).toHaveLength(1)
+      // Menu closed — only desktop NavCTA
+      expect(screen.getAllByText("Dashboard")).toHaveLength(1)
 
       await u.click(toggle)
-      // Menu open — desktop + mobile links
-      expect(screen.getAllByText("Methodology")).toHaveLength(2)
+      // Menu open — desktop NavCTA + mobile menu
+      expect(screen.getAllByText("Dashboard")).toHaveLength(2)
 
       await u.click(toggle)
       // Closed again
-      expect(screen.getAllByText("Methodology")).toHaveLength(1)
+      expect(screen.getAllByText("Dashboard")).toHaveLength(1)
     })
   })
 })
