@@ -90,6 +90,13 @@ async def get_dashboard(
     """Get dashboard with high-conviction picks and watchlist."""
     latest = _latest_score_subquery()
 
+    # Only show tickers in the active universe (excludes OTC/foreign stocks
+    # from previous scoring runs).
+    snapshot = await get_active_snapshot(db)
+    active_tickers: list[str] | None = None
+    if snapshot and snapshot.tickers:
+        active_tickers = snapshot.tickers  # type: ignore[assignment]
+
     base = (
         select(Score, Asset.ticker, Asset.name.label("asset_name"), Asset.sector.label("asset_sector"))
         .join(Asset, Score.asset_id == Asset.id)
@@ -99,6 +106,9 @@ async def get_dashboard(
             & (Score.scored_at == latest.c.max_scored_at),
         )
     )
+
+    if active_tickers is not None:
+        base = base.where(Asset.ticker.in_(active_tickers))
 
     # Picks: exceptional + high conviction
     picks_result = await db.execute(
@@ -144,8 +154,7 @@ async def get_dashboard(
         else datetime.now(UTC).isoformat()
     )
 
-    # Universe metadata
-    snapshot = await get_active_snapshot(db)
+    # Universe metadata (reuse snapshot fetched above)
     universe: UniverseSummary | None = None
     warnings: list[Warning] = []
 
