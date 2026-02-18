@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -281,3 +282,48 @@ class TestScoreFreshness:
             assert score["data_freshness"] in ("fresh", "stale", "expired")
             assert "price_source" in score
             assert "price_updated_at" in score
+
+
+@pytest.mark.asyncio
+class TestMalformedScoreDetail:
+    async def test_get_score_with_malformed_detail_returns_fallback(self, async_engine):
+        """If score_detail JSONB is malformed, endpoint returns degraded response instead of 500."""
+        factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+
+        async with factory() as session:
+            asset = Asset(ticker="BROKEN", name="Broken Corp", sector="Information Technology")
+            session.add(asset)
+            await session.flush()
+            score = Score(
+                asset_id=asset.id,
+                composite_percentile=75.0,
+                composite_raw_score=0.60,
+                conviction_level="high",
+                signal="buy",
+                quality_percentile=80.0,
+                value_percentile=70.0,
+                momentum_percentile=75.0,
+                data_coverage=0.9,
+                score_detail={"garbage": True},  # Missing all required fields
+                scored_at=datetime.now(UTC),
+            )
+            session.add(score)
+            await session.commit()
+
+        app = create_app()
+
+        async def override_get_db():
+            async with factory() as session:
+                yield session
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as ac:
+            resp = await ac.get("/api/v1/scores/BROKEN")
+
+        assert resp.status_code == 200  # Not 500!
+        body = resp.json()
+        assert body["ticker"] == "BROKEN"
+        assert body["conviction_level"] == "high"

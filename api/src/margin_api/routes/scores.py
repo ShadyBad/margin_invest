@@ -53,48 +53,58 @@ def _score_response_from_row(
 
     detail = score.score_detail
     if detail:
-        # Several fields are computed @property on engine models, not in model_dump().
-        detail.setdefault("conviction_level", score.conviction_level)
-        detail.setdefault("signal", score.signal)
-        detail.setdefault("name", row.asset_name if hasattr(row, "asset_name") else "")
-        detail.setdefault(
-            "scored_at", scored_at.isoformat() if scored_at else None
-        )
-        for f in detail.get("filters_passed", []):
-            f.setdefault("verdict", "pass" if f.get("passed") else "fail")
-        for factor_key in ("quality", "value", "momentum", "capital_allocation", "catalyst"):
-            factor = detail.get(factor_key)
-            if factor is not None and isinstance(factor, dict) and "average_percentile" not in factor:
-                subs = factor.get("sub_scores", [])
-                avg = (
-                    sum(s.get("percentile_rank", 0) for s in subs) / len(subs)
-                    if subs
-                    else 0.0
-                )
-                factor["average_percentile"] = avg
-        # Populate score and universe_percentile from raw score / percentile
-        detail.setdefault("score", detail.get("composite_raw_score", score.composite_raw_score))
-        detail.setdefault("universe_percentile", detail.get("composite_percentile", score.composite_percentile))
-        # Include price target fields from DB columns
-        detail.setdefault("intrinsic_value", getattr(score, "intrinsic_value", None))
-        detail.setdefault("buy_price", getattr(score, "buy_price", None))
-        detail.setdefault("sell_price", getattr(score, "sell_price", None))
-        detail.setdefault("actual_price", getattr(score, "actual_price", None))
-        detail.setdefault("price_target_invalid_reason", getattr(score, "price_target_invalid_reason", None))
-        # v2 conviction engine fields from DB columns
-        detail.setdefault("opportunity_type", getattr(score, "opportunity_type", None))
-        detail.setdefault("winning_track", getattr(score, "winning_track", None))
-        detail.setdefault("asymmetry_ratio", getattr(score, "asymmetry_ratio", None))
-        detail.setdefault("max_position_pct", getattr(score, "max_position_pct", None))
-        detail.setdefault("timing_signal", getattr(score, "timing_signal", None))
-        # Override actual_price with live price if available
-        if live_price_data:
-            detail["actual_price"] = live_price_data["price"]
-        # Add freshness fields
-        detail["data_freshness"] = freshness
-        detail["price_source"] = price_source
-        detail["price_updated_at"] = price_updated_at
-        return ScoreResponse(**detail)
+        try:
+            # Several fields are computed @property on engine models, not in model_dump().
+            detail.setdefault("conviction_level", score.conviction_level)
+            detail.setdefault("signal", score.signal)
+            detail.setdefault("name", row.asset_name if hasattr(row, "asset_name") else "")
+            detail.setdefault(
+                "scored_at", scored_at.isoformat() if scored_at else None
+            )
+            for f in detail.get("filters_passed", []):
+                f.setdefault("verdict", "pass" if f.get("passed") else "fail")
+            for factor_key in ("quality", "value", "momentum", "capital_allocation", "catalyst"):
+                factor = detail.get(factor_key)
+                if factor is not None and isinstance(factor, dict) and "average_percentile" not in factor:
+                    subs = factor.get("sub_scores", [])
+                    avg = (
+                        sum(s.get("percentile_rank", 0) for s in subs) / len(subs)
+                        if subs
+                        else 0.0
+                    )
+                    factor["average_percentile"] = avg
+            # Populate score and universe_percentile from raw score / percentile
+            detail.setdefault("score", detail.get("composite_raw_score", score.composite_raw_score))
+            detail.setdefault("universe_percentile", detail.get("composite_percentile", score.composite_percentile))
+            # Include price target fields from DB columns
+            detail.setdefault("intrinsic_value", getattr(score, "intrinsic_value", None))
+            detail.setdefault("buy_price", getattr(score, "buy_price", None))
+            detail.setdefault("sell_price", getattr(score, "sell_price", None))
+            detail.setdefault("actual_price", getattr(score, "actual_price", None))
+            detail.setdefault("price_target_invalid_reason", getattr(score, "price_target_invalid_reason", None))
+            # v2 conviction engine fields from DB columns
+            detail.setdefault("opportunity_type", getattr(score, "opportunity_type", None))
+            detail.setdefault("winning_track", getattr(score, "winning_track", None))
+            detail.setdefault("asymmetry_ratio", getattr(score, "asymmetry_ratio", None))
+            detail.setdefault("max_position_pct", getattr(score, "max_position_pct", None))
+            detail.setdefault("timing_signal", getattr(score, "timing_signal", None))
+            # Override actual_price with live price if available
+            if live_price_data:
+                detail["actual_price"] = live_price_data["price"]
+            # Add freshness fields
+            detail["data_freshness"] = freshness
+            detail["price_source"] = price_source
+            detail["price_updated_at"] = price_updated_at
+            return ScoreResponse(**detail)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Failed to parse score_detail for %s, falling back to summary columns",
+                ticker,
+                exc_info=True,
+            )
+            # Fall through to summary-column path below
 
     # Fallback: build from summary columns (no sub-score detail)
     actual_price = getattr(score, "actual_price", None)
