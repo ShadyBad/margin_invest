@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { ActionPill, Sparkline, PercentileBar, ConvictionBadge, AnimatedScore } from "@/components/ui"
 import { AssetPanel } from "./panel"
 import { getScore } from "@/lib/api/scores"
+import { getSectorColor } from "@/lib/sector-colors"
 import type { PickSummary, ScoreResponse } from "@/lib/api/types"
 
 const INTERACTION_EASE = "cubic-bezier(0.19, 1, 0.22, 1)"
@@ -23,9 +24,9 @@ function formatTimeAgo(isoString: string): string {
 function getCardTierClasses(convictionLevel: string): string {
   switch (convictionLevel) {
     case "exceptional":
-      return "border-accent/30 rounded-lg"
+      return "rounded-lg"
     case "high":
-      return "border-l-2 border-l-accent rounded-lg"
+      return "rounded-lg"
     default:
       return "rounded-lg"
   }
@@ -90,8 +91,11 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
   return (
     <>
     <div
-      className={`relative bg-bg-elevated border border-border-primary cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 p-6 ${getCardTierClasses(pick.conviction_level)} ${getCardShadow(pick.conviction_level)} ${className}`}
-      style={{ transition: `transform 200ms ${INTERACTION_EASE}, box-shadow 200ms ${INTERACTION_EASE}, border-color 200ms ${INTERACTION_EASE}` }}
+      className={`relative bg-bg-elevated border border-border-primary border-l-2 cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 p-6 ${getCardTierClasses(pick.conviction_level)} ${getCardShadow(pick.conviction_level)} ${className}`}
+      style={{
+        borderLeftColor: getSectorColor(pick.sector),
+        transition: `transform 200ms ${INTERACTION_EASE}, box-shadow 200ms ${INTERACTION_EASE}, border-color 200ms ${INTERACTION_EASE}`,
+      }}
       data-testid={`stock-card-${pick.ticker}`}
       onClick={handleClick}
       role="button"

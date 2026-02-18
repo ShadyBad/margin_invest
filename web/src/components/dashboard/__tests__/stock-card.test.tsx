@@ -43,26 +43,24 @@ const basePick: PickSummary = {
 }
 
 describe("StockCard visual hierarchy", () => {
-  it("renders exceptional card with accent border and rounded-lg", () => {
+  it("renders exceptional card with rounded-lg and sector bar", () => {
     render(<StockCard pick={{ ...basePick, conviction_level: "exceptional", score: 92 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
-    expect(card.className).toContain("border-accent/30")
     expect(card.className).toContain("rounded-lg")
+    expect(card.className).toContain("border-l-2")
   })
 
-  it("renders high card with left accent border", () => {
+  it("renders high card with sector bar", () => {
     render(<StockCard pick={{ ...basePick, conviction_level: "high", score: 80 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
     expect(card.className).toContain("border-l-2")
-    expect(card.className).toContain("border-l-accent")
     expect(card.className).toContain("rounded-lg")
   })
 
-  it("renders watchlist card with no accent border", () => {
+  it("renders watchlist card with sector bar and no conviction glow", () => {
     render(<StockCard pick={{ ...basePick, conviction_level: "watchlist", score: 55 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
-    expect(card.className).not.toContain("border-accent/30")
-    expect(card.className).not.toContain("border-l-accent")
+    expect(card.className).toContain("border-l-2")
     expect(card.className).toContain("rounded-lg")
   })
 
@@ -112,5 +110,31 @@ describe("StockCard Buy Below row", () => {
   it("does not render Buy Below row when buy_price is null", () => {
     render(<StockCard pick={{ ...basePick, buy_price: null }} />)
     expect(screen.queryByText("Buy Below:")).not.toBeInTheDocument()
+  })
+})
+
+describe("StockCard sector left bar", () => {
+  it("applies sector color as left border style", () => {
+    render(<StockCard pick={{ ...basePick, sector: "Information Technology" }} />)
+    const card = screen.getByTestId("stock-card-AAPL")
+    expect(card.style.borderLeftColor).toBe("var(--color-sector-tech)")
+  })
+
+  it("applies border-l-2 class for sector bar width", () => {
+    render(<StockCard pick={{ ...basePick, sector: "Energy" }} />)
+    const card = screen.getByTestId("stock-card-AAPL")
+    expect(card.className).toContain("border-l-2")
+  })
+
+  it("falls back to border-primary when sector is null", () => {
+    render(<StockCard pick={{ ...basePick, sector: null }} />)
+    const card = screen.getByTestId("stock-card-AAPL")
+    expect(card.style.borderLeftColor).toBe("var(--color-border-primary)")
+  })
+
+  it("falls back to border-primary when sector is undefined", () => {
+    render(<StockCard pick={basePick} />)
+    const card = screen.getByTestId("stock-card-AAPL")
+    expect(card.style.borderLeftColor).toBe("var(--color-border-primary)")
   })
 })
