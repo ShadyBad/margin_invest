@@ -25,7 +25,7 @@ function WordReveal({ text, delay = 0 }: { text: string; delay?: number }) {
 
 export function ChapterHero() {
   return (
-    <section className="relative h-screen flex items-center justify-center">
+    <section id="signal" className="relative h-screen flex items-center justify-center">
       <div className="relative z-10 text-center max-w-3xl mx-auto px-6">
         <motion.h1
           className="font-display text-5xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-[-0.04em] text-[var(--color-text-primary)]"

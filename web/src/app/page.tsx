@@ -46,11 +46,7 @@ export default async function Home() {
             <ChapterPath />
           </div>
         </div>
-        <ChapterIndicator
-          chapters={3}
-          activeChapter={0}
-          labels={["The Signal", "The Engine", "The Path"]}
-        />
+        <ChapterIndicator />
       </main>
     </DNAProvider>
   )

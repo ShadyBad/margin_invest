@@ -120,7 +120,7 @@ function TierCard({ tier, index }: { tier: Tier; index: number }) {
 
 export function ChapterPath() {
   return (
-    <section className="min-h-screen flex flex-col items-center justify-center px-6 py-24">
+    <section id="path" className="min-h-screen flex flex-col items-center justify-center px-6 py-24">
       <motion.h2
         className="font-display text-4xl md:text-5xl text-center text-[var(--color-text-primary)] mb-4"
         initial={{ opacity: 0, y: 20 }}
