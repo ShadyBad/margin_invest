@@ -34,7 +34,7 @@ export function PipelineChips({ activeStage }: PipelineChipsProps) {
                 data-active={isActive ? "true" : "false"}
                 className={`font-mono text-[10px] md:text-xs tracking-[0.15em] transition-all duration-250 ${
                   isActive
-                    ? "text-accent shadow-[0_0_8px_rgba(16,185,129,0.15)]"
+                    ? "text-accent shadow-[0_0_8px_rgba(26,122,90,0.3)]"
                     : "text-text-tertiary"
                 }`}
               >

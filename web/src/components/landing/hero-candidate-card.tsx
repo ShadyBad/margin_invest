@@ -149,12 +149,13 @@ export function HeroCandidateCard({
 
       {/* Card */}
       <div
-        className="terminal-card p-6 md:p-8 border border-accent/20"
+        className="terminal-card p-6 md:p-8"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         style={{
           opacity,
           transition: `opacity ${opacity === 0 ? FADE_OUT_MS : FADE_IN_MS}ms ${EASING}`,
+          borderColor: 'rgba(26, 122, 90, 0.2)',
         }}
       >
         {/* Ticker + Sector */}
