@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef } from "react"
-import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion"
+import { motion, useScroll, useTransform, useReducedMotion, type MotionValue } from "framer-motion"
 import { FlowCard } from "./flow-card"
 
 const engineCards = [
@@ -77,7 +77,7 @@ function CardRow({
 }: {
   cards: typeof engineCards
   direction: "left" | "right"
-  scrollYProgress: any
+  scrollYProgress: MotionValue<number>
 }) {
   const prefersReducedMotion = useReducedMotion()
 
