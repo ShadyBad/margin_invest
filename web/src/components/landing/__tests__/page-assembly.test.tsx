@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 
-vi.mock("@/components/landing/fluid-shader-loader", () => ({
-  FluidShaderLoader: () => null,
+vi.mock("@/lib/api/server", () => ({
+  serverFetch: vi.fn().mockResolvedValue({ picks: [] }),
 }))
 
 vi.mock("@/lib/auth", () => ({
@@ -26,9 +26,9 @@ vi.mock("framer-motion", () => ({
     h3: ({ children, ...props }: any) => <h3 {...props}>{children}</h3>,
     p: ({ children, ...props }: any) => <p {...props}>{children}</p>,
     span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
-    section: ({ children, ...props }: any) => (
-      <section {...props}>{children}</section>
-    ),
+    section: ({ children, ...props }: any) => <section {...props}>{children}</section>,
+    li: ({ children, ...props }: any) => <li {...props}>{children}</li>,
+    ul: ({ children, ...props }: any) => <ul {...props}>{children}</ul>,
   },
   useInView: () => true,
   useScroll: () => ({ scrollYProgress: { get: () => 0.5 } }),
@@ -39,25 +39,51 @@ vi.mock("framer-motion", () => ({
   useReducedMotion: () => false,
 }))
 
+vi.mock("gsap", () => ({
+  default: { registerPlugin: vi.fn(), to: vi.fn() },
+}))
+
+vi.mock("gsap/ScrollTrigger", () => ({
+  default: { create: vi.fn(), getAll: () => [] },
+}))
+
 import Page from "../../../app/page"
 
 describe("Landing page assembly", () => {
-  it("renders all 3 chapters", async () => {
+  it("renders all major sections", async () => {
     const jsx = await Page()
     render(jsx)
-    // Chapter 1: Hero
-    expect(screen.getByText("Conviction,")).toBeInTheDocument()
-    expect(screen.getByText("Quantified.")).toBeInTheDocument()
-    // Chapter 2: Counter-flow cards (engine + proof)
-    // Use getAllByText because jsdom renders both desktop and mobile layouts
-    expect(screen.getAllByText("Raw Signal").length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText("Factor Analysis").length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText("Sample Score").length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText("Portfolio View").length).toBeGreaterThanOrEqual(1)
-    // Chapter 3: Pricing
-    expect(screen.getByText("Scout")).toBeInTheDocument()
-    expect(screen.getByText("Operator")).toBeInTheDocument()
-    expect(screen.getByText("Allocator")).toBeInTheDocument()
+
+    // Hero
+    expect(screen.getByText("Conviction.")).toBeInTheDocument()
+    expect(screen.getByText("Engineered.")).toBeInTheDocument()
+
+    // Problem
+    expect(screen.getByText(/most investors react/i)).toBeInTheDocument()
+
+    // Engine - cards appear twice (desktop + mobile), use getAllByText
+    expect(screen.getAllByText("Raw Market Signal").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Portfolio Correlation Mapping").length).toBeGreaterThanOrEqual(1)
+
+    // Pipeline
+    expect(screen.getByText("DATA")).toBeInTheDocument()
+    expect(screen.getByText("PORTFOLIO")).toBeInTheDocument()
+
+    // Proof
+    expect(screen.getByText(/structure creates measurable advantage/i)).toBeInTheDocument()
+
+    // Positioning
+    expect(screen.getByText(/disciplined capital allocators/i)).toBeInTheDocument()
+
+    // Pricing (renamed tiers)
+    expect(screen.getByText("Analyst")).toBeInTheDocument()
+    expect(screen.getByText("Institutional")).toBeInTheDocument()
+
+    // Legitimacy
+    expect(screen.getByText(/no hidden heuristics/i)).toBeInTheDocument()
+
+    // Footer
+    expect(screen.getByText(/engine v/i)).toBeInTheDocument()
   })
 
   it("renders the navbar", async () => {
@@ -65,22 +91,5 @@ describe("Landing page assembly", () => {
     render(jsx)
     const nav = screen.getByRole("navigation", { name: "Main navigation" })
     expect(nav).toBeInTheDocument()
-  })
-
-  it("has no 50vh chapter break spacers", async () => {
-    const jsx = await Page()
-    const { container } = render(jsx)
-    const breaks = container.querySelectorAll(".h-\\[50vh\\]")
-    expect(breaks.length).toBe(0)
-  })
-
-  it("renders chapter indicator with 3 chapters", async () => {
-    const jsx = await Page()
-    render(jsx)
-    const nav = screen.getByLabelText("Page chapters")
-    expect(nav).toBeInTheDocument()
-    // Should have 3 dots, not 4
-    const dots = nav.querySelectorAll("[data-chapter-dot]")
-    expect(dots).toHaveLength(3)
   })
 })

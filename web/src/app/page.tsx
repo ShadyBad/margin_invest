@@ -1,53 +1,59 @@
-import { auth } from "@/lib/auth"
 import { Navbar } from "@/components/nav/navbar"
-import { DNAProvider } from "@/components/landing/dna-provider"
-import { FluidShaderLoader } from "@/components/landing/fluid-shader-loader"
-import { ChapterHero } from "@/components/landing/chapter-hero"
-import { ChapterCards } from "@/components/landing/chapter-cards"
-import { ChapterPath } from "@/components/landing/chapter-path"
-import { ChapterIndicator } from "@/components/landing/chapter-indicator"
+import { HeroSection } from "@/components/landing/hero-section"
+import { ProblemSection } from "@/components/landing/problem-section"
+import { EngineSection } from "@/components/landing/engine-section"
+import { ProofSection } from "@/components/landing/proof-section"
+import { PositioningSection } from "@/components/landing/positioning-section"
+import { PricingSection } from "@/components/landing/pricing-section"
+import { LegitimacyStrip } from "@/components/landing/legitimacy-strip"
+import { FooterInstitutional } from "@/components/landing/footer-institutional"
+import { SectionIndicator } from "@/components/landing/section-indicator"
+import { serverFetch } from "@/lib/api/server"
 
-async function getDNA() {
+interface PickSummary {
+  ticker: string
+  name: string
+  actual_price: number | null
+  buy_price: number | null
+  margin_of_safety: number | null
+  composite_percentile: number
+  quality_percentile: number
+  value_percentile: number
+  momentum_percentile: number
+  scored_at: string | null
+  sector: string | null
+}
+
+interface DashboardResponse {
+  picks: PickSummary[]
+}
+
+async function getTopPick(): Promise<PickSummary | null> {
   try {
-    const session = await auth()
-    if (!session) return null
-    const res = await fetch(`${process.env.API_URL || "http://localhost:8000"}/api/v1/users/me/dna`, {
-      headers: {
-        "X-User-Id": String((session as any).userId || ""),
-        "X-User-Email": (session as any).user?.email || "",
-      },
-      next: { revalidate: 3600 },
-    })
-    if (!res.ok) return null
-    return res.json()
+    const data = await serverFetch<DashboardResponse>("/api/v1/dashboard")
+    return data.picks[0] ?? null
   } catch {
     return null
   }
 }
 
 export default async function Home() {
-  const dna = await getDNA()
+  const topPick = await getTopPick()
 
   return (
-    <DNAProvider dna={dna}>
-      <main>
-        <FluidShaderLoader
-          baseColor={dna?.base}
-          midColor={dna?.mid}
-          accentColor={dna?.accent}
-          tempo={dna?.tempo}
-          density={dna?.density}
-        />
-        <Navbar />
-        <div className="relative z-10">
-          <ChapterHero />
-          <ChapterCards />
-          <div className="py-16">
-            <ChapterPath />
-          </div>
-        </div>
-        <ChapterIndicator />
-      </main>
-    </DNAProvider>
+    <main>
+      <Navbar />
+      <div className="relative z-10">
+        <HeroSection pick={topPick} />
+        <ProblemSection />
+        <EngineSection />
+        <ProofSection pick={topPick} />
+        <PositioningSection />
+        <PricingSection />
+        <LegitimacyStrip />
+        <FooterInstitutional />
+      </div>
+      <SectionIndicator />
+    </main>
   )
 }
