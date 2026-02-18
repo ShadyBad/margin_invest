@@ -86,3 +86,32 @@ class WebAuthnOptionsResponse(BaseModel):
     """Response containing WebAuthn options."""
 
     options: dict
+
+
+class OAuthSyncRequest(BaseModel):
+    """Request body for syncing an OAuth user to the database."""
+
+    email: str = Field(max_length=320)
+    name: str = Field(max_length=255)
+    provider: str = Field(max_length=50)
+    avatar_url: str | None = None
+
+
+class OAuthSyncResponse(BaseModel):
+    """Response after syncing an OAuth user."""
+
+    id: int
+    subscription_plan: str
+
+
+class ChangePasswordRequest(BaseModel):
+    """Request body for changing a credential user's password."""
+
+    current_password: str
+    new_password: str = Field(min_length=12)
+
+
+class ChangePasswordResponse(BaseModel):
+    """Response after successful password change."""
+
+    message: str

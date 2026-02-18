@@ -7,11 +7,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
-from margin_api.db.models import CredentialUser
+from margin_api.db.models import CredentialUser, User
 from margin_api.db.session import get_db
+from margin_api.deps import get_current_user_id
 from margin_api.schemas.auth import (
+    ChangePasswordRequest,
+    ChangePasswordResponse,
     ConfirmTotpRequest,
     MfaVerifyResponse,
+    OAuthSyncRequest,
+    OAuthSyncResponse,
     RegisterRequest,
     RegisterResponse,
     SetupTotpRequest,
@@ -189,3 +194,69 @@ async def authenticate_webauthn(
 
     options = await webauthn.generate_authentication_options(db, body.user_id)
     return WebAuthnOptionsResponse(options=options)
+
+
+@router.post("/oauth-sync", response_model=OAuthSyncResponse)
+async def oauth_sync(
+    body: OAuthSyncRequest,
+    db: AsyncSession = Depends(get_db),
+) -> OAuthSyncResponse:
+    """Upsert an OAuth user and return the database integer ID.
+
+    Called by the NextAuth jwt callback on sign-in so the frontend
+    can store the real DB id instead of the provider's opaque id.
+    """
+    stmt = select(User).where(User.email == body.email)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+
+    if user is None:
+        user = User(
+            email=body.email,
+            name=body.name,
+            provider=body.provider,
+            oauth_avatar_url=body.avatar_url,
+        )
+        db.add(user)
+        await db.flush()
+    else:
+        user.name = body.name
+        user.oauth_avatar_url = body.avatar_url
+
+    await db.commit()
+    await db.refresh(user)
+
+    return OAuthSyncResponse(id=user.id, subscription_plan=user.subscription_plan)
+
+
+@router.get("/session-check/{user_id}")
+async def check_session(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Internal endpoint called by NextAuth JWT callback to check if password was changed."""
+    result = await db.execute(
+        select(CredentialUser).where(CredentialUser.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user or not user.password_changed_at:
+        return {"password_changed_at": None}
+    return {"password_changed_at": user.password_changed_at.isoformat()}
+
+
+@router.post("/change-password", response_model=ChangePasswordResponse)
+async def change_password(
+    body: ChangePasswordRequest,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    auth: AuthService = Depends(_get_auth_service),
+) -> ChangePasswordResponse:
+    """Change the current user's password. Requires valid current password."""
+    try:
+        await auth.change_password(db, user_id, body.current_password, body.new_password)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="User not found")
+    except PermissionError:
+        raise HTTPException(status_code=401, detail="Invalid current password")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return ChangePasswordResponse(message="Password changed successfully")

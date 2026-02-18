@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import stripe
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import User
 
-# Statuses that grant access to the paid plan
 _ACTIVE_STATUSES = {"active", "trialing"}
 
 
@@ -18,27 +19,33 @@ class BillingService:
     def __init__(
         self,
         stripe_secret_key: str,
-        stripe_price_id: str,
+        stripe_portfolio_price_id: str,
+        stripe_institutional_price_id: str,
         stripe_webhook_secret: str,
     ) -> None:
         self._stripe = stripe.StripeClient(api_key=stripe_secret_key)
-        self._price_id = stripe_price_id
         self._webhook_secret = stripe_webhook_secret
+        self._price_to_plan = {
+            stripe_portfolio_price_id: "portfolio",
+            stripe_institutional_price_id: "institutional",
+        }
+        self._plan_to_price = {v: k for k, v in self._price_to_plan.items()}
 
     async def create_checkout_session(
         self,
         session: AsyncSession,
         user_id: int,
+        plan: str,
         success_url: str,
         cancel_url: str,
     ) -> str:
-        """Create a Stripe Checkout Session for the Margin Invest subscription.
+        """Create a Stripe Checkout Session. Returns the checkout URL."""
+        price_id = self._plan_to_price.get(plan)
+        if not price_id:
+            raise ValueError(f"Unknown plan: {plan}")
 
-        Returns the checkout URL.
-        """
         user = await self._get_user(session, user_id)
 
-        # Create Stripe customer if needed
         if not user.stripe_customer_id:
             customer = self._stripe.v1.customers.create(
                 params={
@@ -54,7 +61,7 @@ class BillingService:
             params={
                 "customer": user.stripe_customer_id,
                 "mode": "subscription",
-                "line_items": [{"price": self._price_id, "quantity": 1}],
+                "line_items": [{"price": price_id, "quantity": 1}],
                 "success_url": success_url,
                 "cancel_url": cancel_url,
             }
@@ -94,20 +101,29 @@ class BillingService:
         stripe_customer_id: str,
         stripe_subscription_id: str,
         status: str,
+        price_id: str | None = None,
+        current_period_end: int | None = None,
     ) -> None:
-        """Update user's subscription plan based on Stripe subscription status."""
+        """Update user subscription based on Stripe webhook data."""
         stmt = select(User).where(User.stripe_customer_id == stripe_customer_id)
         result = await session.execute(stmt)
         user = result.scalar_one_or_none()
         if user is None:
             return
 
+        user.subscription_status = status
+        user.stripe_subscription_id = stripe_subscription_id
+
+        if current_period_end:
+            user.current_period_end = datetime.fromtimestamp(
+                current_period_end, tz=UTC
+            )
+
         if status in _ACTIVE_STATUSES:
-            user.subscription_plan = "margin_invest"
-            user.stripe_subscription_id = stripe_subscription_id
+            plan = self._price_to_plan.get(price_id or "", "portfolio")
+            user.subscription_plan = plan
         else:
-            user.subscription_plan = "free"
-            user.stripe_subscription_id = None
+            user.subscription_plan = "analyst"
 
         await session.commit()
 

@@ -52,7 +52,8 @@ async def setup():
             mfa_encryption_key=_TEST_FERNET_KEY,
             api_key_encryption_key=_TEST_FERNET_KEY,
             stripe_secret_key="sk_test_fake",
-            stripe_price_id="price_test_123",
+            stripe_portfolio_price_id="price_portfolio_123",
+            stripe_institutional_price_id="price_institutional_456",
             stripe_webhook_secret="whsec_fake",
         )
 

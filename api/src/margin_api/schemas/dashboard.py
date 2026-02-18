@@ -20,6 +20,8 @@ class PickSummary(BaseModel):
     quality_percentile: float
     value_percentile: float
     momentum_percentile: float
+    sentiment_percentile: float | None = None
+    growth_percentile: float | None = None
     actual_price: float | None = None
     buy_price: float | None = None
     sell_price: float | None = None
@@ -34,6 +36,8 @@ class PickSummary(BaseModel):
     margin_of_safety: float | None = None
     max_position_pct: float | None = None
     timing_signal: str | None = None
+    sector: str | None = None
+    price_target_invalid_reason: str | None = None
 
 
 class WatchlistItem(BaseModel):
