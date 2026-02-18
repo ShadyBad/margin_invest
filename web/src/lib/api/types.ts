@@ -114,6 +114,7 @@ export interface PickSummary {
   max_position_pct?: number | null
   timing_signal?: string | null
   sector?: string | null
+  price_target_invalid_reason?: string | null
 }
 
 export interface WatchlistItem {

@@ -201,10 +201,18 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
           </span>
           <span className="text-text-secondary">
             Target:{" "}
-            <span className="text-text-primary font-medium">
+            <span className={`font-medium ${pick.sell_price != null ? "text-text-primary" : "text-text-tertiary"}`}>
               {pick.sell_price != null
                 ? `$${pick.sell_price.toFixed(2)}`
-                : "N/A"}
+                : pick.price_target_invalid_reason === "insufficient_data"
+                  ? "Needs data"
+                  : pick.price_target_invalid_reason === "single_method"
+                    ? "Low confidence"
+                    : pick.price_target_invalid_reason === "low_agreement"
+                      ? "Methods diverge"
+                      : pick.price_target_invalid_reason
+                        ? "Unavailable"
+                        : "N/A"}
             </span>
           </span>
           {pick.price_upside != null && (
