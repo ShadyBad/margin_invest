@@ -75,7 +75,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       return true
     },
-    jwt({ token, user, account }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.userId = user.id
         token.authMethod = account?.type === "oauth" || account?.type === "oidc"
@@ -96,6 +96,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const avatarUrl = (user as Record<string, unknown>).avatarUrl as string | undefined
         if (avatarUrl) {
           token.avatarUrl = avatarUrl
+        }
+      } else if (token.authMethod === "credentials" && token.userId) {
+        // Token refresh for credentials users — check if password was changed.
+        // Throttled to every 60 seconds to avoid excessive API calls.
+        const now = Math.floor(Date.now() / 1000)
+        const lastCheck = (token.sessionCheckAt as number) || 0
+
+        if (now - lastCheck > 60) {
+          try {
+            const res = await fetch(
+              `${API_URL}/api/v1/auth/session-check/${token.userId}`
+            )
+            if (res.ok) {
+              const data = await res.json()
+              if (data.password_changed_at) {
+                const changedAt = Math.floor(
+                  new Date(data.password_changed_at).getTime() / 1000
+                )
+                const tokenIat = (token.iat as number) || 0
+                if (changedAt > tokenIat) {
+                  // Password was changed after this token was issued — invalidate
+                  return {} as typeof token
+                }
+              }
+            }
+            token.sessionCheckAt = now
+          } catch {
+            // If API is unavailable, don't invalidate — just skip the check
+            token.sessionCheckAt = now
+          }
         }
       }
       return token

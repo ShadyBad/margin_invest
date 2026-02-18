@@ -228,6 +228,21 @@ async def oauth_sync(
     return OAuthSyncResponse(id=user.id, subscription_plan=user.subscription_plan)
 
 
+@router.get("/session-check/{user_id}")
+async def check_session(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Internal endpoint called by NextAuth JWT callback to check if password was changed."""
+    result = await db.execute(
+        select(CredentialUser).where(CredentialUser.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user or not user.password_changed_at:
+        return {"password_changed_at": None}
+    return {"password_changed_at": user.password_changed_at.isoformat()}
+
+
 @router.post("/change-password", response_model=ChangePasswordResponse)
 async def change_password(
     body: ChangePasswordRequest,

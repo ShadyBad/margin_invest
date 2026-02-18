@@ -1,4 +1,4 @@
-"""Tests for POST /api/v1/auth/change-password."""
+"""Tests for POST /api/v1/auth/change-password and GET /api/v1/auth/session-check."""
 
 from __future__ import annotations
 
@@ -158,3 +158,46 @@ class TestChangePassword:
             result = await _auth.verify_credentials(session, "testuser", "NewPassword2@")
             assert result is not None
             assert result["id"] == user_id
+
+
+class TestSessionCheck:
+    @pytest.mark.asyncio
+    async def test_returns_password_changed_at(self, setup):
+        """After a password change, session-check returns the timestamp."""
+        app, user_id, _ = setup
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            # Change password first to populate password_changed_at
+            await client.post(
+                "/api/v1/auth/change-password",
+                json={
+                    "current_password": "OldPassword1!",
+                    "new_password": "NewPassword2@",
+                },
+            )
+            resp = await client.get(f"/api/v1/auth/session-check/{user_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["password_changed_at"] is not None
+        # Should be a valid ISO timestamp
+        assert "T" in data["password_changed_at"]
+
+    @pytest.mark.asyncio
+    async def test_returns_null_for_no_change(self, setup):
+        """Before any password change, session-check returns null."""
+        app, user_id, _ = setup
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get(f"/api/v1/auth/session-check/{user_id}")
+        assert resp.status_code == 200
+        assert resp.json()["password_changed_at"] is None
+
+    @pytest.mark.asyncio
+    async def test_returns_null_for_nonexistent_user(self, setup):
+        """A bogus user_id returns null rather than an error."""
+        app, _, _ = setup
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/api/v1/auth/session-check/99999")
+        assert resp.status_code == 200
+        assert resp.json()["password_changed_at"] is None
