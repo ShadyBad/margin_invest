@@ -107,8 +107,8 @@ function CardRow({
     prefersReducedMotion
       ? ["0%", "0%"]
       : direction === "left"
-        ? ["20%", "-20%"]
-        : ["-20%", "20%"],
+        ? ["30%", "-30%"]
+        : ["-30%", "30%"],
   )
 
   return (
@@ -167,9 +167,9 @@ export function ChapterCards() {
       ref={sectionRef}
       data-chapter-cards
       id="engine"
-      className="relative h-[200vh]"
+      className="relative overflow-hidden py-24"
     >
-      <div className="sticky top-0 h-screen flex flex-col items-center justify-center gap-8">
+      <div className="flex flex-col items-center justify-center gap-8">
         {/* Desktop: two counter-flowing rows */}
         <div className="hidden md:block w-full">
           <CardRow
@@ -185,7 +185,7 @@ export function ChapterCards() {
         </div>
 
         {/* Mobile: single interleaved column (FlowCard self-tracks vertically) */}
-        <div className="md:hidden flex flex-col items-center gap-4 px-6 max-w-[360px] mx-auto overflow-y-auto max-h-screen py-8">
+        <div className="md:hidden flex flex-col items-center gap-4 px-6 max-w-[360px] mx-auto py-8">
           {engineCards.map((card, i) => (
             <div key={card.title} className="w-full">
               <FlowCard title={card.title} subtitle={card.subtitle}>
