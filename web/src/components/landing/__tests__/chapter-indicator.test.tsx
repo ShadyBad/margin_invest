@@ -30,4 +30,16 @@ describe("ChapterIndicator", () => {
     const nav = container.querySelector("nav")
     expect(nav?.getAttribute("aria-label")).toBe("Page chapters")
   })
+
+  it("works with 3 chapters for new layout", () => {
+    const { container } = render(
+      <ChapterIndicator
+        chapters={3}
+        activeChapter={0}
+        labels={["The Signal", "The Engine", "The Path"]}
+      />,
+    )
+    const dots = container.querySelectorAll("[data-chapter-dot]")
+    expect(dots).toHaveLength(3)
+  })
 })
