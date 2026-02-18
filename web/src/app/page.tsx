@@ -3,8 +3,7 @@ import { Navbar } from "@/components/nav/navbar"
 import { DNAProvider } from "@/components/landing/dna-provider"
 import { FluidShaderLoader } from "@/components/landing/fluid-shader-loader"
 import { ChapterHero } from "@/components/landing/chapter-hero"
-import { ChapterEngine } from "@/components/landing/chapter-engine"
-import { ChapterProof } from "@/components/landing/chapter-proof"
+import { ChapterCards } from "@/components/landing/chapter-cards"
 import { ChapterPath } from "@/components/landing/chapter-path"
 import { ChapterIndicator } from "@/components/landing/chapter-indicator"
 
@@ -42,19 +41,15 @@ export default async function Home() {
         <Navbar />
         <div className="relative z-10">
           <ChapterHero />
-          <div className="h-[50vh]" /> {/* Chapter break */}
-          <section id="engine">
-            <ChapterEngine />
-          </section>
-          <div className="h-[50vh]" />
-          <ChapterProof />
-          <div className="h-[50vh]" />
-          <ChapterPath />
+          <ChapterCards />
+          <div className="py-16">
+            <ChapterPath />
+          </div>
         </div>
         <ChapterIndicator
-          chapters={4}
+          chapters={3}
           activeChapter={0}
-          labels={["The Signal", "The Engine", "The Proof", "The Path"]}
+          labels={["The Signal", "The Engine", "The Path"]}
         />
       </main>
     </DNAProvider>

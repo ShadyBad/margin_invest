@@ -1,29 +1,23 @@
-// web/src/components/landing/__tests__/page-assembly.test.tsx
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 
-// Mock FluidShaderLoader to render nothing (WebGL can't render in jsdom)
 vi.mock("@/components/landing/fluid-shader-loader", () => ({
   FluidShaderLoader: () => null,
 }))
 
-// Mock auth to return null (unauthenticated)
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn().mockResolvedValue(null),
 }))
 
-// Mock next-auth/react for Navbar
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: null, status: "unauthenticated" }),
   signOut: vi.fn(),
 }))
 
-// Mock next/navigation for Navbar
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }))
 
-// Mock framer-motion
 vi.mock("framer-motion", () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
@@ -37,27 +31,30 @@ vi.mock("framer-motion", () => ({
     ),
   },
   useInView: () => true,
+  useScroll: () => ({ scrollYProgress: { get: () => 0.5 } }),
+  useTransform: (_: any, inputOrFn: number[] | Function, output?: any[]) => {
+    if (typeof inputOrFn === "function") return inputOrFn(0)
+    return output![Math.floor(output!.length / 2)]
+  },
   useReducedMotion: () => false,
 }))
 
 import Page from "../../../app/page"
 
 describe("Landing page assembly", () => {
-  it("renders all 4 chapters", async () => {
+  it("renders all 3 chapters", async () => {
     const jsx = await Page()
     render(jsx)
-    // Chapter 1: Hero (WordReveal splits text into individual <span> words)
+    // Chapter 1: Hero
     expect(screen.getByText("Conviction,")).toBeInTheDocument()
     expect(screen.getByText("Quantified.")).toBeInTheDocument()
-    // Chapter 2: Engine
-    expect(screen.getByText("Raw Signal")).toBeInTheDocument()
-    expect(screen.getByText("Structured Analysis")).toBeInTheDocument()
-    expect(screen.getByText("Conviction Output")).toBeInTheDocument()
-    // Chapter 3: Proof
-    expect(screen.getByText("Sample Analysis")).toBeInTheDocument()
-    expect(screen.getByText("Factor Depth")).toBeInTheDocument()
-    expect(screen.getByText("Portfolio View")).toBeInTheDocument()
-    // Chapter 4: Path (pricing)
+    // Chapter 2: Counter-flow cards (engine + proof)
+    // Use getAllByText because jsdom renders both desktop and mobile layouts
+    expect(screen.getAllByText("Raw Signal").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Factor Analysis").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Sample Score").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Portfolio View").length).toBeGreaterThanOrEqual(1)
+    // Chapter 3: Pricing
     expect(screen.getByText("Scout")).toBeInTheDocument()
     expect(screen.getByText("Operator")).toBeInTheDocument()
     expect(screen.getByText("Allocator")).toBeInTheDocument()
@@ -70,16 +67,20 @@ describe("Landing page assembly", () => {
     expect(nav).toBeInTheDocument()
   })
 
-  it("renders chapter breaks between sections", async () => {
+  it("has no 50vh chapter break spacers", async () => {
     const jsx = await Page()
     const { container } = render(jsx)
     const breaks = container.querySelectorAll(".h-\\[50vh\\]")
-    expect(breaks.length).toBe(3)
+    expect(breaks.length).toBe(0)
   })
 
-  it("renders chapter indicator", async () => {
+  it("renders chapter indicator with 3 chapters", async () => {
     const jsx = await Page()
     render(jsx)
-    expect(screen.getByLabelText("Page chapters")).toBeInTheDocument()
+    const nav = screen.getByLabelText("Page chapters")
+    expect(nav).toBeInTheDocument()
+    // Should have 3 dots, not 4
+    const dots = nav.querySelectorAll("[data-chapter-dot]")
+    expect(dots).toHaveLength(3)
   })
 })
