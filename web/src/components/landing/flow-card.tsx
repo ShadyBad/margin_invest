@@ -37,7 +37,7 @@ export function FlowCard({ title, subtitle, children }: FlowCardProps) {
     <motion.div
       ref={ref}
       data-flow-card
-      className="w-[320px] flex-shrink-0 md:w-[320px]"
+      className="w-full md:w-[320px] flex-shrink-0"
       style={{ opacity, filter: filterBlur }}
     >
       <GlassSurface className="p-6 md:p-8 h-full">
