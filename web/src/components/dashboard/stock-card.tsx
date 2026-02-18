@@ -4,9 +4,9 @@ import { useState, useCallback } from "react"
 import { motion } from "framer-motion"
 import { ActionPill, Sparkline, PercentileBar, ConvictionBadge, AnimatedScore } from "@/components/ui"
 import { AssetPanel } from "./panel"
-import { getScore } from "@/lib/api/scores"
+import { getScore, getMetrics } from "@/lib/api/scores"
 import { getSectorColor } from "@/lib/sector-colors"
-import type { PickSummary, ScoreResponse } from "@/lib/api/types"
+import type { PickSummary, ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/types"
 
 const INTERACTION_EASE = "cubic-bezier(0.19, 1, 0.22, 1)"
 
@@ -60,6 +60,7 @@ interface StockCardProps {
 export function StockCard({ pick, className = "" }: StockCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [scoreData, setScoreData] = useState<ScoreResponse | null>(null)
+  const [metricsData, setMetricsData] = useState<InstitutionalMetricsResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -76,8 +77,12 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       setLoading(true)
       setError(null)
       try {
-        const data = await getScore(pick.ticker, ["price_history", "signal_history"])
-        setScoreData(data)
+        const [score, metrics] = await Promise.all([
+          getScore(pick.ticker, ["price_history", "signal_history"]),
+          getMetrics(pick.ticker),
+        ])
+        setScoreData(score)
+        setMetricsData(metrics)
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load details",
@@ -109,10 +114,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       aria-expanded={expanded}
     >
       {pick.conviction_level === "exceptional" && (
-        <>
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent rounded-t-lg" />
-          <div className="absolute inset-0 rounded-lg pointer-events-none bg-[radial-gradient(ellipse_at_top_left,rgba(180,160,130,0.04),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(26,122,90,0.03),transparent_50%)]" />
-        </>
+        <div className="absolute inset-0 rounded-lg pointer-events-none bg-[radial-gradient(ellipse_at_top_left,rgba(180,160,130,0.04),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(26,122,90,0.03),transparent_50%)]" />
       )}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -334,6 +336,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
         onClose={() => setExpanded(false)}
         ticker={pick.ticker}
         scoredResult={scoreData}
+        metrics={metricsData}
       />
     )}
     </>
