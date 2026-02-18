@@ -29,7 +29,7 @@ function getFactors(candidate: CandidateCard): FactorBar[] {
     { label: "Momentum", value: candidate.momentum_percentile },
     { label: "Sentiment", value: candidate.sentiment_percentile },
     { label: "Growth", value: candidate.growth_percentile },
-  ]
+  ].filter((f) => f.value > 0)
 }
 
 function formatTime(): string {
