@@ -6,6 +6,7 @@ import type { PickSummary } from "@/lib/api/types"
 // Mock the API call
 vi.mock("@/lib/api/scores", () => ({
   getScore: vi.fn(),
+  getMetrics: vi.fn(),
 }))
 
 // Mock UI components
@@ -17,6 +18,17 @@ vi.mock("@/components/ui", () => ({
   AnimatedScore: ({ value, className }: { value: number; className?: string }) => (
     <span className={className} data-testid="animated-score">{Math.round(value)}</span>
   ),
+}))
+
+// Mock sector-colors utility
+vi.mock("@/lib/sector-colors", () => ({
+  getSectorColor: (sector: string | null | undefined) => {
+    const map: Record<string, string> = {
+      "Information Technology": "var(--color-sector-tech)",
+      "Energy": "var(--color-sector-energy)",
+    }
+    return map[sector ?? ""] ?? "var(--color-border-primary)"
+  },
 }))
 
 // Mock AssetPanel (slide-over panel)
@@ -80,12 +92,15 @@ describe("StockCard visual hierarchy", () => {
     expect(screen.getByText("conviction")).toBeInTheDocument()
   })
 
-  it("renders exceptional card with top accent stripe", () => {
+  it("renders exceptional card with radial gradient overlay but no top accent stripe", () => {
     render(<StockCard pick={{ ...basePick, conviction_level: "exceptional", score: 92 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
-    // The stripe is a child div with bg-accent
+    // Top accent stripe was removed; only the radial gradient overlay remains
     const stripe = card.querySelector(".bg-accent.h-\\[2px\\]")
-    expect(stripe).toBeInTheDocument()
+    expect(stripe).not.toBeInTheDocument()
+    // Radial gradient overlay should still exist
+    const overlay = card.querySelector(".pointer-events-none")
+    expect(overlay).toBeInTheDocument()
   })
 })
 
