@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter_Tight, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
-import { Footer } from "@/components/layout/footer";
+import { ConditionalFooter } from "@/components/layout/conditional-footer";
 import "./globals.css";
 
 const interTight = Inter_Tight({
@@ -42,7 +42,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <SessionProvider>
             {children}
-            <Footer />
+            <ConditionalFooter />
           </SessionProvider>
         </ThemeProvider>
       </body>
