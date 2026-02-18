@@ -59,7 +59,7 @@ export function ChapterHero() {
             Start Scoring
           </Link>
           <Link
-            href="#engine"
+            href="/methodology"
             className="inline-flex items-center justify-center h-12 px-6 text-sm font-medium text-[var(--color-text-secondary)] underline underline-offset-4 decoration-[var(--color-border-primary)] hover:text-[var(--color-text-primary)] transition-colors"
           >
             See How It Works
