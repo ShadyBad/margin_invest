@@ -170,16 +170,20 @@ def filter_by_country(
 
     kept: list[dict] = []
     removed = 0
+    unknown = 0
     for sym in symbols:
         country = countries.get(sym)
-        if country is None or country == allowed_country:
+        if country == allowed_country:
             kept.append(ticker_map[sym])
+        elif country is None:
+            unknown += 1
         else:
             removed += 1
 
     logger.info(
-        "Country filter: kept %d, removed %d foreign-domiciled",
-        len(kept), removed,
+        "Country filter: kept %d, removed %d foreign-domiciled, "
+        "dropped %d with unknown country",
+        len(kept), removed, unknown,
     )
     return kept
 

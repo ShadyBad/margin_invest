@@ -120,6 +120,11 @@ async def seed_ticker_data(
         market_cap = Decimal(str(info.get("marketCap", 0)))
         shares_outstanding = info.get("sharesOutstanding")
 
+        # Reject foreign-domiciled assets
+        if country and country != "United States":
+            logger.info("  SKIP %s — foreign domicile (%s)", ticker, country)
+            return False
+
         # Upsert Asset row
         result = await session.execute(select(Asset).where(Asset.ticker == ticker))
         asset = result.scalar_one_or_none()
@@ -588,10 +593,17 @@ def determine_run_type(tickers_override: list[str] | None) -> str:
 
 
 def run_universe_generate(output: str | None = None) -> None:
-    """Screen Yahoo Finance for US-domiciled equities and generate universe.yaml."""
+    """Screen Yahoo Finance for US-domiciled equities and generate universe.yaml.
+
+    Two layers of foreign-asset filtering:
+      1. Currency filter (here): drops tickers with non-USD financialCurrency.
+         Free — uses data already in the screener response.
+      2. Country guard (in seed_ticker_data): rejects tickers whose yfinance
+         country != "United States" at insert time. Reliable — one request
+         per ticker with rate limiting.
+    """
     from margin_engine.universe.screener import (
         US_EXCHANGES,
-        filter_by_country,
         generate_universe_yaml,
         screen_us_equities,
     )
@@ -611,12 +623,9 @@ def run_universe_generate(output: str | None = None) -> None:
         exchanges=US_EXCHANGES,
         us_domiciled_only=True,
     )
-    logger.info("Found %d tickers after currency filter", len(raw))
-
-    # Second pass: verify country of domicile via yfinance Ticker.info
-    us_only = filter_by_country(raw, allowed_country="United States")
-    tickers = sorted(set(r["ticker"] for r in us_only))
-    logger.info("Found %d US-domiciled tickers", len(tickers))
+    tickers = sorted(set(r["ticker"] for r in raw))
+    logger.info("Found %d tickers after currency filter", len(tickers))
+    logger.info("Note: remaining foreign tickers will be rejected during seed")
 
     yaml_content = generate_universe_yaml(
         tickers=tickers,
