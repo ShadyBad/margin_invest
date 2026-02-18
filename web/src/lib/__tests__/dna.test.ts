@@ -10,16 +10,16 @@ import {
 describe("SECTOR_COLORS", () => {
   it("maps all 11 GICS sectors to hex colors", () => {
     expect(Object.keys(SECTOR_COLORS)).toHaveLength(11)
-    expect(SECTOR_COLORS["Information Technology"]).toBe("#1A3A5C")
-    expect(SECTOR_COLORS["Energy"]).toBe("#4A3018")
-    expect(SECTOR_COLORS["Health Care"]).toBe("#0E4F4F")
+    expect(SECTOR_COLORS["Information Technology"]).toBe("#4A8CAF")
+    expect(SECTOR_COLORS["Energy"]).toBe("#B08428")
+    expect(SECTOR_COLORS["Health Care"]).toBe("#3A8E72")
   })
 })
 
 describe("blendSectorColors", () => {
   it("returns single sector color when portfolio is concentrated", () => {
     const result = blendSectorColors({ "Information Technology": 1.0 })
-    expect(result.base).toBe("#1A3A5C")
+    expect(result.base).toBe("#4A8CAF")
   })
 
   it("blends two sectors by weight", () => {

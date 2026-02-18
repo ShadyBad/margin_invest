@@ -61,10 +61,10 @@ export function useNavigation(): NavigationState {
 
   const user: NavigationUser | null = isAuthenticated
     ? {
-        name: session.user.name || session.user.email || "",
-        email: session.user.email || "",
-        avatarUrl: session.avatarUrl ?? null,
-        oauthAvatarUrl: session.oauthAvatarUrl ?? session.user.image ?? null,
+        name: session!.user?.name || session!.user?.email || "",
+        email: session!.user?.email || "",
+        avatarUrl: session!.avatarUrl ?? null,
+        oauthAvatarUrl: session!.oauthAvatarUrl ?? session!.user?.image ?? null,
         dropdownItems: [
           { label: "Account", href: "/account", type: "link" as const },
           { label: "", type: "divider" as const },
