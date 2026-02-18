@@ -20,6 +20,8 @@ class PickSummary(BaseModel):
     quality_percentile: float
     value_percentile: float
     momentum_percentile: float
+    sentiment_percentile: float | None = None
+    growth_percentile: float | None = None
     actual_price: float | None = None
     buy_price: float | None = None
     sell_price: float | None = None

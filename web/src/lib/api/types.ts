@@ -108,6 +108,8 @@ export interface PickSummary {
   quality_percentile: number
   value_percentile: number
   momentum_percentile: number
+  sentiment_percentile?: number | null
+  growth_percentile?: number | null
   actual_price: number | null
   buy_price: number | null
   sell_price: number | null
