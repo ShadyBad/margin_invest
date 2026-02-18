@@ -5,6 +5,7 @@ import { BillingSection } from "../billing-section"
 
 function mockBillingFetch(response: Record<string, unknown>) {
   global.fetch = vi.fn().mockResolvedValue({
+    ok: true,
     json: () => Promise.resolve(response),
   })
 }
@@ -115,6 +116,14 @@ describe("BillingSection", () => {
       expect(screen.getByText(/Access until/)).toBeInTheDocument()
       expect(screen.getByText(/May 15, 2026/)).toBeInTheDocument()
       expect(screen.getByText("Canceled")).toBeInTheDocument()
+    })
+  })
+
+  it("shows error message when billing API fails", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401 })
+    render(<BillingSection />)
+    await waitFor(() => {
+      expect(screen.getByText("Unable to load billing information.")).toBeInTheDocument()
     })
   })
 

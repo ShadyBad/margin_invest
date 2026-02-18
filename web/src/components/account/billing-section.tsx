@@ -42,12 +42,17 @@ function formatDate(isoString: string): string {
 export function BillingSection() {
   const [status, setStatus] = useState<BillingStatus | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
     fetch("/api/v1/billing/status")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load billing status")
+        return r.json()
+      })
       .then(setStatus)
+      .catch(() => setError("Unable to load billing information."))
       .finally(() => setLoading(false))
   }, [])
 
@@ -93,7 +98,16 @@ export function BillingSection() {
     )
   }
 
-  if (!status) return null
+  if (error || !status) {
+    return (
+      <section className="bg-bg-elevated border border-border-primary rounded-sm p-6">
+        <h2 className="text-lg font-bold text-text-primary mb-4">Billing</h2>
+        <p className="text-sm text-text-secondary">
+          {error || "Unable to load billing information."}
+        </p>
+      </section>
+    )
+  }
 
   const planBadge = PLAN_BADGES[status.plan] || PLAN_BADGES.scout
   const statusPill = status.status ? STATUS_PILLS[status.status] : null
