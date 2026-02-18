@@ -56,16 +56,33 @@ describe("serverFetch", () => {
     expect(result).toEqual({ picks: [], watchlist: [] })
   })
 
-  it("throws ApiError on non-2xx response", async () => {
+  it("throws ApiError on non-2xx response with structured body", async () => {
     mockAuth.mockResolvedValue(null)
     mockFetch.mockResolvedValue({
       ok: false,
       status: 500,
       statusText: "Internal Server Error",
-      text: () => Promise.resolve("server error"),
+      json: () => Promise.resolve({
+        error_code: "INTERNAL_ERROR",
+        message: "server error",
+        request_id: "req-456",
+        status_code: 500,
+      }),
     })
 
     await expect(serverFetch("/api/v1/dashboard")).rejects.toThrow("server error")
+  })
+
+  it("falls back to statusText when error response is not JSON", async () => {
+    mockAuth.mockResolvedValue(null)
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 502,
+      statusText: "Bad Gateway",
+      json: () => Promise.reject(new Error("not json")),
+    })
+
+    await expect(serverFetch("/api/v1/dashboard")).rejects.toThrow("Bad Gateway")
   })
 
   it("injects X-User-Id header when session exists", async () => {

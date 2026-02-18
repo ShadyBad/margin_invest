@@ -35,12 +35,25 @@ export async function serverFetch<T>(
       cache: options.cache ?? "no-store",
     })
   } catch (err) {
-    throw new ApiError(503, "Service Unavailable", "API server is not reachable")
+    throw new ApiError(503, "SERVICE_UNAVAILABLE", "API server is not reachable")
   }
 
   if (!response.ok) {
-    const message = await response.text().catch(() => undefined)
-    throw new ApiError(response.status, response.statusText, message)
+    let errorCode = "UNKNOWN"
+    let message = `API Error: ${response.status} ${response.statusText}`
+    let requestId: string | undefined
+
+    try {
+      const body = await response.json()
+      errorCode = body.error_code || errorCode
+      message = body.message || message
+      requestId = body.request_id
+    } catch {
+      // Non-JSON error response — use status text
+      message = response.statusText || message
+    }
+
+    throw new ApiError(response.status, errorCode, message, requestId)
   }
 
   if (response.status === 204) {

@@ -1,10 +1,11 @@
 export class ApiError extends Error {
   constructor(
     public status: number,
-    public statusText: string,
+    public errorCode: string,
     message?: string,
+    public requestId?: string,
   ) {
-    super(message || `API Error: ${status} ${statusText}`)
+    super(message || `API Error: ${status}`)
     this.name = 'ApiError'
   }
 }
@@ -27,8 +28,21 @@ export async function apiFetch<T>(
   })
 
   if (!response.ok) {
-    const message = await response.text().catch(() => undefined)
-    throw new ApiError(response.status, response.statusText, message)
+    let errorCode = 'UNKNOWN'
+    let message = `API Error: ${response.status} ${response.statusText}`
+    let requestId: string | undefined
+
+    try {
+      const body = await response.json()
+      errorCode = body.error_code || errorCode
+      message = body.message || message
+      requestId = body.request_id
+    } catch {
+      // Non-JSON error response — use status text
+      message = response.statusText || message
+    }
+
+    throw new ApiError(response.status, errorCode, message, requestId)
   }
 
   // 204 No Content
