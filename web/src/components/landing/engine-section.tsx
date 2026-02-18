@@ -120,15 +120,16 @@ export function EngineSection({ onStageChange }: EngineSectionProps) {
       })
       triggers.push(topTrigger)
 
-      // Pipeline stage sync
+      // Pipeline stage sync — all 6 stages complete within ~75% of section scroll
       const stageTrigger = ScrollTrigger.create({
         trigger: section,
-        start: "top center",
-        end: "75% center",
+        start: "top 70%",
+        end: "80% center",
         onUpdate: (self) => {
           const stage = Math.min(5, Math.floor(self.progress * 7.5))
           onStageChange(stage)
         },
+        onLeaveBack: () => onStageChange(0),
       })
       triggers.push(stageTrigger)
     }

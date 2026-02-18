@@ -25,9 +25,7 @@ export function HomepageClient({ data }: HomepageClientProps) {
     <div className="relative z-10">
       <HeroSection data={data} />
       <ProblemSection />
-      <div className="sticky top-0 z-20 bg-bg-primary/95 backdrop-blur-sm">
-        <PipelineChips activeStage={activeStage} />
-      </div>
+      <PipelineChips activeStage={activeStage} />
       <EngineSection onStageChange={handleStageChange} />
       <ProofSection />
       <PositioningSection />

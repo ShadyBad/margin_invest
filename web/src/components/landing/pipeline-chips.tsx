@@ -32,11 +32,12 @@ export function PipelineChips({ activeStage }: PipelineChipsProps) {
               <span
                 data-testid="pipeline-stage"
                 data-active={isActive ? "true" : "false"}
-                className={`font-mono text-[10px] md:text-xs tracking-[0.15em] transition-all duration-250 ${
+                className={`font-mono text-[10px] md:text-xs tracking-[0.15em] ${
                   isActive
                     ? "text-accent shadow-[0_0_8px_rgba(26,122,90,0.3)]"
                     : "text-text-tertiary"
                 }`}
+                style={{ transition: "all 250ms cubic-bezier(0.4, 0.0, 0.2, 1)" }}
               >
                 {stage}
                 {isActive && (
