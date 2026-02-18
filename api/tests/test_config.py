@@ -40,7 +40,8 @@ class TestStripeSettings:
         assert s.stripe_secret_key == ""
         assert s.stripe_publishable_key == ""
         assert s.stripe_webhook_secret == ""
-        assert s.stripe_price_id == ""
+        assert s.stripe_operator_price_id == ""
+        assert s.stripe_allocator_price_id == ""
 
     def test_api_key_encryption_key_exists(self):
         """Settings class has API key encryption field."""
@@ -55,13 +56,15 @@ class TestStripeSettings:
         monkeypatch.setenv("MARGIN_STRIPE_SECRET_KEY", "sk_test_123")
         monkeypatch.setenv("MARGIN_STRIPE_PUBLISHABLE_KEY", "pk_test_456")
         monkeypatch.setenv("MARGIN_STRIPE_WEBHOOK_SECRET", "whsec_789")
-        monkeypatch.setenv("MARGIN_STRIPE_PRICE_ID", "price_abc")
+        monkeypatch.setenv("MARGIN_STRIPE_OPERATOR_PRICE_ID", "price_operator_abc")
+        monkeypatch.setenv("MARGIN_STRIPE_ALLOCATOR_PRICE_ID", "price_allocator_def")
         monkeypatch.setenv("MARGIN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
         s = Settings()
         assert s.stripe_secret_key == "sk_test_123"
         assert s.stripe_publishable_key == "pk_test_456"
         assert s.stripe_webhook_secret == "whsec_789"
-        assert s.stripe_price_id == "price_abc"
+        assert s.stripe_operator_price_id == "price_operator_abc"
+        assert s.stripe_allocator_price_id == "price_allocator_def"
 
 
 class TestPoolSettings:

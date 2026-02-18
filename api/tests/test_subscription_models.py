@@ -22,36 +22,36 @@ async def db():
 
 class TestUserSubscriptionFields:
     @pytest.mark.asyncio
-    async def test_user_defaults_to_free_plan(self, db):
+    async def test_user_defaults_to_scout_plan(self, db):
         user = User(email="a@b.com", name="A", provider="google")
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        assert user.subscription_plan == "free"
+        assert user.subscription_plan == "scout"
         assert user.stripe_customer_id is None
         assert user.stripe_subscription_id is None
 
     @pytest.mark.asyncio
-    async def test_user_can_set_margin_invest_plan(self, db):
+    async def test_user_can_set_operator_plan(self, db):
         user = User(
             email="a@b.com",
             name="A",
             provider="google",
-            subscription_plan="margin_invest",
+            subscription_plan="operator",
             stripe_customer_id="cus_123",
             stripe_subscription_id="sub_456",
         )
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        assert user.subscription_plan == "margin_invest"
+        assert user.subscription_plan == "operator"
         assert user.stripe_customer_id == "cus_123"
         assert user.stripe_subscription_id == "sub_456"
 
 
 class TestCredentialUserSubscriptionFields:
     @pytest.mark.asyncio
-    async def test_credential_user_defaults_to_free_plan(self, db):
+    async def test_credential_user_defaults_to_scout_plan(self, db):
         user = CredentialUser(
             username="alice",
             email="alice@example.com",
@@ -60,7 +60,7 @@ class TestCredentialUserSubscriptionFields:
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        assert user.subscription_plan == "free"
+        assert user.subscription_plan == "scout"
         assert user.stripe_customer_id is None
         assert user.stripe_subscription_id is None
 
@@ -70,10 +70,10 @@ class TestCredentialUserSubscriptionFields:
             username="alice",
             email="alice@example.com",
             password_hash="hashed",
-            subscription_plan="margin_invest",
+            subscription_plan="allocator",
             stripe_customer_id="cus_abc",
         )
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        assert user.subscription_plan == "margin_invest"
+        assert user.subscription_plan == "allocator"

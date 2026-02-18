@@ -91,7 +91,7 @@ class TestGetCurrentUserId:
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/me", headers={"X-User-Id": "not-a-number"})
         assert resp.status_code == 401
-        assert resp.json()["detail"] == "Invalid user ID"
+        assert resp.json()["detail"] == "Unknown user"
 
 
 class TestRequirePlan:
