@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { ActionPill, Sparkline, PercentileBar, ConvictionBadge, AnimatedScore } from "@/components/ui"
 import { AssetPanel } from "./panel"
 import { getScore, getMetrics } from "@/lib/api/scores"
+import { ApiError } from "@/lib/api/client"
 import { getSectorColor } from "@/lib/sector-colors"
 import type { PickSummary, ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/types"
 
@@ -64,6 +65,37 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const fetchDetails = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [scoreResult, metricsResult] = await Promise.allSettled([
+        getScore(pick.ticker, ["price_history", "signal_history"]),
+        getMetrics(pick.ticker),
+      ])
+
+      if (scoreResult.status === "fulfilled") {
+        setScoreData(scoreResult.value)
+      } else {
+        const err = scoreResult.reason
+        const requestId = err instanceof ApiError ? err.requestId : undefined
+        if (requestId) console.error(`[${requestId}] Score fetch failed:`, err)
+        setError("Unable to load candidate details")
+        return
+      }
+
+      if (metricsResult.status === "fulfilled") {
+        setMetricsData(metricsResult.value)
+      } else {
+        // Metrics failure is non-fatal — panel handles null metrics
+        console.warn("Metrics fetch failed for", pick.ticker, metricsResult.reason)
+        setMetricsData(null)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [pick.ticker])
+
   const handleClick = useCallback(async () => {
     if (expanded) {
       setExpanded(false)
@@ -72,26 +104,10 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
 
     setExpanded(true)
 
-    // Only fetch if we haven't already
     if (!scoreData) {
-      setLoading(true)
-      setError(null)
-      try {
-        const [score, metrics] = await Promise.all([
-          getScore(pick.ticker, ["price_history", "signal_history"]),
-          getMetrics(pick.ticker),
-        ])
-        setScoreData(score)
-        setMetricsData(metrics)
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load details",
-        )
-      } finally {
-        setLoading(false)
-      }
+      await fetchDetails()
     }
-  }, [expanded, scoreData, pick.ticker])
+  }, [expanded, scoreData, fetchDetails])
 
   return (
     <>
@@ -326,7 +342,25 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
 
       {expanded && error && (
         <div className="border-t border-border-primary mt-4 pt-4">
-          <p className="text-sm text-bearish">{error}</p>
+          <div className="text-center py-4">
+            <p className="text-sm font-medium text-text-primary mb-1">
+              Unable to load candidate details
+            </p>
+            <p className="text-xs text-text-secondary mb-3">
+              This data is temporarily unavailable.
+            </p>
+            <button
+              type="button"
+              className="text-xs text-accent hover:text-accent/80 underline underline-offset-2"
+              onClick={(e) => {
+                e.stopPropagation()
+                setScoreData(null)
+                fetchDetails()
+              }}
+            >
+              Retry
+            </button>
+          </div>
         </div>
       )}
     </div>
