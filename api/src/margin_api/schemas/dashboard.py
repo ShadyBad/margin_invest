@@ -34,6 +34,7 @@ class PickSummary(BaseModel):
     margin_of_safety: float | None = None
     max_position_pct: float | None = None
     timing_signal: str | None = None
+    sector: str | None = None
 
 
 class WatchlistItem(BaseModel):

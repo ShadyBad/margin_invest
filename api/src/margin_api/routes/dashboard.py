@@ -66,6 +66,7 @@ def _pick_summary_from_row(row) -> PickSummary:
             and not invalid_reason
             else None
         ),
+        sector=getattr(row, "asset_sector", None),
     )
 
 
@@ -89,7 +90,7 @@ async def get_dashboard(
     latest = _latest_score_subquery()
 
     base = (
-        select(Score, Asset.ticker, Asset.name.label("asset_name"))
+        select(Score, Asset.ticker, Asset.name.label("asset_name"), Asset.sector.label("asset_sector"))
         .join(Asset, Score.asset_id == Asset.id)
         .join(
             latest,
