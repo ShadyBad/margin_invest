@@ -70,11 +70,23 @@ async def get_metrics(
         elif isinstance(inc, dict):
             income_periods = [inc]
 
-    # Compute metrics
-    sharpe = compute_sharpe_ratio(closes)
-    max_dd = compute_max_drawdown(closes) if closes else None
-    vol = compute_volatility(closes)
-    avg_pm = compute_avg_profit_margin(income_periods)
+    # Compute metrics — defensive against bad data
+    try:
+        sharpe = compute_sharpe_ratio(closes)
+    except Exception:
+        sharpe = None
+    try:
+        max_dd = compute_max_drawdown(closes) if closes else None
+    except Exception:
+        max_dd = None
+    try:
+        vol = compute_volatility(closes)
+    except Exception:
+        vol = None
+    try:
+        avg_pm = compute_avg_profit_margin(income_periods)
+    except Exception:
+        avg_pm = None
 
     # Margin of safety
     margin_of_safety: float | None = None
