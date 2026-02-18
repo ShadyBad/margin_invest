@@ -208,7 +208,7 @@ export function HeroCandidateCard({
             Conviction Score
           </div>
           <div className="font-mono text-5xl font-bold text-text-primary">
-            {candidate.composite_percentile}
+            {Math.round(candidate.composite_percentile)}
           </div>
         </div>
 
@@ -229,7 +229,7 @@ export function HeroCandidateCard({
                 />
               </div>
               <span className="font-mono text-xs text-text-secondary w-8 text-right">
-                {factor.value}
+                {Math.round(factor.value)}
               </span>
             </div>
           ))}
