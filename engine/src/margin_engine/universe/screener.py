@@ -8,6 +8,11 @@ logger = logging.getLogger(__name__)
 
 _PAGE_SIZE = 250
 
+# Major US exchanges — excludes OTC/Pink Sheets where foreign stocks trade
+# NMS = NASDAQ Global Select, NGM = NASDAQ Global Market, NCM = NASDAQ Capital Market
+# NYQ = NYSE, ASE = NYSE American (formerly AMEX), PCX = NYSE Arca
+US_EXCHANGES = ["NMS", "NGM", "NCM", "NYQ", "ASE", "PCX"]
+
 # Yahoo Finance sector names (yfinance uses these, not GICS)
 ALL_SECTORS = [
     "Technology",
@@ -29,23 +34,31 @@ def screen_us_equities(
     min_market_cap: int = 0,
     min_avg_volume: int = 0,
     excluded_sectors: list[str] | None = None,
+    exchanges: list[str] | None = None,
 ) -> list[dict]:
-    """Screen Yahoo Finance for all US equities.
+    """Screen Yahoo Finance for US equities listed on major exchanges.
 
     Queries each included sector separately (Yahoo screener has no NOT operator).
     Returns a list of dicts with keys: ticker, name, market_cap, avg_volume, sector.
+
+    Args:
+        exchanges: Exchange codes to include (default: US_EXCHANGES).
+            Uses ``is-in`` filter to restrict to major US exchanges,
+            excluding OTC/Pink Sheets where foreign stocks trade.
     """
     import yfinance as yf
     from yfinance import EquityQuery
 
     excluded = set(excluded_sectors or [])
     included_sectors = [s for s in ALL_SECTORS if s not in excluded]
+    exchange_list = exchanges or US_EXCHANGES
 
     results: list[dict] = []
 
     for sector in included_sectors:
         conditions = [
             EquityQuery("eq", ["region", "us"]),
+            EquityQuery("is-in", ["exchange", *exchange_list]),
             EquityQuery("eq", ["sector", sector]),
         ]
         if min_market_cap > 0:
@@ -124,11 +137,13 @@ def generate_universe_yaml(
     excluded_sectors: list[str],
     min_market_cap: int,
     min_avg_volume: int,
+    exchanges: list[str] | None = None,
     description: str = "US equities, excluding financials and REITs",
 ) -> str:
     """Generate a universe.yaml string from filtered tickers."""
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     today = datetime.now(UTC).strftime("%Y.%m.%d")
+    exchange_list = exchanges or US_EXCHANGES
 
     lines = [
         f'version: "{today}"',
@@ -143,6 +158,9 @@ def generate_universe_yaml(
         lines.append(f'    - "{sector}"')
     lines.append(f"  min_market_cap: {min_market_cap}")
     lines.append(f"  min_avg_volume: {min_avg_volume}")
+    lines.append("  exchanges:")
+    for ex in exchange_list:
+        lines.append(f'    - "{ex}"')
     lines.append("")
     lines.append("tickers:")
     for ticker in sorted(tickers):

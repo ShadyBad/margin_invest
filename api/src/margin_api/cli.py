@@ -585,20 +585,26 @@ def determine_run_type(tickers_override: list[str] | None) -> str:
 
 
 def run_universe_generate(output: str | None = None) -> None:
-    """Screen Yahoo Finance for all US equities and generate universe.yaml."""
-    from margin_engine.universe.screener import generate_universe_yaml, screen_us_equities
+    """Screen Yahoo Finance for US equities on major exchanges and generate universe.yaml."""
+    from margin_engine.universe.screener import (
+        US_EXCHANGES,
+        generate_universe_yaml,
+        screen_us_equities,
+    )
 
     excluded_sectors = ["Financial Services", "Real Estate"]
     min_market_cap = 0
     min_avg_volume = 0
 
-    logger.info("Screening Yahoo Finance for all US publicly traded equities...")
+    logger.info("Screening Yahoo Finance for US equities on major exchanges...")
+    logger.info("  Exchanges: %s", ", ".join(US_EXCHANGES))
     logger.info("  Excluded sectors: %s", ", ".join(excluded_sectors))
 
     raw = screen_us_equities(
         min_market_cap=min_market_cap,
         min_avg_volume=min_avg_volume,
         excluded_sectors=excluded_sectors,
+        exchanges=US_EXCHANGES,
     )
     tickers = sorted(set(r["ticker"] for r in raw))
     logger.info("Found %d tickers after filtering", len(tickers))
@@ -608,7 +614,8 @@ def run_universe_generate(output: str | None = None) -> None:
         excluded_sectors=excluded_sectors,
         min_market_cap=min_market_cap,
         min_avg_volume=min_avg_volume,
-        description="All US equities, excluding financials and REITs",
+        exchanges=US_EXCHANGES,
+        description="US exchange-listed equities, excluding financials and REITs",
     )
 
     if output is None:
