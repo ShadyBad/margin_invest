@@ -7,7 +7,7 @@ to sector peers rather than the entire universe.
 
 from __future__ import annotations
 
-from margin_engine.models.scoring import FactorScore
+from margin_engine.models.scoring import CompositeScore, FactorScore
 
 
 def compute_percentile_ranks(
@@ -91,6 +91,63 @@ def compute_percentile_ranks(
             percentile_rank=result_map[idx],
             detail=scores[idx].detail,
         )
+        for idx in range(n)
+    ]
+
+
+def rerank_composites(
+    composites: list[CompositeScore],
+) -> list[CompositeScore]:
+    """Re-rank composite scores across the full universe.
+
+    Takes the weighted-average composite_raw_score values and converts them
+    to proper percentile ranks (0-100) across all tickers. This ensures
+    the top 1% actually get >= 99, top 5% get >= 95, etc.
+
+    Uses the same ranking algorithm as compute_percentile_ranks():
+    - Empty list: returns []
+    - Single ticker: percentile = 50.0
+    - All identical: percentile = 50.0
+    - Otherwise: (rank / n) * 100 with averaged ties
+
+    Returns new CompositeScore objects; originals are not mutated.
+    """
+    if not composites:
+        return []
+
+    n = len(composites)
+
+    if n == 1:
+        return [composites[0].model_copy(update={"composite_percentile": 50.0})]
+
+    raw_scores = [c.composite_raw_score for c in composites]
+
+    # All identical → 50.0
+    if all(s == raw_scores[0] for s in raw_scores):
+        return [c.model_copy(update={"composite_percentile": 50.0}) for c in composites]
+
+    # Sort by raw_score ascending
+    indexed = sorted(enumerate(raw_scores), key=lambda pair: pair[1])
+
+    # Assign 1-based ranks with tie averaging
+    ranks = list(range(1, n + 1))
+    i = 0
+    while i < n:
+        j = i
+        while j < n and indexed[j][1] == indexed[i][1]:
+            j += 1
+        avg_rank = sum(ranks[k] for k in range(i, j)) / (j - i)
+        for k in range(i, j):
+            ranks[k] = avg_rank
+        i = j
+
+    # Map back to original indices
+    result_map: dict[int, float] = {}
+    for sorted_pos, (orig_idx, _raw) in enumerate(indexed):
+        result_map[orig_idx] = (ranks[sorted_pos] / n) * 100.0
+
+    return [
+        composites[idx].model_copy(update={"composite_percentile": result_map[idx]})
         for idx in range(n)
     ]
 
