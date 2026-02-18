@@ -1,0 +1,36 @@
+import Link from "next/link"
+import { ENGINE_VERSION } from "./candidate-data"
+
+const navLinks = [
+  { label: "Support", href: "/support" },
+  { label: "Methodology", href: "/methodology" },
+  { label: "Security", href: "/security" },
+  { label: "Legal", href: "/legal" },
+  { label: "Status", href: "/status" },
+  { label: "API", href: "/api" },
+  { label: "Contact", href: "/contact" },
+]
+
+export function FooterSection() {
+  return (
+    <footer id="footer" className="border-t border-border-subtle py-12">
+      <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between gap-8">
+        <nav className="flex flex-wrap gap-x-6 gap-y-2">
+          {navLinks.map((link) => (
+            <Link
+              key={link.label}
+              href={link.href}
+              className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="font-mono text-xs text-text-tertiary md:text-right">
+          <div>Engine {ENGINE_VERSION}</div>
+          <div>&copy; 2026 Margin Invest</div>
+        </div>
+      </div>
+    </footer>
+  )
+}
