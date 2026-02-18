@@ -66,17 +66,22 @@ describe("useNavigation", () => {
       expect(result.current.isAuthenticated).toBe(true)
     })
 
-    it("returns Guides as center link", () => {
+    it("returns Dashboard and Guides as center links", () => {
       const { result } = renderHook(() => useNavigation())
       const labels = result.current.links.map((l) => l.label)
-      expect(labels).toEqual(["Guides"])
+      expect(labels).toEqual(["Dashboard", "Guides"])
     })
 
-    it("returns Dashboard CTA linking to /dashboard", () => {
+    it("returns cta as null", () => {
       const { result } = renderHook(() => useNavigation())
-      expect(result.current.cta).not.toBeNull()
-      expect(result.current.cta!.primary.label).toBe("Dashboard")
-      expect(result.current.cta!.primary.href).toBe("/dashboard")
+      expect(result.current.cta).toBeNull()
+    })
+
+    it("marks Dashboard active based on pathname", () => {
+      mockPathname = "/dashboard"
+      const { result } = renderHook(() => useNavigation())
+      const dashboard = result.current.links.find((l) => l.href === "/dashboard")
+      expect(dashboard!.isActive).toBe(true)
     })
 
     it("marks Guides active based on pathname", () => {

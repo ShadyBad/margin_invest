@@ -24,7 +24,7 @@ export function Navbar() {
         <NavLinks links={nav.links} />
 
         <div className="hidden md:flex items-center gap-3">
-          <NavCTA cta={nav.cta} />
+          {nav.cta && <NavCTA cta={nav.cta} />}
           {nav.isAuthenticated && (
             <UsagePill used={0} limit={3} />
           )}

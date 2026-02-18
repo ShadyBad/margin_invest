@@ -32,7 +32,7 @@ export interface NavigationUser {
 export interface NavigationState {
   isAuthenticated: boolean
   links: NavLink[]
-  cta: NavigationCTA
+  cta: NavigationCTA | null
   user: NavigationUser | null
   logoHref: string
 }
@@ -40,6 +40,7 @@ export interface NavigationState {
 const PUBLIC_LINKS: { href: string; label: string }[] = []
 
 const APP_LINKS = [
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/guides", label: "Guides" },
 ]
 
@@ -54,8 +55,8 @@ export function useNavigation(): NavigationState {
     isActive: pathname === link.href,
   }))
 
-  const cta: NavigationCTA = isAuthenticated
-    ? { primary: { label: "Dashboard", href: "/dashboard" } }
+  const cta: NavigationCTA | null = isAuthenticated
+    ? null
     : { primary: { label: "Dashboard", href: "/login" } }
 
   const user: NavigationUser | null = isAuthenticated

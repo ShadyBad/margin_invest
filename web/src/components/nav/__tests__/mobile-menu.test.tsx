@@ -15,9 +15,10 @@ const publicNav: NavigationState = {
 const appNav: NavigationState = {
   isAuthenticated: true,
   links: [
+    { href: "/dashboard", label: "Dashboard", isActive: false },
     { href: "/guides", label: "Guides", isActive: false },
   ],
-  cta: { primary: { label: "Dashboard", href: "/dashboard" } },
+  cta: null,
   user: {
     name: "Jane Doe",
     email: "jane@example.com",
@@ -51,7 +52,7 @@ describe("MobileMenu", () => {
     expect(screen.getByText("Dashboard")).toBeInTheDocument()
   })
 
-  it("renders Dashboard button AND user info for authenticated", () => {
+  it("renders Dashboard link AND user info for authenticated", () => {
     render(<MobileMenu nav={appNav} isOpen={true} onClose={vi.fn()} />)
     expect(screen.getByText("Dashboard")).toBeInTheDocument()
     expect(screen.getByText("Jane Doe")).toBeInTheDocument()

@@ -13,9 +13,10 @@ vi.mock("@/hooks/use-navigation", () => ({
       return {
         isAuthenticated: true,
         links: [
+          { href: "/dashboard", label: "Dashboard", isActive: false },
           { href: "/guides", label: "Guides", isActive: false },
         ],
-        cta: { primary: { label: "Dashboard", href: "/dashboard" } },
+        cta: null,
         user: {
           name: "Jane Doe",
           email: "jane@example.com",
@@ -76,18 +77,18 @@ describe("Navbar", () => {
       mockIsAuthenticated = true
     })
 
-    it("renders Guides center link", () => {
+    it("renders Dashboard and Guides center links", () => {
       render(<Navbar />)
+      expect(screen.getByText("Dashboard")).toBeInTheDocument()
       expect(screen.getByText("Guides")).toBeInTheDocument()
     })
 
-    it("renders Dashboard button linking to /dashboard", () => {
+    it("does not render Dashboard CTA button", () => {
       render(<Navbar />)
-      const dashboardLinks = screen.getAllByText("Dashboard")
-      const ctaLink = dashboardLinks.find(
-        (el) => el.closest("a")?.getAttribute("href") === "/dashboard"
-      )
-      expect(ctaLink).toBeDefined()
+      // Dashboard appears as a center link, not as a CTA pill button
+      const dashboard = screen.getByText("Dashboard")
+      expect(dashboard.closest("a")).toHaveAttribute("href", "/dashboard")
+      expect(dashboard.className).not.toContain("rounded-full")
     })
 
     it("renders user avatar button", () => {
@@ -113,11 +114,11 @@ describe("Navbar", () => {
       render(<Navbar />)
       const toggle = screen.getByLabelText("Toggle menu")
 
-      // Menu closed — only desktop NavCTA
+      // Menu closed — only desktop CTA "Dashboard"
       expect(screen.getAllByText("Dashboard")).toHaveLength(1)
 
       await u.click(toggle)
-      // Menu open — desktop NavCTA + mobile menu
+      // Menu open — desktop CTA + mobile CTA
       expect(screen.getAllByText("Dashboard")).toHaveLength(2)
 
       await u.click(toggle)
