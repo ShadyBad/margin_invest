@@ -7,7 +7,6 @@ import { NavLinks } from "./nav-links"
 import { NavCTA } from "./nav-cta"
 import { UserDropdown } from "./user-dropdown"
 import { MobileMenu } from "./mobile-menu"
-import { UsagePill } from "./usage-pill"
 
 export function Navbar() {
   const nav = useNavigation()
@@ -25,9 +24,6 @@ export function Navbar() {
 
         <div className="hidden md:flex items-center gap-3">
           {nav.cta && <NavCTA cta={nav.cta} />}
-          {nav.isAuthenticated && (
-            <UsagePill used={0} limit={3} />
-          )}
           {nav.user && (
             <UserDropdown user={nav.user} />
           )}
