@@ -74,15 +74,20 @@ _MAX_IMPLIED_MARKET_CAP = 10_000_000_000_000
 
 # Layer 2: Per-method output bounds
 _MIN_PER_SHARE_PRICE = 0.01
-_MAX_PRICE_MULTIPLE = 100.0
+_MAX_PRICE_MULTIPLE = 20.0
 
 # Layer 3: Cross-method consistency bounds
 _OUTLIER_LOW_RATIO = 0.1
 _OUTLIER_HIGH_RATIO = 10.0
 
-# Layer 4: Final output validation bounds
-_MIN_PRICE_RATIO = 0.01       # Intrinsic value must be >= 1% of actual_price
-_MAX_PRICE_RATIO = 50.0       # Intrinsic value must be <= 50x actual_price
+# Layer 1b: Currency mismatch detection
+# If revenue-per-share exceeds this multiple of the stock price, financials are
+# likely reported in a foreign currency while the stock trades in USD.
+_CURRENCY_MISMATCH_RATIO = 10.0
+
+# Layer 4: Final output validation bounds — clamp instead of reject
+_MIN_PRICE_RATIO = 0.01       # Intrinsic value floor: 1% of actual_price
+_MAX_PRICE_RATIO = 10.0       # Intrinsic value ceiling: 10x actual_price
 _ABS_MIN_INTRINSIC = 0.10     # Absolute floor when no actual_price
 _ABS_MAX_INTRINSIC = 1_000_000.0  # Absolute ceiling when no actual_price
 
@@ -145,7 +150,10 @@ def compute_price_targets(
     shares = profile.shares_outstanding
 
     if shares is None or shares <= 0:
-        return PriceTargets(actual_price=actual_price)
+        return PriceTargets(
+            actual_price=actual_price,
+            invalid_reason="shares_outstanding_missing",
+        )
 
     # Layer 1: Fixed share bounds
     if shares < _MIN_SHARES or shares > _MAX_SHARES:
@@ -170,6 +178,17 @@ def compute_price_targets(
                 actual_price=actual_price,
                 invalid_reason="implied_market_cap_unreasonable",
             )
+
+    # Layer 1b: Currency mismatch detection.
+    # Detected mismatches are logged but no longer reject — the universe filter
+    # ensures only exchange-listed stocks reach here, and Layer 4 clamping
+    # provides a conservative cap if valuations are inflated by currency.
+    currency_mismatch = _detect_currency_mismatch(period, shares, actual_price)
+    if currency_mismatch:
+        logger.info(
+            "Layer 1b: %s likely currency mismatch — proceeding with clamped valuation",
+            profile.ticker,
+        )
 
     # Compute each valuation method (returns None if data is invalid)
     methods: dict[str, float | None] = {
@@ -205,7 +224,10 @@ def compute_price_targets(
     }
 
     if not valid_methods:
-        return PriceTargets(actual_price=actual_price)
+        return PriceTargets(
+            actual_price=actual_price,
+            invalid_reason="insufficient_data",
+        )
 
     # Layer 3: Cross-method consistency — exclude outlier methods
     valid_methods = _filter_outlier_methods(valid_methods)
@@ -222,16 +244,13 @@ def compute_price_targets(
         _METHOD_WEIGHTS[k] / total_weight * v for k, v in valid_methods.items()
     )
 
-    # Layer 4: Final output validation
-    final_reason = _validate_final_output(intrinsic_value, actual_price)
-    if final_reason:
-        logger.warning(
-            "Layer 4 reject: %s intrinsic_value=%.2f actual_price=%s reason=%s",
-            profile.ticker, intrinsic_value, actual_price, final_reason,
-        )
-        return PriceTargets(
-            actual_price=actual_price,
-            invalid_reason=final_reason,
+    # Layer 4: Clamp intrinsic value to reasonable bounds instead of rejecting.
+    # Deep-value stocks can genuinely trade at large discounts to intrinsic value.
+    intrinsic_value, was_clamped = _clamp_intrinsic_value(intrinsic_value, actual_price)
+    if was_clamped:
+        logger.info(
+            "Layer 4 clamp: %s intrinsic_value clamped to %.2f (actual_price=%s)",
+            profile.ticker, intrinsic_value, actual_price,
         )
 
     # Dynamic margin of safety — intrinsic value IS the buy price (floor).
@@ -317,22 +336,58 @@ def _filter_outlier_methods(methods: dict[str, float]) -> dict[str, float]:
     }
 
 
-def _validate_final_output(
+def _detect_currency_mismatch(
+    period: FinancialPeriod,
+    shares: int,
+    actual_price: float | None,
+) -> bool:
+    """Detect likely currency mismatch between financial data and stock price.
+
+    Many OTC-traded foreign stocks report financials in their local currency
+    (JPY, IDR, KRW, etc.) while trading in USD. This creates wildly inflated
+    per-share metrics relative to the stock price.
+
+    Heuristic: if revenue-per-share or OCF-per-share exceeds 10x the stock
+    price, the financial data is almost certainly in a different currency.
+    (Even the lowest-margin businesses rarely have P/S below 0.1.)
+    """
+    if actual_price is None or actual_price <= 0 or shares <= 0:
+        return False
+
+    threshold = _CURRENCY_MISMATCH_RATIO * actual_price
+
+    revenue = period.current_income.revenue
+    if revenue > 0:
+        rev_per_share = float(revenue) / shares
+        if rev_per_share > threshold:
+            return True
+
+    ocf = period.current_cash_flow.operating_cash_flow
+    if ocf > 0:
+        ocf_per_share = float(ocf) / shares
+        if ocf_per_share > threshold:
+            return True
+
+    return False
+
+
+def _clamp_intrinsic_value(
     intrinsic_value: float,
     actual_price: float | None,
-) -> str | None:
-    """Return an invalid_reason string if intrinsic_value is out of bounds, else None."""
+) -> tuple[float, bool]:
+    """Clamp intrinsic value to reasonable bounds. Returns (clamped_value, was_clamped)."""
     if actual_price is not None and actual_price > 0:
-        if intrinsic_value < _MIN_PRICE_RATIO * actual_price:
-            return "intrinsic_value_extreme"
-        if intrinsic_value > _MAX_PRICE_RATIO * actual_price:
-            return "intrinsic_value_extreme"
+        floor = _MIN_PRICE_RATIO * actual_price
+        ceiling = _MAX_PRICE_RATIO * actual_price
     else:
-        if intrinsic_value < _ABS_MIN_INTRINSIC:
-            return "intrinsic_value_extreme"
-        if intrinsic_value > _ABS_MAX_INTRINSIC:
-            return "intrinsic_value_extreme"
-    return None
+        floor = _ABS_MIN_INTRINSIC
+        ceiling = _ABS_MAX_INTRINSIC
+
+    if intrinsic_value < floor:
+        return floor, True
+    if intrinsic_value > ceiling:
+        return ceiling, True
+    return intrinsic_value, False
 
 
 def _latest_close(bars: list[PriceBar]) -> float | None:
