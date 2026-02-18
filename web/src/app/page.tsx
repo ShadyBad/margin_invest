@@ -1,59 +1,53 @@
 import { Navbar } from "@/components/nav/navbar"
-import { HeroSection } from "@/components/landing/hero-section"
-import { ProblemSection } from "@/components/landing/problem-section"
-import { EngineSection } from "@/components/landing/engine-section"
-import { ProofSection } from "@/components/landing/proof-section"
-import { PositioningSection } from "@/components/landing/positioning-section"
-import { PricingSection } from "@/components/landing/pricing-section"
-import { LegitimacyStrip } from "@/components/landing/legitimacy-strip"
-import { FooterInstitutional } from "@/components/landing/footer-institutional"
-import { SectionIndicator } from "@/components/landing/section-indicator"
 import { serverFetch } from "@/lib/api/server"
+import { HomepageClient } from "@/components/landing/homepage-client"
+import type { DashboardResponse } from "@/lib/api/types"
+import type { HomepageData, CandidateCard } from "@/components/landing/types"
 
-interface PickSummary {
-  ticker: string
-  name: string
-  actual_price: number | null
-  buy_price: number | null
-  margin_of_safety: number | null
-  composite_percentile: number
-  quality_percentile: number
-  value_percentile: number
-  momentum_percentile: number
-  scored_at: string | null
-  sector: string | null
+function toCandidateCard(pick: DashboardResponse["picks"][0]): CandidateCard {
+  return {
+    ticker: pick.ticker,
+    name: pick.name,
+    sector: pick.sector ?? "Unknown",
+    actual_price: pick.actual_price ?? 0,
+    buy_price: pick.buy_price ?? 0,
+    margin_of_safety: pick.margin_of_safety ?? 0,
+    composite_percentile: pick.composite_percentile,
+    conviction_level: pick.conviction_level,
+    quality_percentile: pick.quality_percentile,
+    value_percentile: pick.value_percentile,
+    momentum_percentile: pick.momentum_percentile,
+    sentiment_percentile: pick.sentiment_percentile ?? 0,
+    growth_percentile: pick.growth_percentile ?? 0,
+    scored_at: pick.scored_at ?? new Date().toISOString(),
+    filters_passed: 8,
+    filters_total: 8,
+  }
 }
 
-interface DashboardResponse {
-  picks: PickSummary[]
-}
-
-async function getTopPick(): Promise<PickSummary | null> {
+async function getHomepageData(): Promise<HomepageData | null> {
   try {
     const data = await serverFetch<DashboardResponse>("/api/v1/dashboard")
-    return data.picks[0] ?? null
+    if (!data.picks || data.picks.length === 0) return null
+    return {
+      candidates: data.picks.slice(0, 5).map(toCandidateCard),
+      last_updated: data.last_updated,
+      universe_size: data.universe?.size ?? 0,
+      eligible_count: data.total_scored,
+      total_scored: data.total_scored,
+    }
   } catch {
     return null
   }
 }
 
 export default async function Home() {
-  const topPick = await getTopPick()
+  const data = await getHomepageData()
 
   return (
     <main>
       <Navbar />
-      <div className="relative z-10">
-        <HeroSection pick={topPick} />
-        <ProblemSection />
-        <EngineSection />
-        <ProofSection pick={topPick} />
-        <PositioningSection />
-        <PricingSection />
-        <LegitimacyStrip />
-        <FooterInstitutional />
-      </div>
-      <SectionIndicator />
+      <HomepageClient data={data} />
     </main>
   )
 }
