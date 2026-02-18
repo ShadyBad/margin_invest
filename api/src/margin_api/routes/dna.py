@@ -18,17 +18,17 @@ from margin_api.schemas.dna import DNAResponse
 router = APIRouter(prefix="/api/v1/users/me", tags=["dna"])
 
 SECTOR_COLORS: dict[str, str] = {
-    "Information Technology": "#1a3a5c",
-    "Health Care": "#0e4f4f",
-    "Financials": "#0f1e3a",
-    "Energy": "#4a3018",
-    "Consumer Discretionary": "#5c2a2a",
-    "Industrials": "#2a2e33",
-    "Materials": "#3a2a14",
-    "Utilities": "#2a3a2a",
-    "Real Estate": "#3a3228",
-    "Communication Services": "#2a1e4a",
-    "Consumer Staples": "#4a4038",
+    "Information Technology": "#5b7a8a",
+    "Health Care": "#4f7a6b",
+    "Financials": "#4a5e7a",
+    "Energy": "#8a6e3a",
+    "Consumer Discretionary": "#8a6254",
+    "Industrials": "#6b6e72",
+    "Materials": "#7a6050",
+    "Utilities": "#5a7a5a",
+    "Real Estate": "#7a7060",
+    "Communication Services": "#6e5a7a",
+    "Consumer Staples": "#7a7250",
 }
 
 DEFAULT_DNA = DNAResponse(
