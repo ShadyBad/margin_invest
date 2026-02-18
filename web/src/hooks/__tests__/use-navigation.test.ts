@@ -29,36 +29,26 @@ describe("useNavigation", () => {
       expect(result.current.isAuthenticated).toBe(false)
     })
 
-    it("returns public links", () => {
+    it("returns no center links", () => {
       const { result } = renderHook(() => useNavigation())
-      const labels = result.current.links.map((l) => l.label)
-      expect(labels).toEqual(["Methodology", "Guides"])
+      expect(result.current.links).toEqual([])
     })
 
-    it("returns login CTA", () => {
+    it("returns Dashboard CTA linking to /login", () => {
       const { result } = renderHook(() => useNavigation())
       expect(result.current.cta).not.toBeNull()
-      expect(result.current.cta!.primary.label).toBe("Login")
+      expect(result.current.cta!.primary.label).toBe("Dashboard")
       expect(result.current.cta!.primary.href).toBe("/login")
     })
 
-    it("returns sign up secondary CTA", () => {
+    it("returns no secondary CTA", () => {
       const { result } = renderHook(() => useNavigation())
-      expect(result.current.cta!.secondary).toBeDefined()
-      expect(result.current.cta!.secondary!.label).toBe("Sign Up")
-      expect(result.current.cta!.secondary!.href).toBe("/register")
+      expect(result.current.cta!.secondary).toBeUndefined()
     })
 
     it("returns user as null", () => {
       const { result } = renderHook(() => useNavigation())
       expect(result.current.user).toBeNull()
-    })
-
-    it("marks active link based on pathname", () => {
-      mockPathname = "/methodology"
-      const { result } = renderHook(() => useNavigation())
-      const methodology = result.current.links.find((l) => l.href === "/methodology")
-      expect(methodology!.isActive).toBe(true)
     })
   })
 
@@ -76,15 +66,24 @@ describe("useNavigation", () => {
       expect(result.current.isAuthenticated).toBe(true)
     })
 
-    it("returns app links", () => {
+    it("returns Guides as center link", () => {
       const { result } = renderHook(() => useNavigation())
       const labels = result.current.links.map((l) => l.label)
-      expect(labels).toEqual(["Dashboard"])
+      expect(labels).toEqual(["Guides"])
     })
 
-    it("returns cta as null", () => {
+    it("returns Dashboard CTA linking to /dashboard", () => {
       const { result } = renderHook(() => useNavigation())
-      expect(result.current.cta).toBeNull()
+      expect(result.current.cta).not.toBeNull()
+      expect(result.current.cta!.primary.label).toBe("Dashboard")
+      expect(result.current.cta!.primary.href).toBe("/dashboard")
+    })
+
+    it("marks Guides active based on pathname", () => {
+      mockPathname = "/guides"
+      const { result } = renderHook(() => useNavigation())
+      const guides = result.current.links.find((l) => l.href === "/guides")
+      expect(guides!.isActive).toBe(true)
     })
 
     it("returns user object with session data", () => {
