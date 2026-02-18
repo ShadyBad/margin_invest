@@ -35,6 +35,7 @@ class PickSummary(BaseModel):
     max_position_pct: float | None = None
     timing_signal: str | None = None
     sector: str | None = None
+    price_target_invalid_reason: str | None = None
 
 
 class WatchlistItem(BaseModel):

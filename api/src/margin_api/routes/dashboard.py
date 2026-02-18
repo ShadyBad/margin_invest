@@ -67,6 +67,7 @@ def _pick_summary_from_row(row) -> PickSummary:
             else None
         ),
         sector=getattr(row, "asset_sector", None),
+        price_target_invalid_reason=invalid_reason,
     )
 
 
