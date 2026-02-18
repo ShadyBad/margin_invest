@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "application/json",
         "X-User-Id": (session.userId as string) || "",
+        "X-User-Email": session.user?.email || "",
       },
       body: body || "{}",
     })

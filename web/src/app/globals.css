@@ -47,6 +47,22 @@
   --color-percentile-below: #D97706;
   --color-percentile-weak: #DC2626;
 
+  /* Sector accent colors (card left-bar, DNA blending) */
+  --color-sector-tech: #4A8CAF;
+  --color-sector-healthcare: #3A8E72;
+  --color-sector-financials: #3A6A9E;
+  --color-sector-consumer-disc: #B06848;
+  --color-sector-consumer-staples: #8E8440;
+  --color-sector-energy: #B08428;
+  --color-sector-industrials: #7A808A;
+  --color-sector-materials: #9A7050;
+  --color-sector-real-estate: #8A7E5A;
+  --color-sector-utilities: #4A8E4A;
+  --color-sector-comms: #8A5AA0;
+
+  /* Gold highlight */
+  --color-gold-highlight: #8B7330;
+
   /* Elevation shadows */
   --shadow-card: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
   --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.3);
@@ -57,13 +73,37 @@
 
   /* WebGL glow tinting */
   --color-glow-accent: rgba(26, 122, 90, 0.15);
+
+  /* Depth & surface tokens */
+  --color-bg-deep: #F4F3EF;
+  --color-bg-surface-rgb: 244, 243, 239;
+  --color-accent-glow: rgba(14, 79, 58, 0.15);
+  --color-warm-under: #3A3228;
+  --color-caustic: rgba(18, 18, 18, 0.08);
+
+  /* Motion tokens */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-smooth: cubic-bezier(0.45, 0, 0.55, 1);
+  --ease-out-back: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-micro: 150ms;
+  --duration-reveal: 600ms;
+  --duration-transition: 1000ms;
+  --duration-ambient: calc(10000ms * var(--dna-tempo, 1));
+  --stagger-base: 80ms;
+
+  /* DNA slot variables (set per-section for gradient-mesh theming) */
+  --dna-base: ;
+  --dna-mid: ;
+  --dna-accent: ;
+  --dna-density: 0.5;
+  --dna-tempo: 1;
 }
 
 /* --- Dark mode overrides --- */
 .dark {
-  --color-bg-primary: #110F0D;
-  --color-bg-elevated: #1A1714;
-  --color-bg-subtle: #211E1A;
+  --color-bg-primary: #0A0F0D;
+  --color-bg-elevated: #111A15;
+  --color-bg-subtle: #1A2420;
 
   --color-text-primary: #EDE9E3;
   --color-text-secondary: #A39E96;
@@ -85,6 +125,26 @@
 
   --color-grid-line: rgba(255, 255, 255, 0.04);
   --color-divider: rgba(255, 255, 255, 0.06);
+
+  --color-bg-deep: #0F0D0B;
+  --color-bg-surface-rgb: 26, 24, 20;
+  --color-accent-glow: rgba(14, 79, 58, 0.15);
+  --color-warm-under: #2A1F14;
+  --color-caustic: rgba(237, 233, 227, 0.12);
+
+  --color-sector-tech: #6AB0D4;
+  --color-sector-healthcare: #50B88E;
+  --color-sector-financials: #5A8EC4;
+  --color-sector-consumer-disc: #D08868;
+  --color-sector-consumer-staples: #B8AA58;
+  --color-sector-energy: #D0A440;
+  --color-sector-industrials: #9AA0AC;
+  --color-sector-materials: #C09070;
+  --color-sector-real-estate: #B0A07A;
+  --color-sector-utilities: #60B860;
+  --color-sector-comms: #AA72C4;
+
+  --color-gold-highlight: #C9A84C;
 }
 
 /* Responsive typography utilities */
@@ -148,6 +208,7 @@ body {
   font-family: var(--font-sans);
   background-image: url('/noise.svg');
   background-repeat: repeat;
+  overflow-x: hidden;
 }
 
 /* Login page animations */
@@ -197,10 +258,32 @@ body {
   background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 60%);
 }
 
+/* Terminal card surfaces */
+.terminal-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+}
+
+.terminal-card-accent {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-accent);
+  border-radius: 12px;
+}
+
+.gradient-mesh {
+  background:
+    radial-gradient(ellipse at 20% 30%, var(--dna-base, var(--color-warm-under)) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 70%, var(--dna-mid, var(--color-accent)) 0%, transparent 50%),
+    var(--color-bg-deep);
+  opacity: 0.06;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-card-enter,
   .login-scene-enter,
   .animate-chart-glow {
     animation: none;
   }
+
 }

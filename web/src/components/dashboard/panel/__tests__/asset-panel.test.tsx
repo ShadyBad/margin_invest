@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { AssetPanel } from "../asset-panel"
-import type { ScoreResponse } from "@/lib/api/types"
+import type { ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/types"
 
 // Mock all child components to isolate orchestration logic
 vi.mock("../panel-backdrop", () => ({
@@ -49,17 +49,6 @@ vi.mock("framer-motion", async () => {
   }
 })
 
-vi.mock("@/lib/compute-institutional-metrics", () => ({
-  computeInstitutionalMetrics: () => ({
-    sharpeRatio: 1.5,
-    maxDrawdown: 15,
-    volatility: 12,
-    avgProfitMargin: 25,
-    riskClassification: "moderate",
-    allocationWeight: 5,
-  }),
-}))
-
 vi.mock("@/lib/compose-ai-summary", () => ({
   composeAiSummary: () => ({
     summary: "Strong quality characteristics with above-average momentum.",
@@ -90,14 +79,24 @@ const mockScore: ScoreResponse = {
   valuation_methods: { dcf: 190, ev_fcf: 170 },
 }
 
+const mockMetrics: InstitutionalMetricsResponse = {
+  sharpe_ratio: 1.5,
+  max_drawdown: -0.15,
+  volatility: 22.5,
+  avg_profit_margin: 25.0,
+  risk_classification: "Moderate",
+  allocation_weight: 8.0,
+  margin_of_safety: 0.10,
+}
+
 describe("AssetPanel", () => {
   it("renders nothing when isOpen is false", () => {
-    render(<AssetPanel isOpen={false} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} />)
+    render(<AssetPanel isOpen={false} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     expect(screen.queryByTestId("asset-panel")).not.toBeInTheDocument()
   })
 
   it("renders all sections when open", () => {
-    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} />)
+    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     expect(screen.getByTestId("asset-panel")).toBeInTheDocument()
     expect(screen.getByTestId("panel-backdrop")).toBeInTheDocument()
     expect(screen.getByTestId("executive-header")).toBeInTheDocument()
@@ -112,32 +111,32 @@ describe("AssetPanel", () => {
 
   it("calls onClose when backdrop clicked", () => {
     const onClose = vi.fn()
-    render(<AssetPanel isOpen={true} onClose={onClose} ticker="AAPL" scoredResult={mockScore} />)
+    render(<AssetPanel isOpen={true} onClose={onClose} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     fireEvent.click(screen.getByTestId("panel-backdrop"))
     expect(onClose).toHaveBeenCalledOnce()
   })
 
   it("passes ticker to ExecutiveHeader", () => {
-    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} />)
+    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     expect(screen.getByTestId("executive-header")).toHaveTextContent("AAPL")
   })
 
   it("calls onClose when Escape key is pressed", () => {
     const onClose = vi.fn()
-    render(<AssetPanel isOpen={true} onClose={onClose} ticker="AAPL" scoredResult={mockScore} />)
+    render(<AssetPanel isOpen={true} onClose={onClose} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     fireEvent.keyDown(document, { key: "Escape" })
     expect(onClose).toHaveBeenCalledOnce()
   })
 
   it("has role=dialog and aria-modal on the panel container", () => {
-    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} />)
+    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     const dialog = screen.getByRole("dialog")
     expect(dialog).toHaveAttribute("aria-modal", "true")
     expect(dialog).toHaveAttribute("aria-label", "AAPL analysis panel")
   })
 
   it("passes buy_price to PanelValuation as buyBelow", () => {
-    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} />)
+    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     const valuation = screen.getByTestId("panel-valuation")
     expect(valuation).toHaveAttribute("data-buy-below", "140")
   })

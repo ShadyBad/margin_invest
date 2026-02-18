@@ -13,7 +13,6 @@ const user: NavigationUser = {
   oauthAvatarUrl: null,
   dropdownItems: [
     { label: "Account", href: "/account", type: "link" },
-    { label: "Settings", href: "/settings", type: "link" },
     { label: "", type: "divider" },
     { label: "Sign Out", onClick: mockSignOut, type: "action" },
   ],
@@ -46,7 +45,6 @@ describe("UserDropdown", () => {
     render(<UserDropdown user={user} />)
     await u.click(screen.getByRole("button", { name: /user menu/i }))
     expect(screen.getByText("Account")).toBeInTheDocument()
-    expect(screen.getByText("Settings")).toBeInTheDocument()
     expect(screen.getByText("Sign Out")).toBeInTheDocument()
   })
 

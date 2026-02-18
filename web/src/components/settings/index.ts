@@ -1,3 +1,2 @@
-export { AccountSection } from "./account-section"
-export { BillingSection } from "./billing-section"
-export { ApiKeysSection } from "./api-keys-section"
+// Settings components have been moved to /components/account/
+// This file is intentionally empty. Product preference components will be added here.

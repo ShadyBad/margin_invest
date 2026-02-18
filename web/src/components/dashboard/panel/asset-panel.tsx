@@ -13,16 +13,16 @@ import { PanelValuation } from "./panel-valuation"
 import { PanelFilterList } from "./panel-filter-list"
 import { ScoreHistoryTable } from "./score-history-table"
 import { ProGate } from "../pro-gate"
-import { computeInstitutionalMetrics } from "@/lib/compute-institutional-metrics"
 import { composeAiSummary } from "@/lib/compose-ai-summary"
 import type { TimeRange } from "./time-range-selector"
-import type { ScoreResponse } from "@/lib/api/types"
+import type { ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/types"
 
 interface AssetPanelProps {
   isOpen: boolean
   onClose: () => void
   ticker: string
   scoredResult: ScoreResponse
+  metrics: InstitutionalMetricsResponse | null
 }
 
 const PANEL_EASE = [0.22, 1, 0.36, 1] as const
@@ -60,7 +60,7 @@ function computeInsights(score: ScoreResponse) {
   return { strengths, risks }
 }
 
-export function AssetPanel({ isOpen, onClose, ticker, scoredResult }: AssetPanelProps) {
+export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: AssetPanelProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("3M")
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -72,11 +72,6 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult }: AssetPanel
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [isOpen, handleKeyDown])
-
-  const metrics = useMemo(
-    () => computeInstitutionalMetrics(scoredResult),
-    [scoredResult],
-  )
 
   const aiSummary = useMemo(() => composeAiSummary(scoredResult), [scoredResult])
   const insights = useMemo(() => computeInsights(scoredResult), [scoredResult])
@@ -159,12 +154,12 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult }: AssetPanel
               <div className="p-6 space-y-6">
                 <ProGate>
                   <KpiGrid
-                    sharpeRatio={metrics?.sharpeRatio ?? null}
-                    maxDrawdown={metrics?.maxDrawdown ?? null}
+                    sharpeRatio={metrics?.sharpe_ratio ?? null}
+                    maxDrawdown={metrics?.max_drawdown ?? null}
                     volatility={metrics?.volatility ?? null}
-                    avgProfitMargin={metrics?.avgProfitMargin ?? null}
-                    allocationWeight={metrics?.allocationWeight ?? null}
-                    marginOfSafety={scoredResult.margin_of_safety != null ? Math.round(scoredResult.margin_of_safety * 100) : null}
+                    avgProfitMargin={metrics?.avg_profit_margin ?? null}
+                    allocationWeight={metrics?.allocation_weight ?? null}
+                    marginOfSafety={metrics?.margin_of_safety != null ? Math.round(metrics.margin_of_safety * 100) : null}
                   />
                 </ProGate>
 
