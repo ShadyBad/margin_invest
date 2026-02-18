@@ -1,15 +1,15 @@
 export const SECTOR_COLORS: Record<string, string> = {
-  "Information Technology": "#5B7A8A",
-  "Health Care": "#4F7A6B",
-  "Financials": "#4A5E7A",
-  "Energy": "#8A6E3A",
-  "Consumer Discretionary": "#8A6254",
-  "Industrials": "#6B6E72",
-  "Materials": "#7A6050",
-  "Utilities": "#5A7A5A",
-  "Real Estate": "#7A7060",
-  "Communication Services": "#6E5A7A",
-  "Consumer Staples": "#7A7250",
+  "Information Technology": "#4A8CAF",
+  "Health Care": "#3A8E72",
+  "Financials": "#3A6A9E",
+  "Energy": "#B08428",
+  "Consumer Discretionary": "#B06848",
+  "Industrials": "#7A808A",
+  "Materials": "#9A7050",
+  "Utilities": "#4A8E4A",
+  "Real Estate": "#8A7E5A",
+  "Communication Services": "#8A5AA0",
+  "Consumer Staples": "#8E8440",
 }
 
 const DEFAULT_PALETTE = { base: "#0F0D0B", mid: "#1A5A3E", accent: "#1A7A5A" }
