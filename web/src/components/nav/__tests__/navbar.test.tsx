@@ -24,7 +24,6 @@ vi.mock("@/hooks/use-navigation", () => ({
           oauthAvatarUrl: null,
           dropdownItems: [
             { label: "Account", href: "/account", type: "link" },
-            { label: "Settings", href: "/settings", type: "link" },
             { label: "", type: "divider" },
             { label: "Sign Out", onClick: mockSignOut, type: "action" },
           ],

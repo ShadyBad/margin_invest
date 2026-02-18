@@ -103,7 +103,6 @@ describe("useNavigation", () => {
       const items = result.current.user!.dropdownItems
       const labels = items.map((i) => i.label)
       expect(labels).toContain("Account")
-      expect(labels).toContain("Settings")
       expect(labels).toContain("Sign Out")
     })
 

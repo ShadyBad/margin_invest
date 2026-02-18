@@ -67,7 +67,6 @@ export function useNavigation(): NavigationState {
         oauthAvatarUrl: session.oauthAvatarUrl ?? session.user.image ?? null,
         dropdownItems: [
           { label: "Account", href: "/account", type: "link" as const },
-          { label: "Settings", href: "/settings", type: "link" as const },
           { label: "", type: "divider" as const },
           { label: "Sign Out", onClick: () => signOut(), type: "action" as const },
         ],

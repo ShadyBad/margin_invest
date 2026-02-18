@@ -4,14 +4,26 @@ import { useSession } from "next-auth/react"
 import { useRef, useState } from "react"
 import { Avatar } from "@/components/ui/avatar"
 
-export function AccountSection() {
+const PROVIDER_LABELS: Record<string, string> = {
+  google: "Google",
+  github: "GitHub",
+  credentials: "Email & Password",
+}
+
+export function ProfileSection() {
   const { data: session, update } = useSession()
   const authMethod = session?.authMethod
+  const oauthProvider = session?.oauthProvider
   const avatarUrl = session?.avatarUrl ?? null
   const oauthAvatarUrl = session?.oauthAvatarUrl ?? session?.user?.image
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const providerLabel =
+    authMethod === "oauth" && oauthProvider
+      ? PROVIDER_LABELS[oauthProvider] || oauthProvider
+      : PROVIDER_LABELS["credentials"]
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -60,7 +72,7 @@ export function AccountSection() {
 
   return (
     <section className="bg-bg-elevated border border-border-primary rounded-sm p-6">
-      <h2 className="text-lg font-bold text-text-primary mb-4">Account</h2>
+      <h2 className="text-lg font-bold text-text-primary mb-4">Profile</h2>
       {session?.user ? (
         <div className="space-y-3">
           <div className="flex items-center gap-4">
@@ -77,6 +89,9 @@ export function AccountSection() {
               <div className="text-sm text-text-secondary">
                 {session.user.email}
               </div>
+              <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full bg-bg-subtle text-text-secondary border border-border-primary">
+                {providerLabel}
+              </span>
             </div>
           </div>
 
@@ -107,16 +122,9 @@ export function AccountSection() {
           {error && (
             <p className="text-sm text-red-400">{error}</p>
           )}
-
-          {authMethod === "credentials" && (
-            <div className="border-t border-border-primary pt-4">
-              <h3 className="text-md font-medium text-text-primary mb-2">Multi-Factor Authentication</h3>
-              <p className="text-sm text-text-secondary">MFA is enabled for your account. You can manage your authentication methods below.</p>
-            </div>
-          )}
         </div>
       ) : (
-        <p className="text-text-secondary">Loading account information...</p>
+        <p className="text-text-secondary">Loading profile information...</p>
       )}
     </section>
   )

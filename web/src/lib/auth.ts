@@ -81,6 +81,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.authMethod = account?.type === "oauth" || account?.type === "oidc"
           ? "oauth"
           : "credentials"
+        token.oauthProvider = token.authMethod === "oauth"
+          ? (account?.provider ?? null)
+          : null
         token.mfaVerified = token.authMethod === "oauth"
           ? true
           : !!(user as Record<string, unknown>).mfaToken
@@ -100,6 +103,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, token }) {
       session.userId = token.userId as string
       session.authMethod = token.authMethod as string
+      session.oauthProvider = (token.oauthProvider as string) || null
       session.mfaVerified = token.mfaVerified as boolean
       session.avatarUrl = (token.avatarUrl as string) || null
       session.oauthAvatarUrl = (token.oauthAvatarUrl as string) || null

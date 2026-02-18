@@ -5,6 +5,7 @@ declare module "next-auth" {
   interface Session {
     userId: string
     authMethod: string
+    oauthProvider: string | null
     mfaVerified: boolean
     avatarUrl: string | null
     oauthAvatarUrl: string | null
@@ -15,6 +16,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     userId?: string
     authMethod?: string
+    oauthProvider?: string | null
     mfaVerified?: boolean
     avatarUrl?: string | null
     oauthAvatarUrl?: string | null
