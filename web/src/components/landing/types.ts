@@ -1,0 +1,26 @@
+export interface CandidateCard {
+  ticker: string
+  name: string
+  sector: string
+  actual_price: number
+  buy_price: number
+  margin_of_safety: number
+  composite_percentile: number
+  conviction_level: string
+  quality_percentile: number
+  value_percentile: number
+  momentum_percentile: number
+  sentiment_percentile: number
+  growth_percentile: number
+  scored_at: string
+  filters_passed: number
+  filters_total: number
+}
+
+export interface HomepageData {
+  candidates: CandidateCard[]
+  last_updated: string
+  universe_size: number
+  eligible_count: number
+  total_scored: number
+}
