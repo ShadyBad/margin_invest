@@ -167,7 +167,7 @@ export function ChapterCards() {
       ref={sectionRef}
       data-chapter-cards
       id="engine"
-      className="relative h-[200vh] overflow-clip"
+      className="relative h-[200vh]"
     >
       <div className="sticky top-0 h-screen flex flex-col items-center justify-center gap-8">
         {/* Desktop: two counter-flowing rows */}
