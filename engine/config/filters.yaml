@@ -1,0 +1,65 @@
+# Filter Configuration — Margin Invest Engine
+#
+# All elimination filter thresholds. Defaults match the hardcoded values
+# in scoring/filters/*.py so behaviour is identical if this file is absent.
+#
+# To tune a threshold, edit the value here and restart the API. No code
+# changes required.
+
+liquidity:
+  excluded_sectors: ["Financials", "Real Estate"]
+  min_years_of_history: 5
+  market_cap_minimum:
+    default: 300_000_000        # $300M
+    utilities: 1_000_000_000    # $1B
+    energy: 500_000_000         # $500M
+  dollar_volume:
+    mega: 50_000_000            # $50M  (market cap > $200B)
+    large: 20_000_000           # $20M  (market cap $10B–$200B)
+    mid: 5_000_000              # $5M   (market cap $2B–$10B)
+    small: 2_000_000            # $2M   (market cap $300M–$2B)
+  dollar_volume_window_days: 60
+  position_impact:
+    enabled: false
+    max_days: 5
+    participation_rate: 0.10
+
+beneish:
+  threshold: -1.78              # M-Score > -1.78 = likely manipulation
+
+altman:
+  threshold: 1.1                # Z'' < 1.1 = financial distress
+  equity_tl_cap: 10.0           # Cap Equity/TL when total_liabilities == 0
+  exempt_sectors: ["Utilities"] # Capital structures make Z'' unreliable
+
+fcf_distress:
+  positive_years_required: 3    # Need 3 of lookback_years positive
+  lookback_years: 5
+  min_fcf_margin: -0.05         # Allow slight negative FCF margin
+  allow_positive_trend_rescue: true
+
+interest_coverage:
+  default: 1.5
+  sector_overrides:
+    technology: 3.0             # High-margin, low-debt expected
+    utilities: 1.2              # Capital-intensive, regulated
+  median_lookback_years: 3
+  median_minimum: 1.0
+
+current_ratio:
+  default: 0.8
+  sector_overrides:
+    technology: 0.8             # Calibrated: Apple CR=0.87
+    utilities: 0.6              # Capital-intensive, regulated
+  quick_ratio_rescue: 0.5       # If CR < threshold, check QR > 0.5
+  max_3yr_decline_pct: 30       # CR must not decline >30% over 3 years
+
+mediocrity_gate:
+  min_roic_5yr_median: 0.08     # 5yr median ROIC > 8%
+  gross_margin:
+    default: 0.20               # > 20%
+    energy: 0.15                # > 15%
+    utilities: 0.10             # > 10%
+  fcf_positive_years: 4         # Positive FCF in 4 of last 5 years
+  fcf_lookback_years: 5
+  max_consecutive_revenue_decline: 3
