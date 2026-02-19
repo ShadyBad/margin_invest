@@ -76,6 +76,9 @@ export function LoginCard() {
 
   const handleCredentialsSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    // Store credentials for the MFA verify page to retrieve after redirect
+    sessionStorage.setItem("mfa_username", email)
+    sessionStorage.setItem("mfa_password", password)
     signIn("credentials", {
       username: email,
       password,

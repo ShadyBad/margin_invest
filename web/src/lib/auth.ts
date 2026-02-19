@@ -36,11 +36,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const data = await res.json()
 
         return {
-          id: data.userId,
-          name: data.name,
+          id: String(data.id),
+          name: data.username,
           email: data.email,
-          mfaStatus: data.mfaStatus,
-          challengeToken: data.challengeToken,
+          mfaStatus: data.mfa_status,
+          challengeToken: data.challenge_token,
           mfaToken: credentials.mfaToken as string | undefined,
           avatarUrl: data.avatar_url,
         }
@@ -64,13 +64,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Credentials provider: check MFA status
       const mfaStatus = (user as Record<string, unknown>).mfaStatus as string | undefined
       const mfaToken = (user as Record<string, unknown>).mfaToken as string | undefined
+      const challengeToken = (user as Record<string, unknown>).challengeToken as string | undefined
 
-      if (mfaStatus === "not_configured") {
-        return `/mfa/setup?userId=${user.id}`
+      if (mfaStatus === "disabled") {
+        return `/mfa/setup?userId=${user.id}&challengeToken=${challengeToken}`
       }
 
-      if (mfaStatus === "configured" && !mfaToken) {
-        return `/mfa/verify?userId=${user.id}`
+      if (mfaStatus === "enabled" && !mfaToken) {
+        return `/mfa/verify?userId=${user.id}&challengeToken=${challengeToken}`
       }
 
       return true

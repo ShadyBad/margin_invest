@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { startAuthentication } from "@simplewebauthn/browser"
 
@@ -10,9 +10,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 type Method = "totp" | "webauthn"
 
 function MfaVerifyContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const userId = searchParams.get("userId")
+  const challengeToken = searchParams.get("challengeToken")
 
   const [method, setMethod] = useState<Method>("totp")
   const [verificationCode, setVerificationCode] = useState("")
@@ -26,7 +26,11 @@ function MfaVerifyContent() {
       const res = await fetch(`${API_URL}/api/v1/auth/mfa/verify-totp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, code: verificationCode }),
+        body: JSON.stringify({
+          user_id: Number(userId),
+          code: verificationCode,
+          challenge_token: challengeToken,
+        }),
       })
 
       if (!res.ok) {
@@ -57,11 +61,14 @@ function MfaVerifyContent() {
 
     try {
       const optionsRes = await fetch(
-        `${API_URL}/api/v1/auth/mfa/webauthn/auth-options`,
+        `${API_URL}/api/v1/auth/mfa/authenticate-webauthn`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId }),
+          body: JSON.stringify({
+            user_id: Number(userId),
+            challenge_token: challengeToken,
+          }),
         }
       )
 
@@ -71,35 +78,11 @@ function MfaVerifyContent() {
         return
       }
 
-      const options = await optionsRes.json()
-      const credential = await startAuthentication(options)
+      const { options } = await optionsRes.json()
+      await startAuthentication(options)
 
-      const verifyRes = await fetch(
-        `${API_URL}/api/v1/auth/mfa/webauthn/auth-verify`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, credential }),
-        }
-      )
-
-      if (!verifyRes.ok) {
-        const data = await verifyRes.json()
-        setError(data.detail || "Security key authentication failed")
-        return
-      }
-
-      const data = await verifyRes.json()
-
-      const username = sessionStorage.getItem("mfa_username") || ""
-      const password = sessionStorage.getItem("mfa_password") || ""
-
-      await signIn("credentials", {
-        username,
-        password,
-        mfaToken: data.mfa_token,
-        callbackUrl: "/dashboard",
-      })
+      // WebAuthn authentication verification endpoint is not yet implemented.
+      setError("WebAuthn authentication is not yet available. Please use an authenticator app.")
     } catch {
       setError("An unexpected error occurred")
     }

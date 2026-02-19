@@ -13,19 +13,21 @@ function MfaSetupContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const userId = searchParams.get("userId")
+  const challengeToken = searchParams.get("challengeToken")
 
   const [step, setStep] = useState<Step>("choose")
   const [provisioningUri, setProvisioningUri] = useState("")
+  const [secretId, setSecretId] = useState<number | null>(null)
   const [verificationCode, setVerificationCode] = useState("")
   const [error, setError] = useState("")
 
   const handleChooseAuthenticator = async () => {
     setError("")
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/mfa/totp/setup`, {
+      const res = await fetch(`${API_URL}/api/v1/auth/mfa/setup-totp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId }),
+        body: JSON.stringify({ user_id: Number(userId), challenge_token: challengeToken }),
       })
 
       if (!res.ok) {
@@ -36,6 +38,7 @@ function MfaSetupContent() {
 
       const data = await res.json()
       setProvisioningUri(data.provisioning_uri)
+      setSecretId(data.secret_id)
       setStep("totp")
     } catch {
       setError("An unexpected error occurred")
@@ -51,10 +54,10 @@ function MfaSetupContent() {
     setError("")
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/mfa/totp/confirm`, {
+      const res = await fetch(`${API_URL}/api/v1/auth/mfa/confirm-totp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, code: verificationCode }),
+        body: JSON.stringify({ secret_id: secretId, code: verificationCode }),
       })
 
       if (!res.ok) {
@@ -73,11 +76,11 @@ function MfaSetupContent() {
     setError("")
     try {
       const optionsRes = await fetch(
-        `${API_URL}/api/v1/auth/mfa/webauthn/register-options`,
+        `${API_URL}/api/v1/auth/mfa/register-webauthn`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId }),
+          body: JSON.stringify({ user_id: Number(userId), challenge_token: challengeToken }),
         }
       )
 
@@ -87,25 +90,12 @@ function MfaSetupContent() {
         return
       }
 
-      const options = await optionsRes.json()
-      const credential = await startRegistration(options)
+      const { options } = await optionsRes.json()
+      await startRegistration(options)
 
-      const verifyRes = await fetch(
-        `${API_URL}/api/v1/auth/mfa/webauthn/register-verify`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, credential }),
-        }
-      )
-
-      if (!verifyRes.ok) {
-        const data = await verifyRes.json()
-        setError(data.detail || "Failed to register security key")
-        return
-      }
-
-      router.push("/login")
+      // WebAuthn registration verification endpoint is not yet implemented.
+      setError("WebAuthn registration is not yet available. Please use an authenticator app.")
+      setStep("choose")
     } catch {
       setError("An unexpected error occurred")
     }
