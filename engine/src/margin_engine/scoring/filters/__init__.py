@@ -2,7 +2,10 @@
 
 from margin_engine.scoring.filters.altman import altman_z_score
 from margin_engine.scoring.filters.beneish import beneish_m_score
-from margin_engine.scoring.filters.current_ratio import current_ratio_check
+from margin_engine.scoring.filters.current_ratio import (
+    current_ratio_check,
+    current_ratio_check_v2,
+)
 from margin_engine.scoring.filters.fcf_distress import (
     fcf_distress_check,
     fcf_distress_check_v2,
@@ -15,6 +18,7 @@ __all__ = [
     "altman_z_score",
     "beneish_m_score",
     "current_ratio_check",
+    "current_ratio_check_v2",
     "fcf_distress_check",
     "fcf_distress_check_v2",
     "interest_coverage_check",
