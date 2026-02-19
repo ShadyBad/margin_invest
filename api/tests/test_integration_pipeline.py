@@ -87,7 +87,7 @@ class TestPipelineIntegration:
                 value_percentile=70.0,
                 momentum_percentile=75.0,
                 actual_price=150.0,
-                intrinsic_value=200.0,
+                margin_invest_value=200.0,
                 buy_price=160.0,
                 sell_price=240.0,
                 scored_at=datetime.now(UTC),

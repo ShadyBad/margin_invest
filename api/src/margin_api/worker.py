@@ -107,7 +107,7 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
             growth_stage=composite.growth_stage.value if composite.growth_stage else None,
             score_detail=composite.model_dump(mode="json"),
             scored_at=datetime.now(UTC),
-            intrinsic_value=composite.intrinsic_value,
+            margin_invest_value=composite.intrinsic_value,
             buy_price=composite.buy_price,
             sell_price=composite.sell_price,
             actual_price=composite.actual_price,

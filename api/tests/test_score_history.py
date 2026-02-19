@@ -51,7 +51,7 @@ async def history_client(history_engine):
                 momentum_percentile=82.0 + i,
                 data_coverage=1.0,
                 scored_at=base_time + timedelta(days=i * 7),
-                intrinsic_value=200.0,
+                margin_invest_value=200.0,
                 buy_price=150.0,
                 sell_price=250.0,
                 actual_price=185.0,

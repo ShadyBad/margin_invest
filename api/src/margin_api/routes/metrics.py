@@ -102,7 +102,7 @@ async def get_metrics(
     # Margin of safety
     margin_of_safety: float | None = None
     mos_reason = "No intrinsic value or price available"
-    intrinsic = getattr(score, "intrinsic_value", None)
+    intrinsic = getattr(score, "margin_invest_value", None)
     actual = getattr(score, "actual_price", None)
     if intrinsic and actual and intrinsic > 0:
         margin_of_safety = round((intrinsic - actual) / intrinsic, 4)

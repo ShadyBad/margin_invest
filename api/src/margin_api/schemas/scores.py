@@ -83,7 +83,7 @@ class ScoreResponse(BaseModel):
     growth_stage: str | None = None
     scored_at: str | None = None
     # Price target fields
-    intrinsic_value: float | None = None
+    margin_invest_value: float | None = None
     buy_price: float | None = None
     sell_price: float | None = None
     actual_price: float | None = None
@@ -134,7 +134,7 @@ class ScoreResponse(BaseModel):
             ],
             data_coverage=score.data_coverage,
             growth_stage=score.growth_stage.value if score.growth_stage else None,
-            intrinsic_value=score.intrinsic_value,
+            margin_invest_value=score.intrinsic_value,
             buy_price=score.buy_price,
             sell_price=score.sell_price,
             actual_price=score.actual_price,

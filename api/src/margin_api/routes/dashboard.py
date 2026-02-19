@@ -59,8 +59,8 @@ def _pick_summary_from_row(row) -> PickSummary:
         buy_price=getattr(s, "buy_price", None),
         sell_price=getattr(s, "sell_price", None),
         price_upside=(
-            round((s.intrinsic_value - s.actual_price) / s.actual_price, 4)
-            if getattr(s, "intrinsic_value", None)
+            round((s.margin_invest_value - s.actual_price) / s.actual_price, 4)
+            if getattr(s, "margin_invest_value", None)
             and getattr(s, "actual_price", None)
             and not invalid_reason
             else None
@@ -75,12 +75,12 @@ def _pick_summary_from_row(row) -> PickSummary:
         timing_signal=getattr(s, "timing_signal", None),
         margin_of_safety=(
             round(
-                (s.intrinsic_value - s.actual_price) / s.intrinsic_value,
+                (s.margin_invest_value - s.actual_price) / s.margin_invest_value,
                 4,
             )
-            if getattr(s, "intrinsic_value", None)
+            if getattr(s, "margin_invest_value", None)
             and getattr(s, "actual_price", None)
-            and s.actual_price < s.intrinsic_value
+            and s.actual_price < s.margin_invest_value
             and not invalid_reason
             else None
         ),

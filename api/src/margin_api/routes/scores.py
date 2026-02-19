@@ -78,7 +78,7 @@ def _score_response_from_row(
             detail.setdefault("score", detail.get("composite_raw_score", score.composite_raw_score))
             detail.setdefault("universe_percentile", detail.get("composite_percentile", score.composite_percentile))
             # Include price target fields from DB columns
-            detail.setdefault("intrinsic_value", getattr(score, "intrinsic_value", None))
+            detail.setdefault("margin_invest_value", getattr(score, "margin_invest_value", None))
             detail.setdefault("buy_price", getattr(score, "buy_price", None))
             detail.setdefault("sell_price", getattr(score, "sell_price", None))
             detail.setdefault("actual_price", getattr(score, "actual_price", None))
@@ -143,22 +143,22 @@ def _score_response_from_row(
         data_coverage=score.data_coverage,
         growth_stage=score.growth_stage,
         scored_at=scored_at.isoformat() if scored_at else None,
-        intrinsic_value=getattr(score, "intrinsic_value", None),
+        margin_invest_value=getattr(score, "margin_invest_value", None),
         buy_price=getattr(score, "buy_price", None),
         sell_price=getattr(score, "sell_price", None),
         actual_price=actual_price,
         price_upside=(
-            round((score.intrinsic_value - score.actual_price) / score.actual_price, 4)
-            if getattr(score, "intrinsic_value", None)
+            round((score.margin_invest_value - score.actual_price) / score.actual_price, 4)
+            if getattr(score, "margin_invest_value", None)
             and getattr(score, "actual_price", None)
             and not invalid_reason
             else None
         ),
         margin_of_safety=(
-            round((score.intrinsic_value - actual_price) / score.intrinsic_value, 4)
-            if getattr(score, "intrinsic_value", None)
+            round((score.margin_invest_value - actual_price) / score.margin_invest_value, 4)
+            if getattr(score, "margin_invest_value", None)
             and actual_price is not None
-            and actual_price < score.intrinsic_value
+            and actual_price < score.margin_invest_value
             and not invalid_reason
             else None
         ),
@@ -277,7 +277,7 @@ async def get_score_history(
             momentum_percentile=row.momentum_percentile,
             conviction_level=row.conviction_level,
             signal=row.signal,
-            margin_invest_value=float(row.intrinsic_value) if row.intrinsic_value is not None else None,
+            margin_invest_value=float(row.margin_invest_value) if row.margin_invest_value is not None else None,
             buy_price=float(row.buy_price) if row.buy_price is not None else None,
             sell_price=float(row.sell_price) if row.sell_price is not None else None,
             actual_price=float(row.actual_price) if row.actual_price is not None else None,

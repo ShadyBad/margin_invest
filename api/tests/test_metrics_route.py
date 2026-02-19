@@ -85,7 +85,7 @@ async def seeded_session(async_engine):
             momentum_percentile=88.0,
             data_coverage=1.0,
             score_detail=_score_detail(),
-            intrinsic_value=200.0,
+            margin_invest_value=200.0,
             buy_price=200.0,
             sell_price=250.0,
             actual_price=180.0,

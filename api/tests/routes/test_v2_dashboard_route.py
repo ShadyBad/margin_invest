@@ -18,7 +18,7 @@ class TestV2DashboardRoute:
         score.value_percentile = 75.0
         score.momentum_percentile = 92.0
         score.scored_at = datetime(2026, 2, 17, tzinfo=UTC)
-        score.intrinsic_value = 500.0
+        score.margin_invest_value = 500.0
         score.buy_price = 400.0
         score.sell_price = 600.0
         score.actual_price = 350.0
@@ -54,7 +54,7 @@ class TestV2DashboardRoute:
         score.value_percentile = 50.0
         score.momentum_percentile = 50.0
         score.scored_at = datetime(2026, 2, 17, tzinfo=UTC)
-        score.intrinsic_value = None
+        score.margin_invest_value = None
         score.buy_price = None
         score.sell_price = None
         score.actual_price = None
@@ -80,7 +80,7 @@ class TestV2DashboardRoute:
         assert pick.margin_of_safety is None
 
     def test_pick_summary_margin_of_safety_only_when_below_intrinsic(self):
-        """margin_of_safety should be None when actual_price >= intrinsic_value."""
+        """margin_of_safety should be None when actual_price >= margin_invest_value."""
         score = MagicMock()
         score.composite_percentile = 80.0
         score.composite_raw_score = 70.0
@@ -90,7 +90,7 @@ class TestV2DashboardRoute:
         score.value_percentile = 70.0
         score.momentum_percentile = 85.0
         score.scored_at = datetime(2026, 2, 17, tzinfo=UTC)
-        score.intrinsic_value = 100.0
+        score.margin_invest_value = 100.0
         score.buy_price = 80.0
         score.sell_price = 120.0
         score.actual_price = 110.0  # above intrinsic
@@ -122,7 +122,7 @@ class TestV2DashboardRoute:
         score.value_percentile = 70.0
         score.momentum_percentile = 85.0
         score.scored_at = datetime(2026, 2, 17, tzinfo=UTC)
-        score.intrinsic_value = 200.0
+        score.margin_invest_value = 200.0
         score.buy_price = 160.0
         score.sell_price = 240.0
         score.actual_price = 150.0
