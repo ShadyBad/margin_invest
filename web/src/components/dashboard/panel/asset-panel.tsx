@@ -217,7 +217,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
                     volatility={metrics?.volatility?.value ?? null}
                     avgProfitMargin={metrics?.avg_profit_margin?.value ?? null}
                     allocationWeight={metrics?.allocation_weight?.value ?? null}
-                    marginOfSafety={metrics?.margin_of_safety?.value != null ? Math.round(metrics.margin_of_safety.value * 100) : null}
+                    scoreDelta={latestDelta}
                   />
                 </ProGate>
 

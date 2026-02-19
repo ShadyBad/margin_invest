@@ -9,7 +9,7 @@ describe("KpiGrid", () => {
     volatility: 22.5,
     avgProfitMargin: null,
     allocationWeight: 5,
-    marginOfSafety: 26,
+    scoreDelta: 3.2,
   }
 
   it("renders all 6 KPI cells", () => {
@@ -19,7 +19,7 @@ describe("KpiGrid", () => {
     expect(screen.getByText("VOLATILITY")).toBeInTheDocument()
     expect(screen.getByText("AVG PROFIT MARGIN")).toBeInTheDocument()
     expect(screen.getByText("ALLOCATION")).toBeInTheDocument()
-    expect(screen.getByText("MARGIN OF SAFETY")).toBeInTheDocument()
+    expect(screen.getByText("SCORE DELTA")).toBeInTheDocument()
   })
 
   it("renders numeric values correctly", () => {
@@ -34,8 +34,19 @@ describe("KpiGrid", () => {
     expect(screen.getByTestId("kpi-avg-profit-margin-value")).toHaveTextContent("\u2014")
   })
 
-  it("renders margin of safety as percentage", () => {
+  it("renders score delta with sign prefix", () => {
     render(<KpiGrid {...baseProps} />)
-    expect(screen.getByText("26%")).toBeInTheDocument()
+    expect(screen.getByText("+3.2")).toBeInTheDocument()
+  })
+
+  it("renders null score delta as dash with unavailable reason", () => {
+    render(<KpiGrid {...baseProps} scoreDelta={null} />)
+    expect(screen.getByTestId("kpi-score-delta-value")).toHaveTextContent("\u2014")
+    expect(screen.getByText("First scoring run")).toBeInTheDocument()
+  })
+
+  it("renders negative score delta without plus sign", () => {
+    render(<KpiGrid {...baseProps} scoreDelta={-2.5} />)
+    expect(screen.getByText("-2.5")).toBeInTheDocument()
   })
 })

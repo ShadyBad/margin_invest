@@ -6,7 +6,7 @@ interface KpiGridProps {
   volatility: number | null
   avgProfitMargin: number | null
   allocationWeight: number | null
-  marginOfSafety: number | null
+  scoreDelta: number | null
 }
 
 export function KpiGrid({
@@ -15,7 +15,7 @@ export function KpiGrid({
   volatility,
   avgProfitMargin,
   allocationWeight,
-  marginOfSafety,
+  scoreDelta,
 }: KpiGridProps) {
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-5" data-testid="kpi-grid">
@@ -45,9 +45,11 @@ export function KpiGrid({
         testId="kpi-allocation-value"
       />
       <KpiCell
-        label="MARGIN OF SAFETY"
-        value={marginOfSafety != null ? `${Math.round(marginOfSafety)}%` : "\u2014"}
-        testId="kpi-margin-of-safety-value"
+        label="SCORE DELTA"
+        value={scoreDelta != null ? `${scoreDelta > 0 ? "+" : ""}${scoreDelta.toFixed(1)}` : "\u2014"}
+        color={scoreDelta != null ? (scoreDelta >= 0 ? "text-emerald-400" : "text-red-400") : undefined}
+        unavailableReason={scoreDelta == null ? "First scoring run" : undefined}
+        testId="kpi-score-delta-value"
       />
     </div>
   )

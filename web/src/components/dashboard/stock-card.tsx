@@ -256,26 +256,6 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
         />
       </div>
 
-      {/* Buy Below row */}
-      {pick.buy_price != null && (
-        <div className="flex items-center justify-between mb-4 text-sm">
-          <div className="flex items-baseline gap-1">
-            <span className="text-text-secondary">Buy Below:</span>
-            <span
-              className={`font-medium ${
-                pick.actual_price != null && pick.actual_price < pick.buy_price
-                  ? "text-bullish"
-                  : "text-text-primary"
-              }`}
-              data-testid="buy-below-value"
-            >
-              ${pick.buy_price.toFixed(2)}
-            </span>
-            <span className="text-text-tertiary text-xs ml-1">Fundamentals-based entry price</span>
-          </div>
-        </div>
-      )}
-
       {(pick.max_position_pct != null || pick.timing_signal) && (
         <div className="flex items-center justify-between mb-4 text-sm">
           {pick.max_position_pct != null && (
