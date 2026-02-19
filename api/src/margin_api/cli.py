@@ -624,6 +624,47 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
 
 
 # ---------------------------------------------------------------------------
+# Score-universe logic
+# ---------------------------------------------------------------------------
+
+
+async def run_score_universe(limit: int | None = None) -> None:
+    """Score all eligible assets in the database in one batch.
+
+    Loads all assets that have financial data, optionally limited to
+    ``limit`` tickers, and runs the two-pass scoring pipeline.
+    """
+    engine_db = get_engine()
+    session_factory = get_session_factory(engine_db)
+
+    # Get all tickers that have financial data
+    async with session_factory() as session:
+        query = (
+            select(Asset.ticker)
+            .join(FinancialData, FinancialData.asset_id == Asset.id)
+            .distinct()
+            .order_by(Asset.ticker)
+        )
+        if limit:
+            query = query.limit(limit)
+        result = await session.execute(query)
+        tickers = [row[0] for row in result.all()]
+
+    await engine_db.dispose()
+
+    if not tickers:
+        logger.warning("No assets with financial data found. Run 'seed' first.")
+        return
+
+    logger.info(
+        "Scoring %d assets%s...",
+        len(tickers),
+        f" (limited to {limit})" if limit else "",
+    )
+    await run_scoring(tickers=tickers)
+
+
+# ---------------------------------------------------------------------------
 # Ingest precondition helpers
 # ---------------------------------------------------------------------------
 
@@ -873,6 +914,14 @@ def main() -> None:
         help="Shiller CAPE override (fetches from FRED if omitted)",
     )
 
+    # score-universe
+    score_universe_parser = subparsers.add_parser(
+        "score-universe", help="Score all eligible assets in one batch"
+    )
+    score_universe_parser.add_argument(
+        "--limit", type=int, default=None, help="Max number of assets to score"
+    )
+
     # backfill-country
     subparsers.add_parser(
         "backfill-country",
@@ -906,6 +955,8 @@ def main() -> None:
         asyncio.run(run_scoring(tickers=args.tickers))
     elif args.command == "score-v3":
         asyncio.run(run_scoring_v3(tickers=args.tickers, cape=args.cape))
+    elif args.command == "score-universe":
+        asyncio.run(run_score_universe(limit=args.limit))
     elif args.command == "pipeline":
         asyncio.run(run_pipeline(tickers=args.tickers))
     else:
