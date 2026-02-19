@@ -29,6 +29,7 @@ from margin_engine.models.scoring import (
     ScoringConfig,
     Signal,
 )
+from margin_engine.models.valuation_audit import MethodAudit, ValuationAudit
 
 __all__ = [
     "AssetProfile",
@@ -53,5 +54,7 @@ __all__ = [
     "PriceBar",
     "ScoringConfig",
     "Signal",
+    "ValuationAudit",
+    "MethodAudit",
     "compute_liquidity_profile",
 ]
