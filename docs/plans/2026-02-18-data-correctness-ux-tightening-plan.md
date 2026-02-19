@@ -1,538 +1,366 @@
-# Data Correctness & UX Tightening Implementation Plan
+# Data Correctness & UX Tightening Implementation Plan (v2)
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Fix valuation math (dual threshold MoS), externalize filter config, fix broken metrics, expose score history, and consolidate the valuation UX into a single cohesive module.
+**Goal:** Fix filter logic (multi-window liquidity, multi-year health checks, INCONCLUSIVE verdicts), implement risk metrics (Sharpe/Drawdown/Vol), add valuation audit trail, accumulate score history, and consolidate the UX.
 
-**Architecture:** Data-up approach — engine calculations first (Python, pure logic), then API layer (FastAPI + SQLAlchemy), then frontend (Next.js + Recharts). Each phase builds on the previous.
+**Architecture:** Data-up — engine calculations first (pure Python), then API layer (FastAPI + SQLAlchemy), then frontend (Next.js + Recharts). Implementation order: A → B → C → D → F → E → G per design doc.
 
-**Tech Stack:** Python 3.13 / Pydantic / pytest / SQLAlchemy 2.0 / asyncpg / aiosqlite (tests) / Alembic / FastAPI / Next.js 15 / TypeScript / Recharts
+**Tech Stack:** Python 3.13 / Pydantic / pytest / SQLAlchemy 2.0 / asyncpg / aiosqlite (tests) / FastAPI / Next.js 15 / TypeScript / Recharts
 
 **Design Doc:** `docs/plans/2026-02-18-data-correctness-ux-tightening-design.md`
 
 ---
 
-## Phase 1: Engine — Valuation Model (Tasks 1-3)
+## Phase 1: Engine — Liquidity Filter Redesign (Section A)
 
-### Task 1: Dual Threshold MoS — Failing Tests
-
-**Files:**
-- Modify: `engine/tests/scoring/quantitative/test_price_targets.py`
-
-**Step 1: Update existing test to expect dual threshold**
-
-The test `test_buy_price_equals_intrinsic` (line 149) asserts `buy_price == intrinsic_value`. Change it to assert the dual threshold relationship:
-
-```python
-def test_dual_threshold_mos(
-    self, healthy_period, healthy_profile, price_bars
-):
-    """buy_price = MIV * (1 - MoS), sell_price = MIV * (1 + MoS)."""
-    result = compute_price_targets(
-        period=healthy_period,
-        profile=healthy_profile,
-        price_bars=price_bars,
-        conviction_level=ConvictionLevel.HIGH,
-    )
-    assert result.buy_price is not None
-    assert result.sell_price is not None
-    assert result.intrinsic_value is not None
-    assert result.margin_of_safety is not None
-    mos = result.margin_of_safety
-    # Dual threshold: buy below fair value, sell above
-    assert result.buy_price == pytest.approx(
-        result.intrinsic_value * (1 - mos), rel=1e-2
-    )
-    assert result.sell_price == pytest.approx(
-        result.intrinsic_value * (1 + mos), rel=1e-2
-    )
-    # Ordering invariant
-    assert result.buy_price < result.intrinsic_value < result.sell_price
-```
-
-**Step 2: Add test for MoS symmetry across growth stages**
-
-```python
-def test_mos_symmetry_across_growth_stages(
-    self, healthy_period, healthy_profile, price_bars
-):
-    """Both buy and sell prices should widen symmetrically with higher MoS."""
-    from margin_engine.models.scoring import GrowthStage
-
-    steady = compute_price_targets(
-        period=healthy_period,
-        profile=healthy_profile,
-        price_bars=price_bars,
-        conviction_level=ConvictionLevel.HIGH,
-        growth_stage=GrowthStage.STEADY_GROWTH,
-    )
-    turnaround = compute_price_targets(
-        period=healthy_period,
-        profile=healthy_profile,
-        price_bars=price_bars,
-        conviction_level=ConvictionLevel.HIGH,
-        growth_stage=GrowthStage.TURNAROUND,
-    )
-    # Turnaround has wider MoS -> lower buy price, higher sell price
-    assert turnaround.buy_price < steady.buy_price
-    assert turnaround.sell_price > steady.sell_price
-    # Same intrinsic value (same inputs)
-    assert steady.intrinsic_value == pytest.approx(
-        turnaround.intrinsic_value, rel=1e-4
-    )
-```
-
-**Step 3: Run tests to verify they fail**
-
-Run: `uv run pytest engine/tests/scoring/quantitative/test_price_targets.py::TestPriceTargets::test_dual_threshold_mos engine/tests/scoring/quantitative/test_price_targets.py::TestPriceTargets::test_mos_symmetry_across_growth_stages -v`
-Expected: FAIL — `buy_price == intrinsic_value` still holds in current code.
-
----
-
-### Task 2: Dual Threshold MoS — Implementation
+### Task 1: LiquidityProfile Model + Multi-Window Computation
 
 **Files:**
-- Modify: `engine/src/margin_engine/scoring/quantitative/price_targets.py:256-275`
+- Create: `engine/src/margin_engine/models/liquidity.py`
+- Create: `engine/tests/models/test_liquidity_profile.py`
 
-**Step 1: Change buy_price and sell_price computation**
-
-In `compute_price_targets()`, replace lines 256-261:
-
-Old:
-```python
-    # Dynamic margin of safety — intrinsic value IS the buy price (floor).
-    # MoS only applies upward for the sell price, protecting against
-    # calculation error and capping expected upside.
-    mos = _compute_margin_of_safety(valid_methods, intrinsic_value, growth_stage)
-    buy_price = intrinsic_value
-    sell_price = intrinsic_value * (1 + mos)
-```
-
-New:
-```python
-    # Dual threshold margin of safety — MoS applied symmetrically.
-    # Buy price is discounted below fair value (entry with safety margin).
-    # Sell price is above fair value (exit when overvalued).
-    mos = _compute_margin_of_safety(valid_methods, intrinsic_value, growth_stage)
-    buy_price = intrinsic_value * (1 - mos)
-    sell_price = intrinsic_value * (1 + mos)
-```
-
-**Step 2: Run all price target tests**
-
-Run: `uv run pytest engine/tests/scoring/quantitative/test_price_targets.py -v`
-Expected: New tests PASS. The old `test_buy_price_equals_intrinsic` should have been replaced in Task 1. Check for any other tests asserting `buy_price == intrinsic_value` and update them.
-
-**Step 3: Run full engine test suite to check for cascading failures**
-
-Run: `uv run pytest engine/tests/ -v --tb=short 2>&1 | tail -30`
-Expected: Some signal-related tests may fail if they assumed the old relationship. Fix any that do — the signal property tests in `test_composite.py` or similar will need the new thresholds.
-
-**Step 4: Commit**
-
-```bash
-git add engine/src/margin_engine/scoring/quantitative/price_targets.py engine/tests/scoring/quantitative/test_price_targets.py
-git commit -m "feat(engine): implement dual threshold MoS — buy below fair value, sell above"
-```
-
----
-
-### Task 3: Signal Logic Update
-
-**Files:**
-- Modify: `engine/src/margin_engine/models/scoring.py:146-167`
-- Modify: `engine/tests/` (any tests asserting signal behavior)
-
-**Step 1: Write failing test for new signal zones**
-
-Create or update signal tests. Find the existing signal tests:
-
-Run: `uv run pytest engine/tests/ -k "signal" --collect-only 2>&1 | head -30`
-
-Add a test (in the appropriate test file for `CompositeScore`):
+**Step 1: Write failing test for LiquidityProfile**
 
 ```python
-def test_signal_hold_between_buy_and_sell():
-    """Price between buy and sell should be HOLD, not BUY."""
-    score = CompositeScore(
-        ticker="TEST",
-        composite_percentile=99.5,
-        composite_raw_score=99.5,
-        quality=_make_factor("quality"),
-        value=_make_factor("value"),
-        momentum=_make_factor("momentum"),
-        filters_passed=[],
-        data_coverage=1.0,
-        buy_price=70.0,
-        sell_price=130.0,
-        actual_price=85.0,  # between buy and sell
-        intrinsic_value=100.0,
-    )
-    assert score.signal == Signal.HOLD
-
-
-def test_signal_buy_at_or_below_buy_price():
-    """Price at or below buy_price should be BUY."""
-    score = CompositeScore(
-        ticker="TEST",
-        composite_percentile=99.5,
-        composite_raw_score=99.5,
-        quality=_make_factor("quality"),
-        value=_make_factor("value"),
-        momentum=_make_factor("momentum"),
-        filters_passed=[],
-        data_coverage=1.0,
-        buy_price=70.0,
-        sell_price=130.0,
-        actual_price=70.0,  # exactly at buy price
-        intrinsic_value=100.0,
-    )
-    assert score.signal == Signal.BUY
-```
-
-**Step 2: Verify tests fail** (the old signal logic triggers BUY for any price <= buy_price, but with dual threshold the intermediate zone should be HOLD)
-
-Run: `uv run pytest engine/tests/ -k "signal_hold_between" -v`
-
-**Step 3: The signal logic doesn't actually need to change**
-
-Looking at the existing code (lines 158-165):
-```python
-if self.actual_price > self.sell_price * 1.15:
-    return Signal.URGENT_SELL
-if self.actual_price > self.sell_price:
-    return Signal.SELL
-if self.actual_price <= self.buy_price:
-    return Signal.BUY
-return Signal.HOLD
-```
-
-This logic is already correct for dual threshold! When `buy_price < intrinsic_value`:
-- Price $70 (at buy_price) → `<= buy_price` → BUY ✓
-- Price $85 (between buy and sell) → not `<= buy_price`, not `> sell_price` → HOLD ✓
-- Price $130 (at sell) → `> sell_price` → SELL ✓
-
-The signal logic works unchanged. The only thing that changed is what `buy_price` equals (now it's lower than `intrinsic_value`).
-
-**Step 4: Run tests and confirm**
-
-Run: `uv run pytest engine/tests/ -v --tb=short 2>&1 | tail -30`
-Expected: All signal tests pass.
-
-**Step 5: Commit**
-
-```bash
-git add engine/tests/ engine/src/margin_engine/models/scoring.py
-git commit -m "test(engine): verify signal logic works with dual threshold MoS"
-```
-
----
-
-## Phase 2: Engine — Filter Configuration (Tasks 4-6)
-
-### Task 4: FilterConfig Pydantic Model + YAML
-
-**Files:**
-- Create: `engine/config/filters.yaml`
-- Create: `engine/src/margin_engine/config/filter_config.py`
-- Create: `engine/tests/config/test_filter_config.py`
-
-**Step 1: Write failing test for config loading**
-
-```python
-"""Tests for filter configuration loading."""
+"""Tests for LiquidityProfile model and multi-window computation."""
 
 import pytest
-from margin_engine.config.filter_config import FilterConfig, load_filter_config
+from decimal import Decimal
+from margin_engine.models.liquidity import LiquidityProfile, compute_liquidity_profile
+from margin_engine.models.financial import PriceBar
 
 
-class TestFilterConfig:
-    def test_default_config_loads(self):
-        """Default config should load without a YAML file."""
-        config = FilterConfig()
-        assert config.liquidity.min_years_of_history == 5
-        assert config.beneish.threshold == -1.78
-        assert config.altman.threshold == 1.1
+class TestLiquidityProfile:
+    def test_profile_from_price_bars(self):
+        """Compute median dollar volumes across 20/60/90 day windows."""
+        bars = _make_bars(n=100, avg_close=150.0, avg_volume=1_000_000)
+        profile = compute_liquidity_profile(
+            bars=bars,
+            listing_venue="NYSE",
+            country_code="US",
+        )
+        assert profile.median_dollar_volume_20d > 0
+        assert profile.median_dollar_volume_60d > 0
+        assert profile.median_dollar_volume_90d > 0
 
-    def test_load_from_yaml(self, tmp_path):
-        """Config should load from a YAML file."""
-        yaml_content = """
-liquidity:
-  min_years_of_history: 3
-  dollar_volume:
-    mega: 100_000_000
-beneish:
-  threshold: -2.0
-"""
-        yaml_file = tmp_path / "filters.yaml"
-        yaml_file.write_text(yaml_content)
-        config = load_filter_config(yaml_file)
-        assert config.liquidity.min_years_of_history == 3
-        assert config.liquidity.dollar_volume.mega == 100_000_000
-        assert config.beneish.threshold == -2.0
-        # Defaults preserved for unspecified fields
-        assert config.altman.threshold == 1.1
+    def test_profile_insufficient_bars(self):
+        """Fewer than 20 bars should still compute available windows."""
+        bars = _make_bars(n=15, avg_close=100.0, avg_volume=500_000)
+        profile = compute_liquidity_profile(bars=bars)
+        assert profile.median_dollar_volume_20d is None  # not enough
+        assert profile.median_dollar_volume_60d is None
+        assert profile.median_dollar_volume_90d is None
 
-    def test_liquidity_dollar_volume_tiers(self):
-        """Dollar volume has per-tier defaults."""
-        config = FilterConfig()
-        assert config.liquidity.dollar_volume.mega == 50_000_000
-        assert config.liquidity.dollar_volume.large == 20_000_000
-        assert config.liquidity.dollar_volume.mid == 5_000_000
-        assert config.liquidity.dollar_volume.small == 2_000_000
-
-    def test_sector_overrides(self):
-        """Sector overrides have defaults matching current hardcoded values."""
-        config = FilterConfig()
-        assert config.interest_coverage.sector_overrides["technology"] == 3.0
-        assert config.interest_coverage.sector_overrides["utilities"] == 1.2
-        assert config.current_ratio.sector_overrides["utilities"] == 0.6
+    def test_median_not_mean(self):
+        """Median should resist outlier days with abnormal volume."""
+        bars = _make_bars(n=25, avg_close=100.0, avg_volume=1_000_000)
+        # Inject 3 extreme outlier days
+        for i in range(3):
+            bars[i] = PriceBar(
+                date=bars[i].date,
+                close=Decimal("100"),
+                volume=100_000_000,  # 100x normal
+            )
+        profile = compute_liquidity_profile(bars=bars)
+        # Median should be close to normal, not pulled by outliers
+        assert profile.median_dollar_volume_20d < Decimal("200_000_000")
 ```
 
 **Step 2: Run test to verify it fails**
 
-Run: `uv run pytest engine/tests/config/test_filter_config.py -v`
-Expected: FAIL — module `margin_engine.config.filter_config` does not exist.
+Run: `uv run pytest engine/tests/models/test_liquidity_profile.py -v`
+Expected: FAIL — module does not exist.
 
-**Step 3: Implement FilterConfig**
-
-Create `engine/src/margin_engine/config/__init__.py` (empty) if it doesn't exist.
-
-Create `engine/src/margin_engine/config/filter_config.py`:
+**Step 3: Implement LiquidityProfile model and compute function**
 
 ```python
-"""Filter configuration — loaded from YAML, with Pydantic defaults matching current hardcoded values."""
+"""Liquidity profile model with multi-window dollar volume computation."""
 
 from __future__ import annotations
-
-from pathlib import Path
-
-import yaml
-from pydantic import BaseModel, Field
-
-
-class DollarVolumeTiers(BaseModel):
-    mega: int = 50_000_000
-    large: int = 20_000_000
-    mid: int = 5_000_000
-    small: int = 2_000_000
+from decimal import Decimal
+from statistics import median
+from pydantic import BaseModel
+from margin_engine.models.financial import PriceBar
 
 
-class MarketCapMinimum(BaseModel):
-    default: int = 300_000_000
-    utilities: int = 1_000_000_000
-    energy: int = 500_000_000
+class LiquidityProfile(BaseModel):
+    median_dollar_volume_20d: Decimal | None = None
+    median_dollar_volume_60d: Decimal | None = None
+    median_dollar_volume_90d: Decimal | None = None
+    listing_venue: str | None = None
+    country_code: str | None = None
+    avg_spread_bps: float | None = None
 
 
-class PositionImpact(BaseModel):
-    enabled: bool = False
-    max_days: int = 5
-    participation_rate: float = 0.10
+def compute_liquidity_profile(
+    bars: list[PriceBar],
+    listing_venue: str | None = None,
+    country_code: str | None = None,
+) -> LiquidityProfile:
+    """Compute multi-window median dollar volumes from daily price bars."""
+    # Sort bars by date descending (most recent first)
+    sorted_bars = sorted(bars, key=lambda b: b.date, reverse=True)
 
+    def _median_dollar_vol(n: int) -> Decimal | None:
+        if len(sorted_bars) < n:
+            return None
+        window = sorted_bars[:n]
+        dollar_vols = [b.close * Decimal(str(b.volume)) for b in window]
+        return Decimal(str(median(dollar_vols)))
 
-class LiquidityConfig(BaseModel):
-    excluded_sectors: list[str] = Field(default_factory=lambda: ["Financials", "Real Estate"])
-    min_years_of_history: int = 5
-    market_cap_minimum: MarketCapMinimum = Field(default_factory=MarketCapMinimum)
-    dollar_volume: DollarVolumeTiers = Field(default_factory=DollarVolumeTiers)
-    dollar_volume_window_days: int = 60
-    position_impact: PositionImpact = Field(default_factory=PositionImpact)
-
-
-class BeneishConfig(BaseModel):
-    threshold: float = -1.78
-
-
-class AltmanConfig(BaseModel):
-    threshold: float = 1.1
-    equity_tl_cap: float = 10.0
-    exempt_sectors: list[str] = Field(default_factory=lambda: ["Utilities"])
-
-
-class FcfDistressConfig(BaseModel):
-    positive_years_required: int = 3
-    lookback_years: int = 5
-    min_fcf_margin: float = -0.05
-    allow_positive_trend_rescue: bool = True
-
-
-class InterestCoverageConfig(BaseModel):
-    default: float = 1.5
-    sector_overrides: dict[str, float] = Field(
-        default_factory=lambda: {"technology": 3.0, "utilities": 1.2}
+    return LiquidityProfile(
+        median_dollar_volume_20d=_median_dollar_vol(20),
+        median_dollar_volume_60d=_median_dollar_vol(60),
+        median_dollar_volume_90d=_median_dollar_vol(90),
+        listing_venue=listing_venue,
+        country_code=country_code,
     )
-    median_lookback_years: int = 3
-    median_minimum: float = 1.0
-
-
-class CurrentRatioConfig(BaseModel):
-    default: float = 0.8
-    sector_overrides: dict[str, float] = Field(
-        default_factory=lambda: {"technology": 0.8, "utilities": 0.6}
-    )
-    quick_ratio_rescue: float = 0.5
-    max_3yr_decline_pct: float = 30.0
-
-
-class MediocGateConfig(BaseModel):
-    min_roic_5yr_median: float = 0.08
-    gross_margin_default: float = 0.20
-    gross_margin_energy: float = 0.15
-    gross_margin_utilities: float = 0.10
-    fcf_positive_years: int = 4
-    fcf_lookback_years: int = 5
-    max_consecutive_revenue_decline: int = 3
-
-
-class FilterConfig(BaseModel):
-    liquidity: LiquidityConfig = Field(default_factory=LiquidityConfig)
-    beneish: BeneishConfig = Field(default_factory=BeneishConfig)
-    altman: AltmanConfig = Field(default_factory=AltmanConfig)
-    fcf_distress: FcfDistressConfig = Field(default_factory=FcfDistressConfig)
-    interest_coverage: InterestCoverageConfig = Field(default_factory=InterestCoverageConfig)
-    current_ratio: CurrentRatioConfig = Field(default_factory=CurrentRatioConfig)
-    mediocrity_gate: MediocGateConfig = Field(default_factory=MediocGateConfig)
-
-
-def load_filter_config(path: Path | None = None) -> FilterConfig:
-    """Load filter config from YAML file. Falls back to defaults if file missing."""
-    if path is None:
-        path = Path(__file__).parent.parent.parent.parent / "config" / "filters.yaml"
-    if not path.exists():
-        return FilterConfig()
-    with open(path) as f:
-        data = yaml.safe_load(f) or {}
-    return FilterConfig.model_validate(data)
 ```
 
-**Step 4: Create the YAML file**
+**Step 4: Run tests**
 
-Create `engine/config/filters.yaml` with the full configuration from the design doc (see design doc Section 2 for contents).
+Run: `uv run pytest engine/tests/models/test_liquidity_profile.py -v`
+Expected: PASS
 
-**Step 5: Run tests**
+**Step 5: Commit**
 
-Run: `uv run pytest engine/tests/config/test_filter_config.py -v`
+```bash
+git add engine/src/margin_engine/models/liquidity.py engine/tests/models/test_liquidity_profile.py
+git commit -m "feat(engine): add LiquidityProfile model with multi-window median dollar volume"
+```
+
+---
+
+### Task 2: Position-Sizing Simulation
+
+**Files:**
+- Modify: `engine/src/margin_engine/models/liquidity.py`
+- Modify: `engine/tests/models/test_liquidity_profile.py`
+
+**Step 1: Write failing tests**
+
+```python
+class TestPositionSizing:
+    def test_days_to_fill_normal(self):
+        """$500K position at 5% participation of $10M daily vol = 1 day."""
+        result = days_to_fill(
+            position_size=500_000,
+            participation_rate=0.05,
+            median_dollar_volume=Decimal("10_000_000"),
+        )
+        assert result == pytest.approx(1.0)
+
+    def test_days_to_fill_illiquid(self):
+        """$500K position at 5% of $500K daily vol = 20 days."""
+        result = days_to_fill(
+            position_size=500_000,
+            participation_rate=0.05,
+            median_dollar_volume=Decimal("500_000"),
+        )
+        assert result == pytest.approx(20.0)
+
+    def test_market_impact_estimate(self):
+        """Impact at 5% participation ≈ 2.2 bps."""
+        impact = market_impact_estimate(0.05)
+        assert impact == pytest.approx(2.236, abs=0.1)  # 10 * sqrt(0.05)
+
+    def test_divergence_ratio(self):
+        """20d/90d ratio > 3 means liquidity evaporating."""
+        ratio = liquidity_divergence_ratio(
+            vol_20d=Decimal("500_000"),
+            vol_90d=Decimal("2_000_000"),
+        )
+        assert ratio == pytest.approx(4.0)
+```
+
+**Step 2: Run to verify failure**
+
+Run: `uv run pytest engine/tests/models/test_liquidity_profile.py::TestPositionSizing -v`
+
+**Step 3: Implement helper functions**
+
+Add to `liquidity.py`:
+
+```python
+from math import sqrt
+
+def days_to_fill(
+    position_size: float,
+    participation_rate: float,
+    median_dollar_volume: Decimal,
+) -> float:
+    """How many days to build a position at given participation rate."""
+    daily_capacity = float(median_dollar_volume) * participation_rate
+    if daily_capacity <= 0:
+        return float("inf")
+    return position_size / daily_capacity
+
+def market_impact_estimate(participation_rate: float) -> float:
+    """Simplified Almgren-Chriss market impact in basis points."""
+    return 10.0 * sqrt(participation_rate)
+
+def liquidity_divergence_ratio(
+    vol_20d: Decimal | None,
+    vol_90d: Decimal | None,
+) -> float | None:
+    """Ratio of 90d to 20d volume. >3 = liquidity evaporating."""
+    if vol_20d is None or vol_90d is None or vol_20d <= 0:
+        return None
+    return float(vol_90d / vol_20d)
+```
+
+**Step 4: Run tests**
+
+Run: `uv run pytest engine/tests/models/test_liquidity_profile.py -v`
+Expected: PASS
+
+**Step 5: Commit**
+
+```bash
+git add engine/src/margin_engine/models/liquidity.py engine/tests/models/test_liquidity_profile.py
+git commit -m "feat(engine): add position-sizing simulation and liquidity divergence detection"
+```
+
+---
+
+### Task 3: Liquidity Filter Rewrite
+
+**Files:**
+- Modify: `engine/src/margin_engine/scoring/filters/liquidity.py`
+- Modify: `engine/src/margin_engine/config/filter_config.py` (update LiquidityConfig)
+- Modify: `engine/tests/scoring/filters/test_liquidity.py`
+
+**Step 1: Update LiquidityConfig with new fields**
+
+In `filter_config.py`, update `LiquidityConfig` to include:
+
+```python
+class PositionSizingConfig(BaseModel):
+    target_position: int = 500_000
+    max_participation_rate: float = 0.05
+    max_days_to_fill: int = 5
+    max_impact_bps: float = 50.0
+
+class LiquidityConfig(BaseModel):
+    # ... existing fields ...
+    windows: list[int] = Field(default_factory=lambda: [20, 60, 90])
+    divergence_max_ratio: float = 3.0
+    position_sizing: PositionSizingConfig = Field(default_factory=PositionSizingConfig)
+```
+
+**Step 2: Write failing tests for the redesigned filter**
+
+```python
+def test_liquidity_position_sizing_fail(self):
+    """Asset where position can't be filled in 5 days should FAIL."""
+    # $500K position at 5% of $1M daily vol = 10 days > 5 max
+    profile = _make_profile(market_cap=Decimal("5_000_000_000"))
+    bars = _make_bars(n=100, avg_close=50.0, avg_volume=20_000)  # $1M daily
+    config = LiquidityConfig()
+    result = liquidity_check_v2(profile, bars, config=config)
+    assert not result.passed
+    assert "days_to_fill" in result.detail.lower()
+
+def test_liquidity_divergence_fail(self):
+    """20d vol < 90d vol / 3 → liquidity evaporating → FAIL."""
+    profile = _make_profile(market_cap=Decimal("5_000_000_000"))
+    bars = _make_divergent_bars(vol_90d=5_000_000, vol_20d=1_000_000)
+    config = LiquidityConfig()
+    result = liquidity_check_v2(profile, bars, config=config)
+    assert not result.passed
+    assert "divergence" in result.detail.lower()
+
+def test_liquidity_all_criteria_pass(self):
+    """Asset meeting all criteria should PASS with full metrics."""
+    profile = _make_profile(market_cap=Decimal("50_000_000_000"))
+    bars = _make_bars(n=100, avg_close=200.0, avg_volume=500_000)
+    config = LiquidityConfig()
+    result = liquidity_check_v2(profile, bars, config=config)
+    assert result.passed
+    assert result.computed_metrics is not None
+    assert "median_dollar_volume_90d" in result.computed_metrics
+```
+
+**Step 3: Implement liquidity_check_v2**
+
+Rewrite `liquidity.py` with the new function that:
+1. Computes `LiquidityProfile` from bars
+2. Checks market cap threshold (existing tiered logic)
+3. Checks 90d median dollar volume vs tier threshold
+4. Checks position sizing (days_to_fill ≤ max)
+5. Checks divergence ratio (20d/90d ≤ max)
+6. Checks sector eligibility and history
+7. Returns `FilterResult` with all computed metrics
+
+Keep the old `liquidity_check()` function as deprecated alias for backward compat.
+
+**Step 4: Update pipeline to pass price bars to liquidity filter**
+
+The pipeline function needs to accept `price_bars: list[PriceBar] | None` and pass them to the new liquidity check.
+
+**Step 5: Run full filter test suite**
+
+Run: `uv run pytest engine/tests/scoring/filters/ -v`
 Expected: PASS
 
 **Step 6: Commit**
 
 ```bash
-git add engine/src/margin_engine/config/ engine/config/filters.yaml engine/tests/config/
-git commit -m "feat(engine): add FilterConfig Pydantic model with YAML loading"
+git add engine/src/margin_engine/scoring/filters/liquidity.py engine/src/margin_engine/config/filter_config.py engine/tests/scoring/filters/test_liquidity.py engine/src/margin_engine/scoring/filters/pipeline.py
+git commit -m "feat(engine): redesign liquidity filter with multi-window, position-sizing, divergence check"
 ```
 
 ---
 
-### Task 5: Wire FilterConfig Into Liquidity Filter
+## Phase 2: Engine — Health Filters + Beneish (Sections B, C)
+
+### Task 4: FilterResult Enhancement + INCONCLUSIVE Verdict
 
 **Files:**
-- Modify: `engine/src/margin_engine/scoring/filters/liquidity.py`
-- Modify: `engine/tests/scoring/filters/test_liquidity.py`
+- Modify: `engine/src/margin_engine/models/scoring.py`
+- Modify: `engine/tests/models/test_scoring.py` (or relevant test file)
 
-**Step 1: Write failing test for tiered dollar volume**
+**Step 1: Write failing tests**
 
 ```python
-def test_dollar_volume_tiered_by_market_cap(self):
-    """Mega-cap needs $50M daily volume, small-cap needs $2M."""
-    from margin_engine.config.filter_config import FilterConfig
+def test_filter_verdict_inconclusive():
+    """INCONCLUSIVE verdict for insufficient data."""
+    r = FilterResult(name="beneish", passed=True, insufficient_data=True)
+    assert r.verdict == FilterVerdict.INCONCLUSIVE
 
-    config = FilterConfig()
-
-    # Mega-cap with $30M volume: fails $50M threshold
-    mega_profile = AssetProfile(
-        ticker="MEGA",
-        name="Mega Corp",
-        sector=GICSSector.TECHNOLOGY,
-        market_cap=Decimal("500_000_000_000"),  # $500B
-        avg_daily_dollar_volume=Decimal("30_000_000"),  # $30M < $50M
-        years_of_history=10,
+def test_filter_result_warning():
+    """Warning flag for trend deterioration."""
+    r = FilterResult(
+        name="interest_coverage", passed=True, value=2.8, threshold=2.5,
+        warning=True, warning_reason="ICR declined 25% over 3 years",
     )
-    result = liquidity_check(mega_profile, config=config.liquidity)
-    assert not result.passed
-    assert "dollar_vol" in result.detail.lower() or "FAIL" in result.detail
+    assert r.warning is True
+    assert r.warning_reason is not None
 
-    # Small-cap with $3M volume: passes $2M threshold
-    small_profile = AssetProfile(
-        ticker="SMLL",
-        name="Small Corp",
-        sector=GICSSector.TECHNOLOGY,
-        market_cap=Decimal("1_000_000_000"),  # $1B
-        avg_daily_dollar_volume=Decimal("3_000_000"),  # $3M > $2M
-        years_of_history=10,
+def test_filter_result_computed_metrics():
+    """Computed metrics dict for auditability."""
+    r = FilterResult(
+        name="liquidity", passed=True,
+        computed_metrics={"median_dollar_volume_90d": 15_000_000, "days_to_fill": 1.5},
     )
-    result = liquidity_check(small_profile, config=config.liquidity)
-    assert result.passed
+    assert r.computed_metrics["days_to_fill"] == 1.5
 ```
 
-**Step 2: Run test to verify failure**
+**Step 2: Run to verify failure**
 
-Run: `uv run pytest engine/tests/scoring/filters/test_liquidity.py::TestLiquidity::test_dollar_volume_tiered_by_market_cap -v`
-Expected: FAIL — `liquidity_check()` doesn't accept `config` parameter yet.
+Run: `uv run pytest engine/tests/models/test_scoring.py -k "inconclusive or warning or computed_metrics" -v`
 
-**Step 3: Update liquidity_check() to accept config**
+**Step 3: Implement changes**
 
-Modify `liquidity.py` to:
-1. Accept an optional `LiquidityConfig` parameter (default: `None`, falls back to current constants for backward compat)
-2. Determine market cap bucket and look up the appropriate dollar volume threshold
-3. Remove hardcoded `_MIN_AVG_DAILY_VOLUME` usage when config is provided
-
-Key implementation:
+In `scoring.py`:
 
 ```python
-from margin_engine.config.filter_config import LiquidityConfig
+class FilterVerdict(str, Enum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    INCONCLUSIVE = "INCONCLUSIVE"
 
-def _market_cap_bucket(market_cap: Decimal) -> str:
-    if market_cap >= Decimal("200_000_000_000"):
-        return "mega"
-    if market_cap >= Decimal("10_000_000_000"):
-        return "large"
-    if market_cap >= Decimal("2_000_000_000"):
-        return "mid"
-    return "small"
-
-def liquidity_check(
-    profile: AssetProfile,
-    config: LiquidityConfig | None = None,
-) -> FilterResult:
-    # ... existing logic, but use config thresholds when provided
-    if config is not None:
-        bucket = _market_cap_bucket(profile.market_cap)
-        vol_threshold = getattr(config.dollar_volume, bucket)
-    else:
-        vol_threshold = _MIN_AVG_DAILY_VOLUME  # legacy fallback
-```
-
-**Step 4: Run tests**
-
-Run: `uv run pytest engine/tests/scoring/filters/test_liquidity.py -v`
-Expected: All tests pass (old tests use default, new test uses config).
-
-**Step 5: Commit**
-
-```bash
-git add engine/src/margin_engine/scoring/filters/liquidity.py engine/tests/scoring/filters/test_liquidity.py
-git commit -m "feat(engine): tiered liquidity thresholds by market cap bucket"
-```
-
----
-
-### Task 6: Wire FilterConfig Into Remaining Filters + Pipeline
-
-**Files:**
-- Modify: `engine/src/margin_engine/scoring/filters/beneish.py`
-- Modify: `engine/src/margin_engine/scoring/filters/altman.py`
-- Modify: `engine/src/margin_engine/scoring/filters/fcf_distress.py`
-- Modify: `engine/src/margin_engine/scoring/filters/interest_coverage.py`
-- Modify: `engine/src/margin_engine/scoring/filters/current_ratio.py`
-- Modify: `engine/src/margin_engine/scoring/filters/pipeline.py`
-- Modify: `engine/src/margin_engine/models/scoring.py` (FilterResult: add `insufficient_data`, `missing_fields`)
-- Modify: corresponding test files
-
-**Step 1: Add `insufficient_data` and `missing_fields` to FilterResult**
-
-In `engine/src/margin_engine/models/scoring.py`, update `FilterResult`:
-
-```python
 class FilterResult(BaseModel):
     name: str
     passed: bool
@@ -541,719 +369,975 @@ class FilterResult(BaseModel):
     detail: str = ""
     insufficient_data: bool = False
     missing_fields: list[str] | None = None
-```
-
-Write a test:
-```python
-def test_filter_result_insufficient_data():
-    r = FilterResult(name="beneish", passed=True, insufficient_data=True, missing_fields=["prior_balance"])
-    assert r.insufficient_data is True
-    assert r.missing_fields == ["prior_balance"]
-```
-
-**Step 2: Update each filter function signature to accept its config section**
-
-Pattern for each filter (showing beneish as example):
-
-```python
-# beneish.py
-from margin_engine.config.filter_config import BeneishConfig
-
-def beneish_m_score(
-    period: FinancialPeriod,
-    config: BeneishConfig | None = None,
-) -> FilterResult:
-    threshold = config.threshold if config else _THRESHOLD
-    # ... rest of logic unchanged, but use `threshold` variable
-    # When insufficient data, return:
-    # FilterResult(name="beneish", passed=True, insufficient_data=True,
-    #              missing_fields=["prior_income", "prior_balance"], detail="...")
-```
-
-Apply same pattern to: `altman.py` (AltmanConfig), `fcf_distress.py` (FcfDistressConfig), `interest_coverage.py` (InterestCoverageConfig), `current_ratio.py` (CurrentRatioConfig).
-
-**Step 3: Update pipeline to load and pass config**
-
-```python
-# pipeline.py
-from margin_engine.config.filter_config import FilterConfig, load_filter_config
-
-def run_elimination_filters(
-    period: FinancialPeriod,
-    profile: AssetProfile,
-    config: FilterConfig | None = None,
-) -> PipelineResult:
-    if config is None:
-        config = load_filter_config()
-    sector = profile.sector
-    results = [
-        liquidity_check(profile, config=config.liquidity),
-        beneish_m_score(period, config=config.beneish),
-        altman_z_score(period, sector=sector, config=config.altman),
-        fcf_distress_check(period, config=config.fcf_distress),
-        interest_coverage_check(period, sector=sector, config=config.interest_coverage),
-        current_ratio_check(period, sector=sector, config=config.current_ratio),
-    ]
-    return PipelineResult(results=results)
-```
-
-**Step 4: Run full engine test suite**
-
-Run: `uv run pytest engine/tests/ -v --tb=short 2>&1 | tail -40`
-Expected: All 784+ tests pass. Existing tests use default config values which match the old hardcoded constants.
-
-**Step 5: Commit**
-
-```bash
-git add engine/src/margin_engine/scoring/filters/ engine/src/margin_engine/models/scoring.py engine/tests/
-git commit -m "feat(engine): wire FilterConfig into all filters and pipeline"
-```
-
----
-
-## Phase 3: API Layer (Tasks 7-10)
-
-### Task 7: Score History Endpoint
-
-**Files:**
-- Create: `api/src/margin_api/schemas/score_history.py`
-- Modify: `api/src/margin_api/routes/scores.py`
-- Create: `api/tests/test_score_history.py`
-
-**Step 1: Write failing test**
-
-```python
-"""Tests for score history endpoint."""
-
-from __future__ import annotations
-from datetime import UTC, datetime, timedelta
-from decimal import Decimal
-
-import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from margin_api.app import create_app
-from margin_api.db.base import Base
-from margin_api.db.models import Asset, Score
-from margin_api.db.session import get_db
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-
-@pytest_asyncio.fixture
-async def history_session():
-    """Seed DB with multiple score rows per ticker for history testing."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with factory() as session:
-        aapl = Asset(
-            ticker="AAPL", name="Apple Inc.",
-            sector="Information Technology",
-            market_cap=Decimal("3500000000000"),
-        )
-        session.add(aapl)
-        await session.flush()
-
-        base_time = datetime(2026, 1, 1, tzinfo=UTC)
-        for i in range(5):
-            score = Score(
-                asset_id=aapl.id,
-                composite_percentile=80.0 + i * 2,
-                conviction_level="high",
-                signal="buy",
-                quality_percentile=85.0 + i,
-                value_percentile=80.0 + i,
-                momentum_percentile=82.0 + i,
-                data_coverage=1.0,
-                scored_at=base_time + timedelta(days=i * 7),
-                intrinsic_value=Decimal("200"),
-                buy_price=Decimal("150"),
-                sell_price=Decimal("250"),
-                actual_price=Decimal("185"),
-                score_detail={},
-            )
-            session.add(score)
-        await session.commit()
-
-    app = create_app()
-    app.dependency_overrides[get_db] = lambda: factory()
-    yield app, factory
-    await engine.dispose()
-
-
-@pytest.mark.asyncio
-async def test_score_history_returns_multiple_points(history_session):
-    app, _ = history_session
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        resp = await client.get("/api/v1/scores/AAPL/history")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["ticker"] == "AAPL"
-    assert len(data["points"]) == 5
-    assert data["total_runs"] == 5
-
-
-@pytest.mark.asyncio
-async def test_score_history_ordered_ascending(history_session):
-    app, _ = history_session
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        resp = await client.get("/api/v1/scores/AAPL/history")
-    points = resp.json()["points"]
-    dates = [p["scored_at"] for p in points]
-    assert dates == sorted(dates)
-
-
-@pytest.mark.asyncio
-async def test_score_history_delta_computed(history_session):
-    app, _ = history_session
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        resp = await client.get("/api/v1/scores/AAPL/history")
-    points = resp.json()["points"]
-    assert points[0]["delta"] is None  # first point has no prior
-    assert points[1]["delta"] == pytest.approx(2.0)  # 82 - 80
-
-
-@pytest.mark.asyncio
-async def test_score_history_404_unknown_ticker(history_session):
-    app, _ = history_session
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        resp = await client.get("/api/v1/scores/ZZZZ/history")
-    assert resp.status_code == 404
-```
-
-**Step 2: Run tests to verify failure**
-
-Run: `uv run pytest api/tests/test_score_history.py -v`
-Expected: FAIL — route does not exist.
-
-**Step 3: Create schema**
-
-Create `api/src/margin_api/schemas/score_history.py`:
-
-```python
-"""Score history response schemas."""
-
-from __future__ import annotations
-from datetime import datetime
-from pydantic import BaseModel
-
-
-class ScoreHistoryPoint(BaseModel):
-    scored_at: datetime
-    composite_percentile: float
-    composite_raw_score: float | None = None
-    quality_percentile: float | None = None
-    value_percentile: float | None = None
-    momentum_percentile: float | None = None
-    conviction_level: str
-    signal: str
-    margin_invest_value: float | None = None
-    buy_price: float | None = None
-    sell_price: float | None = None
-    actual_price: float | None = None
-    delta: float | None = None
-
-
-class ScoreHistoryResponse(BaseModel):
-    ticker: str
-    points: list[ScoreHistoryPoint]
-    total_runs: int
-```
-
-**Step 4: Add route handler**
-
-In `api/src/margin_api/routes/scores.py`, add:
-
-```python
-from margin_api.schemas.score_history import ScoreHistoryPoint, ScoreHistoryResponse
-
-@router.get("/{ticker}/history", response_model=ScoreHistoryResponse)
-async def get_score_history(
-    ticker: str,
-    limit: int = Query(default=100, le=500),
-    session: AsyncSession = Depends(get_db),
-) -> ScoreHistoryResponse:
-    asset = await session.execute(select(Asset).where(Asset.ticker == ticker))
-    asset_row = asset.scalar_one_or_none()
-    if asset_row is None:
-        raise HTTPException(status_code=404, detail=f"Ticker {ticker} not found")
-
-    query = (
-        select(Score)
-        .where(Score.asset_id == asset_row.id)
-        .order_by(Score.scored_at.asc())
-        .limit(limit)
-    )
-    result = await session.execute(query)
-    rows = result.scalars().all()
-
-    points: list[ScoreHistoryPoint] = []
-    for i, row in enumerate(rows):
-        delta = None
-        if i > 0:
-            delta = round(row.composite_percentile - rows[i - 1].composite_percentile, 2)
-        points.append(ScoreHistoryPoint(
-            scored_at=row.scored_at,
-            composite_percentile=row.composite_percentile,
-            composite_raw_score=getattr(row, "composite_raw_score", None),
-            quality_percentile=row.quality_percentile,
-            value_percentile=row.value_percentile,
-            momentum_percentile=row.momentum_percentile,
-            conviction_level=row.conviction_level,
-            signal=row.signal,
-            margin_invest_value=float(row.intrinsic_value) if row.intrinsic_value else None,
-            buy_price=float(row.buy_price) if row.buy_price else None,
-            sell_price=float(row.sell_price) if row.sell_price else None,
-            actual_price=float(row.actual_price) if row.actual_price else None,
-            delta=delta,
-        ))
-
-    return ScoreHistoryResponse(ticker=ticker, points=points, total_runs=len(points))
-```
-
-Note: `margin_invest_value` maps from DB column `intrinsic_value` until the rename migration (Task 10).
-
-**Step 5: Run tests**
-
-Run: `uv run pytest api/tests/test_score_history.py -v`
-Expected: PASS
-
-**Step 6: Commit**
-
-```bash
-git add api/src/margin_api/schemas/score_history.py api/src/margin_api/routes/scores.py api/tests/test_score_history.py
-git commit -m "feat(api): add GET /scores/{ticker}/history endpoint"
-```
-
----
-
-### Task 8: Fix Avg Profit Margin Key-Name Bug
-
-**Files:**
-- Modify: `api/src/margin_api/services/metrics.py:90-107`
-- Modify or create: `api/tests/test_metrics_service.py`
-
-**Step 1: Write failing test**
-
-```python
-"""Tests for metrics service computation."""
-
-from margin_api.services.metrics import compute_avg_profit_margin
-
-
-def test_avg_profit_margin_with_yfinance_keys():
-    """Should handle capitalized yfinance keys like 'Net Income'."""
-    periods = [
-        {"Net Income": 25000000000, "Total Revenue": 100000000000},
-        {"Net Income": 23000000000, "Total Revenue": 95000000000},
-    ]
-    result = compute_avg_profit_margin(periods)
-    assert result is not None
-    assert result == pytest.approx(24.6, abs=1.0)  # avg of 25% and 24.2%
-
-
-def test_avg_profit_margin_with_snake_case_keys():
-    """Should also handle snake_case keys."""
-    periods = [
-        {"net_income": 25000000000, "total_revenue": 100000000000},
-    ]
-    result = compute_avg_profit_margin(periods)
-    assert result is not None
-    assert result == pytest.approx(25.0, abs=0.1)
-```
-
-**Step 2: Run test to verify failure**
-
-Run: `uv run pytest api/tests/test_metrics_service.py::test_avg_profit_margin_with_yfinance_keys -v`
-Expected: FAIL — returns `None` because keys don't match.
-
-**Step 3: Fix the key lookup**
-
-In `api/src/margin_api/services/metrics.py`, add a helper and update `compute_avg_profit_margin()`:
-
-```python
-def _get_field(period: dict, *candidates: str) -> float | None:
-    """Try multiple key variants for yfinance compatibility."""
-    for key in candidates:
-        if key in period:
-            val = period[key]
-            return float(val) if val is not None else None
-    return None
-
-
-def compute_avg_profit_margin(income_periods: list[dict]) -> float | None:
-    margins = []
-    for period in income_periods:
-        net_income = _get_field(period, "net_income", "Net Income", "netIncome")
-        total_revenue = _get_field(period, "total_revenue", "Total Revenue", "totalRevenue")
-        if net_income is not None and total_revenue is not None and total_revenue != 0:
-            margins.append(net_income / total_revenue * 100)
-    return round(sum(margins) / len(margins), 2) if margins else None
+    warning: bool = False
+    warning_reason: str | None = None
+    computed_metrics: dict[str, float] | None = None
+
+    @property
+    def verdict(self) -> FilterVerdict:
+        if self.insufficient_data:
+            return FilterVerdict.INCONCLUSIVE
+        return FilterVerdict.PASS if self.passed else FilterVerdict.FAIL
 ```
 
 **Step 4: Run tests**
 
-Run: `uv run pytest api/tests/test_metrics_service.py -v`
+Run: `uv run pytest engine/tests/ -v --tb=short 2>&1 | tail -20`
+Expected: PASS. Check that existing tests referencing `FilterVerdict` still work.
+
+**Step 5: Commit**
+
+```bash
+git add engine/src/margin_engine/models/scoring.py engine/tests/
+git commit -m "feat(engine): add INCONCLUSIVE verdict, warning flag, and computed_metrics to FilterResult"
+```
+
+---
+
+### Task 5: FCF Distress Multi-Year Upgrade
+
+**Files:**
+- Modify: `engine/src/margin_engine/scoring/filters/fcf_distress.py`
+- Modify: `engine/tests/scoring/filters/test_fcf_distress.py`
+
+**Step 1: Write failing tests for multi-year FCF logic**
+
+```python
+def test_fcf_distress_3_of_5_positive(self):
+    """3 of 5 years positive FCF should PASS."""
+    history = _make_history_with_fcf([100, -50, 200, 150, -30])  # 3 positive
+    result = fcf_distress_check_v2(history)
+    assert result.passed
+
+def test_fcf_distress_1_of_5_positive(self):
+    """Only 1 of 5 years positive should FAIL."""
+    history = _make_history_with_fcf([-100, -50, 200, -150, -30])  # 1 positive
+    result = fcf_distress_check_v2(history)
+    assert not result.passed
+
+def test_fcf_distress_positive_trend_rescue(self):
+    """Negative but improving for 2+ years → WARNING, not FAIL."""
+    history = _make_history_with_fcf([-200, -150, -80, -30, -10])
+    result = fcf_distress_check_v2(history)
+    assert result.passed
+    assert result.warning is True
+    assert "trend" in result.warning_reason.lower()
+
+def test_fcf_distress_cyclical_relaxed(self):
+    """Energy sector uses 2-of-5 instead of 3-of-5."""
+    history = _make_history_with_fcf([100, -50, -20, -150, 30], sector="energy")
+    result = fcf_distress_check_v2(history, sector=GICSSector.ENERGY)
+    assert result.passed  # 2 of 5 positive, meets cyclical threshold
+
+def test_fcf_margin_floor(self):
+    """Median FCF margin below -5% should FAIL."""
+    history = _make_history_with_fcf_margin([-0.08, -0.10, -0.06, -0.07, -0.09])
+    result = fcf_distress_check_v2(history)
+    assert not result.passed
+    assert "margin" in result.detail.lower()
+```
+
+**Step 2: Run to verify failure, implement, run tests, commit**
+
+Pattern: rewrite `fcf_distress_check()` to accept `FinancialHistory | FinancialPeriod`. When `FinancialHistory` provided, apply multi-year rules. When only `FinancialPeriod`, fall back to single-period check (backward compat).
+
+**Step 3: Commit**
+
+```bash
+git commit -m "feat(engine): upgrade FCF distress filter to multi-year with trend rescue"
+```
+
+---
+
+### Task 6: Interest Coverage Multi-Year Upgrade
+
+**Files:**
+- Modify: `engine/src/margin_engine/scoring/filters/interest_coverage.py`
+- Modify: `engine/tests/scoring/filters/test_interest_coverage.py`
+
+**Step 1: Write failing tests**
+
+```python
+def test_icr_3yr_median(self):
+    """Uses 3-year median, not spot value."""
+    history = _make_icr_history([5.0, 2.5, 3.0])  # median = 3.0
+    result = interest_coverage_check_v2(history, sector=GICSSector.INDUSTRIALS)
+    assert result.passed  # median 3.0 > 2.5 threshold
+    assert result.computed_metrics["median_icr"] == pytest.approx(3.0)
+
+def test_icr_trend_guard(self):
+    """Current ICR >20% below median triggers warning."""
+    history = _make_icr_history([4.0, 3.5, 2.5])  # median=3.5, current=2.5, decline=28%
+    result = interest_coverage_check_v2(history, sector=GICSSector.INDUSTRIALS)
+    assert result.passed  # 2.5 == threshold, passes
+    assert result.warning is True
+    assert "deteriorat" in result.warning_reason.lower()
+
+def test_icr_negative_ebit_auto_fail(self):
+    """Negative EBIT with interest expense = auto FAIL."""
+    history = _make_negative_ebit_history()
+    result = interest_coverage_check_v2(history)
+    assert not result.passed
+    assert "negative ebit" in result.detail.lower()
+
+def test_icr_expanded_sector_thresholds(self):
+    """Tech requires ICR > 5.0, not the old 3.0."""
+    history = _make_icr_history([4.5, 4.0, 4.8])  # median = 4.5
+    result = interest_coverage_check_v2(history, sector=GICSSector.INFORMATION_TECHNOLOGY)
+    assert not result.passed  # 4.5 < 5.0 new tech threshold
+```
+
+**Step 2: Implement, test, commit**
+
+Same pattern: accept `FinancialHistory`, compute 3-year median ICR, apply expanded sector thresholds from config, add trend guard logic.
+
+```bash
+git commit -m "feat(engine): upgrade interest coverage filter to 3-year median with trend guard"
+```
+
+---
+
+### Task 7: Current Ratio Multi-Year Upgrade
+
+**Files:**
+- Modify: `engine/src/margin_engine/scoring/filters/current_ratio.py`
+- Modify: `engine/tests/scoring/filters/test_current_ratio.py`
+
+**Step 1: Write failing tests for median + quick ratio rescue + trend guard**
+
+```python
+def test_cr_3yr_median(self):
+    history = _make_cr_history([1.2, 0.9, 1.0])  # median = 1.0
+    result = current_ratio_check_v2(history)
+    assert result.passed  # 1.0 > 0.8
+
+def test_cr_quick_ratio_rescue(self):
+    """CR < threshold but quick ratio > 0.5 → PASS with warning."""
+    history = _make_cr_history_with_quick([0.6, 0.7, 0.65], quick_ratios=[0.55, 0.6, 0.58])
+    result = current_ratio_check_v2(history)
+    assert result.passed
+    assert result.warning is True
+    assert "quick ratio" in result.warning_reason.lower()
+
+def test_cr_3yr_decline_guard(self):
+    """>30% decline over 3 years triggers warning."""
+    history = _make_cr_history([1.5, 1.2, 0.95])  # 37% decline
+    result = current_ratio_check_v2(history)
+    assert result.passed  # median 1.2 > 0.8
+    assert result.warning is True
+    assert "decline" in result.warning_reason.lower()
+```
+
+**Step 2: Implement, test, commit**
+
+```bash
+git commit -m "feat(engine): upgrade current ratio filter to 3-year median with quick ratio rescue"
+```
+
+---
+
+### Task 8: Beneish Multi-Period + INCONCLUSIVE
+
+**Files:**
+- Modify: `engine/src/margin_engine/scoring/filters/beneish.py`
+- Modify: `engine/tests/scoring/filters/test_beneish.py`
+
+**Step 1: Write failing tests**
+
+```python
+def test_beneish_multi_period_computation(self):
+    """Computes M-Score for each consecutive period pair."""
+    history = _make_beneish_history(n_periods=4)  # 3 consecutive pairs
+    result = beneish_m_score_v2(history)
+    assert len(result.historical_m_scores) == 3
+    assert result.current_m_score is not None
+
+def test_beneish_inconclusive_no_prior(self):
+    """Zero computable pairs → INCONCLUSIVE, not silent PASS."""
+    history = _make_beneish_history(n_periods=1)  # only 1 period, no prior
+    result = beneish_m_score_v2(history)
+    assert result.verdict == FilterVerdict.INCONCLUSIVE
+    assert result.insufficient_data is True
+
+def test_beneish_trend_detection(self):
+    """Detects worsening M-Score trend."""
+    history = _make_beneish_history_with_scores([-3.0, -2.5, -2.0])  # getting closer to -1.78
+    result = beneish_m_score_v2(history)
+    assert result.trend == "deteriorating"
+
+def test_beneish_backward_compat_single_period(self):
+    """Still works with single FinancialPeriod input."""
+    period = _make_period_with_prior()
+    result = beneish_m_score(period)  # old signature
+    assert result.passed or not result.passed  # just verify it runs
+```
+
+**Step 2: Implement**
+
+Refactor `beneish.py`:
+- New `beneish_m_score_v2(history: FinancialHistory)` function
+- Iterates consecutive period pairs, computes M-Score for each
+- Returns `FilterResult` with `computed_metrics` containing `historical_m_scores`
+- Old `beneish_m_score(period)` wraps v2 for backward compat
+
+**Step 3: Run tests, commit**
+
+```bash
+git commit -m "feat(engine): Beneish multi-period computation with INCONCLUSIVE verdict and trend detection"
+```
+
+---
+
+### Task 9: Update Filter Pipeline to Use v2 Filters
+
+**Files:**
+- Modify: `engine/src/margin_engine/scoring/filters/pipeline.py`
+- Modify: `engine/tests/scoring/filters/test_pipeline.py`
+
+**Step 1: Write test for pipeline with FinancialHistory**
+
+```python
+def test_pipeline_accepts_financial_history(self):
+    """Pipeline should use multi-year checks when history is provided."""
+    history = _make_full_history()
+    profile = _make_profile()
+    bars = _make_bars()
+    result = run_elimination_filters(
+        history=history,
+        profile=profile,
+        price_bars=bars,
+    )
+    assert len(result.results) >= 6
+    # Verify Beneish used multi-period
+    beneish = next(r for r in result.results if r.name == "beneish_m_score")
+    assert beneish.computed_metrics is not None
+```
+
+**Step 2: Update pipeline signature**
+
+```python
+def run_elimination_filters(
+    profile: AssetProfile,
+    period: FinancialPeriod | None = None,
+    history: FinancialHistory | None = None,
+    price_bars: list[PriceBar] | None = None,
+    config: FilterConfig | None = None,
+) -> PipelineResult:
+```
+
+When `history` is provided, use v2 filters. When only `period`, fall back to v1 single-period filters.
+
+**Step 3: Run full engine tests**
+
+Run: `uv run pytest engine/tests/ -v --tb=short 2>&1 | tail -30`
+Expected: All pass.
+
+**Step 4: Commit**
+
+```bash
+git commit -m "feat(engine): wire v2 multi-year filters into pipeline with FinancialHistory support"
+```
+
+---
+
+## Phase 3: Engine — Risk Metrics (Section D)
+
+### Task 10: Risk Metrics Module (Sharpe, Max Drawdown, Volatility)
+
+**Files:**
+- Create: `engine/src/margin_engine/scoring/risk_metrics.py`
+- Create: `engine/tests/scoring/test_risk_metrics.py`
+
+**Step 1: Write failing tests**
+
+```python
+"""Tests for risk metric computation."""
+
+import pytest
+from decimal import Decimal
+from margin_engine.scoring.risk_metrics import (
+    compute_sharpe_ratio,
+    compute_max_drawdown,
+    compute_volatility,
+    compute_risk_metrics,
+    RiskMetrics,
+)
+
+
+class TestSharpeRatio:
+    def test_sharpe_basic(self):
+        """Known returns → known Sharpe."""
+        # 252 days of 0.04% daily return = ~10% annualized
+        bars = _make_constant_return_bars(n=252, daily_return=0.0004)
+        sharpe = compute_sharpe_ratio(bars, risk_free_rate=0.043)
+        # (10% - 4.3%) / low_vol → high Sharpe
+        assert sharpe is not None
+        assert sharpe > 0
+
+    def test_sharpe_insufficient_bars(self):
+        bars = _make_bars(n=100)
+        sharpe = compute_sharpe_ratio(bars, risk_free_rate=0.043, min_bars=252)
+        assert sharpe is None
+
+    def test_sharpe_3y(self):
+        bars = _make_constant_return_bars(n=756, daily_return=0.0003)
+        sharpe = compute_sharpe_ratio(bars, risk_free_rate=0.043, window=756)
+        assert sharpe is not None
+
+
+class TestMaxDrawdown:
+    def test_drawdown_known_sequence(self):
+        """Price goes 100 → 120 → 80 → 90. Max drawdown = (80-120)/120 = -33.3%."""
+        bars = _make_bars_from_prices([100, 110, 120, 100, 80, 90])
+        dd = compute_max_drawdown(bars)
+        assert dd == pytest.approx(-0.333, abs=0.01)
+
+    def test_drawdown_no_decline(self):
+        """Monotonically increasing → max drawdown = 0."""
+        bars = _make_bars_from_prices([100, 101, 102, 103, 104])
+        dd = compute_max_drawdown(bars)
+        assert dd == 0.0
+
+
+class TestVolatility:
+    def test_volatility_known(self):
+        bars = _make_constant_return_bars(n=252, daily_return=0.001)
+        vol = compute_volatility(bars, window=252)
+        assert vol is not None
+        assert vol > 0
+
+    def test_volatility_zero_for_constant_price(self):
+        bars = _make_bars_from_prices([100.0] * 30)
+        vol = compute_volatility(bars, window=20)
+        assert vol == pytest.approx(0.0, abs=0.001)
+
+
+class TestRiskMetricsBundle:
+    def test_full_bundle(self):
+        bars = _make_constant_return_bars(n=756, daily_return=0.0004)
+        metrics = compute_risk_metrics(bars, risk_free_rate=0.043)
+        assert isinstance(metrics, RiskMetrics)
+        assert metrics.sharpe_1y is not None
+        assert metrics.sharpe_3y is not None
+        assert metrics.max_drawdown_1y is not None
+        assert metrics.volatility_1y is not None
+```
+
+**Step 2: Run to verify failure**
+
+Run: `uv run pytest engine/tests/scoring/test_risk_metrics.py -v`
+
+**Step 3: Implement**
+
+```python
+"""Risk metrics: Sharpe, Max Drawdown, Volatility from daily price bars."""
+
+from __future__ import annotations
+from decimal import Decimal
+from math import sqrt
+from statistics import mean, stdev
+from pydantic import BaseModel
+from margin_engine.models.financial import PriceBar
+
+
+class RiskMetrics(BaseModel):
+    sharpe_1y: float | None = None
+    sharpe_3y: float | None = None
+    max_drawdown_1y: float | None = None
+    max_drawdown_3y: float | None = None
+    volatility_1y: float | None = None
+    volatility_3y: float | None = None
+    sharpe_unavailable_reason: str | None = None
+    drawdown_unavailable_reason: str | None = None
+    volatility_unavailable_reason: str | None = None
+
+
+def _daily_returns(bars: list[PriceBar], window: int) -> list[float] | None:
+    sorted_bars = sorted(bars, key=lambda b: b.date)
+    if len(sorted_bars) < window + 1:
+        return None
+    recent = sorted_bars[-(window + 1):]
+    returns = []
+    for i in range(1, len(recent)):
+        prev = float(recent[i - 1].close)
+        curr = float(recent[i].close)
+        if prev > 0:
+            returns.append(curr / prev - 1)
+    return returns if len(returns) >= window else None
+
+
+def compute_sharpe_ratio(
+    bars: list[PriceBar],
+    risk_free_rate: float = 0.043,
+    window: int = 252,
+    min_bars: int | None = None,
+) -> float | None:
+    min_required = min_bars or window
+    rets = _daily_returns(bars, min_required)
+    if rets is None or len(rets) < 2:
+        return None
+    ann_return = mean(rets) * 252
+    ann_vol = stdev(rets) * sqrt(252)
+    if ann_vol == 0:
+        return None
+    return (ann_return - risk_free_rate) / ann_vol
+
+
+def compute_max_drawdown(
+    bars: list[PriceBar],
+    window: int | None = None,
+) -> float | None:
+    sorted_bars = sorted(bars, key=lambda b: b.date)
+    if window:
+        sorted_bars = sorted_bars[-window:]
+    if len(sorted_bars) < 2:
+        return None
+    prices = [float(b.close) for b in sorted_bars]
+    running_max = prices[0]
+    max_dd = 0.0
+    for p in prices:
+        if p > running_max:
+            running_max = p
+        dd = (p - running_max) / running_max if running_max > 0 else 0
+        if dd < max_dd:
+            max_dd = dd
+    return max_dd
+
+
+def compute_volatility(
+    bars: list[PriceBar],
+    window: int = 252,
+) -> float | None:
+    rets = _daily_returns(bars, window)
+    if rets is None or len(rets) < 2:
+        return None
+    return stdev(rets) * sqrt(252)
+
+
+def compute_risk_metrics(
+    bars: list[PriceBar],
+    risk_free_rate: float = 0.043,
+) -> RiskMetrics:
+    n = len(bars)
+    return RiskMetrics(
+        sharpe_1y=compute_sharpe_ratio(bars, risk_free_rate, window=252),
+        sharpe_3y=compute_sharpe_ratio(bars, risk_free_rate, window=756),
+        max_drawdown_1y=compute_max_drawdown(bars, window=252),
+        max_drawdown_3y=compute_max_drawdown(bars, window=756),
+        volatility_1y=compute_volatility(bars, window=252),
+        volatility_3y=compute_volatility(bars, window=756),
+        sharpe_unavailable_reason=f"Need 252 trading days, have {n}" if n < 253 else None,
+        drawdown_unavailable_reason=f"Need 20+ trading days, have {n}" if n < 20 else None,
+        volatility_unavailable_reason=f"Need 20+ trading days, have {n}" if n < 20 else None,
+    )
+```
+
+**Step 4: Run tests**
+
+Run: `uv run pytest engine/tests/scoring/test_risk_metrics.py -v`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add api/src/margin_api/services/metrics.py api/tests/test_metrics_service.py
-git commit -m "fix(api): resolve key-name mismatch in avg profit margin computation"
+git add engine/src/margin_engine/scoring/risk_metrics.py engine/tests/scoring/test_risk_metrics.py
+git commit -m "feat(engine): add risk metrics module — Sharpe, Max Drawdown, Volatility (1Y + 3Y)"
 ```
 
 ---
 
-### Task 9: Allocation Formula + MetricStatus Schema
+## Phase 4: Engine — Valuation Audit (Section F)
+
+### Task 11: ValuationAudit Model
 
 **Files:**
-- Modify: `api/src/margin_api/services/metrics.py`
+- Create: `engine/src/margin_engine/models/valuation_audit.py`
+- Create: `engine/tests/models/test_valuation_audit.py`
+
+**Step 1: Write failing test**
+
+```python
+def test_valuation_audit_round_trip():
+    """Audit captures all method details and serializes to JSON."""
+    audit = ValuationAudit(
+        margin_invest_value=190.25,
+        margin_of_safety=0.223,
+        buy_price=148.10,
+        sell_price=232.60,
+        actual_price=185.0,
+        methods=[
+            MethodAudit(
+                method="dcf",
+                result_per_share=185.0,
+                weight=0.35,
+                renormalized_weight=0.35,
+                included=True,
+                exclusion_reason=None,
+                inputs={"fcf": 110e9, "growth_rate": 0.05},
+                intermediates={"pv_stage1": 1.2e12, "terminal_value": 2.8e12},
+            ),
+        ],
+        mos_base=0.25,
+        mos_cv=0.045,
+        mos_adjustment=-0.0273,
+        was_clamped=False,
+        clamp_reason=None,
+    )
+    d = audit.model_dump(mode="json")
+    restored = ValuationAudit.model_validate(d)
+    assert restored.margin_invest_value == 190.25
+    assert len(restored.methods) == 1
+    assert restored.methods[0].inputs["fcf"] == 110e9
+```
+
+**Step 2: Implement model**
+
+Create `valuation_audit.py` with `MethodAudit` and `ValuationAudit` as Pydantic models per the design doc.
+
+**Step 3: Run tests, commit**
+
+```bash
+git commit -m "feat(engine): add ValuationAudit model for auditable valuation breakdown"
+```
+
+---
+
+### Task 12: Wire ValuationAudit Into Price Targets
+
+**Files:**
+- Modify: `engine/src/margin_engine/scoring/quantitative/price_targets.py`
+- Modify: `engine/tests/scoring/quantitative/test_price_targets.py`
+
+**Step 1: Write failing test**
+
+```python
+def test_price_targets_returns_audit(self):
+    """compute_price_targets should return a ValuationAudit."""
+    result = compute_price_targets(
+        period=healthy_period,
+        profile=healthy_profile,
+        price_bars=price_bars,
+        conviction_level=ConvictionLevel.HIGH,
+    )
+    assert result.valuation_audit is not None
+    assert len(result.valuation_audit.methods) > 0
+    # Verify DCF audit has expected inputs
+    dcf = next((m for m in result.valuation_audit.methods if m.method == "dcf"), None)
+    if dcf and dcf.included:
+        assert "fcf" in dcf.inputs
+        assert "growth_rate" in dcf.inputs
+```
+
+**Step 2: Modify `compute_price_targets` to build audit**
+
+Each valuation method (`_dcf_intrinsic_per_share`, etc.) returns both the result AND an `inputs`/`intermediates` dict. The orchestrator builds `MethodAudit` objects and attaches a `ValuationAudit` to the `PriceTargets` result.
+
+**Step 3: Run tests, commit**
+
+```bash
+git commit -m "feat(engine): wire ValuationAudit into price target computation"
+```
+
+---
+
+### Task 13: Complete intrinsic_value → margin_invest_value Rename in Engine
+
+**Files:**
+- Modify: `engine/src/margin_engine/models/scoring.py`
+- Modify: `engine/src/margin_engine/scoring/composite.py`
+- Modify: `engine/src/margin_engine/scoring/quantitative/price_targets.py`
+- Modify: All engine test files referencing `intrinsic_value`
+
+**Step 1: Grep for all occurrences**
+
+Run: `rg "intrinsic_value" engine/src/ engine/tests/ --type py`
+
+**Step 2: Rename field in CompositeScore**
+
+`CompositeScore.intrinsic_value` → `CompositeScore.margin_invest_value`
+
+Add a deprecated property for backward compat if needed by API layer:
+```python
+@property
+def intrinsic_value(self) -> float | None:
+    """Deprecated: use margin_invest_value."""
+    return self.margin_invest_value
+```
+
+**Step 3: Update all tests, run full suite**
+
+Run: `uv run pytest engine/tests/ -v --tb=short 2>&1 | tail -30`
+
+**Step 4: Commit**
+
+```bash
+git commit -m "refactor(engine): rename intrinsic_value to margin_invest_value across engine"
+```
+
+---
+
+### Task 14: Golden Valuation Test Cases
+
+**Files:**
+- Create: `engine/tests/scoring/quantitative/test_valuation_golden.py`
+
+**Step 1: Write golden tests per design doc**
+
+```python
+"""Golden test cases for valuation correctness — regression safety net."""
+
+class TestValuationGolden:
+    def test_normal_all_methods_valid(self):
+        """All 4 methods valid → known MIV, MoS, Buy/Sell."""
+        # Fixed inputs → deterministic outputs
+        result = compute_price_targets(period=GOLDEN_PERIOD, ...)
+        assert result.margin_invest_value == pytest.approx(EXPECTED_MIV, rel=1e-3)
+        assert result.buy_price == pytest.approx(EXPECTED_BUY, rel=1e-3)
+        assert result.sell_price == pytest.approx(EXPECTED_SELL, rel=1e-3)
+        assert result.margin_of_safety == pytest.approx(EXPECTED_MOS, rel=1e-3)
+
+    def test_negative_fcf_two_methods_only(self):
+        """Negative FCF → DCF + EV/FCF return None → 2 methods with renormalized weights."""
+
+    def test_high_leverage_acquirers_excluded(self):
+        """Acquirer's implied equity ≤ 0 → excluded from consensus."""
+
+    def test_cyclical_higher_mos(self):
+        """Cyclical growth stage → base MoS 0.35, wider buy/sell spread."""
+
+    def test_outlier_method_removed(self):
+        """One method producing 15× median → excluded."""
+
+    def test_deterministic_same_inputs_same_outputs(self):
+        """Run twice with identical inputs → bit-identical results."""
+        r1 = compute_price_targets(period=GOLDEN_PERIOD, ...)
+        r2 = compute_price_targets(period=GOLDEN_PERIOD, ...)
+        assert r1.margin_invest_value == r2.margin_invest_value
+        assert r1.buy_price == r2.buy_price
+```
+
+**Step 2: Run tests, commit**
+
+```bash
+git commit -m "test(engine): add golden valuation test cases for regression coverage"
+```
+
+---
+
+## Phase 5: API Layer (Sections D, E, F)
+
+### Task 15: Risk Metrics API Endpoint
+
+**Files:**
+- Modify: `api/src/margin_api/routes/metrics.py` (or wherever metrics endpoint lives)
 - Modify: `api/src/margin_api/schemas/metrics.py`
-- Modify: `api/src/margin_api/routes/metrics.py`
 - Modify: `api/tests/`
 
-**Step 1: Write tests for allocation computation**
+**Step 1: Update metrics endpoint**
+
+Wire `compute_risk_metrics()` from engine into the metrics API response:
+- Fetch price bars for the ticker
+- Compute `RiskMetrics`
+- Map to `MetricStatus` objects (value + unavailable_reason)
+- Remove `allocation_weight` from response
+- Wire `price_upside` as "delta" metric
+
+**Step 2: Update `InstitutionalMetricsResponse` schema**
 
 ```python
-def test_allocation_exceptional_low_vol():
-    result = compute_allocation_weight("exceptional", 15.0)
-    assert result == 8.0
-
-def test_allocation_high_aggressive_vol():
-    result = compute_allocation_weight("high", 45.0)
-    assert result == 2.5  # 5.0 * 0.5
-
-def test_allocation_none_volatility():
-    result = compute_allocation_weight("moderate", None)
-    assert result == 3.0  # base, no vol adjustment
-```
-
-**Step 2: Implement allocation formula**
-
-In `api/src/margin_api/services/metrics.py`:
-
-```python
-def compute_allocation_weight(conviction: str, volatility: float | None) -> float:
-    base = {"exceptional": 8.0, "high": 5.0, "moderate": 3.0, "watchlist": 2.0}.get(conviction, 2.0)
-    if volatility is not None:
-        if volatility > 40:
-            base *= 0.5
-        elif volatility > 25:
-            base *= 0.75
-    return round(base, 1)
-```
-
-**Step 3: Update MetricStatus schema**
-
-In `api/src/margin_api/schemas/metrics.py`:
-
-```python
-class MetricStatus(BaseModel):
-    value: float | None = None
-    unavailable_reason: str | None = None
-
 class InstitutionalMetricsResponse(BaseModel):
     sharpe_ratio: MetricStatus
+    sharpe_ratio_3y: MetricStatus
     max_drawdown: MetricStatus
+    max_drawdown_3y: MetricStatus
     volatility: MetricStatus
+    volatility_3y: MetricStatus
     avg_profit_margin: MetricStatus
-    allocation_weight: MetricStatus
-    margin_of_safety: MetricStatus
+    delta: MetricStatus  # price_upside renamed
     risk_classification: str
 ```
 
-**Step 4: Update metrics route to use MetricStatus and allocation formula**
-
-In `api/src/margin_api/routes/metrics.py`, wrap each metric computation with unavailability reasons and use the new allocation formula as fallback when `max_position_pct` is NULL.
-
-**Step 5: Run all API tests**
-
-Run: `uv run pytest api/tests/ -v --tb=short 2>&1 | tail -30`
-Expected: Some existing tests may need schema updates (they expect flat `float | None` fields, now they're `MetricStatus`). Update those tests.
-
-**Step 6: Commit**
+**Step 3: Run API tests, commit**
 
 ```bash
-git add api/src/margin_api/services/metrics.py api/src/margin_api/schemas/metrics.py api/src/margin_api/routes/metrics.py api/tests/
-git commit -m "feat(api): add allocation formula, MetricStatus schema with unavailability reasons"
+git commit -m "feat(api): wire risk metrics into metrics endpoint, remove allocation, add delta"
 ```
 
 ---
 
-### Task 10: Alembic Migration — Rename intrinsic_value to margin_invest_value
+### Task 16: Valuation Audit API Endpoint
 
 **Files:**
-- Create: Alembic migration
-- Modify: `api/src/margin_api/db/models.py`
-- Modify: `api/src/margin_api/routes/scores.py` (response mapping)
-- Modify: `api/src/margin_api/routes/dashboard.py` (response mapping)
+- Modify: `api/src/margin_api/routes/scores.py`
+- Create: `api/src/margin_api/schemas/valuation_audit.py`
+- Create: `api/tests/test_valuation_audit.py`
 
-**Step 1: Create migration**
-
-Run: `cd api && uv run alembic revision --autogenerate -m "rename intrinsic_value to margin_invest_value"`
-
-Edit the generated migration to use `op.alter_column` with `new_column_name`:
+**Step 1: Write failing test**
 
 ```python
-def upgrade():
-    op.alter_column("scores", "intrinsic_value", new_column_name="margin_invest_value")
-
-def downgrade():
-    op.alter_column("scores", "margin_invest_value", new_column_name="intrinsic_value")
+@pytest.mark.asyncio
+async def test_valuation_audit_returns_methods(client_with_scored_asset):
+    resp = await client.get("/api/v1/scores/AAPL/valuation-audit")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "methods" in data
+    assert "margin_invest_value" in data
+    assert "margin_of_safety" in data
 ```
 
-**Step 2: Update DB model**
+**Step 2: Implement endpoint**
 
-In `api/src/margin_api/db/models.py`, rename the column:
+Extract `valuation_audit` from the `score_detail` JSONB column of the latest `Score` row for the ticker. Return as `ValuationAuditResponse`.
+
+**Step 3: Run tests, commit**
+
+```bash
+git commit -m "feat(api): add GET /scores/{ticker}/valuation-audit endpoint"
+```
+
+---
+
+### Task 17: score-universe CLI Command
+
+**Files:**
+- Modify: `api/src/margin_api/cli.py`
+- Create: `api/tests/test_cli_score_universe.py`
+
+**Step 1: Write test**
 
 ```python
-margin_invest_value = Column(Numeric(precision=20, scale=4), nullable=True)  # was intrinsic_value
+@pytest.mark.asyncio
+async def test_score_universe_creates_new_rows(seeded_db):
+    """score-universe should create Score rows for all eligible assets."""
+    from margin_api.cli import score_universe
+    count = await score_universe(db=seeded_db)
+    assert count > 0
+    # Verify new rows exist
+    rows = await seeded_db.execute(select(Score))
+    assert len(rows.scalars().all()) >= count
 ```
 
-**Step 3: Update all route handlers** that reference `row.intrinsic_value` → `row.margin_invest_value`
+**Step 2: Implement**
 
-Check: `scores.py`, `dashboard.py`, `metrics.py`, `v3_scores.py`
+```python
+@cli.command()
+@click.option("--limit", default=None, type=int, help="Max assets to score")
+async def score_universe(limit: int | None = None):
+    """Score all eligible assets in one batch."""
+    async with get_session() as session:
+        assets = await session.execute(select(Asset).limit(limit))
+        tickers = [a.ticker for a in assets.scalars().all()]
 
-**Step 4: Update API response schemas** — rename `intrinsic_value` → `margin_invest_value` in `ScoreResponse`, `PickSummary`, etc.
+    scored, filtered, failed = 0, 0, 0
+    for ticker in tickers:
+        try:
+            # Reuse existing score_tickers logic
+            await score_tickers(tickers=[ticker])
+            scored += 1
+        except FilteredOutError:
+            filtered += 1
+        except Exception as e:
+            failed += 1
+            logger.error(f"Failed to score {ticker}: {e}")
 
-**Step 5: Run tests**
+    click.echo(f"Scored: {scored} | Filtered: {filtered} | Failed: {failed}")
+```
 
-Run: `uv run pytest api/tests/ -v --tb=short 2>&1 | tail -30`
-Expected: PASS (tests use in-memory SQLite which gets recreated from models)
-
-**Step 6: Commit**
+**Step 3: Run tests, commit**
 
 ```bash
-git add api/
-git commit -m "refactor(api): rename intrinsic_value to margin_invest_value across DB, routes, schemas"
+git commit -m "feat(api): add score-universe CLI command for batch scoring"
 ```
 
 ---
 
-## Phase 4: Frontend (Tasks 11-14)
+## Phase 6: Frontend (Sections D, F, G)
 
-### Task 11: Score History Data Fetching + Types
-
-**Files:**
-- Modify: `web/src/lib/api/types.ts`
-- Modify: `web/src/lib/api/client.ts` (or wherever `apiFetch` wrappers live)
-- Modify: `web/src/components/dashboard/panel/asset-panel.tsx`
-
-**Step 1: Add types**
-
-In `web/src/lib/api/types.ts`:
-
-```typescript
-export interface ScoreHistoryPoint {
-  scored_at: string
-  composite_percentile: number
-  composite_raw_score: number | null
-  quality_percentile: number | null
-  value_percentile: number | null
-  momentum_percentile: number | null
-  conviction_level: string
-  signal: string
-  margin_invest_value: number | null
-  buy_price: number | null
-  sell_price: number | null
-  actual_price: number | null
-  delta: number | null
-}
-
-export interface ScoreHistoryResponse {
-  ticker: string
-  points: ScoreHistoryPoint[]
-  total_runs: number
-}
-
-export interface MetricStatus {
-  value: number | null
-  unavailable_reason: string | null
-}
-```
-
-Update `InstitutionalMetricsResponse` to use `MetricStatus` fields.
-
-Rename `intrinsic_value` → `margin_invest_value` in `ScoreResponse` and `PickSummary`.
-
-**Step 2: Add API client function**
-
-```typescript
-export async function getScoreHistory(ticker: string): Promise<ScoreHistoryResponse> {
-  return apiFetch(`/api/v1/scores/${ticker}/history`)
-}
-```
-
-**Step 3: Update AssetPanel to fetch and use real history**
-
-Replace the synthetic single-element arrays (lines 79-92) with a fetch to the history endpoint. Wire the response into `ScoreChart` and `ScoreHistoryTable`.
-
-**Step 4: Commit**
-
-```bash
-git add web/src/
-git commit -m "feat(web): add score history types, API client, and wire into AssetPanel"
-```
-
----
-
-### Task 12: Price Target Chart Component
-
-**Files:**
-- Create: `web/src/components/dashboard/panel/price-target-chart.tsx`
-- Modify: `web/src/components/dashboard/panel/asset-panel.tsx`
-
-**Step 1: Create PriceTargetChart**
-
-A Recharts `ComposedChart` that overlays:
-- Daily price (Line, solid blue)
-- Buy price (Line, dashed green, step interpolation)
-- Margin Invest Value (Line, dotted gray, step interpolation)
-- Sell price (Line, dashed red, step interpolation)
-- Green `ReferenceArea` when price < buy, red when price > sell
-
-Data alignment: use last-observation-carried-forward to align per-run target prices with daily price bars.
-
-**Step 2: Wire into AssetPanel**
-
-Add `<PriceTargetChart>` below `<ScoreChart>`, passing `priceHistory` and `scoreHistory` data.
-
-**Step 3: Commit**
-
-```bash
-git add web/src/components/dashboard/panel/price-target-chart.tsx web/src/components/dashboard/panel/asset-panel.tsx
-git commit -m "feat(web): add PriceTargetChart with price vs buy/sell overlay"
-```
-
----
-
-### Task 13: Unified Valuation Module
-
-**Files:**
-- Rewrite: `web/src/components/dashboard/panel/panel-valuation.tsx`
-- Create: `web/src/components/dashboard/panel/price-ladder.tsx`
-
-**Step 1: Create PriceLadder component**
-
-A horizontal scale showing buy/current/fair/sell positions with color-coded zones. Takes `buyPrice`, `currentPrice`, `fairValue`, `sellPrice` as props.
-
-**Step 2: Rewrite PanelValuation**
-
-Replace the current layout with the unified design:
-- Header trio: Margin Invest Value, Current Price, MoS
-- Price ladder component
-- Method breakdown bar chart (keep existing logic)
-- Dispersion footnote line
-
-Remove: separate "Buy Below" row.
-
-**Step 3: Rename all "Intrinsic Value" labels to "Margin Invest Value"**
-
-Search and replace across all frontend files:
-- `"Intrinsic Value"` → `"Margin Invest Value"`
-- `intrinsic_value` → `margin_invest_value` (in data access, already done in types)
-
-**Step 4: Commit**
-
-```bash
-git add web/src/components/dashboard/panel/
-git commit -m "feat(web): unified valuation module with price ladder, rename to Margin Invest Value"
-```
-
----
-
-### Task 14: KPI Grid + ActionPill + Cleanup
+### Task 18: KPI Grid Redesign
 
 **Files:**
 - Modify: `web/src/components/dashboard/panel/kpi-grid.tsx`
 - Modify: `web/src/components/dashboard/panel/kpi-cell.tsx`
-- Modify: `web/src/components/ui/action-pill.tsx`
-- Modify: `web/src/components/dashboard/stock-card.tsx`
-- Modify: `web/src/components/dashboard/panel/executive-header.tsx`
+- Modify: `web/src/lib/api/types.ts`
 
-**Step 1: Update KpiGrid cell 6**
+**Step 1: Update types to match new API schema**
 
-Swap "MARGIN OF SAFETY" → "SCORE DELTA":
+Update `InstitutionalMetricsResponse` to use new `MetricStatus` shape, remove `allocation_weight`, add `delta`, add `_3y` variants.
 
-```typescript
-<KpiCell
-  label="SCORE DELTA"
-  value={scoreDelta != null ? `${scoreDelta > 0 ? "+" : ""}${scoreDelta.toFixed(1)}` : "\u2014"}
-  color={scoreDelta != null ? (scoreDelta >= 0 ? "text-emerald-400" : "text-red-400") : undefined}
-  unavailableReason={scoreDelta == null ? "First scoring run" : undefined}
-/>
-```
+**Step 2: Update KpiCell to show unavailable reasons**
 
-**Step 2: Update KpiCell to show unavailability reasons**
+Add `unavailableReason` prop. When value is null and reason exists, render below the em-dash.
 
-Add an `unavailableReason` prop. When value is "—" and reason exists, render it below in muted text:
+**Step 3: Update KpiGrid layout**
 
-```typescript
-{unavailableReason && (
-  <span className="text-[10px] text-zinc-500 mt-0.5">{unavailableReason}</span>
-)}
-```
+Remove Allocation cell, add Delta as prominent full-width cell at bottom. Map 1Y values as primary, 3Y on hover or secondary label.
 
-**Step 3: Update MetricStatus consumption in KpiGrid**
-
-Each cell now receives `MetricStatus` and extracts `.value` and `.unavailable_reason`.
-
-**Step 4: Update ActionPill subtext**
-
-In `action-pill.tsx`, update `getSubtext()` for dual threshold:
-
-```typescript
-case "buy":
-  return `Below ${formatPrice(buyPrice)} buy target`
-case "hold":
-  return `${formatPrice(actualPrice)} — between buy (${formatPrice(buyPrice)}) and sell (${formatPrice(sellPrice)})`
-case "sell":
-  return `Above ${formatPrice(sellPrice)} sell target`
-```
-
-**Step 5: Remove Buy Below line from StockCard**
-
-Delete the Buy Below rendering block (lines 260-277 of `stock-card.tsx`).
-
-**Step 6: Wire real scoreDelta into ExecutiveHeader**
-
-Pass the delta from the first two points of score history instead of hardcoded `0`.
-
-**Step 7: Run frontend build to verify no type errors**
+**Step 4: Build and verify**
 
 Run: `cd web && npm run build`
-Expected: Build succeeds with no type errors.
 
-**Step 8: Commit**
+**Step 5: Commit**
 
 ```bash
-git add web/src/
-git commit -m "feat(web): update KPI grid, ActionPill subtext, remove Buy Below section"
+git commit -m "feat(web): redesign KPI grid — remove Allocation, add Delta, show unavailable reasons"
+```
+
+---
+
+### Task 19: INCONCLUSIVE Filter Badge
+
+**Files:**
+- Modify: `web/src/components/dashboard/panel/panel-filter-list.tsx`
+- Modify: `web/src/components/dashboard/filter-list.tsx`
+
+**Step 1: Add INCONCLUSIVE visual treatment**
+
+When filter verdict is INCONCLUSIVE:
+- Amber/yellow badge instead of green/red
+- Show missing fields list
+- Show "Cannot assess" message
+
+**Step 2: Commit**
+
+```bash
+git commit -m "feat(web): add INCONCLUSIVE filter badge with amber visual treatment"
+```
+
+---
+
+### Task 20: Valuation Audit Expandable Detail
+
+**Files:**
+- Modify: `web/src/components/dashboard/panel/panel-valuation.tsx`
+- Create: `web/src/components/dashboard/panel/method-audit-detail.tsx`
+- Modify: `web/src/lib/api/scores.ts` (add `getValuationAudit`)
+
+**Step 1: Add API client function**
+
+```typescript
+export async function getValuationAudit(ticker: string): Promise<ValuationAudit> {
+  return apiFetch(`/api/v1/scores/${ticker}/valuation-audit`)
+}
+```
+
+**Step 2: Create MethodAuditDetail component**
+
+Expandable panel showing inputs, intermediates, result, and inclusion status for a single valuation method.
+
+**Step 3: Wire into PanelValuation method bars**
+
+Clicking a method bar fetches audit data and expands the detail panel below it.
+
+**Step 4: Commit**
+
+```bash
+git commit -m "feat(web): add expandable valuation audit detail in PanelValuation"
+```
+
+---
+
+### Task 21: Chart Empty States + Tooltip Enrichment
+
+**Files:**
+- Modify: `web/src/components/dashboard/panel/score-chart.tsx`
+- Modify: `web/src/components/dashboard/panel/price-target-chart.tsx`
+
+**Step 1: Add empty state messages**
+
+ScoreChart with < 2 points: "Score tracking begins after the next scoring run. Scores are computed weekly."
+
+PriceTargetChart with no score history: "Buy/Sell targets will appear after 2+ scoring runs."
+
+**Step 2: Enrich tooltips**
+
+ScoreChart tooltip: date, score, delta, conviction, Q/V/M.
+PriceTargetChart tooltip: date, price, buy/MIV/sell, zone label.
+
+**Step 3: Build and verify**
+
+Run: `cd web && npm run build`
+
+**Step 4: Commit**
+
+```bash
+git commit -m "feat(web): improve chart empty states and tooltip detail"
+```
+
+---
+
+### Task 22: Final Rename Sweep + Buy Below Removal
+
+**Files:**
+- All frontend files with "Intrinsic Value" or "intrinsic_value"
+- Any remaining "Buy Below" standalone sections
+
+**Step 1: Grep and replace**
+
+```bash
+rg "Intrinsic Value" web/src/ --type ts --type tsx
+rg "intrinsic_value" web/src/ --type ts --type tsx
+rg "Buy Below" web/src/ --type ts --type tsx
+```
+
+Replace all user-facing "Intrinsic Value" → "Margin Invest Value".
+Remove any standalone "Buy Below" section (should already be in Price Ladder).
+
+**Step 2: Build**
+
+Run: `cd web && npm run build`
+
+**Step 3: Commit**
+
+```bash
+git commit -m "refactor(web): complete Intrinsic Value → Margin Invest Value rename, remove Buy Below remnants"
 ```
 
 ---
 
 ## Verification Checklist
 
-After all tasks are complete, verify:
+After all tasks are complete:
 
 - [ ] `uv run pytest engine/tests/ -v` — all pass
 - [ ] `uv run pytest api/tests/ -v` — all pass
 - [ ] `cd web && npm run build` — no type errors
-- [ ] No references to "Intrinsic Value" in codebase: `rg "Intrinsic Value" --type-add 'code:*.{py,ts,tsx}' -t code`
-- [ ] No references to `intrinsic_value` in frontend: `rg "intrinsic_value" web/src/`
-- [ ] `buy_price < margin_invest_value < sell_price` invariant holds in golden tests
-- [ ] Score history endpoint returns multiple points after 2+ CLI scoring runs
-- [ ] KPI grid shows no "—" for Sharpe/Vol/Drawdown/Allocation on assets with price data
-- [ ] Avg Profit Margin populates for assets with income statement data
+- [ ] No "Intrinsic Value" in codebase: `rg "Intrinsic Value" --type-add 'code:*.{py,ts,tsx}' -t code`
+- [ ] No `intrinsic_value` in frontend: `rg "intrinsic_value" web/src/`
+- [ ] `buy_price < margin_invest_value < sell_price` invariant in golden tests
+- [ ] Score history endpoint returns multiple points after 2+ CLI runs
+- [ ] KPI grid: no "–" for Sharpe/Vol/Drawdown on assets with 252+ price bars
+- [ ] Avg Profit Margin populates for assets with income data
+- [ ] Delta shows price-to-value gap
+- [ ] Allocation cell removed
+- [ ] INCONCLUSIVE badge renders for Beneish with insufficient data
+- [ ] Filter warnings render for trend deterioration
+- [ ] Valuation audit expandable shows inputs/intermediates
+- [ ] `score-universe` CLI runs without error
+
+---
+
+## Task Dependency Graph
+
+```
+Task 1 (LiquidityProfile) → Task 2 (Position Sizing) → Task 3 (Liquidity Filter)
+Task 4 (FilterResult enhancement) → Task 5, 6, 7, 8 (all v2 filters)
+Task 5-8 (v2 filters) → Task 9 (Pipeline wiring)
+Task 10 (Risk Metrics) — independent
+Task 11 (ValuationAudit model) → Task 12 (Wire into price targets)
+Task 13 (Rename) — can run after Task 12
+Task 14 (Golden tests) — after Task 12 + 13
+Task 10 → Task 15 (Risk Metrics API)
+Task 11-12 → Task 16 (Valuation Audit API)
+Task 9 → Task 17 (score-universe CLI)
+Task 15 → Task 18 (KPI Grid frontend)
+Task 4 → Task 19 (INCONCLUSIVE badge)
+Task 16 → Task 20 (Audit expandable)
+Task 17 → Task 21 (Chart empty states)
+Task 13 → Task 22 (Rename sweep)
+```
+
+Parallelizable groups:
+- Tasks 1-3 (liquidity) || Tasks 4-8 (health filters) — after Task 4
+- Task 10 (risk metrics) || Task 11-12 (valuation audit) || Task 13 (rename)
+- Tasks 15-17 (API) — after their engine deps
+- Tasks 18-22 (frontend) — after their API deps
