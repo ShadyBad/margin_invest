@@ -3,11 +3,15 @@
 Runs every filter regardless of earlier failures (no short-circuit) to provide
 complete diagnostic information about why an asset was eliminated.
 
-Usage:
+Usage (v1, single-period):
     result = run_elimination_filters(period, profile)
-    if not result.passed:
-        for f in result.failed_filters:
-            print(f"{f.name}: {f.detail}")
+
+Usage (v2, multi-period):
+    result = run_elimination_filters(
+        period, profile,
+        history=financial_history,
+        price_bars=daily_bars,
+    )
 """
 
 from __future__ import annotations
@@ -15,14 +19,28 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from margin_engine.config.filter_config import FilterConfig, load_filter_config
-from margin_engine.models.financial import AssetProfile, FinancialPeriod
+from margin_engine.models.financial import (
+    AssetProfile,
+    FinancialHistory,
+    FinancialPeriod,
+    PriceBar,
+)
 from margin_engine.models.scoring import FilterResult
 from margin_engine.scoring.filters.altman import altman_z_score
-from margin_engine.scoring.filters.beneish import beneish_m_score
-from margin_engine.scoring.filters.current_ratio import current_ratio_check
-from margin_engine.scoring.filters.fcf_distress import fcf_distress_check
-from margin_engine.scoring.filters.interest_coverage import interest_coverage_check
-from margin_engine.scoring.filters.liquidity import liquidity_check
+from margin_engine.scoring.filters.beneish import beneish_m_score, beneish_m_score_v2
+from margin_engine.scoring.filters.current_ratio import (
+    current_ratio_check,
+    current_ratio_check_v2,
+)
+from margin_engine.scoring.filters.fcf_distress import (
+    fcf_distress_check,
+    fcf_distress_check_v2,
+)
+from margin_engine.scoring.filters.interest_coverage import (
+    interest_coverage_check,
+    interest_coverage_check_v2,
+)
+from margin_engine.scoring.filters.liquidity import liquidity_check, liquidity_check_v2
 
 
 @dataclass
@@ -46,11 +64,18 @@ def run_elimination_filters(
     period: FinancialPeriod,
     profile: AssetProfile,
     config: FilterConfig | None = None,
+    history: FinancialHistory | None = None,
+    price_bars: list[PriceBar] | None = None,
 ) -> PipelineResult:
     """Run all elimination filters in sequence.
 
     All filters run regardless of earlier failures (no short-circuit).
     This gives complete diagnostic information about why an asset was eliminated.
+
+    When ``history`` or ``price_bars`` are provided, the pipeline uses v2
+    multi-period filters that offer richer diagnostics (trend analysis,
+    median-based thresholds, etc.).  Without them, the original v1 single-period
+    filters are used for backward compatibility.
 
     Args:
         period: Financial data for scoring.
@@ -59,6 +84,12 @@ def run_elimination_filters(
             filters are read from config sub-objects. When None, defaults
             are loaded via ``load_filter_config()`` (which returns hardcoded
             defaults when no YAML file is configured).
+        history: Optional FinancialHistory for multi-year analysis. When
+            provided, Beneish, FCF distress, interest coverage, and current
+            ratio filters use multi-period v2 variants.
+        price_bars: Optional list of daily OHLCV bars. When provided, the
+            liquidity filter uses v2 with position sizing and divergence
+            analysis.
 
     Returns:
         PipelineResult containing all filter outcomes.
@@ -68,13 +99,52 @@ def run_elimination_filters(
 
     sector = profile.sector
 
+    # --- Liquidity ---
+    if price_bars is not None:
+        liquidity_result = liquidity_check_v2(profile, price_bars=price_bars, config=config.liquidity)
+    else:
+        liquidity_result = liquidity_check(profile, config=config.liquidity)
+
+    # --- Beneish M-Score ---
+    if history is not None:
+        beneish_result = beneish_m_score_v2(history, config=config.beneish)
+    else:
+        beneish_result = beneish_m_score(period, config=config.beneish)
+
+    # --- Altman Z-Score (no v2 variant) ---
+    altman_result = altman_z_score(period, sector=sector, config=config.altman)
+
+    # --- FCF Distress ---
+    if history is not None:
+        fcf_result = fcf_distress_check_v2(history, config=config.fcf_distress, sector=sector)
+    else:
+        fcf_result = fcf_distress_check(period, config=config.fcf_distress)
+
+    # --- Interest Coverage ---
+    if history is not None:
+        interest_result = interest_coverage_check_v2(
+            history, sector=sector, config=config.interest_coverage
+        )
+    else:
+        interest_result = interest_coverage_check(
+            period, sector=sector, config=config.interest_coverage
+        )
+
+    # --- Current Ratio ---
+    if history is not None:
+        current_result = current_ratio_check_v2(
+            history, sector=sector, config=config.current_ratio
+        )
+    else:
+        current_result = current_ratio_check(period, sector=sector, config=config.current_ratio)
+
     results = [
-        liquidity_check(profile, config=config.liquidity),
-        beneish_m_score(period, config=config.beneish),
-        altman_z_score(period, sector=sector, config=config.altman),
-        fcf_distress_check(period, config=config.fcf_distress),
-        interest_coverage_check(period, sector=sector, config=config.interest_coverage),
-        current_ratio_check(period, sector=sector, config=config.current_ratio),
+        liquidity_result,
+        beneish_result,
+        altman_result,
+        fcf_result,
+        interest_result,
+        current_result,
     ]
 
     return PipelineResult(results=results)
