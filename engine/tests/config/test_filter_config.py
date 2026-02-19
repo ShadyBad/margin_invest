@@ -42,7 +42,7 @@ beneish:
     def test_sector_overrides(self):
         """Sector overrides have defaults matching current hardcoded values."""
         config = FilterConfig()
-        assert config.interest_coverage.sector_overrides["information technology"] == 3.0
+        assert config.interest_coverage.sector_overrides["information technology"] == 5.0
         assert config.interest_coverage.sector_overrides["utilities"] == 1.2
         assert config.current_ratio.sector_overrides["utilities"] == 0.6
 

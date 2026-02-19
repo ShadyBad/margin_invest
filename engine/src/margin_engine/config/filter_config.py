@@ -112,7 +112,7 @@ class InterestCoverageConfig(BaseModel):
 
     default: float = 1.5
     sector_overrides: dict[str, float] = Field(
-        default_factory=lambda: {"information technology": 3.0, "utilities": 1.2}
+        default_factory=lambda: {"information technology": 5.0, "utilities": 1.2}
     )
     median_lookback_years: int = 3
     median_minimum: float = 1.0
