@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import Asset, Score
 from margin_api.db.session import get_db
+from margin_api.schemas.score_history import ScoreHistoryPoint, ScoreHistoryResponse
 from margin_api.schemas.scores import (
     FactorBreakdownResponse,
     ScoreListResponse,
@@ -228,6 +229,62 @@ async def list_scores(
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/{ticker}/history", response_model=ScoreHistoryResponse)
+async def get_score_history(
+    ticker: str,
+    limit: int = Query(default=100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+) -> ScoreHistoryResponse:
+    """Get score history for a ticker across all scoring runs."""
+    ticker = ticker.upper()
+    asset_result = await db.execute(select(Asset).where(Asset.ticker == ticker))
+    asset_row = asset_result.scalar_one_or_none()
+    if asset_row is None:
+        raise HTTPException(status_code=404, detail=f"Ticker {ticker} not found")
+
+    # Get total count of scoring runs
+    count_q = select(func.count()).where(Score.asset_id == asset_row.id)
+    total = (await db.execute(count_q)).scalar() or 0
+
+    query = (
+        select(Score)
+        .where(Score.asset_id == asset_row.id)
+        .order_by(Score.scored_at.asc())
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    rows = result.scalars().all()
+
+    points: list[ScoreHistoryPoint] = []
+    for i, row in enumerate(rows):
+        delta = None
+        if i > 0:
+            delta = round(row.composite_percentile - rows[i - 1].composite_percentile, 2)
+
+        # Ensure scored_at is tz-aware (SQLite returns naive datetimes)
+        scored_at = row.scored_at
+        if scored_at is not None and scored_at.tzinfo is None:
+            scored_at = scored_at.replace(tzinfo=UTC)
+
+        points.append(ScoreHistoryPoint(
+            scored_at=scored_at,
+            composite_percentile=row.composite_percentile,
+            composite_raw_score=row.composite_raw_score,
+            quality_percentile=row.quality_percentile,
+            value_percentile=row.value_percentile,
+            momentum_percentile=row.momentum_percentile,
+            conviction_level=row.conviction_level,
+            signal=row.signal,
+            margin_invest_value=float(row.intrinsic_value) if row.intrinsic_value is not None else None,
+            buy_price=float(row.buy_price) if row.buy_price is not None else None,
+            sell_price=float(row.sell_price) if row.sell_price is not None else None,
+            actual_price=float(row.actual_price) if row.actual_price is not None else None,
+            delta=delta,
+        ))
+
+    return ScoreHistoryResponse(ticker=ticker, points=points, total_runs=total)
 
 
 async def _try_get_live_price(ticker: str) -> dict | None:
