@@ -30,10 +30,18 @@ def _score_detail() -> dict:
 
 
 def _make_price_bars(closes: list[float]) -> dict:
+    """Build price bar dicts with sequential dates.
+
+    Supports up to ~365 bars by spanning multiple months.
+    """
+    from datetime import date, timedelta
+
+    start = date(2024, 1, 2)
     bars = []
     for i, close in enumerate(closes):
+        d = start + timedelta(days=i)
         bars.append({
-            "date": f"2025-01-{i + 1:02d}",
+            "date": d.isoformat(),
             "open": close,
             "high": close * 1.01,
             "low": close * 0.99,
@@ -94,7 +102,13 @@ async def seeded_session(async_engine):
         session.add(score)
         await session.flush()
 
-        closes = [100.0, 101.0, 100.5, 102.0, 101.5, 103.0, 102.5, 104.0, 103.5, 105.0]
+        # Generate 260 bars (need >= 253 for engine 1Y Sharpe/volatility)
+        import random
+
+        rng = random.Random(42)
+        closes = [100.0]
+        for _ in range(259):
+            closes.append(round(closes[-1] * (1 + rng.gauss(0.0004, 0.01)), 4))
         fin_data = FinancialData(
             asset_id=asset.id,
             period_end="2025-01-10",
@@ -126,13 +140,25 @@ async def test_metrics_returns_all_fields(client):
     resp = await client.get("/api/v1/scores/AAPL/metrics")
     assert resp.status_code == 200
     data = resp.json()
+    # 1Y metrics should be computed from 10 bars
     assert data["sharpe_ratio"]["value"] is not None
     assert data["max_drawdown"]["value"] is not None
     assert data["volatility"]["value"] is not None
     assert data["avg_profit_margin"]["value"] is not None
     assert data["risk_classification"] in ("Conservative", "Moderate", "Moderate-High", "Aggressive")
-    assert data["allocation_weight"]["value"] == 8.0
     assert data["margin_of_safety"]["value"] is not None
+
+    # 3Y Sharpe and volatility should be None with only 260 bars (need >= 757)
+    assert data["sharpe_ratio_3y"]["value"] is None
+    assert data["sharpe_ratio_3y"]["unavailable_reason"] is not None
+    # 3Y max_drawdown still computes (uses all available bars when < window)
+    assert data["max_drawdown_3y"]["value"] is not None
+    assert data["volatility_3y"]["value"] is None
+    assert data["volatility_3y"]["unavailable_reason"] is not None
+
+    # Delta should be computed from MIV=200 and actual=180
+    assert data["delta"]["value"] is not None
+    assert "allocation_weight" not in data
 
 
 @pytest.mark.asyncio
@@ -160,6 +186,17 @@ async def test_metrics_avg_profit_margin(client):
 async def test_metrics_unknown_ticker(client):
     resp = await client.get("/api/v1/scores/ZZZZZ/metrics")
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_metrics_delta_computed_correctly(client):
+    """Delta = (margin_invest_value - actual_price) / actual_price."""
+    resp = await client.get("/api/v1/scores/AAPL/metrics")
+    assert resp.status_code == 200
+    data = resp.json()
+    # MIV=200.0, actual=180.0 -> delta = (200-180)/180 = 0.1111
+    assert data["delta"]["value"] == pytest.approx(0.1111, abs=0.001)
+    assert data["delta"]["unavailable_reason"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +255,13 @@ async def test_metrics_with_missing_financial_data_returns_nulls(client_no_finan
     assert data["sharpe_ratio"]["unavailable_reason"] is not None
     assert data["max_drawdown"]["value"] is None
     assert data["volatility"]["value"] is None
+    # 3Y also null
+    assert data["sharpe_ratio_3y"]["value"] is None
+    assert data["max_drawdown_3y"]["value"] is None
+    assert data["volatility_3y"]["value"] is None
+    # Delta null when no MIV/price
+    assert data["delta"]["value"] is None
+    assert data["delta"]["unavailable_reason"] is not None
 
 
 @pytest_asyncio.fixture
@@ -256,12 +300,12 @@ async def client_malformed_prices(async_engine):
             filing_date="2025-01-15",
             price_history={
                 "bars": [
-                    {"close": "not_a_number"},
-                    {"close": "also_bad"},
-                    {"close": "still_bad"},
-                    {"close": "very_bad"},
-                    {"close": "worst"},
-                    {"close": "terrible"},
+                    {"close": "not_a_number", "date": "2025-01-01"},
+                    {"close": "also_bad", "date": "2025-01-02"},
+                    {"close": "still_bad", "date": "2025-01-03"},
+                    {"close": "very_bad", "date": "2025-01-04"},
+                    {"close": "worst", "date": "2025-01-05"},
+                    {"close": "terrible", "date": "2025-01-06"},
                 ]
             },
             income_statement={"net_income": "garbage", "total_revenue": "trash"},
@@ -294,11 +338,9 @@ async def test_metrics_with_malformed_prices_returns_nulls(client_malformed_pric
 
 
 @pytest.mark.asyncio
-async def test_metrics_allocation_fallback_when_null(client_no_financial_data):
-    """When max_position_pct is NULL, allocation_weight is computed from conviction + volatility."""
+async def test_metrics_no_allocation_weight_field(client_no_financial_data):
+    """allocation_weight field has been removed from the response."""
     resp = await client_no_financial_data.get("/api/v1/scores/EMPTY/metrics")
     assert resp.status_code == 200
     data = resp.json()
-    # Should have a computed value, not None
-    assert data["allocation_weight"]["value"] is not None
-    assert data["allocation_weight"]["unavailable_reason"] is None
+    assert "allocation_weight" not in data

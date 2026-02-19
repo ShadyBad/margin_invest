@@ -16,9 +16,12 @@ class InstitutionalMetricsResponse(BaseModel):
     """Pre-computed institutional-grade metrics for a single ticker."""
 
     sharpe_ratio: MetricStatus = MetricStatus()
+    sharpe_ratio_3y: MetricStatus = MetricStatus()
     max_drawdown: MetricStatus = MetricStatus()
+    max_drawdown_3y: MetricStatus = MetricStatus()
     volatility: MetricStatus = MetricStatus()
+    volatility_3y: MetricStatus = MetricStatus()
     avg_profit_margin: MetricStatus = MetricStatus()
+    delta: MetricStatus = MetricStatus()
     risk_classification: str = "Unknown"
-    allocation_weight: MetricStatus = MetricStatus()
     margin_of_safety: MetricStatus = MetricStatus()
