@@ -67,6 +67,18 @@ def get_session_factory(engine=None):
     return _session_factory
 
 
+def reset_engine_cache() -> None:
+    """Reset the cached engine and session factory globals.
+
+    Call after engine.dispose() to allow recreation on next get_engine() call.
+    Used by the ARQ worker where run_scoring/run_scoring_v3 dispose the engine
+    but subsequent jobs need a fresh connection.
+    """
+    global _engine, _session_factory
+    _engine = None
+    _session_factory = None
+
+
 async def get_db() -> AsyncGenerator[AsyncSession]:
     """FastAPI dependency that yields an async database session."""
     session_factory = get_session_factory()

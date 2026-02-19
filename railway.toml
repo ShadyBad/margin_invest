@@ -1,3 +1,10 @@
+# API Service — serves the FastAPI app via uvicorn
+# Worker Service — create a second Railway service from the same repo:
+#   - Same Dockerfile (api/Dockerfile)
+#   - Override start command: arq margin_api.workers.WorkerSettings
+#   - Copy all env vars from API service
+#   - No healthcheck needed (ARQ worker, not HTTP)
+
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "api/Dockerfile"

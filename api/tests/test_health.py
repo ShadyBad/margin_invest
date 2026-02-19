@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -12,17 +12,46 @@ from margin_api.config import get_settings
 
 
 class TestHealthEndpoint:
-    def test_health_returns_ok(self, client):
-        response = client.get("/health")
+    def test_health_returns_ok_when_services_available(self, client):
+        """Health check returns structured response with service checks."""
+        # Mock Redis to simulate availability
+        mock_redis = AsyncMock()
+        mock_redis.ping = AsyncMock(return_value=True)
+        mock_redis.aclose = AsyncMock()
+
+        with patch("margin_api.routes.health.aioredis.from_url", return_value=mock_redis):
+            response = client.get("/health")
+
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "ok"
         assert "version" in data
+        assert "status" in data
+        assert "database" in data
+        assert "redis" in data
 
     def test_health_includes_version(self, client):
-        response = client.get("/health")
+        mock_redis = AsyncMock()
+        mock_redis.ping = AsyncMock(return_value=True)
+        mock_redis.aclose = AsyncMock()
+
+        with patch("margin_api.routes.health.aioredis.from_url", return_value=mock_redis):
+            response = client.get("/health")
+
         data = response.json()
         assert data["version"] == "0.1.0"
+
+    def test_health_degraded_when_redis_unavailable(self, client):
+        """Health check returns degraded when Redis is unreachable."""
+        with patch(
+            "margin_api.routes.health.aioredis.from_url",
+            side_effect=ConnectionError("Redis down"),
+        ):
+            response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["redis"] == "error"
+        assert data["status"] == "degraded"
 
 
 class TestProductionGuard:

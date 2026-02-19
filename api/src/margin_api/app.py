@@ -14,6 +14,7 @@ from margin_api.schemas.errors import ErrorResponse
 
 from margin_api import __version__
 from margin_api.config import get_settings
+from margin_api.routes.admin import router as admin_router
 from margin_api.routes.auth import router as auth_router
 from margin_api.routes.avatar import router as avatar_router
 from margin_api.routes.backtest import router as backtest_router
@@ -98,6 +99,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestIdMiddleware)
 
     # Routes
+    app.include_router(admin_router)
     app.include_router(auth_router)
     app.include_router(avatar_router)
     app.include_router(billing_router)
