@@ -19,10 +19,12 @@ liquidity:
     mid: 5_000_000              # $5M   (market cap $2B–$10B)
     small: 2_000_000            # $2M   (market cap $300M–$2B)
   dollar_volume_window_days: 60
-  position_impact:
-    enabled: false
-    max_days: 5
-    participation_rate: 0.10
+  position_sizing:
+    target_position: 500_000          # $500K target position
+    max_participation_rate: 0.05      # 5% of daily volume
+    max_days_to_fill: 5               # Must fill in 5 trading days
+    max_impact_bps: 50.0              # Max 50bps market impact
+  divergence_max_ratio: 3.0           # 90d/20d volume ratio cap
 
 beneish:
   threshold: -1.78              # M-Score > -1.78 = likely manipulation

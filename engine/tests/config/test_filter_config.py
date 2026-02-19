@@ -71,12 +71,23 @@ beneish:
         assert config.altman.equity_tl_cap == 10.0
         assert config.altman.exempt_sectors == ["Utilities"]
 
-    def test_position_impact_defaults(self):
-        """Position impact is disabled by default."""
+    def test_position_sizing_defaults(self):
+        """Position sizing has correct defaults."""
         config = FilterConfig()
-        assert config.liquidity.position_impact.enabled is False
-        assert config.liquidity.position_impact.max_days == 5
-        assert config.liquidity.position_impact.participation_rate == 0.10
+        assert config.liquidity.position_sizing.target_position == 500_000
+        assert config.liquidity.position_sizing.max_participation_rate == 0.05
+        assert config.liquidity.position_sizing.max_days_to_fill == 5
+        assert config.liquidity.position_sizing.max_impact_bps == 50.0
+
+    def test_position_impact_backward_compat(self):
+        """position_impact property still works for backward compatibility."""
+        config = FilterConfig()
+        assert config.liquidity.position_impact.max_days_to_fill == 5
+
+    def test_divergence_max_ratio_default(self):
+        """Divergence max ratio has correct default."""
+        config = FilterConfig()
+        assert config.liquidity.divergence_max_ratio == 3.0
 
     def test_mediocrity_gate_defaults(self):
         """Mediocrity gate matches current hardcoded values."""

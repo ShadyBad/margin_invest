@@ -45,12 +45,17 @@ class MarketCapMinimum(BaseModel):
     energy: int = 500_000_000
 
 
-class PositionImpact(BaseModel):
-    """Position impact analysis settings (future feature)."""
+class PositionSizingConfig(BaseModel):
+    """Position sizing and market impact settings for liquidity v2."""
 
-    enabled: bool = False
-    max_days: int = 5
-    participation_rate: float = 0.10
+    target_position: int = 500_000
+    max_participation_rate: float = 0.05
+    max_days_to_fill: int = 5
+    max_impact_bps: float = 50.0
+
+
+# Backward-compatible alias for code that references the old name
+PositionImpact = PositionSizingConfig
 
 
 class LiquidityConfig(BaseModel):
@@ -63,7 +68,13 @@ class LiquidityConfig(BaseModel):
     market_cap_minimum: MarketCapMinimum = Field(default_factory=MarketCapMinimum)
     dollar_volume: DollarVolumeTiers = Field(default_factory=DollarVolumeTiers)
     dollar_volume_window_days: int = 60
-    position_impact: PositionImpact = Field(default_factory=PositionImpact)
+    position_sizing: PositionSizingConfig = Field(default_factory=PositionSizingConfig)
+    divergence_max_ratio: float = 3.0
+
+    @property
+    def position_impact(self) -> PositionSizingConfig:
+        """Backward-compatible alias for position_sizing."""
+        return self.position_sizing
 
 
 # --- Individual filter configs ---
