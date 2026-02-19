@@ -87,6 +87,15 @@ def compute_volatility(closes: list[float]) -> float | None:
     return round(annualized, 1)
 
 
+def _get_field(period: dict, *candidates: str) -> float | None:
+    """Try multiple key variants for yfinance compatibility."""
+    for key in candidates:
+        if key in period:
+            val = period[key]
+            return float(val) if val is not None else None
+    return None
+
+
 def compute_avg_profit_margin(income_periods: list[dict]) -> float | None:
     """Average net profit margin across income statement periods.
 
@@ -96,11 +105,11 @@ def compute_avg_profit_margin(income_periods: list[dict]) -> float | None:
     """
     margins = []
     for period in income_periods:
-        net_income = period.get("net_income")
-        revenue = period.get("total_revenue")
-        if net_income is None or revenue is None or revenue == 0:
+        net_income = _get_field(period, "net_income", "Net Income", "netIncome")
+        total_revenue = _get_field(period, "total_revenue", "Total Revenue", "totalRevenue")
+        if net_income is None or total_revenue is None or total_revenue == 0:
             continue
-        margins.append((net_income / revenue) * 100)
+        margins.append((net_income / total_revenue) * 100)
 
     if not margins:
         return None

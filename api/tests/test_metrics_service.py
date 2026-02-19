@@ -89,6 +89,25 @@ class TestAvgProfitMargin:
         result = compute_avg_profit_margin(income_data)
         assert result is None
 
+    def test_yfinance_capitalized_keys(self):
+        """Should handle capitalized yfinance keys like 'Net Income'."""
+        income_data = [
+            {"Net Income": 25000000000, "Total Revenue": 100000000000},
+            {"Net Income": 23000000000, "Total Revenue": 95000000000},
+        ]
+        result = compute_avg_profit_margin(income_data)
+        assert result is not None
+        assert result == pytest.approx(24.6, abs=1.0)
+
+    def test_camel_case_keys(self):
+        """Should handle camelCase keys."""
+        income_data = [
+            {"netIncome": 20000000000, "totalRevenue": 100000000000},
+        ]
+        result = compute_avg_profit_margin(income_data)
+        assert result is not None
+        assert result == pytest.approx(20.0, abs=0.1)
+
 
 class TestNaNHandling:
     def test_sharpe_ratio_with_nan_values(self):
