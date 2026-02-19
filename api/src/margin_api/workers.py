@@ -387,5 +387,5 @@ class WorkerSettings:
         ),
         cron(retry_quarantined, weekday=6, hour=0),  # Sunday midnight
     ]
-    # ARQ job timeout: 2 hours for the full pipeline (200-500 tickers)
-    job_timeout = 7200
+    # ARQ job timeout: 5 hours for the full pipeline (~3000 tickers, 4+ API calls each)
+    job_timeout = 18000

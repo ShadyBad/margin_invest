@@ -25,6 +25,7 @@ COPY --from=builder /app/engine/universe.yaml /app/engine/universe.yaml
 COPY --from=builder /app/api/src /app/api/src
 
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
