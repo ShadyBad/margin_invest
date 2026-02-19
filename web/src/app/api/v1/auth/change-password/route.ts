@@ -6,7 +6,10 @@ const API_URL = process.env.API_URL || "http://localhost:8000"
 export async function POST(request: Request) {
   const session = await auth()
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json(
+      { error_code: "UNAUTHORIZED", message: "Authentication required", status_code: 401 },
+      { status: 401 },
+    )
   }
 
   try {
@@ -22,8 +25,15 @@ export async function POST(request: Request) {
     })
 
     if (!response.ok) {
-      const data = await response.json().catch(() => ({ detail: "Password change failed" }))
-      return NextResponse.json(data, { status: response.status })
+      try {
+        const body = await response.json()
+        return NextResponse.json(body, { status: response.status })
+      } catch {
+        return NextResponse.json(
+          { error_code: "UPSTREAM_ERROR", message: "Password change failed", status_code: response.status },
+          { status: response.status },
+        )
+      }
     }
 
     const data = await response.json()
@@ -31,7 +41,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Failed to proxy password change:", error)
     return NextResponse.json(
-      { error: "Failed to change password" },
+      { error_code: "PROXY_ERROR", message: "Failed to change password", status_code: 502 },
       { status: 502 },
     )
   }

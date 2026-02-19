@@ -125,7 +125,7 @@ async def billing_status(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    is_active = user.subscription_plan in ("portfolio", "institutional")
+    is_active = user.subscription_plan in ("portfolio", "institutional", "operator")
     return BillingStatusResponse(
         plan=user.subscription_plan,
         status=user.subscription_status,

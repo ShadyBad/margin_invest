@@ -287,15 +287,34 @@ async def get_score(
         )
         fd_result = await db.execute(fd_query)
         fd_row = fd_result.scalar()
-        if fd_row and isinstance(fd_row, dict) and "bars" in fd_row:
-            response.price_history = [
-                PriceBarResponse(**bar) for bar in fd_row["bars"]
-            ]
-        elif fd_row and isinstance(fd_row, list):
-            response.price_history = [
-                PriceBarResponse(**bar) for bar in fd_row
-            ]
-        else:
+
+        def _normalize_bar(bar: dict) -> dict:
+            """Map yfinance capitalized keys to PriceBarResponse fields."""
+            return {
+                "date": bar.get("date") or bar.get("Date", ""),
+                "open": bar.get("open") or bar.get("Open", 0),
+                "high": bar.get("high") or bar.get("High", 0),
+                "low": bar.get("low") or bar.get("Low", 0),
+                "close": bar.get("close") or bar.get("Close", 0),
+                "volume": int(bar.get("volume") or bar.get("Volume", 0)),
+            }
+
+        try:
+            if fd_row and isinstance(fd_row, dict) and "bars" in fd_row:
+                response.price_history = [
+                    PriceBarResponse(**_normalize_bar(bar)) for bar in fd_row["bars"]
+                ]
+            elif fd_row and isinstance(fd_row, list):
+                response.price_history = [
+                    PriceBarResponse(**_normalize_bar(bar)) for bar in fd_row
+                ]
+            else:
+                response.price_history = []
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Failed to parse price_history for %s", ticker, exc_info=True
+            )
             response.price_history = []
 
     if "signal_history" in includes:

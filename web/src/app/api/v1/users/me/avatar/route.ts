@@ -6,7 +6,10 @@ const API_URL = process.env.API_URL || "http://localhost:8000"
 export async function POST(request: Request) {
   const session = await auth()
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json(
+      { error_code: "UNAUTHORIZED", message: "Authentication required", status_code: 401 },
+      { status: 401 },
+    )
   }
 
   const formData = await request.formData()
@@ -22,8 +25,15 @@ export async function POST(request: Request) {
     })
 
     if (!response.ok) {
-      const data = await response.json().catch(() => ({ detail: "Upload failed" }))
-      return NextResponse.json(data, { status: response.status })
+      try {
+        const body = await response.json()
+        return NextResponse.json(body, { status: response.status })
+      } catch {
+        return NextResponse.json(
+          { error_code: "UPSTREAM_ERROR", message: "Upload failed", status_code: response.status },
+          { status: response.status },
+        )
+      }
     }
 
     const data = await response.json()
@@ -31,7 +41,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Failed to proxy avatar upload:", error)
     return NextResponse.json(
-      { error: "Failed to upload avatar" },
+      { error_code: "PROXY_ERROR", message: "Failed to upload avatar", status_code: 502 },
       { status: 502 },
     )
   }
@@ -40,7 +50,10 @@ export async function POST(request: Request) {
 export async function DELETE() {
   const session = await auth()
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json(
+      { error_code: "UNAUTHORIZED", message: "Authentication required", status_code: 401 },
+      { status: 401 },
+    )
   }
 
   try {
@@ -53,8 +66,15 @@ export async function DELETE() {
     })
 
     if (!response.ok) {
-      const data = await response.json().catch(() => ({ detail: "Delete failed" }))
-      return NextResponse.json(data, { status: response.status })
+      try {
+        const body = await response.json()
+        return NextResponse.json(body, { status: response.status })
+      } catch {
+        return NextResponse.json(
+          { error_code: "UPSTREAM_ERROR", message: "Delete failed", status_code: response.status },
+          { status: response.status },
+        )
+      }
     }
 
     const data = await response.json()
@@ -62,7 +82,7 @@ export async function DELETE() {
   } catch (error) {
     console.error("Failed to proxy avatar delete:", error)
     return NextResponse.json(
-      { error: "Failed to delete avatar" },
+      { error_code: "PROXY_ERROR", message: "Failed to delete avatar", status_code: 502 },
       { status: 502 },
     )
   }

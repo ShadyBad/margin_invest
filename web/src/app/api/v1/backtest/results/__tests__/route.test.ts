@@ -28,7 +28,8 @@ describe("GET /api/v1/backtest/results", () => {
 
     expect(response.status).toBe(401)
     const body = await response.json()
-    expect(body.error).toBe("Unauthorized")
+    expect(body.error_code).toBe("UNAUTHORIZED")
+    expect(body.message).toBe("Authentication required")
   })
 
   it("proxies request to FastAPI when authenticated", async () => {

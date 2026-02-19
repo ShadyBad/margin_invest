@@ -6,7 +6,10 @@ const API_URL = process.env.API_URL || "http://localhost:8000"
 export async function GET() {
   const session = await auth()
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json(
+      { error_code: "UNAUTHORIZED", message: "Authentication required", status_code: 401 },
+      { status: 401 },
+    )
   }
 
   try {
@@ -20,11 +23,15 @@ export async function GET() {
     })
 
     if (!response.ok) {
-      const text = await response.text().catch(() => "Upstream error")
-      return NextResponse.json(
-        { error: text },
-        { status: response.status },
-      )
+      try {
+        const body = await response.json()
+        return NextResponse.json(body, { status: response.status })
+      } catch {
+        return NextResponse.json(
+          { error_code: "UPSTREAM_ERROR", message: "Upstream error", status_code: response.status },
+          { status: response.status },
+        )
+      }
     }
 
     const data = await response.json()
@@ -32,7 +39,7 @@ export async function GET() {
   } catch (error) {
     console.error("Failed to proxy backtest results:", error)
     return NextResponse.json(
-      { error: "Failed to fetch backtest results" },
+      { error_code: "PROXY_ERROR", message: "Failed to fetch backtest results", status_code: 502 },
       { status: 502 },
     )
   }
