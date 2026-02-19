@@ -253,11 +253,11 @@ def compute_price_targets(
             profile.ticker, intrinsic_value, actual_price,
         )
 
-    # Dynamic margin of safety — intrinsic value IS the buy price (floor).
-    # MoS only applies upward for the sell price, protecting against
-    # calculation error and capping expected upside.
+    # Dual threshold margin of safety — MoS applied symmetrically.
+    # Buy price is discounted below fair value (entry with safety margin).
+    # Sell price is above fair value (exit when overvalued).
     mos = _compute_margin_of_safety(valid_methods, intrinsic_value, growth_stage)
-    buy_price = intrinsic_value
+    buy_price = intrinsic_value * (1 - mos)
     sell_price = intrinsic_value * (1 + mos)
 
     price_upside: float | None = None
