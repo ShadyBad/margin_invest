@@ -15,6 +15,7 @@ from margin_engine.models.financial import (
     PriceBar,
 )
 from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.valuation_audit import MethodAudit, ValuationAudit
 from margin_engine.scoring.quantitative.price_targets import (
     PriceTargets,
     _clamp_intrinsic_value,
@@ -328,6 +329,133 @@ class TestPriceTargets:
         assert result.actual_price is not None
         expected_upside = (result.intrinsic_value - result.actual_price) / result.actual_price
         assert result.price_upside == pytest.approx(expected_upside, abs=1e-4)
+
+    def test_price_targets_returns_audit(self, healthy_period, healthy_profile, price_bars):
+        """compute_price_targets should return a ValuationAudit."""
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.valuation_audit is not None
+        assert len(result.valuation_audit.methods) > 0
+        # Verify DCF audit has expected inputs
+        dcf = next((m for m in result.valuation_audit.methods if m.method == "dcf"), None)
+        if dcf and dcf.included:
+            assert "fcf" in dcf.inputs
+            assert "growth_rate" in dcf.inputs
+
+    def test_audit_method_count_matches_all_methods(
+        self, healthy_period, healthy_profile, price_bars
+    ):
+        """Audit should contain entries for all 4 valuation methods."""
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        audit = result.valuation_audit
+        assert audit is not None
+        assert len(audit.methods) == 4
+        method_names = {m.method for m in audit.methods}
+        assert method_names == {"dcf", "ev_fcf", "acquirers_multiple", "shareholder_yield"}
+
+    def test_audit_included_methods_have_renormalized_weights(
+        self, healthy_period, healthy_profile, price_bars
+    ):
+        """Included methods should have renormalized_weight set."""
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        audit = result.valuation_audit
+        assert audit is not None
+        for m in audit.methods:
+            if m.included:
+                assert m.renormalized_weight is not None
+                assert m.renormalized_weight > 0
+            else:
+                assert m.renormalized_weight is None
+
+    def test_audit_mos_components(
+        self, healthy_period, healthy_profile, price_bars
+    ):
+        """Audit should capture MoS base, CV, and adjustment."""
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        audit = result.valuation_audit
+        assert audit is not None
+        assert audit.mos_base is not None
+        assert audit.mos_cv is not None  # 4 methods -> CV computed
+        assert audit.mos_adjustment is not None
+        assert audit.margin_of_safety == result.margin_of_safety
+
+    def test_audit_excluded_method_has_reason(self, healthy_profile, price_bars):
+        """When a method is excluded (e.g., negative FCF), audit should capture exclusion_reason."""
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("100000000000"),
+                gross_profit=Decimal("45000000000"),
+                ebit=Decimal("30000000000"),
+                net_income=Decimal("25000000000"),
+                shares_outstanding=15000000000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("350000000000"),
+                current_assets=Decimal("130000000000"),
+                cash_and_equivalents=Decimal("60000000000"),
+                current_liabilities=Decimal("120000000000"),
+                long_term_debt=Decimal("100000000000"),
+                total_equity=Decimal("60000000000"),
+                shares_outstanding=15000000000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("5000000000"),
+                capital_expenditures=Decimal("-10000000000"),
+                dividends_paid=Decimal("-15000000000"),
+                share_repurchases=Decimal("-90000000000"),
+            ),
+        )
+        result = compute_price_targets(
+            period=period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        audit = result.valuation_audit
+        assert audit is not None
+        dcf = next((m for m in audit.methods if m.method == "dcf"), None)
+        assert dcf is not None
+        assert dcf.included is False
+        assert dcf.exclusion_reason == "negative_fcf"
+
+    def test_audit_none_for_invalid_result(self, healthy_period, price_bars):
+        """When invalid_reason is set (e.g., missing shares), valuation_audit should be None."""
+        profile = AssetProfile(
+            ticker="AAPL",
+            name="Apple Inc.",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("3000000000000"),
+            shares_outstanding=None,
+        )
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.invalid_reason == "shares_outstanding_missing"
+        assert result.valuation_audit is None
 
 
 class TestDeterminism:
