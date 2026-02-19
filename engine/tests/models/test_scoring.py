@@ -110,6 +110,95 @@ def test_signal_fallback_buy_when_no_prices():
 
 
 # ---------------------------------------------------------------------------
+# Dual threshold MoS signal zone tests
+#
+# With dual threshold pricing, buy_price sits BELOW intrinsic_value and
+# sell_price sits ABOVE it, creating a wide HOLD zone:
+#
+#   |--- BUY ---|--- HOLD ---|--- SELL ---|--- URGENT_SELL ---|
+#   0          75           125       143.75                 ...
+#              buy_price    sell_price  sell*1.15
+#
+# intrinsic_value = 100, MoS = 25%
+#   buy_price  = 100 * (1 - 0.25) = 75
+#   sell_price = 100 * (1 + 0.25) = 125
+# ---------------------------------------------------------------------------
+
+
+class TestDualThresholdSignalZones:
+    """Verify all signal zones with dual threshold MoS pricing.
+
+    The dual threshold model creates symmetric buy/sell bands around
+    intrinsic value, producing a wide HOLD zone where fair-value prices
+    correctly map to HOLD rather than BUY or SELL.
+    """
+
+    # Use percentile=99.4 to get HIGH conviction (>= 99.3)
+    # so that price-aware signal logic is engaged.
+    PERCENTILE = 99.4
+
+    def test_buy_signal_at_discounted_buy_price(self):
+        """Price exactly at buy_price (75) -> BUY."""
+        score = _make_score(self.PERCENTILE, actual=75.0, buy=75.0, sell=125.0)
+        assert score.signal == Signal.BUY
+
+    def test_buy_signal_below_buy_price(self):
+        """Price well below buy_price (60 < 75) -> BUY."""
+        score = _make_score(self.PERCENTILE, actual=60.0, buy=75.0, sell=125.0)
+        assert score.signal == Signal.BUY
+
+    def test_hold_at_fair_value(self):
+        """Price at intrinsic value (100) is between buy(75) and sell(125) -> HOLD.
+
+        This is the key dual-threshold behavior: fair value is NOT a buy signal
+        because buy_price is discounted below intrinsic_value.
+        """
+        score = _make_score(self.PERCENTILE, actual=100.0, buy=75.0, sell=125.0)
+        assert score.signal == Signal.HOLD
+
+    def test_hold_just_above_buy_price(self):
+        """Price just above buy_price (76 > 75) -> HOLD."""
+        score = _make_score(self.PERCENTILE, actual=76.0, buy=75.0, sell=125.0)
+        assert score.signal == Signal.HOLD
+
+    def test_hold_just_below_sell_price(self):
+        """Price just below sell_price (124 < 125) -> HOLD."""
+        score = _make_score(self.PERCENTILE, actual=124.0, buy=75.0, sell=125.0)
+        assert score.signal == Signal.HOLD
+
+    def test_sell_just_above_sell_price(self):
+        """Price just above sell_price (130 > 125) -> SELL."""
+        score = _make_score(self.PERCENTILE, actual=130.0, buy=75.0, sell=125.0)
+        assert score.signal == Signal.SELL
+
+    def test_sell_at_sell_price_boundary(self):
+        """Price at sell_price (125) is NOT > sell_price, so -> HOLD.
+
+        The condition is strict greater-than, not greater-than-or-equal.
+        """
+        score = _make_score(self.PERCENTILE, actual=125.0, buy=75.0, sell=125.0)
+        assert score.signal == Signal.HOLD
+
+    def test_urgent_sell_above_115_percent_of_sell(self):
+        """Price above sell_price * 1.15 (145 > 143.75) -> URGENT_SELL."""
+        score = _make_score(self.PERCENTILE, actual=145.0, buy=75.0, sell=125.0)
+        assert score.signal == Signal.URGENT_SELL
+
+    def test_sell_zone_between_sell_and_urgent(self):
+        """Price between sell_price and sell_price*1.15 (140) -> SELL."""
+        score = _make_score(self.PERCENTILE, actual=140.0, buy=75.0, sell=125.0)
+        assert score.signal == Signal.SELL
+
+    def test_urgent_sell_boundary(self):
+        """Price exactly at sell_price * 1.15 (143.75) -> SELL, not URGENT.
+
+        The condition is strict greater-than: actual > sell*1.15.
+        """
+        score = _make_score(self.PERCENTILE, actual=143.75, buy=75.0, sell=125.0)
+        assert score.signal == Signal.SELL
+
+
+# ---------------------------------------------------------------------------
 # OpportunityType enum tests
 # ---------------------------------------------------------------------------
 
