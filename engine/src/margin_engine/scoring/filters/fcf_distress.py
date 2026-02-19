@@ -8,45 +8,53 @@ FCF = operating_cash_flow + capital_expenditures (capex is already negative).
 A negative FCF means the company is burning cash and may not be able to
 sustain operations without external financing.
 
-NOTE: The design spec calls for "3+ consecutive quarters with negative FCF = FAIL."
-This implementation uses annual FCF as a simplification since the FinancialPeriod
-model currently carries annual (not quarterly) data. The quarterly check will be
-added when the ingestion layer (Phase 7) provides quarterly time-series data.
+v1 (``fcf_distress_check``): Single-period FCF >= 0 check.
+v2 (``fcf_distress_check_v2``): Multi-year analysis using FinancialHistory with:
+    - Configurable positive-year threshold (default 3-of-5)
+    - Cyclical sector relaxation (2-of-5 for Energy/Materials/Industrials/Cons. Disc.)
+    - Positive trend rescue (improving FCF for 2+ consecutive years)
+    - FCF margin floor (median FCF/revenue >= -5%)
 """
 
 from __future__ import annotations
 
+import statistics
+
 from margin_engine.config.filter_config import FcfDistressConfig
-from margin_engine.models.financial import FinancialPeriod
+from margin_engine.models.financial import (
+    FinancialHistory,
+    FinancialPeriod,
+    GICSSector,
+)
 from margin_engine.models.scoring import FilterResult
 
 _THRESHOLD = 0.0
+_FILTER_NAME = "fcf_distress"
+
+# Cyclical sectors get a relaxed positive-year requirement (threshold - 1)
+_CYCLICAL_RELAXATION = 1
 
 
 def fcf_distress_check(
     period: FinancialPeriod,
     config: FcfDistressConfig | None = None,
 ) -> FilterResult:
-    """Check if free cash flow indicates financial distress.
+    """Check if free cash flow indicates financial distress (single-period).
 
     FAIL if current period FCF is negative.
     Uses annual data: FCF = operating_cash_flow + capital_expenditures.
 
-    NOTE: The config model includes multi-year fields (positive_years_required,
-    lookback_years, min_fcf_margin, allow_positive_trend_rescue) for a future
-    enhancement. For now, this implementation uses single-period FCF >= 0 check.
+    This is the legacy v1 function preserved for backward compatibility.
+    Prefer ``fcf_distress_check_v2`` for new code.
 
     Args:
         period: Financial data with current cash flow statement.
-        config: Optional FcfDistressConfig. Currently accepted for API
-            consistency but multi-year logic is not yet implemented.
+        config: Optional FcfDistressConfig. Accepted for API consistency
+            but only the single-period check is performed.
 
     Returns:
         FilterResult with passed=True if FCF >= 0, False otherwise.
     """
-    name = "fcf_distress"
-
-    # Currently single-period check only; threshold is always 0 for this check
     threshold = _THRESHOLD
 
     fcf = period.current_cash_flow.free_cash_flow
@@ -62,9 +70,173 @@ def fcf_distress_check(
     )
 
     return FilterResult(
-        name=name,
+        name=_FILTER_NAME,
         passed=passed,
         value=fcf_float,
         threshold=threshold,
         detail=detail,
     )
+
+
+def fcf_distress_check_v2(
+    history_or_period: FinancialHistory | FinancialPeriod,
+    config: FcfDistressConfig | None = None,
+    sector: GICSSector | None = None,
+) -> FilterResult:
+    """Check if free cash flow indicates financial distress (multi-year).
+
+    When given a ``FinancialHistory`` with multiple periods, performs multi-year
+    analysis including positive-year counting, cyclical relaxation, positive
+    trend rescue, and FCF margin floor checks.
+
+    When given a single ``FinancialPeriod``, falls back to the v1 single-period
+    behavior for backward compatibility.
+
+    Args:
+        history_or_period: Either a multi-year FinancialHistory or a single
+            FinancialPeriod for backward-compatible single-period check.
+        config: Optional FcfDistressConfig controlling thresholds.
+        sector: Optional GICSSector for cyclical relaxation. Cyclical sectors
+            (Energy, Materials, Industrials, Consumer Discretionary) use a
+            relaxed positive-year threshold.
+
+    Returns:
+        FilterResult with computed_metrics, warning, and warning_reason
+        populated when applicable.
+    """
+    if config is None:
+        config = FcfDistressConfig()
+
+    # --- Single-period fallback ---
+    if isinstance(history_or_period, FinancialPeriod):
+        return fcf_distress_check(history_or_period, config=config)
+
+    history = history_or_period
+
+    # --- Multi-year analysis ---
+    # Truncate to lookback_years (use most recent periods)
+    periods = history.periods[-config.lookback_years :]
+    total_years = len(periods)
+
+    # Extract FCF and revenue per period
+    fcf_values = [float(p.current_cash_flow.free_cash_flow) for p in periods]
+    revenue_values = [float(p.current_income.revenue) for p in periods]
+
+    # 1. Count positive FCF years
+    positive_years = sum(1 for fcf in fcf_values if fcf >= 0)
+
+    # 2. Determine required positive years (with cyclical relaxation)
+    required = config.positive_years_required
+    is_cyclical = sector is not None and sector.is_cyclical
+    if is_cyclical:
+        required = max(1, required - _CYCLICAL_RELAXATION)
+
+    # 3. Compute FCF margins and median
+    fcf_margins = []
+    for fcf, rev in zip(fcf_values, revenue_values):
+        if rev != 0:
+            fcf_margins.append(fcf / rev)
+        else:
+            fcf_margins.append(0.0)
+    median_fcf_margin = statistics.median(fcf_margins) if fcf_margins else 0.0
+
+    # 4. Compute consecutive improving years (for positive trend rescue)
+    consecutive_improving = _consecutive_improving_years(fcf_values)
+
+    # --- Decision logic ---
+    warning = False
+    warning_reason: str | None = None
+
+    # Check 1: FCF margin floor
+    margin_floor_passed = median_fcf_margin >= config.min_fcf_margin
+    if not margin_floor_passed:
+        detail = (
+            f"FAIL: median FCF margin {median_fcf_margin:.1%} < "
+            f"floor {config.min_fcf_margin:.1%}. "
+            f"positive_years={positive_years}/{total_years}, "
+            f"required={required}"
+        )
+        return FilterResult(
+            name=_FILTER_NAME,
+            passed=False,
+            value=median_fcf_margin,
+            threshold=config.min_fcf_margin,
+            detail=detail,
+            computed_metrics={
+                "positive_years": float(positive_years),
+                "total_years": float(total_years),
+                "positive_years_required": float(required),
+                "median_fcf_margin": median_fcf_margin,
+                "consecutive_improving_years": float(consecutive_improving),
+            },
+        )
+
+    # Check 2: Positive year count
+    count_passed = positive_years >= required
+
+    if not count_passed:
+        # Check 3: Positive trend rescue
+        if (
+            config.allow_positive_trend_rescue
+            and consecutive_improving >= 2
+        ):
+            count_passed = True
+            warning = True
+            warning_reason = (
+                f"FCF positive trend rescue: {consecutive_improving} consecutive "
+                f"improving years despite only {positive_years}/{total_years} "
+                f"positive years (required {required})"
+            )
+
+    # Build detail string
+    status = "PASS" if count_passed else "FAIL"
+    if warning:
+        status = "PASS (warning)"
+    cyclical_note = f" (cyclical relaxation: {required} required)" if is_cyclical else ""
+    detail = (
+        f"{status}: {positive_years}/{total_years} positive FCF years "
+        f"(required {required}{cyclical_note}). "
+        f"median_fcf_margin={median_fcf_margin:.1%}, "
+        f"improving_streak={consecutive_improving}"
+    )
+
+    return FilterResult(
+        name=_FILTER_NAME,
+        passed=count_passed,
+        value=float(positive_years),
+        threshold=float(required),
+        detail=detail,
+        warning=warning,
+        warning_reason=warning_reason,
+        computed_metrics={
+            "positive_years": float(positive_years),
+            "total_years": float(total_years),
+            "positive_years_required": float(required),
+            "median_fcf_margin": median_fcf_margin,
+            "consecutive_improving_years": float(consecutive_improving),
+        },
+    )
+
+
+def _consecutive_improving_years(fcf_values: list[float]) -> int:
+    """Count the longest trailing streak of consecutive FCF improvement.
+
+    Looks backward from the most recent period. Each year where FCF improved
+    (became less negative or more positive) compared to the prior year counts.
+
+    Returns:
+        Number of consecutive improving years ending at the most recent period.
+        Returns 0 if fewer than 2 values or no improvement streak.
+    """
+    if len(fcf_values) < 2:
+        return 0
+
+    streak = 0
+    # Walk backward from the end
+    for i in range(len(fcf_values) - 1, 0, -1):
+        if fcf_values[i] > fcf_values[i - 1]:
+            streak += 1
+        else:
+            break
+
+    return streak
