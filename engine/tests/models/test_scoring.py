@@ -6,9 +6,44 @@ from margin_engine.models.scoring import (
     CompositeScore,
     FactorBreakdown,
     FactorScore,
+    FilterResult,
     OpportunityType,
     Signal,
 )
+
+
+# ---------------------------------------------------------------------------
+# FilterResult insufficient_data / missing_fields tests
+# ---------------------------------------------------------------------------
+
+
+class TestFilterResultInsufficientData:
+    def test_insufficient_data_defaults_false(self):
+        r = FilterResult(name="test", passed=True)
+        assert r.insufficient_data is False
+        assert r.missing_fields is None
+
+    def test_insufficient_data_set(self):
+        r = FilterResult(
+            name="beneish",
+            passed=True,
+            insufficient_data=True,
+            missing_fields=["prior_balance"],
+        )
+        assert r.insufficient_data is True
+        assert r.missing_fields == ["prior_balance"]
+
+    def test_insufficient_data_multiple_missing_fields(self):
+        r = FilterResult(
+            name="beneish",
+            passed=True,
+            insufficient_data=True,
+            missing_fields=["prior_income", "prior_balance"],
+        )
+        assert r.insufficient_data is True
+        assert len(r.missing_fields) == 2
+        assert "prior_income" in r.missing_fields
+        assert "prior_balance" in r.missing_fields
 
 
 def test_composite_score_price_fields():

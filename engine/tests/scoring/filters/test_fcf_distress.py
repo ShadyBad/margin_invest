@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from margin_engine.config.filter_config import FcfDistressConfig
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,
@@ -82,3 +83,56 @@ class TestFCFDistress:
 
         result = fcf_distress_check(APPLE_PERIOD_2024)
         assert result.threshold == 0.0
+
+
+class TestFCFDistressWithConfig:
+    """Tests for config-driven FCF distress thresholds."""
+
+    def test_config_parameter_accepted(self):
+        """Config parameter should be accepted without error."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
+
+        config = FcfDistressConfig()
+        result = fcf_distress_check(APPLE_PERIOD_2024, config=config)
+        assert result.passed is True
+
+    def test_without_config_backward_compatible(self):
+        """Without config, behavior matches original hardcoded thresholds."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
+
+        result = fcf_distress_check(APPLE_PERIOD_2024)
+        assert result.passed is True
+        assert result.threshold == 0.0
+
+    def test_config_does_not_change_single_period_behavior(self):
+        """Config multi-year fields are accepted but don't change single-period check."""
+        income = IncomeStatement(
+            revenue=Decimal("500"),
+            ebit=Decimal("50"),
+            net_income=Decimal("20"),
+            shares_outstanding=100,
+        )
+        balance = BalanceSheet(
+            total_assets=Decimal("1000"),
+            total_equity=Decimal("500"),
+            shares_outstanding=100,
+        )
+        cf = CashFlowStatement(
+            operating_cash_flow=Decimal("30"),
+            capital_expenditures=Decimal("-50"),  # FCF = -20
+        )
+        period = FinancialPeriod(
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+            current_income=income,
+            current_balance=balance,
+            current_cash_flow=cf,
+        )
+        # Even with generous config settings, single-period negative FCF still fails
+        config = FcfDistressConfig(
+            positive_years_required=1,
+            lookback_years=1,
+            min_fcf_margin=-0.10,
+        )
+        result = fcf_distress_check(period, config=config)
+        assert result.passed is False

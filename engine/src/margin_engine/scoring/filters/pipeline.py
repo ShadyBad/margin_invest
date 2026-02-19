@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from margin_engine.config.filter_config import FilterConfig, load_filter_config
 from margin_engine.models.financial import AssetProfile, FinancialPeriod
 from margin_engine.models.scoring import FilterResult
 from margin_engine.scoring.filters.altman import altman_z_score
@@ -44,6 +45,7 @@ class PipelineResult:
 def run_elimination_filters(
     period: FinancialPeriod,
     profile: AssetProfile,
+    config: FilterConfig | None = None,
 ) -> PipelineResult:
     """Run all elimination filters in sequence.
 
@@ -53,19 +55,26 @@ def run_elimination_filters(
     Args:
         period: Financial data for scoring.
         profile: Static asset metadata (ticker, sector, market cap, etc.)
+        config: Optional FilterConfig. When provided, thresholds for all
+            filters are read from config sub-objects. When None, defaults
+            are loaded via ``load_filter_config()`` (which returns hardcoded
+            defaults when no YAML file is configured).
 
     Returns:
         PipelineResult containing all filter outcomes.
     """
+    if config is None:
+        config = load_filter_config()
+
     sector = profile.sector
 
     results = [
-        liquidity_check(profile),
-        beneish_m_score(period),
-        altman_z_score(period, sector=sector),
-        fcf_distress_check(period),
-        interest_coverage_check(period, sector=sector),
-        current_ratio_check(period, sector=sector),
+        liquidity_check(profile, config=config.liquidity),
+        beneish_m_score(period, config=config.beneish),
+        altman_z_score(period, sector=sector, config=config.altman),
+        fcf_distress_check(period, config=config.fcf_distress),
+        interest_coverage_check(period, sector=sector, config=config.interest_coverage),
+        current_ratio_check(period, sector=sector, config=config.current_ratio),
     ]
 
     return PipelineResult(results=results)

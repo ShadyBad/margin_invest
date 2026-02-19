@@ -15,6 +15,7 @@ Sector-adjusted thresholds:
 
 from __future__ import annotations
 
+from margin_engine.config.filter_config import InterestCoverageConfig
 from margin_engine.models.financial import FinancialPeriod, GICSSector
 from margin_engine.models.scoring import FilterResult
 
@@ -27,15 +28,26 @@ _DEFAULT_THRESHOLD = 1.5
 
 
 def _get_threshold(sector: GICSSector | None) -> float:
-    """Return the ICR threshold for the given sector."""
+    """Return the ICR threshold for the given sector (legacy hardcoded)."""
     if sector is None:
         return _DEFAULT_THRESHOLD
     return _SECTOR_THRESHOLDS.get(sector, _DEFAULT_THRESHOLD)
 
 
+def _get_config_threshold(sector: GICSSector | None, config: InterestCoverageConfig) -> float:
+    """Return the ICR threshold for the given sector using config values."""
+    if sector is not None:
+        sector_key = sector.value.lower()
+        override = config.sector_overrides.get(sector_key)
+        if override is not None:
+            return override
+    return config.default
+
+
 def interest_coverage_check(
     period: FinancialPeriod,
     sector: GICSSector | None = None,
+    config: InterestCoverageConfig | None = None,
 ) -> FilterResult:
     """Check interest coverage ratio against sector-adjusted thresholds.
 
@@ -44,9 +56,12 @@ def interest_coverage_check(
     Args:
         period: Financial data with current income statement.
         sector: GICS sector for sector-adjusted thresholds.
+        config: Optional InterestCoverageConfig. When provided, thresholds
+            are read from config.default and config.sector_overrides.
+            When None, hardcoded constants are used.
     """
     name = "interest_coverage"
-    threshold = _get_threshold(sector)
+    threshold = _get_config_threshold(sector, config) if config else _get_threshold(sector)
     interest_expense = period.current_income.interest_expense
 
     # No interest expense means no debt service -> automatically passes

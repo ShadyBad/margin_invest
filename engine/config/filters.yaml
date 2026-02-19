@@ -41,18 +41,18 @@ fcf_distress:
 interest_coverage:
   default: 1.5
   sector_overrides:
-    technology: 3.0             # High-margin, low-debt expected
-    utilities: 1.2              # Capital-intensive, regulated
+    "information technology": 3.0  # High-margin, low-debt expected
+    utilities: 1.2                 # Capital-intensive, regulated
   median_lookback_years: 3
   median_minimum: 1.0
 
 current_ratio:
   default: 0.8
   sector_overrides:
-    technology: 0.8             # Calibrated: Apple CR=0.87
-    utilities: 0.6              # Capital-intensive, regulated
-  quick_ratio_rescue: 0.5       # If CR < threshold, check QR > 0.5
-  max_3yr_decline_pct: 30       # CR must not decline >30% over 3 years
+    "information technology": 0.8  # Calibrated: Apple CR=0.87
+    utilities: 0.6                 # Capital-intensive, regulated
+  quick_ratio_rescue: 0.5         # If CR < threshold, check QR > 0.5
+  max_3yr_decline_pct: 30         # CR must not decline >30% over 3 years
 
 mediocrity_gate:
   min_roic_5yr_median: 0.08     # 5yr median ROIC > 8%

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from margin_engine.config.filter_config import BeneishConfig
 from margin_engine.models.financial import FinancialPeriod
 from margin_engine.models.scoring import FilterResult
 
@@ -32,20 +33,36 @@ def _d(val: Decimal | None, default: Decimal = Decimal("0")) -> float:
     return float(val)
 
 
-def beneish_m_score(period: FinancialPeriod) -> FilterResult:
+def beneish_m_score(
+    period: FinancialPeriod,
+    config: BeneishConfig | None = None,
+) -> FilterResult:
     """Compute Beneish M-Score and return filter result.
 
     Requires both current and prior period data. If prior data is missing,
     return a PASS with detail explaining insufficient data.
+
+    Args:
+        period: Financial data with current and prior period statements.
+        config: Optional BeneishConfig. When provided, threshold is read
+            from config. When None, the hardcoded constant is used.
     """
     name = "beneish_m_score"
+    threshold = config.threshold if config else _THRESHOLD
 
     # Guard: need prior period data for year-over-year comparisons
     if period.prior_income is None or period.prior_balance is None:
+        missing = []
+        if period.prior_income is None:
+            missing.append("prior_income")
+        if period.prior_balance is None:
+            missing.append("prior_balance")
         return FilterResult(
             name=name,
             passed=True,
-            threshold=_THRESHOLD,
+            threshold=threshold,
+            insufficient_data=True,
+            missing_fields=missing,
             detail="Insufficient historical data for M-Score",
         )
 
@@ -139,7 +156,7 @@ def beneish_m_score(period: FinancialPeriod) -> FilterResult:
         - 0.327 * lvgi
     )
 
-    passed = m_score <= _THRESHOLD
+    passed = m_score <= threshold
 
     components = (
         f"DSRI={dsri:.4f}, GMI={gmi:.4f}, AQI={aqi:.4f}, SGI={sgi:.4f}, "
@@ -147,13 +164,13 @@ def beneish_m_score(period: FinancialPeriod) -> FilterResult:
     )
     detail = (
         f"M-Score={m_score:.4f} ({'PASS' if passed else 'FAIL'}, "
-        f"threshold={_THRESHOLD}). {components}"
+        f"threshold={threshold}). {components}"
     )
 
     return FilterResult(
         name=name,
         passed=passed,
         value=round(m_score, 4),
-        threshold=_THRESHOLD,
+        threshold=threshold,
         detail=detail,
     )

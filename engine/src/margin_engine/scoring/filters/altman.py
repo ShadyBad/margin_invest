@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from margin_engine.config.filter_config import AltmanConfig
 from margin_engine.models.financial import FinancialPeriod, GICSSector
 from margin_engine.models.scoring import FilterResult
 
@@ -29,23 +30,37 @@ def _d(val: Decimal | None, default: Decimal = Decimal("0")) -> float:
 
 
 def altman_z_score(
-    period: FinancialPeriod, sector: GICSSector | None = None
+    period: FinancialPeriod,
+    sector: GICSSector | None = None,
+    config: AltmanConfig | None = None,
 ) -> FilterResult:
     """Compute Altman Z'' Score and return filter result.
 
     Args:
         period: Financial data with current balance sheet and income statement.
         sector: GICS sector for exclusion rules. Utilities are exempt.
+        config: Optional AltmanConfig. When provided, threshold, equity_tl_cap,
+            and exempt_sectors are read from config. When None, hardcoded
+            constants are used.
     """
     name = "altman_z_score"
+    threshold = config.threshold if config else _THRESHOLD
+    equity_tl_cap = config.equity_tl_cap if config else _EQUITY_TL_CAP
 
-    # Utilities exemption: different capital structures make Z'' unreliable
-    if sector == GICSSector.UTILITIES:
+    # Determine exempt sectors
+    if config is not None:
+        exempt_sectors = set(config.exempt_sectors)
+    else:
+        exempt_sectors = {"Utilities"}
+
+    # Sector exemption: different capital structures make Z'' unreliable
+    sector_value = sector.value if sector else None
+    if sector_value in exempt_sectors:
         return FilterResult(
             name=name,
             passed=True,
-            threshold=_THRESHOLD,
-            detail="Altman Z'' not applicable to utilities",
+            threshold=threshold,
+            detail=f"Altman Z'' not applicable to {sector_value}",
         )
 
     cb = period.current_balance
@@ -59,7 +74,7 @@ def altman_z_score(
         return FilterResult(
             name=name,
             passed=False,
-            threshold=_THRESHOLD,
+            threshold=threshold,
             detail="Invalid: zero total assets",
         )
 
@@ -76,14 +91,14 @@ def altman_z_score(
 
     # Handle zero total liabilities: cap the ratio at a large positive value
     if tl == 0.0:
-        equity_tl = _EQUITY_TL_CAP
+        equity_tl = equity_tl_cap
     else:
         equity_tl = equity / tl
 
     # Z'' Score formula (non-manufacturing)
     z_score = 6.56 * wc_ta + 3.26 * re_ta + 6.72 * ebit_ta + 1.05 * equity_tl
 
-    passed = z_score >= _THRESHOLD
+    passed = z_score >= threshold
 
     components = (
         f"WC/TA={wc_ta:.4f}, RE/TA={re_ta:.4f}, "
@@ -91,13 +106,13 @@ def altman_z_score(
     )
     detail = (
         f"Z''={z_score:.4f} ({'PASS' if passed else 'FAIL'}, "
-        f"threshold={_THRESHOLD}). {components}"
+        f"threshold={threshold}). {components}"
     )
 
     return FilterResult(
         name=name,
         passed=passed,
         value=round(z_score, 4),
-        threshold=_THRESHOLD,
+        threshold=threshold,
         detail=detail,
     )

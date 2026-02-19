@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 import pytest
+from margin_engine.config.filter_config import InterestCoverageConfig
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,
@@ -142,3 +143,92 @@ class TestInterestCoverage:
 
         result = interest_coverage_check(APPLE_PERIOD_2024)
         assert result.name == "interest_coverage"
+
+
+class TestInterestCoverageWithConfig:
+    """Tests for config-driven interest coverage thresholds."""
+
+    def test_config_parameter_accepted(self):
+        """Config parameter should be accepted without error."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
+
+        config = InterestCoverageConfig()
+        result = interest_coverage_check(APPLE_PERIOD_2024, sector=GICSSector.TECHNOLOGY, config=config)
+        assert result.passed is True
+
+    def test_config_threshold_overrides_hardcoded(self):
+        """Config default threshold should override the hardcoded 1.5.
+
+        ICR = 2.0 passes default threshold of 1.5 but should fail with
+        a stricter config threshold of 2.5.
+        """
+        income = IncomeStatement(
+            revenue=Decimal("1000"),
+            ebit=Decimal("100"),
+            interest_expense=Decimal("50"),
+            net_income=Decimal("30"),
+            shares_outstanding=100,
+        )
+        balance = BalanceSheet(
+            total_assets=Decimal("2000"),
+            total_equity=Decimal("800"),
+            shares_outstanding=100,
+        )
+        cf = CashFlowStatement(
+            operating_cash_flow=Decimal("80"),
+            capital_expenditures=Decimal("-20"),
+        )
+        period = FinancialPeriod(
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+            current_income=income,
+            current_balance=balance,
+            current_cash_flow=cf,
+        )
+        # ICR = 100/50 = 2.0, passes default 1.5 but fails config 2.5
+        config = InterestCoverageConfig(default=2.5, sector_overrides={})
+        result = interest_coverage_check(period, sector=GICSSector.CONSUMER_STAPLES, config=config)
+        assert result.passed is False
+        assert result.threshold == 2.5
+
+    def test_config_sector_overrides(self):
+        """Config sector_overrides should override sector thresholds."""
+        income = IncomeStatement(
+            revenue=Decimal("1000"),
+            ebit=Decimal("100"),
+            interest_expense=Decimal("50"),
+            net_income=Decimal("30"),
+            shares_outstanding=100,
+        )
+        balance = BalanceSheet(
+            total_assets=Decimal("2000"),
+            total_equity=Decimal("800"),
+            shares_outstanding=100,
+        )
+        cf = CashFlowStatement(
+            operating_cash_flow=Decimal("80"),
+            capital_expenditures=Decimal("-20"),
+        )
+        period = FinancialPeriod(
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+            current_income=income,
+            current_balance=balance,
+            current_cash_flow=cf,
+        )
+        # ICR = 2.0. Default tech threshold is 3.0 (would fail).
+        # Config sets "information technology" threshold to 1.5 (should pass).
+        config = InterestCoverageConfig(
+            default=1.5,
+            sector_overrides={"information technology": 1.5},
+        )
+        result = interest_coverage_check(period, sector=GICSSector.TECHNOLOGY, config=config)
+        assert result.passed is True
+        assert result.threshold == 1.5
+
+    def test_without_config_backward_compatible(self):
+        """Without config, behavior matches original hardcoded thresholds."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
+
+        result = interest_coverage_check(APPLE_PERIOD_2024, sector=GICSSector.TECHNOLOGY)
+        assert result.passed is True

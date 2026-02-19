@@ -51,6 +51,8 @@ class FilterResult(BaseModel):
     value: float | None = None
     threshold: float | None = None
     detail: str = ""
+    insufficient_data: bool = False
+    missing_fields: list[str] | None = None
 
     @property
     def verdict(self) -> FilterVerdict:

@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from margin_engine.config.filter_config import BeneishConfig, FilterConfig
 from margin_engine.models.financial import (
     AssetProfile,
     BalanceSheet,
@@ -134,3 +135,60 @@ class TestFilterPipeline:
         # All passed
         assert result.passed is True
         assert result.failed_filters == []
+
+
+class TestFilterPipelineWithConfig:
+    """Tests for config-driven pipeline."""
+
+    def test_config_parameter_accepted(self):
+        """Pipeline accepts config parameter without error."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024, APPLE_PROFILE
+
+        config = FilterConfig()
+        result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE, config=config)
+        assert len(result.results) == 6
+        assert result.passed is True
+
+    def test_config_flows_to_beneish(self):
+        """Config beneish threshold should flow through the pipeline.
+
+        Apple M-Score is approx -2.79. With threshold -3.0, it should FAIL.
+        """
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024, APPLE_PROFILE
+
+        config = FilterConfig(beneish=BeneishConfig(threshold=-3.0))
+        result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE, config=config)
+        beneish_result = next(r for r in result.results if r.name == "beneish_m_score")
+        assert beneish_result.passed is False
+        assert beneish_result.threshold == -3.0
+
+    def test_without_config_backward_compatible(self):
+        """Without config, pipeline behavior is identical to original."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024, APPLE_PROFILE
+
+        result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE)
+        assert result.passed is True
+        assert len(result.results) == 6
+        # All filter names present
+        names = {r.name for r in result.results}
+        assert names == {
+            "liquidity",
+            "beneish_m_score",
+            "altman_z_score",
+            "fcf_distress",
+            "interest_coverage",
+            "current_ratio",
+        }
+
+    def test_default_config_produces_same_results_as_no_config(self):
+        """FilterConfig() defaults should produce the same results as no config."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024, APPLE_PROFILE
+
+        result_no_config = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE)
+        result_with_config = run_elimination_filters(
+            APPLE_PERIOD_2024, APPLE_PROFILE, config=FilterConfig()
+        )
+        # Both should pass
+        assert result_no_config.passed == result_with_config.passed
+        # Same number of results
+        assert len(result_no_config.results) == len(result_with_config.results)
