@@ -236,6 +236,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
                   marginOfSafety={scoredResult.margin_of_safety}
                   methods={scoredResult.valuation_methods}
                   buyBelow={scoredResult.buy_price}
+                  sellPrice={scoredResult.sell_price}
                 />
 
                 <PanelFilterList filters={scoredResult.filters_passed} />

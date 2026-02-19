@@ -10,14 +10,17 @@ describe("PanelValuation", () => {
     methods: { dcf: 32.1, ev_fcf: 24.8, acquirers_multiple: 28.9, shareholder_yield: 27.2 },
   }
 
-  it("renders intrinsic value", () => {
+  it("renders Margin Invest Value", () => {
     render(<PanelValuation {...baseProps} />)
+    expect(screen.getByText("Margin Invest Value")).toBeInTheDocument()
     expect(screen.getByText("$28.50")).toBeInTheDocument()
   })
 
-  it("renders current price and margin of safety", () => {
+  it("renders current price and margin of safety in header trio", () => {
     render(<PanelValuation {...baseProps} />)
-    expect(screen.getByText("Current: $21.00")).toBeInTheDocument()
+    expect(screen.getByText("Current Price")).toBeInTheDocument()
+    expect(screen.getByText("$21.00")).toBeInTheDocument()
+    expect(screen.getByText("Margin of Safety")).toBeInTheDocument()
     expect(screen.getByText("26%")).toBeInTheDocument()
   })
 
@@ -29,38 +32,31 @@ describe("PanelValuation", () => {
     expect(screen.getByText("Shareholder Yield")).toBeInTheDocument()
   })
 
-  it("renders empty state when no methods", () => {
-    render(<PanelValuation {...baseProps} methods={{}} />)
+  it("renders empty state when no methods and no intrinsic value", () => {
+    render(<PanelValuation {...baseProps} intrinsicValue={null} methods={{}} />)
     expect(screen.getByText("No valuation data")).toBeInTheDocument()
   })
 
-  it("renders buy below price when provided", () => {
-    render(<PanelValuation {...baseProps} buyBelow={22.0} />)
-    expect(screen.getByText("Buy Below")).toBeInTheDocument()
-    expect(screen.getByText("$22.00")).toBeInTheDocument()
+  it("renders price ladder when buyBelow and sellPrice provided", () => {
+    render(<PanelValuation {...baseProps} buyBelow={22.0} sellPrice={35.0} />)
+    expect(screen.getByText("Buy Zone")).toBeInTheDocument()
+    expect(screen.getByText("Hold Zone")).toBeInTheDocument()
+    expect(screen.getByText("Sell Zone")).toBeInTheDocument()
   })
 
-  it("renders attractive explanation when current price is below buy below", () => {
-    render(<PanelValuation {...baseProps} buyBelow={25.0} />)
-    expect(
-      screen.getByText(/looks attractively priced/)
-    ).toBeInTheDocument()
+  it("does not render price ladder when buyBelow is null", () => {
+    render(<PanelValuation {...baseProps} buyBelow={null} sellPrice={35.0} />)
+    expect(screen.queryByText("Buy Zone")).not.toBeInTheDocument()
   })
 
-  it("renders wait explanation when current price is above buy below", () => {
-    render(<PanelValuation {...baseProps} buyBelow={18.0} />)
-    expect(
-      screen.getByText(/Consider waiting/)
-    ).toBeInTheDocument()
+  it("does not render price ladder when sellPrice is null", () => {
+    render(<PanelValuation {...baseProps} buyBelow={22.0} sellPrice={null} />)
+    expect(screen.queryByText("Buy Zone")).not.toBeInTheDocument()
   })
 
-  it("does not render buy below row when buyBelow is null", () => {
-    render(<PanelValuation {...baseProps} buyBelow={null} />)
-    expect(screen.queryByText("Buy Below")).not.toBeInTheDocument()
-  })
-
-  it("does not render buy below row when buyBelow is undefined", () => {
-    render(<PanelValuation {...baseProps} />)
-    expect(screen.queryByText("Buy Below")).not.toBeInTheDocument()
+  it("renders valuation methods even without intrinsic value", () => {
+    render(<PanelValuation {...baseProps} intrinsicValue={null} />)
+    expect(screen.getByText("DCF Model")).toBeInTheDocument()
+    expect(screen.queryByText("Margin Invest Value")).not.toBeInTheDocument()
   })
 })
