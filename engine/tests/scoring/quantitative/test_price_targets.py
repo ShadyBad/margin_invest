@@ -15,6 +15,7 @@ from margin_engine.models.financial import (
     PriceBar,
 )
 from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.valuation_audit import MethodAudit, ValuationAudit
 from margin_engine.scoring.quantitative.price_targets import (
     PriceTargets,
     _clamp_intrinsic_value,
@@ -27,7 +28,7 @@ from margin_engine.scoring.quantitative.price_targets import (
 class TestPriceTargetsModel:
     def test_invalid_reason_default_none(self):
         """invalid_reason should default to None."""
-        pt = PriceTargets(intrinsic_value=100.0, buy_price=100.0, sell_price=125.0)
+        pt = PriceTargets(margin_invest_value=100.0, buy_price=100.0, sell_price=125.0)
         assert pt.invalid_reason is None
 
     def test_invalid_reason_with_null_prices(self):
@@ -37,7 +38,7 @@ class TestPriceTargetsModel:
             invalid_reason="shares_outstanding_out_of_bounds",
         )
         assert pt.invalid_reason == "shares_outstanding_out_of_bounds"
-        assert pt.intrinsic_value is None
+        assert pt.margin_invest_value is None
         assert pt.buy_price is None
         assert pt.sell_price is None
 
@@ -45,16 +46,16 @@ class TestPriceTargetsModel:
         """Setting invalid_reason AND price fields should raise ValidationError."""
         with pytest.raises(ValidationError):
             PriceTargets(
-                intrinsic_value=100.0,
+                margin_invest_value=100.0,
                 buy_price=100.0,
                 sell_price=125.0,
                 invalid_reason="shares_outstanding_out_of_bounds",
             )
 
     def test_positive_price_fields_when_present(self):
-        """intrinsic_value, buy_price, sell_price must be > 0 when set."""
+        """margin_invest_value, buy_price, sell_price must be > 0 when set."""
         with pytest.raises(ValidationError):
-            PriceTargets(intrinsic_value=-5.0, buy_price=-5.0, sell_price=-3.0)
+            PriceTargets(margin_invest_value=-5.0, buy_price=-5.0, sell_price=-3.0)
 
 
 @pytest.fixture
@@ -133,23 +134,23 @@ class TestPriceTargets:
         )
         assert isinstance(result, PriceTargets)
 
-    def test_intrinsic_value_is_positive(
+    def test_margin_invest_value_is_positive(
         self, healthy_period, healthy_profile, price_bars
     ):
-        """With healthy data, intrinsic value should be positive."""
+        """With healthy data, margin invest value should be positive."""
         result = compute_price_targets(
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
             conviction_level=ConvictionLevel.HIGH,
         )
-        assert result.intrinsic_value is not None
-        assert result.intrinsic_value > 0
+        assert result.margin_invest_value is not None
+        assert result.margin_invest_value > 0
 
-    def test_buy_price_equals_intrinsic(
+    def test_dual_threshold_mos(
         self, healthy_period, healthy_profile, price_bars
     ):
-        """buy_price should equal intrinsic_value (floor), sell_price above it."""
+        """buy_price = MIV * (1 - MoS), sell_price = MIV * (1 + MoS)."""
         result = compute_price_targets(
             period=healthy_period,
             profile=healthy_profile,
@@ -158,9 +159,18 @@ class TestPriceTargets:
         )
         assert result.buy_price is not None
         assert result.sell_price is not None
-        assert result.intrinsic_value is not None
-        assert result.buy_price == result.intrinsic_value
-        assert result.buy_price < result.sell_price
+        assert result.margin_invest_value is not None
+        assert result.margin_of_safety is not None
+        mos = result.margin_of_safety
+        # Dual threshold: buy below fair value, sell above
+        assert result.buy_price == pytest.approx(
+            result.margin_invest_value * (1 - mos), rel=1e-2
+        )
+        assert result.sell_price == pytest.approx(
+            result.margin_invest_value * (1 + mos), rel=1e-2
+        )
+        # Ordering invariant
+        assert result.buy_price < result.margin_invest_value < result.sell_price
 
     def test_actual_price_from_latest_bar(
         self, healthy_period, healthy_profile, price_bars
@@ -175,10 +185,10 @@ class TestPriceTargets:
         # Latest bar is 2025-09-28 with close=197
         assert result.actual_price == pytest.approx(197.0)
 
-    def test_margin_of_safety_varies_by_growth_stage(
+    def test_mos_symmetry_across_growth_stages(
         self, healthy_period, healthy_profile, price_bars
     ):
-        """Steady growth gets tighter MoS than turnaround (lower sell price)."""
+        """Both buy and sell prices should widen symmetrically with higher MoS."""
         from margin_engine.models.scoring import GrowthStage
 
         steady = compute_price_targets(
@@ -195,14 +205,20 @@ class TestPriceTargets:
             conviction_level=ConvictionLevel.HIGH,
             growth_stage=GrowthStage.TURNAROUND,
         )
-        assert steady.margin_of_safety is not None
-        assert turnaround.margin_of_safety is not None
-        # Steady (25% base) should have tighter MoS than Turnaround (40% base)
-        assert steady.margin_of_safety < turnaround.margin_of_safety
-        # Both buy_prices equal intrinsic (same inputs -> same intrinsic)
-        assert steady.buy_price == turnaround.buy_price
-        # Tighter MoS = lower sell price
-        assert steady.sell_price < turnaround.sell_price
+        # Same intrinsic value (same inputs)
+        assert steady.margin_invest_value == pytest.approx(
+            turnaround.margin_invest_value, rel=1e-4
+        )
+        # Turnaround has wider MoS -> lower buy price, higher sell price
+        assert turnaround.buy_price < steady.buy_price
+        assert turnaround.sell_price > steady.sell_price
+        # Both satisfy the dual threshold relationship
+        assert steady.buy_price == pytest.approx(
+            steady.margin_invest_value * (1 - steady.margin_of_safety), rel=1e-2
+        )
+        assert turnaround.buy_price == pytest.approx(
+            turnaround.margin_invest_value * (1 - turnaround.margin_of_safety), rel=1e-2
+        )
 
     def test_no_price_bars_returns_none_actual(
         self, healthy_period, healthy_profile
@@ -276,7 +292,7 @@ class TestPriceTargets:
             price_bars=price_bars,
             conviction_level=ConvictionLevel.HIGH,
         )
-        assert result.intrinsic_value is None
+        assert result.margin_invest_value is None
         assert result.buy_price is None
         assert result.sell_price is None
         assert result.invalid_reason == "shares_outstanding_missing"
@@ -309,10 +325,137 @@ class TestPriceTargets:
             conviction_level=ConvictionLevel.HIGH,
         )
         assert result.price_upside is not None
-        assert result.intrinsic_value is not None
+        assert result.margin_invest_value is not None
         assert result.actual_price is not None
-        expected_upside = (result.intrinsic_value - result.actual_price) / result.actual_price
+        expected_upside = (result.margin_invest_value - result.actual_price) / result.actual_price
         assert result.price_upside == pytest.approx(expected_upside, abs=1e-4)
+
+    def test_price_targets_returns_audit(self, healthy_period, healthy_profile, price_bars):
+        """compute_price_targets should return a ValuationAudit."""
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.valuation_audit is not None
+        assert len(result.valuation_audit.methods) > 0
+        # Verify DCF audit has expected inputs
+        dcf = next((m for m in result.valuation_audit.methods if m.method == "dcf"), None)
+        if dcf and dcf.included:
+            assert "fcf" in dcf.inputs
+            assert "growth_rate" in dcf.inputs
+
+    def test_audit_method_count_matches_all_methods(
+        self, healthy_period, healthy_profile, price_bars
+    ):
+        """Audit should contain entries for all 4 valuation methods."""
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        audit = result.valuation_audit
+        assert audit is not None
+        assert len(audit.methods) == 4
+        method_names = {m.method for m in audit.methods}
+        assert method_names == {"dcf", "ev_fcf", "acquirers_multiple", "shareholder_yield"}
+
+    def test_audit_included_methods_have_renormalized_weights(
+        self, healthy_period, healthy_profile, price_bars
+    ):
+        """Included methods should have renormalized_weight set."""
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        audit = result.valuation_audit
+        assert audit is not None
+        for m in audit.methods:
+            if m.included:
+                assert m.renormalized_weight is not None
+                assert m.renormalized_weight > 0
+            else:
+                assert m.renormalized_weight is None
+
+    def test_audit_mos_components(
+        self, healthy_period, healthy_profile, price_bars
+    ):
+        """Audit should capture MoS base, CV, and adjustment."""
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        audit = result.valuation_audit
+        assert audit is not None
+        assert audit.mos_base is not None
+        assert audit.mos_cv is not None  # 4 methods -> CV computed
+        assert audit.mos_adjustment is not None
+        assert audit.margin_of_safety == result.margin_of_safety
+
+    def test_audit_excluded_method_has_reason(self, healthy_profile, price_bars):
+        """When a method is excluded (e.g., negative FCF), audit should capture exclusion_reason."""
+        period = FinancialPeriod(
+            period_end="2025-09-28",
+            filing_date="2025-11-01",
+            current_income=IncomeStatement(
+                revenue=Decimal("100000000000"),
+                gross_profit=Decimal("45000000000"),
+                ebit=Decimal("30000000000"),
+                net_income=Decimal("25000000000"),
+                shares_outstanding=15000000000,
+            ),
+            current_balance=BalanceSheet(
+                total_assets=Decimal("350000000000"),
+                current_assets=Decimal("130000000000"),
+                cash_and_equivalents=Decimal("60000000000"),
+                current_liabilities=Decimal("120000000000"),
+                long_term_debt=Decimal("100000000000"),
+                total_equity=Decimal("60000000000"),
+                shares_outstanding=15000000000,
+            ),
+            current_cash_flow=CashFlowStatement(
+                operating_cash_flow=Decimal("5000000000"),
+                capital_expenditures=Decimal("-10000000000"),
+                dividends_paid=Decimal("-15000000000"),
+                share_repurchases=Decimal("-90000000000"),
+            ),
+        )
+        result = compute_price_targets(
+            period=period,
+            profile=healthy_profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        audit = result.valuation_audit
+        assert audit is not None
+        dcf = next((m for m in audit.methods if m.method == "dcf"), None)
+        assert dcf is not None
+        assert dcf.included is False
+        assert dcf.exclusion_reason == "negative_fcf"
+
+    def test_audit_none_for_invalid_result(self, healthy_period, price_bars):
+        """When invalid_reason is set (e.g., missing shares), valuation_audit should be None."""
+        profile = AssetProfile(
+            ticker="AAPL",
+            name="Apple Inc.",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("3000000000000"),
+            shares_outstanding=None,
+        )
+        result = compute_price_targets(
+            period=healthy_period,
+            profile=profile,
+            price_bars=price_bars,
+            conviction_level=ConvictionLevel.HIGH,
+        )
+        assert result.invalid_reason == "shares_outstanding_missing"
+        assert result.valuation_audit is None
 
 
 class TestDeterminism:
@@ -331,7 +474,7 @@ class TestDeterminism:
         ]
         first = results[0]
         for r in results[1:]:
-            assert r.intrinsic_value == first.intrinsic_value
+            assert r.margin_invest_value == first.margin_invest_value
             assert r.buy_price == first.buy_price
             assert r.sell_price == first.sell_price
             assert r.price_upside == first.price_upside
@@ -617,7 +760,7 @@ class TestLayer2PerMethodBounds:
             price_bars=price_bars,
             conviction_level=ConvictionLevel.HIGH,
         )
-        assert result.intrinsic_value is not None
+        assert result.margin_invest_value is not None
         assert result.invalid_reason is None
 
 
@@ -904,7 +1047,7 @@ class TestCurrencyMismatchDetection:
         # financials all methods return None → insufficient_data.
         # Real ADRs with moderate currency differences will get clamped targets.
         assert result.invalid_reason == "insufficient_data"
-        assert result.intrinsic_value is None
+        assert result.margin_invest_value is None
         assert result.actual_price == pytest.approx(197.0)
 
 
@@ -951,4 +1094,4 @@ class TestInsufficientDataReason:
             conviction_level=ConvictionLevel.HIGH,
         )
         assert result.invalid_reason == "insufficient_data"
-        assert result.intrinsic_value is None
+        assert result.margin_invest_value is None

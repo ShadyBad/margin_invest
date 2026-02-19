@@ -27,15 +27,14 @@ function getSubtext(
   actualPrice?: number | null,
 ): string {
   const s = signal.toLowerCase()
-  if (s === "buy" && buyPrice != null) return `Buy below ${formatPrice(buyPrice)}`
-  if (s === "hold" && actualPrice != null && buyPrice != null) {
-    const pct = ((actualPrice - buyPrice) / buyPrice * 100)
-    return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
+  if (s === "buy" && buyPrice != null) return `Below ${formatPrice(buyPrice)} buy target`
+  if (s === "hold" && actualPrice != null && buyPrice != null && sellPrice != null) {
+    return `Between ${formatPrice(buyPrice)} and ${formatPrice(sellPrice)}`
   }
-  if (s === "sell" && sellPrice != null) return `Sell above ${formatPrice(sellPrice)}`
+  if (s === "sell" && sellPrice != null) return `Above ${formatPrice(sellPrice)} sell target`
   if (s === "urgent_sell" && actualPrice != null && sellPrice != null) {
     const pct = ((actualPrice - sellPrice) / sellPrice * 100)
-    return `+${pct.toFixed(0)}% over FV`
+    return `+${pct.toFixed(0)}% over sell target`
   }
   if (s === "watch") return "Monitoring"
   return ""

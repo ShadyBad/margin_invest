@@ -10,11 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import Asset, Score
 from margin_api.db.session import get_db
+from margin_api.schemas.score_history import ScoreHistoryPoint, ScoreHistoryResponse
 from margin_api.schemas.scores import (
     FactorBreakdownResponse,
     ScoreListResponse,
     ScoreResponse,
 )
+from margin_api.schemas.valuation_audit import ValuationAuditResponse
 from margin_api.services.freshness import compute_freshness
 
 router = APIRouter(prefix="/api/v1/scores", tags=["scores"])
@@ -77,7 +79,7 @@ def _score_response_from_row(
             detail.setdefault("score", detail.get("composite_raw_score", score.composite_raw_score))
             detail.setdefault("universe_percentile", detail.get("composite_percentile", score.composite_percentile))
             # Include price target fields from DB columns
-            detail.setdefault("intrinsic_value", getattr(score, "intrinsic_value", None))
+            detail.setdefault("margin_invest_value", getattr(score, "margin_invest_value", None))
             detail.setdefault("buy_price", getattr(score, "buy_price", None))
             detail.setdefault("sell_price", getattr(score, "sell_price", None))
             detail.setdefault("actual_price", getattr(score, "actual_price", None))
@@ -142,22 +144,22 @@ def _score_response_from_row(
         data_coverage=score.data_coverage,
         growth_stage=score.growth_stage,
         scored_at=scored_at.isoformat() if scored_at else None,
-        intrinsic_value=getattr(score, "intrinsic_value", None),
+        margin_invest_value=getattr(score, "margin_invest_value", None),
         buy_price=getattr(score, "buy_price", None),
         sell_price=getattr(score, "sell_price", None),
         actual_price=actual_price,
         price_upside=(
-            round((score.intrinsic_value - score.actual_price) / score.actual_price, 4)
-            if getattr(score, "intrinsic_value", None)
+            round((score.margin_invest_value - score.actual_price) / score.actual_price, 4)
+            if getattr(score, "margin_invest_value", None)
             and getattr(score, "actual_price", None)
             and not invalid_reason
             else None
         ),
         margin_of_safety=(
-            round((score.intrinsic_value - actual_price) / score.intrinsic_value, 4)
-            if getattr(score, "intrinsic_value", None)
+            round((score.margin_invest_value - actual_price) / score.margin_invest_value, 4)
+            if getattr(score, "margin_invest_value", None)
             and actual_price is not None
-            and actual_price < score.intrinsic_value
+            and actual_price < score.margin_invest_value
             and not invalid_reason
             else None
         ),
@@ -228,6 +230,90 @@ async def list_scores(
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/{ticker}/history", response_model=ScoreHistoryResponse)
+async def get_score_history(
+    ticker: str,
+    limit: int = Query(default=100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+) -> ScoreHistoryResponse:
+    """Get score history for a ticker across all scoring runs."""
+    ticker = ticker.upper()
+    asset_result = await db.execute(select(Asset).where(Asset.ticker == ticker))
+    asset_row = asset_result.scalar_one_or_none()
+    if asset_row is None:
+        raise HTTPException(status_code=404, detail=f"Ticker {ticker} not found")
+
+    # Get total count of scoring runs
+    count_q = select(func.count()).where(Score.asset_id == asset_row.id)
+    total = (await db.execute(count_q)).scalar() or 0
+
+    query = (
+        select(Score)
+        .where(Score.asset_id == asset_row.id)
+        .order_by(Score.scored_at.asc())
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    rows = result.scalars().all()
+
+    points: list[ScoreHistoryPoint] = []
+    for i, row in enumerate(rows):
+        delta = None
+        if i > 0:
+            delta = round(row.composite_percentile - rows[i - 1].composite_percentile, 2)
+
+        # Ensure scored_at is tz-aware (SQLite returns naive datetimes)
+        scored_at = row.scored_at
+        if scored_at is not None and scored_at.tzinfo is None:
+            scored_at = scored_at.replace(tzinfo=UTC)
+
+        points.append(ScoreHistoryPoint(
+            scored_at=scored_at,
+            composite_percentile=row.composite_percentile,
+            composite_raw_score=row.composite_raw_score,
+            quality_percentile=row.quality_percentile,
+            value_percentile=row.value_percentile,
+            momentum_percentile=row.momentum_percentile,
+            conviction_level=row.conviction_level,
+            signal=row.signal,
+            margin_invest_value=float(row.margin_invest_value) if row.margin_invest_value is not None else None,
+            buy_price=float(row.buy_price) if row.buy_price is not None else None,
+            sell_price=float(row.sell_price) if row.sell_price is not None else None,
+            actual_price=float(row.actual_price) if row.actual_price is not None else None,
+            delta=delta,
+        ))
+
+    return ScoreHistoryResponse(ticker=ticker, points=points, total_runs=total)
+
+
+@router.get("/{ticker}/valuation-audit", response_model=ValuationAuditResponse)
+async def get_valuation_audit(
+    ticker: str,
+    db: AsyncSession = Depends(get_db),
+) -> ValuationAuditResponse:
+    """Get the full valuation audit breakdown for a ticker."""
+    ticker = ticker.upper()
+    query = (
+        select(Score)
+        .join(Asset, Score.asset_id == Asset.id)
+        .where(Asset.ticker == ticker)
+        .order_by(Score.scored_at.desc())
+        .limit(1)
+    )
+    result = await db.execute(query)
+    score = result.scalar()
+    if score is None:
+        raise HTTPException(status_code=404, detail=f"No score found for {ticker}")
+
+    # Extract valuation_audit from score_detail JSONB
+    detail = score.score_detail or {}
+    audit_data = detail.get("valuation_audit")
+    if audit_data is None:
+        raise HTTPException(status_code=404, detail=f"No valuation audit available for {ticker}")
+
+    return ValuationAuditResponse(**audit_data)
 
 
 async def _try_get_live_price(ticker: str) -> dict | None:

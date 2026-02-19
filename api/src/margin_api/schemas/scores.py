@@ -18,7 +18,8 @@ class FilterResultResponse(BaseModel):
     value: float | None = None
     threshold: float | None = None
     detail: str = ""
-    verdict: str  # "pass" or "fail"
+    verdict: str  # "pass", "fail", or "inconclusive"
+    missing_fields: list[str] | None = None
 
 
 class FactorScoreResponse(BaseModel):
@@ -83,7 +84,7 @@ class ScoreResponse(BaseModel):
     growth_stage: str | None = None
     scored_at: str | None = None
     # Price target fields
-    intrinsic_value: float | None = None
+    margin_invest_value: float | None = None
     buy_price: float | None = None
     sell_price: float | None = None
     actual_price: float | None = None
@@ -129,12 +130,13 @@ class ScoreResponse(BaseModel):
                     threshold=f.threshold,
                     detail=f.detail,
                     verdict=f.verdict.value,
+                    missing_fields=f.missing_fields,
                 )
                 for f in score.filters_passed
             ],
             data_coverage=score.data_coverage,
             growth_stage=score.growth_stage.value if score.growth_stage else None,
-            intrinsic_value=score.intrinsic_value,
+            margin_invest_value=score.intrinsic_value,
             buy_price=score.buy_price,
             sell_price=score.sell_price,
             actual_price=score.actual_price,

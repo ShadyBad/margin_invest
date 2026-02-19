@@ -13,6 +13,10 @@ from margin_engine.models.financial import (
     InstitutionalHolding,
     PriceBar,
 )
+from margin_engine.models.liquidity import (
+    LiquidityProfile,
+    compute_liquidity_profile,
+)
 from margin_engine.models.scoring import (
     CompositeScore,
     ConvictionLevel,
@@ -25,6 +29,7 @@ from margin_engine.models.scoring import (
     ScoringConfig,
     Signal,
 )
+from margin_engine.models.valuation_audit import MethodAudit, ValuationAudit
 
 __all__ = [
     "AssetProfile",
@@ -44,8 +49,12 @@ __all__ = [
     "IncomeStatement",
     "InsiderTransaction",
     "InstitutionalHolding",
+    "LiquidityProfile",
     "OpportunityType",
     "PriceBar",
     "ScoringConfig",
     "Signal",
+    "ValuationAudit",
+    "MethodAudit",
+    "compute_liquidity_profile",
 ]

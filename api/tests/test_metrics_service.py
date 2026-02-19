@@ -10,6 +10,7 @@ from margin_api.services.metrics import (
     compute_volatility,
     compute_avg_profit_margin,
     classify_risk,
+    compute_allocation_weight,
 )
 
 
@@ -89,6 +90,25 @@ class TestAvgProfitMargin:
         result = compute_avg_profit_margin(income_data)
         assert result is None
 
+    def test_yfinance_capitalized_keys(self):
+        """Should handle capitalized yfinance keys like 'Net Income'."""
+        income_data = [
+            {"Net Income": 25000000000, "Total Revenue": 100000000000},
+            {"Net Income": 23000000000, "Total Revenue": 95000000000},
+        ]
+        result = compute_avg_profit_margin(income_data)
+        assert result is not None
+        assert result == pytest.approx(24.6, abs=1.0)
+
+    def test_camel_case_keys(self):
+        """Should handle camelCase keys."""
+        income_data = [
+            {"netIncome": 20000000000, "totalRevenue": 100000000000},
+        ]
+        result = compute_avg_profit_margin(income_data)
+        assert result is not None
+        assert result == pytest.approx(20.0, abs=0.1)
+
 
 class TestNaNHandling:
     def test_sharpe_ratio_with_nan_values(self):
@@ -123,3 +143,29 @@ class TestRiskClassification:
 
     def test_none_volatility(self):
         assert classify_risk(None) == "Unknown"
+
+
+class TestAllocationWeight:
+    def test_exceptional_low_vol(self):
+        result = compute_allocation_weight("exceptional", 15.0)
+        assert result == 8.0
+
+    def test_high_aggressive_vol(self):
+        result = compute_allocation_weight("high", 45.0)
+        assert result == 2.5  # 5.0 * 0.5
+
+    def test_moderate_mid_vol(self):
+        result = compute_allocation_weight("moderate", 30.0)
+        assert result == 2.2  # 3.0 * 0.75 = 2.25 rounded to 2.2
+
+    def test_none_volatility(self):
+        result = compute_allocation_weight("moderate", None)
+        assert result == 3.0  # base, no vol adjustment
+
+    def test_unknown_conviction(self):
+        result = compute_allocation_weight("unknown_level", 15.0)
+        assert result == 2.0  # default fallback
+
+    def test_watchlist(self):
+        result = compute_allocation_weight("watchlist", 20.0)
+        assert result == 2.0  # base for watchlist, vol < 25 so no scaling

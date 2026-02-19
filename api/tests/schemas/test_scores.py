@@ -14,7 +14,7 @@ def test_score_response_has_price_fields():
         "momentum": {"factor_name": "momentum", "weight": 0.35, "sub_scores": [], "average_percentile": 60.0},
         "filters_passed": [],
         "data_coverage": 1.0,
-        "intrinsic_value": 195.20,
+        "margin_invest_value": 195.20,
         "buy_price": 156.16,
         "sell_price": 195.20,
         "actual_price": 167.42,
@@ -22,7 +22,7 @@ def test_score_response_has_price_fields():
         "valuation_methods": {"dcf": 210.0},
     }
     resp = ScoreResponse(**data)
-    assert resp.intrinsic_value == 195.20
+    assert resp.margin_invest_value == 195.20
     assert resp.buy_price == 156.16
     assert resp.actual_price == 167.42
 
@@ -40,7 +40,7 @@ def test_score_response_price_fields_default_none():
         "data_coverage": 1.0,
     }
     resp = ScoreResponse(**data)
-    assert resp.intrinsic_value is None
+    assert resp.margin_invest_value is None
     assert resp.buy_price is None
     assert resp.price_history is None
 

@@ -37,7 +37,22 @@ def do_run_migrations(connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
-    engine = create_async_engine(get_settings().database_url)
+    url = get_settings().database_url
+    connect_args: dict = {}
+
+    # asyncpg doesn't accept sslmode as a URL parameter —
+    # strip it and pass SSL via connect_args instead.
+    if "sslmode=require" in url:
+        import ssl
+
+        url = url.replace("?sslmode=require", "").replace("&sslmode=require", "")
+        ssl_ctx = ssl.create_default_context()
+        # Railway (and many managed PG services) use self-signed certs
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+        connect_args["ssl"] = ssl_ctx
+
+    engine = create_async_engine(url, connect_args=connect_args)
     async with engine.begin() as connection:
         await connection.run_sync(do_run_migrations)
     await engine.dispose()

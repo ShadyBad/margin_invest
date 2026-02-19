@@ -21,7 +21,7 @@ class TestV2ScoreRoute:
         score.data_coverage = 1.0
         score.growth_stage = "steady_growth"
         score.scored_at = datetime(2026, 2, 17, tzinfo=UTC)
-        score.intrinsic_value = 500.0
+        score.margin_invest_value = 500.0
         score.buy_price = 400.0
         score.sell_price = 600.0
         score.actual_price = 350.0
@@ -94,7 +94,7 @@ class TestV2ScoreRoute:
         score.conviction_level = "high"
         score.signal = "buy"
         score.scored_at = datetime(2026, 2, 17, tzinfo=UTC)
-        score.intrinsic_value = 500.0
+        score.margin_invest_value = 500.0
         score.buy_price = 400.0
         score.sell_price = 600.0
         score.actual_price = 350.0
@@ -135,7 +135,7 @@ class TestV2ScoreRoute:
         score.data_coverage = 1.0
         score.growth_stage = None
         score.scored_at = datetime(2026, 2, 17, tzinfo=UTC)
-        score.intrinsic_value = None
+        score.margin_invest_value = None
         score.buy_price = None
         score.sell_price = None
         score.actual_price = None
@@ -189,7 +189,7 @@ class TestV2ScoreRoute:
         score.conviction_level = "high"
         score.signal = "buy"
         score.scored_at = datetime(2026, 2, 17, tzinfo=UTC)
-        score.intrinsic_value = None
+        score.margin_invest_value = None
         score.buy_price = None
         score.sell_price = None
         score.actual_price = None
@@ -266,7 +266,7 @@ class TestV2ScoreRoute:
         score.conviction_level = "high"
         score.signal = "buy"
         score.scored_at = datetime(2026, 2, 17, tzinfo=UTC)
-        score.intrinsic_value = None
+        score.margin_invest_value = None
         score.buy_price = None
         score.sell_price = None
         score.actual_price = None

@@ -59,11 +59,6 @@ export function InstitutionalMetrics({ metrics, className = "" }: InstitutionalM
           label="RISK CLASSIFICATION"
           value={metrics.riskClassification}
         />
-        <MetricCell
-          label="ALLOCATION WEIGHT"
-          value={metrics.allocationWeight != null ? `${metrics.allocationWeight.toFixed(1)}%` : "N/A"}
-          context="of portfolio"
-        />
       </div>
     </ProGate>
   )

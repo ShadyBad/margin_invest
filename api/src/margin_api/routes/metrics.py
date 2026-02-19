@@ -2,22 +2,52 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import Asset, FinancialData, Score
 from margin_api.db.session import get_db
-from margin_api.schemas.metrics import InstitutionalMetricsResponse
+from margin_api.schemas.metrics import InstitutionalMetricsResponse, MetricStatus
 from margin_api.services.metrics import (
     classify_risk,
     compute_avg_profit_margin,
-    compute_max_drawdown,
-    compute_sharpe_ratio,
-    compute_volatility,
 )
+from margin_engine.models.financial import PriceBar
+from margin_engine.scoring.risk_metrics import RiskMetrics, compute_risk_metrics
 
 router = APIRouter(prefix="/api/v1/scores", tags=["metrics"])
+
+
+def _metric(value: float | None, reason: str) -> MetricStatus:
+    """Wrap a metric value with an unavailability reason when None."""
+    if value is not None:
+        return MetricStatus(value=value)
+    return MetricStatus(unavailable_reason=reason)
+
+
+def _build_price_bars(raw_bars: list[dict]) -> list[PriceBar]:
+    """Convert raw JSON bar dicts into engine PriceBar objects."""
+    result: list[PriceBar] = []
+    for bar in raw_bars:
+        if "close" not in bar or "date" not in bar:
+            continue
+        try:
+            result.append(
+                PriceBar(
+                    date=bar["date"],
+                    open=Decimal(str(bar.get("open", 0))),
+                    high=Decimal(str(bar.get("high", 0))),
+                    low=Decimal(str(bar.get("low", 0))),
+                    close=Decimal(str(bar["close"])),
+                    volume=int(bar.get("volume", 0)),
+                )
+            )
+        except (ValueError, TypeError, ArithmeticError):
+            continue
+    return result
 
 
 @router.get("/{ticker}/metrics", response_model=InstitutionalMetricsResponse)
@@ -54,12 +84,53 @@ async def get_metrics(
     fd_result = await db.execute(fd_query)
     fin_data = fd_result.scalar()
 
-    # Extract close prices from price_history
-    closes: list[float] = []
+    # Build PriceBar objects from price_history
+    price_bars: list[PriceBar] = []
+    no_price_reason = "No price history available"
     if fin_data and fin_data.price_history:
         ph = fin_data.price_history
-        bars = ph.get("bars", []) if isinstance(ph, dict) else ph
-        closes = [bar["close"] for bar in bars if "close" in bar]
+        raw_bars = ph.get("bars", []) if isinstance(ph, dict) else ph
+        price_bars = _build_price_bars(raw_bars)
+        if len(price_bars) < 5:
+            no_price_reason = f"Insufficient price history ({len(price_bars)} bars, need 5+)"
+
+    # Compute risk metrics via engine
+    risk_metrics: RiskMetrics | None = None
+    try:
+        if len(price_bars) >= 5:
+            risk_metrics = compute_risk_metrics(price_bars, risk_free_rate=0.05)
+    except Exception:
+        risk_metrics = None
+
+    # Extract 1Y metrics
+    sharpe = risk_metrics.sharpe_1y if risk_metrics else None
+    max_dd = risk_metrics.max_drawdown_1y if risk_metrics else None
+    vol_decimal = risk_metrics.volatility_1y if risk_metrics else None
+
+    # Extract 3Y metrics
+    sharpe_3y = risk_metrics.sharpe_3y if risk_metrics else None
+    max_dd_3y = risk_metrics.max_drawdown_3y if risk_metrics else None
+    vol_3y_decimal = risk_metrics.volatility_3y if risk_metrics else None
+
+    # Unavailable reasons from engine
+    sharpe_reason = (
+        (risk_metrics.sharpe_unavailable_reason if risk_metrics else None) or no_price_reason
+    )
+    dd_reason = (
+        (risk_metrics.drawdown_unavailable_reason if risk_metrics else None) or no_price_reason
+    )
+    vol_reason = (
+        (risk_metrics.volatility_unavailable_reason if risk_metrics else None) or no_price_reason
+    )
+
+    # 3Y unavailable reason: always needs ~757 bars
+    reason_3y = "Insufficient data for 3-year metric"
+    sharpe_3y_reason = sharpe_reason if sharpe is None else reason_3y
+    dd_3y_reason = dd_reason if max_dd is None else reason_3y
+    vol_3y_reason = vol_reason if vol_decimal is None else reason_3y
+
+    # Convert engine volatility (decimal ratio) to percentage for classify_risk
+    vol_pct = vol_decimal * 100 if vol_decimal is not None else None
 
     # Extract income statement periods for profit margin
     income_periods: list[dict] = []
@@ -70,19 +141,6 @@ async def get_metrics(
         elif isinstance(inc, dict):
             income_periods = [inc]
 
-    # Compute metrics — defensive against bad data
-    try:
-        sharpe = compute_sharpe_ratio(closes)
-    except Exception:
-        sharpe = None
-    try:
-        max_dd = compute_max_drawdown(closes) if closes else None
-    except Exception:
-        max_dd = None
-    try:
-        vol = compute_volatility(closes)
-    except Exception:
-        vol = None
     try:
         avg_pm = compute_avg_profit_margin(income_periods)
     except Exception:
@@ -90,17 +148,40 @@ async def get_metrics(
 
     # Margin of safety
     margin_of_safety: float | None = None
-    intrinsic = getattr(score, "intrinsic_value", None)
+    mos_reason = "No intrinsic value or price available"
+    intrinsic = getattr(score, "margin_invest_value", None)
     actual = getattr(score, "actual_price", None)
     if intrinsic and actual and intrinsic > 0:
         margin_of_safety = round((intrinsic - actual) / intrinsic, 4)
+        mos_reason = ""
+
+    # Delta: price upside = (margin_invest_value - actual_price) / actual_price
+    delta: float | None = None
+    delta_reason = "No margin_invest_value or actual_price available"
+    if intrinsic and actual and actual > 0:
+        delta = round((intrinsic - actual) / actual, 4)
+        delta_reason = ""
 
     return InstitutionalMetricsResponse(
-        sharpe_ratio=sharpe,
-        max_drawdown=max_dd,
-        volatility=vol,
-        avg_profit_margin=avg_pm,
-        risk_classification=classify_risk(vol),
-        allocation_weight=getattr(score, "max_position_pct", None),
-        margin_of_safety=margin_of_safety,
+        sharpe_ratio=_metric(sharpe, sharpe_reason),
+        sharpe_ratio_3y=_metric(sharpe_3y, sharpe_3y_reason),
+        max_drawdown=_metric(max_dd, dd_reason),
+        max_drawdown_3y=_metric(max_dd_3y, dd_3y_reason),
+        volatility=_metric(vol_pct, vol_reason),
+        volatility_3y=_metric(
+            vol_3y_decimal * 100 if vol_3y_decimal is not None else None, vol_3y_reason
+        ),
+        avg_profit_margin=_metric(
+            avg_pm,
+            "No income statement data"
+            if not income_periods
+            else "Missing revenue or income fields",
+        ),
+        delta=_metric(delta, delta_reason) if delta_reason else MetricStatus(value=delta),
+        risk_classification=classify_risk(vol_pct),
+        margin_of_safety=(
+            _metric(margin_of_safety, mos_reason)
+            if mos_reason
+            else MetricStatus(value=margin_of_safety)
+        ),
     )

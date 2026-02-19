@@ -19,6 +19,8 @@ export interface ScoreDataPoint {
   date: string
   score: number
   signal?: string
+  delta?: number | null
+  conviction?: string | null
 }
 
 interface ScoreChartProps {
@@ -48,13 +50,14 @@ export function ScoreChart({
   scoringFrequency,
   lastScored,
 }: ScoreChartProps) {
-  if (!data || data.length === 0) {
+  if (!data || data.length < 2) {
     return (
       <div
-        className="h-[320px] flex items-center justify-center"
+        className="h-[320px] flex flex-col items-center justify-center gap-2"
         data-testid="score-chart-empty"
       >
-        <span className="text-[13px] text-[#5C5955]">Insufficient scoring history</span>
+        <span className="text-[13px] text-[#5C5955]">Score tracking begins after the next scoring run</span>
+        <span className="text-[11px] text-[#5C5955]/60">Scores are computed weekly</span>
       </div>
     )
   }

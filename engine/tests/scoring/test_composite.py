@@ -604,7 +604,7 @@ class TestPriceTargetsIntegration:
         from margin_engine.scoring.quantitative.price_targets import PriceTargets
 
         targets = PriceTargets(
-            intrinsic_value=195.20,
+            margin_invest_value=195.20,
             buy_price=195.20,
             sell_price=234.24,
             actual_price=167.42,
@@ -619,7 +619,7 @@ class TestPriceTargetsIntegration:
             filters_passed=[],
             price_targets=targets,
         )
-        assert score.intrinsic_value == 195.20
+        assert score.margin_invest_value == 195.20
         assert score.buy_price == 195.20
         assert score.sell_price == 234.24
         assert score.actual_price == 167.42
@@ -635,5 +635,5 @@ class TestPriceTargetsIntegration:
             momentum_scores=[FactorScore(name="pm", raw_value=0.1, percentile_rank=60.0)],
             filters_passed=[],
         )
-        assert score.intrinsic_value is None
+        assert score.margin_invest_value is None
         assert score.buy_price is None

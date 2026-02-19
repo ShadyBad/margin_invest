@@ -15,7 +15,7 @@ const outputs = [
   },
   {
     title: "Price target framework",
-    desc: "Intrinsic value estimate, buy-below price, sell target, and margin of safety — the key inputs for position entry and exit decisions.",
+    desc: "Margin Invest Value estimate, buy-below price, sell target, and margin of safety — the key inputs for position entry and exit decisions.",
   },
   {
     title: "Allocation guidance",
@@ -28,7 +28,7 @@ function MarginOfSafetyChart() {
   return (
     <div className="p-6 border border-border-primary rounded-lg bg-bg-elevated">
       <p className="text-[13px] font-medium text-text-secondary tracking-[0.5px] uppercase mb-6">
-        Price vs. Intrinsic Value
+        Price vs. Margin Invest Value
       </p>
 
       <div className="relative h-24 mb-4">
@@ -73,7 +73,7 @@ function MarginOfSafetyChart() {
       <div className="flex justify-between text-[11px] text-text-tertiary mt-2">
         <span>Buy Below</span>
         <span>Current Price</span>
-        <span>Intrinsic Value</span>
+        <span>Margin Invest Value</span>
         <span>Sell Target</span>
       </div>
     </div>
@@ -151,7 +151,7 @@ export function OutputsSection() {
           transition={{ duration: 0.5, delay: 0.15, ease }}
         >
           The margin of safety framework shows where the current price sits relative to the
-          estimated intrinsic value. When the price is in the discount zone, the risk/reward
+          estimated Margin Invest Value. When the price is in the discount zone, the risk/reward
           is most favorable. This is not a prediction — it&apos;s a structured way to evaluate entry
           and exit points.
         </motion.p>

@@ -5,6 +5,7 @@ export interface FilterResultResponse {
   threshold: number | null
   detail: string
   verdict: string
+  missing_fields?: string[] | null
 }
 
 export interface FactorScoreResponse {
@@ -59,7 +60,7 @@ export interface ScoreResponse {
   growth_stage?: string
   scored_at?: string
   // Price targets
-  intrinsic_value: number | null
+  margin_invest_value: number | null
   buy_price: number | null
   sell_price: number | null
   actual_price: number | null
@@ -87,14 +88,22 @@ export interface ScoreListResponse {
   page_size: number
 }
 
+export interface MetricStatus {
+  value: number | null
+  unavailable_reason: string | null
+}
+
 export interface InstitutionalMetricsResponse {
-  sharpe_ratio: number | null
-  max_drawdown: number | null
-  volatility: number | null
-  avg_profit_margin: number | null
+  sharpe_ratio: MetricStatus
+  sharpe_ratio_3y: MetricStatus
+  max_drawdown: MetricStatus
+  max_drawdown_3y: MetricStatus
+  volatility: MetricStatus
+  volatility_3y: MetricStatus
+  avg_profit_margin: MetricStatus
+  delta: MetricStatus
   risk_classification: string
-  allocation_weight: number | null
-  margin_of_safety: number | null
+  margin_of_safety: MetricStatus
 }
 
 export interface PickSummary {
@@ -164,6 +173,28 @@ export interface HealthResponse {
   version: string
 }
 
+export interface ScoreHistoryPoint {
+  scored_at: string
+  composite_percentile: number
+  composite_raw_score: number | null
+  quality_percentile: number | null
+  value_percentile: number | null
+  momentum_percentile: number | null
+  conviction_level: string
+  signal: string
+  margin_invest_value: number | null
+  buy_price: number | null
+  sell_price: number | null
+  actual_price: number | null
+  delta: number | null
+}
+
+export interface ScoreHistoryResponse {
+  ticker: string
+  points: ScoreHistoryPoint[]
+  total_runs: number
+}
+
 export interface BacktestConfig {
   start_date: string
   end_date: string | null
@@ -223,4 +254,29 @@ export interface BacktestSummary {
 export interface BacktestListResponse {
   results: BacktestSummary[]
   total: number
+}
+
+export interface MethodAuditResponse {
+  method: string
+  result_per_share: number | null
+  weight: number
+  renormalized_weight: number | null
+  included: boolean
+  exclusion_reason: string | null
+  inputs: Record<string, number>
+  intermediates: Record<string, number>
+}
+
+export interface ValuationAuditResponse {
+  margin_invest_value: number | null
+  margin_of_safety: number | null
+  buy_price: number | null
+  sell_price: number | null
+  actual_price: number | null
+  methods: MethodAuditResponse[]
+  mos_base: number | null
+  mos_cv: number | null
+  mos_adjustment: number | null
+  was_clamped: boolean
+  clamp_reason: string | null
 }

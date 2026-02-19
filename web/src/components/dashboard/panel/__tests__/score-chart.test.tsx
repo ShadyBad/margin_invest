@@ -30,7 +30,13 @@ describe("ScoreChart", () => {
   it("renders empty state when no data", () => {
     render(<ScoreChart data={[]} timeRange="3M" showBenchmark={false} />)
     expect(screen.getByTestId("score-chart-empty")).toBeInTheDocument()
-    expect(screen.getByText("Insufficient scoring history")).toBeInTheDocument()
+    expect(screen.getByText("Score tracking begins after the next scoring run")).toBeInTheDocument()
+    expect(screen.getByText("Scores are computed weekly")).toBeInTheDocument()
+  })
+
+  it("renders empty state with single data point", () => {
+    render(<ScoreChart data={[{ date: "2026-01-01", score: 80 }]} timeRange="3M" showBenchmark={false} />)
+    expect(screen.getByTestId("score-chart-empty")).toBeInTheDocument()
   })
 
   it("renders score context strip", () => {

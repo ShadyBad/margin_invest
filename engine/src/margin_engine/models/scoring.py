@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 class FilterVerdict(StrEnum):
     PASS = "pass"
     FAIL = "fail"
+    INCONCLUSIVE = "inconclusive"
 
 
 class ConvictionLevel(StrEnum):
@@ -51,9 +52,16 @@ class FilterResult(BaseModel):
     value: float | None = None
     threshold: float | None = None
     detail: str = ""
+    insufficient_data: bool = False
+    missing_fields: list[str] | None = None
+    computed_metrics: dict[str, float] | None = None
+    warning: bool = False
+    warning_reason: str | None = None
 
     @property
     def verdict(self) -> FilterVerdict:
+        if self.insufficient_data:
+            return FilterVerdict.INCONCLUSIVE
         return FilterVerdict.PASS if self.passed else FilterVerdict.FAIL
 
 
@@ -109,7 +117,7 @@ class CompositeScore(BaseModel):
     growth_stage: GrowthStage | None = None
 
     # Price target fields (populated by PriceTargetCalculator)
-    intrinsic_value: float | None = None
+    margin_invest_value: float | None = None
     buy_price: float | None = None
     sell_price: float | None = None
     actual_price: float | None = None
@@ -165,6 +173,11 @@ class CompositeScore(BaseModel):
             return Signal.HOLD
         # Fallback: conviction-based
         return Signal.BUY
+
+    @property
+    def intrinsic_value(self) -> float | None:
+        """Deprecated: use margin_invest_value."""
+        return self.margin_invest_value
 
 
 class ScoringConfig(BaseModel):

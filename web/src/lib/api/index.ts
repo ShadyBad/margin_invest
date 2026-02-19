@@ -1,6 +1,6 @@
 export { apiFetch, ApiError } from './client'
 export { serverFetch } from './server'
-export { getScore, getMetrics, listScores, deleteScore } from './scores'
+export { getScore, getMetrics, getScoreHistory, listScores, deleteScore } from './scores'
 export { getDashboard } from './dashboard'
 export { getHealth } from './health'
 export { runBacktest, getBacktestResults, getBacktestResult } from './backtest'
@@ -22,4 +22,7 @@ export type {
   BacktestSummary,
   BacktestListResponse,
   InstitutionalMetricsResponse,
+  MetricStatus,
+  ScoreHistoryPoint,
+  ScoreHistoryResponse,
 } from './types'

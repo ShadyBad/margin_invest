@@ -179,7 +179,7 @@ class Score(Base):
     universe_snapshot_id: Mapped[int | None] = mapped_column(
         ForeignKey("universe_snapshots.id"), nullable=True
     )
-    intrinsic_value: Mapped[float | None] = mapped_column(nullable=True)
+    margin_invest_value: Mapped[float | None] = mapped_column(nullable=True)
     buy_price: Mapped[float | None] = mapped_column(nullable=True)
     sell_price: Mapped[float | None] = mapped_column(nullable=True)
     actual_price: Mapped[float | None] = mapped_column(nullable=True)

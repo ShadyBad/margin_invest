@@ -24,7 +24,7 @@ vi.mock("../insight-panel", () => ({
 }))
 vi.mock("../panel-valuation", () => ({
   PanelValuation: (props: any) => (
-    <div data-testid="panel-valuation" data-buy-below={props.buyBelow ?? "none"} />
+    <div data-testid="panel-valuation" data-buy-price={props.buyPrice ?? "none"} />
   ),
 }))
 vi.mock("../panel-filter-list", () => ({
@@ -70,7 +70,7 @@ const mockScore: ScoreResponse = {
   momentum: { factor_name: "momentum", weight: 0.20, average_percentile: 88, sub_scores: [] },
   filters_passed: [],
   data_coverage: 0.95,
-  intrinsic_value: 180,
+  margin_invest_value: 180,
   buy_price: 140,
   sell_price: 200,
   actual_price: 150,
@@ -80,13 +80,16 @@ const mockScore: ScoreResponse = {
 }
 
 const mockMetrics: InstitutionalMetricsResponse = {
-  sharpe_ratio: 1.5,
-  max_drawdown: -0.15,
-  volatility: 22.5,
-  avg_profit_margin: 25.0,
+  sharpe_ratio: { value: 1.5, unavailable_reason: null },
+  sharpe_ratio_3y: { value: 1.3, unavailable_reason: null },
+  max_drawdown: { value: -0.15, unavailable_reason: null },
+  max_drawdown_3y: { value: -0.22, unavailable_reason: null },
+  volatility: { value: 22.5, unavailable_reason: null },
+  volatility_3y: { value: 20.1, unavailable_reason: null },
+  avg_profit_margin: { value: 25.0, unavailable_reason: null },
+  delta: { value: 0.12, unavailable_reason: null },
   risk_classification: "Moderate",
-  allocation_weight: 8.0,
-  margin_of_safety: 0.10,
+  margin_of_safety: { value: 0.10, unavailable_reason: null },
 }
 
 describe("AssetPanel", () => {
@@ -135,9 +138,9 @@ describe("AssetPanel", () => {
     expect(dialog).toHaveAttribute("aria-label", "AAPL analysis panel")
   })
 
-  it("passes buy_price to PanelValuation as buyBelow", () => {
+  it("passes buy_price to PanelValuation as buyPrice", () => {
     render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     const valuation = screen.getByTestId("panel-valuation")
-    expect(valuation).toHaveAttribute("data-buy-below", "140")
+    expect(valuation).toHaveAttribute("data-buy-price", "140")
   })
 })

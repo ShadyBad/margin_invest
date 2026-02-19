@@ -34,6 +34,7 @@ from pydantic import BaseModel, model_validator
 
 from margin_engine.models.financial import AssetProfile, FinancialPeriod, PriceBar
 from margin_engine.models.scoring import ConvictionLevel, GrowthStage
+from margin_engine.models.valuation_audit import MethodAudit, ValuationAudit
 
 # Method weights (must sum to 1.0)
 _METHOD_WEIGHTS: dict[str, float] = {
@@ -95,7 +96,7 @@ _ABS_MAX_INTRINSIC = 1_000_000.0  # Absolute ceiling when no actual_price
 class PriceTargets(BaseModel):
     """Multi-method intrinsic value and price target result."""
 
-    intrinsic_value: float | None = None
+    margin_invest_value: float | None = None
     buy_price: float | None = None
     sell_price: float | None = None
     actual_price: float | None = None
@@ -103,12 +104,13 @@ class PriceTargets(BaseModel):
     margin_of_safety: float | None = None
     valuation_methods: dict[str, float] | None = None
     invalid_reason: str | None = None
+    valuation_audit: ValuationAudit | None = None
 
     @model_validator(mode="after")
     def check_invalid_reason_consistency(self) -> PriceTargets:
         """If invalid_reason is set, all price fields must be None."""
         if self.invalid_reason is not None:
-            price_fields = [self.intrinsic_value, self.buy_price, self.sell_price, self.price_upside]
+            price_fields = [self.margin_invest_value, self.buy_price, self.sell_price, self.price_upside]
             if any(f is not None for f in price_fields):
                 raise ValueError(
                     "Price fields must be None when invalid_reason is set"
@@ -117,8 +119,8 @@ class PriceTargets(BaseModel):
 
     @model_validator(mode="after")
     def check_positive_prices(self) -> PriceTargets:
-        """intrinsic_value, buy_price, sell_price must be > 0 when present."""
-        for field_name in ("intrinsic_value", "buy_price", "sell_price"):
+        """margin_invest_value, buy_price, sell_price must be > 0 when present."""
+        for field_name in ("margin_invest_value", "buy_price", "sell_price"):
             val = getattr(self, field_name)
             if val is not None and val <= 0:
                 raise ValueError(f"{field_name} must be > 0 when set, got {val}")
@@ -190,8 +192,8 @@ def compute_price_targets(
             profile.ticker,
         )
 
-    # Compute each valuation method (returns None if data is invalid)
-    methods: dict[str, float | None] = {
+    # Compute each valuation method (returns (result, inputs, intermediates, exclusion_reason))
+    method_results: dict[str, tuple[float | None, dict[str, float], dict[str, float], str | None]] = {
         "dcf": _dcf_intrinsic_per_share(
             period=period,
             shares=shares,
@@ -218,6 +220,21 @@ def compute_price_targets(
         ),
     }
 
+    # Build initial MethodAudit objects for each method
+    method_audits: dict[str, MethodAudit] = {}
+    methods: dict[str, float | None] = {}
+    for key, (result, inputs, intermediates, exclusion_reason) in method_results.items():
+        methods[key] = result
+        method_audits[key] = MethodAudit(
+            method=key,
+            result_per_share=result,
+            weight=_METHOD_WEIGHTS[key],
+            included=result is not None,
+            exclusion_reason=exclusion_reason,
+            inputs=inputs,
+            intermediates=intermediates,
+        )
+
     # Filter to valid methods only
     valid_methods: dict[str, float] = {
         k: v for k, v in methods.items() if v is not None
@@ -230,7 +247,13 @@ def compute_price_targets(
         )
 
     # Layer 3: Cross-method consistency — exclude outlier methods
+    pre_outlier_keys = set(valid_methods.keys())
     valid_methods = _filter_outlier_methods(valid_methods)
+    # Mark methods removed by outlier filter
+    for key in pre_outlier_keys - set(valid_methods.keys()):
+        method_audits[key].included = False
+        method_audits[key].exclusion_reason = "outlier_filtered"
+
     if not valid_methods:
         logger.warning("Layer 3 reject: %s all methods filtered as inconsistent", profile.ticker)
         return PriceTargets(
@@ -240,6 +263,10 @@ def compute_price_targets(
 
     # Renormalize weights for valid methods
     total_weight = sum(_METHOD_WEIGHTS[k] for k in valid_methods)
+    for key, audit in method_audits.items():
+        if audit.included:
+            audit.renormalized_weight = _METHOD_WEIGHTS[key] / total_weight
+
     intrinsic_value = sum(
         _METHOD_WEIGHTS[k] / total_weight * v for k, v in valid_methods.items()
     )
@@ -247,31 +274,54 @@ def compute_price_targets(
     # Layer 4: Clamp intrinsic value to reasonable bounds instead of rejecting.
     # Deep-value stocks can genuinely trade at large discounts to intrinsic value.
     intrinsic_value, was_clamped = _clamp_intrinsic_value(intrinsic_value, actual_price)
+    clamp_reason: str | None = None
     if was_clamped:
         logger.info(
             "Layer 4 clamp: %s intrinsic_value clamped to %.2f (actual_price=%s)",
             profile.ticker, intrinsic_value, actual_price,
         )
+        if actual_price is not None and actual_price > 0:
+            clamp_reason = "clamped_to_price_bounds"
+        else:
+            clamp_reason = "clamped_to_absolute_bounds"
 
-    # Dynamic margin of safety — intrinsic value IS the buy price (floor).
-    # MoS only applies upward for the sell price, protecting against
-    # calculation error and capping expected upside.
-    mos = _compute_margin_of_safety(valid_methods, intrinsic_value, growth_stage)
-    buy_price = intrinsic_value
+    # Dual threshold margin of safety — MoS applied symmetrically.
+    # Buy price is discounted below fair value (entry with safety margin).
+    # Sell price is above fair value (exit when overvalued).
+    mos, mos_base, mos_cv, mos_adjustment = _compute_margin_of_safety(
+        valid_methods, intrinsic_value, growth_stage,
+    )
+    buy_price = intrinsic_value * (1 - mos)
     sell_price = intrinsic_value * (1 + mos)
 
     price_upside: float | None = None
     if actual_price is not None and actual_price > 0:
         price_upside = round((intrinsic_value - actual_price) / actual_price, 4)
 
+    # Build the full ValuationAudit
+    valuation_audit = ValuationAudit(
+        margin_invest_value=round(intrinsic_value, 2),
+        margin_of_safety=round(mos, 4),
+        buy_price=round(buy_price, 2),
+        sell_price=round(sell_price, 2),
+        actual_price=actual_price,
+        methods=list(method_audits.values()),
+        mos_base=mos_base,
+        mos_cv=mos_cv,
+        mos_adjustment=mos_adjustment,
+        was_clamped=was_clamped,
+        clamp_reason=clamp_reason,
+    )
+
     return PriceTargets(
-        intrinsic_value=round(intrinsic_value, 2),
+        margin_invest_value=round(intrinsic_value, 2),
         buy_price=round(buy_price, 2),
         sell_price=round(sell_price, 2),
         actual_price=actual_price,
         price_upside=price_upside,
         margin_of_safety=round(mos, 4),
         valuation_methods={k: round(v, 2) for k, v in valid_methods.items()},
+        valuation_audit=valuation_audit,
     )
 
 
@@ -279,8 +329,10 @@ def _compute_margin_of_safety(
     valid_methods: dict[str, float],
     intrinsic_value: float,
     growth_stage: GrowthStage | None,
-) -> float:
+) -> tuple[float, float, float | None, float]:
     """Compute dynamic margin of safety from quality tier + valuation dispersion.
+
+    Returns (mos, base, cv, adjustment) for audit trail.
 
     Layer 1 — Quality tier base:
         Steady/Mature businesses (predictable cash flows) start at 25%.
@@ -297,6 +349,7 @@ def _compute_margin_of_safety(
 
     # Layer 2: Dispersion adjustment (need 2+ methods to measure agreement)
     adjustment = 0.0
+    cv: float | None = None
     if len(valid_methods) >= 2 and intrinsic_value > 0:
         values = list(valid_methods.values())
         mean = sum(values) / len(values)
@@ -315,7 +368,8 @@ def _compute_margin_of_safety(
             t = (cv - _LOW_CV_THRESHOLD) / (_HIGH_CV_THRESHOLD - _LOW_CV_THRESHOLD)
             adjustment = t * _DISPERSION_WIDEN_MAX
 
-    return max(_MOS_FLOOR, min(_MOS_CEILING, base + adjustment))
+    mos = max(_MOS_FLOOR, min(_MOS_CEILING, base + adjustment))
+    return mos, base, cv, adjustment
 
 
 def _filter_outlier_methods(methods: dict[str, float]) -> dict[str, float]:
@@ -406,17 +460,28 @@ def _dcf_intrinsic_per_share(
     terminal_growth_rate: float,
     projection_years: int,
     actual_price: float | None = None,
-) -> float | None:
+) -> tuple[float | None, dict[str, float], dict[str, float], str | None]:
     """Two-stage DCF intrinsic value per share.
 
-    Returns None if FCF <= 0 or discount_rate <= terminal_growth_rate.
+    Returns (result, inputs, intermediates, exclusion_reason).
+    result is None if FCF <= 0 or discount_rate <= terminal_growth_rate.
     """
+    inputs: dict[str, float] = {}
+    intermediates: dict[str, float] = {}
+
     fcf = period.current_cash_flow.free_cash_flow
+    inputs["fcf"] = float(fcf)
+    inputs["growth_rate"] = growth_rate
+    inputs["discount_rate"] = discount_rate
+    inputs["terminal_growth_rate"] = terminal_growth_rate
+    inputs["projection_years"] = float(projection_years)
+    inputs["shares"] = float(shares)
+
     if fcf <= 0:
-        return None
+        return None, inputs, intermediates, "negative_fcf"
 
     if discount_rate <= terminal_growth_rate:
-        return None
+        return None, inputs, intermediates, "discount_rate_lte_terminal"
 
     fcf_float = float(fcf)
 
@@ -434,17 +499,21 @@ def _dcf_intrinsic_per_share(
     pv_terminal = terminal_value / (1 + discount_rate) ** projection_years
 
     intrinsic_total = pv_sum + pv_terminal
+    intermediates["pv_stage1"] = pv_sum
+    intermediates["pv_terminal"] = pv_terminal
+    intermediates["intrinsic_total"] = intrinsic_total
+
     if intrinsic_total <= 0:
-        return None
+        return None, inputs, intermediates, "negative_intrinsic_total"
 
     result = intrinsic_total / shares
     if result < _MIN_PER_SHARE_PRICE:
         logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "DCF", result, _MIN_PER_SHARE_PRICE)
-        return None
+        return None, inputs, intermediates, "below_min_per_share"
     if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
         logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "DCF", result, _MAX_PRICE_MULTIPLE, actual_price)
-        return None
-    return result
+        return None, inputs, intermediates, "exceeds_20x_price"
+    return result, inputs, intermediates, None
 
 
 def _ev_fcf_implied_per_share(
@@ -452,36 +521,44 @@ def _ev_fcf_implied_per_share(
     shares: int,
     target_multiple: float = 15.0,
     actual_price: float | None = None,
-) -> float | None:
+) -> tuple[float | None, dict[str, float], dict[str, float], str | None]:
     """Implied price from target EV/FCF multiple.
 
-    implied_ev = target_multiple * FCF
-    implied_equity = implied_ev - debt + cash
-    price = implied_equity / shares
-
-    Returns None if FCF <= 0.
+    Returns (result, inputs, intermediates, exclusion_reason).
+    result is None if FCF <= 0.
     """
-    fcf = period.current_cash_flow.free_cash_flow
-    if fcf <= 0:
-        return None
+    inputs: dict[str, float] = {}
+    intermediates: dict[str, float] = {}
 
+    fcf = period.current_cash_flow.free_cash_flow
     total_debt = period.current_balance.total_debt
     cash = period.current_balance.cash_and_equivalents or Decimal("0")
 
+    inputs["fcf"] = float(fcf)
+    inputs["target_multiple"] = target_multiple
+    inputs["total_debt"] = float(total_debt)
+    inputs["cash"] = float(cash)
+    inputs["shares"] = float(shares)
+
+    if fcf <= 0:
+        return None, inputs, intermediates, "negative_fcf"
+
     implied_ev = target_multiple * float(fcf)
     implied_equity = implied_ev - float(total_debt) + float(cash)
+    intermediates["implied_ev"] = implied_ev
+    intermediates["implied_equity"] = implied_equity
 
     if implied_equity <= 0:
-        return None
+        return None, inputs, intermediates, "negative_implied_equity"
 
     result = implied_equity / shares
     if result < _MIN_PER_SHARE_PRICE:
         logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "EV/FCF", result, _MIN_PER_SHARE_PRICE)
-        return None
+        return None, inputs, intermediates, "below_min_per_share"
     if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
         logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "EV/FCF", result, _MAX_PRICE_MULTIPLE, actual_price)
-        return None
-    return result
+        return None, inputs, intermediates, "exceeds_20x_price"
+    return result, inputs, intermediates, None
 
 
 def _acquirers_implied_per_share(
@@ -489,36 +566,44 @@ def _acquirers_implied_per_share(
     shares: int,
     target_multiple: float = 12.0,
     actual_price: float | None = None,
-) -> float | None:
+) -> tuple[float | None, dict[str, float], dict[str, float], str | None]:
     """Implied price from target EV/EBIT (Acquirer's Multiple).
 
-    implied_ev = target_multiple * EBIT
-    implied_equity = implied_ev - debt + cash
-    price = implied_equity / shares
-
-    Returns None if EBIT <= 0.
+    Returns (result, inputs, intermediates, exclusion_reason).
+    result is None if EBIT <= 0.
     """
-    ebit = period.current_income.ebit
-    if ebit <= 0:
-        return None
+    inputs: dict[str, float] = {}
+    intermediates: dict[str, float] = {}
 
+    ebit = period.current_income.ebit
     total_debt = period.current_balance.total_debt
     cash = period.current_balance.cash_and_equivalents or Decimal("0")
 
+    inputs["ebit"] = float(ebit)
+    inputs["target_multiple"] = target_multiple
+    inputs["total_debt"] = float(total_debt)
+    inputs["cash"] = float(cash)
+    inputs["shares"] = float(shares)
+
+    if ebit <= 0:
+        return None, inputs, intermediates, "negative_ebit"
+
     implied_ev = target_multiple * float(ebit)
     implied_equity = implied_ev - float(total_debt) + float(cash)
+    intermediates["implied_ev"] = implied_ev
+    intermediates["implied_equity"] = implied_equity
 
     if implied_equity <= 0:
-        return None
+        return None, inputs, intermediates, "negative_implied_equity"
 
     result = implied_equity / shares
     if result < _MIN_PER_SHARE_PRICE:
         logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "Acquirer's Multiple", result, _MIN_PER_SHARE_PRICE)
-        return None
+        return None, inputs, intermediates, "below_min_per_share"
     if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
         logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "Acquirer's Multiple", result, _MAX_PRICE_MULTIPLE, actual_price)
-        return None
-    return result
+        return None, inputs, intermediates, "exceeds_20x_price"
+    return result, inputs, intermediates, None
 
 
 def _shareholder_yield_implied_per_share(
@@ -526,29 +611,37 @@ def _shareholder_yield_implied_per_share(
     shares: int,
     target_yield: float = 0.04,
     actual_price: float | None = None,
-) -> float | None:
+) -> tuple[float | None, dict[str, float], dict[str, float], str | None]:
     """Implied price from target shareholder yield.
 
-    total_return = abs(dividends_paid) + net_buybacks
-    implied_market_cap = total_return / target_yield
-    price = implied_market_cap / shares
-
-    Returns None if total_return <= 0.
+    Returns (result, inputs, intermediates, exclusion_reason).
+    result is None if total_return <= 0.
     """
+    inputs: dict[str, float] = {}
+    intermediates: dict[str, float] = {}
+
     dividends = abs(period.current_cash_flow.dividends_paid or Decimal("0"))
     net_buybacks = period.current_cash_flow.net_buybacks
 
+    inputs["dividends"] = float(dividends)
+    inputs["net_buybacks"] = float(net_buybacks)
+    inputs["target_yield"] = target_yield
+    inputs["shares"] = float(shares)
+
     total_return = dividends + net_buybacks
+    intermediates["total_return"] = float(total_return)
+
     if total_return <= 0:
-        return None
+        return None, inputs, intermediates, "negative_total_return"
 
     implied_market_cap = float(total_return) / target_yield
+    intermediates["implied_market_cap"] = implied_market_cap
 
     result = implied_market_cap / shares
     if result < _MIN_PER_SHARE_PRICE:
         logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "Shareholder Yield", result, _MIN_PER_SHARE_PRICE)
-        return None
+        return None, inputs, intermediates, "below_min_per_share"
     if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
         logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "Shareholder Yield", result, _MAX_PRICE_MULTIPLE, actual_price)
-        return None
-    return result
+        return None, inputs, intermediates, "exceeds_20x_price"
+    return result, inputs, intermediates, None
