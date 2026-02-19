@@ -10,6 +10,7 @@ from margin_api.services.metrics import (
     compute_volatility,
     compute_avg_profit_margin,
     classify_risk,
+    compute_allocation_weight,
 )
 
 
@@ -142,3 +143,29 @@ class TestRiskClassification:
 
     def test_none_volatility(self):
         assert classify_risk(None) == "Unknown"
+
+
+class TestAllocationWeight:
+    def test_exceptional_low_vol(self):
+        result = compute_allocation_weight("exceptional", 15.0)
+        assert result == 8.0
+
+    def test_high_aggressive_vol(self):
+        result = compute_allocation_weight("high", 45.0)
+        assert result == 2.5  # 5.0 * 0.5
+
+    def test_moderate_mid_vol(self):
+        result = compute_allocation_weight("moderate", 30.0)
+        assert result == 2.2  # 3.0 * 0.75 = 2.25 rounded to 2.2
+
+    def test_none_volatility(self):
+        result = compute_allocation_weight("moderate", None)
+        assert result == 3.0  # base, no vol adjustment
+
+    def test_unknown_conviction(self):
+        result = compute_allocation_weight("unknown_level", 15.0)
+        assert result == 2.0  # default fallback
+
+    def test_watchlist(self):
+        result = compute_allocation_weight("watchlist", 20.0)
+        assert result == 2.0  # base for watchlist, vol < 25 so no scaling

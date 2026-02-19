@@ -126,34 +126,34 @@ async def test_metrics_returns_all_fields(client):
     resp = await client.get("/api/v1/scores/AAPL/metrics")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["sharpe_ratio"] is not None
-    assert data["max_drawdown"] is not None
-    assert data["volatility"] is not None
-    assert data["avg_profit_margin"] is not None
+    assert data["sharpe_ratio"]["value"] is not None
+    assert data["max_drawdown"]["value"] is not None
+    assert data["volatility"]["value"] is not None
+    assert data["avg_profit_margin"]["value"] is not None
     assert data["risk_classification"] in ("Conservative", "Moderate", "Moderate-High", "Aggressive")
-    assert data["allocation_weight"] == 8.0
-    assert data["margin_of_safety"] is not None
+    assert data["allocation_weight"]["value"] == 8.0
+    assert data["margin_of_safety"]["value"] is not None
 
 
 @pytest.mark.asyncio
 async def test_metrics_sharpe_positive(client):
     resp = await client.get("/api/v1/scores/AAPL/metrics")
     data = resp.json()
-    assert data["sharpe_ratio"] > 0
+    assert data["sharpe_ratio"]["value"] > 0
 
 
 @pytest.mark.asyncio
 async def test_metrics_margin_of_safety(client):
     resp = await client.get("/api/v1/scores/AAPL/metrics")
     data = resp.json()
-    assert data["margin_of_safety"] == pytest.approx(0.1, abs=0.01)
+    assert data["margin_of_safety"]["value"] == pytest.approx(0.1, abs=0.01)
 
 
 @pytest.mark.asyncio
 async def test_metrics_avg_profit_margin(client):
     resp = await client.get("/api/v1/scores/AAPL/metrics")
     data = resp.json()
-    assert data["avg_profit_margin"] == pytest.approx(25.0, abs=0.5)
+    assert data["avg_profit_margin"]["value"] == pytest.approx(25.0, abs=0.5)
 
 
 @pytest.mark.asyncio
@@ -210,13 +210,14 @@ async def client_no_financial_data(async_engine):
 
 @pytest.mark.asyncio
 async def test_metrics_with_missing_financial_data_returns_nulls(client_no_financial_data):
-    """Metrics endpoint returns null metrics when financial data is missing, not 500."""
+    """Metrics endpoint returns null metrics with reasons when data is missing."""
     resp = await client_no_financial_data.get("/api/v1/scores/EMPTY/metrics")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["sharpe_ratio"] is None
-    assert data["max_drawdown"] is None
-    assert data["volatility"] is None
+    assert data["sharpe_ratio"]["value"] is None
+    assert data["sharpe_ratio"]["unavailable_reason"] is not None
+    assert data["max_drawdown"]["value"] is None
+    assert data["volatility"]["value"] is None
 
 
 @pytest_asyncio.fixture
@@ -282,11 +283,22 @@ async def client_malformed_prices(async_engine):
 
 @pytest.mark.asyncio
 async def test_metrics_with_malformed_prices_returns_nulls(client_malformed_prices):
-    """Metrics endpoint returns null metrics when price data is malformed, not 500."""
+    """Metrics endpoint returns null metrics with reasons when data is malformed."""
     resp = await client_malformed_prices.get("/api/v1/scores/BAD/metrics")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["sharpe_ratio"] is None
-    assert data["max_drawdown"] is None
-    assert data["volatility"] is None
-    assert data["avg_profit_margin"] is None
+    assert data["sharpe_ratio"]["value"] is None
+    assert data["max_drawdown"]["value"] is None
+    assert data["volatility"]["value"] is None
+    assert data["avg_profit_margin"]["value"] is None
+
+
+@pytest.mark.asyncio
+async def test_metrics_allocation_fallback_when_null(client_no_financial_data):
+    """When max_position_pct is NULL, allocation_weight is computed from conviction + volatility."""
+    resp = await client_no_financial_data.get("/api/v1/scores/EMPTY/metrics")
+    assert resp.status_code == 200
+    data = resp.json()
+    # Should have a computed value, not None
+    assert data["allocation_weight"]["value"] is not None
+    assert data["allocation_weight"]["unavailable_reason"] is None
