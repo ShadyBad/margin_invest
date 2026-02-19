@@ -241,11 +241,11 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
 
                 <PanelValuation
                   ticker={ticker}
-                  intrinsicValue={scoredResult.margin_invest_value}
+                  marginInvestValue={scoredResult.margin_invest_value}
                   currentPrice={scoredResult.actual_price}
                   marginOfSafety={scoredResult.margin_of_safety}
                   methods={scoredResult.valuation_methods}
-                  buyBelow={scoredResult.buy_price}
+                  buyPrice={scoredResult.buy_price}
                   sellPrice={scoredResult.sell_price}
                 />
 

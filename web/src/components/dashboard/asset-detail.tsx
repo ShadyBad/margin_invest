@@ -213,7 +213,7 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
           <div className="pb-5 mb-5 border-b border-border-primary/20">
             <ValuationBreakdown
               methods={score.valuation_methods}
-              intrinsicValue={score.margin_invest_value}
+              marginInvestValue={score.margin_invest_value}
               actualPrice={score.actual_price}
               marginOfSafety={score.margin_of_safety}
               invalidReason={score.price_target_invalid_reason}

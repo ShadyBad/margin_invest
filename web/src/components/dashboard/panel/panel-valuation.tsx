@@ -15,21 +15,21 @@ const METHOD_LABELS: Record<string, string> = {
 
 interface PanelValuationProps {
   ticker?: string
-  intrinsicValue: number | null  // This is now "Margin Invest Value"
+  marginInvestValue: number | null
   currentPrice: number | null
   marginOfSafety: number | null
   methods: Record<string, number> | null
-  buyBelow?: number | null  // buy_price
+  buyPrice?: number | null
   sellPrice?: number | null
 }
 
 export function PanelValuation({
   ticker,
-  intrinsicValue,
+  marginInvestValue,
   currentPrice,
   marginOfSafety,
   methods,
-  buyBelow,
+  buyPrice,
   sellPrice,
 }: PanelValuationProps) {
   const [expandedMethod, setExpandedMethod] = useState<string | null>(null)
@@ -38,7 +38,7 @@ export function PanelValuation({
 
   const entries = methods ? Object.entries(methods) : []
 
-  if (entries.length === 0 && intrinsicValue == null) {
+  if (entries.length === 0 && marginInvestValue == null) {
     return (
       <div data-testid="panel-valuation">
         <h3 className="text-[14px] font-semibold text-[#E8E6E3] mb-3">Valuation</h3>
@@ -73,12 +73,12 @@ export function PanelValuation({
       <h3 className="text-[14px] font-semibold text-[#E8E6E3] mb-3">Valuation</h3>
 
       {/* Header trio: MIV, Current Price, MoS */}
-      {intrinsicValue != null && (
+      {marginInvestValue != null && (
         <div className="mb-2">
           <div className="grid grid-cols-3 gap-2">
             <div>
               <span className="text-[10px] text-[#9A9590] uppercase tracking-wider block">Margin Invest Value</span>
-              <span className="text-[16px] font-mono text-[#E8E6E3] font-medium">${intrinsicValue.toFixed(2)}</span>
+              <span className="text-[16px] font-mono text-[#E8E6E3] font-medium">${marginInvestValue.toFixed(2)}</span>
             </div>
             {currentPrice != null && (
               <div>
@@ -100,9 +100,9 @@ export function PanelValuation({
 
           {/* Price Ladder */}
           <PriceLadder
-            buyPrice={buyBelow ?? null}
+            buyPrice={buyPrice ?? null}
             currentPrice={currentPrice}
-            fairValue={intrinsicValue}
+            fairValue={marginInvestValue}
             sellPrice={sellPrice ?? null}
           />
         </div>

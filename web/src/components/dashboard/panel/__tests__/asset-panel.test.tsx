@@ -24,7 +24,7 @@ vi.mock("../insight-panel", () => ({
 }))
 vi.mock("../panel-valuation", () => ({
   PanelValuation: (props: any) => (
-    <div data-testid="panel-valuation" data-buy-below={props.buyBelow ?? "none"} />
+    <div data-testid="panel-valuation" data-buy-price={props.buyPrice ?? "none"} />
   ),
 }))
 vi.mock("../panel-filter-list", () => ({
@@ -138,9 +138,9 @@ describe("AssetPanel", () => {
     expect(dialog).toHaveAttribute("aria-label", "AAPL analysis panel")
   })
 
-  it("passes buy_price to PanelValuation as buyBelow", () => {
+  it("passes buy_price to PanelValuation as buyPrice", () => {
     render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     const valuation = screen.getByTestId("panel-valuation")
-    expect(valuation).toHaveAttribute("data-buy-below", "140")
+    expect(valuation).toHaveAttribute("data-buy-price", "140")
   })
 })

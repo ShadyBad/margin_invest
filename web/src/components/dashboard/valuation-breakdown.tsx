@@ -1,6 +1,6 @@
 interface ValuationBreakdownProps {
   methods: Record<string, number> | null | undefined
-  intrinsicValue: number | null | undefined
+  marginInvestValue: number | null | undefined
   actualPrice?: number | null
   marginOfSafety?: number | null
   invalidReason?: string | null
@@ -16,7 +16,7 @@ const METHOD_LABELS: Record<string, string> = {
 
 export function ValuationBreakdown({
   methods,
-  intrinsicValue,
+  marginInvestValue,
   actualPrice,
   marginOfSafety,
   invalidReason,
@@ -64,11 +64,11 @@ export function ValuationBreakdown({
           </div>
         ))}
       </div>
-      {intrinsicValue != null && (
+      {marginInvestValue != null && (
         <div className="mt-3 pt-3 border-t border-border-primary">
           <div className="flex justify-between text-sm">
             <span className="text-text-secondary">Consensus</span>
-            <span className="text-text-primary font-mono font-semibold">${intrinsicValue.toFixed(2)}</span>
+            <span className="text-text-primary font-mono font-semibold">${marginInvestValue.toFixed(2)}</span>
           </div>
           {actualPrice != null && (
             <div className="flex justify-between text-sm mt-1">
