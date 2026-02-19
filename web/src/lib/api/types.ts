@@ -255,3 +255,28 @@ export interface BacktestListResponse {
   results: BacktestSummary[]
   total: number
 }
+
+export interface MethodAuditResponse {
+  method: string
+  result_per_share: number | null
+  weight: number
+  renormalized_weight: number | null
+  included: boolean
+  exclusion_reason: string | null
+  inputs: Record<string, number>
+  intermediates: Record<string, number>
+}
+
+export interface ValuationAuditResponse {
+  margin_invest_value: number | null
+  margin_of_safety: number | null
+  buy_price: number | null
+  sell_price: number | null
+  actual_price: number | null
+  methods: MethodAuditResponse[]
+  mos_base: number | null
+  mos_cv: number | null
+  mos_adjustment: number | null
+  was_clamped: boolean
+  clamp_reason: string | null
+}

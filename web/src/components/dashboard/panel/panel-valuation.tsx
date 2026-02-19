@@ -1,4 +1,10 @@
+"use client"
+
+import { useState } from "react"
 import { PriceLadder } from "./price-ladder"
+import { MethodAuditDetail } from "./method-audit-detail"
+import { getValuationAudit } from "@/lib/api/scores"
+import type { ValuationAuditResponse } from "@/lib/api/types"
 
 const METHOD_LABELS: Record<string, string> = {
   dcf: "DCF Model",
@@ -8,6 +14,7 @@ const METHOD_LABELS: Record<string, string> = {
 }
 
 interface PanelValuationProps {
+  ticker?: string
   intrinsicValue: number | null  // This is now "Margin Invest Value"
   currentPrice: number | null
   marginOfSafety: number | null
@@ -17,6 +24,7 @@ interface PanelValuationProps {
 }
 
 export function PanelValuation({
+  ticker,
   intrinsicValue,
   currentPrice,
   marginOfSafety,
@@ -24,6 +32,10 @@ export function PanelValuation({
   buyBelow,
   sellPrice,
 }: PanelValuationProps) {
+  const [expandedMethod, setExpandedMethod] = useState<string | null>(null)
+  const [auditData, setAuditData] = useState<ValuationAuditResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+
   const entries = methods ? Object.entries(methods) : []
 
   if (entries.length === 0 && intrinsicValue == null) {
@@ -36,6 +48,25 @@ export function PanelValuation({
   }
 
   const maxValue = entries.length > 0 ? Math.max(...entries.map(([, v]) => v)) : 0
+
+  async function handleMethodClick(method: string) {
+    if (expandedMethod === method) {
+      setExpandedMethod(null)
+      return
+    }
+    setExpandedMethod(method)
+    if (!auditData && ticker) {
+      setLoading(true)
+      try {
+        const data = await getValuationAudit(ticker)
+        setAuditData(data)
+      } catch {
+        // Silently fail — audit data is optional
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
 
   return (
     <div data-testid="panel-valuation">
@@ -80,20 +111,37 @@ export function PanelValuation({
       {/* Method breakdown bars */}
       {entries.length > 0 && (
         <div className="space-y-2.5 pt-3 border-t border-white/[0.06]">
-          {entries.map(([key, value]) => (
-            <div key={key} className="flex items-center gap-3">
-              <span className="text-[12px] text-[#9A9590] w-[120px] shrink-0">
-                {METHOD_LABELS[key] ?? key}
-              </span>
-              <div className="flex-1 h-[3px] rounded-full bg-white/[0.06]">
+          {entries.map(([key, value]) => {
+            const isExpanded = expandedMethod === key
+            const methodAudit = auditData?.methods.find((m) => m.method === key)
+
+            return (
+              <div key={key}>
                 <div
-                  className="h-full rounded-full bg-[#1A7A5A]/40"
-                  style={{ width: `${(value / maxValue) * 100}%` }}
-                />
+                  className="flex items-center gap-3 cursor-pointer hover:bg-white/[0.02] rounded px-1 -mx-1 py-0.5"
+                  onClick={() => handleMethodClick(key)}
+                  data-testid={`method-bar-${key}`}
+                >
+                  <span className="text-[12px] text-[#9A9590] w-[120px] shrink-0">
+                    {METHOD_LABELS[key] ?? key}
+                  </span>
+                  <div className="flex-1 h-[3px] rounded-full bg-white/[0.06]">
+                    <div
+                      className="h-full rounded-full bg-[#1A7A5A]/40"
+                      style={{ width: `${(value / maxValue) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-[12px] font-mono text-[#E8E6E3] w-16 text-right">${value.toFixed(2)}</span>
+                </div>
+                {isExpanded && methodAudit && (
+                  <MethodAuditDetail audit={methodAudit} />
+                )}
+                {isExpanded && loading && (
+                  <div className="ml-[123px] py-2 text-[11px] text-[#5C5955]">Loading audit data...</div>
+                )}
               </div>
-              <span className="text-[12px] font-mono text-[#E8E6E3] w-16 text-right">${value.toFixed(2)}</span>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

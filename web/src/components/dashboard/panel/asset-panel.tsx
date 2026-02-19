@@ -236,6 +236,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
                 </ProGate>
 
                 <PanelValuation
+                  ticker={ticker}
                   intrinsicValue={scoredResult.margin_invest_value}
                   currentPrice={scoredResult.actual_price}
                   marginOfSafety={scoredResult.margin_of_safety}

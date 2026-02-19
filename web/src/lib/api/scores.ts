@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { ScoreResponse, ScoreListResponse, InstitutionalMetricsResponse, ScoreHistoryResponse } from './types'
+import type { ScoreResponse, ScoreListResponse, InstitutionalMetricsResponse, ScoreHistoryResponse, ValuationAuditResponse } from './types'
 
 export interface ListScoresParams {
   page?: number
@@ -41,4 +41,8 @@ export async function deleteScore(ticker: string): Promise<void> {
   return apiFetch<void>(`/api/v1/scores/${ticker.toUpperCase()}`, {
     method: 'DELETE',
   })
+}
+
+export async function getValuationAudit(ticker: string): Promise<ValuationAuditResponse> {
+  return apiFetch<ValuationAuditResponse>(`/api/v1/scores/${ticker.toUpperCase()}/valuation-audit`)
 }
