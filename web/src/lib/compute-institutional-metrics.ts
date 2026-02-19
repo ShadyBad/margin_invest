@@ -6,7 +6,6 @@ export interface InstitutionalMetrics {
   volatility: number | null
   avgProfitMargin: number | null
   riskClassification: string
-  allocationWeight: number | null
 }
 
 const RISK_FREE_RATE = 0.05
@@ -88,6 +87,5 @@ export function computeInstitutionalMetrics(score: ScoreResponse): Institutional
     volatility,
     avgProfitMargin: null,
     riskClassification: classifyRisk(volatility, score.growth_stage),
-    allocationWeight: score.max_position_pct ?? null,
   }
 }

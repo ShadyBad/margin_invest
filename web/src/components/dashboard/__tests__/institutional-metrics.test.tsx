@@ -16,7 +16,6 @@ const metrics: Metrics = {
   volatility: 18.2,
   avgProfitMargin: null,
   riskClassification: "Moderate",
-  allocationWeight: 4.2,
 }
 
 describe("InstitutionalMetrics", () => {
@@ -26,7 +25,6 @@ describe("InstitutionalMetrics", () => {
     expect(screen.getByText("-12.4%")).toBeInTheDocument()
     expect(screen.getByText("18.2%")).toBeInTheDocument()
     expect(screen.getByText("Moderate")).toBeInTheDocument()
-    expect(screen.getByText("4.2%")).toBeInTheDocument()
   })
 
   it("renders metric labels in uppercase", () => {

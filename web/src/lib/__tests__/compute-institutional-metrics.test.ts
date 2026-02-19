@@ -73,7 +73,6 @@ describe("computeInstitutionalMetrics", () => {
     expect(result!.maxDrawdown).toBeDefined()
     expect(result!.volatility).toBeDefined()
     expect(result!.riskClassification).toBe("Moderate")
-    expect(result!.allocationWeight).toBe(4.2)
   })
 
   it("returns null when no price history", () => {
