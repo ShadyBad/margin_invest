@@ -89,7 +89,7 @@ def compute_composite_score(
     price_kwargs: dict = {}
     if price_targets:
         price_kwargs = {
-            "intrinsic_value": price_targets.intrinsic_value,
+            "margin_invest_value": price_targets.margin_invest_value,
             "buy_price": price_targets.buy_price,
             "sell_price": price_targets.sell_price,
             "actual_price": price_targets.actual_price,

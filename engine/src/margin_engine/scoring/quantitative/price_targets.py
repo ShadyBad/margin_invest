@@ -96,7 +96,7 @@ _ABS_MAX_INTRINSIC = 1_000_000.0  # Absolute ceiling when no actual_price
 class PriceTargets(BaseModel):
     """Multi-method intrinsic value and price target result."""
 
-    intrinsic_value: float | None = None
+    margin_invest_value: float | None = None
     buy_price: float | None = None
     sell_price: float | None = None
     actual_price: float | None = None
@@ -110,7 +110,7 @@ class PriceTargets(BaseModel):
     def check_invalid_reason_consistency(self) -> PriceTargets:
         """If invalid_reason is set, all price fields must be None."""
         if self.invalid_reason is not None:
-            price_fields = [self.intrinsic_value, self.buy_price, self.sell_price, self.price_upside]
+            price_fields = [self.margin_invest_value, self.buy_price, self.sell_price, self.price_upside]
             if any(f is not None for f in price_fields):
                 raise ValueError(
                     "Price fields must be None when invalid_reason is set"
@@ -119,8 +119,8 @@ class PriceTargets(BaseModel):
 
     @model_validator(mode="after")
     def check_positive_prices(self) -> PriceTargets:
-        """intrinsic_value, buy_price, sell_price must be > 0 when present."""
-        for field_name in ("intrinsic_value", "buy_price", "sell_price"):
+        """margin_invest_value, buy_price, sell_price must be > 0 when present."""
+        for field_name in ("margin_invest_value", "buy_price", "sell_price"):
             val = getattr(self, field_name)
             if val is not None and val <= 0:
                 raise ValueError(f"{field_name} must be > 0 when set, got {val}")
@@ -314,7 +314,7 @@ def compute_price_targets(
     )
 
     return PriceTargets(
-        intrinsic_value=round(intrinsic_value, 2),
+        margin_invest_value=round(intrinsic_value, 2),
         buy_price=round(buy_price, 2),
         sell_price=round(sell_price, 2),
         actual_price=actual_price,

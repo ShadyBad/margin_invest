@@ -117,7 +117,7 @@ class CompositeScore(BaseModel):
     growth_stage: GrowthStage | None = None
 
     # Price target fields (populated by PriceTargetCalculator)
-    intrinsic_value: float | None = None
+    margin_invest_value: float | None = None
     buy_price: float | None = None
     sell_price: float | None = None
     actual_price: float | None = None
@@ -173,6 +173,11 @@ class CompositeScore(BaseModel):
             return Signal.HOLD
         # Fallback: conviction-based
         return Signal.BUY
+
+    @property
+    def intrinsic_value(self) -> float | None:
+        """Deprecated: use margin_invest_value."""
+        return self.margin_invest_value
 
 
 class ScoringConfig(BaseModel):

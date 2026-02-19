@@ -28,7 +28,7 @@ from margin_engine.scoring.quantitative.price_targets import (
 class TestPriceTargetsModel:
     def test_invalid_reason_default_none(self):
         """invalid_reason should default to None."""
-        pt = PriceTargets(intrinsic_value=100.0, buy_price=100.0, sell_price=125.0)
+        pt = PriceTargets(margin_invest_value=100.0, buy_price=100.0, sell_price=125.0)
         assert pt.invalid_reason is None
 
     def test_invalid_reason_with_null_prices(self):
@@ -38,7 +38,7 @@ class TestPriceTargetsModel:
             invalid_reason="shares_outstanding_out_of_bounds",
         )
         assert pt.invalid_reason == "shares_outstanding_out_of_bounds"
-        assert pt.intrinsic_value is None
+        assert pt.margin_invest_value is None
         assert pt.buy_price is None
         assert pt.sell_price is None
 
@@ -46,16 +46,16 @@ class TestPriceTargetsModel:
         """Setting invalid_reason AND price fields should raise ValidationError."""
         with pytest.raises(ValidationError):
             PriceTargets(
-                intrinsic_value=100.0,
+                margin_invest_value=100.0,
                 buy_price=100.0,
                 sell_price=125.0,
                 invalid_reason="shares_outstanding_out_of_bounds",
             )
 
     def test_positive_price_fields_when_present(self):
-        """intrinsic_value, buy_price, sell_price must be > 0 when set."""
+        """margin_invest_value, buy_price, sell_price must be > 0 when set."""
         with pytest.raises(ValidationError):
-            PriceTargets(intrinsic_value=-5.0, buy_price=-5.0, sell_price=-3.0)
+            PriceTargets(margin_invest_value=-5.0, buy_price=-5.0, sell_price=-3.0)
 
 
 @pytest.fixture
@@ -134,18 +134,18 @@ class TestPriceTargets:
         )
         assert isinstance(result, PriceTargets)
 
-    def test_intrinsic_value_is_positive(
+    def test_margin_invest_value_is_positive(
         self, healthy_period, healthy_profile, price_bars
     ):
-        """With healthy data, intrinsic value should be positive."""
+        """With healthy data, margin invest value should be positive."""
         result = compute_price_targets(
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
             conviction_level=ConvictionLevel.HIGH,
         )
-        assert result.intrinsic_value is not None
-        assert result.intrinsic_value > 0
+        assert result.margin_invest_value is not None
+        assert result.margin_invest_value > 0
 
     def test_dual_threshold_mos(
         self, healthy_period, healthy_profile, price_bars
@@ -159,18 +159,18 @@ class TestPriceTargets:
         )
         assert result.buy_price is not None
         assert result.sell_price is not None
-        assert result.intrinsic_value is not None
+        assert result.margin_invest_value is not None
         assert result.margin_of_safety is not None
         mos = result.margin_of_safety
         # Dual threshold: buy below fair value, sell above
         assert result.buy_price == pytest.approx(
-            result.intrinsic_value * (1 - mos), rel=1e-2
+            result.margin_invest_value * (1 - mos), rel=1e-2
         )
         assert result.sell_price == pytest.approx(
-            result.intrinsic_value * (1 + mos), rel=1e-2
+            result.margin_invest_value * (1 + mos), rel=1e-2
         )
         # Ordering invariant
-        assert result.buy_price < result.intrinsic_value < result.sell_price
+        assert result.buy_price < result.margin_invest_value < result.sell_price
 
     def test_actual_price_from_latest_bar(
         self, healthy_period, healthy_profile, price_bars
@@ -206,18 +206,18 @@ class TestPriceTargets:
             growth_stage=GrowthStage.TURNAROUND,
         )
         # Same intrinsic value (same inputs)
-        assert steady.intrinsic_value == pytest.approx(
-            turnaround.intrinsic_value, rel=1e-4
+        assert steady.margin_invest_value == pytest.approx(
+            turnaround.margin_invest_value, rel=1e-4
         )
         # Turnaround has wider MoS -> lower buy price, higher sell price
         assert turnaround.buy_price < steady.buy_price
         assert turnaround.sell_price > steady.sell_price
         # Both satisfy the dual threshold relationship
         assert steady.buy_price == pytest.approx(
-            steady.intrinsic_value * (1 - steady.margin_of_safety), rel=1e-2
+            steady.margin_invest_value * (1 - steady.margin_of_safety), rel=1e-2
         )
         assert turnaround.buy_price == pytest.approx(
-            turnaround.intrinsic_value * (1 - turnaround.margin_of_safety), rel=1e-2
+            turnaround.margin_invest_value * (1 - turnaround.margin_of_safety), rel=1e-2
         )
 
     def test_no_price_bars_returns_none_actual(
@@ -292,7 +292,7 @@ class TestPriceTargets:
             price_bars=price_bars,
             conviction_level=ConvictionLevel.HIGH,
         )
-        assert result.intrinsic_value is None
+        assert result.margin_invest_value is None
         assert result.buy_price is None
         assert result.sell_price is None
         assert result.invalid_reason == "shares_outstanding_missing"
@@ -325,9 +325,9 @@ class TestPriceTargets:
             conviction_level=ConvictionLevel.HIGH,
         )
         assert result.price_upside is not None
-        assert result.intrinsic_value is not None
+        assert result.margin_invest_value is not None
         assert result.actual_price is not None
-        expected_upside = (result.intrinsic_value - result.actual_price) / result.actual_price
+        expected_upside = (result.margin_invest_value - result.actual_price) / result.actual_price
         assert result.price_upside == pytest.approx(expected_upside, abs=1e-4)
 
     def test_price_targets_returns_audit(self, healthy_period, healthy_profile, price_bars):
@@ -474,7 +474,7 @@ class TestDeterminism:
         ]
         first = results[0]
         for r in results[1:]:
-            assert r.intrinsic_value == first.intrinsic_value
+            assert r.margin_invest_value == first.margin_invest_value
             assert r.buy_price == first.buy_price
             assert r.sell_price == first.sell_price
             assert r.price_upside == first.price_upside
@@ -760,7 +760,7 @@ class TestLayer2PerMethodBounds:
             price_bars=price_bars,
             conviction_level=ConvictionLevel.HIGH,
         )
-        assert result.intrinsic_value is not None
+        assert result.margin_invest_value is not None
         assert result.invalid_reason is None
 
 
@@ -1047,7 +1047,7 @@ class TestCurrencyMismatchDetection:
         # financials all methods return None → insufficient_data.
         # Real ADRs with moderate currency differences will get clamped targets.
         assert result.invalid_reason == "insufficient_data"
-        assert result.intrinsic_value is None
+        assert result.margin_invest_value is None
         assert result.actual_price == pytest.approx(197.0)
 
 
@@ -1094,4 +1094,4 @@ class TestInsufficientDataReason:
             conviction_level=ConvictionLevel.HIGH,
         )
         assert result.invalid_reason == "insufficient_data"
-        assert result.intrinsic_value is None
+        assert result.margin_invest_value is None
