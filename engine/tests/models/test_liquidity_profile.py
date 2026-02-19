@@ -4,7 +4,13 @@ from decimal import Decimal
 
 import pytest
 from margin_engine.models.financial import PriceBar
-from margin_engine.models.liquidity import LiquidityProfile, compute_liquidity_profile
+from margin_engine.models.liquidity import (
+    LiquidityProfile,
+    compute_liquidity_profile,
+    days_to_fill,
+    liquidity_divergence_ratio,
+    market_impact_estimate,
+)
 
 
 def _make_bars(n: int, avg_close: float, avg_volume: int) -> list[PriceBar]:
@@ -95,3 +101,54 @@ class TestLiquidityProfile:
         # So every dollar_vol = 100 * 1_000_000 = 100_000_000
         expected = Decimal("100000000")
         assert profile.median_dollar_volume_20d == expected
+
+
+class TestPositionSizing:
+    def test_days_to_fill_normal(self):
+        """$500K position at 5% participation of $10M daily vol = 1 day."""
+        result = days_to_fill(
+            position_size=500_000,
+            participation_rate=0.05,
+            median_dollar_volume=Decimal("10_000_000"),
+        )
+        assert result == pytest.approx(1.0)
+
+    def test_days_to_fill_illiquid(self):
+        """$500K position at 5% of $500K daily vol = 20 days."""
+        result = days_to_fill(
+            position_size=500_000,
+            participation_rate=0.05,
+            median_dollar_volume=Decimal("500_000"),
+        )
+        assert result == pytest.approx(20.0)
+
+    def test_days_to_fill_zero_capacity(self):
+        """Zero participation rate returns infinity."""
+        result = days_to_fill(
+            position_size=500_000,
+            participation_rate=0.0,
+            median_dollar_volume=Decimal("10_000_000"),
+        )
+        assert result == float("inf")
+
+    def test_market_impact_estimate(self):
+        """Impact at 5% participation ~= 2.2 bps."""
+        impact = market_impact_estimate(0.05)
+        assert impact == pytest.approx(2.236, abs=0.1)  # 10 * sqrt(0.05)
+
+    def test_divergence_ratio(self):
+        """20d/90d ratio > 3 means liquidity evaporating."""
+        ratio = liquidity_divergence_ratio(
+            vol_20d=Decimal("500_000"),
+            vol_90d=Decimal("2_000_000"),
+        )
+        assert ratio == pytest.approx(4.0)
+
+    def test_divergence_ratio_none_inputs(self):
+        """None inputs return None."""
+        assert liquidity_divergence_ratio(vol_20d=None, vol_90d=Decimal("1_000_000")) is None
+        assert liquidity_divergence_ratio(vol_20d=Decimal("1_000_000"), vol_90d=None) is None
+
+    def test_divergence_ratio_zero_20d(self):
+        """Zero 20d volume returns None (avoid division by zero)."""
+        assert liquidity_divergence_ratio(vol_20d=Decimal("0"), vol_90d=Decimal("1_000_000")) is None
