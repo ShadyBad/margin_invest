@@ -34,17 +34,23 @@ def get_engine(url: str | None = None):
                 pool_pre_ping=settings.db_pool_pre_ping,
             )
 
-        # Timescale Cloud (and other managed PG) requires SSL
-        if "sslmode=require" in settings.database_url:
+        # asyncpg doesn't accept sslmode as a URL parameter —
+        # strip it and pass SSL via connect_args instead.
+        db_url = settings.database_url
+        if "sslmode=require" in db_url:
             import ssl
 
+            db_url = db_url.replace("?sslmode=require", "").replace("&sslmode=require", "")
             ssl_ctx = ssl.create_default_context()
+            # Railway (and many managed PG services) use self-signed certs
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
             connect_args["ssl"] = ssl_ctx
 
         if connect_args:
             engine_kwargs["connect_args"] = connect_args
 
-        _engine = create_async_engine(settings.database_url, **engine_kwargs)
+        _engine = create_async_engine(db_url, **engine_kwargs)
     return _engine
 
 
