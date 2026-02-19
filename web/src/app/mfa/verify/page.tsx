@@ -72,7 +72,7 @@ export default function MfaVerifyPage() {
       }
 
       const options = await optionsRes.json()
-      const credential = await startAuthentication({ optionsJSON: options })
+      const credential = await startAuthentication(options)
 
       const verifyRes = await fetch(
         `${API_URL}/api/v1/auth/mfa/webauthn/auth-verify`,

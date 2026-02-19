@@ -88,7 +88,7 @@ export default function MfaSetupPage() {
       }
 
       const options = await optionsRes.json()
-      const credential = await startRegistration({ optionsJSON: options })
+      const credential = await startRegistration(options)
 
       const verifyRes = await fetch(
         `${API_URL}/api/v1/auth/mfa/webauthn/register-verify`,
