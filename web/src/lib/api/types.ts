@@ -5,6 +5,7 @@ export interface FilterResultResponse {
   threshold: number | null
   detail: string
   verdict: string
+  missing_fields?: string[] | null
 }
 
 export interface FactorScoreResponse {

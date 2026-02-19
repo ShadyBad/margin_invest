@@ -18,7 +18,8 @@ class FilterResultResponse(BaseModel):
     value: float | None = None
     threshold: float | None = None
     detail: str = ""
-    verdict: str  # "pass" or "fail"
+    verdict: str  # "pass", "fail", or "inconclusive"
+    missing_fields: list[str] | None = None
 
 
 class FactorScoreResponse(BaseModel):
@@ -129,6 +130,7 @@ class ScoreResponse(BaseModel):
                     threshold=f.threshold,
                     detail=f.detail,
                     verdict=f.verdict.value,
+                    missing_fields=f.missing_fields,
                 )
                 for f in score.filters_passed
             ],

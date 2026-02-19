@@ -7,21 +7,29 @@ interface FilterListProps {
 }
 
 function FilterItem({ filter }: { filter: FilterResultResponse }) {
+  const isInconclusive = filter.verdict === "inconclusive"
+  const icon = isInconclusive ? "?" : filter.passed ? "\u2713" : "\u2717"
+  const iconColor = isInconclusive
+    ? "text-amber-500"
+    : filter.passed
+      ? "text-bullish"
+      : "text-bearish"
+  const label = isInconclusive ? "inconclusive" : filter.passed ? "passed" : "failed"
+  const labelColor = isInconclusive ? "text-amber-500/70" : "text-text-tertiary"
+
   return (
     <li
       className="flex items-start gap-2 text-sm"
       data-testid={`filter-${filter.name}`}
     >
       <span
-        className={`shrink-0 mt-0.5 ${filter.passed ? "text-bullish" : "text-bearish"}`}
-        aria-label={filter.passed ? "passed" : "failed"}
+        className={`shrink-0 mt-0.5 ${iconColor}`}
+        aria-label={label}
       >
-        {filter.passed ? "\u2713" : "\u2717"}
+        {icon}
       </span>
       <span className="text-text-primary">{formatAttributeLabel(filter.name)}</span>
-      <span className="text-xs font-mono text-text-tertiary ml-auto">
-        {filter.passed ? "passed" : "failed"}
-      </span>
+      <span className={`text-xs font-mono ml-auto ${labelColor}`}>{label}</span>
     </li>
   )
 }
