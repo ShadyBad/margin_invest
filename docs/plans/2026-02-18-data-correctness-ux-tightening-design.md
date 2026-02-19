@@ -1,173 +1,84 @@
 # Data Correctness & UX Tightening Design
 
 **Date:** 2026-02-18
-**Status:** Approved
-**Approach:** Data-Up (engine → API → frontend)
+**Status:** Approved (v2 — supersedes previous version)
+**Branch:** feat/data-correctness-ux-tightening
 
 ## Goals (Priority Order)
 
-1. **Data correctness:** All calculated values—especially Margin Invest Value and MoS—must be 100% accurate, explainable, and reproducible.
-2. **Data completeness:** Fields should not display "—" for most assets unless truly unavailable; implement fallbacks and sourcing improvements.
-3. **Investor-aligned filtering:** Thresholds must be sensible for institutional-grade investing (not arbitrary global thresholds).
-4. **Truthful history:** Anything labeled "history" must be time-series history, not "last run."
-5. **UX clarity:** Remove redundant sections and present information cleanly.
+1. **Data correctness**: All calculated values — especially Margin Invest Value and MoS — must be 100% accurate, explainable, and reproducible.
+2. **Data completeness**: Fields should not display "–" for most assets unless truly unavailable; implement fallbacks and specific unavailable reasons.
+3. **Investor-aligned filtering**: Thresholds must be sensible for institutional-grade investing.
+4. **Truthful history**: Anything labeled "history" must be real time-series data, not "last run."
+5. **UX clarity**: Remove redundant sections and present information cleanly.
 
-## Design Decisions (from brainstorming)
+## Key Decisions (from brainstorming)
 
 | Decision | Choice | Rationale |
-|---|---|---|
-| MoS model | Dual threshold | `buy = MIV*(1-MoS)`, `sell = MIV*(1+MoS)`. Symmetric band around fair value. |
-| Filter config | YAML file | `engine/config/filters.yaml`. Version-controllable, engine stays pure Python. |
-| Delta metric | Score change between runs | `current_score - previous_score`. Natural fit with score history. |
-| Allocation metric | Position sizing recommendation | Conviction + volatility based. Always computable. |
-| Score history source | Expose existing + accumulate | DB already has append-only rows. Build API, no backfill needed. |
+|----------|--------|-----------|
+| Allocation metric | **Removed** | Portfolio construction concern, not scoring |
+| Delta definition | **Price-to-value gap** | `(MIV - price) / price`, already computed as `price_upside` |
+| Liquidity approach | **Full redesign** | Multi-window + position-sizing + divergence check |
+| Risk metric windows | **1Y + 3Y** | 1Y primary, 3Y for structural risk |
+| Profit margin definition | **TTM Net Margin** | Simple, widely understood, already available |
+| Health filter depth | **Multi-year median + trend guard** | Removes one-off spikes, catches deterioration |
+| Score history problem | **Operational** (need runs) | Schema is fine, just need `score-universe` CLI + cadence |
 
 ---
 
-## Section 1: Valuation Model — Dual Threshold MoS
+## Section A: Liquidity Filter Redesign
 
-### Root Cause
+### Problem
 
-`price_targets.py` sets `buy_price = intrinsic_value` (identical values). MoS only pushes `sell_price` upward. "Buy Below" is semantically meaningless—it's just intrinsic value with a different label.
+The liquidity filter uses a single precomputed `avg_daily_volume` value with no window specification, no position-sizing model, and no venue awareness. The legacy path applies a flat $1M minimum across all assets.
 
-### Fix
+### Design
 
-Change the core relationship in `compute_price_targets()`:
+Replace the single-value approach with a multi-window liquidity assessment.
 
-```
-margin_invest_value = weighted_average(DCF, EV/FCF, Acquirer's, SHY)  # unchanged
-mos = dynamic_mos(growth_stage, dispersion)                            # unchanged [15%-50%]
-buy_price  = margin_invest_value * (1 - mos)                          # NEW: discounted entry
-sell_price = margin_invest_value * (1 + mos)                          # unchanged
-```
+#### New Data Model: `LiquidityProfile`
 
-### Signal Logic (5-tier)
+| Field | Type | Description |
+|-------|------|-------------|
+| `median_dollar_volume_20d` | `Decimal` | Median daily $ volume over 20 trading days |
+| `median_dollar_volume_60d` | `Decimal` | Median daily $ volume over 60 trading days |
+| `median_dollar_volume_90d` | `Decimal` | Median daily $ volume over 90 trading days (baseline) |
+| `listing_venue` | `str` | Exchange (NYSE, NASDAQ, LSE, etc.) |
+| `country_code` | `str` | ISO country code |
+| `avg_spread_bps` | `float | None` | Average bid-ask spread in basis points (if available) |
 
-| Condition | Signal |
-|---|---|
-| `price <= buy_price` | BUY |
-| `buy_price < price <= margin_invest_value` | HOLD |
-| `margin_invest_value < price < sell_price` | HOLD |
-| `price >= sell_price` | SELL |
-| `price >= sell_price * 1.15` | URGENT_SELL |
-
-### Worked Example (steady_growth, 25% MoS)
+#### Position-Sizing Simulation
 
 ```
-Margin Invest Value:  $198.00
-MoS:                  25%
-Buy Price:            $148.50  ($198 * 0.75)
-Sell Price:           $247.50  ($198 * 1.25)
-Current Price:        $185.00
-Signal:               HOLD (between buy and fair value)
+days_to_fill(position_size, participation_rate, median_dollar_volume) =
+    position_size / (median_dollar_volume × participation_rate)
+
+market_impact_estimate(participation_rate) =
+    0.1 × sqrt(participation_rate)   # simplified Almgren-Chriss
 ```
 
-### Rename
+Default assumptions (all YAML configurable):
 
-All references to "Intrinsic Value" → "Margin Invest Value" across engine, API, DB (Alembic migration), and frontend.
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Target position size | $500K | Configurable per portfolio tier |
+| Max participation rate | 5% | % of daily volume |
+| Max days to fill | 5 | Trading days |
+| Max estimated impact | 50 bps | Market impact ceiling |
 
-### What Changes
+#### Filter Pass Criteria (ALL must pass)
 
-- `price_targets.py`: `buy_price = iv * (1 - mos)` instead of `buy_price = iv`
-- `CompositeScore.signal` property: updated thresholds
-- DB column: `intrinsic_value` → `margin_invest_value` (Alembic migration)
-- API response field: same rename
-- Frontend: all "Intrinsic Value" labels → "Margin Invest Value"
+1. `median_dollar_volume_90d` ≥ market-cap-tiered minimum (existing tiers preserved)
+2. `days_to_fill` ≤ 5 days at 5% participation for a $500K position
+3. No 20d/90d divergence > 3× (catches sudden liquidity evaporation)
+4. Sector eligibility (Financials/RE exclusion preserved)
+5. Min trading history ≥ 5 years (preserved)
 
-### What Does NOT Change
+#### Filter Output
 
-- The four valuation methods and their weights (DCF 35%, EV/FCF 25%, Acquirer's 20%, SHY 20%)
-- The dynamic MoS calculation (growth stage + dispersion)
-- The validation layers (bounds checking, outlier filter, clamping)
-- How valuation feeds into composite scoring (value sub-factors are independent)
+Includes all computed metrics, pass/fail per criterion, human-readable reason string, and the full `LiquidityProfile` for auditability.
 
-### Acceptance Criteria
-
-- Given identical inputs, `buy_price < margin_invest_value < sell_price` always holds
-- `buy_price = margin_invest_value * (1 - mos)` — verified by golden-value test
-- `sell_price = margin_invest_value * (1 + mos)` — verified by golden-value test
-- Signal transitions match the 5-tier logic
-- No reference to "Intrinsic Value" remains in codebase
-- Alembic migration renames the column without data loss
-
----
-
-## Section 2: Filter Redesign
-
-### A1. Liquidity Filter — Tiered Dollar Volume
-
-**Problem:** Single `$1M` dollar volume floor across all market caps.
-
-**Fix:** Tiered thresholds by market cap bucket:
-
-| Market Cap Bucket | Median Daily $ Volume Floor |
-|---|---|
-| Mega (>$200B) | $50M |
-| Large ($10B-$200B) | $20M |
-| Mid ($2B-$10B) | $5M |
-| Small ($300M-$2B) | $2M |
-
-**Optional position impact check** (off by default):
-```
-days_to_build = position_value / (median_daily_dollar_vol * participation_rate)
-PASS if days_to_build <= max_days  (default: 5 days, 10% participation)
-```
-
-Dollar volume window: configurable, default 60 trading days. Currently uses `avg_daily_dollar_volume` from `AssetProfile`.
-
-### A2. Beneish M-Score — Insufficient History
-
-**Problem:** Auto-passes silently when prior period data is missing.
-
-**Fix:**
-
-1. Add `insufficient_data: bool` and `missing_fields: list[str] | None` to `FilterResult`. Filter still passes but flags why M-Score couldn't be computed.
-
-2. Compute M-Score for every fiscal period with adequate data (current+prior pairs) from `FinancialHistory`. Store per-period results in `score_detail` JSONB:
-   ```json
-   {
-     "filter_history": {
-       "beneish": [
-         {"period": "FY2024", "m_score": -2.79, "passed": true},
-         {"period": "FY2023", "m_score": -2.45, "passed": true}
-       ]
-     }
-   }
-   ```
-
-3. Frontend shows "M-Score unavailable: missing prior period balance sheet" instead of "—".
-
-### A3. Financial Health — Multi-Year Rules
-
-**FCF Distress** (evolve from single `FCF >= 0`):
-
-| Rule | Default |
-|---|---|
-| Annual FCF positive in 3 of last 5 years | 3/5 |
-| Most recent annual FCF | >= 0 OR trending positive (2yr) |
-| FCF margin (FCF/Revenue) | > -5% floor |
-
-**Interest Coverage** (add trend stability):
-
-| Rule | Default |
-|---|---|
-| Current ICR | Sector-adjusted (Tech 3.0, Utilities 1.2, default 1.5) |
-| 3-year median ICR | > 1.0 |
-| EBIT anomaly guard | EBIT < 0 with interest > 0: auto-fail with explanation |
-
-**Current Ratio** (add context):
-
-| Rule | Default |
-|---|---|
-| Current CR | Sector-adjusted (Tech 0.8, Utilities 0.6, default 0.8) |
-| Quick Ratio rescue | If CR < threshold, check QR > 0.5 |
-| 3-year trend | CR must not decline >30% over 3 years |
-
-Multi-year rules require `FinancialHistory` input. Pipeline signature changes to accept `FinancialHistory | None` with fallback to single-period behavior.
-
-### YAML Configuration
-
-All thresholds move to `engine/config/filters.yaml`:
+#### YAML Configuration
 
 ```yaml
 liquidity:
@@ -177,338 +88,503 @@ liquidity:
     default: 300_000_000
     utilities: 1_000_000_000
     energy: 500_000_000
-  dollar_volume:
+  dollar_volume_tiers:
     mega: 50_000_000
     large: 20_000_000
     mid: 5_000_000
     small: 2_000_000
-  dollar_volume_window_days: 60
-  position_impact:
-    enabled: false
-    max_days: 5
-    participation_rate: 0.10
+  windows: [20, 60, 90]
+  divergence_max_ratio: 3.0
+  position_sizing:
+    target_position: 500_000
+    max_participation_rate: 0.05
+    max_days_to_fill: 5
+    max_impact_bps: 50
+```
 
-beneish:
-  threshold: -1.78
+### Acceptance Criteria
 
-altman:
-  threshold: 1.1
-  equity_tl_cap: 10.0
-  exempt_sectors: ["Utilities"]
+- No single universal threshold applied to all assets
+- Multi-window median dollar volume (20d/60d/90d) computed from price bars
+- Position-sizing simulation answers "can I build a $500K position in 5 days?"
+- Liquidity divergence check (20d vs 90d) catches evaporation
+- Filter output includes all computed metrics and pass/fail reasons
+- All parameters YAML configurable
+- Unit tests: tiered thresholds, position sizing, divergence detection, venue/region
 
+---
+
+## Section B: Financial Health Filters — Multi-Year Median + Trend Guard
+
+### Problem
+
+FCF Distress, Interest Coverage, and Current Ratio all use single-period checks. A single bad year eliminates otherwise healthy companies; a single good year masks deterioration.
+
+### Design
+
+Shared pattern across all three filters:
+
+1. **Primary metric**: 3-year median (removes one-off spikes)
+2. **Trend guard**: Flag if metric deteriorated >20% from 3-year-ago value to current, even if still above threshold
+3. **Sector-normalized thresholds**: Expanded sector overrides
+4. **All configurable via YAML**
+
+#### FCF Distress (currently single-period FCF ≥ 0)
+
+| Rule | Description |
+|------|-------------|
+| Primary | 3 of last 5 years must have positive FCF |
+| FCF margin floor | Median FCF margin (FCF/Revenue) over 5 years > -5% |
+| Positive trend rescue | If FCF negative but improving YoY for 2+ consecutive years → WARNING (passes with flag) |
+| Cyclical adjustment | Energy/Materials get 2-of-5 instead of 3-of-5 |
+
+Activates existing but unwired config fields: `positive_years_required`, `lookback_years`, `min_fcf_margin`, `allow_positive_trend_rescue`.
+
+#### Interest Coverage (currently single-period EBIT/Interest)
+
+| Rule | Description |
+|------|-------------|
+| Primary | 3-year median ICR must exceed sector threshold |
+| Trend guard | Current ICR can't be >20% below 3-year median |
+| Negative EBIT | Automatic FAIL (no ratio computation) |
+
+Expanded sector thresholds (applied to 3-year median):
+
+| Sector | Median ICR Threshold | Rationale |
+|--------|---------------------|-----------|
+| Information Technology | > 5.0 | Should be nearly debt-free |
+| Health Care | > 3.0 | R&D-heavy but funded |
+| Consumer Staples | > 3.0 | Stable cash flows |
+| Utilities | > 1.5 | Regulated, capital-intensive |
+| Energy | > 2.0 | Cyclical, needs buffer |
+| Industrials | > 2.5 | Moderate leverage OK |
+| Default | > 2.5 | Up from 1.5 |
+
+#### Current Ratio (currently single-period CA/CL)
+
+| Rule | Description |
+|------|-------------|
+| Primary | 3-year median CR must exceed sector threshold |
+| Trend guard | CR can't have declined >30% over 3 years |
+| Quick ratio rescue | If CR fails but quick ratio (CA - Inventory)/CL > 0.5 → passes with flag |
+
+Threshold values stay largely the same but applied to median, not spot value.
+
+#### FilterResult Enhancement
+
+New fields added to `FilterResult`:
+
+```python
+warning: bool = False
+warning_reason: str | None = None
+computed_metrics: dict[str, float] | None = None
+```
+
+#### YAML Configuration
+
+```yaml
 fcf_distress:
   positive_years_required: 3
   lookback_years: 5
   min_fcf_margin: -0.05
   allow_positive_trend_rescue: true
+  cyclical_positive_years: 2  # Energy/Materials relaxed threshold
 
 interest_coverage:
-  default: 1.5
+  default: 2.5
   sector_overrides:
-    technology: 3.0
-    utilities: 1.2
+    information_technology: 5.0
+    health_care: 3.0
+    consumer_staples: 3.0
+    utilities: 1.5
+    energy: 2.0
+    industrials: 2.5
   median_lookback_years: 3
-  median_minimum: 1.0
+  trend_guard_decline_pct: 20
 
 current_ratio:
   default: 0.8
   sector_overrides:
-    technology: 0.8
+    information_technology: 0.8
     utilities: 0.6
   quick_ratio_rescue: 0.5
   max_3yr_decline_pct: 30
-
-mediocrity_gate:
-  min_roic_5yr_median: 0.08
-  gross_margin:
-    default: 0.20
-    energy: 0.15
-    utilities: 0.10
-  fcf_positive_years: 4
-  fcf_lookback_years: 5
-  max_consecutive_revenue_decline: 3
 ```
 
-A `FilterConfig` Pydantic model validates YAML at startup. Default values match current hardcoded values for zero behavior change if YAML is missing.
+### Acceptance Criteria
 
-### Acceptance Criteria (Section 2)
-
-- All filter thresholds load from `filters.yaml`; hardcoded constants removed
-- Liquidity dollar volume threshold varies by market cap bucket
-- Beneish `insufficient_data` flag set when data missing; UI shows missing field names
-- Multi-period M-Scores stored in `score_detail` JSONB when history available
-- FCF checks 3-of-5-years positive when `FinancialHistory` provided; single-period fallback
-- Interest coverage checks 3-year median alongside current value
-- Current ratio has quick-ratio rescue path
-- Golden-value tests for each filter with known fixtures
-- Config changes require no code changes—only `filters.yaml` edits
+- Each filter uses 3-year median as primary metric
+- Trend guard catches deterioration even when above threshold
+- Negative EBIT produces automatic FAIL for interest coverage
+- Quick ratio rescue works for current ratio
+- All thresholds configurable via YAML without code changes
+- Golden test cases: normal pass, trend guard trigger, negative EBIT, quick ratio rescue, cyclical FCF
 
 ---
 
-## Section 3: Metrics & Data Fixes
+## Section C: Beneish M-Score — Historical Backfill + INCONCLUSIVE Verdict
 
-### Fix 1: Avg Profit Margin — Key-Name Bug
+### Problem
 
-**Root Cause:** `compute_avg_profit_margin()` looks for `"net_income"` / `"total_revenue"` but yfinance stores `"Net Income"` / `"Total Revenue"`.
+Beneish requires current + prior period data. When prior data is missing, it silently returns PASS with `insufficient_data=True`, letting potentially manipulative companies through undetected.
 
-**Fix:** Case-insensitive key resolver:
+### Design
 
-```python
-def _get_field(period: dict, *candidates: str) -> float | None:
-    for key in candidates:
-        if key in period:
-            val = period[key]
-            return float(val) if val is not None else None
-    return None
-```
+#### Multi-Period Computation
 
-Definition: Net profit margin, averaged across available annual periods. `mean(net_income / total_revenue)`.
+Change Beneish to accept `FinancialHistory` instead of single `FinancialPeriod`:
+- Compute M-Score for every consecutive pair of periods
+- Store per-period M-Scores for charting and audit
+- Use most recent M-Score for pass/fail
+- Flag trend (worsening M-Score over time)
 
-### Fix 2: Allocation — Reliable Position Sizing
-
-**Root Cause:** `allocation_weight` pulls from `Score.max_position_pct`, only populated by v2 Conviction Engine (often NULL).
-
-**Fix:** Compute deterministically from conviction + volatility:
+#### New Return Model
 
 ```python
-def compute_allocation_weight(conviction: str, volatility: float | None) -> float:
-    base = {"exceptional": 8.0, "high": 5.0, "moderate": 3.0, "watchlist": 2.0}.get(conviction, 2.0)
-    if volatility is not None:
-        if volatility > 40:
-            base *= 0.5
-        elif volatility > 25:
-            base *= 0.75
-    return round(base, 1)
+class BeneishResult(BaseModel):
+    current_m_score: float | None
+    historical_m_scores: list[dict]   # [{period_end, m_score, components}]
+    passed: bool
+    insufficient_periods: int
+    missing_inputs: list[str]
+    trend: str | None                 # "improving" | "deteriorating" | "stable"
 ```
 
-### Fix 3: Delta — Score Change Between Runs
+#### New Verdict: INCONCLUSIVE
 
-Depends on Section 4 (Score History API). Once available:
+Add `FilterVerdict.INCONCLUSIVE` to the enum. Applies to ALL filters:
 
-```python
-delta = current_row.composite_percentile - previous_row.composite_percentile
-```
+| Condition | Verdict |
+|-----------|---------|
+| 0 periods computable | INCONCLUSIVE — "Cannot assess — insufficient financial history" |
+| 1+ periods computed | Use latest valid M-Score for PASS/FAIL |
 
-Display: `+4.2 ▲` (green) / `-3.1 ▼` (red) / `—` (first-ever score)
+#### UI Treatment
 
-### Fix 4: Structured Unavailability Reasons
+| Verdict | Badge Color | Behavior |
+|---------|-------------|----------|
+| PASS | Green | Normal |
+| FAIL | Red | Normal |
+| INCONCLUSIVE | Amber/Yellow | Shows missing fields list and periods available |
 
-Replace bare nulls with `MetricStatus`:
+Historical M-Scores shown as mini sparkline in filter detail expansion.
 
-```python
-class MetricStatus(BaseModel):
-    value: float | None
-    unavailable_reason: str | None = None
+### Acceptance Criteria
 
-class InstitutionalMetricsResponse(BaseModel):
-    sharpe_ratio: MetricStatus
-    max_drawdown: MetricStatus
-    volatility: MetricStatus
-    avg_profit_margin: MetricStatus
-    allocation_weight: MetricStatus
-    margin_of_safety: MetricStatus
-    risk_classification: str
-```
-
-Frontend `KpiCell` shows reason string below "—" in muted text.
-
-### Metric Definitions
-
-| Metric | Definition | Lookback | Min Data |
-|---|---|---|---|
-| Sharpe Ratio | `(mean_daily - rf/252) / std(daily) * sqrt(252)` | All bars | >= 60 bars |
-| Max Drawdown | Peak-to-trough decline | All bars | >= 5 bars |
-| Volatility | `std(daily) * sqrt(252) * 100` as % | All bars | >= 60 bars |
-| Avg Profit Margin | `mean(net_income / revenue)` annual | All periods | >= 1 period |
-| Allocation | Conviction + vol position sizing | Current | Always |
-| Margin of Safety | `(MIV - price) / MIV` as % | Current | Valid MIV + price |
-
-Risk-free rate: configurable in YAML, default 4.5%.
-
-### Acceptance Criteria (Section 3)
-
-- Avg Profit Margin populates for all assets with income statement data
-- Allocation always shows a value when a score exists
-- Delta shows real score change once history is available
-- Sharpe/Vol require >= 60 bars; unavailable reason returned when insufficient
-- All KPI cells show specific reason instead of bare "—"
-- Risk-free rate configurable, not hardcoded
+- Beneish computes M-Score for every consecutive period pair in history
+- Per-period M-Scores stored in filter result for auditability
+- Missing data produces INCONCLUSIVE, not silent PASS
+- UI distinguishes PASS / FAIL / INCONCLUSIVE with different visual treatment
+- Trend detection flags worsening M-Score trajectory
+- Golden tests: multi-period, single-period fallback, zero-period INCONCLUSIVE
 
 ---
 
-## Section 4: Score History & Charts
+## Section D: Missing Metrics — Risk Metrics + Profit Margin + Delta
 
-### Score History API
+### Problem
 
-**New endpoint:** `GET /api/v1/scores/{ticker}/history`
+KPI grid shows "–" for Sharpe, Max Drawdown, Volatility, Avg Profit Margin, and Delta because backend computation isn't implemented or isn't wired.
+
+### Design
+
+#### New Engine Module: `risk_metrics.py`
+
+All risk metrics computed from `PriceBar[]` (daily OHLCV).
+
+##### Sharpe Ratio (1Y + 3Y)
+
+```
+daily_returns = [close[t] / close[t-1] - 1]
+annualized_return = mean(daily_returns) × 252
+annualized_vol = std(daily_returns) × sqrt(252)
+sharpe = (annualized_return - risk_free_rate) / annualized_vol
+```
+
+- Risk-free rate: Hardcoded 3-month T-bill (e.g., 4.3%) with config override
+- 1Y: 252 trading days required
+- 3Y: 756 trading days required
+- Price return only (dividends excluded)
+
+##### Max Drawdown (1Y + 3Y)
+
+```
+running_max = cumulative_max(close_prices)
+drawdowns = (close_prices - running_max) / running_max
+max_drawdown = min(drawdowns)
+```
+
+Returns as negative percentage (e.g., -12.5%).
+
+##### Volatility (1Y + 3Y)
+
+```
+annualized_vol = std(daily_returns) × sqrt(252)
+```
+
+Returns as percentage (e.g., 18.3%).
+
+##### Avg Profit Margin (TTM Net Margin)
+
+```
+net_margin = net_income / revenue
+```
+
+Source: `FinancialPeriod.current_income.net_margin` (already exists as computed property).
+
+##### Delta (Price-to-Value)
+
+```
+delta = (margin_invest_value - actual_price) / actual_price
+```
+
+Already computed as `price_upside` on `CompositeScore`. Wired to KPI grid, renamed "Delta" in UI. Positive = undervalued, negative = overvalued.
+
+#### KPI Grid Layout (2×3 → 2×2 + 1 wide)
+
+| Cell 1 | Cell 2 |
+|--------|--------|
+| Sharpe (1Y) | Max Drawdown (1Y) |
+| Volatility (1Y) | Avg Profit Margin |
+| **Delta** (full width, prominent) | |
+
+- **Removed**: Allocation Weight
+- 1Y as primary display, 3Y available on hover or as secondary label
+
+#### Unavailable Reasons
+
+| Metric | Condition | Reason String |
+|--------|-----------|---------------|
+| Sharpe 1Y | < 252 bars | "Insufficient price history: need 252 trading days, have {N}" |
+| Sharpe 3Y | < 756 bars | "Insufficient price history: need 756 trading days, have {N}" |
+| Max Drawdown | < 20 bars | "Insufficient price history: need 20+ trading days" |
+| Volatility | < 20 bars | "Insufficient price history: need 20+ trading days" |
+| Net Margin | No income data | "No income statement data available" |
+| Net Margin | Revenue = 0 | "Revenue is zero — cannot compute margin" |
+| Delta | No MIV/price | "Valuation not available" or "No current price" |
+
+#### Configuration
+
+```yaml
+risk_metrics:
+  risk_free_rate: 0.043  # 3-month T-bill
+  windows: [252, 756]    # 1Y, 3Y in trading days
+  min_bars_sharpe: 252
+  min_bars_drawdown: 20
+  min_bars_volatility: 20
+```
+
+### Acceptance Criteria
+
+- Sharpe, Max Drawdown, Volatility computed for 1Y and 3Y windows
+- KPI grid shows 1Y primary, 3Y as secondary
+- Majority of liquid equities with 1+ year price history display all risk metrics
+- TTM Net Margin sourced from existing income statement data
+- Delta wired from existing `price_upside` field
+- Allocation removed from KPI grid
+- Unavailable metrics show specific reason, not just "–"
+- Deterministic: same price bars produce same metrics
+
+---
+
+## Section E: Score History Accumulation + Scheduled Runs
+
+### Problem
+
+DB schema, API endpoint, and frontend charts all support time-series score history. The pipeline has only been run once per ticker, producing a single data point.
+
+### Design
+
+#### `score-universe` CLI Command
+
+```bash
+uv run python -m margin_api.cli score-universe
+```
+
+Wraps existing `score_tickers` logic:
+- Queries all assets from DB (or configured watchlist)
+- Runs filters + scoring for full universe
+- Creates new `Score` rows with current `scored_at` timestamp
+- Logs summary: N scored, N filtered out, N failed
+
+#### Recommended Cadence
+
+- **Weekly** (Sunday evening): Full universe re-score
+- **Daily** (future, optional): Price-sensitive metrics only (actual_price, price_upside, signal)
+
+Weekly is sufficient for launch. User runs manually or via cron/launchd.
+
+#### Frontend Behavior
+
+- ScoreChart uses step-after interpolation between scoring dates (already implemented)
+- Single-point state: "Score tracking begins after the next scoring run. Scores are computed weekly."
+- No historical backfill feasible — scores depend on full universe ranking at a point in time
+
+### Acceptance Criteria
+
+- `score-universe` CLI command scores all eligible assets in one batch
+- Each run produces new Score rows (no overwriting)
+- After 2+ runs, score chart renders a time-series line
+- Single-point state shows explanatory message
+
+---
+
+## Section F: Valuation Correctness + UX Consolidation
+
+### Problem
+
+1. "Intrinsic Value" naming persists in some places despite partial rename
+2. Valuation breakdown shows method bars but not inputs/formulas/intermediates
+3. Need to verify no leftover "Buy Below" section exists
+
+### Design
+
+#### 1. Complete Rename
+
+All references to "intrinsic_value" / "Intrinsic Value" → `margin_invest_value` / "Margin Invest Value" across engine, API, and web. Engine model field `CompositeScore.intrinsic_value` → `margin_invest_value`.
+
+#### 2. ValuationAudit Model
 
 ```python
-class ScoreHistoryPoint(BaseModel):
-    scored_at: datetime
-    composite_percentile: float
-    composite_raw_score: float | None
-    quality_percentile: float | None
-    value_percentile: float | None
-    momentum_percentile: float | None
-    conviction_level: str
-    signal: str
-    margin_invest_value: float | None
-    buy_price: float | None
-    sell_price: float | None
+class MethodAudit(BaseModel):
+    method: str                         # "dcf", "ev_fcf", etc.
+    result_per_share: float | None
+    weight: float                       # Original weight
+    renormalized_weight: float | None   # After outlier removal
+    included: bool
+    exclusion_reason: str | None
+    inputs: dict[str, float]            # Method-specific inputs
+    intermediates: dict[str, float]     # Method-specific intermediate values
+
+class ValuationAudit(BaseModel):
+    margin_invest_value: float
+    margin_of_safety: float
+    buy_price: float
+    sell_price: float
     actual_price: float | None
-    delta: float | None
-
-class ScoreHistoryResponse(BaseModel):
-    ticker: str
-    points: list[ScoreHistoryPoint]
-    total_runs: int
+    methods: list[MethodAudit]
+    mos_base: float
+    mos_cv: float | None
+    mos_adjustment: float
+    was_clamped: bool
+    clamp_reason: str | None
 ```
 
-Query uses existing `ix_scores_asset_scored` index. No new tables or migrations needed.
+Stored in `score_detail` JSONB — no migration needed.
 
-### D1: Score History Chart
+#### 3. API Endpoint
 
-`ScoreChart` already renders Recharts `ComposedChart` with time range controls. Changes:
+```
+GET /api/v1/scores/{ticker}/valuation-audit
+```
 
-1. Fetch `/api/v1/scores/{ticker}/history` alongside existing calls
-2. Map `points` to chart data arrays (replace synthetic single-element arrays)
-3. Y-axis: 0-100 percentile
-4. Color bands for BUY/HOLD/SELL zones
-5. Tooltip: date, score, delta, signal, conviction
+Returns `ValuationAudit` for the latest score.
 
-### D2: Price vs Buy Price Chart
+#### 4. UI: Expandable Valuation Detail
 
-New `PriceTargetChart` component in `AssetPanel`, below `ScoreChart`.
+Clicking a method bar in `PanelValuation` expands to show:
+- Key inputs (FCF, EBIT, shares, rates)
+- Intermediate values (PV stage 1, terminal value, etc.)
+- Result per share
+- Inclusion/exclusion status and reason
 
-**Data sources:**
-- Price history: `PriceBar[]` from existing `?include=price_history`
-- Target history: `ScoreHistoryPoint[]` from new history endpoint
+Default view stays clean; full audit available on demand.
 
-**Rendering:**
-- Stock price: solid blue line (daily)
-- Buy Price: dashed green line (stepped, changes on scoring runs)
-- Margin Invest Value: dotted gray line (stepped)
-- Sell Price: dashed red line (stepped)
-- Green shading when `price < buy_price`, red shading when `price > sell_price`
+#### 5. Buy Below Consolidation
 
-**Alignment:** Price is daily, scores are per-run. Use last-observation-carried-forward for target lines.
+Verify and remove any remaining standalone "Buy Below" section. Price Ladder in `PanelValuation` already shows Buy / Fair / Sell / Current in one visual.
 
-### Acceptance Criteria (Section 4)
+#### 6. Golden Test Cases
 
-- `GET /api/v1/scores/{ticker}/history` returns all historical rows ordered by `scored_at`
-- Delta computed correctly (null for first point, difference for subsequent)
-- `ScoreChart` renders multiple points; time range filters work
-- `ScoreHistoryTable` shows real deltas and signal transitions
-- `PriceTargetChart` overlays daily price with stepped target lines
-- Tooltips show date + exact values on both charts
-- When <2 points, charts show "accumulating data" message
+| Case | Description |
+|------|-------------|
+| Normal | All 4 methods valid, known inputs → exact MIV, MoS, Buy/Sell |
+| Negative FCF | DCF + EV/FCF return None → renormalized 2-method weights |
+| High leverage | Acquirer's implied equity ≤ 0 → excluded |
+| Cyclical | Higher base MoS (0.35) + high CV → MoS near ceiling |
+| Outlier removal | One method 15× median → excluded, weights renormalized |
+| Currency mismatch | Revenue/share > 10× price → validation flag |
+
+### Acceptance Criteria
+
+- Zero remaining references to "Intrinsic Value" in user-facing UI or API responses
+- `ValuationAudit` captures all inputs, intermediates, weights, and exclusion reasons
+- Audit stored in `score_detail` JSONB — no migration needed
+- Frontend can expand each valuation method to see full computation trail
+- No separate "Buy Below" section — integrated into PanelValuation
+- 6+ golden test cases covering normal, edge, and error paths
+- Deterministic: identical inputs produce identical outputs
 
 ---
 
-## Section 5: UX Consolidation
+## Section G: Detail Page Charts
 
-### Unified Valuation Module
+### Problem
 
-Replace fragmented display (ActionPill + PanelValuation + KpiGrid MoS) with one block:
+ScoreChart and PriceTargetChart already exist but show flat/single-point data because only one scoring run has been executed. Both are solved by Section E (score accumulation).
 
-```
-┌─────────────────────────────────────────────────┐
-│  VALUATION                                      │
-│                                                 │
-│  Margin Invest Value          $198.00           │
-│  Current Price                $185.00           │
-│  Margin of Safety               25%            │
-│                                                 │
-│  ┌─────────────────────────────────────────┐    │
-│  │  BUY below    $148.50   ●────────       │    │
-│  │  CURRENT      $185.00        ●───       │    │
-│  │  FAIR VALUE   $198.00          ●──      │    │
-│  │  SELL above   $247.50             ●──   │    │
-│  └─────────────────────────────────────────┘    │
-│                                                 │
-│  Method Breakdown                               │
-│  DCF (35%)              ├████████░░░│ $210      │
-│  EV/FCF (25%)           ├██████░░░░░│ $185      │
-│  Acquirer's (20%)       ├█████░░░░░░│ $178      │
-│  SH Yield (20%)         ├████████░░░│ $205      │
-│                                                 │
-│  ─ Dispersion: Low (CV 12%) · MoS tightened    │
-└─────────────────────────────────────────────────┘
-```
+### Design
 
-### Removals
+No new chart components needed. Small enhancements only:
 
-- Separate "Buy Below" row in `PanelValuation` → replaced by price ladder
-- "Buy Below" line on `StockCard` → card keeps ActionPill only
-- MoS from `KpiGrid` → replaced by Score Delta (MoS lives in valuation module)
+#### Empty State Improvements
 
-### KPI Grid — Revised Six Cells
+| Chart | < 2 Points | Behavior |
+|-------|------------|----------|
+| ScoreChart | Single score centered | "Score tracking begins after the next scoring run. Scores are computed weekly." |
+| PriceTargetChart | Price line only | "Buy/Sell targets will appear after 2+ scoring runs." |
 
-| Cell | Before | After |
-|---|---|---|
-| 1 | Sharpe Ratio | Sharpe Ratio |
-| 2 | Max Drawdown | Max Drawdown |
-| 3 | Volatility | Volatility |
-| 4 | Avg Profit Margin | Avg Profit Margin (bug fixed) |
-| 5 | Allocation | Allocation (reliably computed) |
-| 6 | Margin of Safety | **Score Delta** |
+#### Tooltip Enrichment
 
-### ActionPill — Updated Subtext
+**ScoreChart tooltip:**
+- Date, Composite score, Delta, Conviction level, Q/V/M sub-scores
 
-| Signal | Subtext |
-|---|---|
-| BUY | "Below $148.50 buy target" |
-| HOLD | "$185 — between buy ($148) and sell ($247)" |
-| SELL | "Above $247.50 sell target" |
-| URGENT_SELL | "+X% over sell target" |
+**PriceTargetChart tooltip:**
+- Date, Current price, Buy/MIV/Sell prices, Zone label
 
-### Component Changes
+#### Missing-Series Behavior
 
-| Component | Change |
-|---|---|
-| `PanelValuation` | Rewrite: unified layout with price ladder |
-| `KpiGrid` | Swap cell 6: MoS → Score Delta |
-| `StockCard` | Remove "Buy Below" standalone line |
-| `ActionPill` | Update subtext for dual threshold |
-| `ExecutiveHeader` | Real `scoreDelta` from history API |
-| All labels | "Intrinsic Value" → "Margin Invest Value" |
+| Condition | Behavior |
+|-----------|----------|
+| Price history, no score history | PriceTargetChart shows price line only, "(No valuation data)" label |
+| Score history, no price history | "Price data unavailable" message |
 
-### Acceptance Criteria (Section 5)
+### Acceptance Criteria
 
-- No separate "Buy Below" panel exists anywhere
-- Valuation module shows MIV, Current Price, MoS, price ladder, method breakdown, dispersion note
-- MoS removed from KpiGrid; replaced with Score Delta
-- KPI grid: 6 metrics, all reliably populated
-- ActionPill subtext reflects dual threshold zones
-- Zero "Intrinsic Value" references in user-facing text
-- Price ladder positions current price relative to buy/fair/sell markers
+- Both charts render correctly with 1 data point (graceful degradation)
+- Both charts render full time-series with 2+ scoring runs
+- Tooltips show date + all relevant values
+- Missing-series states are explicit with user-facing explanation
 
 ---
 
-## Implementation Order (Data-Up)
+## Dependencies Between Sections
 
-1. **Engine: Valuation model** — dual threshold MoS, rename to Margin Invest Value
-2. **Engine: Filter config** — YAML system, `FilterConfig` Pydantic model
-3. **Engine: Filter logic** — tiered liquidity, multi-year health checks, Beneish history
-4. **API: Score history endpoint** — `GET /scores/{ticker}/history`
-5. **API: Metrics fixes** — key-name bug, allocation formula, MetricStatus schema
-6. **API: Valuation rename** — Alembic migration, response schema updates
-7. **Frontend: Charts** — ScoreChart with real data, new PriceTargetChart
-8. **Frontend: Valuation module** — unified block, price ladder
-9. **Frontend: KPI grid** — swap MoS→Delta, render unavailability reasons
-10. **Frontend: Cleanup** — remove Buy Below section, rename labels, ActionPill subtext
+```
+E (Score Accumulation) ← G (Charts need data)
+                       ← D (Delta needs score history for context)
+F (Valuation)          ← independent
+A (Liquidity)          ← independent
+B (Health Filters)     ← independent
+C (Beneish)            ← independent (but shares INCONCLUSIVE verdict with B)
+D (Risk Metrics)       ← independent (uses existing price bars)
+```
 
-### Dependencies
+## Implementation Order
 
-- Steps 1-3 are engine-only (no API/frontend deps)
-- Step 4 requires no engine changes (uses existing DB schema)
-- Steps 5-6 depend on step 1 (renamed fields)
-- Steps 7-9 depend on steps 4-6 (API changes)
-- Step 10 depends on steps 7-9
+Recommended: **A → B → C → D → F → E → G**
+
+1. **A: Liquidity filter redesign** — new `LiquidityProfile`, multi-window, position-sizing
+2. **B: Health filter upgrade** — multi-year median + trend guard for FCF/ICR/CR
+3. **C: Beneish historical + INCONCLUSIVE** — multi-period M-Score, new verdict enum
+4. **D: Risk metrics + KPI grid** — Sharpe/Drawdown/Vol computation, remove Allocation, wire Delta
+5. **F: Valuation audit + rename** — complete rename, `ValuationAudit` model, golden tests, Buy Below removal
+6. **E: Score accumulation** — `score-universe` CLI command
+7. **G: Chart enhancements** — empty states, tooltip enrichment
 
 ### Risks
 
-- **Column rename migration:** `intrinsic_value` → `margin_invest_value` requires careful Alembic migration. Run on staging first.
-- **Signal distribution shift:** Dual threshold will produce fewer BUY signals (price must be below discounted value). Existing BUY-signal assets may shift to HOLD. This is correct but visually impactful on the dashboard.
-- **Multi-year filter data:** `FinancialHistory` may not be available for all assets in the current ingestion pipeline. Graceful fallback to single-period is required.
-- **Score history volume:** If CLI has been run many times, history endpoint could return large payloads. The `limit` parameter (default 100) mitigates this.
+- **Column rename migration:** `intrinsic_value` → `margin_invest_value` requires careful Alembic migration if column exists. Current codebase may already use `margin_invest_value` column name — verify before migrating.
+- **Signal distribution shift:** If buy_price formula changes, existing BUY signals may shift to HOLD. This is correct but visually impactful on the dashboard.
+- **Multi-year filter data:** `FinancialHistory` may not be available for all assets. Graceful fallback to single-period behavior required.
+- **Price bar volume:** Risk metrics need 252-756 daily bars. Ensure the price ingestion pipeline fetches sufficient history.
