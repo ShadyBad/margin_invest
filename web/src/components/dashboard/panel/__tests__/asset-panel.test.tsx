@@ -81,11 +81,14 @@ const mockScore: ScoreResponse = {
 
 const mockMetrics: InstitutionalMetricsResponse = {
   sharpe_ratio: { value: 1.5, unavailable_reason: null },
+  sharpe_ratio_3y: { value: 1.3, unavailable_reason: null },
   max_drawdown: { value: -0.15, unavailable_reason: null },
+  max_drawdown_3y: { value: -0.22, unavailable_reason: null },
   volatility: { value: 22.5, unavailable_reason: null },
+  volatility_3y: { value: 20.1, unavailable_reason: null },
   avg_profit_margin: { value: 25.0, unavailable_reason: null },
+  delta: { value: 0.12, unavailable_reason: null },
   risk_classification: "Moderate",
-  allocation_weight: { value: 8.0, unavailable_reason: null },
   margin_of_safety: { value: 0.10, unavailable_reason: null },
 }
 

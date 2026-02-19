@@ -213,11 +213,16 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
                 <ProGate>
                   <KpiGrid
                     sharpeRatio={metrics?.sharpe_ratio?.value ?? null}
+                    sharpeRatioUnavailable={metrics?.sharpe_ratio?.unavailable_reason}
                     maxDrawdown={metrics?.max_drawdown?.value ?? null}
+                    maxDrawdownUnavailable={metrics?.max_drawdown?.unavailable_reason}
                     volatility={metrics?.volatility?.value ?? null}
+                    volatilityUnavailable={metrics?.volatility?.unavailable_reason}
                     avgProfitMargin={metrics?.avg_profit_margin?.value ?? null}
-                    allocationWeight={metrics?.allocation_weight?.value ?? null}
+                    avgProfitMarginUnavailable={metrics?.avg_profit_margin?.unavailable_reason}
                     scoreDelta={latestDelta}
+                    delta={metrics?.delta?.value ?? null}
+                    deltaUnavailable={metrics?.delta?.unavailable_reason}
                   />
                 </ProGate>
 

@@ -94,11 +94,14 @@ export interface MetricStatus {
 
 export interface InstitutionalMetricsResponse {
   sharpe_ratio: MetricStatus
+  sharpe_ratio_3y: MetricStatus
   max_drawdown: MetricStatus
+  max_drawdown_3y: MetricStatus
   volatility: MetricStatus
+  volatility_3y: MetricStatus
   avg_profit_margin: MetricStatus
+  delta: MetricStatus
   risk_classification: string
-  allocation_weight: MetricStatus
   margin_of_safety: MetricStatus
 }
 
