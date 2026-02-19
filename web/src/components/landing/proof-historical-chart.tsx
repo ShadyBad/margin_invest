@@ -27,7 +27,7 @@ const data = [
   { month: "Dec", portfolio: 15.4, benchmark: 9.1 },
 ]
 
-const pctFormatter = (value: number) => `${value}%`
+const pctFormatter = (value: number | undefined) => `${value ?? 0}%`
 
 export function ProofHistoricalChart() {
   return (
