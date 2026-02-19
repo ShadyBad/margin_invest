@@ -146,10 +146,10 @@ class TestPriceTargets:
         assert result.intrinsic_value is not None
         assert result.intrinsic_value > 0
 
-    def test_buy_price_equals_intrinsic(
+    def test_dual_threshold_mos(
         self, healthy_period, healthy_profile, price_bars
     ):
-        """buy_price should equal intrinsic_value (floor), sell_price above it."""
+        """buy_price = MIV * (1 - MoS), sell_price = MIV * (1 + MoS)."""
         result = compute_price_targets(
             period=healthy_period,
             profile=healthy_profile,
@@ -159,8 +159,17 @@ class TestPriceTargets:
         assert result.buy_price is not None
         assert result.sell_price is not None
         assert result.intrinsic_value is not None
-        assert result.buy_price == result.intrinsic_value
-        assert result.buy_price < result.sell_price
+        assert result.margin_of_safety is not None
+        mos = result.margin_of_safety
+        # Dual threshold: buy below fair value, sell above
+        assert result.buy_price == pytest.approx(
+            result.intrinsic_value * (1 - mos), rel=1e-2
+        )
+        assert result.sell_price == pytest.approx(
+            result.intrinsic_value * (1 + mos), rel=1e-2
+        )
+        # Ordering invariant
+        assert result.buy_price < result.intrinsic_value < result.sell_price
 
     def test_actual_price_from_latest_bar(
         self, healthy_period, healthy_profile, price_bars
@@ -175,10 +184,10 @@ class TestPriceTargets:
         # Latest bar is 2025-09-28 with close=197
         assert result.actual_price == pytest.approx(197.0)
 
-    def test_margin_of_safety_varies_by_growth_stage(
+    def test_mos_symmetry_across_growth_stages(
         self, healthy_period, healthy_profile, price_bars
     ):
-        """Steady growth gets tighter MoS than turnaround (lower sell price)."""
+        """Both buy and sell prices should widen symmetrically with higher MoS."""
         from margin_engine.models.scoring import GrowthStage
 
         steady = compute_price_targets(
@@ -195,14 +204,20 @@ class TestPriceTargets:
             conviction_level=ConvictionLevel.HIGH,
             growth_stage=GrowthStage.TURNAROUND,
         )
-        assert steady.margin_of_safety is not None
-        assert turnaround.margin_of_safety is not None
-        # Steady (25% base) should have tighter MoS than Turnaround (40% base)
-        assert steady.margin_of_safety < turnaround.margin_of_safety
-        # Both buy_prices equal intrinsic (same inputs -> same intrinsic)
-        assert steady.buy_price == turnaround.buy_price
-        # Tighter MoS = lower sell price
-        assert steady.sell_price < turnaround.sell_price
+        # Same intrinsic value (same inputs)
+        assert steady.intrinsic_value == pytest.approx(
+            turnaround.intrinsic_value, rel=1e-4
+        )
+        # Turnaround has wider MoS -> lower buy price, higher sell price
+        assert turnaround.buy_price < steady.buy_price
+        assert turnaround.sell_price > steady.sell_price
+        # Both satisfy the dual threshold relationship
+        assert steady.buy_price == pytest.approx(
+            steady.intrinsic_value * (1 - steady.margin_of_safety), rel=1e-2
+        )
+        assert turnaround.buy_price == pytest.approx(
+            turnaround.intrinsic_value * (1 - turnaround.margin_of_safety), rel=1e-2
+        )
 
     def test_no_price_bars_returns_none_actual(
         self, healthy_period, healthy_profile
