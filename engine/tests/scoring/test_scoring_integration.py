@@ -368,4 +368,10 @@ class TestImportsFromPackage:
             "run_track_a_cascade",
             "run_track_b_cascade",
             "score_universe_v3",
+            # Risk metrics exports
+            "RiskMetrics",
+            "compute_max_drawdown",
+            "compute_risk_metrics",
+            "compute_sharpe_ratio",
+            "compute_volatility",
         }
