@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.db.models import Asset, Score
+from margin_api.db.models import Asset, Score, UniverseSnapshot
 from margin_api.db.session import get_db
 from margin_api.schemas.dashboard import (
     DashboardResponse,
@@ -126,7 +126,17 @@ async def get_dashboard(
     )
 
     if active_tickers is not None:
-        base = base.where(Asset.ticker.in_(active_tickers))
+        if len(active_tickers) > 500:
+            # Large universe: use a server-side subquery to avoid asyncpg
+            # bind-parameter limits (~3000 tickers as individual $N::VARCHAR
+            # params causes compilation/performance failures).
+            universe_ticker_subq = (
+                select(func.jsonb_array_elements_text(UniverseSnapshot.tickers))
+                .where(UniverseSnapshot.is_active.is_(True))
+            )
+            base = base.where(Asset.ticker.in_(universe_ticker_subq))
+        else:
+            base = base.where(Asset.ticker.in_(active_tickers))
 
     # Picks: exceptional + high conviction
     picks_result = await db.execute(
