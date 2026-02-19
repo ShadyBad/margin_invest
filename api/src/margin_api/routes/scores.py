@@ -16,6 +16,7 @@ from margin_api.schemas.scores import (
     ScoreListResponse,
     ScoreResponse,
 )
+from margin_api.schemas.valuation_audit import ValuationAuditResponse
 from margin_api.services.freshness import compute_freshness
 
 router = APIRouter(prefix="/api/v1/scores", tags=["scores"])
@@ -285,6 +286,34 @@ async def get_score_history(
         ))
 
     return ScoreHistoryResponse(ticker=ticker, points=points, total_runs=total)
+
+
+@router.get("/{ticker}/valuation-audit", response_model=ValuationAuditResponse)
+async def get_valuation_audit(
+    ticker: str,
+    db: AsyncSession = Depends(get_db),
+) -> ValuationAuditResponse:
+    """Get the full valuation audit breakdown for a ticker."""
+    ticker = ticker.upper()
+    query = (
+        select(Score)
+        .join(Asset, Score.asset_id == Asset.id)
+        .where(Asset.ticker == ticker)
+        .order_by(Score.scored_at.desc())
+        .limit(1)
+    )
+    result = await db.execute(query)
+    score = result.scalar()
+    if score is None:
+        raise HTTPException(status_code=404, detail=f"No score found for {ticker}")
+
+    # Extract valuation_audit from score_detail JSONB
+    detail = score.score_detail or {}
+    audit_data = detail.get("valuation_audit")
+    if audit_data is None:
+        raise HTTPException(status_code=404, detail=f"No valuation audit available for {ticker}")
+
+    return ValuationAuditResponse(**audit_data)
 
 
 async def _try_get_live_price(ticker: str) -> dict | None:
