@@ -18,7 +18,7 @@ export function AnimatedScore({ value, className = "", duration = 0.6 }: Animate
     if (!isInView) return
     const controls = animate(motionValue, value, {
       duration,
-      ease: [0.22, 1, 0.36, 1],
+      ease: [0.22, 1, 0.36, 1] as const,
     })
     return controls.stop
   }, [isInView, motionValue, value, duration])
