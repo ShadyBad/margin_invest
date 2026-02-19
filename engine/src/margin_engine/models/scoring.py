@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 class FilterVerdict(StrEnum):
     PASS = "pass"
     FAIL = "fail"
+    INCONCLUSIVE = "inconclusive"
 
 
 class ConvictionLevel(StrEnum):
@@ -54,9 +55,13 @@ class FilterResult(BaseModel):
     insufficient_data: bool = False
     missing_fields: list[str] | None = None
     computed_metrics: dict[str, float] | None = None
+    warning: bool = False
+    warning_reason: str | None = None
 
     @property
     def verdict(self) -> FilterVerdict:
+        if self.insufficient_data:
+            return FilterVerdict.INCONCLUSIVE
         return FilterVerdict.PASS if self.passed else FilterVerdict.FAIL
 
 

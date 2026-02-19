@@ -7,6 +7,7 @@ from margin_engine.models.scoring import (
     FactorBreakdown,
     FactorScore,
     FilterResult,
+    FilterVerdict,
     OpportunityType,
     Signal,
 )
@@ -44,6 +45,63 @@ class TestFilterResultInsufficientData:
         assert len(r.missing_fields) == 2
         assert "prior_income" in r.missing_fields
         assert "prior_balance" in r.missing_fields
+
+
+# ---------------------------------------------------------------------------
+# FilterResult verdict + warning tests
+# ---------------------------------------------------------------------------
+
+
+class TestFilterResultVerdictAndWarning:
+    def test_filter_verdict_inconclusive(self):
+        """INCONCLUSIVE verdict for insufficient data."""
+        r = FilterResult(name="beneish", passed=True, insufficient_data=True)
+        assert r.verdict == FilterVerdict.INCONCLUSIVE
+
+    def test_filter_verdict_pass(self):
+        """Normal PASS verdict."""
+        r = FilterResult(name="test", passed=True)
+        assert r.verdict == FilterVerdict.PASS
+
+    def test_filter_verdict_fail(self):
+        """Normal FAIL verdict."""
+        r = FilterResult(name="test", passed=False)
+        assert r.verdict == FilterVerdict.FAIL
+
+    def test_filter_verdict_inconclusive_overrides_fail(self):
+        """INCONCLUSIVE takes priority even when passed=False."""
+        r = FilterResult(name="test", passed=False, insufficient_data=True)
+        assert r.verdict == FilterVerdict.INCONCLUSIVE
+
+    def test_filter_result_warning(self):
+        """Warning flag for trend deterioration."""
+        r = FilterResult(
+            name="interest_coverage",
+            passed=True,
+            value=2.8,
+            threshold=2.5,
+            warning=True,
+            warning_reason="ICR declined 25% over 3 years",
+        )
+        assert r.warning is True
+        assert r.warning_reason is not None
+        assert "ICR declined" in r.warning_reason
+
+    def test_warning_default_false(self):
+        """Warning defaults to False."""
+        r = FilterResult(name="test", passed=True)
+        assert r.warning is False
+        assert r.warning_reason is None
+
+    def test_filter_result_computed_metrics(self):
+        """Computed metrics dict for auditability."""
+        r = FilterResult(
+            name="liquidity",
+            passed=True,
+            computed_metrics={"median_dollar_volume_90d": 15_000_000, "days_to_fill": 1.5},
+        )
+        assert r.computed_metrics["days_to_fill"] == 1.5
+        assert r.computed_metrics["median_dollar_volume_90d"] == 15_000_000
 
 
 def test_composite_score_price_fields():
