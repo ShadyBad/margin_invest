@@ -119,12 +119,16 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
         date: p.scored_at,
         score: p.composite_percentile,
         signal: p.signal,
+        delta: p.delta,
+        conviction: p.conviction_level,
       }))
     }
     return [{
       date: scoredResult.scored_at ?? new Date().toISOString(),
       score: scoredResult.score,
       signal: scoredResult.signal,
+      delta: null,
+      conviction: scoredResult.conviction_level,
     }]
   }, [historyData, scoredResult])
 

@@ -80,16 +80,62 @@ function buildChartData(
   }))
 }
 
+function PriceTargetTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  const data = payload[0]?.payload as ChartPoint
+  if (!data) return null
+
+  // Determine zone
+  let zone = ""
+  let zoneColor = "text-zinc-400"
+  if (data.price != null && data.buyPrice != null && data.sellPrice != null) {
+    if (data.price <= data.buyPrice) {
+      zone = "Buy Zone"
+      zoneColor = "text-emerald-400"
+    } else if (data.price >= data.sellPrice) {
+      zone = "Sell Zone"
+      zoneColor = "text-red-400"
+    } else {
+      zone = "Hold Zone"
+      zoneColor = "text-amber-400"
+    }
+  }
+
+  return (
+    <div className="bg-[rgba(17,17,19,0.95)] backdrop-blur border border-white/[0.08] rounded-lg px-3 py-2 shadow-lg">
+      <p className="text-[10px] font-mono text-[#5C5955] mb-1">{formatDate(String(label))}</p>
+      {data.price != null && (
+        <p className="text-[14px] font-mono text-blue-400">Price: ${data.price.toFixed(2)}</p>
+      )}
+      {data.buyPrice != null && (
+        <p className="text-[11px] font-mono text-emerald-400/70">Buy: ${data.buyPrice.toFixed(2)}</p>
+      )}
+      {data.fairValue != null && (
+        <p className="text-[11px] font-mono text-zinc-500">MIV: ${data.fairValue.toFixed(2)}</p>
+      )}
+      {data.sellPrice != null && (
+        <p className="text-[11px] font-mono text-red-400/70">Sell: ${data.sellPrice.toFixed(2)}</p>
+      )}
+      {zone && (
+        <p className={`text-[10px] font-mono mt-1 ${zoneColor}`}>{zone}</p>
+      )}
+    </div>
+  )
+}
+
 export function PriceTargetChart({ scoreHistory, priceHistory }: PriceTargetChartProps) {
   const chartData = useMemo(
     () => buildChartData(scoreHistory, priceHistory),
     [scoreHistory, priceHistory],
   )
 
-  if (chartData.length === 0) {
+  if (chartData.length < 2) {
     return (
-      <div className="p-6 text-center text-zinc-500 text-sm">
-        No price target data available
+      <div className="px-6 py-8 border-t border-white/[0.06]" data-testid="price-target-chart-empty">
+        <div className="flex flex-col items-center justify-center gap-2 text-center">
+          <span className="text-[13px] text-[#5C5955]">Buy/Sell targets will appear after 2+ scoring runs</span>
+          <span className="text-[11px] text-[#5C5955]/60">Target bands track how valuations evolve over time</span>
+        </div>
       </div>
     )
   }
@@ -161,25 +207,8 @@ export function PriceTargetChart({ scoreHistory, priceHistory }: PriceTargetChar
             width={50}
           />
           <Tooltip
-            contentStyle={{
-              backgroundColor: "#18181b",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "8px",
-              fontSize: "11px",
-            }}
-            labelFormatter={(label: unknown) => formatDate(String(label))}
-            formatter={(value: unknown, name: unknown) => {
-              const numVal = Number(value)
-              const strName = String(name)
-              const label =
-                {
-                  price: "Price",
-                  buyPrice: "Buy Target",
-                  fairValue: "Fair Value",
-                  sellPrice: "Sell Target",
-                }[strName] ?? strName
-              return [`$${numVal.toFixed(2)}`, label]
-            }}
+            content={<PriceTargetTooltip />}
+            cursor={{ stroke: "rgba(255,255,255,0.1)", strokeDasharray: "4 2" }}
           />
           {/* Buy price — dashed green */}
           <Line
