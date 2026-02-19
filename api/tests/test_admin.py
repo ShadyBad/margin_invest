@@ -1,4 +1,4 @@
-"""Tests for admin pipeline trigger endpoint."""
+"""Tests for admin pipeline trigger and universe activation endpoints."""
 from __future__ import annotations
 
 import os
@@ -88,3 +88,58 @@ class TestPipelineTrigger:
             )
 
         assert response.status_code == 503
+
+
+class TestUniverseActivate:
+    def setup_method(self):
+        get_settings.cache_clear()
+
+    def teardown_method(self):
+        get_settings.cache_clear()
+
+    def _make_client(self, admin_key: str = "test-admin-key"):
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": admin_key}):
+            app = create_app()
+            return TestClient(app)
+
+    def test_activate_requires_admin_key(self):
+        client = self._make_client()
+        response = client.post("/api/v1/admin/universe/activate")
+        assert response.status_code == 422
+
+    def test_activate_rejects_wrong_key(self):
+        client = self._make_client(admin_key="correct-key")
+        response = client.post(
+            "/api/v1/admin/universe/activate",
+            headers={"X-Admin-Key": "wrong-key"},
+        )
+        assert response.status_code == 403
+
+    def test_activate_succeeds_with_yaml(self):
+        """Activate universe loads YAML and creates snapshot."""
+        mock_snapshot = MagicMock()
+        mock_snapshot.version = "2026.02.18"
+        mock_snapshot.ticker_count = 3057
+        mock_snapshot.config_hash = "abc123"
+
+        with (
+            patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}),
+            patch(
+                "margin_api.services.universe.activate_universe",
+                new_callable=AsyncMock,
+                return_value=mock_snapshot,
+            ),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            app = create_app()
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/admin/universe/activate",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "activated"
+        assert data["version"] == "2026.02.18"
+        assert data["ticker_count"] == 3057

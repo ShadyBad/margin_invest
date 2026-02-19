@@ -21,6 +21,7 @@ WORKDIR /app
 # Copy installed packages and source
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/engine/src /app/engine/src
+COPY --from=builder /app/engine/universe.yaml /app/engine/universe.yaml
 COPY --from=builder /app/api/src /app/api/src
 
 ENV PATH="/app/.venv/bin:$PATH"

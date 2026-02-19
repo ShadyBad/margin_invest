@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from arq.connections import ArqRedis, create_pool
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
+from margin_api.db.session import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -56,3 +59,55 @@ async def trigger_pipeline(x_admin_key: str = Header()) -> JSONResponse:
             "message": "Pipeline enqueued: ingest → v2 score → v3 score",
         },
     )
+
+
+@router.post("/universe/activate")
+async def activate_universe_endpoint(
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Activate the universe from the bundled engine/universe.yaml config.
+
+    Deactivates any existing active snapshot and creates a new one.
+    Requires the X-Admin-Key header matching the MARGIN_ADMIN_KEY env var.
+    """
+    _verify_admin_key(x_admin_key)
+
+    from margin_api.services.universe import activate_universe
+
+    # Look for universe.yaml relative to the repo/container root
+    candidates = [
+        Path("/app/engine/universe.yaml"),  # Docker container
+        Path(__file__).resolve().parents[4] / "engine" / "universe.yaml",  # Local dev
+    ]
+
+    config_path = None
+    for candidate in candidates:
+        if candidate.exists():
+            config_path = candidate
+            break
+
+    if config_path is None:
+        raise HTTPException(
+            500,
+            "universe.yaml not found. Searched: " + ", ".join(str(c) for c in candidates),
+        )
+
+    try:
+        snapshot = await activate_universe(session, config_path)
+    except Exception as e:
+        logger.exception("[admin] Failed to activate universe")
+        raise HTTPException(500, f"Failed to activate universe: {e}") from e
+
+    logger.info(
+        "[admin] Activated universe v%s (%d tickers)",
+        snapshot.version,
+        snapshot.ticker_count,
+    )
+
+    return {
+        "status": "activated",
+        "version": snapshot.version,
+        "ticker_count": snapshot.ticker_count,
+        "config_hash": snapshot.config_hash,
+    }
