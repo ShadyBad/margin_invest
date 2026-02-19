@@ -70,7 +70,7 @@ const mockScore: ScoreResponse = {
   momentum: { factor_name: "momentum", weight: 0.20, average_percentile: 88, sub_scores: [] },
   filters_passed: [],
   data_coverage: 0.95,
-  intrinsic_value: 180,
+  margin_invest_value: 180,
   buy_price: 140,
   sell_price: 200,
   actual_price: 150,
@@ -80,13 +80,13 @@ const mockScore: ScoreResponse = {
 }
 
 const mockMetrics: InstitutionalMetricsResponse = {
-  sharpe_ratio: 1.5,
-  max_drawdown: -0.15,
-  volatility: 22.5,
-  avg_profit_margin: 25.0,
+  sharpe_ratio: { value: 1.5, unavailable_reason: null },
+  max_drawdown: { value: -0.15, unavailable_reason: null },
+  volatility: { value: 22.5, unavailable_reason: null },
+  avg_profit_margin: { value: 25.0, unavailable_reason: null },
   risk_classification: "Moderate",
-  allocation_weight: 8.0,
-  margin_of_safety: 0.10,
+  allocation_weight: { value: 8.0, unavailable_reason: null },
+  margin_of_safety: { value: 0.10, unavailable_reason: null },
 }
 
 describe("AssetPanel", () => {

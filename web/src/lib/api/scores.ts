@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { ScoreResponse, ScoreListResponse, InstitutionalMetricsResponse } from './types'
+import type { ScoreResponse, ScoreListResponse, InstitutionalMetricsResponse, ScoreHistoryResponse } from './types'
 
 export interface ListScoresParams {
   page?: number
@@ -31,6 +31,10 @@ export async function listScores(params: ListScoresParams = {}): Promise<ScoreLi
 
   const query = searchParams.toString()
   return apiFetch<ScoreListResponse>(`/api/v1/scores${query ? `?${query}` : ''}`)
+}
+
+export async function getScoreHistory(ticker: string): Promise<ScoreHistoryResponse> {
+  return apiFetch<ScoreHistoryResponse>(`/api/v1/scores/${ticker.toUpperCase()}/history`)
 }
 
 export async function deleteScore(ticker: string): Promise<void> {

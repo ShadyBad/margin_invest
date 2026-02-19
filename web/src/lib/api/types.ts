@@ -59,7 +59,7 @@ export interface ScoreResponse {
   growth_stage?: string
   scored_at?: string
   // Price targets
-  intrinsic_value: number | null
+  margin_invest_value: number | null
   buy_price: number | null
   sell_price: number | null
   actual_price: number | null
@@ -87,14 +87,19 @@ export interface ScoreListResponse {
   page_size: number
 }
 
+export interface MetricStatus {
+  value: number | null
+  unavailable_reason: string | null
+}
+
 export interface InstitutionalMetricsResponse {
-  sharpe_ratio: number | null
-  max_drawdown: number | null
-  volatility: number | null
-  avg_profit_margin: number | null
+  sharpe_ratio: MetricStatus
+  max_drawdown: MetricStatus
+  volatility: MetricStatus
+  avg_profit_margin: MetricStatus
   risk_classification: string
-  allocation_weight: number | null
-  margin_of_safety: number | null
+  allocation_weight: MetricStatus
+  margin_of_safety: MetricStatus
 }
 
 export interface PickSummary {
@@ -162,6 +167,28 @@ export interface DashboardResponse {
 export interface HealthResponse {
   status: string
   version: string
+}
+
+export interface ScoreHistoryPoint {
+  scored_at: string
+  composite_percentile: number
+  composite_raw_score: number | null
+  quality_percentile: number | null
+  value_percentile: number | null
+  momentum_percentile: number | null
+  conviction_level: string
+  signal: string
+  margin_invest_value: number | null
+  buy_price: number | null
+  sell_price: number | null
+  actual_price: number | null
+  delta: number | null
+}
+
+export interface ScoreHistoryResponse {
+  ticker: string
+  points: ScoreHistoryPoint[]
+  total_runs: number
 }
 
 export interface BacktestConfig {

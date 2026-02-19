@@ -15,7 +15,8 @@ import { ScoreHistoryTable } from "./score-history-table"
 import { ProGate } from "../pro-gate"
 import { composeAiSummary } from "@/lib/compose-ai-summary"
 import type { TimeRange } from "./time-range-selector"
-import type { ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/types"
+import type { ScoreResponse, InstitutionalMetricsResponse, ScoreHistoryResponse } from "@/lib/api/types"
+import { getScoreHistory } from "@/lib/api/scores"
 
 interface AssetPanelProps {
   isOpen: boolean
@@ -62,6 +63,7 @@ function computeInsights(score: ScoreResponse) {
 
 export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: AssetPanelProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("3M")
+  const [historyData, setHistoryData] = useState<ScoreHistoryResponse | null>(null)
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") onClose()
@@ -73,23 +75,64 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [isOpen, handleKeyDown])
 
+  useEffect(() => {
+    if (!isOpen || !ticker) return
+    let cancelled = false
+    getScoreHistory(ticker)
+      .then((data) => {
+        if (!cancelled) setHistoryData(data)
+      })
+      .catch(() => {
+        // Silently fail — synthetic fallback will be used
+      })
+    return () => { cancelled = true }
+  }, [isOpen, ticker])
+
   const aiSummary = useMemo(() => composeAiSummary(scoredResult), [scoredResult])
   const insights = useMemo(() => computeInsights(scoredResult), [scoredResult])
 
-  const scoreHistory = useMemo(() => [{
-    date: scoredResult.scored_at ?? new Date().toISOString(),
-    score: scoredResult.score,
-    delta: 0,
-    signal: scoredResult.signal,
-    conviction: scoredResult.conviction_level,
-    keyChange: "Current",
-  }], [scoredResult])
+  const scoreHistory = useMemo(() => {
+    if (historyData && historyData.points.length > 0) {
+      return historyData.points.map((p) => ({
+        date: p.scored_at,
+        score: p.composite_percentile,
+        delta: p.delta ?? 0,
+        signal: p.signal,
+        conviction: p.conviction_level,
+        keyChange: p.delta != null ? `${p.delta > 0 ? "+" : ""}${p.delta.toFixed(1)}` : "Current",
+      }))
+    }
+    return [{
+      date: scoredResult.scored_at ?? new Date().toISOString(),
+      score: scoredResult.score,
+      delta: 0,
+      signal: scoredResult.signal,
+      conviction: scoredResult.conviction_level,
+      keyChange: "Current",
+    }]
+  }, [historyData, scoredResult])
 
-  const scoreChartData = useMemo(() => [{
-    date: scoredResult.scored_at ?? new Date().toISOString(),
-    score: scoredResult.score,
-    signal: scoredResult.signal,
-  }], [scoredResult])
+  const scoreChartData = useMemo(() => {
+    if (historyData && historyData.points.length > 0) {
+      return historyData.points.map((p) => ({
+        date: p.scored_at,
+        score: p.composite_percentile,
+        signal: p.signal,
+      }))
+    }
+    return [{
+      date: scoredResult.scored_at ?? new Date().toISOString(),
+      score: scoredResult.score,
+      signal: scoredResult.signal,
+    }]
+  }, [historyData, scoredResult])
+
+  const latestDelta = useMemo(() => {
+    if (historyData && historyData.points.length >= 2) {
+      return historyData.points[historyData.points.length - 1].delta
+    }
+    return null
+  }, [historyData])
 
   const universeRank = scoredResult.universe_percentile >= 90
     ? `Top ${100 - Math.round(scoredResult.universe_percentile)}% of universe`
@@ -116,7 +159,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
               ticker={ticker}
               companyName={scoredResult.name}
               compositeScore={scoredResult.score}
-              scoreDelta={0}
+              scoreDelta={latestDelta ?? 0}
               conviction={scoredResult.conviction_level}
               signal={scoredResult.signal}
               opportunityType={(scoredResult.winning_track as "compounder" | "mispricing") ?? "compounder"}
@@ -154,12 +197,12 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
               <div className="p-6 space-y-6">
                 <ProGate>
                   <KpiGrid
-                    sharpeRatio={metrics?.sharpe_ratio ?? null}
-                    maxDrawdown={metrics?.max_drawdown ?? null}
-                    volatility={metrics?.volatility ?? null}
-                    avgProfitMargin={metrics?.avg_profit_margin ?? null}
-                    allocationWeight={metrics?.allocation_weight ?? null}
-                    marginOfSafety={metrics?.margin_of_safety != null ? Math.round(metrics.margin_of_safety * 100) : null}
+                    sharpeRatio={metrics?.sharpe_ratio?.value ?? null}
+                    maxDrawdown={metrics?.max_drawdown?.value ?? null}
+                    volatility={metrics?.volatility?.value ?? null}
+                    avgProfitMargin={metrics?.avg_profit_margin?.value ?? null}
+                    allocationWeight={metrics?.allocation_weight?.value ?? null}
+                    marginOfSafety={metrics?.margin_of_safety?.value != null ? Math.round(metrics.margin_of_safety.value * 100) : null}
                   />
                 </ProGate>
 
@@ -173,7 +216,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
                 </ProGate>
 
                 <PanelValuation
-                  intrinsicValue={scoredResult.intrinsic_value}
+                  intrinsicValue={scoredResult.margin_invest_value}
                   currentPrice={scoredResult.actual_price}
                   marginOfSafety={scoredResult.margin_of_safety}
                   methods={scoredResult.valuation_methods}
