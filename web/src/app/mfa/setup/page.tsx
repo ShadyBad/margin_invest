@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
 import { startRegistration } from "@simplewebauthn/browser"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+// Use relative URL — proxied to backend via Vercel/Next.js rewrites
 
 type Step = "choose" | "totp" | "webauthn"
 
@@ -24,7 +24,7 @@ function MfaSetupContent() {
   const handleChooseAuthenticator = async () => {
     setError("")
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/mfa/setup-totp`, {
+      const res = await fetch(`/api/v1/auth/mfa/setup-totp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: Number(userId), challenge_token: challengeToken }),
@@ -54,7 +54,7 @@ function MfaSetupContent() {
     setError("")
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/mfa/confirm-totp`, {
+      const res = await fetch(`/api/v1/auth/mfa/confirm-totp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ secret_id: secretId, code: verificationCode }),
@@ -76,7 +76,7 @@ function MfaSetupContent() {
     setError("")
     try {
       const optionsRes = await fetch(
-        `${API_URL}/api/v1/auth/mfa/register-webauthn`,
+        `/api/v1/auth/mfa/register-webauthn`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

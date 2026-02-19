@@ -4,7 +4,8 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+// Use relative URL — Vercel rewrite (vercel.json) and Next.js rewrite
+// (next.config.ts) both proxy /api/v1/* to the backend, avoiding CORS.
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -18,7 +19,7 @@ export default function RegisterPage() {
     setError("")
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/register`, {
+      const res = await fetch(`/api/v1/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),

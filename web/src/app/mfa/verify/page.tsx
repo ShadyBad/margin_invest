@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { startAuthentication } from "@simplewebauthn/browser"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+// Use relative URL — proxied to backend via Vercel/Next.js rewrites
 
 type Method = "totp" | "webauthn"
 
@@ -23,7 +23,7 @@ function MfaVerifyContent() {
     setError("")
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/mfa/verify-totp`, {
+      const res = await fetch(`/api/v1/auth/mfa/verify-totp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -61,7 +61,7 @@ function MfaVerifyContent() {
 
     try {
       const optionsRes = await fetch(
-        `${API_URL}/api/v1/auth/mfa/authenticate-webauthn`,
+        `/api/v1/auth/mfa/authenticate-webauthn`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

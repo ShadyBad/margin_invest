@@ -3,7 +3,8 @@ import Google from "next-auth/providers/google"
 import GitHub from "next-auth/providers/github"
 import Credentials from "next-auth/providers/credentials"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+// Server-side only — NextAuth runs on the server, needs full URL for direct API calls
+const API_URL = process.env.API_URL || "http://localhost:8000"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
