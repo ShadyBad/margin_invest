@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { PanelBackdrop } from "./panel-backdrop"
 import { ExecutiveHeader } from "./executive-header"
 import { ScoreChart } from "./score-chart"
+import { PriceTargetChart } from "./price-target-chart"
 import { PanelFactorBreakdown } from "./panel-factor-breakdown"
 import { KpiGrid } from "./kpi-grid"
 import { InsightPanel } from "./insight-panel"
@@ -134,6 +135,14 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
     return null
   }, [historyData])
 
+  const priceHistoryForChart = useMemo(() => {
+    if (!scoredResult.price_history || scoredResult.price_history.length === 0) return undefined
+    return scoredResult.price_history.map((bar) => ({
+      date: bar.date,
+      close: bar.close,
+    }))
+  }, [scoredResult.price_history])
+
   const universeRank = scoredResult.universe_percentile >= 90
     ? `Top ${100 - Math.round(scoredResult.universe_percentile)}% of universe`
     : `${Math.round(scoredResult.universe_percentile)}th percentile`
@@ -183,6 +192,12 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
                   scoringFrequency="Scored weekly"
                   lastScored={scoredResult.scored_at ? "Recent" : undefined}
                 />
+                {historyData && historyData.points.length > 0 && (
+                  <PriceTargetChart
+                    scoreHistory={historyData.points}
+                    priceHistory={priceHistoryForChart}
+                  />
+                )}
                 <PanelFactorBreakdown
                   quality={scoredResult.quality}
                   value={scoredResult.value}
