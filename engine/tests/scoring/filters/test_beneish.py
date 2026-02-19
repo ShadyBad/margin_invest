@@ -7,11 +7,12 @@ from margin_engine.config.filter_config import BeneishConfig
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,
+    FinancialHistory,
     FinancialPeriod,
     IncomeStatement,
 )
 from margin_engine.models.scoring import FilterVerdict
-from margin_engine.scoring.filters.beneish import beneish_m_score
+from margin_engine.scoring.filters.beneish import beneish_m_score, beneish_m_score_v2
 
 
 class TestBeneishMScore:
@@ -230,3 +231,269 @@ class TestBeneishWithConfig:
         result = beneish_m_score(period)
         assert result.insufficient_data is True
         assert result.missing_fields == ["prior_balance"]
+
+
+# ---------------------------------------------------------------------------
+# Helper to build multi-period FinancialHistory for v2 tests
+# ---------------------------------------------------------------------------
+
+def _make_period(
+    period_end: str,
+    revenue_current: int,
+    revenue_prior: int | None,
+    receivables_current: int,
+    receivables_prior: int | None,
+    total_assets_current: int,
+    total_assets_prior: int | None,
+    net_income: int,
+    operating_cf: int,
+    gross_profit_current: int | None = None,
+    gross_profit_prior: int | None = None,
+    *,
+    has_prior: bool = True,
+) -> FinancialPeriod:
+    """Build a FinancialPeriod with configurable current/prior data."""
+    ci = IncomeStatement(
+        revenue=Decimal(str(revenue_current)),
+        cost_of_revenue=Decimal(str(revenue_current - (gross_profit_current or revenue_current // 2))),
+        gross_profit=Decimal(str(gross_profit_current or revenue_current // 2)),
+        sga_expense=Decimal("100"),
+        depreciation=Decimal("50"),
+        ebit=Decimal(str(net_income + 50)),
+        net_income=Decimal(str(net_income)),
+        shares_outstanding=100,
+    )
+    cb = BalanceSheet(
+        total_assets=Decimal(str(total_assets_current)),
+        current_assets=Decimal(str(total_assets_current // 3)),
+        receivables=Decimal(str(receivables_current)),
+        total_liabilities=Decimal(str(total_assets_current // 2)),
+        current_liabilities=Decimal(str(total_assets_current // 6)),
+        long_term_debt=Decimal(str(total_assets_current // 5)),
+        total_equity=Decimal(str(total_assets_current // 2)),
+        pp_and_e=Decimal(str(total_assets_current // 4)),
+        shares_outstanding=100,
+    )
+    cf = CashFlowStatement(
+        operating_cash_flow=Decimal(str(operating_cf)),
+        capital_expenditures=Decimal("-30"),
+    )
+
+    pi = None
+    pb = None
+    if has_prior and revenue_prior is not None and total_assets_prior is not None:
+        pi = IncomeStatement(
+            revenue=Decimal(str(revenue_prior)),
+            cost_of_revenue=Decimal(str(revenue_prior - (gross_profit_prior or revenue_prior // 2))),
+            gross_profit=Decimal(str(gross_profit_prior or revenue_prior // 2)),
+            sga_expense=Decimal("100"),
+            depreciation=Decimal("50"),
+            ebit=Decimal(str(net_income - 10)),
+            net_income=Decimal(str(net_income - 20)),
+            shares_outstanding=100,
+        )
+        pb = BalanceSheet(
+            total_assets=Decimal(str(total_assets_prior)),
+            current_assets=Decimal(str(total_assets_prior // 3)),
+            receivables=Decimal(str(receivables_prior or receivables_current)),
+            total_liabilities=Decimal(str(total_assets_prior // 2)),
+            current_liabilities=Decimal(str(total_assets_prior // 6)),
+            long_term_debt=Decimal(str(total_assets_prior // 5)),
+            total_equity=Decimal(str(total_assets_prior // 2)),
+            pp_and_e=Decimal(str(total_assets_prior // 4)),
+            shares_outstanding=100,
+        )
+
+    return FinancialPeriod(
+        period_end=period_end,
+        filing_date=period_end,
+        current_income=ci,
+        prior_income=pi,
+        current_balance=cb,
+        prior_balance=pb,
+        current_cash_flow=cf,
+    )
+
+
+class TestBeneishMScoreV2:
+    """Tests for multi-period Beneish M-Score (v2) with INCONCLUSIVE support."""
+
+    def test_beneish_multi_period_computation(self):
+        """Computes M-Score for each period that has prior data."""
+        # Build 3 periods, each with prior data -> 3 computable M-Scores
+        periods = [
+            _make_period(
+                "2022-09-30", 1000, 900, 100, 90, 2000, 1800,
+                net_income=150, operating_cf=180,
+            ),
+            _make_period(
+                "2023-09-30", 1100, 1000, 110, 100, 2200, 2000,
+                net_income=160, operating_cf=190,
+            ),
+            _make_period(
+                "2024-09-30", 1200, 1100, 120, 110, 2400, 2200,
+                net_income=170, operating_cf=200,
+            ),
+        ]
+        history = FinancialHistory(ticker="TEST", periods=periods)
+        result = beneish_m_score_v2(history)
+
+        # Should produce a result
+        assert result.name == "beneish_m_score"
+        # Should have computed_metrics with historical_m_scores
+        assert result.computed_metrics is not None
+        assert "current_m_score" in result.computed_metrics
+        assert "historical_m_scores_count" in result.computed_metrics
+        # 3 periods each with prior data -> 3 M-Scores
+        assert result.computed_metrics["historical_m_scores_count"] == 3.0
+        # current_m_score should equal the most recent period's M-Score
+        assert result.computed_metrics["current_m_score"] == result.value
+
+    def test_beneish_inconclusive_no_prior(self):
+        """Single period with no prior -> INCONCLUSIVE."""
+        period = _make_period(
+            "2024-09-30", 1000, None, 100, None, 2000, None,
+            net_income=150, operating_cf=180, has_prior=False,
+        )
+        history = FinancialHistory(ticker="TEST", periods=[period])
+        result = beneish_m_score_v2(history)
+
+        assert result.insufficient_data is True
+        assert result.verdict == FilterVerdict.INCONCLUSIVE
+        assert "insufficient" in result.detail.lower()
+
+    def test_beneish_trend_detection(self):
+        """M-Scores getting worse (closer to -1.78) -> deteriorating trend."""
+        # Period 1: healthy company, low M-Score (well below -1.78)
+        # Period 2: slightly worse M-Score (closer to -1.78)
+        # Period 3: even worse M-Score (closer still to -1.78)
+        # Achieve this by increasing receivables ratio and accruals over time
+        periods = [
+            _make_period(
+                "2022-09-30", 1000, 900, 80, 72, 2000, 1800,
+                net_income=150, operating_cf=200,
+                gross_profit_current=500, gross_profit_prior=450,
+            ),
+            _make_period(
+                "2023-09-30", 1100, 1000, 150, 80, 2200, 2000,
+                net_income=180, operating_cf=160,  # accruals getting worse
+                gross_profit_current=500, gross_profit_prior=500,
+            ),
+            _make_period(
+                "2024-09-30", 1200, 1100, 280, 150, 2400, 2200,
+                net_income=250, operating_cf=100,  # accruals much worse
+                gross_profit_current=480, gross_profit_prior=500,
+            ),
+        ]
+        history = FinancialHistory(ticker="TEST", periods=periods)
+        result = beneish_m_score_v2(history)
+
+        assert result.computed_metrics is not None
+        # Should detect deteriorating trend (M-Scores getting closer to -1.78)
+        assert "trend" in result.computed_metrics
+        assert result.computed_metrics["trend"] == 1.0  # 1.0 = deteriorating
+
+    def test_beneish_backward_compat_single_period(self):
+        """Still works with single FinancialPeriod input (delegates to v1)."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
+
+        result_v2 = beneish_m_score_v2(APPLE_PERIOD_2024)
+        result_v1 = beneish_m_score(APPLE_PERIOD_2024)
+
+        assert result_v2.passed == result_v1.passed
+        assert result_v2.value == result_v1.value
+        assert result_v2.verdict == result_v1.verdict
+
+    def test_beneish_latest_fails(self):
+        """Most recent M-Score above threshold -> FAIL."""
+        # Build periods where the latest period has manipulator-like data
+        periods = [
+            # Period 1: normal company
+            _make_period(
+                "2022-09-30", 1000, 900, 100, 90, 2000, 1800,
+                net_income=150, operating_cf=180,
+                gross_profit_current=500, gross_profit_prior=450,
+            ),
+            # Period 2: heavy manipulation signals
+            _make_period(
+                "2023-09-30", 1200, 1000, 480, 100, 2000, 1800,
+                net_income=400, operating_cf=50,  # huge accruals
+                gross_profit_current=300, gross_profit_prior=500,
+            ),
+        ]
+        history = FinancialHistory(ticker="MANIP", periods=periods)
+        result = beneish_m_score_v2(history)
+
+        assert result.passed is False
+        assert result.verdict == FilterVerdict.FAIL
+        assert result.value is not None
+        assert result.value > -1.78
+
+    def test_beneish_v2_with_history_all_periods_no_prior(self):
+        """Multiple periods but none have prior data -> INCONCLUSIVE."""
+        periods = [
+            _make_period(
+                "2022-09-30", 1000, None, 100, None, 2000, None,
+                net_income=150, operating_cf=180, has_prior=False,
+            ),
+            _make_period(
+                "2023-09-30", 1100, None, 110, None, 2200, None,
+                net_income=160, operating_cf=190, has_prior=False,
+            ),
+        ]
+        history = FinancialHistory(ticker="TEST", periods=periods)
+        result = beneish_m_score_v2(history)
+
+        assert result.insufficient_data is True
+        assert result.verdict == FilterVerdict.INCONCLUSIVE
+
+    def test_beneish_v2_config_threshold(self):
+        """Config threshold should be respected in v2."""
+        periods = [
+            _make_period(
+                "2022-09-30", 1000, 900, 100, 90, 2000, 1800,
+                net_income=150, operating_cf=180,
+            ),
+            _make_period(
+                "2023-09-30", 1100, 1000, 110, 100, 2200, 2000,
+                net_income=160, operating_cf=190,
+            ),
+        ]
+        history = FinancialHistory(ticker="TEST", periods=periods)
+
+        # Default threshold
+        result_default = beneish_m_score_v2(history)
+        assert result_default.threshold == -1.78
+
+        # Very strict threshold: should cause FAIL for most companies
+        strict_config = BeneishConfig(threshold=-10.0)
+        result_strict = beneish_m_score_v2(history, config=strict_config)
+        assert result_strict.threshold == -10.0
+        assert result_strict.passed is False  # Virtually no company would pass -10.0
+
+    def test_beneish_v2_stable_trend(self):
+        """M-Scores not deteriorating -> stable trend."""
+        # All periods have similar healthy data -> stable M-Scores
+        periods = [
+            _make_period(
+                "2022-09-30", 1000, 900, 100, 90, 2000, 1800,
+                net_income=150, operating_cf=180,
+                gross_profit_current=500, gross_profit_prior=450,
+            ),
+            _make_period(
+                "2023-09-30", 1100, 1000, 110, 100, 2200, 2000,
+                net_income=165, operating_cf=198,
+                gross_profit_current=550, gross_profit_prior=500,
+            ),
+            _make_period(
+                "2024-09-30", 1200, 1100, 120, 110, 2400, 2200,
+                net_income=180, operating_cf=216,
+                gross_profit_current=600, gross_profit_prior=550,
+            ),
+        ]
+        history = FinancialHistory(ticker="TEST", periods=periods)
+        result = beneish_m_score_v2(history)
+
+        assert result.computed_metrics is not None
+        # Stable company -> trend should be 0.0 (stable)
+        assert result.computed_metrics["trend"] == 0.0

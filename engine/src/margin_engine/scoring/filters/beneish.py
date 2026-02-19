@@ -13,7 +13,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from margin_engine.config.filter_config import BeneishConfig
-from margin_engine.models.financial import FinancialPeriod
+from margin_engine.models.financial import FinancialHistory, FinancialPeriod
 from margin_engine.models.scoring import FilterResult
 
 _THRESHOLD = -1.78
@@ -174,3 +174,129 @@ def beneish_m_score(
         threshold=threshold,
         detail=detail,
     )
+
+
+def beneish_m_score_v2(
+    history_or_period: FinancialHistory | FinancialPeriod,
+    config: BeneishConfig | None = None,
+) -> FilterResult:
+    """Compute Beneish M-Score across multiple periods with trend analysis.
+
+    When given a ``FinancialHistory`` with multiple periods, computes M-Score
+    for every period that has both current AND prior data, stores historical
+    scores, detects deteriorating trends, and evaluates the most recent
+    M-Score against the threshold.
+
+    When given a single ``FinancialPeriod``, delegates to the original
+    ``beneish_m_score()`` for backward compatibility.
+
+    Args:
+        history_or_period: Either a multi-year FinancialHistory or a single
+            FinancialPeriod for backward-compatible single-period check.
+        config: Optional BeneishConfig controlling threshold.
+
+    Returns:
+        FilterResult with computed_metrics containing current_m_score,
+        historical_m_scores_count, and trend indicator.
+    """
+    name = "beneish_m_score"
+
+    # --- Single-period fallback ---
+    if isinstance(history_or_period, FinancialPeriod):
+        return beneish_m_score(history_or_period, config=config)
+
+    history = history_or_period
+    threshold = config.threshold if config else _THRESHOLD
+
+    # --- Compute M-Score for each period that has prior data ---
+    historical_m_scores: list[tuple[str, float]] = []
+
+    for period in history.periods:
+        result = beneish_m_score(period, config=config)
+        if not result.insufficient_data and result.value is not None:
+            historical_m_scores.append((period.period_end, result.value))
+
+    # --- INCONCLUSIVE: no computable M-Scores ---
+    if not historical_m_scores:
+        return FilterResult(
+            name=name,
+            passed=True,
+            threshold=threshold,
+            insufficient_data=True,
+            detail="Insufficient historical data for multi-period M-Score: "
+            "no periods have both current and prior financial data",
+        )
+
+    # --- Evaluate most recent M-Score ---
+    current_period_end, current_m_score = historical_m_scores[-1]
+    passed = current_m_score <= threshold
+
+    # --- Trend detection ---
+    # A deteriorating trend means M-Scores are increasing (getting closer to
+    # or exceeding -1.78) over consecutive periods.
+    trend = _detect_trend(historical_m_scores)
+    trend_label = "deteriorating" if trend else "stable"
+
+    # --- Build detail string ---
+    scores_str = ", ".join(
+        f"{pe}={ms:.4f}" for pe, ms in historical_m_scores
+    )
+    status = "PASS" if passed else "FAIL"
+    detail = (
+        f"M-Score={current_m_score:.4f} ({status}, threshold={threshold}). "
+        f"historical=[{scores_str}], trend={trend_label}"
+    )
+
+    # --- Warning for deteriorating trend ---
+    warning = trend
+    warning_reason: str | None = None
+    if trend:
+        warning_reason = (
+            f"M-Score trend is deteriorating over {len(historical_m_scores)} periods: "
+            f"scores are moving toward the manipulation threshold ({threshold})"
+        )
+
+    return FilterResult(
+        name=name,
+        passed=passed,
+        value=round(current_m_score, 4),
+        threshold=threshold,
+        detail=detail,
+        warning=warning,
+        warning_reason=warning_reason,
+        computed_metrics={
+            "current_m_score": round(current_m_score, 4),
+            "historical_m_scores_count": float(len(historical_m_scores)),
+            "trend": 1.0 if trend else 0.0,
+        },
+    )
+
+
+def _detect_trend(scores: list[tuple[str, float]]) -> bool:
+    """Detect if M-Scores are deteriorating (moving toward -1.78).
+
+    A deteriorating trend means each successive M-Score is higher (closer
+    to zero / closer to the manipulation threshold) than the previous one.
+    Requires at least 2 scores and that the last 2+ consecutive scores
+    are strictly increasing.
+
+    Args:
+        scores: List of (period_end, m_score) tuples in chronological order.
+
+    Returns:
+        True if the trend is deteriorating, False otherwise.
+    """
+    if len(scores) < 2:
+        return False
+
+    # Check if the most recent 2+ consecutive scores are increasing
+    # (i.e., each is higher / closer to threshold than the prior)
+    consecutive_increases = 0
+    for i in range(len(scores) - 1, 0, -1):
+        if scores[i][1] > scores[i - 1][1]:
+            consecutive_increases += 1
+        else:
+            break
+
+    # Need at least 2 consecutive increases to flag deterioration
+    return consecutive_increases >= 2
