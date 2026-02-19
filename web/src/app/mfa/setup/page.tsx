@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
 import { startRegistration } from "@simplewebauthn/browser"
@@ -9,7 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 type Step = "choose" | "totp" | "webauthn"
 
-export default function MfaSetupPage() {
+function MfaSetupContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const userId = searchParams.get("userId")
@@ -205,5 +205,13 @@ export default function MfaSetupPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function MfaSetupPage() {
+  return (
+    <Suspense>
+      <MfaSetupContent />
+    </Suspense>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { startAuthentication } from "@simplewebauthn/browser"
@@ -9,7 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 type Method = "totp" | "webauthn"
 
-export default function MfaVerifyPage() {
+function MfaVerifyContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const userId = searchParams.get("userId")
@@ -188,5 +188,13 @@ export default function MfaVerifyPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function MfaVerifyPage() {
+  return (
+    <Suspense>
+      <MfaVerifyContent />
+    </Suspense>
   )
 }
