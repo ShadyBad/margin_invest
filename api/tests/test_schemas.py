@@ -346,6 +346,7 @@ class TestPickSummary:
     def test_pick_summary(self) -> None:
         """Verify PickSummary serialization."""
         pick = PickSummary(
+            score_id=1,
             ticker="NVDA",
             name="NVIDIA Corporation",
             composite_percentile=99.5,
@@ -368,6 +369,7 @@ class TestPickSummary:
     def test_pick_summary_has_score_field(self) -> None:
         """PickSummary must include score and universe_percentile."""
         pick = PickSummary(
+            score_id=1,
             ticker="NVDA",
             name="NVIDIA Corporation",
             composite_percentile=99.5,
@@ -424,6 +426,7 @@ class TestDashboardResponse:
         response = DashboardResponse(
             picks=[
                 PickSummary(
+                    score_id=1,
                     ticker="NVDA",
                     name="NVIDIA Corporation",
                     composite_percentile=99.5,

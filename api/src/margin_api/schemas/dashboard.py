@@ -10,6 +10,7 @@ from margin_api.schemas.universe import UniverseSummary, Warning
 class PickSummary(BaseModel):
     """Summary of a high-conviction pick for the dashboard."""
 
+    score_id: int  # DB primary key for traceability
     ticker: str
     name: str
     score: float = 0.0  # Raw weighted average

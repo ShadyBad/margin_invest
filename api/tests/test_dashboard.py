@@ -211,6 +211,15 @@ class TestDashboardPicks:
         aapl_pick = data["picks"][0]
         assert aapl_pick["sector"] == "Information Technology"
 
+    async def test_pick_includes_score_id(self, client):
+        """Each pick must include score_id for traceability."""
+        response = await client.get("/api/v1/dashboard")
+        data = response.json()
+        for pick in data["picks"]:
+            assert "score_id" in pick
+            assert isinstance(pick["score_id"], int)
+            assert pick["score_id"] > 0
+
 
 @pytest.mark.asyncio
 class TestDashboardWatchlist:

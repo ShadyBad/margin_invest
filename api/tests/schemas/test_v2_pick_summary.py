@@ -6,6 +6,7 @@ from margin_api.schemas.dashboard import PickSummary
 class TestV2PickSummary:
     def test_v2_fields_default_to_none(self):
         ps = PickSummary(
+            score_id=1,
             ticker="TEST",
             name="Test",
             composite_percentile=50.0,
@@ -23,6 +24,7 @@ class TestV2PickSummary:
 
     def test_v2_fields_populated(self):
         ps = PickSummary(
+            score_id=1,
             ticker="COST",
             name="Costco",
             composite_percentile=99.5,

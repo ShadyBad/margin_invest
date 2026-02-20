@@ -43,6 +43,7 @@ def _pick_summary_from_row(row) -> PickSummary:
                     growth_pct = round(total / len(sub_scores), 1)
 
     return PickSummary(
+        score_id=s.id,
         ticker=row.ticker,
         name=row.asset_name,
         score=s.composite_raw_score,
