@@ -33,6 +33,7 @@ import { HeroSection } from "../sections/hero-section"
 import { PipelineSection } from "../sections/pipeline-section"
 import { UniverseSection } from "../sections/universe-section"
 import { FiltersSection } from "../sections/filters-section"
+import { ScoringSection } from "../sections/scoring-section"
 
 describe("HeroSection", () => {
   it("renders the H1 headline", () => {
@@ -105,5 +106,28 @@ describe("FiltersSection", () => {
     expect(screen.getByText("Cash Flow")).toBeInTheDocument()
     expect(screen.getByText("Interest Coverage")).toBeInTheDocument()
     expect(screen.getByText("Balance Sheet Health")).toBeInTheDocument()
+  })
+})
+
+describe("ScoringSection", () => {
+  it("renders the headline", () => {
+    render(<ScoringSection />)
+    expect(
+      screen.getByText(/20\+ factors\. Three pillars\. Sector-neutral ranking\./)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all three pillars", () => {
+    render(<ScoringSection />)
+    expect(screen.getAllByText("Quality").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Value").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Momentum").length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("renders named sub-factors", () => {
+    render(<ScoringSection />)
+    expect(screen.getByText("ROIC-WACC Spread")).toBeInTheDocument()
+    expect(screen.getByText("Piotroski F-Score")).toBeInTheDocument()
+    expect(screen.getByText("Insider Cluster Score")).toBeInTheDocument()
   })
 })
