@@ -1,0 +1,203 @@
+---
+title: "How Scoring Works"
+description: "Understand the dual-track scoring engine that evaluates every candidate through Compounder and Mispricing lenses."
+order: 1
+updatedAt: "2026-02-19"
+readingTime: 10
+category: "Core Concepts"
+---
+
+## Overview
+
+<Callout type="info">
+This guide is educational content explaining how Margin's scoring engine operates. Nothing here constitutes investment advice or a recommendation to buy or sell any security.
+</Callout>
+
+Every stock that enters the Margin pipeline passes through a four-stage evaluation process:
+
+1. **Elimination Filters** — Binary pass/fail checks that remove distressed, illiquid, or manipulated companies before any scoring begins.
+2. **Dual-Track Scoring** — Surviving candidates are independently evaluated on two tracks: Compounder (quality of business) and Mispricing (dislocation from intrinsic value).
+3. **Conviction Determination** — Gate-based logic converts continuous scores into discrete conviction levels (EXCEPTIONAL, HIGH, WATCHLIST, or NONE).
+4. **Position Sizing** — Conviction level and portfolio context determine a suggested allocation weight.
+
+This guide focuses on stages two and three. For details on elimination filters, see the Elimination Filters guide. For position sizing logic, see the Position Sizing guide.
+
+## Elimination Filters
+
+Before any scoring takes place, every candidate must clear six binary pass/fail checks. These filters exist to remove companies that are financially distressed, too small to analyze reliably, or exhibiting signs of manipulation.
+
+All six filters must pass. A single failure removes the stock from further consideration, regardless of how strong its other characteristics might be. This fail-fast design keeps the scoring engine focused on investable candidates and prevents garbage-in, garbage-out problems downstream.
+
+The Elimination Filters guide covers each filter in detail, including the specific thresholds and the rationale behind them.
+
+## Dual-Track Scoring
+
+Once a stock clears elimination filters, it enters the scoring engine. Here, every candidate is evaluated independently on two parallel tracks:
+
+- **Track A: Compounder** — Tests whether a company compounds shareholder wealth through high-quality operations, durable competitive advantages, and disciplined capital allocation.
+- **Track B: Mispricing** — Tests whether a stock is temporarily dislocated from its intrinsic value, offering asymmetric upside with downside protection.
+
+These tracks operate independently. A stock can qualify on Track A alone (a great business at a fair price), Track B alone (an undervalued opportunity with a catalyst), both tracks simultaneously (the strongest signal), or neither. The two tracks capture fundamentally different investment theses, and the engine does not force a stock into one lens when the other fits better.
+
+## Track A: The Compounder
+
+Track A identifies businesses that generate long-term wealth through operational excellence. It uses four sequential gates. All four must pass for the stock to achieve HIGH conviction on this track.
+
+### Moat Evidence
+
+The first gate looks for durable competitive advantages. The engine scans for four moat signatures:
+
+- **Scale Economics** — Unit costs decline as volume grows, creating a structural cost advantage over smaller competitors.
+- **Pricing Power** — The company can raise prices without proportional customer loss, indicating brand strength or product differentiation.
+- **Switching Costs** — Customers face meaningful friction if they move to a competitor, whether through integration depth, data lock-in, or retraining costs.
+- **Capital Efficiency** — The business generates high returns on invested capital relative to its asset base, suggesting an economic moat that protects margins.
+
+The moat durability score is a count from 0 to 4 representing how many of these signatures are detected. The gate requires a moat durability score of at least 2, meaning the company must exhibit at least two distinct moat signatures to proceed.
+
+### Reinvestment Engine
+
+The second gate measures the company's ability to compound capital at attractive rates. It uses a single composite metric:
+
+<Formula>Compounding Power = Incremental ROIC x Reinvestment Rate x (1 - ROIC CV)</Formula>
+
+Each term captures a different dimension of compounding quality:
+
+- **Incremental ROIC** — The return earned on each new dollar of capital invested. Unlike average ROIC, this measures the marginal productivity of recent investments.
+- **Reinvestment Rate** — The fraction of earnings the company plows back into the business rather than distributing to shareholders. Higher reinvestment at high ROIC means faster compounding.
+- **ROIC CV (coefficient of variation)** — Measures how volatile returns on capital have been over time. The term (1 - ROIC CV) penalizes companies with erratic returns, rewarding consistency.
+
+The gate requires compounding power greater than 0.04. This threshold filters out companies that may have high returns on legacy capital but are not actively reinvesting at attractive rates.
+
+### Capital Allocation
+
+The third gate evaluates management's stewardship of shareholder capital through six sub-factors:
+
+- **Debt Discipline** — Is leverage managed prudently relative to earnings power and industry norms?
+- **Organic Reinvestment** — Does the company prioritize internal growth opportunities over financial engineering?
+- **Buyback Effectiveness** — When the company repurchases shares, does it do so at prices below intrinsic value?
+- **Insider Ownership** — Do executives and directors have meaningful personal wealth tied to the stock?
+- **SBC Dilution Tax** — How much shareholder value is eroded by stock-based compensation relative to revenue?
+- **M&A Discipline** — Has the company's acquisition history created or destroyed value?
+
+Each sub-factor is normalized to a 0-to-1 scale, then combined via a weighted average into a single capital allocation composite score. The gate requires a composite score above 0.5, indicating that management allocates capital more effectively than the median company in the universe.
+
+### Valuation (Growth Gap)
+
+The fourth gate ensures the stock is not dangerously overpriced, even if the business is exceptional. It uses a Reverse DCF approach: rather than projecting cash flows forward to estimate intrinsic value, it works backward from the current stock price to determine what growth rate the market is implicitly expecting.
+
+That implied growth rate is then compared to the company's demonstrated growth trajectory. The difference is the growth gap. A positive growth gap means the market is pricing in less growth than the company has historically delivered, providing a margin of safety on growth assumptions.
+
+The gate requires a growth gap greater than 0.0, with adjustments based on the current market regime. In elevated-valuation environments, the threshold tightens to demand a larger gap.
+
+## Track B: The Mispricing
+
+Track B identifies stocks where the market price has temporarily disconnected from intrinsic value. Like Track A, it uses four gates that all must pass for HIGH conviction.
+
+### Ensemble Valuation
+
+The first gate establishes whether the stock is genuinely undervalued by aggregating four independent valuation methods:
+
+- **Discounted Cash Flow (DCF)** — Projects future free cash flows and discounts them to present value.
+- **Owner Earnings Intrinsic Value** — Uses Buffett-style owner earnings (net income plus depreciation minus maintenance capex) to estimate value.
+- **Asset Floor Intrinsic Value** — Calculates a liquidation-based floor value from tangible assets.
+- **Peer Comparison Intrinsic Value** — Benchmarks valuation multiples against sector peers to detect relative mispricing.
+
+Beyond the individual estimates, the engine checks for convergence: at least three of the four methods must agree within plus or minus 30% of the median estimate. This convergence requirement prevents the engine from acting on a single outlier valuation model.
+
+The gate requires the current price to be below 60% of the ensemble intrinsic value. In other words, the stock must trade at a 40% or greater discount to the consensus of multiple valuation approaches.
+
+### Downside Protection
+
+The second gate ensures there is a substantial floor beneath the current price. It compares the stock price to the asset floor per share, which represents an estimate of liquidation value.
+
+The gate requires at least a 50% cushion to the asset floor. This means that even in a worst-case scenario where the business is liquidated, the expected loss is limited. Downside protection is what distinguishes a disciplined mispricing bet from speculative bottom-fishing.
+
+### Catalyst
+
+The third gate checks whether there is a near-term reason for the market to close the valuation gap. A cheap stock without a catalyst can stay cheap indefinitely. The engine evaluates three potential catalyst signals and uses the strongest:
+
+- **Insider Buying Percentile** — Are company insiders purchasing shares in the open market? Insider buying is one of the strongest signals of management confidence.
+- **Institutional Accumulation Percentile** — Are institutional investors increasing their positions, suggesting smart money is recognizing the opportunity?
+- **Earnings Surprise (SUE) Percentile** — Has the company recently beaten earnings expectations, which can trigger analyst upgrades and price re-rating?
+
+The gate requires a catalyst strength above the 60th percentile, meaning the strongest of the three signals must rank in the top 40% of the universe.
+
+### Quality Floor
+
+The fourth gate prevents the engine from recommending deeply discounted companies that are cheap for good reason. It uses return on invested capital as a quality screen:
+
+- **ROIC at or above 8%** — Full pass (score of 1.0). The business earns an adequate return on capital, confirming the mispricing is not driven by fundamental deterioration.
+- **ROIC below 8% but improving** — Partial pass (score between 0.5 and 1.0). The business is not yet earning its cost of capital but the trajectory is positive, suggesting a turnaround may be underway.
+- **ROIC below 8% and not improving** — Fail (score of 0.0). The business is destroying value and showing no signs of recovery.
+
+## Why Scores Multiply, Not Add
+
+A critical design choice in the scoring engine is that factors within each track are multiplied together, not added:
+
+<Formula>Track A Score = Moat Durability x Compounding Power x Capital Allocation x Growth Gap</Formula>
+
+<Formula>Track B Score = min(Asymmetry, 20) x (Catalyst / 100) x Quality Floor x Convergence Factor</Formula>
+
+In an additive system, a company could score well overall by being exceptional on one dimension and weak on others. A business with a massive moat but terrible capital allocation could still earn a passing grade. Multiplicative scoring eliminates this possibility entirely.
+
+<Callout type="tip">
+Multiplicative scoring is a deliberate design choice. If any single factor scores zero, the entire track score becomes zero. This guarantees that a qualifying stock must demonstrate strength across every dimension simultaneously. There is no way to compensate for a fundamental weakness in one area with excellence in another.
+</Callout>
+
+This mirrors how compounding works in reality. A company with a strong moat, high reinvestment rates, disciplined management, and a reasonable valuation will compound wealth. Remove any one of those ingredients and the compounding thesis breaks down.
+
+## Conviction Levels
+
+Continuous track scores are converted into discrete conviction levels through a gating system. Each level requires progressively stricter thresholds:
+
+| Level | Track A Requirements | Track B Requirements |
+|-------|---------------------|---------------------|
+| EXCEPTIONAL | 4/4 gates + compounding > 0.15 + moat >= 3 + gap > 0.08 | 4/4 gates + asymmetry > 5.0 + catalyst > 80% + 4 converging |
+| HIGH | 4/4 gates + compounding > 0.08 + moat >= 2 + gap > 0.03 | 4/4 gates + asymmetry > 3.0 + catalyst > 60% + 3 converging |
+| WATCHLIST | 3/4 gates + compounding > 0.04 | 3/4 gates + asymmetry > 1.5 |
+| NONE | Anything else | Anything else |
+
+A few things to note about how conviction works:
+
+- **EXCEPTIONAL** is deliberately rare. It requires elite performance on every metric, not just clearing the gates. A company must have three or more moat signatures, a compounding power above 0.15, and a growth gap above 0.08 on Track A. On Track B, it requires extreme asymmetry (5x or greater upside), a top-quintile catalyst, and all four valuation methods converging.
+- **WATCHLIST** requires only three of four gates, meaning one dimension can be weak. These stocks are worth monitoring but do not meet the bar for a position.
+- When both tracks qualify, the engine takes the strongest conviction level from either track and labels the opportunity type as "both." This means a stock that earns HIGH on Track A and WATCHLIST on Track B will be classified as HIGH conviction with opportunity type "both."
+
+## Worked Example
+
+<Example title="TechCo Industries">
+TechCo Industries is a fictional enterprise software company with a $15 billion market cap. Here is how it flows through the scoring engine.
+
+**Elimination Filters:** TechCo passes all six filters. It has adequate market cap, liquidity, and financial health. No red flags.
+
+**Track A (Compounder):**
+
+- **Moat Evidence:** The engine detects three moat signatures — scale economics (cloud infrastructure costs decline with volume), pricing power (annual price increases with low churn), and switching costs (deep integration into customer workflows). Moat durability score = 3. Gate passes (threshold: >= 2).
+- **Reinvestment Engine:** Incremental ROIC = 22%, Reinvestment Rate = 65%, ROIC CV = 0.15. Compounding Power = 0.22 x 0.65 x (1 - 0.15) = 0.12. Gate passes (threshold: > 0.04).
+- **Capital Allocation:** Low leverage, strong organic reinvestment, insider ownership at 8% of shares outstanding, moderate SBC, no major acquisitions. Composite score = 0.65. Gate passes (threshold: > 0.5).
+- **Valuation (Growth Gap):** Reverse DCF implies the market expects 12% annual growth. TechCo has delivered 17% annually over the past five years. Growth gap = 0.05. Gate passes (threshold: > 0.0).
+
+All four gates pass. Compounding power of 0.12 exceeds 0.08, moat score of 3 exceeds 2, and growth gap of 0.05 exceeds 0.03. TechCo qualifies for **HIGH conviction on Track A**.
+
+**Track B (Mispricing):**
+
+- **Ensemble Valuation:** The four valuation methods produce a median intrinsic value estimate of $95 per share. TechCo currently trades at $80. That is a 16% discount, but the gate requires a 40% or greater discount (price below 60% of ensemble IV). Gate fails.
+
+Because the first gate fails, Track B evaluation stops. TechCo is not mispriced by the engine's standards.
+
+**Result:** TechCo Industries is classified as a **Compounder** with **HIGH conviction** and a suggested position size of 8%.
+</Example>
+
+## Common Pitfalls
+
+<Callout type="warning">
+**Confusing track scores with conviction levels.** Track scores are continuous values produced by multiplying factors together. Conviction levels are discrete categories determined by gate thresholds. A stock can have a moderately high track score but still land at WATCHLIST or NONE if it fails to clear a specific gate. Always look at the conviction level, not the raw score, when evaluating a candidate.
+</Callout>
+
+<Callout type="warning">
+**Assuming WATCHLIST means "buy soon."** WATCHLIST conviction means the stock cleared three of four gates on at least one track but has a meaningful gap in one dimension. It is a monitoring designation, not an actionable signal. WATCHLIST stocks may never reach HIGH conviction if the missing gate represents a structural weakness rather than a temporary shortfall.
+</Callout>
+
+<Callout type="warning">
+**Ignoring which track qualified.** A Compounder and a Mispricing opportunity represent fundamentally different investment theses. Compounders are high-quality businesses expected to grow steadily over long holding periods. Mispricing opportunities are undervalued stocks expected to re-rate over shorter timeframes as catalysts materialize. The risk profile, expected holding period, and monitoring criteria differ significantly between the two. Always check the opportunity type alongside the conviction level.
+</Callout>
