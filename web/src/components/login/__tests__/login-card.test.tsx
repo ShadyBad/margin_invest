@@ -121,6 +121,62 @@ describe("LoginCard", () => {
     })
   })
 
+  describe("sign-up form", () => {
+    it("shows confirm password field in sign-up mode", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.getByLabelText("Confirm Password")).toBeInTheDocument()
+    })
+
+    it("does not show confirm password in sign-in mode", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.queryByLabelText("Confirm Password")).not.toBeInTheDocument()
+    })
+
+    it("shows password checklist in sign-up mode", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.getByText("At least 12 characters")).toBeInTheDocument()
+      expect(screen.getByText("One uppercase letter")).toBeInTheDocument()
+      expect(screen.getByText("One lowercase letter")).toBeInTheDocument()
+      expect(screen.getByText("One digit")).toBeInTheDocument()
+      expect(screen.getByText("One special character")).toBeInTheDocument()
+    })
+
+    it("does not show password checklist in sign-in mode", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.queryByText("At least 12 characters")).not.toBeInTheDocument()
+    })
+
+    it("shows 'Create Account' button in sign-up mode", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.getByRole("button", { name: /create account/i })).toBeInTheDocument()
+    })
+
+    it("uses type=email for email field in sign-up mode", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.getByLabelText("Email")).toHaveAttribute("type", "email")
+    })
+  })
+
   describe("segmented control", () => {
     it("renders Sign In and Sign Up tabs", () => {
       render(<LoginCard />)

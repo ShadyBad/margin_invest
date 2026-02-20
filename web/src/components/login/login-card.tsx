@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
+import { validatePassword } from "@/lib/password-validation"
 
 function LogoIcon() {
   return (
@@ -73,11 +74,17 @@ export function LoginCard() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [confirmPasswordError, setConfirmPasswordError] = useState("")
+
+  const passwordRules = validatePassword(password)
 
   const resetForm = () => {
     setEmail("")
     setPassword("")
     setShowPassword(false)
+    setConfirmPassword("")
+    setConfirmPasswordError("")
   }
 
   const handleCredentialsSubmit = (e: React.FormEvent) => {
@@ -176,7 +183,7 @@ export function LoginCard() {
               </label>
               <input
                 id="email"
-                type="text"
+                type={mode === "signup" ? "email" : "text"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-12 w-full rounded-xl bg-white/[0.04] border border-white/[0.08] px-4 text-[15px] text-text-primary placeholder-text-secondary/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] transition-all duration-200 focus:border-accent focus:ring-1 focus:ring-accent/30 focus:outline-none"
@@ -206,11 +213,50 @@ export function LoginCard() {
                 </button>
               </div>
             </div>
+            {mode === "signup" && (
+              <div className="flex flex-col gap-1.5 -mt-1">
+                {passwordRules.map((rule) => (
+                  <div key={rule.label} className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-200 ${
+                      rule.met ? "bg-green-400" : "bg-white/20"
+                    }`} />
+                    <span className={`text-[12px] transition-colors duration-200 ${
+                      rule.met ? "text-green-400" : "text-text-secondary"
+                    }`}>
+                      {rule.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {mode === "signup" && (
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="confirmPassword" className="text-[13px] font-medium text-text-secondary">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setConfirmPasswordError("") }}
+                  onBlur={() => {
+                    if (confirmPassword && confirmPassword !== password) {
+                      setConfirmPasswordError("Passwords do not match")
+                    }
+                  }}
+                  className="h-12 w-full rounded-xl bg-white/[0.04] border border-white/[0.08] px-4 text-[15px] text-text-primary placeholder-text-secondary/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] transition-all duration-200 focus:border-accent focus:ring-1 focus:ring-accent/30 focus:outline-none"
+                  placeholder="Re-enter your password"
+                />
+                {confirmPasswordError && (
+                  <p className="text-[12px] text-red-400">{confirmPasswordError}</p>
+                )}
+              </div>
+            )}
             <button
               type="submit"
               className="h-12 w-full rounded-xl bg-accent text-white text-[15px] font-semibold hover:brightness-110 active:scale-[0.98] transition-all duration-150 ease-out"
             >
-              Sign In
+              {mode === "signin" ? "Sign In" : "Create Account"}
             </button>
           </form>
         </div>
