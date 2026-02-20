@@ -107,6 +107,7 @@ export interface InstitutionalMetricsResponse {
 }
 
 export interface PickSummary {
+  score_id: number              // DB primary key for traceability
   ticker: string
   name: string
   score: number                // Raw weighted average
