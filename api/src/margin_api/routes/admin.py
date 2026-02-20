@@ -198,3 +198,44 @@ async def redis_health(x_admin_key: str = Header()) -> dict:
         "queued_count": len(job_ids),
         "recent_results": result_keys[:20],
     }
+
+
+@router.post("/redis/flush-jobs")
+async def flush_redis_jobs(x_admin_key: str = Header()) -> dict:
+    """Remove all pending jobs from the ARQ queue and their associated keys.
+
+    Use this to clear stale/stuck jobs before re-triggering the pipeline.
+    """
+    _verify_admin_key(x_admin_key)
+
+    settings = get_settings()
+    try:
+        client = aioredis.from_url(settings.redis_url)
+        # Get all queued job IDs before clearing
+        queued = await client.zrangebyscore("arq:queue", "-inf", "+inf")
+        job_ids = [j.decode() if isinstance(j, bytes) else j for j in queued]
+
+        # Remove the queue sorted set
+        removed = await client.delete("arq:queue")
+
+        # Remove job data keys (arq:job:<id>) for each stale job
+        for jid in job_ids:
+            await client.delete(f"arq:job:{jid}")
+
+        # Remove any in-progress markers
+        in_progress = [
+            k.decode() if isinstance(k, bytes) else k
+            for k in await client.keys("arq:in-progress:*")
+        ]
+        for key in in_progress:
+            await client.delete(key)
+
+        await client.aclose()
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+    return {
+        "status": "flushed",
+        "removed_jobs": job_ids,
+        "removed_in_progress": in_progress,
+    }
