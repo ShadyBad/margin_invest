@@ -1,0 +1,133 @@
+---
+title: "Elimination Filters Explained"
+description: "Learn about the binary pass/fail checks that screen out risky stocks before scoring begins."
+order: 2
+updatedAt: "2026-02-19"
+readingTime: 7
+category: "Core Concepts"
+---
+
+## Why Filters Exist
+
+<Callout type="info">
+This guide is educational content explaining how our scoring engine works. It is not investment advice. Always do your own research before making investment decisions.
+</Callout>
+
+The elimination filters implement a **fail-fast principle**: remove clearly distressed or manipulated companies before the engine spends resources on expensive scoring calculations. Think of them as a quality gate -- if a company cannot clear these basic checks, no amount of scoring nuance will make it a sound investment candidate.
+
+There are six elimination filters in total. All six run regardless of whether an earlier filter has already failed. This means you always get **complete diagnostics** showing every reason a stock was eliminated, not just the first one encountered.
+
+A stock must **pass all six filters** to proceed to dual-track scoring.
+
+## The Six Elimination Filters
+
+### Beneish M-Score
+
+The Beneish M-Score detects earnings manipulation using a composite of financial ratios. It examines patterns across revenue recognition, asset quality, margin changes, and accruals to flag companies whose reported earnings may not reflect economic reality.
+
+- **Threshold**: A score greater than **-1.78** flags manipulation risk and **fails** the filter
+- Scores at or below -1.78 are considered safe and pass the filter
+
+<Callout type="tip">
+The M-Score was designed to detect Enron-style earnings manipulation. Research has shown it successfully flagged many high-profile fraud cases before they became public.
+</Callout>
+
+### Altman Z-Score
+
+The Altman Z-Score is a bankruptcy distress indicator that combines five financial ratios spanning profitability, leverage, liquidity, solvency, and activity into a single composite score.
+
+- **Threshold**: A score below **1.1** indicates severe financial distress and **fails** the filter
+- Scores at or above 1.1 pass the filter
+
+<Callout type="warning">
+The Utilities sector is exempt from this filter due to their unique capital structure. High leverage is normal and expected for regulated utilities, so applying a standard Z-Score threshold would incorrectly eliminate healthy companies.
+</Callout>
+
+### Current Ratio
+
+The current ratio measures short-term solvency by comparing what a company owns in the near term against what it owes.
+
+<Formula>Current Ratio = Current Assets / Current Liabilities</Formula>
+
+The default threshold is **0.8**, but sector-specific adjustments apply:
+
+| Sector | Threshold |
+|--------|-----------|
+| Technology | 0.8 |
+| Utilities | 0.6 |
+| All others | 0.8 |
+
+Companies below their sector threshold fail the filter.
+
+### Interest Coverage
+
+Interest coverage measures how easily a company can pay interest on its outstanding debt. The engine uses a **3-year median** for stability, smoothing out one-off spikes or dips.
+
+<Formula>Interest Coverage = EBIT / Interest Expense</Formula>
+
+Sector-specific thresholds reflect different capital intensity norms:
+
+| Sector | Threshold |
+|--------|-----------|
+| Technology | 5.0x |
+| Utilities | 1.2x |
+| Default | 1.5x |
+
+Companies below their sector threshold fail the filter.
+
+### Free Cash Flow Distress
+
+This filter checks for persistent negative free cash flow, which signals a company that consistently burns more cash than it generates.
+
+- **Requirement**: A company must have **3 or more positive FCF years** in the last 5
+- **Minimum FCF margin**: Companies with an FCF margin below **-5%** are flagged
+- A demonstrably **positive trend** in FCF can rescue borderline cases where the numbers are close to the threshold
+
+### Liquidity
+
+The liquidity filter has two sub-checks to ensure a stock is tradeable enough for meaningful analysis:
+
+**Market Cap** -- minimum market capitalization requirements vary by sector:
+
+| Sector | Minimum Market Cap |
+|--------|-------------------|
+| Utilities | $1B |
+| Energy | $500M |
+| All others | $300M |
+
+**Dollar Volume** -- 60-day average daily dollar volume, tiered by market cap size:
+
+| Market Cap Tier | Min Daily Dollar Volume |
+|----------------|------------------------|
+| Mega Cap | $50M |
+| Large Cap | $20M |
+| Mid Cap | $5M |
+| Small Cap | $2M |
+
+A stock must pass both sub-checks to clear the liquidity filter.
+
+## How Filters Run
+
+All six filters execute regardless of earlier failures. This is a deliberate design choice that provides **complete diagnostics** -- you can see every reason a stock was eliminated, not just the first failure encountered. This makes it much easier to understand why a stock did not qualify and whether the issues are temporary or structural.
+
+A stock must pass **every single filter** to proceed to the scoring phase. There are no partial passes or overrides.
+
+## Common Pitfalls
+
+<Callout type="warning">
+"Why was my stock eliminated?" -- Check the filter results in the detail panel to see which specific filter or filters failed. Often it is a combination of multiple filters, not just one.
+</Callout>
+
+<Callout type="tip">
+Sector-specific thresholds exist for a reason. A Utility company with a 0.7 current ratio is healthy by industry standards, while the same ratio would be concerning for a Tech company. Always consider sector context when reviewing filter results.
+</Callout>
+
+<Callout type="warning">
+Filters are intentionally conservative. A stock that barely fails is still at risk -- the thresholds represent minimum acceptable quality, not aggressive cutoffs. Borderline results should prompt further investigation, not frustration with the filter.
+</Callout>
+
+## What Happens Next
+
+Stocks that pass all six elimination filters proceed to **dual-track scoring**, where they are evaluated as both Compounder candidates (steady growth compounding) and Mispricing candidates (undervalued relative to intrinsic worth).
+
+See the "How Scoring Works" guide for the full scoring pipeline.
