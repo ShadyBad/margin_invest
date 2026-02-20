@@ -68,8 +68,12 @@ function EyeOffIcon() {
   )
 }
 
-export function LoginCard() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin")
+interface LoginCardProps {
+  initialMode?: "signin" | "signup"
+}
+
+export function LoginCard({ initialMode = "signin" }: LoginCardProps) {
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode)
   const [showCredentials, setShowCredentials] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")

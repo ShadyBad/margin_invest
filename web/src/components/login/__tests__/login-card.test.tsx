@@ -254,6 +254,15 @@ describe("LoginCard", () => {
     })
   })
 
+  describe("initialMode prop", () => {
+    it("starts in sign-up mode when initialMode is signup", () => {
+      render(<LoginCard initialMode="signup" />)
+      expect(
+        screen.getByRole("heading", { name: /create your account/i })
+      ).toBeInTheDocument()
+    })
+  })
+
   describe("sign-up registration", () => {
     it("calls register API and switches to sign-in on success", async () => {
       const user = userEvent.setup()

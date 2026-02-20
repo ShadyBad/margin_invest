@@ -7,12 +7,19 @@ export const metadata: Metadata = {
   description: "Sign in to your Margin Invest account.",
 }
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>
+}) {
+  const params = await searchParams
+  const initialMode = params.mode === "signup" ? "signup" : "signin"
+
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-bg-primary overflow-hidden">
       <LoginScene />
       <div className="relative z-10">
-        <LoginCard />
+        <LoginCard initialMode={initialMode} />
       </div>
     </div>
   )
