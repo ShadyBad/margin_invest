@@ -101,51 +101,16 @@ def _latest_score_subquery():
     )
 
 
-@router.get("/dashboard", response_model=DashboardResponse)
-async def get_dashboard(
-    db: AsyncSession = Depends(get_db),
-) -> DashboardResponse:
-    """Get dashboard with high-conviction picks and watchlist."""
-    latest = _latest_score_subquery()
-
-    # Only show tickers in the active universe (excludes OTC/foreign stocks
-    # from previous scoring runs).
-    snapshot = await get_active_snapshot(db)
-    active_tickers: list[str] | None = None
-    if snapshot and snapshot.tickers:
-        active_tickers = snapshot.tickers  # type: ignore[assignment]
-
-    base = (
-        select(Score, Asset.ticker, Asset.name.label("asset_name"), Asset.sector.label("asset_sector"))
-        .join(Asset, Score.asset_id == Asset.id)
-        .join(
-            latest,
-            (Score.asset_id == latest.c.asset_id)
-            & (Score.scored_at == latest.c.max_scored_at),
-        )
-    )
-
-    if active_tickers is not None:
-        if len(active_tickers) > 500:
-            # Large universe: use a server-side subquery to avoid asyncpg
-            # bind-parameter limits (~3000 tickers as individual $N::VARCHAR
-            # params causes compilation/performance failures).
-            universe_ticker_subq = (
-                select(func.jsonb_array_elements_text(UniverseSnapshot.tickers))
-                .where(UniverseSnapshot.is_active.is_(True))
-            )
-            base = base.where(Asset.ticker.in_(universe_ticker_subq))
-        else:
-            base = base.where(Asset.ticker.in_(active_tickers))
-
-    # Picks: exceptional + high conviction
+async def _fetch_picks_and_watchlist(
+    db: AsyncSession, base,
+) -> tuple[list[PickSummary], list[WatchlistItem]]:
+    """Run picks + watchlist queries with a top-10 fallback."""
     picks_result = await db.execute(
         base.where(Score.conviction_level.in_(["exceptional", "high"]))
         .order_by(Score.composite_percentile.desc())
     )
     picks = [_pick_summary_from_row(row) for row in picks_result.all()]
 
-    # Watchlist
     watchlist_result = await db.execute(
         base.where(Score.conviction_level == "watchlist")
         .order_by(Score.composite_percentile.desc())
@@ -160,18 +125,78 @@ async def get_dashboard(
         for row in watchlist_result.all()
     ]
 
-    # Fallback: when the universe is too small for conviction thresholds,
-    # show the top-ranked tickers so the dashboard isn't empty.
+    # Fallback: when no conviction-based picks exist, show top-ranked tickers.
     if not picks and not watchlist:
         top_result = await db.execute(
             base.order_by(Score.composite_percentile.desc()).limit(10)
         )
         picks = [_pick_summary_from_row(row) for row in top_result.all()]
 
-    # Total scored
-    total_result = await db.execute(
-        select(func.count(func.distinct(Score.asset_id)))
+    return picks, watchlist
+
+
+@router.get("/dashboard", response_model=DashboardResponse)
+async def get_dashboard(
+    db: AsyncSession = Depends(get_db),
+) -> DashboardResponse:
+    """Get dashboard with high-conviction picks and watchlist."""
+    latest = _latest_score_subquery()
+
+    # Only show tickers in the active universe (excludes OTC/foreign stocks
+    # from previous scoring runs).
+    snapshot = await get_active_snapshot(db)
+    active_tickers: list[str] | None = None
+    if snapshot and snapshot.tickers:
+        active_tickers = snapshot.tickers  # type: ignore[assignment]
+
+    # Base query: latest score per asset joined with asset metadata.
+    base_unfiltered = (
+        select(Score, Asset.ticker, Asset.name.label("asset_name"), Asset.sector.label("asset_sector"))
+        .join(Asset, Score.asset_id == Asset.id)
+        .join(
+            latest,
+            (Score.asset_id == latest.c.asset_id)
+            & (Score.scored_at == latest.c.max_scored_at),
+        )
     )
+
+    # Apply universe filter when an active snapshot exists.
+    base = base_unfiltered
+    if active_tickers is not None:
+        if len(active_tickers) > 500:
+            # Large universe: use a server-side subquery to avoid asyncpg
+            # bind-parameter limits (~3000 tickers as individual $N::VARCHAR
+            # params causes compilation/performance failures).
+            universe_ticker_subq = (
+                select(func.jsonb_array_elements_text(UniverseSnapshot.tickers))
+                .where(UniverseSnapshot.is_active.is_(True))
+            )
+            base = base.where(Asset.ticker.in_(universe_ticker_subq))
+        else:
+            base = base.where(Asset.ticker.in_(active_tickers))
+
+    picks, watchlist = await _fetch_picks_and_watchlist(db, base)
+
+    # Fallback: if universe filter produced zero results but scores exist
+    # in the DB, bypass the filter so the dashboard isn't empty.
+    if not picks and not watchlist and active_tickers is not None:
+        picks, watchlist = await _fetch_picks_and_watchlist(db, base_unfiltered)
+
+    # Total scored (universe-aware for accurate coverage calculation)
+    if active_tickers is not None:
+        scored_count_q = (
+            select(func.count(func.distinct(Score.asset_id)))
+            .join(Asset, Score.asset_id == Asset.id)
+        )
+        if len(active_tickers) > 500:
+            scored_count_q = scored_count_q.where(Asset.ticker.in_(universe_ticker_subq))
+        else:
+            scored_count_q = scored_count_q.where(Asset.ticker.in_(active_tickers))
+        total_result = await db.execute(scored_count_q)
+    else:
+        total_result = await db.execute(
+            select(func.count(func.distinct(Score.asset_id)))
+        )
     total_scored = total_result.scalar() or 0
 
     # Last updated
@@ -209,8 +234,8 @@ async def get_dashboard(
             warnings.append(
                 Warning(
                     code="LOW_COVERAGE",
-                    message=f"Only {pct}% of the universe has been scored.",
-                    severity="warning" if scoring_coverage >= 0.5 else "error",
+                    message=f"Only {pct}% of the universe has been scored. Rankings may shift as more data arrives.",
+                    severity="warning",
                 )
             )
 

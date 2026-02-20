@@ -379,7 +379,7 @@ class TestDashboardUniverseMetadata:
         assert data["universe"]["is_complete"] is False
         low_cov = [w for w in data["warnings"] if w["code"] == "LOW_COVERAGE"]
         assert len(low_cov) == 1
-        assert low_cov[0]["severity"] == "error"  # <50% coverage -> error
+        assert low_cov[0]["severity"] == "warning"
 
     async def test_existing_fields_still_work(self, universe_client):
         """Existing dashboard fields remain intact."""
