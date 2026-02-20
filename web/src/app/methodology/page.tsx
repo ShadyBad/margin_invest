@@ -1,19 +1,22 @@
 import type { Metadata } from "next"
 import { Navbar } from "@/components/nav/navbar"
 import {
-  ProblemSection,
-  ApproachSection,
-  EngineSection,
+  HeroSection,
+  PipelineSection,
+  UniverseSection,
+  FiltersSection,
+  ScoringSection,
+  ConvictionSection,
   OutputsSection,
-  WhySection,
-  TrustSection,
-  MethodologyCTA,
+  UsageSection,
+  TransparencySection,
+  CTASection,
 } from "@/components/methodology"
 
 export const metadata: Metadata = {
-  title: "Methodology | Margin Invest",
+  title: "How It Works | Margin Invest",
   description:
-    "How Margin scores equities — a deterministic pipeline from market data to composite conviction scores, using quality, value, and momentum factors with sector-neutral percentile ranking.",
+    "How Margin Invest scores every US-listed equity — a deterministic pipeline of elimination filters, multi-factor scoring across Quality, Value, and Momentum, and dual-track conviction ranking.",
 }
 
 export default function MethodologyPage() {
@@ -21,13 +24,16 @@ export default function MethodologyPage() {
     <main className="relative bg-bg-primary min-h-screen">
       <div className="relative z-10">
         <Navbar />
-        <ProblemSection />
-        <ApproachSection />
-        <EngineSection />
+        <HeroSection />
+        <PipelineSection />
+        <UniverseSection />
+        <FiltersSection />
+        <ScoringSection />
+        <ConvictionSection />
         <OutputsSection />
-        <WhySection />
-        <TrustSection />
-        <MethodologyCTA />
+        <UsageSection />
+        <TransparencySection />
+        <CTASection />
       </div>
     </main>
   )
