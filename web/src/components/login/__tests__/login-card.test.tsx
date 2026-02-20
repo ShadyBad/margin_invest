@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, within, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { LoginCard } from "../login-card"
 
@@ -211,6 +211,125 @@ describe("LoginCard", () => {
       expect(
         screen.getByRole("heading", { name: /sign in to margin invest/i })
       ).toBeInTheDocument()
+    })
+  })
+
+  describe("sign-up validation", () => {
+    it("shows error when password rules not met on submit", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      await user.type(screen.getByLabelText("Email"), "test@example.com")
+      await user.type(screen.getByLabelText("Password", { selector: "input" }), "short")
+      await user.type(screen.getByLabelText("Confirm Password"), "short")
+      await user.click(screen.getByRole("button", { name: /create account/i }))
+      expect(screen.getByText(/password does not meet all requirements/i)).toBeInTheDocument()
+    })
+
+    it("shows error when passwords do not match on submit", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      await user.type(screen.getByLabelText("Email"), "test@example.com")
+      await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
+      await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!x")
+      await user.click(screen.getByRole("button", { name: /create account/i }))
+      expect(screen.getByText("Passwords do not match")).toBeInTheDocument()
+    })
+
+    it("shows confirm password mismatch error on blur", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
+      await user.type(screen.getByLabelText("Confirm Password"), "different")
+      await user.tab()
+      expect(screen.getByText("Passwords do not match")).toBeInTheDocument()
+    })
+  })
+
+  describe("sign-up registration", () => {
+    it("calls register API and switches to sign-in on success", async () => {
+      const user = userEvent.setup()
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 1, username: "test@example.com", email: "test@example.com" }),
+      })
+
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      await user.type(screen.getByLabelText("Email"), "test@example.com")
+      await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
+      await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!!")
+      await user.click(screen.getByRole("button", { name: /create account/i }))
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith("/api/v1/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: "test@example.com",
+            email: "test@example.com",
+            password: "MyPassword1!!",
+          }),
+        })
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText(/account created/i)).toBeInTheDocument()
+      })
+
+      // Should switch back to sign-in mode
+      expect(
+        screen.getByRole("heading", { name: /sign in to margin invest/i })
+      ).toBeInTheDocument()
+    })
+
+    it("shows server error on failed registration", async () => {
+      const user = userEvent.setup()
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        json: () => Promise.resolve({ detail: "A user with this email already exists" }),
+      })
+
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      await user.type(screen.getByLabelText("Email"), "test@example.com")
+      await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
+      await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!!")
+      await user.click(screen.getByRole("button", { name: /create account/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText("A user with this email already exists")).toBeInTheDocument()
+      })
+    })
+
+    it("shows network error message when fetch fails", async () => {
+      const user = userEvent.setup()
+      global.fetch = vi.fn().mockRejectedValue(new Error("Network error"))
+
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      await user.type(screen.getByLabelText("Email"), "test@example.com")
+      await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
+      await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!!")
+      await user.click(screen.getByRole("button", { name: /create account/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/unable to reach the server/i)).toBeInTheDocument()
+      })
     })
   })
 })

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
-import { validatePassword } from "@/lib/password-validation"
+import { validatePassword, isPasswordValid } from "@/lib/password-validation"
 
 function LogoIcon() {
   return (
@@ -76,6 +76,9 @@ export function LoginCard() {
   const [showPassword, setShowPassword] = useState(false)
   const [confirmPassword, setConfirmPassword] = useState("")
   const [confirmPasswordError, setConfirmPasswordError] = useState("")
+  const [serverError, setServerError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const passwordRules = validatePassword(password)
 
@@ -85,6 +88,7 @@ export function LoginCard() {
     setShowPassword(false)
     setConfirmPassword("")
     setConfirmPasswordError("")
+    setServerError("")
   }
 
   const handleCredentialsSubmit = (e: React.FormEvent) => {
@@ -97,6 +101,51 @@ export function LoginCard() {
       password,
       callbackUrl: "/dashboard",
     })
+  }
+
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setServerError("")
+    setConfirmPasswordError("")
+
+    // Client-side validation
+    if (!isPasswordValid(password)) {
+      setServerError("Password does not meet all requirements")
+      return
+    }
+    if (password !== confirmPassword) {
+      setConfirmPasswordError("Passwords do not match")
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const res = await fetch("/api/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: email, email, password }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        const detail = data.detail ?? data.message
+        if (Array.isArray(detail)) {
+          setServerError(detail.map((e: { msg?: string }) => e.msg).join(". "))
+        } else {
+          setServerError(detail || "Registration failed")
+        }
+        return
+      }
+
+      // Success — switch to sign-in mode with success message
+      resetForm()
+      setMode("signin")
+      setSuccessMessage("Account created — sign in to continue")
+    } catch {
+      setServerError("Unable to reach the server. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -118,7 +167,7 @@ export function LoginCard() {
       <div data-testid="segmented-control" className="flex rounded-xl bg-white/[0.04] border border-white/[0.06] p-1 mb-6">
         <button
           type="button"
-          onClick={() => { setMode("signin"); resetForm() }}
+          onClick={() => { setMode("signin"); resetForm(); setSuccessMessage("") }}
           className={`flex-1 py-2 text-[13px] font-medium rounded-lg transition-all duration-200 ${
             mode === "signin"
               ? "bg-accent text-white shadow-sm"
@@ -129,7 +178,7 @@ export function LoginCard() {
         </button>
         <button
           type="button"
-          onClick={() => { setMode("signup"); resetForm() }}
+          onClick={() => { setMode("signup"); resetForm(); setSuccessMessage("") }}
           className={`flex-1 py-2 text-[13px] font-medium rounded-lg transition-all duration-200 ${
             mode === "signup"
               ? "bg-accent text-white shadow-sm"
@@ -173,10 +222,18 @@ export function LoginCard() {
         <div className="flex-1 h-px bg-white/[0.06]" />
       </div>
 
+      {/* Status messages */}
+      {successMessage && (
+        <p className="text-[13px] text-green-400 text-center mb-4">{successMessage}</p>
+      )}
+
       {/* Credentials toggle + form */}
       <div className="grid transition-[grid-template-rows] duration-300 ease-out" style={{ gridTemplateRows: showCredentials ? "1fr" : "0fr" }}>
         <div className="overflow-hidden">
-          <form onSubmit={handleCredentialsSubmit} className="flex flex-col gap-4 pb-1">
+          <form onSubmit={mode === "signin" ? handleCredentialsSubmit : handleSignUpSubmit} className="flex flex-col gap-4 pb-1">
+            {serverError && (
+              <p className="text-[13px] text-red-400 text-center">{serverError}</p>
+            )}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="email" className="text-[13px] font-medium text-text-secondary">
                 Email
@@ -254,7 +311,8 @@ export function LoginCard() {
             )}
             <button
               type="submit"
-              className="h-12 w-full rounded-xl bg-accent text-white text-[15px] font-semibold hover:brightness-110 active:scale-[0.98] transition-all duration-150 ease-out"
+              disabled={isSubmitting}
+              className="h-12 w-full rounded-xl bg-accent text-white text-[15px] font-semibold hover:brightness-110 active:scale-[0.98] transition-all duration-150 ease-out disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {mode === "signin" ? "Sign In" : "Create Account"}
             </button>
