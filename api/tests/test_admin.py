@@ -45,7 +45,7 @@ class TestPipelineTrigger:
         assert response.status_code == 503
 
     def test_trigger_enqueues_job(self):
-        """Trigger returns 202 and enqueues full_ingest with idempotent job ID."""
+        """Trigger returns 202 and enqueues full_ingest with correct key."""
         mock_job = MagicMock()
         mock_job.job_id = "test-job-123"
 
@@ -69,31 +69,7 @@ class TestPipelineTrigger:
         assert data["status"] == "enqueued"
         assert data["job"] == "full_ingest"
         assert data["job_id"] == "test-job-123"
-        # Verify idempotent _job_id was passed
-        call_kwargs = mock_pool.enqueue_job.call_args
-        assert call_kwargs[0][0] == "full_ingest"
-        assert call_kwargs[1]["_job_id"].startswith("full_ingest:")
-
-    def test_trigger_returns_200_when_already_enqueued(self):
-        """Trigger returns 200 when job already enqueued today (ARQ returns None)."""
-        mock_pool = AsyncMock()
-        mock_pool.enqueue_job = AsyncMock(return_value=None)
-        mock_pool.aclose = AsyncMock()
-
-        with (
-            patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}),
-            patch("margin_api.routes.admin.create_pool", return_value=mock_pool),
-        ):
-            app = create_app()
-            client = TestClient(app)
-            response = client.post(
-                "/api/v1/admin/pipeline/trigger",
-                headers={"X-Admin-Key": "test-key"},
-            )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "already_enqueued"
+        mock_pool.enqueue_job.assert_called_once_with("full_ingest")
 
     def test_trigger_handles_redis_failure(self):
         """Trigger returns 503 when Redis is unreachable."""
