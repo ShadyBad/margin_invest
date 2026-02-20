@@ -29,11 +29,23 @@ vi.mock("framer-motion", () => ({
   animate: () => ({ stop: () => {} }),
 }))
 
+vi.mock("recharts", () => ({
+  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
+  LineChart: ({ children }: any) => <div>{children}</div>,
+  Line: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  CartesianGrid: () => null,
+  ReferenceLine: () => null,
+  Tooltip: () => null,
+}))
+
 import { HeroSection } from "../sections/hero-section"
 import { PipelineSection } from "../sections/pipeline-section"
 import { UniverseSection } from "../sections/universe-section"
 import { FiltersSection } from "../sections/filters-section"
 import { ScoringSection } from "../sections/scoring-section"
+import { ConvictionSection } from "../sections/conviction-section"
 
 describe("HeroSection", () => {
   it("renders the H1 headline", () => {
@@ -129,5 +141,27 @@ describe("ScoringSection", () => {
     expect(screen.getByText("ROIC-WACC Spread")).toBeInTheDocument()
     expect(screen.getByText("Piotroski F-Score")).toBeInTheDocument()
     expect(screen.getByText("Insider Cluster Score")).toBeInTheDocument()
+  })
+})
+
+describe("ConvictionSection", () => {
+  it("renders the headline", () => {
+    render(<ConvictionSection />)
+    expect(
+      screen.getByText(/Two independent lenses/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders both track cards", () => {
+    render(<ConvictionSection />)
+    expect(screen.getByText(/Track A/)).toBeInTheDocument()
+    expect(screen.getByText(/Track B/)).toBeInTheDocument()
+  })
+
+  it("renders conviction levels", () => {
+    render(<ConvictionSection />)
+    expect(screen.getAllByText("Exceptional").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("High").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Watchlist").length).toBeGreaterThanOrEqual(1)
   })
 })
