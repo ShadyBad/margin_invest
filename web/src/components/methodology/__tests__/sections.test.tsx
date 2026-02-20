@@ -31,6 +31,7 @@ vi.mock("framer-motion", () => ({
 
 import { HeroSection } from "../sections/hero-section"
 import { PipelineSection } from "../sections/pipeline-section"
+import { UniverseSection } from "../sections/universe-section"
 
 describe("HeroSection", () => {
   it("renders the H1 headline", () => {
@@ -68,5 +69,21 @@ describe("PipelineSection", () => {
     expect(screen.getAllByText("Scoring").length).toBeGreaterThan(0)
     expect(screen.getAllByText("Conviction").length).toBeGreaterThan(0)
     expect(screen.getAllByText("Output").length).toBeGreaterThan(0)
+  })
+})
+
+describe("UniverseSection", () => {
+  it("renders the headline", () => {
+    render(<UniverseSection />)
+    expect(
+      screen.getByText(/Every US-listed equity/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all three cards", () => {
+    render(<UniverseSection />)
+    expect(screen.getByText(/What\u2019s included/)).toBeInTheDocument()
+    expect(screen.getByText(/What\u2019s excluded/)).toBeInTheDocument()
+    expect(screen.getByText("Data freshness")).toBeInTheDocument()
   })
 })
