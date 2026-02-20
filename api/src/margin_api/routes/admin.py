@@ -61,6 +61,41 @@ async def trigger_pipeline(x_admin_key: str = Header()) -> JSONResponse:
     )
 
 
+@router.post("/scoring/trigger")
+async def trigger_scoring(x_admin_key: str = Header()) -> JSONResponse:
+    """Enqueue just the scoring pipeline (v2 score → v3 score).
+
+    Skips ingestion — useful when data is already seeded but scoring
+    hasn't run or failed. Requires X-Admin-Key header.
+    """
+    _verify_admin_key(x_admin_key)
+
+    settings = get_settings()
+    from arq.connections import RedisSettings
+
+    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+
+    try:
+        redis: ArqRedis = await create_pool(redis_settings)
+        job = await redis.enqueue_job("full_score")
+        await redis.aclose()
+    except Exception as e:
+        logger.exception("Failed to enqueue scoring job")
+        raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
+
+    logger.info("[admin] Enqueued full_score job: %s", job.job_id)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "enqueued",
+            "job": "full_score",
+            "job_id": job.job_id,
+            "message": "Scoring enqueued: v2 score → v3 score (skipping ingest)",
+        },
+    )
+
+
 @router.post("/universe/activate")
 async def activate_universe_endpoint(
     x_admin_key: str = Header(),
