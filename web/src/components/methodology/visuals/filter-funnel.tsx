@@ -20,8 +20,8 @@ export function FilterFunnel() {
                   i === 0
                     ? "var(--color-border-primary)"
                     : i === 1
-                      ? "rgba(var(--accent-rgb, 99 102 241) / 0.15)"
-                      : "rgba(var(--accent-rgb, 99 102 241) / 0.3)",
+                      ? "var(--color-accent-subtle)"
+                      : "color-mix(in srgb, var(--color-accent) 25%, transparent)",
               }}
             >
               <span className="text-[12px] font-mono text-text-primary whitespace-nowrap">

@@ -9,6 +9,8 @@ const pillars = [
   {
     name: "Quality",
     desc: "Measures the durability and efficiency of a business \u2014 how well it converts capital into returns, and whether those returns are real.",
+    borderColor: "border-t-accent",
+    titleColor: "text-accent",
     factors: [
       "ROIC-WACC Spread",
       "ROIC Stability",
@@ -22,6 +24,8 @@ const pillars = [
   {
     name: "Value",
     desc: "Measures what you\u2019re paying relative to what the business generates \u2014 across multiple valuation lenses to avoid single-metric traps.",
+    borderColor: "border-t-bullish",
+    titleColor: "text-bullish",
     factors: [
       "DCF Margin of Safety",
       "EV/FCF",
@@ -35,6 +39,8 @@ const pillars = [
   {
     name: "Momentum",
     desc: "Measures whether the market, insiders, and institutions are confirming what the fundamentals suggest.",
+    borderColor: "border-t-warning",
+    titleColor: "text-warning",
     factors: [
       "Price Momentum (12\u20111 month)",
       "Standardized Unexpected Earnings",
@@ -98,13 +104,13 @@ export function ScoringSection() {
           {pillars.map((pillar, i) => (
             <motion.div
               key={pillar.name}
-              className="p-6 border border-border-primary rounded-lg bg-bg-elevated border-t-2 border-t-accent"
+              className={`p-6 border border-border-primary rounded-lg bg-bg-elevated border-t-2 ${pillar.borderColor}`}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.08, ease }}
             >
-              <h3 className="text-[18px] font-semibold text-accent mb-3">
+              <h3 className={`text-[18px] font-semibold ${pillar.titleColor} mb-3`}>
                 {pillar.name}
               </h3>
               <p className="text-[14px] text-text-secondary leading-relaxed mb-4">
