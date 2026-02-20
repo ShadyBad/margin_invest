@@ -247,3 +247,69 @@ async def get_dashboard(
         universe=universe,
         warnings=warnings,
     )
+
+
+@router.get("/dashboard/status")
+async def get_dashboard_status(
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Diagnostic endpoint for debugging empty dashboard issues."""
+    snapshot = await get_active_snapshot(db)
+
+    total_scores = (await db.execute(
+        select(func.count()).select_from(Score)
+    )).scalar() or 0
+
+    total_assets_scored = (await db.execute(
+        select(func.count(func.distinct(Score.asset_id)))
+    )).scalar() or 0
+
+    total_assets = (await db.execute(
+        select(func.count()).select_from(Asset)
+    )).scalar() or 0
+
+    latest_scored_at = (await db.execute(
+        select(func.max(Score.scored_at))
+    )).scalar()
+
+    # Count scores matching universe tickers
+    universe_scored = 0
+    if snapshot and snapshot.tickers and len(snapshot.tickers) > 0:
+        universe_ticker_subq = (
+            select(func.jsonb_array_elements_text(UniverseSnapshot.tickers))
+            .where(UniverseSnapshot.is_active.is_(True))
+        )
+        universe_scored = (await db.execute(
+            select(func.count(func.distinct(Score.asset_id)))
+            .join(Asset, Score.asset_id == Asset.id)
+            .where(Asset.ticker.in_(universe_ticker_subq))
+        )).scalar() or 0
+
+    # Conviction level breakdown of latest scores
+    latest = _latest_score_subquery()
+    conviction_counts = {}
+    rows = (await db.execute(
+        select(Score.conviction_level, func.count())
+        .join(latest, (Score.asset_id == latest.c.asset_id) & (Score.scored_at == latest.c.max_scored_at))
+        .group_by(Score.conviction_level)
+    )).all()
+    for row in rows:
+        conviction_counts[row[0]] = row[1]
+
+    return {
+        "snapshot": {
+            "version": snapshot.version if snapshot else None,
+            "ticker_count": snapshot.ticker_count if snapshot else 0,
+            "is_active": snapshot.is_active if snapshot else False,
+        },
+        "scores": {
+            "total_rows": total_scores,
+            "unique_assets_scored": total_assets_scored,
+            "universe_assets_scored": universe_scored,
+            "latest_scored_at": latest_scored_at.isoformat() if latest_scored_at else None,
+        },
+        "assets": {
+            "total": total_assets,
+        },
+        "conviction_breakdown": conviction_counts,
+    }
