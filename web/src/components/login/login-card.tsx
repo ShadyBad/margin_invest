@@ -113,6 +113,10 @@ export function LoginCard({ initialMode = "signin" }: LoginCardProps) {
     setConfirmPasswordError("")
 
     // Client-side validation
+    if (!email.trim()) {
+      setServerError("Email is required")
+      return
+    }
     if (!isPasswordValid(password)) {
       setServerError("Password does not meet all requirements")
       return

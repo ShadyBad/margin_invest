@@ -264,6 +264,12 @@ describe("LoginCard", () => {
   })
 
   describe("sign-up registration", () => {
+    const originalFetch = global.fetch
+
+    afterEach(() => {
+      global.fetch = originalFetch
+    })
+
     it("calls register API and switches to sign-in on success", async () => {
       const user = userEvent.setup()
       global.fetch = vi.fn().mockResolvedValue({
