@@ -1,0 +1,104 @@
+---
+title: "Data Sources & Freshness"
+description: "Where data comes from, when it updates, and what to do when values look off."
+order: 6
+updatedAt: "2026-02-19"
+readingTime: 5
+category: "Reference"
+---
+
+## Overview
+
+<Callout type="info">
+This guide is educational content explaining how our data pipeline works. It is not investment advice. Always do your own research before making investment decisions.
+</Callout>
+
+Margin Invest aggregates data from multiple financial data providers to build a comprehensive picture of each company. Rather than relying on a single source, the engine uses **fallback chains** -- if the primary provider for a given data type is unavailable or returns incomplete results, the system automatically falls back to the next provider in the chain.
+
+This approach improves both reliability and coverage. Scores can continue to be calculated even when individual providers experience downtime or data gaps.
+
+## Data Provider Chains
+
+Each data type flows through a prioritized chain of providers:
+
+| Data Type | Primary Provider | Fallback 1 | Fallback 2 |
+|-----------|-----------------|------------|------------|
+| Fundamentals (income, balance sheet, cash flow) | FMP | yfinance | SEC EDGAR XBRL |
+| Price History (daily OHLCV) | Polygon | yfinance | -- |
+| Insider Transactions | SEC EDGAR Form 4 | Finnhub | -- |
+| Institutional Holdings | SEC EDGAR 13F | Finnhub | -- |
+| Macro Data (Shiller CAPE, etc.) | FRED | -- | -- |
+| News & Earnings | Finnhub | FMP | -- |
+
+<Callout type="tip">
+The fallback system means that even if a primary provider experiences downtime, scores continue to be calculated using backup sources.
+</Callout>
+
+## Update Cadences
+
+Different data types arrive on different schedules. Understanding these cadences helps set expectations for when scores will change.
+
+| Data Type | Update Frequency | Typical Lag |
+|-----------|-----------------|-------------|
+| Quarterly Financials | After SEC filing | ~45 days after quarter end |
+| Price Data | Daily | Same day (market close) |
+| Insider Transactions | After SEC Form 4 filing | Within 2 business days of transaction |
+| Institutional Holdings | After SEC 13F filing | ~45 days after quarter end |
+| Macro Indicators | Monthly/Quarterly (varies) | Varies by indicator |
+
+## Data Windows
+
+The engine looks at different time horizons depending on what it is calculating:
+
+- **Historical depth**: Up to 5 years of quarterly financials where available
+- **Volume averaging**: 60-day window for dollar volume calculations
+- **Trend analysis**: Multi-year periods for ROIC trends, revenue CAGR, and margin trajectories
+- **Minimum data requirement**: At least 5 years of history for robust analysis
+
+These windows are fixed by design. Using consistent lookback periods ensures that all companies are evaluated on the same basis, preventing recency bias from skewing results.
+
+## Troubleshooting Stale Data
+
+### Scores Haven't Changed Recently
+
+If scores appear static, consider the timing relative to earnings seasons. The majority of score movement comes from new quarterly financial data, which arrives in waves:
+
+- **Price-dependent metrics** (like dollar volume and relative valuation) update daily with market close data
+- **Fundamental metrics** (like ROIC, margins, and growth rates) only change when a new quarterly filing is processed
+- Between earnings seasons, it is normal for scores to remain largely stable
+
+### A Metric Looks Wrong
+
+Different providers may report slightly different values for the same metric. This can happen due to accounting adjustments, restatements, or differences in how providers interpret non-standard filings. The engine always uses the primary provider's value when it is available, falling back only when necessary.
+
+<Callout type="tip">
+If a specific metric looks off, check the company's latest SEC filing for the authoritative number. Minor discrepancies between data providers are normal and typically resolve when the next filing is processed.
+</Callout>
+
+### A Stock Shows "Inconclusive" on a Filter
+
+An "Inconclusive" result means insufficient data was available to evaluate that particular filter. This is most common for:
+
+- Recently IPO'd companies that lack multi-year financial history
+- Foreign listings with non-standard reporting formats
+- Companies with unusual fiscal year-ends or reporting gaps
+
+Inconclusive is treated as a filter failure. This is a deliberately conservative approach -- when the engine cannot confirm a company passes a safety check, it does not assume the best case.
+
+## Known Limitations
+
+<Callout type="warning">
+**Newly IPO'd companies**: Companies with fewer than 5 years of public financial data may have incomplete scoring. Some filters require multi-year history that is not available yet.
+</Callout>
+
+<Callout type="warning">
+**Sector classification**: The engine relies on GICS (Global Industry Classification Standard) data. If a company's GICS classification is missing or outdated, sector-neutral scoring may be affected.
+</Callout>
+
+<Callout type="warning">
+**Real-time gaps**: Data is not real-time. Price data reflects the previous market close. Fundamental data reflects the most recent SEC filing. Intraday events (earnings releases, major news) are not immediately reflected in scores.
+</Callout>
+
+**Non-standard reporting**: Companies that report in non-standard ways (e.g., different fiscal year-end, non-GAAP-only reporting) may have less accurate derived metrics. The engine does its best to normalize these cases, but edge cases exist.
+
+**Provider coverage**: Some smaller or international companies may not be fully covered by all data providers. The fallback system helps bridge gaps, but coverage limitations can still affect the completeness of analysis for less widely followed stocks.
