@@ -1,0 +1,242 @@
+---
+title: "Metrics & Terminology"
+description: "Definitions of every key term, metric, and score you will encounter in the Margin Invest UI."
+order: 4
+updatedAt: "2026-02-19"
+readingTime: 8
+category: "Reference"
+---
+
+## Overview
+
+<Callout type="info">
+This guide is educational reference material defining the terms and metrics used throughout the Margin Invest platform. It is not investment advice. Always do your own research before making investment decisions.
+</Callout>
+
+This guide defines every key term, metric, and score you will encounter in the Margin Invest UI. Use it as a reference whenever you need a quick definition or want to understand how a specific number is calculated.
+
+Definitions are organized by category for easy lookup: conviction levels, opportunity types, growth stages, Track A metrics, Track B metrics, financial fundamentals, and filter metrics.
+
+## Conviction Levels
+
+Conviction levels are discrete categories assigned to each scored stock based on how many gates it clears and how strongly it performs on each dimension.
+
+- **EXCEPTIONAL** -- Top tier. All gates passed with well-above-minimum thresholds. This level requires elite performance across every metric simultaneously, not just clearing the gates. Extremely rare by design.
+- **HIGH** -- Strong across all dimensions. All gates passed. This is the primary actionable signal that a stock is a qualified candidate.
+- **WATCHLIST** -- Promising but incomplete. Three of four gates passed on at least one track. The stock is worth monitoring but does not meet the bar for a position. Do not act on WATCHLIST candidates.
+- **NONE** -- Below all thresholds. The stock did not clear enough gates on either track to warrant attention.
+
+<Callout type="tip">
+Conviction levels are determined by gate-based logic, not raw scores. A stock with a moderately high continuous score can still land at NONE if it fails to clear the required gates. Always look at the conviction level, not the raw numbers, when deciding whether a candidate is actionable.
+</Callout>
+
+## Opportunity Types
+
+Opportunity types indicate which scoring track or tracks a stock qualified on.
+
+- **Compounder** -- Qualified on Track A. A high-quality business that compounds shareholder wealth over time through durable competitive advantages, strong reinvestment, and disciplined capital allocation. Typically implies a longer holding period.
+- **Mispricing** -- Qualified on Track B. A stock trading at a significant discount to intrinsic value with an identifiable catalyst for revaluation. May have a shorter holding period because the thesis resolves when the market reprices the stock.
+- **Both** -- Qualified on both Track A and Track B. The strongest possible signal. A high-quality compounder that is also meaningfully undervalued. Receives the largest suggested allocation because both tracks independently confirm the opportunity.
+- **Neither** -- Failed to qualify on either track. The stock did not clear enough gates on Track A or Track B.
+
+## Growth Stages
+
+Every scored company is classified into one of five growth stages. The growth stage determines how factor weights are adjusted during scoring, reflecting the reality that different types of businesses should be evaluated with different emphasis.
+
+| Stage | Criteria |
+|-------|----------|
+| High Growth | Revenue CAGR > 20%, Gross Margin > 40%, Market Cap > $2B |
+| Steady Growth | Revenue CAGR 5-20%, Positive FCF |
+| Mature | Revenue CAGR < 5%, FCF Yield > 4% |
+| Cyclical | Revenue StdDev > 15% or cyclical sector (Energy, Materials, Industrials, Consumer Discretionary) |
+| Turnaround | 2+ negative Net Income quarters, 2+ sequential margin improvements, positive CFO |
+
+<Callout type="info">
+Growth stage affects factor weight adjustments within the scoring engine. For example, a High Growth company may receive more weight on reinvestment rate and less on dividend yield, while a Mature company may receive more weight on capital return and less on revenue growth. The engine adapts its evaluation lens to match the company's lifecycle phase.
+</Callout>
+
+## Track A Metrics (Compounder)
+
+These metrics are used in Track A scoring, which evaluates whether a company compounds shareholder wealth through operational excellence.
+
+### Moat Durability Score
+
+A count from 0 to 4 representing how many competitive moat signatures the engine detects:
+
+- **Scale Economics** -- Unit costs decline as volume grows, creating a structural cost advantage.
+- **Pricing Power** -- The company can raise prices without proportional customer loss.
+- **Switching Costs** -- Customers face meaningful friction moving to a competitor.
+- **Capital Efficiency** -- The business generates high returns on invested capital relative to its asset base.
+
+A higher score indicates a wider competitive moat. The Track A gate requires a moat durability score of at least 2.
+
+### Compounding Power
+
+<Formula>Compounding Power = Incremental ROIC x Reinvestment Rate x (1 - ROIC CV)</Formula>
+
+Measures how effectively a company reinvests capital at high returns over time. Each component captures a different dimension:
+
+- **Incremental ROIC** -- The return earned on each new dollar of capital invested, measuring marginal productivity of recent investments.
+- **Reinvestment Rate** -- The fraction of earnings plowed back into the business rather than distributed to shareholders.
+- **ROIC CV (coefficient of variation)** -- Measures how volatile returns on capital have been. The (1 - ROIC CV) term penalizes inconsistency, rewarding companies with stable returns.
+
+The Track A gate requires compounding power greater than 0.04. EXCEPTIONAL conviction requires compounding power above 0.15.
+
+### Capital Allocation Composite
+
+A score ranging from 0 to 1, computed as a weighted average of six sub-factors:
+
+- **Debt Discipline** -- Whether leverage is managed prudently relative to earnings power and industry norms.
+- **Organic Reinvestment** -- Whether the company prioritizes internal growth over financial engineering.
+- **Buyback Effectiveness** -- Whether share repurchases occur at prices below intrinsic value.
+- **Insider Ownership** -- Whether executives and directors have meaningful personal wealth tied to the stock.
+- **SBC Dilution Tax** -- How much shareholder value is eroded by stock-based compensation relative to revenue.
+- **M&A Discipline** -- Whether the company's acquisition history has created or destroyed value.
+
+A higher score indicates better capital allocation decisions. The Track A gate requires a composite above 0.5.
+
+### Growth Gap
+
+Computed via Reverse DCF: rather than projecting cash flows forward to estimate intrinsic value, the engine works backward from the current stock price to determine the growth rate the market is implicitly pricing in. That implied growth rate is compared to the company's demonstrated growth trajectory.
+
+- **Positive growth gap** -- The market is pricing in less growth than fundamentals support. The stock has a margin of safety on growth assumptions.
+- **Negative growth gap** -- The market is pricing in more growth than the company has historically delivered. Valuation may be stretched.
+
+The Track A gate requires a growth gap greater than 0.0, with adjustments based on market regime.
+
+## Track B Metrics (Mispricing)
+
+These metrics are used in Track B scoring, which identifies stocks where the market price has temporarily disconnected from intrinsic value.
+
+### Asymmetry Ratio
+
+<Formula>Asymmetry Ratio = Intrinsic Value / Current Price</Formula>
+
+Measures how much upside exists relative to the current stock price. Capped at 20x for scoring purposes to prevent outliers from distorting percentile rankings.
+
+- A ratio of 2.0 means intrinsic value is estimated at twice the current price.
+- The Track B gate requires the stock to trade below 60% of the ensemble intrinsic value (equivalently, an asymmetry ratio above approximately 1.67).
+- EXCEPTIONAL conviction requires an asymmetry ratio above 5.0.
+
+### Catalyst Strength
+
+A percentile score ranging from 0 to 100, taken as the maximum of three independent catalyst signals:
+
+- **Insider Buying Percentile** -- Whether company insiders are purchasing shares in the open market, signaling management confidence.
+- **Institutional Accumulation Percentile** -- Whether institutional investors are increasing their positions, suggesting smart money recognition.
+- **Earnings Surprise (SUE) Percentile** -- Whether the company has recently beaten earnings expectations, which can trigger analyst upgrades and re-rating.
+
+The engine uses the strongest of the three signals. The Track B gate requires catalyst strength above the 60th percentile. EXCEPTIONAL conviction requires above the 80th percentile.
+
+### Quality Floor Factor
+
+A score ranging from 0 to 1 that prevents the engine from recommending deeply discounted stocks that are cheap for good reason:
+
+- **ROIC >= 8%** -- Full score (1.0). The business earns an adequate return on capital, confirming the mispricing is not driven by fundamental deterioration.
+- **ROIC < 8% but improving** -- Partial score (0.5 to 1.0). The business is not yet earning its cost of capital, but the trajectory is positive, suggesting a turnaround may be underway.
+- **ROIC < 8% and not improving** -- Score of 0. The business is destroying value with no signs of recovery. This zeroes out the entire Track B score through multiplicative scoring.
+
+### Valuation Convergence
+
+A factor ranging from 0.75 to 1.0, based on how many of the four valuation methods agree within plus or minus 30% of the median estimate:
+
+- **4 methods converging** -- Factor of 1.0. Maximum confidence in the intrinsic value estimate.
+- **3 methods converging** -- Factor of approximately 0.92. Strong confidence with one outlier.
+- **2 methods converging** -- Factor of approximately 0.83. Moderate confidence.
+- **1 or fewer** -- Factor of 0.75. Minimum confidence. The intrinsic value estimate may be unreliable.
+
+More agreement across independent valuation approaches means higher confidence that the estimated intrinsic value reflects reality rather than model-specific bias.
+
+## Financial Fundamentals
+
+These metrics appear throughout the platform in factor breakdowns, filter results, and detail panels.
+
+### ROIC (Return on Invested Capital)
+
+<Formula>ROIC = NOPAT / Invested Capital</Formula>
+
+Measures how efficiently a company uses its total deployed capital to generate profit. ROIC is one of the most important metrics in the platform -- it appears in Track A (compounding power), Track B (quality floor), and as a standalone indicator of business quality.
+
+A company consistently earning ROIC above its cost of capital is creating economic value. A company earning ROIC below its cost of capital is destroying value, regardless of reported accounting profits.
+
+### NOPAT (Net Operating Profit After Tax)
+
+<Formula>NOPAT = EBIT x (1 - Tax Rate)</Formula>
+
+Operating profit after taxes but before financing costs. NOPAT strips out the effects of capital structure (debt vs. equity) to show the pure operating profitability of the business regardless of how it is financed.
+
+### Invested Capital
+
+<Formula>Invested Capital = Total Equity + Total Debt - Cash</Formula>
+
+The total capital deployed in the business. This represents the denominator in the ROIC calculation -- the base of resources the company is using to generate returns.
+
+### FCF Yield (Free Cash Flow Yield)
+
+<Formula>FCF Yield = Free Cash Flow / Market Cap</Formula>
+
+How much cash the business generates relative to its market price. A higher FCF yield means you are paying less per dollar of cash generated. Used in growth stage classification (Mature stage requires FCF Yield > 4%) and as a general quality indicator.
+
+### Revenue CAGR
+
+The 3-year compound annual growth rate of revenue. Used primarily for growth stage classification:
+
+- High Growth: Revenue CAGR > 20%
+- Steady Growth: Revenue CAGR 5-20%
+- Mature: Revenue CAGR < 5%
+
+Also used in Reverse DCF calculations to compare implied growth expectations against demonstrated growth.
+
+### Gross Profitability
+
+<Formula>Gross Profitability = Gross Profit / Total Assets</Formula>
+
+The Novy-Marx factor, which research has shown to be one of the strongest predictors of future stock returns. Companies with high gross profitability relative to their asset base tend to outperform. It captures business quality at the most fundamental level -- how much economic value the company creates from its assets before operating expenses and financing costs.
+
+### Shareholder Yield
+
+A composite metric combining three components of capital returned to shareholders:
+
+- **Dividends** -- Direct cash payments to shareholders.
+- **Buybacks** -- Share repurchases that increase each remaining shareholder's ownership stake.
+- **Debt Reduction** -- Paying down debt, which reduces financial risk and increases equity value.
+
+Shareholder yield provides a more complete picture of total capital return than dividends alone, capturing companies that return capital through repurchases rather than dividends.
+
+## Filter Metrics
+
+These metrics are used in the elimination filters that run before scoring begins. A stock must pass all six filters to proceed to dual-track scoring.
+
+### Beneish M-Score
+
+A composite ratio that detects earnings manipulation by examining patterns across revenue recognition, asset quality, margin changes, and accruals.
+
+- **Threshold**: A score greater than **-1.78** flags manipulation risk and fails the filter.
+- Scores at or below -1.78 are considered safe and pass the filter.
+
+<Callout type="tip">
+The M-Score was designed to detect patterns consistent with earnings manipulation. A failing M-Score does not prove fraud, but it does indicate that the company's reported financials exhibit statistical patterns associated with manipulation. Treat it as a strong caution signal.
+</Callout>
+
+### Altman Z-Score
+
+A bankruptcy probability indicator combining five financial ratios spanning profitability, leverage, liquidity, solvency, and activity.
+
+- **Threshold**: A score below **1.1** indicates severe financial distress and fails the filter.
+- Scores at or above 1.1 pass the filter.
+
+<Callout type="warning">
+The Utilities sector is exempt from this filter. Regulated utilities carry high leverage by design, and applying a standard Z-Score threshold would incorrectly eliminate healthy companies in this sector.
+</Callout>
+
+### Current Ratio
+
+<Formula>Current Ratio = Current Assets / Current Liabilities</Formula>
+
+A short-term solvency check measuring whether a company has enough near-term assets to cover its near-term obligations. The default threshold is 0.8, with sector-specific adjustments (Utilities use 0.6). Companies below their sector threshold fail the filter.
+
+### Interest Coverage
+
+<Formula>Interest Coverage = EBIT / Interest Expense</Formula>
+
+Measures the ability to service debt obligations. The engine uses a 3-year median for stability. Sector-specific thresholds apply: Technology requires 5.0x, Utilities require 1.2x, and the default is 1.5x. Companies below their sector threshold fail the filter.
