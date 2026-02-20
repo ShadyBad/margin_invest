@@ -24,13 +24,13 @@ def prepare_price_values(
         return []
     return [
         {
-            "time": bar["time"],
+            "time": bar.get("time") or bar.get("Time") or bar.get("date") or bar.get("Date"),
             "ticker": ticker,
-            "open": bar["open"],
-            "high": bar["high"],
-            "low": bar["low"],
-            "close": bar["close"],
-            "volume": bar.get("volume"),
+            "open": bar.get("open") or bar.get("Open"),
+            "high": bar.get("high") or bar.get("High"),
+            "low": bar.get("low") or bar.get("Low"),
+            "close": bar.get("close") or bar.get("Close"),
+            "volume": bar.get("volume") or bar.get("Volume"),
             "source": source,
         }
         for bar in bars

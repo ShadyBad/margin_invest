@@ -541,9 +541,11 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
                 latest_fd = max(fin_rows, key=lambda fd: fd.period_end)
                 price_data = latest_fd.price_history or {}
                 bars = price_data.get("bars", []) if isinstance(price_data, dict) else []
+                last_bar = bars[-1] if bars else {}
+                close_val = last_bar.get("close") or last_bar.get("Close")
                 current_price = (
-                    float(bars[-1]["close"])
-                    if bars
+                    float(close_val)
+                    if close_val is not None
                     else float(profile.market_cap) / max(asset.shares_outstanding or 1, 1)
                 )
 

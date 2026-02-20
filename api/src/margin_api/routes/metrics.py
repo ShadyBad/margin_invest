@@ -29,20 +29,27 @@ def _metric(value: float | None, reason: str) -> MetricStatus:
 
 
 def _build_price_bars(raw_bars: list[dict]) -> list[PriceBar]:
-    """Convert raw JSON bar dicts into engine PriceBar objects."""
+    """Convert raw JSON bar dicts into engine PriceBar objects.
+
+    Handles both lowercase (legacy) and capitalized (yfinance) key formats.
+    """
     result: list[PriceBar] = []
     for bar in raw_bars:
-        if "close" not in bar or "date" not in bar:
+        close_val = bar.get("close") or bar.get("Close")
+        date_val = bar.get("date") or bar.get("Date")
+        if close_val is None or date_val is None:
             continue
+        # Trim datetime to date-only if needed (yfinance: "2025-02-14T00:00:00-05:00")
+        date_str = str(date_val)[:10] if len(str(date_val)) > 10 else str(date_val)
         try:
             result.append(
                 PriceBar(
-                    date=bar["date"],
-                    open=Decimal(str(bar.get("open", 0))),
-                    high=Decimal(str(bar.get("high", 0))),
-                    low=Decimal(str(bar.get("low", 0))),
-                    close=Decimal(str(bar["close"])),
-                    volume=int(bar.get("volume", 0)),
+                    date=date_str,
+                    open=Decimal(str(bar.get("open") or bar.get("Open") or 0)),
+                    high=Decimal(str(bar.get("high") or bar.get("High") or 0)),
+                    low=Decimal(str(bar.get("low") or bar.get("Low") or 0)),
+                    close=Decimal(str(close_val)),
+                    volume=int(bar.get("volume") or bar.get("Volume") or 0),
                 )
             )
         except (ValueError, TypeError, ArithmeticError):
