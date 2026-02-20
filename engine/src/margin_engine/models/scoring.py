@@ -14,10 +14,10 @@ class FilterVerdict(StrEnum):
 
 
 class ConvictionLevel(StrEnum):
-    EXCEPTIONAL = "exceptional"  # Top ~5 stocks (>=99.95)
-    HIGH = "high"  # Top ~50 stocks (>=99.3)
-    WATCHLIST = "watchlist"  # Top ~100 stocks (>=98.0)
-    NONE = "none"  # Below 98.0
+    EXCEPTIONAL = "exceptional"  # composite_raw_score >= 79
+    HIGH = "high"               # composite_raw_score >= 72
+    MEDIUM = "medium"           # composite_raw_score >= 65
+    NONE = "none"               # < 65
 
 
 class Signal(StrEnum):
@@ -140,21 +140,18 @@ class CompositeScore(BaseModel):
 
     @property
     def conviction_level(self) -> ConvictionLevel:
-        if self.composite_percentile >= 99.95:
+        if self.composite_raw_score >= 79.0:
             return ConvictionLevel.EXCEPTIONAL
-        high_threshold = (
-            99.5 if self.growth_stage == GrowthStage.TURNAROUND else 99.3
-        )
-        if self.composite_percentile >= high_threshold:
+        if self.composite_raw_score >= 72.0:
             return ConvictionLevel.HIGH
-        elif self.composite_percentile >= 98.0:
-            return ConvictionLevel.WATCHLIST
+        if self.composite_raw_score >= 65.0:
+            return ConvictionLevel.MEDIUM
         return ConvictionLevel.NONE
 
     @property
     def signal(self) -> Signal:
         level = self.conviction_level
-        if level == ConvictionLevel.WATCHLIST:
+        if level == ConvictionLevel.MEDIUM:
             return Signal.WATCH
         if level == ConvictionLevel.NONE:
             return Signal.NO_ACTION
@@ -188,14 +185,11 @@ class ScoringConfig(BaseModel):
     value_weight: float = 0.30
     momentum_weight: float = 0.35
 
-    # Conviction thresholds (percentile) — tuned for ~7,700 ticker universe
-    exceptional_threshold: float = 99.95  # ~5 stocks
-    high_threshold: float = 99.3  # ~50 stocks
-    watchlist_threshold: float = 98.0  # ~100 stocks
+    # Conviction thresholds (raw score) — absolute, universe-independent
+    exceptional_threshold: float = 79.0
+    high_threshold: float = 72.0
+    medium_threshold: float = 65.0  # renamed from watchlist_threshold
     sell_threshold: float = 97.0
-
-    # Turnaround stocks need higher bar
-    turnaround_threshold: float = 99.5
 
     def weights_for_stage(self, stage: GrowthStage) -> tuple[float, float, float]:
         """Return (quality, value, momentum) weights for a growth stage."""

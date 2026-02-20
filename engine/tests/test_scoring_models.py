@@ -71,119 +71,70 @@ class TestFactorBreakdown:
 
 
 class TestCompositeScore:
-    def test_conviction_level_exceptional(self):
-        score = CompositeScore(
-            ticker="NVDA",
-            composite_percentile=99.97,
+    def _make_score(self, **kwargs):
+        defaults = dict(
+            ticker="TEST",
+            composite_percentile=50.0,
+            composite_raw_score=50.0,
             quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
             value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
             momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
             filters_passed=[],
             data_coverage=1.0,
         )
+        defaults.update(kwargs)
+        return CompositeScore(**defaults)
+
+    def test_conviction_level_exceptional(self):
+        score = self._make_score(composite_raw_score=80.0)
         assert score.conviction_level == ConvictionLevel.EXCEPTIONAL
         assert score.signal == Signal.BUY
 
+    def test_conviction_level_exceptional_boundary(self):
+        score = self._make_score(composite_raw_score=79.0)
+        assert score.conviction_level == ConvictionLevel.EXCEPTIONAL
+
     def test_conviction_level_high(self):
-        score = CompositeScore(
-            ticker="NVDA",
-            composite_percentile=99.5,
-            quality=FactorBreakdown(
-                factor_name="quality", weight=0.35, sub_scores=[]
-            ),
-            value=FactorBreakdown(
-                factor_name="value", weight=0.30, sub_scores=[]
-            ),
-            momentum=FactorBreakdown(
-                factor_name="momentum", weight=0.35, sub_scores=[]
-            ),
-            filters_passed=[],
-            data_coverage=1.0,
-        )
+        score = self._make_score(composite_raw_score=75.0)
         assert score.conviction_level == ConvictionLevel.HIGH
         assert score.signal == Signal.BUY
 
     def test_conviction_level_high_boundary(self):
-        score = CompositeScore(
-            ticker="COST",
-            composite_percentile=99.3,
-            quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
-            value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
-            momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
-            filters_passed=[],
-            data_coverage=1.0,
-        )
+        score = self._make_score(composite_raw_score=72.0)
         assert score.conviction_level == ConvictionLevel.HIGH
-        assert score.signal == Signal.BUY
 
-    def test_conviction_level_watchlist(self):
-        score = CompositeScore(
-            ticker="XYZ",
-            composite_percentile=98.5,
-            quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
-            value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
-            momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
-            filters_passed=[],
-            data_coverage=1.0,
-        )
-        assert score.conviction_level == ConvictionLevel.WATCHLIST
+    def test_conviction_level_medium(self):
+        score = self._make_score(composite_raw_score=67.0)
+        assert score.conviction_level == ConvictionLevel.MEDIUM
         assert score.signal == Signal.WATCH
 
-    def test_not_recommended(self):
-        score = CompositeScore(
-            ticker="BAD",
-            composite_percentile=50.0,
-            quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
-            value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
-            momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
-            filters_passed=[],
-            data_coverage=1.0,
-        )
+    def test_conviction_level_medium_boundary(self):
+        score = self._make_score(composite_raw_score=65.0)
+        assert score.conviction_level == ConvictionLevel.MEDIUM
+
+    def test_conviction_level_none(self):
+        score = self._make_score(composite_raw_score=64.9)
         assert score.conviction_level == ConvictionLevel.NONE
         assert score.signal == Signal.NO_ACTION
 
-    def test_turnaround_requires_higher_bar(self):
-        """Turnaround stocks need >= 99.5 for HIGH conviction, not 99.3."""
-        score = CompositeScore(
-            ticker="TURN",
-            composite_percentile=99.4,
-            quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
-            value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
-            momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
-            filters_passed=[],
-            data_coverage=1.0,
-            growth_stage=GrowthStage.TURNAROUND,
-        )
-        # 99.4 is HIGH for normal stocks, but only WATCHLIST for turnarounds
-        assert score.conviction_level == ConvictionLevel.WATCHLIST
+    def test_conviction_level_none_low(self):
+        score = self._make_score(composite_raw_score=30.0)
+        assert score.conviction_level == ConvictionLevel.NONE
 
-    def test_turnaround_at_99_5_is_high(self):
-        """Turnaround stock at 99.5 percentile qualifies as HIGH."""
-        score = CompositeScore(
-            ticker="TURN",
-            composite_percentile=99.6,
-            quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
-            value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
-            momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
-            filters_passed=[],
-            data_coverage=1.0,
+    def test_turnaround_uses_same_thresholds(self):
+        """No turnaround exception — same thresholds for all growth stages."""
+        score = self._make_score(
+            composite_raw_score=72.0,
             growth_stage=GrowthStage.TURNAROUND,
         )
         assert score.conviction_level == ConvictionLevel.HIGH
 
-    def test_non_turnaround_at_99_4_is_high(self):
-        """Non-turnaround stock at 99.4 percentile is HIGH."""
-        score = CompositeScore(
-            ticker="NORM",
-            composite_percentile=99.4,
-            quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
-            value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
-            momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
-            filters_passed=[],
-            data_coverage=1.0,
-            growth_stage=GrowthStage.STEADY_GROWTH,
+    def test_below_high_turnaround_is_medium(self):
+        score = self._make_score(
+            composite_raw_score=71.9,
+            growth_stage=GrowthStage.TURNAROUND,
         )
-        assert score.conviction_level == ConvictionLevel.HIGH
+        assert score.conviction_level == ConvictionLevel.MEDIUM
 
 
 class TestGrowthStage:
@@ -206,6 +157,12 @@ class TestScoringConfig:
         assert config.momentum_weight == 0.35
         total = config.quality_weight + config.value_weight + config.momentum_weight
         assert total == pytest.approx(1.0)
+
+    def test_default_thresholds(self):
+        config = ScoringConfig()
+        assert config.exceptional_threshold == 79.0
+        assert config.high_threshold == 72.0
+        assert config.medium_threshold == 65.0
 
     def test_growth_stage_weights(self):
         config = ScoringConfig()
