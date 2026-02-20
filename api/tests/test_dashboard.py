@@ -220,6 +220,30 @@ class TestDashboardPicks:
             assert isinstance(pick["score_id"], int)
             assert pick["score_id"] > 0
 
+    async def test_pick_values_match_seeded_db_exactly(self, client):
+        """Every card field must exactly match what was seeded into the DB.
+
+        This is the core data-contract test: the API must not transform,
+        recompute, or lose any field between DB and response.
+        """
+        response = await client.get("/api/v1/dashboard")
+        data = response.json()
+        aapl = next(p for p in data["picks"] if p["ticker"] == "AAPL")
+
+        # These must exactly match the seeded values in the fixture
+        assert aapl["score"] == 82.0                          # composite_raw_score
+        assert aapl["composite_percentile"] == 99.5            # composite_percentile
+        assert aapl["universe_percentile"] == 99.5             # same as composite_percentile
+        assert aapl["conviction_level"] == "exceptional"       # conviction_level
+        assert aapl["signal"] == "buy"                         # signal
+        assert aapl["quality_percentile"] == 98.0              # quality_percentile
+        assert aapl["value_percentile"] == 95.0                # value_percentile
+        assert aapl["momentum_percentile"] == 97.0             # momentum_percentile
+        assert aapl["name"] == "Apple Inc."
+        assert aapl["sector"] == "Information Technology"
+        assert aapl["score_id"] > 0                            # traceability
+        assert aapl["scored_at"] is not None                   # timestamp
+
 
 @pytest.mark.asyncio
 class TestDashboardWatchlist:
@@ -405,3 +429,124 @@ class TestDashboardUniverseMetadata:
         assert data["total_scored"] == 4
         assert len(data["picks"]) == 2
         assert len(data["watchlist"]) == 1
+
+
+@pytest.mark.asyncio
+class TestConvictionDerivation:
+    """Verify that stored conviction_level matches engine threshold derivation."""
+
+    async def test_score_zero_shows_zero_not_percentile(self, async_engine):
+        """When composite_raw_score=0.0, the API returns score=0.0 (not composite_percentile)."""
+        factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as session:
+            asset = Asset(
+                ticker="TEST", name="Test Corp",
+                sector="Information Technology", market_cap=Decimal("1000000000"),
+            )
+            session.add(asset)
+            await session.flush()
+            score = Score(
+                asset_id=asset.id,
+                composite_percentile=75.0,
+                composite_raw_score=0.0,  # edge case: zero
+                conviction_level="none",
+                signal="no_action",
+                quality_percentile=50.0,
+                value_percentile=50.0,
+                momentum_percentile=50.0,
+                data_coverage=1.0,
+                scored_at=datetime.now(UTC),
+            )
+            session.add(score)
+            await session.commit()
+
+        app = create_app()
+
+        async def override():
+            async with factory() as session:
+                yield session
+
+        app.dependency_overrides[get_db] = override
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            response = await ac.get("/api/v1/dashboard")
+            data = response.json()
+            # With no high/exceptional picks, falls back to top-10
+            picks = data["picks"]
+            assert len(picks) == 1
+            # The score field must be 0.0, NOT 75.0 (the percentile)
+            assert picks[0]["score"] == 0.0
+
+    async def test_conviction_boundary_79(self, async_engine):
+        """raw_score=79.0 exactly -> conviction_level='exceptional'."""
+        factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as session:
+            asset = Asset(
+                ticker="EDGE", name="Edge Case Corp",
+                sector="Financials", market_cap=Decimal("500000000"),
+            )
+            session.add(asset)
+            await session.flush()
+            score = Score(
+                asset_id=asset.id,
+                composite_percentile=95.0,
+                composite_raw_score=79.0,
+                conviction_level="exceptional",
+                signal="buy",
+                quality_percentile=80.0, value_percentile=80.0, momentum_percentile=80.0,
+                data_coverage=1.0, scored_at=datetime.now(UTC),
+            )
+            session.add(score)
+            await session.commit()
+
+        app = create_app()
+
+        async def override():
+            async with factory() as session:
+                yield session
+
+        app.dependency_overrides[get_db] = override
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            response = await ac.get("/api/v1/dashboard")
+            data = response.json()
+            pick = data["picks"][0]
+            assert pick["conviction_level"] == "exceptional"
+            assert pick["score"] == 79.0
+
+    async def test_conviction_boundary_78_9(self, async_engine):
+        """raw_score=78.9 -> conviction_level='high' (just below exceptional)."""
+        factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as session:
+            asset = Asset(
+                ticker="NEAR", name="Near Miss Corp",
+                sector="Financials", market_cap=Decimal("500000000"),
+            )
+            session.add(asset)
+            await session.flush()
+            score = Score(
+                asset_id=asset.id,
+                composite_percentile=93.0,
+                composite_raw_score=78.9,
+                conviction_level="high",
+                signal="buy",
+                quality_percentile=78.0, value_percentile=78.0, momentum_percentile=78.0,
+                data_coverage=1.0, scored_at=datetime.now(UTC),
+            )
+            session.add(score)
+            await session.commit()
+
+        app = create_app()
+
+        async def override():
+            async with factory() as session:
+                yield session
+
+        app.dependency_overrides[get_db] = override
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            response = await ac.get("/api/v1/dashboard")
+            data = response.json()
+            pick = data["picks"][0]
+            assert pick["conviction_level"] == "high"
+            assert pick["score"] == 78.9
