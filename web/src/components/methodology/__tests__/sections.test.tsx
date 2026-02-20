@@ -47,6 +47,7 @@ import { FiltersSection } from "../sections/filters-section"
 import { ScoringSection } from "../sections/scoring-section"
 import { ConvictionSection } from "../sections/conviction-section"
 import { OutputsSection } from "../sections/outputs-section"
+import { UsageSection } from "../sections/usage-section"
 
 describe("HeroSection", () => {
   it("renders the H1 headline", () => {
@@ -181,5 +182,20 @@ describe("OutputsSection", () => {
     expect(screen.getByText("Factor breakdown")).toBeInTheDocument()
     expect(screen.getByText("Price target framework")).toBeInTheDocument()
     expect(screen.getByText("Position sizing")).toBeInTheDocument()
+  })
+})
+
+describe("UsageSection", () => {
+  it("renders the headline", () => {
+    render(<UsageSection />)
+    expect(
+      screen.getByText(/What to do — and not do/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders do and don't items", () => {
+    render(<UsageSection />)
+    expect(screen.getByText(/Use candidates as a starting point/)).toBeInTheDocument()
+    expect(screen.getByText(/Don\u2019t treat a high conviction score/)).toBeInTheDocument()
   })
 })
