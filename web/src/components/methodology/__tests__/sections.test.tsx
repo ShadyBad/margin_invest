@@ -49,6 +49,7 @@ import { ConvictionSection } from "../sections/conviction-section"
 import { OutputsSection } from "../sections/outputs-section"
 import { UsageSection } from "../sections/usage-section"
 import { TransparencySection } from "../sections/transparency-section"
+import { CTASection } from "../sections/cta-section"
 
 describe("HeroSection", () => {
   it("renders the H1 headline", () => {
@@ -220,5 +221,30 @@ describe("TransparencySection", () => {
     render(<TransparencySection />)
     expect(screen.getByText(/Before acting on any candidate/)).toBeInTheDocument()
     expect(screen.getByText(/Does the thesis make sense/)).toBeInTheDocument()
+  })
+})
+
+describe("CTASection", () => {
+  it("renders the headline", () => {
+    render(<CTASection />)
+    expect(
+      screen.getByText(/Replace hours of screening/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders both comparison cards", () => {
+    render(<CTASection />)
+    expect(screen.getByText("Without a system")).toBeInTheDocument()
+    expect(screen.getByText("With Margin Invest")).toBeInTheDocument()
+  })
+
+  it("renders CTA links", () => {
+    render(<CTASection />)
+    expect(
+      screen.getByRole("link", { name: /Score your first stock free/i })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("link", { name: /Compare plans/i })
+    ).toBeInTheDocument()
   })
 })
