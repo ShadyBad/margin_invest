@@ -20,6 +20,7 @@ import yfinance
 from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
 from margin_engine.ingestion.rate_limiter import RateLimiterRegistry
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from margin_api.db.models import Asset, FinancialData
 from margin_api.db.session import get_engine, get_session_factory
@@ -161,29 +162,31 @@ async def seed_ticker_data(
             logger.info("  SKIP %s — non-US domicile (%s)", ticker, country or "unknown")
             return "foreign"
 
-        # Upsert Asset row
-        result = await session.execute(select(Asset).where(Asset.ticker == ticker))
-        asset = result.scalar_one_or_none()
-
-        if asset is None:
-            asset = Asset(
-                ticker=ticker,
-                name=name,
-                sector=sector,
-                sub_industry=sub_industry,
-                country=country,
-                market_cap=market_cap,
-                shares_outstanding=shares_outstanding,
-            )
-            session.add(asset)
-            await session.flush()  # Get the id
-        else:
-            asset.name = name
-            asset.sector = sector
-            asset.sub_industry = sub_industry
-            asset.country = country
-            asset.market_cap = market_cap
-            asset.shares_outstanding = shares_outstanding
+        # Upsert Asset row — uses ON CONFLICT to avoid race conditions
+        # between concurrent ingest workers.
+        asset_values = dict(
+            ticker=ticker,
+            name=name,
+            sector=sector,
+            sub_industry=sub_industry,
+            country=country,
+            market_cap=market_cap,
+            shares_outstanding=shares_outstanding,
+        )
+        asset_stmt = pg_insert(Asset).values(**asset_values)
+        asset_stmt = asset_stmt.on_conflict_do_update(
+            index_elements=["ticker"],
+            set_={
+                "name": asset_stmt.excluded.name,
+                "sector": asset_stmt.excluded.sector,
+                "sub_industry": asset_stmt.excluded.sub_industry,
+                "country": asset_stmt.excluded.country,
+                "market_cap": asset_stmt.excluded.market_cap,
+                "shares_outstanding": asset_stmt.excluded.shares_outstanding,
+            },
+        ).returning(Asset.id)
+        result = await session.execute(asset_stmt)
+        asset_id = result.scalar_one()
 
         # Build financial data
         today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
@@ -205,35 +208,33 @@ async def seed_ticker_data(
         )
 
         # Upsert FinancialData row (by asset_id + period_end)
-        fd_result = await session.execute(
-            select(FinancialData).where(
-                FinancialData.asset_id == asset.id,
-                FinancialData.period_end == today_iso,
-            )
+        # Uses ON CONFLICT DO UPDATE to avoid race conditions between
+        # concurrent ingest workers hitting the unique constraint.
+        fd_values = dict(
+            asset_id=asset_id,
+            period_end=today_iso,
+            filing_date=today_iso,
+            income_statement=income_statement,
+            balance_sheet=balance_sheet,
+            cash_flow=cash_flow,
+            price_history=price_data,
+            earnings_data=earnings_data,
+            source="yfinance",
+            fetched_at=datetime.now(UTC),
         )
-        fd = fd_result.scalar_one_or_none()
-
-        if fd is None:
-            fd = FinancialData(
-                asset_id=asset.id,
-                period_end=today_iso,
-                filing_date=today_iso,
-                income_statement=income_statement,
-                balance_sheet=balance_sheet,
-                cash_flow=cash_flow,
-                price_history=price_data,
-                earnings_data=earnings_data,
-                source="yfinance",
-                fetched_at=datetime.now(UTC),
-            )
-            session.add(fd)
-        else:
-            fd.income_statement = income_statement
-            fd.balance_sheet = balance_sheet
-            fd.cash_flow = cash_flow
-            fd.price_history = price_data
-            fd.earnings_data = earnings_data
-            fd.fetched_at = datetime.now(UTC)
+        fd_stmt = pg_insert(FinancialData).values(**fd_values)
+        fd_stmt = fd_stmt.on_conflict_do_update(
+            constraint="uq_financial_data_asset_period",
+            set_={
+                "income_statement": fd_stmt.excluded.income_statement,
+                "balance_sheet": fd_stmt.excluded.balance_sheet,
+                "cash_flow": fd_stmt.excluded.cash_flow,
+                "price_history": fd_stmt.excluded.price_history,
+                "earnings_data": fd_stmt.excluded.earnings_data,
+                "fetched_at": fd_stmt.excluded.fetched_at,
+            },
+        )
+        await session.execute(fd_stmt)
 
         await session.commit()
         return "ok"
