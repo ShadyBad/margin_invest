@@ -46,6 +46,7 @@ import { UniverseSection } from "../sections/universe-section"
 import { FiltersSection } from "../sections/filters-section"
 import { ScoringSection } from "../sections/scoring-section"
 import { ConvictionSection } from "../sections/conviction-section"
+import { OutputsSection } from "../sections/outputs-section"
 
 describe("HeroSection", () => {
   it("renders the H1 headline", () => {
@@ -163,5 +164,22 @@ describe("ConvictionSection", () => {
     expect(screen.getAllByText("Exceptional").length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText("High").length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText("Watchlist").length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe("OutputsSection", () => {
+  it("renders the headline", () => {
+    render(<OutputsSection />)
+    expect(
+      screen.getByText(/Structured outputs you can act on/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all four output cards", () => {
+    render(<OutputsSection />)
+    expect(screen.getByText("Candidate cards")).toBeInTheDocument()
+    expect(screen.getByText("Factor breakdown")).toBeInTheDocument()
+    expect(screen.getByText("Price target framework")).toBeInTheDocument()
+    expect(screen.getByText("Position sizing")).toBeInTheDocument()
   })
 })
