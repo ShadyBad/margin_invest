@@ -32,6 +32,7 @@ vi.mock("framer-motion", () => ({
 import { HeroSection } from "../sections/hero-section"
 import { PipelineSection } from "../sections/pipeline-section"
 import { UniverseSection } from "../sections/universe-section"
+import { FiltersSection } from "../sections/filters-section"
 
 describe("HeroSection", () => {
   it("renders the H1 headline", () => {
@@ -85,5 +86,24 @@ describe("UniverseSection", () => {
     expect(screen.getByText(/What\u2019s included/)).toBeInTheDocument()
     expect(screen.getByText(/What\u2019s excluded/)).toBeInTheDocument()
     expect(screen.getByText("Data freshness")).toBeInTheDocument()
+  })
+})
+
+describe("FiltersSection", () => {
+  it("renders the headline", () => {
+    render(<FiltersSection />)
+    expect(
+      screen.getByText(/Bad candidates are removed before scoring begins/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all six filter cards", () => {
+    render(<FiltersSection />)
+    expect(screen.getByText("Liquidity")).toBeInTheDocument()
+    expect(screen.getByText("Earnings Quality")).toBeInTheDocument()
+    expect(screen.getByText("Bankruptcy Risk")).toBeInTheDocument()
+    expect(screen.getByText("Cash Flow")).toBeInTheDocument()
+    expect(screen.getByText("Interest Coverage")).toBeInTheDocument()
+    expect(screen.getByText("Balance Sheet Health")).toBeInTheDocument()
   })
 })
