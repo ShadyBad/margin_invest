@@ -379,7 +379,7 @@ class WorkerSettings:
         retry_quarantined,
     ]
     cron_jobs = [
-        cron(full_ingest, hour=16, minute=30),  # 4:30 PM ET — after market close
+        cron(full_ingest, hour=21, minute=30),  # 4:30 PM ET (21:30 UTC) — after market close
         cron(
             live_price_poll,
             minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
