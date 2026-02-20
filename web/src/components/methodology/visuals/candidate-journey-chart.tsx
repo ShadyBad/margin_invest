@@ -14,16 +14,16 @@ import {
 const data = [
   { month: "Jan", score: 52 },
   { month: "Feb", score: 61 },
-  { month: "Mar", score: 70 },
-  { month: "Apr", score: 78 },
-  { month: "May", score: 85 },
+  { month: "Mar", score: 68 },
+  { month: "Apr", score: 74 },
+  { month: "May", score: 82 },
   { month: "Jun", score: 91 },
 ]
 
 const convictionBands = [
-  { y: 98, label: "Watchlist", color: "var(--color-text-tertiary)" },
-  { y: 99.3, label: "High", color: "var(--color-warning)" },
-  { y: 99.95, label: "Exceptional", color: "var(--color-accent)" },
+  { y: 70, label: "Watchlist", color: "var(--color-text-tertiary)" },
+  { y: 85, label: "High", color: "var(--color-warning)" },
+  { y: 95, label: "Exceptional", color: "var(--color-accent)" },
 ]
 
 export function CandidateJourneyChart() {
