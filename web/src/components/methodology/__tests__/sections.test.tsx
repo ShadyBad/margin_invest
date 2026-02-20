@@ -10,6 +10,7 @@ vi.mock("framer-motion", () => ({
     h4: ({ children, ...props }: any) => <h4 {...props}>{children}</h4>,
     p: ({ children, ...props }: any) => <p {...props}>{children}</p>,
     span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
+    ul: ({ children, ...props }: any) => <ul {...props}>{children}</ul>,
     section: ({ children, ...props }: any) => (
       <section {...props}>{children}</section>
     ),
@@ -28,118 +29,25 @@ vi.mock("framer-motion", () => ({
   animate: () => ({ stop: () => {} }),
 }))
 
-import {
-  ProblemSection,
-  ApproachSection,
-  EngineSection,
-  OutputsSection,
-  WhySection,
-  TrustSection,
-  MethodologyCTA,
-} from "../index"
+import { HeroSection } from "../sections/hero-section"
 
-describe("ProblemSection", () => {
-  it("renders the headline", () => {
-    render(<ProblemSection />)
+describe("HeroSection", () => {
+  it("renders the H1 headline", () => {
+    render(<HeroSection />)
     expect(
-      screen.getByText("Most investment research creates noise, not clarity.")
+      screen.getByText(/From 7,000\+ stocks to the ones worth your attention/)
     ).toBeInTheDocument()
   })
 
-  it("renders all four pain points", () => {
-    render(<ProblemSection />)
-    expect(screen.getByText("Noisy markets")).toBeInTheDocument()
-    expect(screen.getByText("Information overload")).toBeInTheDocument()
-    expect(screen.getByText("Emotional decision-making")).toBeInTheDocument()
-    expect(screen.getByText("No repeatable process")).toBeInTheDocument()
-  })
-})
-
-describe("ApproachSection", () => {
-  it("renders the headline", () => {
-    render(<ApproachSection />)
-    expect(
-      screen.getByText(
-        "A systematic engine for asymmetric opportunities."
-      )
-    ).toBeInTheDocument()
-  })
-})
-
-describe("EngineSection", () => {
-  it("renders the section label and headline", () => {
-    render(<EngineSection />)
-    expect(screen.getByText("The Engine")).toBeInTheDocument()
-    expect(
-      screen.getByText("From raw data to conviction.")
-    ).toBeInTheDocument()
+  it("renders outcome bullets", () => {
+    render(<HeroSection />)
+    expect(screen.getByText("Scores updated daily after market close")).toBeInTheDocument()
+    expect(screen.getByText("Position sizing tied to conviction strength")).toBeInTheDocument()
   })
 
-  it("renders three factor pillars", () => {
-    render(<EngineSection />)
-    expect(screen.getByText("Quality")).toBeInTheDocument()
-    expect(screen.getByText("Value")).toBeInTheDocument()
-    expect(screen.getByText("Momentum")).toBeInTheDocument()
-  })
-})
-
-describe("OutputsSection", () => {
-  it("renders the headline", () => {
-    render(<OutputsSection />)
-    expect(
-      screen.getByText("Structured outputs, not opinions.")
-    ).toBeInTheDocument()
-  })
-
-  it("renders all four output cards", () => {
-    render(<OutputsSection />)
-    expect(screen.getByText("Candidate cards")).toBeInTheDocument()
-    expect(screen.getByText("Factor breakdown")).toBeInTheDocument()
-    expect(screen.getByText("Price target framework")).toBeInTheDocument()
-    expect(screen.getByText("Allocation guidance")).toBeInTheDocument()
-  })
-})
-
-describe("WhySection", () => {
-  it("renders the headline", () => {
-    render(<WhySection />)
-    expect(screen.getByText("Why this exists.")).toBeInTheDocument()
-  })
-
-  it("renders the comparison table", () => {
-    render(<WhySection />)
-    expect(screen.getByText("Capability")).toBeInTheDocument()
-    expect(screen.getByText("Margin Invest")).toBeInTheDocument()
-  })
-})
-
-describe("TrustSection", () => {
-  it("renders the headline", () => {
-    render(<TrustSection />)
-    expect(
-      screen.getByText(/What this is — and isn't./)
-    ).toBeInTheDocument()
-  })
-
-  it("renders all three principles", () => {
-    render(<TrustSection />)
-    expect(screen.getByText("Not financial advice")).toBeInTheDocument()
-    expect(screen.getByText("Model risk exists")).toBeInTheDocument()
-    expect(screen.getByText("Structure, not prediction")).toBeInTheDocument()
-  })
-})
-
-describe("MethodologyCTA", () => {
-  it("renders the CTA heading and buttons", () => {
-    render(<MethodologyCTA />)
-    expect(
-      screen.getByText("Start building a disciplined watchlist.")
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole("link", { name: /see your dashboard/i })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole("link", { name: /learn about pricing/i })
-    ).toBeInTheDocument()
+  it("renders built-for and not-built-for cards", () => {
+    render(<HeroSection />)
+    expect(screen.getByText("Built for")).toBeInTheDocument()
+    expect(screen.getByText("Not built for")).toBeInTheDocument()
   })
 })
