@@ -7,6 +7,13 @@ import { Navbar } from "../navbar"
 let mockIsAuthenticated = false
 const mockSignOut = vi.fn()
 
+vi.mock("next-themes", () => ({
+  useTheme: () => ({
+    resolvedTheme: "dark",
+    setTheme: vi.fn(),
+  }),
+}))
+
 vi.mock("@/hooks/use-navigation", () => ({
   useNavigation: () => {
     if (mockIsAuthenticated) {
@@ -124,5 +131,10 @@ describe("Navbar", () => {
       // Closed again
       expect(screen.getAllByText("Dashboard")).toHaveLength(1)
     })
+  })
+
+  it("renders theme toggle button", () => {
+    render(<Navbar />)
+    expect(screen.getByRole("button", { name: /switch to (light|dark) mode/i })).toBeInTheDocument()
   })
 })
