@@ -150,6 +150,110 @@ async def _fetch_picks_and_watchlist(
     return picks, watchlist
 
 
+def _derive_conviction_level(raw_score: float) -> str:
+    """Re-derive conviction_level from raw_score using engine thresholds."""
+    if raw_score >= 79.0:
+        return "exceptional"
+    if raw_score >= 72.0:
+        return "high"
+    if raw_score >= 65.0:
+        return "medium"
+    return "none"
+
+
+def _derive_signal(conviction_level: str, actual_price=None, buy_price=None, sell_price=None) -> str:
+    """Re-derive signal from conviction_level and price targets."""
+    if conviction_level == "medium":
+        return "watch"
+    if conviction_level == "none":
+        return "no_action"
+    if actual_price is not None and sell_price is not None and buy_price is not None:
+        if actual_price > sell_price * 1.15:
+            return "urgent_sell"
+        if actual_price > sell_price:
+            return "sell"
+        if actual_price <= buy_price:
+            return "buy"
+        return "hold"
+    return "buy"
+
+
+@router.get("/dashboard/audit")
+async def audit_dashboard(
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Audit dashboard card values against DB and engine-derived values."""
+    latest = _latest_score_subquery()
+    base = (
+        select(Score, Asset.ticker, Asset.name.label("asset_name"))
+        .join(Asset, Score.asset_id == Asset.id)
+        .join(
+            latest,
+            (Score.asset_id == latest.c.asset_id)
+            & (Score.scored_at == latest.c.max_scored_at),
+        )
+        .order_by(Score.composite_raw_score.desc())
+    )
+
+    result = await db.execute(base)
+    entries = []
+    for row in result.all():
+        s = row.Score
+
+        db_values = {
+            "score_id": s.id,
+            "composite_raw_score": s.composite_raw_score,
+            "composite_percentile": s.composite_percentile,
+            "conviction_level": s.conviction_level,
+            "signal": s.signal,
+            "quality_percentile": s.quality_percentile,
+            "value_percentile": s.value_percentile,
+            "momentum_percentile": s.momentum_percentile,
+            "actual_price": getattr(s, "actual_price", None),
+            "buy_price": getattr(s, "buy_price", None),
+            "sell_price": getattr(s, "sell_price", None),
+            "margin_invest_value": getattr(s, "margin_invest_value", None),
+            "scored_at": s.scored_at.isoformat() if s.scored_at else None,
+        }
+
+        derived_conviction = _derive_conviction_level(s.composite_raw_score)
+        derived_signal = _derive_signal(
+            derived_conviction,
+            actual_price=getattr(s, "actual_price", None),
+            buy_price=getattr(s, "buy_price", None),
+            sell_price=getattr(s, "sell_price", None),
+        )
+
+        derived_values = {
+            "conviction_level": derived_conviction,
+            "signal": derived_signal,
+        }
+
+        mismatches = []
+        if s.conviction_level != derived_conviction:
+            mismatches.append({
+                "field": "conviction_level",
+                "db_value": s.conviction_level,
+                "derived_value": derived_conviction,
+            })
+        if s.signal != derived_signal:
+            mismatches.append({
+                "field": "signal",
+                "db_value": s.signal,
+                "derived_value": derived_signal,
+            })
+
+        entries.append({
+            "ticker": row.ticker,
+            "name": row.asset_name,
+            "db_values": db_values,
+            "derived_values": derived_values,
+            "mismatches": mismatches,
+        })
+
+    return {"entries": entries, "total": len(entries)}
+
+
 @router.get("/dashboard", response_model=DashboardResponse)
 async def get_dashboard(
     db: AsyncSession = Depends(get_db),
