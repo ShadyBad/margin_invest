@@ -1,12 +1,12 @@
 """Tests for ARQ worker configuration and job functions."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from margin_api.workers import WorkerSettings
+from margin_api.workers import WorkerSettings, _has_ingest_today, _has_job_today
 
 
 class TestWorkerSettings:
@@ -46,12 +46,28 @@ class TestFullIngest:
         with (
             patch("margin_api.workers.get_engine"),
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers._has_ingest_today", return_value=False),
             patch("margin_api.workers.get_active_snapshot", return_value=None),
         ):
             result = await full_ingest({})
 
         assert result["status"] == "error"
         assert "No active universe snapshot" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_full_ingest_skips_when_already_ran_today(self):
+        """full_ingest returns skipped when an ingest already ran today."""
+        from margin_api.workers import full_ingest
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory"),
+            patch("margin_api.workers._has_ingest_today", return_value=True),
+        ):
+            result = await full_ingest({})
+
+        assert result["status"] == "skipped"
+        assert result["reason"] == "already_ran_today"
 
     @pytest.mark.asyncio
     async def test_full_ingest_chains_to_scoring(self):
@@ -81,9 +97,12 @@ class TestFullIngest:
         mock_redis = AsyncMock()
         mock_redis.enqueue_job = AsyncMock()
 
+        today = date.today().isoformat()
+
         with (
             patch("margin_api.workers.get_engine"),
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers._has_ingest_today", return_value=False),
             patch("margin_api.workers.get_active_snapshot", return_value=mock_snapshot),
             patch("margin_api.cli._load_foreign_skips", return_value=set()),
             patch("margin_api.cli.seed_ticker_data", return_value="ok"),
@@ -97,10 +116,27 @@ class TestFullIngest:
 
         assert result["status"] == "completed"
         assert result["succeeded"] == 2
-        mock_redis.enqueue_job.assert_called_once_with("full_score")
+        mock_redis.enqueue_job.assert_called_once_with(
+            "full_score", _job_id=f"full_score:{today}"
+        )
 
 
 class TestFullScore:
+    @pytest.mark.asyncio
+    async def test_full_score_skips_when_already_ran_today(self):
+        """full_score returns skipped when already ran today."""
+        from margin_api.workers import full_score
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory"),
+            patch("margin_api.workers._has_job_today", return_value=True),
+        ):
+            result = await full_score({})
+
+        assert result["status"] == "skipped"
+        assert result["reason"] == "already_ran_today"
+
     @pytest.mark.asyncio
     async def test_full_score_chains_to_v3(self):
         """full_score calls run_scoring and enqueues full_score_v3."""
@@ -120,16 +156,21 @@ class TestFullScore:
         mock_redis = AsyncMock()
         mock_redis.enqueue_job = AsyncMock()
 
+        today = date.today().isoformat()
+
         with (
             patch("margin_api.workers.get_engine"),
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers._has_job_today", return_value=False),
             patch("margin_api.cli.run_scoring", new_callable=AsyncMock),
             patch("margin_api.workers.reset_engine_cache"),
         ):
             result = await full_score({"redis": mock_redis})
 
         assert result["status"] == "completed"
-        mock_redis.enqueue_job.assert_called_once_with("full_score_v3")
+        mock_redis.enqueue_job.assert_called_once_with(
+            "full_score_v3", _job_id=f"full_score_v3:{today}"
+        )
 
     @pytest.mark.asyncio
     async def test_full_score_handles_failure(self):
@@ -150,6 +191,7 @@ class TestFullScore:
         with (
             patch("margin_api.workers.get_engine"),
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers._has_job_today", return_value=False),
             patch("margin_api.cli.run_scoring", side_effect=RuntimeError("Scoring failed")),
             patch("margin_api.workers.reset_engine_cache"),
         ):
@@ -160,6 +202,21 @@ class TestFullScore:
 
 
 class TestFullScoreV3:
+    @pytest.mark.asyncio
+    async def test_full_score_v3_skips_when_already_ran_today(self):
+        """full_score_v3 returns skipped when already ran today."""
+        from margin_api.workers import full_score_v3
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory"),
+            patch("margin_api.workers._has_job_today", return_value=True),
+        ):
+            result = await full_score_v3({})
+
+        assert result["status"] == "skipped"
+        assert result["reason"] == "already_ran_today"
+
     @pytest.mark.asyncio
     async def test_full_score_v3_completes(self):
         """full_score_v3 calls run_scoring_v3 and records completion."""
@@ -179,6 +236,7 @@ class TestFullScoreV3:
         with (
             patch("margin_api.workers.get_engine"),
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers._has_job_today", return_value=False),
             patch("margin_api.cli.run_scoring_v3", new_callable=AsyncMock),
             patch("margin_api.workers.reset_engine_cache"),
         ):

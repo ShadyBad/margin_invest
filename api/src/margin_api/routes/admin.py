@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 
 from arq.connections import ArqRedis, create_pool
@@ -40,13 +41,28 @@ async def trigger_pipeline(x_admin_key: str = Header()) -> JSONResponse:
 
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
 
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    job_id = f"full_ingest:{today}"
+
     try:
         redis: ArqRedis = await create_pool(redis_settings)
-        job = await redis.enqueue_job("full_ingest")
+        job = await redis.enqueue_job("full_ingest", _job_id=job_id)
         await redis.aclose()
     except Exception as e:
         logger.exception("Failed to enqueue pipeline job")
         raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
+
+    if job is None:
+        logger.info("[admin] full_ingest already enqueued today: %s", job_id)
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "already_enqueued",
+                "job": "full_ingest",
+                "job_id": job_id,
+                "message": "Pipeline already enqueued for today",
+            },
+        )
 
     logger.info("[admin] Enqueued full_ingest pipeline job: %s", job.job_id)
 

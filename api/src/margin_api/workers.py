@@ -9,13 +9,14 @@ Start the worker with:
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import redis.asyncio as aioredis
 import yfinance as yf
 from arq import cron
 from arq.connections import ArqRedis, RedisSettings
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from margin_api.config import get_settings
 from margin_api.db.models import (
@@ -29,7 +30,51 @@ from margin_api.db.session import get_engine, get_session_factory, reset_engine_
 from margin_api.services.live_prices import LivePriceService
 from margin_api.services.universe import get_active_snapshot
 
+# Configure logging so messages appear in container logs
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Dedup helpers
+# ---------------------------------------------------------------------------
+
+
+def _today_utc() -> date:
+    """Return today's date in UTC (mockable for tests)."""
+    return datetime.now(UTC).date()
+
+
+async def _has_ingest_today(session_factory: async_sessionmaker) -> bool:
+    """Check if a full ingest already ran or is running today."""
+    today = _today_utc()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(IngestionRun.id).where(
+                and_(
+                    IngestionRun.run_type == "full",
+                    IngestionRun.status.in_(["running", "completed"]),
+                    func.date(IngestionRun.started_at) == today,
+                )
+            ).limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
+
+async def _has_job_today(session_factory: async_sessionmaker, job_type: str) -> bool:
+    """Check if a job of the given type already ran or is running today."""
+    today = _today_utc()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(JobRun.id).where(
+                and_(
+                    JobRun.job_type == job_type,
+                    JobRun.status.in_(["running", "completed"]),
+                    func.date(JobRun.started_at) == today,
+                )
+            ).limit(1)
+        )
+        return result.scalar_one_or_none() is not None
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +97,11 @@ async def full_ingest(ctx: dict) -> dict:
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
+
+    # Dedup: skip if already ingested today
+    if await _has_ingest_today(session_factory):
+        logger.info("[ingest] Skipping — already ran today")
+        return {"status": "skipped", "reason": "already_ran_today"}
 
     # Load active universe
     async with session_factory() as session:
@@ -137,10 +187,11 @@ async def full_ingest(ctx: dict) -> dict:
         run.duration_seconds or 0,
     )
 
-    # Chain to scoring
+    # Chain to scoring (idempotent: same _job_id won't enqueue twice)
+    today = _today_utc().isoformat()
     redis: ArqRedis | None = ctx.get("redis")
     if redis:
-        await redis.enqueue_job("full_score")
+        await redis.enqueue_job("full_score", _job_id=f"full_score:{today}")
         logger.info("[ingest] Enqueued full_score job")
 
     return {
@@ -162,6 +213,11 @@ async def full_score(ctx: dict) -> dict:
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
+
+    # Dedup: skip if already scored today
+    if await _has_job_today(session_factory, "score_v2"):
+        logger.info("[score_v2] Skipping — already ran today")
+        return {"status": "skipped", "reason": "already_ran_today"}
 
     # Create JobRun record
     async with session_factory() as session:
@@ -212,10 +268,11 @@ async def full_score(ctx: dict) -> dict:
             await session.commit()
         return {"status": "failed", "error": str(e)}
 
-    # Chain to v3 scoring
+    # Chain to v3 scoring (idempotent: same _job_id won't enqueue twice)
+    today = _today_utc().isoformat()
     redis: ArqRedis | None = ctx.get("redis")
     if redis:
-        await redis.enqueue_job("full_score_v3")
+        await redis.enqueue_job("full_score_v3", _job_id=f"full_score_v3:{today}")
         logger.info("[score_v2] Enqueued full_score_v3 job")
 
     return {"status": "completed"}
@@ -232,6 +289,11 @@ async def full_score_v3(ctx: dict) -> dict:
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
+
+    # Dedup: skip if already scored today
+    if await _has_job_today(session_factory, "score_v3"):
+        logger.info("[score_v3] Skipping — already ran today")
+        return {"status": "skipped", "reason": "already_ran_today"}
 
     # Create JobRun record
     async with session_factory() as session:
