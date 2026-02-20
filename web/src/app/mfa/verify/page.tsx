@@ -35,7 +35,7 @@ function MfaVerifyContent() {
 
       if (!res.ok) {
         const data = await res.json()
-        setError(data.detail || "Invalid verification code")
+        setError(data.detail ?? data.message ?? "Invalid verification code")
         return
       }
 
@@ -51,8 +51,9 @@ function MfaVerifyContent() {
         mfaToken: data.mfa_token,
         callbackUrl: "/dashboard",
       })
-    } catch {
-      setError("An unexpected error occurred")
+    } catch (err) {
+      console.error("TOTP verification error:", err)
+      setError("Unable to reach the server. Please try again.")
     }
   }
 
@@ -74,7 +75,7 @@ function MfaVerifyContent() {
 
       if (!optionsRes.ok) {
         const data = await optionsRes.json()
-        setError(data.detail || "Failed to get authentication options")
+        setError(data.detail ?? data.message ?? "Failed to get authentication options")
         return
       }
 
@@ -83,8 +84,9 @@ function MfaVerifyContent() {
 
       // WebAuthn authentication verification endpoint is not yet implemented.
       setError("WebAuthn authentication is not yet available. Please use an authenticator app.")
-    } catch {
-      setError("An unexpected error occurred")
+    } catch (err) {
+      console.error("WebAuthn authentication error:", err)
+      setError("Unable to reach the server. Please try again.")
     }
   }
 

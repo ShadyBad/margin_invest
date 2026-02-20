@@ -109,6 +109,10 @@ class TestRegister:
             },
         )
         assert resp.status_code == 400
+        data = resp.json()
+        # Custom exception handler wraps in ErrorResponse — verify `detail` is present
+        assert "detail" in data
+        assert "uppercase" in data["detail"].lower()
 
     @pytest.mark.asyncio
     async def test_register_duplicate_username(self, client):
@@ -122,6 +126,41 @@ class TestRegister:
             },
         )
         assert resp.status_code == 400
+        data = resp.json()
+        assert "detail" in data
+        assert "username" in data["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_register_duplicate_email(self, client):
+        await _register_user(client, "alice")
+        resp = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": "bob",
+                "email": "alice@example.com",
+                "password": _VALID_PASSWORD,
+            },
+        )
+        assert resp.status_code == 400
+        data = resp.json()
+        assert "detail" in data
+        assert "email" in data["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_register_error_response_has_detail_and_message(self, client):
+        """Verify that error responses include both `detail` and `message`."""
+        resp = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": "alice",
+                "email": "alice@example.com",
+                "password": "nouppercase1!a",
+            },
+        )
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data["detail"] == data["message"]
+        assert "request_id" in data
 
 
 # ---------------------------------------------------------------------------

@@ -32,7 +32,7 @@ function MfaSetupContent() {
 
       if (!res.ok) {
         const data = await res.json()
-        setError(data.detail || "Failed to set up TOTP")
+        setError(data.detail ?? data.message ?? "Failed to set up TOTP")
         return
       }
 
@@ -40,8 +40,9 @@ function MfaSetupContent() {
       setProvisioningUri(data.provisioning_uri)
       setSecretId(data.secret_id)
       setStep("totp")
-    } catch {
-      setError("An unexpected error occurred")
+    } catch (err) {
+      console.error("MFA setup error:", err)
+      setError("Unable to reach the server. Please try again.")
     }
   }
 
@@ -62,13 +63,14 @@ function MfaSetupContent() {
 
       if (!res.ok) {
         const data = await res.json()
-        setError(data.detail || "Invalid verification code")
+        setError(data.detail ?? data.message ?? "Invalid verification code")
         return
       }
 
       router.push("/login")
-    } catch {
-      setError("An unexpected error occurred")
+    } catch (err) {
+      console.error("TOTP verification error:", err)
+      setError("Unable to reach the server. Please try again.")
     }
   }
 
@@ -86,7 +88,7 @@ function MfaSetupContent() {
 
       if (!optionsRes.ok) {
         const data = await optionsRes.json()
-        setError(data.detail || "Failed to get registration options")
+        setError(data.detail ?? data.message ?? "Failed to get registration options")
         return
       }
 
@@ -96,8 +98,9 @@ function MfaSetupContent() {
       // WebAuthn registration verification endpoint is not yet implemented.
       setError("WebAuthn registration is not yet available. Please use an authenticator app.")
       setStep("choose")
-    } catch {
-      setError("An unexpected error occurred")
+    } catch (err) {
+      console.error("WebAuthn registration error:", err)
+      setError("Unable to reach the server. Please try again.")
     }
   }
 

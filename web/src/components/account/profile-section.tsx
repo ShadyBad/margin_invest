@@ -43,7 +43,7 @@ export function ProfileSection() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.detail || "Upload failed")
+        throw new Error(data?.detail ?? data?.message ?? "Upload failed")
       }
 
       await update()

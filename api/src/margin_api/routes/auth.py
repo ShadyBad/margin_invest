@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
+
+logger = logging.getLogger(__name__)
 from margin_api.db.models import CredentialUser, User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
@@ -73,6 +78,13 @@ async def register(
         user = await auth.register_user(db, body.username, body.email, body.password)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        logger.warning("Registration IntegrityError for %s: %s", body.username, exc)
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="A user with this username or email already exists",
+        ) from exc
     return RegisterResponse(id=user.id, username=user.username, email=user.email)
 
 

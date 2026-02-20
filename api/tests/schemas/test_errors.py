@@ -15,8 +15,18 @@ class TestErrorResponse:
         )
         assert err.error_code == "SCORE_NOT_FOUND"
         assert err.message == "No score found for XYZ"
+        assert err.detail == "No score found for XYZ"
         assert err.request_id == "abc-123"
         assert err.status_code == 404
+
+    def test_detail_synced_from_message(self):
+        err = ErrorResponse(
+            error_code="INTERNAL_ERROR",
+            message="An unexpected error occurred.",
+            request_id="def-456",
+            status_code=500,
+        )
+        assert err.detail == "An unexpected error occurred."
 
     def test_model_dump(self):
         err = ErrorResponse(
@@ -29,6 +39,7 @@ class TestErrorResponse:
         assert d == {
             "error_code": "INTERNAL_ERROR",
             "message": "An unexpected error occurred.",
+            "detail": "An unexpected error occurred.",
             "request_id": "def-456",
             "status_code": 500,
         }

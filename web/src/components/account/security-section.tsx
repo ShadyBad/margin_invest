@@ -55,7 +55,7 @@ export function SecuritySection() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({ detail: "Password change failed" }))
-        throw new Error(data.detail || "Password change failed")
+        throw new Error(data.detail ?? data.message ?? "Password change failed")
       }
 
       setSuccess("Password updated. Other sessions have been signed out.")
