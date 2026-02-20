@@ -40,14 +40,14 @@ _STRONG_CONVICTIONS = frozenset({ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HI
 
 # Conviction levels that count as qualifying
 _QUALIFYING_CONVICTIONS = frozenset(
-    {ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH, ConvictionLevel.WATCHLIST}
+    {ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH, ConvictionLevel.MEDIUM}
 )
 
 # Ordering for conviction comparison (lower index = stronger)
 _CONVICTION_ORDER = {
     ConvictionLevel.EXCEPTIONAL: 0,
     ConvictionLevel.HIGH: 1,
-    ConvictionLevel.WATCHLIST: 2,
+    ConvictionLevel.MEDIUM: 2,
     ConvictionLevel.NONE: 3,
 }
 

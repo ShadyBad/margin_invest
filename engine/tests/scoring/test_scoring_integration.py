@@ -282,10 +282,10 @@ class TestConvictionLevelsFromPipeline:
         assert result.conviction_level == ConvictionLevel.EXCEPTIONAL
 
     def test_high_conviction(self):
-        """Stock with all sub-scores at 99.4th percentile -> HIGH."""
-        quality = [_make_factor_score("gp", percentile_rank=99.4)]
-        value = [_make_factor_score("ev_fcf", percentile_rank=99.4)]
-        momentum = [_make_factor_score("price_mom", percentile_rank=99.4)]
+        """Stock with all sub-scores at 75th percentile -> HIGH (raw_score >= 72, < 79)."""
+        quality = [_make_factor_score("gp", percentile_rank=75.0)]
+        value = [_make_factor_score("ev_fcf", percentile_rank=75.0)]
+        momentum = [_make_factor_score("price_mom", percentile_rank=75.0)]
 
         result = compute_composite_score(
             ticker="TOP5",
@@ -295,8 +295,7 @@ class TestConvictionLevelsFromPipeline:
             filters_passed=[_make_filter()],
         )
 
-        assert result.composite_percentile >= 99.3
-        assert result.composite_percentile < 99.95
+        assert result.composite_raw_score == pytest.approx(75.0)
         assert result.conviction_level == ConvictionLevel.HIGH
 
 

@@ -52,7 +52,7 @@ class TrackAInputs(BaseModel):
 
 # Conviction levels that qualify for inclusion
 _QUALIFYING_CONVICTIONS = frozenset(
-    {ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH, ConvictionLevel.WATCHLIST}
+    {ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH, ConvictionLevel.MEDIUM}
 )
 
 

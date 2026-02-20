@@ -32,7 +32,7 @@ def get_rescore_trigger(severity: EventSeverity) -> RescoreTrigger:
 
 
 class RelevanceFilter:
-    """Filters events to only those for recommended or watchlisted tickers."""
+    """Filters events to only those for recommended or medium-conviction tickers."""
 
     def __init__(self, watched_tickers: set[str]) -> None:
         self._watched_tickers = watched_tickers

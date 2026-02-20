@@ -222,11 +222,11 @@ class TestConvictionLevel:
         assert result.composite_percentile == pytest.approx(99.97)
         assert result.conviction_level == ConvictionLevel.EXCEPTIONAL
 
-    def test_high_at_99_3(self):
-        """composite >= 99.3 but < 99.95 -> high."""
-        quality = [_make_factor_score(percentile_rank=99.4)]
-        value = [_make_factor_score(percentile_rank=99.4)]
-        momentum = [_make_factor_score(percentile_rank=99.4)]
+    def test_high_conviction(self):
+        """composite_raw_score >= 72 but < 79 -> high."""
+        quality = [_make_factor_score(percentile_rank=75.0)]
+        value = [_make_factor_score(percentile_rank=75.0)]
+        momentum = [_make_factor_score(percentile_rank=75.0)]
 
         result = compute_composite_score(
             ticker="HI",
@@ -236,28 +236,28 @@ class TestConvictionLevel:
             filters_passed=[],
         )
 
-        assert result.composite_percentile == pytest.approx(99.4)
+        assert result.composite_raw_score == pytest.approx(75.0)
         assert result.conviction_level == ConvictionLevel.HIGH
 
-    def test_watchlist_at_98(self):
-        """composite >= 98.0 but < 99.3 -> watchlist."""
-        quality = [_make_factor_score(percentile_rank=98.5)]
-        value = [_make_factor_score(percentile_rank=98.5)]
-        momentum = [_make_factor_score(percentile_rank=98.5)]
+    def test_medium_conviction(self):
+        """composite_raw_score >= 65 but < 72 -> medium."""
+        quality = [_make_factor_score(percentile_rank=68.0)]
+        value = [_make_factor_score(percentile_rank=68.0)]
+        momentum = [_make_factor_score(percentile_rank=68.0)]
 
         result = compute_composite_score(
-            ticker="WATCH",
+            ticker="MED",
             quality_scores=quality,
             value_scores=value,
             momentum_scores=momentum,
             filters_passed=[],
         )
 
-        assert result.composite_percentile == pytest.approx(98.5)
-        assert result.conviction_level == ConvictionLevel.WATCHLIST
+        assert result.composite_raw_score == pytest.approx(68.0)
+        assert result.conviction_level == ConvictionLevel.MEDIUM
 
-    def test_none_below_98(self):
-        """composite < 98.0 -> none."""
+    def test_none_below_65(self):
+        """composite_raw_score < 65 -> none."""
         quality = [_make_factor_score(percentile_rank=50.0)]
         value = [_make_factor_score(percentile_rank=50.0)]
         momentum = [_make_factor_score(percentile_rank=50.0)]
@@ -309,13 +309,13 @@ class TestSignal:
         )
         assert result.signal == Signal.BUY
 
-    def test_watch_for_watchlist(self):
-        quality = [_make_factor_score(percentile_rank=98.5)]
-        value = [_make_factor_score(percentile_rank=98.5)]
-        momentum = [_make_factor_score(percentile_rank=98.5)]
+    def test_watch_for_medium(self):
+        quality = [_make_factor_score(percentile_rank=68.0)]
+        value = [_make_factor_score(percentile_rank=68.0)]
+        momentum = [_make_factor_score(percentile_rank=68.0)]
 
         result = compute_composite_score(
-            ticker="WL",
+            ticker="MED",
             quality_scores=quality,
             value_scores=value,
             momentum_scores=momentum,
@@ -323,7 +323,7 @@ class TestSignal:
         )
         assert result.signal == Signal.WATCH
 
-    def test_no_action_below_watchlist(self):
+    def test_no_action_below_medium(self):
         quality = [_make_factor_score(percentile_rank=40.0)]
         value = [_make_factor_score(percentile_rank=40.0)]
         momentum = [_make_factor_score(percentile_rank=40.0)]

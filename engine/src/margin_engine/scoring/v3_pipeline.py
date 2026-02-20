@@ -47,7 +47,7 @@ class TickerV3Data(BaseModel):
 _CONVICTION_ORDER = {
     ConvictionLevel.EXCEPTIONAL: 0,
     ConvictionLevel.HIGH: 1,
-    ConvictionLevel.WATCHLIST: 2,
+    ConvictionLevel.MEDIUM: 2,
     ConvictionLevel.NONE: 3,
 }
 

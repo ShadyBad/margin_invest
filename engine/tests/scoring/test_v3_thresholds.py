@@ -29,7 +29,7 @@ class TestTrackAConviction:
         )
         assert level == ConvictionLevel.HIGH
 
-    def test_watchlist(self):
+    def test_medium(self):
         level = assess_track_a_conviction(
             gates_passed=3,
             total_gates=4,
@@ -37,7 +37,7 @@ class TestTrackAConviction:
             moat_durability=2,
             growth_gap=0.01,
         )
-        assert level == ConvictionLevel.WATCHLIST
+        assert level == ConvictionLevel.MEDIUM
 
     def test_none_insufficient_gates(self):
         level = assess_track_a_conviction(
@@ -81,7 +81,7 @@ class TestTrackBConviction:
         )
         assert level == ConvictionLevel.HIGH
 
-    def test_watchlist(self):
+    def test_medium(self):
         level = assess_track_b_conviction(
             gates_passed=3,
             total_gates=4,
@@ -89,7 +89,7 @@ class TestTrackBConviction:
             catalyst_percentile=50.0,
             converging_methods=2,
         )
-        assert level == ConvictionLevel.WATCHLIST
+        assert level == ConvictionLevel.MEDIUM
 
     def test_none_low_asymmetry(self):
         level = assess_track_b_conviction(
@@ -106,7 +106,7 @@ class TestRegimeAdjustedTrackA:
     def test_expensive_regime_tightens_growth_gap(self):
         """In EXPENSIVE regime, growth_gap_adjustment=+0.02.
         A stock with growth_gap=0.04 would normally pass HIGH (> 0.03)
-        but with +0.02 needs > 0.05, so drops to WATCHLIST."""
+        but with +0.02 needs > 0.05, so drops to MEDIUM."""
         result = assess_track_a_conviction(
             gates_passed=4,
             total_gates=4,
@@ -115,7 +115,7 @@ class TestRegimeAdjustedTrackA:
             growth_gap=0.04,
             growth_gap_adjustment=0.02,
         )
-        assert result == ConvictionLevel.WATCHLIST
+        assert result == ConvictionLevel.MEDIUM
 
     def test_cheap_regime_relaxes_growth_gap(self):
         """In CHEAP regime, growth_gap_adjustment=-0.02.

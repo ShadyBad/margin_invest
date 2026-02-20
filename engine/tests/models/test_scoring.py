@@ -155,6 +155,7 @@ def _make_score(percentile, actual=None, buy=None, sell=None, growth_stage=None)
     return CompositeScore(
         ticker="TEST",
         composite_percentile=percentile,
+        composite_raw_score=percentile,
         quality=FactorBreakdown(factor_name="quality", weight=0.35, sub_scores=[]),
         value=FactorBreakdown(factor_name="value", weight=0.30, sub_scores=[]),
         momentum=FactorBreakdown(factor_name="momentum", weight=0.35, sub_scores=[]),
@@ -187,8 +188,8 @@ def test_signal_urgent_sell_when_far_above_sell():
     assert score.signal == Signal.URGENT_SELL
 
 
-def test_signal_watch_for_watchlist_conviction():
-    score = _make_score(98.5, actual=100.0, buy=120.0, sell=150.0)
+def test_signal_watch_for_medium_conviction():
+    score = _make_score(68.0, actual=100.0, buy=120.0, sell=150.0)
     assert score.signal == Signal.WATCH
 
 
@@ -226,7 +227,7 @@ class TestDualThresholdSignalZones:
     correctly map to HOLD rather than BUY or SELL.
     """
 
-    # Use percentile=99.4 to get HIGH conviction (>= 99.3)
+    # Use percentile=99.4 to get EXCEPTIONAL conviction (raw_score >= 79)
     # so that price-aware signal logic is engaged.
     PERCENTILE = 99.4
 

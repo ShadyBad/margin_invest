@@ -243,7 +243,7 @@ class TestDualTrackPipelineIntegration:
 
     def test_position_sizing_returns_value(self):
         """Position sizing returns a non-negative value for any inputs."""
-        size = compute_position_size(1.8, ConvictionLevel.WATCHLIST)
+        size = compute_position_size(1.8, ConvictionLevel.MEDIUM)
         assert size >= 0.0
 
     def test_timing_signal_is_set_for_compounder(self):

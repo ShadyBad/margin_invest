@@ -20,7 +20,7 @@ _DEFAULT_MAX = 3.0  # < 1.5x -> 3%
 _CONVICTION_SCALE: dict[ConvictionLevel, float] = {
     ConvictionLevel.EXCEPTIONAL: 1.0,
     ConvictionLevel.HIGH: 0.6,
-    ConvictionLevel.WATCHLIST: 0.3,
+    ConvictionLevel.MEDIUM: 0.3,
     ConvictionLevel.NONE: 0.0,
 }
 

@@ -262,7 +262,7 @@ class TestCompounderQualifiesEndToEnd:
         assert result.conviction in (
             ConvictionLevel.EXCEPTIONAL,
             ConvictionLevel.HIGH,
-            ConvictionLevel.WATCHLIST,
+            ConvictionLevel.MEDIUM,
         )
 
 
@@ -359,7 +359,7 @@ class TestMispricingQualifiesEndToEnd:
         assert result.conviction in (
             ConvictionLevel.EXCEPTIONAL,
             ConvictionLevel.HIGH,
-            ConvictionLevel.WATCHLIST,
+            ConvictionLevel.MEDIUM,
         )
 
 
@@ -432,7 +432,7 @@ class TestBothTracksPromoteToExceptional:
             assert result.conviction in (
                 ConvictionLevel.EXCEPTIONAL,
                 ConvictionLevel.HIGH,
-                ConvictionLevel.WATCHLIST,
+                ConvictionLevel.MEDIUM,
             )
         assert result.max_position_pct > 0
 

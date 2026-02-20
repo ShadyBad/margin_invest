@@ -15,8 +15,8 @@ class TestV3PositionSizing:
     def test_track_a_high(self):
         assert compute_v3_position_size("compounder", ConvictionLevel.HIGH) == 8.0
 
-    def test_track_a_watchlist_zero(self):
-        assert compute_v3_position_size("compounder", ConvictionLevel.WATCHLIST) == 0.0
+    def test_track_a_medium_zero(self):
+        assert compute_v3_position_size("compounder", ConvictionLevel.MEDIUM) == 0.0
 
     def test_track_b_exceptional(self):
         assert compute_v3_position_size("mispricing", ConvictionLevel.EXCEPTIONAL) == 12.0

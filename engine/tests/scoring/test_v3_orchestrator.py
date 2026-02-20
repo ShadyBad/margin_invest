@@ -53,22 +53,22 @@ def _track_b_high() -> V3TrackResult:
     )
 
 
-def _track_a_watchlist() -> V3TrackResult:
+def _track_a_medium() -> V3TrackResult:
     return V3TrackResult(
         track="compounder",
         qualifies=True,
-        conviction=ConvictionLevel.WATCHLIST,
+        conviction=ConvictionLevel.MEDIUM,
         score=0.005,
         gates_passed=3,
         total_gates=4,
     )
 
 
-def _track_b_watchlist() -> V3TrackResult:
+def _track_b_medium() -> V3TrackResult:
     return V3TrackResult(
         track="mispricing",
         qualifies=True,
-        conviction=ConvictionLevel.WATCHLIST,
+        conviction=ConvictionLevel.MEDIUM,
         score=2.5,
         gates_passed=3,
         total_gates=4,
@@ -174,28 +174,28 @@ class TestOrchestrate:
         )
         assert result.max_position_pct == 0.0
 
-    def test_watchlist_both_tracks_no_promotion(self):
-        """Both at WATCHLIST should NOT promote to 'both' — requires HIGH+."""
+    def test_medium_both_tracks_no_promotion(self):
+        """Both at MEDIUM should NOT promote to 'both' — requires HIGH+."""
         result = orchestrate_v3(
             ticker="WATCH",
-            track_a=_track_a_watchlist(),
-            track_b=_track_b_watchlist(),
+            track_a=_track_a_medium(),
+            track_b=_track_b_medium(),
             timing_signal="buy_now",
         )
         # Both qualify but neither is HIGH+, so no "both" promotion
         assert result.opportunity_type != "both"
-        assert result.conviction == ConvictionLevel.WATCHLIST
-        assert result.max_position_pct == 0.0  # Watchlist = 0%
+        assert result.conviction == ConvictionLevel.MEDIUM
+        assert result.max_position_pct == 0.0  # Medium = 0%
 
-    def test_one_watchlist_one_high_no_promotion(self):
-        """One WATCHLIST + one HIGH should NOT promote — both need HIGH+."""
+    def test_one_medium_one_high_no_promotion(self):
+        """One MEDIUM + one HIGH should NOT promote — both need HIGH+."""
         result = orchestrate_v3(
             ticker="HALF",
-            track_a=_track_a_watchlist(),
+            track_a=_track_a_medium(),
             track_b=_track_b_high(),
             timing_signal="buy_now",
         )
-        # Track B is stronger (HIGH vs WATCHLIST), so mispricing wins
+        # Track B is stronger (HIGH vs MEDIUM), so mispricing wins
         assert result.opportunity_type == "mispricing"
         assert result.conviction == ConvictionLevel.HIGH
 

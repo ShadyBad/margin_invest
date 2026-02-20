@@ -14,8 +14,8 @@ from margin_engine.models.scoring import (
 from margin_engine.scoring.conviction_gates import ConvictionGateResult
 from margin_engine.scoring.position_sizing import compute_position_size
 
-# Watchlist threshold — gate failures cap conviction here
-_WATCHLIST_CAP = 98.0
+# Medium threshold — gate failures cap conviction here
+_MEDIUM_CAP = 98.0
 
 
 def score_dual_track(
@@ -33,7 +33,7 @@ def score_dual_track(
         1. Pick the track with higher composite_percentile (tie goes to Track A).
         2. Copy the winning CompositeScore.
         3. Set v2 fields: opportunity_type, winning_track, asymmetry_ratio, timing_signal.
-        4. If winning track's gates failed -> cap conviction at WATCHLIST.
+        4. If winning track's gates failed -> cap conviction at MEDIUM.
         5. Compute position sizing from asymmetry + conviction level.
 
     Args:
@@ -67,7 +67,7 @@ def score_dual_track(
 
     # 4. Cap conviction if gates failed
     if not winning_gate.passed:
-        result.composite_percentile = min(result.composite_percentile, _WATCHLIST_CAP)
+        result.composite_percentile = min(result.composite_percentile, _MEDIUM_CAP)
 
     # 5. Compute position sizing
     conviction_level = result.conviction_level

@@ -2,7 +2,7 @@
 
 Track A (Compounder) gates enforce minimum compounder characteristics.
 Track B (Mispricing) gates enforce minimum mispricing characteristics.
-Stocks that fail absolute gates but pass percentile thresholds are capped at WATCHLIST.
+Stocks that fail absolute gates but pass percentile thresholds are capped at MEDIUM.
 """
 
 from __future__ import annotations

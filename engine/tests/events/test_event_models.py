@@ -120,12 +120,12 @@ class TestScoreChangePayload:
             old_score=82.5,
             new_score=91.3,
             delta=8.8,
-            conviction_change="none -> watchlist",
+            conviction_change="none -> medium",
         )
         assert payload.old_score == 82.5
         assert payload.new_score == 91.3
         assert payload.delta == 8.8
-        assert payload.conviction_change == "none -> watchlist"
+        assert payload.conviction_change == "none -> medium"
 
     def test_conviction_change_is_optional(self):
         payload = ScoreChangePayload(

@@ -52,9 +52,9 @@ class TestConvictionScaling:
         result = compute_position_size(6.0, ConvictionLevel.HIGH)
         assert result == pytest.approx(12.0)
 
-    def test_watchlist_30_pct_of_max(self):
-        """Watchlist: 30% of max."""
-        result = compute_position_size(6.0, ConvictionLevel.WATCHLIST)
+    def test_medium_30_pct_of_max(self):
+        """Medium: 30% of max."""
+        result = compute_position_size(6.0, ConvictionLevel.MEDIUM)
         assert result == pytest.approx(6.0)
 
     def test_none_conviction_zero(self):
@@ -76,9 +76,9 @@ class TestCombinedScenarios:
         result = compute_position_size(4.0, ConvictionLevel.HIGH)
         assert result == pytest.approx(6.0)
 
-    def test_low_asymmetry_watchlist(self):
-        """Asymmetry 1.0x (max=3%) + Watchlist (30%) -> 0.9%."""
-        result = compute_position_size(1.0, ConvictionLevel.WATCHLIST)
+    def test_low_asymmetry_medium(self):
+        """Asymmetry 1.0x (max=3%) + Medium (30%) -> 0.9%."""
+        result = compute_position_size(1.0, ConvictionLevel.MEDIUM)
         assert result == pytest.approx(0.9)
 
     def test_medium_asymmetry_exceptional(self):
