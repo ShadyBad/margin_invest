@@ -57,7 +57,7 @@ def test_signal_transition_response():
     t = SignalTransitionResponse(
         previous_signal="watch",
         new_signal="buy",
-        previous_conviction="watchlist",
+        previous_conviction="medium",
         new_conviction="high",
         actual_price_at_transition=167.42,
         intrinsic_value_at_transition=195.20,

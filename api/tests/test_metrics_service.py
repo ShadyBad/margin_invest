@@ -166,6 +166,6 @@ class TestAllocationWeight:
         result = compute_allocation_weight("unknown_level", 15.0)
         assert result == 2.0  # default fallback
 
-    def test_watchlist(self):
-        result = compute_allocation_weight("watchlist", 20.0)
-        assert result == 2.0  # base for watchlist, vol < 25 so no scaling
+    def test_medium(self):
+        result = compute_allocation_weight("medium", 20.0)
+        assert result == 2.0  # base for medium, vol < 25 so no scaling

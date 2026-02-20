@@ -83,6 +83,7 @@ async def seeded_session(async_engine):
         aapl_score = Score(
             asset_id=aapl.id,
             composite_percentile=99.5,
+            composite_raw_score=82.0,
             conviction_level="exceptional",
             signal="buy",
             quality_percentile=98.0,
@@ -94,6 +95,7 @@ async def seeded_session(async_engine):
         nvda_score = Score(
             asset_id=nvda.id,
             composite_percentile=96.0,
+            composite_raw_score=75.0,
             conviction_level="high",
             signal="buy",
             quality_percentile=94.0,
@@ -105,7 +107,8 @@ async def seeded_session(async_engine):
         msft_score = Score(
             asset_id=msft.id,
             composite_percentile=80.0,
-            conviction_level="watchlist",
+            composite_raw_score=67.0,
+            conviction_level="medium",
             signal="hold",
             quality_percentile=78.0,
             value_percentile=82.0,
@@ -116,6 +119,7 @@ async def seeded_session(async_engine):
         low_score = Score(
             asset_id=low.id,
             composite_percentile=50.0,
+            composite_raw_score=50.0,
             conviction_level="none",
             signal="no_action",
             quality_percentile=45.0,
@@ -171,16 +175,16 @@ class TestDashboardPicks:
         tickers = {p["ticker"] for p in picks}
         assert tickers == {"AAPL", "NVDA"}
 
-    async def test_picks_sorted_by_percentile_desc(self, client):
-        """Picks are sorted by composite_percentile descending."""
+    async def test_picks_sorted_by_raw_score_desc(self, client):
+        """Picks are sorted by composite_raw_score descending."""
         response = await client.get("/api/v1/dashboard")
         data = response.json()
         picks = data["picks"]
         assert len(picks) == 2
         assert picks[0]["ticker"] == "AAPL"
-        assert picks[0]["composite_percentile"] == 99.5
+        assert picks[0]["score"] == 82.0
         assert picks[1]["ticker"] == "NVDA"
-        assert picks[1]["composite_percentile"] == 96.0
+        assert picks[1]["score"] == 75.0
 
     async def test_pick_includes_factor_percentiles(self, client):
         """Each pick includes quality, value, momentum percentiles."""
@@ -211,22 +215,22 @@ class TestDashboardPicks:
 @pytest.mark.asyncio
 class TestDashboardWatchlist:
     async def test_watchlist_populated(self, client):
-        """Watchlist conviction scores appear in watchlist."""
+        """Medium conviction scores appear in watchlist."""
         response = await client.get("/api/v1/dashboard")
         assert response.status_code == 200
         data = response.json()
         watchlist = data["watchlist"]
         assert len(watchlist) == 1
         assert watchlist[0]["ticker"] == "MSFT"
-        assert watchlist[0]["name"] == "Microsoft Corp"
-        assert watchlist[0]["composite_percentile"] == 80.0
-        assert watchlist[0]["conviction_level"] == "watchlist"
+        assert watchlist[0]["composite_raw_score"] == 67.0
+        assert watchlist[0]["conviction_level"] == "medium"
+        assert watchlist[0]["sector"] == "Information Technology"
 
 
 @pytest.mark.asyncio
 class TestDashboardMixed:
     async def test_mixed_conviction_levels(self, client):
-        """Exceptional/high -> picks, watchlist -> watchlist, none -> excluded."""
+        """Exceptional/high -> picks, medium -> watchlist, none -> excluded."""
         response = await client.get("/api/v1/dashboard")
         data = response.json()
 
@@ -298,24 +302,28 @@ async def universe_seeded_session(async_engine):
         scores = [
             Score(
                 asset_id=aapl.id, composite_percentile=99.5,
+                composite_raw_score=82.0,
                 conviction_level="exceptional", signal="buy",
                 quality_percentile=98.0, value_percentile=95.0,
                 momentum_percentile=97.0, data_coverage=1.0, scored_at=now,
             ),
             Score(
                 asset_id=nvda.id, composite_percentile=96.0,
+                composite_raw_score=75.0,
                 conviction_level="high", signal="buy",
                 quality_percentile=94.0, value_percentile=93.0,
                 momentum_percentile=95.0, data_coverage=1.0, scored_at=now,
             ),
             Score(
                 asset_id=msft.id, composite_percentile=80.0,
-                conviction_level="watchlist", signal="hold",
+                composite_raw_score=67.0,
+                conviction_level="medium", signal="hold",
                 quality_percentile=78.0, value_percentile=82.0,
                 momentum_percentile=75.0, data_coverage=1.0, scored_at=now,
             ),
             Score(
                 asset_id=low.id, composite_percentile=50.0,
+                composite_raw_score=50.0,
                 conviction_level="none", signal="no_action",
                 quality_percentile=45.0, value_percentile=50.0,
                 momentum_percentile=55.0, data_coverage=1.0, scored_at=now,

@@ -458,7 +458,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
         levels[c.conviction_level.value] += 1
     logger.info("Scoring complete: %d scored out of %d tickers", successes, total)
     logger.info("Conviction levels:")
-    for level in ("exceptional", "high", "watchlist", "none"):
+    for level in ("exceptional", "high", "medium", "none"):
         if levels[level]:
             logger.info("  %s: %d", level, levels[level])
     await engine.dispose()

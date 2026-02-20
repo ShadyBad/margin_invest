@@ -132,10 +132,10 @@ def classify_risk(volatility: float | None) -> str:
 def compute_allocation_weight(conviction: str, volatility: float | None) -> float:
     """Compute position sizing weight from conviction level and volatility.
 
-    Base weights: exceptional=8%, high=5%, moderate=3%, watchlist=2%.
+    Base weights: exceptional=8%, high=5%, moderate=3%, medium=2%.
     Volatility scaling: >40% halves weight, 25-40% applies 0.75x.
     """
-    base = {"exceptional": 8.0, "high": 5.0, "moderate": 3.0, "watchlist": 2.0}.get(
+    base = {"exceptional": 8.0, "high": 5.0, "moderate": 3.0, "medium": 2.0}.get(
         conviction, 2.0
     )
     if volatility is not None:

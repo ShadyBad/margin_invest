@@ -107,20 +107,34 @@ async def _fetch_picks_and_watchlist(
     """Run picks + watchlist queries with a top-10 fallback."""
     picks_result = await db.execute(
         base.where(Score.conviction_level.in_(["exceptional", "high"]))
-        .order_by(Score.composite_percentile.desc())
+        .order_by(Score.composite_raw_score.desc())
     )
     picks = [_pick_summary_from_row(row) for row in picks_result.all()]
 
     watchlist_result = await db.execute(
-        base.where(Score.conviction_level == "watchlist")
-        .order_by(Score.composite_percentile.desc())
+        base.where(Score.conviction_level.in_(["medium", "watchlist"]))
+        .order_by(Score.composite_raw_score.desc())
     )
     watchlist = [
         WatchlistItem(
             ticker=row.ticker,
             name=row.asset_name,
-            composite_percentile=row.Score.composite_percentile,
+            composite_raw_score=row.Score.composite_raw_score,
             conviction_level=row.Score.conviction_level,
+            sector=getattr(row, "asset_sector", None),
+            actual_price=getattr(row.Score, "actual_price", None),
+            price_upside=(
+                round(
+                    (row.Score.margin_invest_value - row.Score.actual_price)
+                    / row.Score.actual_price,
+                    4,
+                )
+                if getattr(row.Score, "margin_invest_value", None)
+                and getattr(row.Score, "actual_price", None)
+                and not getattr(row.Score, "price_target_invalid_reason", None)
+                else None
+            ),
+            opportunity_type=getattr(row.Score, "opportunity_type", None),
         )
         for row in watchlist_result.all()
     ]
@@ -128,7 +142,7 @@ async def _fetch_picks_and_watchlist(
     # Fallback: when no conviction-based picks exist, show top-ranked tickers.
     if not picks and not watchlist:
         top_result = await db.execute(
-            base.order_by(Score.composite_percentile.desc()).limit(10)
+            base.order_by(Score.composite_raw_score.desc()).limit(10)
         )
         picks = [_pick_summary_from_row(row) for row in top_result.all()]
 

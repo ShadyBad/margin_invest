@@ -37,12 +37,14 @@ def _make_factor_breakdown(
 def _make_composite_score(
     ticker: str = "AAPL",
     percentile: float = 96.0,
+    raw_score: float = 75.0,
     growth_stage: GrowthStage | None = None,
 ) -> CompositeScore:
     """Helper to build a complete CompositeScore for testing."""
     return CompositeScore(
         ticker=ticker,
         composite_percentile=percentile,
+        composite_raw_score=raw_score,
         quality=_make_factor_breakdown(
             "quality", 0.35, [("gross_margin", 0.45, 85.0), ("roe", 0.22, 90.0)]
         ),
@@ -303,7 +305,7 @@ class TestScoreListResponse:
         score = ScoreResponse(
             ticker="GOOG",
             composite_percentile=92.0,
-            conviction_level="watchlist",
+            conviction_level="medium",
             signal="watch",
             quality=FactorBreakdownResponse(
                 factor_name="quality",
@@ -388,14 +390,32 @@ class TestWatchlistItem:
         item = WatchlistItem(
             ticker="AMZN",
             name="Amazon.com Inc.",
-            composite_percentile=93.0,
-            conviction_level="watchlist",
+            composite_raw_score=73.0,
+            conviction_level="medium",
         )
         data = item.model_dump()
         assert data["ticker"] == "AMZN"
         assert data["name"] == "Amazon.com Inc."
-        assert data["composite_percentile"] == 93.0
-        assert data["conviction_level"] == "watchlist"
+        assert data["composite_raw_score"] == 73.0
+        assert data["conviction_level"] == "medium"
+
+    def test_watchlist_item_enriched_fields(self) -> None:
+        """Verify WatchlistItem with all enriched fields."""
+        item = WatchlistItem(
+            ticker="MSFT",
+            name="Microsoft Corp",
+            composite_raw_score=67.5,
+            conviction_level="medium",
+            sector="Information Technology",
+            actual_price=420.50,
+            price_upside=0.15,
+            opportunity_type="compounder",
+        )
+        assert item.composite_raw_score == 67.5
+        assert item.sector == "Information Technology"
+        assert item.actual_price == 420.50
+        assert item.price_upside == 0.15
+        assert item.opportunity_type == "compounder"
 
 
 class TestDashboardResponse:
@@ -418,8 +438,8 @@ class TestDashboardResponse:
                 WatchlistItem(
                     ticker="AMZN",
                     name="Amazon.com Inc.",
-                    composite_percentile=93.0,
-                    conviction_level="watchlist",
+                    composite_raw_score=73.0,
+                    conviction_level="medium",
                 ),
             ],
             last_updated="2026-02-12T10:30:00Z",

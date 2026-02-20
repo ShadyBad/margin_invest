@@ -74,7 +74,7 @@ class ScoreResponse(BaseModel):
     universe_percentile: float = 0.0  # Universe-level rank (0-100)
     composite_percentile: float  # Kept for backwards compat
     composite_raw_score: float = 0.0  # Kept for backwards compat
-    conviction_level: str  # "exceptional", "high", "watchlist", "none"
+    conviction_level: str  # "exceptional", "high", "medium", "none"
     signal: str  # "buy", "watch", "no_action", etc.
     quality: FactorBreakdownResponse
     value: FactorBreakdownResponse

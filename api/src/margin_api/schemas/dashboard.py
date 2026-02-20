@@ -41,12 +41,16 @@ class PickSummary(BaseModel):
 
 
 class WatchlistItem(BaseModel):
-    """Summary of a watchlist item."""
+    """Summary of a watchlist item for the dashboard."""
 
     ticker: str
     name: str
-    composite_percentile: float
+    composite_raw_score: float
     conviction_level: str
+    sector: str | None = None
+    actual_price: float | None = None
+    price_upside: float | None = None
+    opportunity_type: str | None = None
 
 
 class DashboardResponse(BaseModel):

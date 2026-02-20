@@ -87,7 +87,7 @@ PRIOR_CASHFLOW = {
     "commonStockIssued": "0",
 }
 
-VALID_CONVICTION_LEVELS = {"exceptional", "high", "watchlist", "none"}
+VALID_CONVICTION_LEVELS = {"exceptional", "high", "medium", "none"}
 VALID_SIGNALS = {"buy", "watch", "no_action", "hold", "sell", "urgent_sell"}
 
 
