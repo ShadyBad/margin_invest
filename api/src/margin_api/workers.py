@@ -370,6 +370,19 @@ class WorkerSettings:
     """
 
     redis_settings = _parse_redis_settings()
+
+    @staticmethod
+    async def on_startup(ctx: dict) -> None:
+        """Log worker startup info for debugging connectivity."""
+        settings = get_settings()
+        url = settings.redis_url
+        # Redact password
+        if "@" in url:
+            scheme = url.split("://")[0]
+            host_part = url.split("@", 1)[1]
+            url = f"{scheme}://***@{host_part}"
+        logger.info("[worker] Started — Redis: %s", url)
+        logger.info("[worker] Registered functions: %s", [f.__name__ if callable(f) else str(f) for f in WorkerSettings.functions])
     functions = [
         full_ingest,
         full_score,

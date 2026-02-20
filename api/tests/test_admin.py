@@ -69,7 +69,10 @@ class TestPipelineTrigger:
         assert data["status"] == "enqueued"
         assert data["job"] == "full_ingest"
         assert data["job_id"] == "test-job-123"
-        mock_pool.enqueue_job.assert_called_once_with("full_ingest")
+        mock_pool.enqueue_job.assert_called_once()
+        call_args = mock_pool.enqueue_job.call_args
+        assert call_args[0][0] == "full_ingest"
+        assert "_job_id" in call_args[1]
 
     def test_trigger_handles_redis_failure(self):
         """Trigger returns 503 when Redis is unreachable."""

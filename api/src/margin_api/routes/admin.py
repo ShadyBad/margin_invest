@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from pathlib import Path
 
+import redis.asyncio as aioredis
 from arq.connections import ArqRedis, create_pool
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
@@ -42,7 +44,8 @@ async def trigger_pipeline(x_admin_key: str = Header()) -> JSONResponse:
 
     try:
         redis: ArqRedis = await create_pool(redis_settings)
-        job = await redis.enqueue_job("full_ingest")
+        # Use unique _job_id to bypass ARQ deduplication
+        job = await redis.enqueue_job("full_ingest", _job_id=f"full_ingest:{uuid.uuid4().hex[:8]}")
         await redis.aclose()
     except Exception as e:
         logger.exception("Failed to enqueue pipeline job")
@@ -77,7 +80,8 @@ async def trigger_scoring(x_admin_key: str = Header()) -> JSONResponse:
 
     try:
         redis: ArqRedis = await create_pool(redis_settings)
-        job = await redis.enqueue_job("full_score")
+        # Use unique _job_id to bypass ARQ deduplication
+        job = await redis.enqueue_job("full_score", _job_id=f"full_score:{uuid.uuid4().hex[:8]}")
         await redis.aclose()
     except Exception as e:
         logger.exception("Failed to enqueue scoring job")
@@ -145,4 +149,52 @@ async def activate_universe_endpoint(
         "version": snapshot.version,
         "ticker_count": snapshot.ticker_count,
         "config_hash": snapshot.config_hash,
+    }
+
+
+@router.get("/redis/health")
+async def redis_health(x_admin_key: str = Header()) -> dict:
+    """Check Redis connectivity and inspect ARQ queue state.
+
+    Returns connection info, pending job count, and any queued job IDs
+    so we can verify the API and worker share the same Redis instance.
+    """
+    _verify_admin_key(x_admin_key)
+
+    settings = get_settings()
+    # Redact password from URL for display
+    url = settings.redis_url
+    redacted = url
+    if "@" in url:
+        # redis://:password@host:port -> redis://***@host:port
+        pre, post = url.split("@", 1)
+        scheme = pre.split("://")[0]
+        redacted = f"{scheme}://***@{post}"
+
+    try:
+        client = aioredis.from_url(settings.redis_url)
+        # Basic ping
+        pong = await client.ping()
+        # Check ARQ queue for pending jobs
+        queued_jobs = await client.zrangebyscore("arq:queue", "-inf", "+inf")
+        job_ids = [j.decode() if isinstance(j, bytes) else j for j in queued_jobs]
+        # Check ARQ results for recent job results
+        result_keys = [
+            k.decode() if isinstance(k, bytes) else k
+            for k in await client.keys("arq:result:*")
+        ]
+        await client.aclose()
+    except Exception as e:
+        return {
+            "status": "error",
+            "redis_url": redacted,
+            "error": str(e),
+        }
+
+    return {
+        "status": "connected" if pong else "no_pong",
+        "redis_url": redacted,
+        "queued_jobs": job_ids,
+        "queued_count": len(job_ids),
+        "recent_results": result_keys[:20],
     }
