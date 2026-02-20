@@ -208,9 +208,9 @@ class TestPositionSizing:
 class TestGateFailure:
     """Failing absolute gates caps conviction at MEDIUM."""
 
-    def test_winning_track_a_gate_fails_caps_percentile(self):
-        """Track A wins but gate fails -> cap percentile at min(current, 98.0)."""
-        track_a = _make_composite(percentile=99.8)  # Would be EXCEPTIONAL
+    def test_winning_track_a_gate_fails_caps_to_medium(self):
+        """Track A wins but gate fails -> conviction capped at MEDIUM."""
+        track_a = _make_composite(percentile=99.8)  # raw_score=99.8 -> would be EXCEPTIONAL
         result = score_dual_track(
             track_a_score=track_a,
             track_b_score=_make_composite(percentile=70.0),
@@ -220,14 +220,12 @@ class TestGateFailure:
             gate_result_a=_failing_gate(),
             gate_result_b=_passing_gate(),
         )
-        # Capped at MEDIUM (98.0 percentile threshold)
         assert result.composite_percentile <= 98.0
-        # Note: conviction_level uses composite_raw_score (not percentile),
-        # so it reflects the raw score thresholds (79/72/65), not the cap.
-        assert result.conviction_level == ConvictionLevel.EXCEPTIONAL
+        assert result.composite_raw_score < 72.0
+        assert result.conviction_level == ConvictionLevel.MEDIUM
 
-    def test_winning_track_b_gate_fails_caps_percentile(self):
-        """Track B wins but gate fails -> cap percentile."""
+    def test_winning_track_b_gate_fails_caps_to_medium(self):
+        """Track B wins but gate fails -> conviction capped at MEDIUM."""
         track_b = _make_composite(percentile=99.5)
         result = score_dual_track(
             track_a_score=_make_composite(percentile=60.0),
@@ -239,9 +237,11 @@ class TestGateFailure:
             gate_result_b=_failing_gate(),
         )
         assert result.composite_percentile <= 98.0
+        assert result.composite_raw_score < 72.0
+        assert result.conviction_level == ConvictionLevel.MEDIUM
 
-    def test_gate_pass_preserves_percentile(self):
-        """Gates pass -> percentile not capped."""
+    def test_gate_pass_preserves_scores(self):
+        """Gates pass -> scores not capped."""
         track_a = _make_composite(percentile=99.8)
         result = score_dual_track(
             track_a_score=track_a,
@@ -253,21 +253,38 @@ class TestGateFailure:
             gate_result_b=_passing_gate(),
         )
         assert result.composite_percentile == pytest.approx(99.8)
+        assert result.composite_raw_score == pytest.approx(99.8)
 
     def test_already_below_medium_not_raised(self):
-        """If percentile is already below 98.0, gate failure doesn't change it."""
-        track_a = _make_composite(percentile=90.0)
+        """If raw score is already below MEDIUM cap, gate failure doesn't change it."""
+        track_a = _make_composite(percentile=68.0)  # raw_score=68.0 -> MEDIUM
         result = score_dual_track(
             track_a_score=track_a,
-            track_b_score=_make_composite(percentile=80.0),
+            track_b_score=_make_composite(percentile=60.0),
             opportunity_type=OpportunityType.COMPOUNDER,
             asymmetry_ratio_value=3.0,
             timing_signal="buy_now",
             gate_result_a=_failing_gate(),
             gate_result_b=_passing_gate(),
         )
-        # Already 90.0 < 98.0, should stay at 90.0
-        assert result.composite_percentile == pytest.approx(90.0)
+        # Already 68.0 < 71.9, should stay at 68.0
+        assert result.composite_raw_score == pytest.approx(68.0)
+        assert result.conviction_level == ConvictionLevel.MEDIUM
+
+    def test_gate_failure_caps_high_to_medium(self):
+        """A HIGH-conviction stock that fails gates gets capped to MEDIUM."""
+        track_a = _make_composite(percentile=75.0)  # raw_score=75.0 -> HIGH
+        result = score_dual_track(
+            track_a_score=track_a,
+            track_b_score=_make_composite(percentile=60.0),
+            opportunity_type=OpportunityType.COMPOUNDER,
+            asymmetry_ratio_value=3.0,
+            timing_signal="buy_now",
+            gate_result_a=_failing_gate(),
+            gate_result_b=_passing_gate(),
+        )
+        assert result.composite_raw_score < 72.0
+        assert result.conviction_level == ConvictionLevel.MEDIUM
 
 
 # ---------------------------------------------------------------------------

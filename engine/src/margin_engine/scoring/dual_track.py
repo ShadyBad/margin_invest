@@ -14,8 +14,9 @@ from margin_engine.models.scoring import (
 from margin_engine.scoring.conviction_gates import ConvictionGateResult
 from margin_engine.scoring.position_sizing import compute_position_size
 
-# Medium threshold — gate failures cap conviction here
-_MEDIUM_CAP = 98.0
+# Gate failure caps — prevent high conviction when quality gates fail
+_MEDIUM_PERCENTILE_CAP = 98.0
+_MEDIUM_RAW_SCORE_CAP = 71.9  # Just below HIGH threshold (72.0) -> forces MEDIUM max
 
 
 def score_dual_track(
@@ -67,7 +68,8 @@ def score_dual_track(
 
     # 4. Cap conviction if gates failed
     if not winning_gate.passed:
-        result.composite_percentile = min(result.composite_percentile, _MEDIUM_CAP)
+        result.composite_percentile = min(result.composite_percentile, _MEDIUM_PERCENTILE_CAP)
+        result.composite_raw_score = min(result.composite_raw_score, _MEDIUM_RAW_SCORE_CAP)
 
     # 5. Compute position sizing
     conviction_level = result.conviction_level
