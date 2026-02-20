@@ -30,6 +30,7 @@ vi.mock("framer-motion", () => ({
 }))
 
 import { HeroSection } from "../sections/hero-section"
+import { PipelineSection } from "../sections/pipeline-section"
 
 describe("HeroSection", () => {
   it("renders the H1 headline", () => {
@@ -49,5 +50,23 @@ describe("HeroSection", () => {
     render(<HeroSection />)
     expect(screen.getByText("Built for")).toBeInTheDocument()
     expect(screen.getByText("Not built for")).toBeInTheDocument()
+  })
+})
+
+describe("PipelineSection", () => {
+  it("renders the headline", () => {
+    render(<PipelineSection />)
+    expect(
+      screen.getByText(/From raw data to conviction/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all 6 pipeline stages", () => {
+    render(<PipelineSection />)
+    expect(screen.getAllByText("Universe").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Filters").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Scoring").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Conviction").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Output").length).toBeGreaterThan(0)
   })
 })
