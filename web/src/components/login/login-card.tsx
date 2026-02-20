@@ -135,13 +135,19 @@ export function LoginCard({ initialMode = "signin" }: LoginCardProps) {
       })
 
       if (!res.ok) {
-        const data = await res.json()
-        const detail = data.detail ?? data.message
-        if (Array.isArray(detail)) {
-          setServerError(detail.map((e: { msg?: string }) => e.msg).join(". "))
-        } else {
-          setServerError(detail || "Registration failed")
+        let message = "Registration failed"
+        try {
+          const data = await res.json()
+          const detail = data.detail ?? data.message
+          if (Array.isArray(detail)) {
+            message = detail.map((e: { msg?: string }) => e.msg).join(". ")
+          } else if (detail) {
+            message = detail
+          }
+        } catch {
+          // Response wasn't JSON (e.g. HTML error page)
         }
+        setServerError(message)
         return
       }
 
