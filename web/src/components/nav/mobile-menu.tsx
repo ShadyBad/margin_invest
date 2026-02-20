@@ -13,7 +13,7 @@ export function MobileMenu({ nav, isOpen, onClose }: MobileMenuProps) {
   if (!isOpen) return null
 
   return (
-    <div className="md:hidden mt-2 bg-[#111113] dark:bg-[#111113] border border-border-subtle rounded-2xl px-6 py-4">
+    <div className="md:hidden mt-2 bg-bg-elevated border border-border-subtle rounded-2xl px-6 py-4">
       <div className="flex flex-col gap-1">
         {nav.links.map((link) => (
           <Link
