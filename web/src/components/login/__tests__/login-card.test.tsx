@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { LoginCard } from "../login-card"
 
@@ -27,10 +27,9 @@ describe("LoginCard", () => {
       expect(screen.getByText(/secure login with bank-grade encryption/i)).toBeInTheDocument()
     })
 
-    it("renders the register link", () => {
+    it("does not render the old register link (replaced by segmented control)", () => {
       render(<LoginCard />)
-      const link = screen.getByRole("link", { name: /create one/i })
-      expect(link).toHaveAttribute("href", "/register")
+      expect(screen.queryByRole("link", { name: /create one/i })).not.toBeInTheDocument()
     })
   })
 
@@ -98,7 +97,10 @@ describe("LoginCard", () => {
       await user.click(screen.getByText("Continue with email"))
       await user.type(screen.getByLabelText("Email"), "testuser")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "testpass123")
-      await user.click(screen.getByRole("button", { name: /^sign in$/i }))
+      // Find the form submit button (type="submit"), not the segmented control tab
+      const allSignInButtons = screen.getAllByRole("button", { name: /^sign in$/i })
+      const formSubmitButton = allSignInButtons.find(btn => btn.getAttribute("type") === "submit")!
+      await user.click(formSubmitButton)
       expect(mockSignIn).toHaveBeenCalledWith("credentials", {
         username: "testuser",
         password: "testpass123",
@@ -116,6 +118,43 @@ describe("LoginCard", () => {
       expect(passwordInput).toHaveAttribute("type", "text")
       await user.click(screen.getByLabelText("Hide password"))
       expect(passwordInput).toHaveAttribute("type", "password")
+    })
+  })
+
+  describe("segmented control", () => {
+    it("renders Sign In and Sign Up tabs", () => {
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      expect(within(segmented).getByRole("button", { name: "Sign In" })).toBeInTheDocument()
+      expect(within(segmented).getByRole("button", { name: "Sign Up" })).toBeInTheDocument()
+    })
+
+    it("defaults to Sign In mode", () => {
+      render(<LoginCard />)
+      expect(
+        screen.getByRole("heading", { name: /sign in to margin invest/i })
+      ).toBeInTheDocument()
+    })
+
+    it("switches to Sign Up mode when Sign Up tab clicked", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      expect(
+        screen.getByRole("heading", { name: /create your account/i })
+      ).toBeInTheDocument()
+    })
+
+    it("switches back to Sign In mode", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(within(segmented).getByRole("button", { name: "Sign In" }))
+      expect(
+        screen.getByRole("heading", { name: /sign in to margin invest/i })
+      ).toBeInTheDocument()
     })
   })
 })

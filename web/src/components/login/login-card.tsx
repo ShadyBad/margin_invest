@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
-import Link from "next/link"
 
 function LogoIcon() {
   return (
@@ -69,10 +68,17 @@ function EyeOffIcon() {
 }
 
 export function LoginCard() {
+  const [mode, setMode] = useState<"signin" | "signup">("signin")
   const [showCredentials, setShowCredentials] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+
+  const resetForm = () => {
+    setEmail("")
+    setPassword("")
+    setShowPassword(false)
+  }
 
   const handleCredentialsSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -95,11 +101,37 @@ export function LoginCard() {
 
       {/* Heading */}
       <h1 className="text-xl font-semibold tracking-[-0.02em] text-text-primary text-center mb-2">
-        Sign in to Margin Invest
+        {mode === "signin" ? "Sign in to Margin Invest" : "Create your account"}
       </h1>
       <p className="text-[13px] text-text-secondary text-center mb-8">
-        Secure login with bank-grade encryption
+        {mode === "signin" ? "Secure login with bank-grade encryption" : "Start analyzing investments today"}
       </p>
+
+      {/* Segmented Control */}
+      <div data-testid="segmented-control" className="flex rounded-xl bg-white/[0.04] border border-white/[0.06] p-1 mb-6">
+        <button
+          type="button"
+          onClick={() => { setMode("signin"); resetForm() }}
+          className={`flex-1 py-2 text-[13px] font-medium rounded-lg transition-all duration-200 ${
+            mode === "signin"
+              ? "bg-accent text-white shadow-sm"
+              : "text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          Sign In
+        </button>
+        <button
+          type="button"
+          onClick={() => { setMode("signup"); resetForm() }}
+          className={`flex-1 py-2 text-[13px] font-medium rounded-lg transition-all duration-200 ${
+            mode === "signup"
+              ? "bg-accent text-white shadow-sm"
+              : "text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          Sign Up
+        </button>
+      </div>
 
       {/* OAuth Icons */}
       <div className="flex justify-center gap-4 mb-6">
@@ -193,13 +225,6 @@ export function LoginCard() {
         {showCredentials ? "Back to social login" : "Continue with email"}
       </button>
 
-      {/* Footer */}
-      <p className="text-[13px] text-text-secondary text-center">
-        Don&apos;t have an account?{" "}
-        <Link href="/register" className="text-accent hover:underline">
-          Create one
-        </Link>
-      </p>
     </div>
   )
 }
