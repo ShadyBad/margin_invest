@@ -48,6 +48,7 @@ import { ScoringSection } from "../sections/scoring-section"
 import { ConvictionSection } from "../sections/conviction-section"
 import { OutputsSection } from "../sections/outputs-section"
 import { UsageSection } from "../sections/usage-section"
+import { TransparencySection } from "../sections/transparency-section"
 
 describe("HeroSection", () => {
   it("renders the H1 headline", () => {
@@ -197,5 +198,27 @@ describe("UsageSection", () => {
     render(<UsageSection />)
     expect(screen.getByText(/Use candidates as a starting point/)).toBeInTheDocument()
     expect(screen.getByText(/Don\u2019t treat a high conviction score/)).toBeInTheDocument()
+  })
+})
+
+describe("TransparencySection", () => {
+  it("renders the headline", () => {
+    render(<TransparencySection />)
+    expect(
+      screen.getByText(/What this is — and what it isn't/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all three principles", () => {
+    render(<TransparencySection />)
+    expect(screen.getByText("Not financial advice")).toBeInTheDocument()
+    expect(screen.getByText("Models have limits")).toBeInTheDocument()
+    expect(screen.getByText("Structure, not prediction")).toBeInTheDocument()
+  })
+
+  it("renders the validation checklist", () => {
+    render(<TransparencySection />)
+    expect(screen.getByText(/Before acting on any candidate/)).toBeInTheDocument()
+    expect(screen.getByText(/Does the thesis make sense/)).toBeInTheDocument()
   })
 })
