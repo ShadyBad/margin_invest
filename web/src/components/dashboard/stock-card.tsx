@@ -185,7 +185,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <AnimatedScore
-            value={pick.score || pick.composite_percentile}
+            value={pick.score ?? pick.composite_percentile}
             className={getScoreClasses(pick.conviction_level)}
           />
           <span className="block text-[11px] font-medium text-text-tertiary tracking-[0.15em] uppercase mt-1">

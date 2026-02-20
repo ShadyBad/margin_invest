@@ -63,7 +63,7 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
           {score.name}
         </span>
         <span className="text-3xl font-mono font-bold text-accent ml-auto">
-          {(score.score || score.composite_percentile).toFixed(0)}
+          {(score.score ?? score.composite_percentile).toFixed(0)}
         </span>
         <ConvictionBadge level={score.conviction_level} />
         <ActionPill

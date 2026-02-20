@@ -18,7 +18,7 @@ function formatLastUpdated(isoString: string): string {
 
 function computePortfolioConviction(picks: PickSummary[]): { score: number; label: string } | null {
   if (picks.length === 0) return null
-  const avg = picks.reduce((sum, p) => sum + (p.score || p.composite_percentile), 0) / picks.length
+  const avg = picks.reduce((sum, p) => sum + (p.score ?? p.composite_percentile), 0) / picks.length
   const score = Math.round(avg)
   const label = score >= 60 ? "Operating" : score >= 30 ? "Building" : "Reviewing"
   return { score, label }
