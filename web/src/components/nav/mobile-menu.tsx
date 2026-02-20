@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Avatar } from "@/components/ui/avatar"
+import { ThemeToggle } from "./theme-toggle"
 import type { NavigationState } from "@/hooks/use-navigation"
 
 interface MobileMenuProps {
@@ -30,6 +31,10 @@ export function MobileMenu({ nav, isOpen, onClose }: MobileMenuProps) {
         ))}
       </div>
       <div className="mt-3 pt-3 border-t border-border-subtle">
+        <div className="flex items-center justify-between py-2">
+          <span className="text-[13px] text-text-tertiary">Theme</span>
+          <ThemeToggle />
+        </div>
         {nav.cta && (
           <div className="flex flex-col gap-2">
             <Link
