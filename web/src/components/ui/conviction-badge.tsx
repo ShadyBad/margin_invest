@@ -6,8 +6,17 @@ interface ConvictionBadgeProps {
 const badgeStyles: Record<string, string> = {
   exceptional: "bg-accent text-white border-accent",
   high: "bg-accent/10 text-accent-hover border-accent/20",
-  watchlist: "bg-bg-elevated text-text-secondary border-border-primary",
+  medium: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  watchlist: "bg-amber-500/10 text-amber-600 border-amber-500/20",
   none: "bg-bg-primary text-text-secondary border-border-primary",
+}
+
+const displayNames: Record<string, string> = {
+  exceptional: "Exceptional",
+  high: "High",
+  medium: "Medium",
+  watchlist: "Medium",
+  none: "None",
 }
 
 export function ConvictionBadge({ level, className = "" }: ConvictionBadgeProps) {
@@ -15,7 +24,7 @@ export function ConvictionBadge({ level, className = "" }: ConvictionBadgeProps)
   const sizeClass = level === "exceptional" ? "px-3 py-1 text-sm" : "px-2.5 py-0.5 text-xs"
   return (
     <span className={`inline-flex items-center rounded-sm font-medium border ${sizeClass} ${style} ${className}`}>
-      {level}
+      {displayNames[level] || level}
     </span>
   )
 }

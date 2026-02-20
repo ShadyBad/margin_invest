@@ -141,8 +141,12 @@ export interface PickSummary {
 export interface WatchlistItem {
   ticker: string
   name: string
-  composite_percentile: number
+  composite_raw_score: number
   conviction_level: string
+  sector?: string | null
+  actual_price?: number | null
+  price_upside?: number | null
+  opportunity_type?: string | null
 }
 
 export interface UniverseSummary {

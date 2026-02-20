@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { AppShell } from "@/components/layout"
-import { PicksGrid, WatchlistTable, IngestionBanner, PortfolioConviction } from "@/components/dashboard"
+import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction } from "@/components/dashboard"
 import { serverFetch } from "@/lib/api/server"
 import type { DashboardResponse, PickSummary } from "@/lib/api/types"
 
@@ -83,9 +83,9 @@ export default async function DashboardPage() {
       {(data?.watchlist?.length ?? 0) > 0 && (
         <section>
           <h2 className="text-lg font-semibold text-text-primary mb-4">
-            Watchlist
+            Watchlist Picks
           </h2>
-          <WatchlistTable items={data!.watchlist} />
+          <WatchlistPicksList items={data!.watchlist} />
         </section>
       )}
     </AppShell>

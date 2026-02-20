@@ -44,6 +44,8 @@ const mockDashboardData: DashboardResponse = {
     {
       ticker: "AAPL",
       name: "Apple Inc.",
+      score: 82,
+      universe_percentile: 92,
       composite_percentile: 92,
       conviction_level: "exceptional",
       signal: "buy",
@@ -58,6 +60,8 @@ const mockDashboardData: DashboardResponse = {
     {
       ticker: "MSFT",
       name: "Microsoft Corporation",
+      score: 75,
+      universe_percentile: 85,
       composite_percentile: 85,
       conviction_level: "high",
       signal: "buy",
@@ -74,14 +78,20 @@ const mockDashboardData: DashboardResponse = {
     {
       ticker: "GOOG",
       name: "Alphabet Inc.",
-      composite_percentile: 68,
-      conviction_level: "watchlist",
+      composite_raw_score: 68,
+      conviction_level: "medium",
+      sector: "Communication Services",
+      actual_price: 175.50,
+      price_upside: 0.12,
     },
     {
       ticker: "AMZN",
       name: "Amazon.com Inc.",
-      composite_percentile: 62,
-      conviction_level: "watchlist",
+      composite_raw_score: 62,
+      conviction_level: "medium",
+      sector: "Consumer Discretionary",
+      actual_price: 185.00,
+      price_upside: 0.08,
     },
   ],
   last_updated: "2026-02-12T10:30:00Z",
@@ -142,7 +152,7 @@ describe("Dashboard Page (Server Component)", () => {
     const jsx = await DashboardPage()
     render(jsx)
 
-    expect(screen.getByTestId("watchlist-table")).toBeInTheDocument()
+    expect(screen.getByTestId("watchlist-picks-list")).toBeInTheDocument()
     expect(screen.getByTestId("watchlist-row-GOOG")).toBeInTheDocument()
     expect(screen.getByTestId("watchlist-row-AMZN")).toBeInTheDocument()
   })
