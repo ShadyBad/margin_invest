@@ -37,7 +37,9 @@ export interface NavigationState {
   logoHref: string
 }
 
-const PUBLIC_LINKS: { href: string; label: string }[] = []
+const PUBLIC_LINKS: { href: string; label: string }[] = [
+  { href: "/guides", label: "Guides" },
+]
 
 const APP_LINKS = [
   { href: "/dashboard", label: "Dashboard" },

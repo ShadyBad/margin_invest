@@ -29,9 +29,11 @@ describe("useNavigation", () => {
       expect(result.current.isAuthenticated).toBe(false)
     })
 
-    it("returns no center links", () => {
+    it("returns Guides as center link", () => {
       const { result } = renderHook(() => useNavigation())
-      expect(result.current.links).toEqual([])
+      expect(result.current.links).toEqual([
+        { href: "/guides", label: "Guides", isActive: false },
+      ])
     })
 
     it("returns Dashboard CTA linking to /login", () => {
