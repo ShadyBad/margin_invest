@@ -4,10 +4,11 @@ import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
 import { startRegistration } from "@simplewebauthn/browser"
+import { RecoveryCodesDisplay } from "@/components/mfa/recovery-codes-display"
 
 // Use relative URL — proxied to backend via Vercel/Next.js rewrites
 
-type Step = "choose" | "totp" | "webauthn"
+type Step = "choose" | "totp" | "webauthn" | "recovery"
 
 function MfaSetupContent() {
   const router = useRouter()
@@ -19,6 +20,7 @@ function MfaSetupContent() {
   const [provisioningUri, setProvisioningUri] = useState("")
   const [secretId, setSecretId] = useState<number | null>(null)
   const [verificationCode, setVerificationCode] = useState("")
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [error, setError] = useState("")
 
   const handleChooseAuthenticator = async () => {
@@ -67,7 +69,9 @@ function MfaSetupContent() {
         return
       }
 
-      router.push("/login")
+      const data = await res.json()
+      setRecoveryCodes(data.recovery_codes ?? [])
+      setStep("recovery")
     } catch (err) {
       console.error("TOTP verification error:", err)
       setError("Unable to reach the server. Please try again.")
@@ -195,6 +199,13 @@ function MfaSetupContent() {
               Register Security Key
             </button>
           </div>
+        )}
+
+        {step === "recovery" && (
+          <RecoveryCodesDisplay
+            codes={recoveryCodes}
+            onContinue={() => router.push("/account")}
+          />
         )}
       </div>
     </div>
