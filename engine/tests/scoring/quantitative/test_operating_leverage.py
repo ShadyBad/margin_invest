@@ -62,6 +62,41 @@ class TestOperatingLeverage:
         result = operating_leverage(history)
         assert result.raw_value == pytest.approx(10.0, rel=1e-3)
 
+    def test_cost_cutting_flat_revenue(self):
+        """Flat revenue (1% growth), declining opex (-5%) -> positive floor score."""
+        # rev_growth = (101-100)/100 = 0.01
+        # opex_growth = (47.5-50)/50 = -0.05
+        # raw_value = min(abs(-0.05) * 5.0, 2.0) = min(0.25, 2.0) = 0.25
+        history = _make_history(
+            revenues=[Decimal("100"), Decimal("101")],
+            sga_expenses=[Decimal("50"), Decimal("47.5")],
+        )
+        result = operating_leverage(history)
+        assert result.raw_value == pytest.approx(0.25, rel=1e-3)
+        assert result.name == "operating_leverage"
+
+    def test_cost_cutting_large_opex_decline_capped(self):
+        """Flat revenue (1%), large opex decline (-40%) -> capped at 2.0."""
+        # rev_growth = (101-100)/100 = 0.01
+        # opex_growth = (30-50)/50 = -0.40
+        # raw_value = min(abs(-0.40) * 5.0, 2.0) = min(2.0, 2.0) = 2.0
+        history = _make_history(
+            revenues=[Decimal("100"), Decimal("101")],
+            sga_expenses=[Decimal("50"), Decimal("30")],
+        )
+        result = operating_leverage(history)
+        assert result.raw_value == pytest.approx(2.0, rel=1e-3)
+
+    def test_growing_revenue_growing_opex_unchanged(self):
+        """Growing revenue (10%), growing opex (5%) -> normal leverage, no floor."""
+        # rev_growth = 0.10, opex_growth = 0.05 -> leverage = 2.0
+        history = _make_history(
+            revenues=[Decimal("100"), Decimal("110")],
+            sga_expenses=[Decimal("50"), Decimal("52.5")],
+        )
+        result = operating_leverage(history)
+        assert result.raw_value == pytest.approx(2.0, rel=1e-3)
+
 
 def _make_history(
     revenues: list[Decimal],

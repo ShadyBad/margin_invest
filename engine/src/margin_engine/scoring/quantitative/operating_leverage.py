@@ -77,6 +77,21 @@ def operating_leverage(history: FinancialHistory) -> FactorScore:
     rev_growth = (end_revenue - start_revenue) / start_revenue
     opex_growth = (end_opex - start_opex) / start_opex
 
+    # Cost-cutting floor: near-zero revenue growth but declining opex
+    # rewards operational discipline even without top-line growth
+    if rev_growth <= 0.01 and opex_growth < 0:
+        leverage = min(abs(opex_growth) * 5.0, 2.0)
+        return FactorScore(
+            name="operating_leverage",
+            raw_value=leverage,
+            percentile_rank=0.0,
+            detail=(
+                f"cost_cutting_floor: rev_growth={rev_growth:.4f}"
+                f"; opex_growth={opex_growth:.4f}"
+                f"; raw_value=min(|{opex_growth:.4f}|*5.0, 2.0)={leverage:.4f}"
+            ),
+        )
+
     if opex_growth == 0.0:
         # OpEx flat while revenue grew: very high leverage, cap it
         leverage = _CAP if rev_growth > 0 else 0.0
