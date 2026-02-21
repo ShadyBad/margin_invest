@@ -28,4 +28,12 @@ def test_config_request_backward_compatible():
     )
     assert config.selection_mode == "top_percentile"
     assert config.min_conviction_score == 79.0
-    assert config.min_margin_of_safety == 0.30
+    assert config.min_margin_of_safety == 0.20
+
+
+def test_backtest_config_request_v2_fields():
+    """New v2 fields have correct defaults."""
+    req = BacktestConfigRequest()
+    assert req.max_holdings == 5
+    assert req.min_conviction_score_high == 72.0
+    assert req.min_margin_of_safety == 0.20
