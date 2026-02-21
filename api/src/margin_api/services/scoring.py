@@ -25,7 +25,14 @@ from margin_engine.models.financial import (
     GICSSector,
     PriceBar,
 )
-from margin_engine.models.scoring import CompositeScore, FactorScore, FilterResult, GrowthStage
+from margin_engine.models.scoring import (
+    CompositeScore,
+    ConvictionLevel,
+    FactorScore,
+    FilterResult,
+    GrowthStage,
+    ScenarioIV,
+)
 from margin_engine.scoring.classifier import classify_growth_stage
 from margin_engine.scoring.composite import compute_composite_score
 from margin_engine.scoring.filters.pipeline import run_elimination_filters
@@ -36,11 +43,16 @@ from margin_engine.scoring.quantitative.dcf_mos import dcf_margin_of_safety
 from margin_engine.scoring.quantitative.ev_fcf import ev_fcf
 from margin_engine.scoring.quantitative.f_score import piotroski_f_score
 from margin_engine.scoring.quantitative.gross_profitability import gross_profitability
-from margin_engine.scoring.quantitative.price_momentum import price_momentum
 from margin_engine.scoring.quantitative.roic_wacc import roic_wacc_spread
+from margin_engine.scoring.quantitative.roic_trend import roic_trend
+from margin_engine.scoring.quantitative.fcf_conversion import fcf_conversion
+from margin_engine.scoring.quantitative.multi_horizon_momentum import multi_horizon_momentum
+from margin_engine.scoring.quantitative.competitive_dynamics import gross_margin_stability
+from margin_engine.scoring.quantitative.scenario_iv import compute_scenario_iv
 from margin_engine.scoring.quantitative.price_targets import compute_price_targets
 from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yield
 from margin_engine.scoring.quantitative.sue import sue_score
+from margin_engine.scoring.data_quality_gate import apply_data_quality_gate
 
 # Sector string -> GICSSector mapping for lookups
 _SECTOR_MAP: dict[str, GICSSector] = {s.value: s for s in GICSSector}
@@ -50,6 +62,7 @@ INVERTED_FACTORS: frozenset[str] = frozenset({
     "accrual_ratio",
     "ev_fcf",
     "acquirers_multiple",
+    "gross_margin_stability",  # lower CoV = better
 })
 
 
@@ -67,6 +80,7 @@ class RawScoringResult:
     period: FinancialPeriod | None = None
     profile: AssetProfile | None = None
     price_bars: list[PriceBar] = field(default_factory=list)
+    history: FinancialHistory | None = None
 
 
 def build_financial_period(
@@ -173,6 +187,7 @@ def compute_raw_factor_scores(
     profile: AssetProfile,
     price_bars_raw: list[dict],
     earnings_raw: list[dict],
+    history: FinancialHistory | None = None,
 ) -> RawScoringResult:
     """Compute raw factor scores without percentile ranking.
 
@@ -185,6 +200,8 @@ def compute_raw_factor_scores(
         profile: AssetProfile with metadata and sector.
         price_bars_raw: List of raw price bar dicts for price momentum.
         earnings_raw: List of raw earnings surprise dicts for SUE score.
+        history: Optional multi-period history for temporal factors
+                 (roic_trend, gross_margin_stability).
 
     Returns:
         A RawScoringResult with unranked factor scores.
@@ -195,15 +212,19 @@ def compute_raw_factor_scores(
     pipeline_result = run_elimination_filters(period, profile)
     filter_results = pipeline_result.results
 
-    # --- Step 2: Quality factors (4) ---
+    # --- Step 2: Quality factors ---
     quality_scores = [
         gross_profitability(period),
         roic_wacc_spread(period),
         sloan_accrual_ratio(period),
         piotroski_f_score(period),
+        fcf_conversion(period),
     ]
+    if history is not None:
+        quality_scores.append(roic_trend(history))
+        quality_scores.append(gross_margin_stability(history))
 
-    # --- Step 3: Value factors (4) ---
+    # --- Step 3: Value factors ---
     value_scores = [
         ev_fcf(period, market_cap),
         shareholder_yield(period, market_cap),
@@ -215,13 +236,34 @@ def compute_raw_factor_scores(
         ),
         acquirers_multiple(period, market_cap),
     ]
+    # Scenario IV adapter: ScenarioIV -> FactorScore
+    if profile.shares_outstanding and profile.shares_outstanding > 0:
+        _fcf = float(period.current_cash_flow.free_cash_flow)
+        if _fcf > 0:
+            scenario = compute_scenario_iv(
+                base_fcf=_fcf,
+                base_growth=0.05,
+                wacc=0.10,
+                terminal_growth=0.03,
+                shares_outstanding=profile.shares_outstanding,
+            )
+            value_scores.append(FactorScore(
+                name="scenario_iv",
+                raw_value=scenario.weighted_iv,
+                percentile_rank=0.0,
+                detail=(
+                    f"bear={scenario.bear_iv:.2f} "
+                    f"base={scenario.base_iv:.2f} "
+                    f"bull={scenario.bull_iv:.2f}"
+                ),
+            ))
 
-    # --- Step 4: Momentum factors (5) ---
+    # --- Step 4: Momentum factors ---
     bars: list[PriceBar] = [normalize_price_bar(b) for b in price_bars_raw]
     surprises = normalize_earnings_list(earnings_raw)
 
     momentum_scores: list[FactorScore] = [
-        price_momentum(bars),
+        multi_horizon_momentum(bars),
     ]
     # Only include SUE when real earnings data exists. When all tickers
     # have no earnings, every SUE is 0.0 → all get 50th percentile,
@@ -244,6 +286,7 @@ def compute_raw_factor_scores(
         period=period,
         profile=profile,
         price_bars=bars,
+        history=history,
     )
 
 
@@ -330,7 +373,28 @@ def rank_and_compute_composites(
     # percentile ranks across the full universe so conviction thresholds work.
     composites = rerank_composites(composites)
 
-    return composites
+    # Apply data quality gate: cap conviction when data coverage is low
+    _CONVICTION_SCORE_CAP: dict[ConvictionLevel, float] = {
+        ConvictionLevel.NONE: 64.9,
+        ConvictionLevel.MEDIUM: 71.9,
+        ConvictionLevel.HIGH: 78.9,
+    }
+    gated: list[CompositeScore] = []
+    for composite in composites:
+        gated_conviction = apply_data_quality_gate(
+            composite.conviction_level, composite.data_coverage
+        )
+        if gated_conviction != composite.conviction_level:
+            max_score = _CONVICTION_SCORE_CAP.get(
+                gated_conviction, composite.composite_raw_score
+            )
+            composite = composite.model_copy(update={
+                "composite_raw_score": min(composite.composite_raw_score, max_score),
+                "composite_percentile": min(composite.composite_percentile, max_score),
+            })
+        gated.append(composite)
+
+    return gated
 
 
 def run_scoring_pipeline(
@@ -339,6 +403,7 @@ def run_scoring_pipeline(
     profile: AssetProfile,
     price_bars_raw: list[dict],
     earnings_raw: list[dict],
+    history: FinancialHistory | None = None,
 ) -> CompositeScore:
     """Run the full scoring pipeline for a single ticker.
 
@@ -352,11 +417,14 @@ def run_scoring_pipeline(
         profile: AssetProfile with metadata and sector.
         price_bars_raw: List of raw price bar dicts for price momentum.
         earnings_raw: List of raw earnings surprise dicts for SUE score.
+        history: Optional multi-period history for temporal factors.
 
     Returns:
         A CompositeScore (with single-ticker percentile ranks).
     """
-    raw = compute_raw_factor_scores(ticker, period, profile, price_bars_raw, earnings_raw)
+    raw = compute_raw_factor_scores(
+        ticker, period, profile, price_bars_raw, earnings_raw, history=history
+    )
     composites = rank_and_compute_composites([raw])
     return composites[0]
 

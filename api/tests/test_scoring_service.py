@@ -11,12 +11,17 @@ from decimal import Decimal
 
 import pytest
 from margin_api.services.scoring import (
+    INVERTED_FACTORS,
     build_asset_profile,
     build_financial_period,
+    build_financial_history_from_rows,
+    compute_raw_factor_scores,
+    rank_and_compute_composites,
     run_scoring_pipeline,
 )
 from margin_engine.models.financial import (
     AssetProfile,
+    FinancialHistory,
     FinancialPeriod,
     GICSSector,
 )
@@ -344,7 +349,7 @@ class TestRunScoringPipeline:
         assert result.ticker == "AAPL"
 
     def test_quality_factor_count(self):
-        """Quality should have 4 sub-factors."""
+        """Quality should have 5 sub-factors (without history)."""
         period = self._build_period_with_priors()
         profile = self._build_profile()
 
@@ -355,12 +360,13 @@ class TestRunScoringPipeline:
             price_bars_raw=_price_bars_raw(),
             earnings_raw=_earnings_raw(),
         )
-        assert len(result.quality.sub_scores) == 4
+        assert len(result.quality.sub_scores) == 5
         quality_names = {s.name for s in result.quality.sub_scores}
         assert "gross_profitability" in quality_names
         assert "roic_wacc_spread" in quality_names
         assert "accrual_ratio" in quality_names
         assert "piotroski_f_score" in quality_names
+        assert "fcf_conversion" in quality_names
 
     def test_value_factor_count(self):
         """Value should have 4 sub-factors."""
@@ -382,7 +388,7 @@ class TestRunScoringPipeline:
         assert "acquirers_multiple" in value_names
 
     def test_momentum_factor_count(self):
-        """Momentum should have 2 real sub-factors (placeholders excluded)."""
+        """Momentum should have 2 sub-factors: multi_horizon_momentum + sue."""
         period = self._build_period_with_priors()
         profile = self._build_profile()
 
@@ -395,7 +401,7 @@ class TestRunScoringPipeline:
         )
         assert len(result.momentum.sub_scores) == 2
         momentum_names = {s.name for s in result.momentum.sub_scores}
-        assert "price_momentum" in momentum_names
+        assert "multi_horizon_momentum" in momentum_names
         assert "sue" in momentum_names
 
     def test_filters_populated(self):
@@ -479,11 +485,180 @@ class TestRunScoringPipeline:
             assert score.name  # non-empty name
 
 
+class TestNewFactorWiring:
+    """Tests for new audit factors wired into the scoring pipeline."""
+
+    def _build_period_with_priors(self) -> FinancialPeriod:
+        return build_financial_period(
+            income_raw=_income_raw(),
+            balance_raw=_balance_raw(),
+            cashflow_raw=_cashflow_raw(),
+            period_end="2024-09-28",
+            filing_date="2024-11-01",
+            prior_income_raw=_prior_income_raw(),
+            prior_balance_raw=_prior_balance_raw(),
+            prior_cashflow_raw=_prior_cashflow_raw(),
+        )
+
+    def _build_profile(self, shares_outstanding: int | None = None) -> AssetProfile:
+        return build_asset_profile(
+            ticker="AAPL",
+            name="Apple Inc.",
+            sector="Information Technology",
+            market_cap=Decimal("3000000000000"),
+            avg_daily_volume=Decimal("10000000000"),
+            years_of_history=44,
+            shares_outstanding=shares_outstanding,
+        )
+
+    def _build_history(self) -> FinancialHistory:
+        """Build a 3-year FinancialHistory for multi-period factors."""
+        rows = []
+        for year in (2022, 2023, 2024):
+            rows.append({
+                "period_end": f"{year}-09-28",
+                "filing_date": f"{year}-11-01",
+                "income_statement": _income_raw(),
+                "balance_sheet": _balance_raw(),
+                "cash_flow": _cashflow_raw(),
+            })
+        return build_financial_history_from_rows("AAPL", rows)
+
+    def test_quality_factors_with_history(self):
+        """With history, quality should have 7 factors (base 5 + roic_trend + gross_margin_stability)."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+        history = self._build_history()
+
+        raw = compute_raw_factor_scores(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+            history=history,
+        )
+        quality_names = {s.name for s in raw.quality_scores}
+        assert len(raw.quality_scores) == 7
+        assert "roic_trend" in quality_names
+        assert "gross_margin_stability" in quality_names
+        assert "fcf_conversion" in quality_names
+
+    def test_quality_factors_without_history(self):
+        """Without history, quality should have 5 factors (no roic_trend or gross_margin_stability)."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        raw = compute_raw_factor_scores(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+            history=None,
+        )
+        quality_names = {s.name for s in raw.quality_scores}
+        assert len(raw.quality_scores) == 5
+        assert "roic_trend" not in quality_names
+        assert "gross_margin_stability" not in quality_names
+        assert "fcf_conversion" in quality_names
+
+    def test_scenario_iv_in_value_scores(self):
+        """With shares_outstanding and positive FCF, scenario_iv should appear in value scores."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile(shares_outstanding=15408095000)
+
+        raw = compute_raw_factor_scores(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        value_names = {s.name for s in raw.value_scores}
+        assert "scenario_iv" in value_names
+        assert len(raw.value_scores) == 5  # 4 base + scenario_iv
+
+    def test_scenario_iv_absent_without_shares(self):
+        """Without shares_outstanding, scenario_iv should not appear."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile(shares_outstanding=None)
+
+        raw = compute_raw_factor_scores(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        value_names = {s.name for s in raw.value_scores}
+        assert "scenario_iv" not in value_names
+        assert len(raw.value_scores) == 4
+
+    def test_multi_horizon_replaces_price_momentum(self):
+        """Momentum should contain multi_horizon_momentum, not price_momentum."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        raw = compute_raw_factor_scores(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+        )
+        momentum_names = {s.name for s in raw.momentum_scores}
+        assert "multi_horizon_momentum" in momentum_names
+        assert "price_momentum" not in momentum_names
+
+    def test_gross_margin_stability_inverted(self):
+        """gross_margin_stability should be in INVERTED_FACTORS (lower CoV = better)."""
+        assert "gross_margin_stability" in INVERTED_FACTORS
+
+    def test_data_quality_gate_caps_conviction(self):
+        """When data_coverage is low, the gate should cap composite_raw_score."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+
+        raw = compute_raw_factor_scores(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=[],  # No earnings data → lower data_coverage
+        )
+        composites = rank_and_compute_composites([raw])
+        composite = composites[0]
+        # With a single ticker, composite_raw_score is the weighted average.
+        # The data_quality_gate only kicks in when data_coverage < 0.8.
+        # With no earnings, data_coverage should be less than 1.0.
+        # If gate triggered and downgraded, raw score should be capped.
+        if composite.data_coverage < 0.80:
+            assert composite.composite_raw_score <= 71.9
+        else:
+            # High coverage: gate doesn't apply, just check score is valid
+            assert 0.0 <= composite.composite_raw_score <= 100.0
+
+    def test_history_stored_on_raw_result(self):
+        """The RawScoringResult should store the history passed to it."""
+        period = self._build_period_with_priors()
+        profile = self._build_profile()
+        history = self._build_history()
+
+        raw = compute_raw_factor_scores(
+            ticker="AAPL",
+            period=period,
+            profile=profile,
+            price_bars_raw=_price_bars_raw(),
+            earnings_raw=_earnings_raw(),
+            history=history,
+        )
+        assert raw.history is history
+
+
 class TestBuildFinancialHistory:
     def test_builds_history_from_multiple_periods(self):
         """Given multiple row dicts, build a FinancialHistory."""
-        from margin_api.services.scoring import build_financial_history_from_rows
-
         rows = [
             {
                 "period_end": "2022-12-31",

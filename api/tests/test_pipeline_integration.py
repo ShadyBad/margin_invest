@@ -189,15 +189,15 @@ class TestFullPipeline:
         # data_coverage between 0 and 1
         assert 0.0 <= composite.data_coverage <= 1.0
 
-        # Quality factor: 4 sub_scores, correct factor_name
+        # Quality factor: 5 sub_scores (without history), correct factor_name
         assert composite.quality.factor_name == "quality"
-        assert len(composite.quality.sub_scores) == 4
+        assert len(composite.quality.sub_scores) == 5
 
         # Value factor: 4 sub_scores, correct factor_name
         assert composite.value.factor_name == "value"
         assert len(composite.value.sub_scores) == 4
 
-        # Momentum factor: 2 real sub_scores (price_momentum + SUE)
+        # Momentum factor: 2 real sub_scores (multi_horizon_momentum + SUE)
         assert composite.momentum.factor_name == "momentum"
         assert len(composite.momentum.sub_scores) == 2
 
@@ -224,7 +224,7 @@ class TestFullPipeline:
         assert reconstructed.conviction_level == response.conviction_level
         assert reconstructed.signal == response.signal
         assert reconstructed.data_coverage == response.data_coverage
-        assert len(reconstructed.quality.sub_scores) == 4
+        assert len(reconstructed.quality.sub_scores) == 5
         assert len(reconstructed.value.sub_scores) == 4
         assert len(reconstructed.momentum.sub_scores) == 2
         assert len(reconstructed.filters_passed) == 6
