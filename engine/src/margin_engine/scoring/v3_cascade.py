@@ -218,6 +218,7 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
         owner_earnings_iv=inputs.owner_earnings_iv,
         asset_floor_iv=inputs.asset_floor_iv,
         peer_comparison_iv=inputs.peer_comparison_iv,
+        sector=inputs.profile.sector,
     )
     if quality_floor >= 1.0:
         iv_discount = 0.75  # 25% margin for quality businesses (ROIC >= 8%)
