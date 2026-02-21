@@ -1,9 +1,13 @@
+import datetime as dt
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 from pydantic import ValidationError
 
 from margin_engine.correlation import CorrelationMatrix, ExcludedTicker, _pearson
+from margin_engine.correlation import compute_return_correlations
+from margin_engine.models.financial import PriceBar
 
 
 class TestCorrelationModels:
@@ -74,3 +78,102 @@ class TestPearsonCorrelation:
 
     def test_empty_returns_none(self):
         assert _pearson([], []) is None
+
+
+def _bar(date_str: str, close: float) -> PriceBar:
+    """Helper: minimal PriceBar."""
+    p = Decimal(str(close))
+    return PriceBar(date=date_str, open=p, high=p, low=p, close=p, volume=100_000)
+
+
+def _daily_bars(start: str, prices: list[float]) -> list[PriceBar]:
+    """Generate bars from a list of closing prices, one per business day."""
+    base = dt.date.fromisoformat(start)
+    bars = []
+    d = base
+    for price in prices:
+        bars.append(_bar(d.isoformat(), price))
+        d += dt.timedelta(days=1)
+        # skip weekends
+        while d.weekday() >= 5:
+            d += dt.timedelta(days=1)
+    return bars
+
+
+class TestReturnCorrelations:
+    def test_two_identical_series_correlation_is_one(self):
+        prices = [100.0, 102.0, 101.0, 105.0, 103.0] * 10  # 50 points
+        bars_a = _daily_bars("2025-01-02", prices)
+        bars_b = _daily_bars("2025-01-02", prices)
+        result = compute_return_correlations(
+            {"AAPL": bars_a, "COPY": bars_b}, window_days=252
+        )
+        assert result.tickers == ["AAPL", "COPY"]
+        assert result.matrix[0][0] == pytest.approx(1.0)
+        assert result.matrix[1][1] == pytest.approx(1.0)
+        assert result.matrix[0][1] == pytest.approx(1.0, abs=1e-6)
+        assert result.matrix[1][0] == pytest.approx(1.0, abs=1e-6)
+
+    def test_inversely_correlated(self):
+        # Build prices from alternating returns: when one goes up, the other goes down
+        import random
+
+        rng = random.Random(42)
+        shocks = [rng.gauss(0, 0.02) for _ in range(49)]
+        prices_a = [100.0]
+        prices_b = [100.0]
+        for s in shocks:
+            prices_a.append(prices_a[-1] * (1 + s))
+            prices_b.append(prices_b[-1] * (1 - s))  # opposite return
+        bars_a = _daily_bars("2025-01-02", prices_a)
+        bars_b = _daily_bars("2025-01-02", prices_b)
+        result = compute_return_correlations({"UP": bars_a, "DOWN": bars_b})
+        assert result.matrix[0][1] is not None
+        assert result.matrix[0][1] < -0.9
+
+    def test_symmetric(self):
+        bars_a = _daily_bars("2025-01-02", [100 + i * 0.5 for i in range(50)])
+        bars_b = _daily_bars("2025-01-02", [50 + i * 0.3 for i in range(50)])
+        bars_c = _daily_bars("2025-01-02", [200 - i * 0.2 for i in range(50)])
+        result = compute_return_correlations({"A": bars_a, "B": bars_b, "C": bars_c})
+        for i in range(3):
+            for j in range(3):
+                assert result.matrix[i][j] == pytest.approx(
+                    result.matrix[j][i], abs=1e-10
+                )
+
+    def test_sample_sizes_populated(self):
+        bars_a = _daily_bars("2025-01-02", [100 + i for i in range(50)])
+        bars_b = _daily_bars("2025-01-02", [50 + i for i in range(50)])
+        result = compute_return_correlations({"A": bars_a, "B": bars_b})
+        # 50 prices = 49 returns
+        assert result.sample_sizes[0][1] == 49
+
+    def test_insufficient_overlap_returns_none(self):
+        bars_a = _daily_bars("2025-01-02", [100 + i for i in range(10)])
+        bars_b = _daily_bars("2025-01-02", [50 + i for i in range(10)])
+        result = compute_return_correlations(
+            {"A": bars_a, "B": bars_b}, min_overlap=30
+        )
+        assert result.matrix[0][1] is None
+
+    def test_ticker_with_too_few_bars_excluded(self):
+        bars_good = _daily_bars("2025-01-02", [100 + i for i in range(50)])
+        bars_short = _daily_bars("2025-01-02", [50.0, 51.0])
+        result = compute_return_correlations(
+            {"GOOD": bars_good, "SHORT": bars_short}, min_bars=10
+        )
+        assert "SHORT" in [e.ticker for e in result.excluded]
+        assert result.tickers == ["GOOD"]
+
+    def test_fewer_than_two_valid_tickers_returns_empty(self):
+        bars = _daily_bars("2025-01-02", [100.0, 101.0])
+        result = compute_return_correlations({"ONLY": bars}, min_bars=10)
+        assert result.tickers == []
+        assert result.matrix == []
+
+    def test_method_is_returns(self):
+        bars_a = _daily_bars("2025-01-02", [100 + i for i in range(50)])
+        bars_b = _daily_bars("2025-01-02", [50 + i for i in range(50)])
+        result = compute_return_correlations({"A": bars_a, "B": bars_b})
+        assert result.method == "returns"
