@@ -295,6 +295,19 @@ describe("Backtesting Page (read-only)", () => {
     expect(historyItems).toHaveLength(2)
   })
 
+  it("renders historical performance section with chart", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText("Historical Performance")).toBeInTheDocument()
+    })
+
+    // Chart renders (empty state since mock has no snapshots)
+    expect(screen.getByTestId("performance-chart-empty")).toBeInTheDocument()
+  })
+
   it("shows page title as Validation instead of Backtesting", async () => {
     mockGetBacktestResults.mockResolvedValue(mockEmptyListResponse)
     render(<BacktestingPage />)
