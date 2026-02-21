@@ -243,6 +243,13 @@ export interface BacktestResult {
   metrics: BacktestMetrics
   validation: BacktestValidation | null
   num_snapshots: number
+  snapshots?: Array<{
+    date: string
+    portfolio_value: number
+    benchmark_value: number
+    portfolio_return: number
+    benchmark_return: number
+  }>
   run_at: string
   duration_seconds: number
 }

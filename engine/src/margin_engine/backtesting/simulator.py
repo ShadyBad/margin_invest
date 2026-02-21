@@ -25,6 +25,7 @@ from margin_engine.backtesting.models import (
     MonthlySnapshot,
     PerformanceMetrics,
     RebalanceFrequency,
+    SelectionMode,
 )
 
 STARTING_CAPITAL = 1_000_000.0
@@ -36,6 +37,7 @@ class ScoredStock(BaseModel):
     ticker: str
     composite_score: float
     price: float
+    margin_of_safety: float | None = None
 
 
 @runtime_checkable
@@ -98,7 +100,7 @@ class WalkForwardSimulator:
             scores = self._universe_provider.get_scores(rebal_date)
 
             # 2. Select top N% by composite score, equal weight
-            new_holdings = self._select_holdings(scores)
+            new_holdings = self._select_holdings(scores, prev_holdings)
 
             # Cache scores as a price lookup map to avoid redundant provider calls
             score_map = {s.ticker: s.price for s in scores}
@@ -212,7 +214,15 @@ class WalkForwardSimulator:
             d = d.replace(day=d.day + 1)
         return d
 
-    def _select_holdings(self, scores: list[ScoredStock]) -> list[HoldingRecord]:
+    def _select_holdings(
+        self, scores: list[ScoredStock], prev_holdings: list[HoldingRecord]
+    ) -> list[HoldingRecord]:
+        """Select portfolio holdings based on configured selection mode."""
+        if self._config.selection_mode == SelectionMode.CONVICTION_MOS:
+            return self._select_by_conviction_mos(scores, prev_holdings)
+        return self._select_by_top_percentile(scores)
+
+    def _select_by_top_percentile(self, scores: list[ScoredStock]) -> list[HoldingRecord]:
         """Select top N% by composite score, equal weight.
 
         Sorts by composite_score descending, takes top ceil(len * top_percentile)
@@ -221,12 +231,9 @@ class WalkForwardSimulator:
         if not scores:
             return []
 
-        # Sort by composite_score descending, then by ticker for determinism
         sorted_scores = sorted(scores, key=lambda s: (-s.composite_score, s.ticker))
-
         n_select = max(1, math.ceil(len(sorted_scores) * self._config.top_percentile))
         selected = sorted_scores[:n_select]
-
         weight = 1.0 / len(selected)
 
         return [
@@ -237,6 +244,38 @@ class WalkForwardSimulator:
                 composite_score=stock.composite_score,
             )
             for stock in selected
+        ]
+
+    def _select_by_conviction_mos(
+        self, scores: list[ScoredStock], prev_holdings: list[HoldingRecord]
+    ) -> list[HoldingRecord]:
+        """Select stocks with Exceptional conviction AND MoS above threshold.
+
+        If no stocks pass the filter, returns prev_holdings unchanged (hold-through).
+        """
+        eligible = [
+            s for s in scores
+            if s.composite_score >= self._config.min_conviction_score
+            and s.margin_of_safety is not None
+            and s.margin_of_safety > self._config.min_margin_of_safety
+        ]
+
+        if not eligible:
+            return prev_holdings
+
+        eligible.sort(
+            key=lambda s: (-s.composite_score, -(s.margin_of_safety or 0), s.ticker)
+        )
+        weight = 1.0 / len(eligible)
+
+        return [
+            HoldingRecord(
+                ticker=stock.ticker,
+                weight=weight,
+                entry_price=stock.price,
+                composite_score=stock.composite_score,
+            )
+            for stock in eligible
         ]
 
     @staticmethod

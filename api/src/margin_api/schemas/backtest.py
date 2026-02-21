@@ -17,6 +17,9 @@ class BacktestConfigRequest(BaseModel):
     transaction_cost_bps: float = Field(default=10.0, ge=0)
     slippage_bps: float = Field(default=5.0, ge=0)
     benchmark_ticker: str = "SPY"
+    selection_mode: str = "top_percentile"
+    min_conviction_score: float = Field(default=79.0, ge=0, le=100)
+    min_margin_of_safety: float = Field(default=0.30, ge=-1.0, le=1.0)
 
 
 class MetricsResponse(BaseModel):

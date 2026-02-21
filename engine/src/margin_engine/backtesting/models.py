@@ -19,6 +19,13 @@ class RebalanceFrequency(StrEnum):
     QUARTERLY = "quarterly"
 
 
+class SelectionMode(StrEnum):
+    """Portfolio stock selection strategy."""
+
+    TOP_PERCENTILE = "top_percentile"
+    CONVICTION_MOS = "conviction_mos"
+
+
 class BacktestConfig(BaseModel):
     """Configuration for a backtest run.
 
@@ -33,6 +40,13 @@ class BacktestConfig(BaseModel):
     transaction_cost_bps: float = Field(default=10.0, description="Transaction cost in basis pts")
     slippage_bps: float = Field(default=5.0, description="Slippage estimate in basis points")
     benchmark_ticker: str = Field(default="SPY")
+    selection_mode: SelectionMode = SelectionMode.TOP_PERCENTILE
+    min_conviction_score: float = Field(
+        default=79.0, description="Minimum composite_raw_score for CONVICTION_MOS mode"
+    )
+    min_margin_of_safety: float = Field(
+        default=0.30, description="Minimum margin of safety for CONVICTION_MOS mode"
+    )
 
     @model_validator(mode="after")
     def validate_date_range(self) -> BacktestConfig:

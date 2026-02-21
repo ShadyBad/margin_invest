@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { formatScoredAt } from "@/lib/format"
 import { AppShell } from "@/components/layout"
-import { MetricsSummary, ValidationBadges } from "@/components/backtesting"
+import { MetricsSummary, ValidationBadges, PerformanceChart } from "@/components/backtesting"
 import { SkeletonCard, EmptyState } from "@/components/ui"
 import {
   getBacktestResults,
@@ -115,6 +115,17 @@ export default function BacktestingPage() {
                 Latest Performance Metrics
               </h2>
               <MetricsSummary metrics={result.metrics} />
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
+                Historical Performance
+              </h2>
+              <PerformanceChart
+                snapshots={result.snapshots ?? []}
+                portfolioLabel="Exceptional Portfolio (MoS > 30%, Equal-Weight, Monthly)"
+                benchmarkLabel="S&P 500 (SPY Total Return)"
+              />
             </section>
 
             {result.validation && (

@@ -13,6 +13,7 @@ from margin_engine.backtesting.models import (
     PassThreshold,
     PerformanceMetrics,
     RebalanceFrequency,
+    SelectionMode,
     ValidationResult,
 )
 
@@ -31,6 +32,40 @@ class TestRebalanceFrequency:
     def test_all_members(self):
         members = list(RebalanceFrequency)
         assert len(members) == 2
+
+
+class TestSelectionMode:
+    def test_enum_values(self):
+        assert SelectionMode.TOP_PERCENTILE == "top_percentile"
+        assert SelectionMode.CONVICTION_MOS == "conviction_mos"
+
+    def test_default_selection_mode_is_top_percentile(self):
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 12, 31),
+        )
+        assert config.selection_mode == SelectionMode.TOP_PERCENTILE
+
+    def test_conviction_mos_config(self):
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 12, 31),
+            selection_mode=SelectionMode.CONVICTION_MOS,
+            min_conviction_score=79.0,
+            min_margin_of_safety=0.30,
+        )
+        assert config.selection_mode == SelectionMode.CONVICTION_MOS
+        assert config.min_conviction_score == 79.0
+        assert config.min_margin_of_safety == 0.30
+
+    def test_conviction_mos_defaults(self):
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 12, 31),
+            selection_mode=SelectionMode.CONVICTION_MOS,
+        )
+        assert config.min_conviction_score == 79.0
+        assert config.min_margin_of_safety == 0.30
 
 
 class TestBacktestConfig:
