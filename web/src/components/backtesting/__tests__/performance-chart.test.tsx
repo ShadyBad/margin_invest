@@ -160,4 +160,40 @@ describe("PerformanceChart", () => {
     render(<PerformanceChart snapshots={[]} />)
     expect(screen.queryAllByTestId(/^chart-hit-area-/)).toHaveLength(0)
   })
+
+  it("shows holding count in tooltip when holdingCounts provided", () => {
+    const holdingCounts = [3, 5, 4, 5, 5]
+    render(
+      <PerformanceChart
+        snapshots={mockSnapshots}
+        holdingCounts={holdingCounts}
+        maxHoldings={5}
+      />,
+    )
+    const hitAreas = screen.getAllByTestId(/^chart-hit-area-/)
+    fireEvent.mouseEnter(hitAreas[0])
+    const tooltip = screen.getByTestId("chart-tooltip")
+    expect(tooltip.textContent).toContain("3 of 5")
+  })
+
+  it("shows MoS threshold in tooltip when mosThreshold provided", () => {
+    render(
+      <PerformanceChart
+        snapshots={mockSnapshots}
+        mosThreshold={0.2}
+      />,
+    )
+    const hitAreas = screen.getAllByTestId(/^chart-hit-area-/)
+    fireEvent.mouseEnter(hitAreas[0])
+    const tooltip = screen.getByTestId("chart-tooltip")
+    expect(tooltip.textContent).toContain("> 20%")
+  })
+
+  it("does not show holding count when holdingCounts not provided", () => {
+    render(<PerformanceChart snapshots={mockSnapshots} />)
+    const hitAreas = screen.getAllByTestId(/^chart-hit-area-/)
+    fireEvent.mouseEnter(hitAreas[0])
+    const tooltip = screen.getByTestId("chart-tooltip")
+    expect(tooltip.textContent).not.toContain("of")
+  })
 })

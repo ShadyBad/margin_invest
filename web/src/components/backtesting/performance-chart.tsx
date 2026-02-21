@@ -14,6 +14,9 @@ interface PerformanceChartProps {
   snapshots: SnapshotData[]
   portfolioLabel?: string
   benchmarkLabel?: string
+  holdingCounts?: number[]
+  maxHoldings?: number
+  mosThreshold?: number
   className?: string
 }
 
@@ -64,6 +67,9 @@ export function PerformanceChart({
   snapshots,
   portfolioLabel = "Portfolio",
   benchmarkLabel = "Benchmark",
+  holdingCounts,
+  maxHoldings,
+  mosThreshold,
   className,
 }: PerformanceChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -264,6 +270,16 @@ export function PerformanceChart({
           >
             Excess: {formatPercent(portfolioCumulative[hoveredIndex] - benchmarkCumulative[hoveredIndex])}
           </div>
+          {holdingCounts && maxHoldings && hoveredIndex !== null && (
+            <div className="text-text-secondary">
+              Holdings: {holdingCounts[hoveredIndex]} of {maxHoldings}
+            </div>
+          )}
+          {mosThreshold !== undefined && (
+            <div className="text-text-secondary">
+              MoS: &gt; {(mosThreshold * 100).toFixed(0)}%
+            </div>
+          )}
         </div>
       )}
 
