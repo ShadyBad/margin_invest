@@ -1,7 +1,8 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { signIn, useSession } from "next-auth/react"
 import { useState } from "react"
+import { RecoveryCodesDisplay } from "../mfa/recovery-codes-display"
 import { ProviderIcons } from "./provider-icons"
 import { PasswordSection } from "./password-section"
 import { MfaStatus } from "./mfa-status"
@@ -24,6 +25,7 @@ export function SecuritySection() {
   const [regenerating, setRegenerating] = useState(false)
   const [disabling, setDisabling] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [newRecoveryCodes, setNewRecoveryCodes] = useState<string[] | null>(null)
 
   const providerLabel =
     oauthProvider && PROVIDER_LABELS[oauthProvider]
@@ -36,16 +38,9 @@ export function SecuritySection() {
     setError(null)
     setConnecting(provider)
     try {
-      const res = await fetch("/api/v1/auth/link-provider", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ detail: "Failed to link provider" }))
-        throw new Error(data.detail ?? data.message ?? "Failed to link provider")
-      }
-      await update()
+      // NextAuth's signIn will redirect to the OAuth provider
+      // The oauth-sync callback will create the LinkedProvider record
+      await signIn(provider, { callbackUrl: "/account" })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to link provider")
     } finally {
@@ -70,12 +65,16 @@ export function SecuritySection() {
   }
 
   async function handleRegenerateCodes() {
+    const password = window.prompt("Enter your current password to regenerate recovery codes")
+    if (!password) return
+
     setError(null)
     setRegenerating(true)
     try {
       const res = await fetch("/api/v1/auth/mfa/regenerate-recovery-codes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: password }),
       })
       if (!res.ok) {
         const data = await res
@@ -83,7 +82,8 @@ export function SecuritySection() {
           .catch(() => ({ detail: "Failed to regenerate recovery codes" }))
         throw new Error(data.detail ?? data.message ?? "Failed to regenerate recovery codes")
       }
-      // TODO: Show the new recovery codes to the user
+      const data = await res.json()
+      setNewRecoveryCodes(data.codes)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to regenerate recovery codes")
     } finally {
@@ -92,12 +92,18 @@ export function SecuritySection() {
   }
 
   async function handleDisableMfa() {
+    const password = window.prompt("Enter your current password")
+    if (!password) return
+    const totpCode = window.prompt("Enter your current TOTP code")
+    if (!totpCode) return
+
     setError(null)
     setDisabling(true)
     try {
       const res = await fetch("/api/v1/auth/mfa/disable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: password, totp_code: totpCode }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({ detail: "Failed to disable MFA" }))
@@ -160,6 +166,16 @@ export function SecuritySection() {
             disabling={disabling}
           />
         </div>
+
+        {/* Recovery Codes Display (after regeneration) */}
+        {newRecoveryCodes && (
+          <div className="border-t border-border-primary pt-6">
+            <RecoveryCodesDisplay
+              codes={newRecoveryCodes}
+              onContinue={() => setNewRecoveryCodes(null)}
+            />
+          </div>
+        )}
       </div>
     </section>
   )

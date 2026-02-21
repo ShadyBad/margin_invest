@@ -350,22 +350,20 @@ async def verify_recovery_code(
 )
 async def regenerate_recovery_codes(
     body: RegenerateRecoveryCodesRequest,
-    user_id: int = Depends(get_current_user_id),
+    user: User = Depends(require_mfa_dep),
     db: AsyncSession = Depends(get_db),
     recovery: RecoveryCodeService = Depends(_get_recovery_code_service),
 ) -> RegenerateRecoveryCodesResponse:
     """Regenerate MFA recovery codes. Requires current password verification."""
-    stmt = select(User).where(User.id == user_id)
-    user = (await db.execute(stmt)).scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail="User has no password set")
 
     try:
         _hasher.verify(user.password_hash, body.current_password)
-    except (VerifyMismatchError, Exception):
+    except VerifyMismatchError:
         raise HTTPException(status_code=401, detail="Invalid password")
 
-    codes = await recovery.generate_codes(db, user_id)
+    codes = await recovery.generate_codes(db, user.id)
     return RegenerateRecoveryCodesResponse(codes=codes)
 
 
@@ -377,24 +375,22 @@ async def regenerate_recovery_codes(
 @router.post("/mfa/disable", response_model=DisableMfaResponse)
 async def disable_mfa(
     body: DisableMfaRequest,
-    user_id: int = Depends(get_current_user_id),
+    user: User = Depends(require_mfa_dep),
     db: AsyncSession = Depends(get_db),
     totp: TotpService = Depends(_get_totp_service),
 ) -> DisableMfaResponse:
     """Disable MFA. Requires both current password and a valid TOTP code."""
-    stmt = select(User).where(User.id == user_id)
-    user = (await db.execute(stmt)).scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail="User has no password set")
 
     # Verify password
     try:
         _hasher.verify(user.password_hash, body.current_password)
-    except (VerifyMismatchError, Exception):
+    except VerifyMismatchError:
         raise HTTPException(status_code=401, detail="Invalid password")
 
     # Verify TOTP code
-    verified = await totp.verify_totp(db, user_id, body.totp_code)
+    verified = await totp.verify_totp(db, user.id, body.totp_code)
     if not verified:
         raise HTTPException(status_code=401, detail="Invalid TOTP code")
 
@@ -403,10 +399,10 @@ async def disable_mfa(
     user.mfa_grace_deadline = datetime.now(UTC) + timedelta(hours=72)
 
     # Delete TOTP secrets
-    await db.execute(delete(TotpSecret).where(TotpSecret.user_id == user_id))
+    await db.execute(delete(TotpSecret).where(TotpSecret.user_id == user.id))
 
     # Delete recovery codes
-    await db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user_id))
+    await db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
 
     await db.commit()
     return DisableMfaResponse(mfa_disabled=True)
@@ -502,6 +498,11 @@ async def set_password(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+    if user.has_password:
+        raise HTTPException(
+            status_code=409, detail="Password already set. Use change-password instead."
+        )
+
     try:
         _validate_password(body.new_password)
     except ValueError as exc:
@@ -526,9 +527,12 @@ async def remove_password(
         raise HTTPException(status_code=404, detail="User not found")
 
     # Verify current password
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail="User has no password set")
+
     try:
         _hasher.verify(user.password_hash, body.current_password)
-    except (VerifyMismatchError, Exception):
+    except VerifyMismatchError:
         raise HTTPException(status_code=401, detail="Invalid password")
 
     # Must have at least one linked provider
@@ -542,6 +546,7 @@ async def remove_password(
 
     # Clear password and MFA
     user.password_hash = None
+    user.password_changed_at = None
     user.mfa_enabled = False
     user.mfa_grace_deadline = None
 

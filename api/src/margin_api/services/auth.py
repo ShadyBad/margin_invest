@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import MfaChallengeToken, User
+from margin_api.middleware.mfa_enforcement import _ensure_utc
 
 # Argon2id hasher with OWASP-recommended parameters
 _hasher = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=4)
@@ -29,13 +30,6 @@ _PASSWORD_RULES: list[tuple[str, str]] = [
 # Lockout policy
 _MAX_FAILED_ATTEMPTS = 5
 _LOCKOUT_MINUTES = 15
-
-
-def _ensure_utc(dt: datetime) -> datetime:
-    """Ensure a datetime is timezone-aware (UTC). SQLite stores naive datetimes."""
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=UTC)
-    return dt
 
 
 def _validate_password(password: str) -> None:

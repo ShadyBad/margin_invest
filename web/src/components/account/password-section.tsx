@@ -144,6 +144,9 @@ export function PasswordSection({
   }
 
   async function handleRemovePassword() {
+    const password = window.prompt("Enter your current password to remove it")
+    if (!password) return
+
     setError(null)
     setSuccess(null)
     setRemoving(true)
@@ -152,6 +155,7 @@ export function PasswordSection({
       const res = await fetch("/api/v1/auth/remove-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: password }),
       })
 
       if (!res.ok) {

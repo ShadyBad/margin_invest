@@ -241,6 +241,7 @@ describe("PasswordSection", () => {
     it("calls remove-password API when Remove Password clicked", async () => {
       const user = userEvent.setup()
       global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+      vi.spyOn(window, "prompt").mockReturnValue("MyCurrentPass1!")
       render(
         <PasswordSection
           hasPassword={true}
@@ -251,8 +252,10 @@ describe("PasswordSection", () => {
 
       await user.click(screen.getByRole("button", { name: /remove password/i }))
 
+      expect(window.prompt).toHaveBeenCalled()
       expect(global.fetch).toHaveBeenCalledWith("/api/v1/auth/remove-password", expect.objectContaining({
         method: "POST",
+        body: JSON.stringify({ current_password: "MyCurrentPass1!" }),
       }))
     })
   })
