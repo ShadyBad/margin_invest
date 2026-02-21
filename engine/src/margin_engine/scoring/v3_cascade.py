@@ -18,7 +18,10 @@ from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
 from margin_engine.scoring.quantitative.asymmetry import asymmetry_ratio as compute_asymmetry
 from margin_engine.scoring.quantitative.ensemble_valuation import compute_ensemble_valuation
 from margin_engine.scoring.quantitative.moat_durability import moat_durability_score
-from margin_engine.scoring.quantitative.reverse_dcf import reverse_dcf_growth_gap
+from margin_engine.scoring.quantitative.reverse_dcf import (
+    reverse_dcf_combined_gap,
+    reverse_dcf_growth_gap,
+)
 from margin_engine.scoring.v3_composite import compute_track_a_score, compute_track_b_score
 from margin_engine.scoring.v3_intermediates import (
     compute_capital_allocation_composite,
@@ -43,6 +46,10 @@ class TrackAInputs(BaseModel):
     wacc: float
     terminal_growth: float = 0.03
     sustainable_growth_rate: float
+    current_revenue: float | None = None
+    current_fcf_margin: float | None = None
+    sustainable_fcf_margin: float | None = None
+    revenue_growth_for_margin_solve: float | None = None
     buyback_yield: float | None = None
     insider_ownership_pct: float | None = None
     sbc_pct: float | None = None
@@ -95,15 +102,39 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
     shares = inputs.profile.shares_outstanding or 1
     current_fcf = inputs.current_fcf_per_share * shares
 
-    growth_gap_result = reverse_dcf_growth_gap(
-        current_price=inputs.current_price,
-        current_fcf=current_fcf,
-        wacc=inputs.wacc,
-        terminal_growth=inputs.terminal_growth,
-        shares_outstanding=shares,
-        sustainable_growth_rate=inputs.sustainable_growth_rate,
-    )
-    growth_gap = growth_gap_result.raw_value
+    # If margin inputs available, use combined gap; otherwise use growth-only gap
+    if all(
+        v is not None
+        for v in [
+            inputs.current_revenue,
+            inputs.current_fcf_margin,
+            inputs.sustainable_fcf_margin,
+            inputs.revenue_growth_for_margin_solve,
+        ]
+    ):
+        combined = reverse_dcf_combined_gap(
+            current_price=inputs.current_price,
+            current_fcf=current_fcf,
+            current_revenue=inputs.current_revenue,
+            current_fcf_margin=inputs.current_fcf_margin,
+            sustainable_fcf_margin=inputs.sustainable_fcf_margin,
+            wacc=inputs.wacc,
+            terminal_growth=inputs.terminal_growth,
+            shares_outstanding=shares,
+            sustainable_growth_rate=inputs.sustainable_growth_rate,
+            revenue_growth_for_margin_solve=inputs.revenue_growth_for_margin_solve,
+        )
+        growth_gap = combined.raw_value
+    else:
+        growth_gap_result = reverse_dcf_growth_gap(
+            current_price=inputs.current_price,
+            current_fcf=current_fcf,
+            wacc=inputs.wacc,
+            terminal_growth=inputs.terminal_growth,
+            shares_outstanding=shares,
+            sustainable_growth_rate=inputs.sustainable_growth_rate,
+        )
+        growth_gap = growth_gap_result.raw_value
 
     growth_gap_adjustment = 0.0
     if inputs.regime_adjustments is not None:
@@ -195,22 +226,39 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
     """Run the 4-gate Mispricing cascade and return a V3TrackResult.
 
     Gates:
-        1. Ensemble Valuation: converged AND price < 0.60 * ensemble_iv
+        1. Ensemble Valuation: converged AND price < iv_discount * ensemble_iv
+           iv_discount is tiered by quality floor:
+             0.75 (25% margin) if quality_floor >= 1.0 (ROIC >= 8%)
+             0.65 (35% margin) if quality_floor > 0 (improving)
+             0.60 (40% margin) if quality_floor == 0 (low quality)
         2. Downside Protection: max loss < 50%
-        3. Catalyst: catalyst_strength > 60 (or regime override)
+        3. Catalyst: catalyst_strength > 40 (or regime override)
         4. Quality Floor: quality_floor_factor > 0
     """
     gates_passed = 0
     total_gates = 4
 
-    # --- Gate 1: Ensemble Valuation ---
+    # Compute quality floor early (needed for tiered Gate 1 threshold)
+    roic = _current_roic(inputs.period)
+    improving = _is_roic_improving(inputs.history)
+    quality_floor = compute_quality_floor_factor(roic, improving)
+
+    # --- Gate 1: Ensemble Valuation (tiered IV discount by quality) ---
     ensemble = compute_ensemble_valuation(
         dcf_iv=inputs.dcf_iv,
         owner_earnings_iv=inputs.owner_earnings_iv,
         asset_floor_iv=inputs.asset_floor_iv,
         peer_comparison_iv=inputs.peer_comparison_iv,
+        sector=inputs.profile.sector,
     )
-    if ensemble.converged and inputs.current_price < 0.60 * ensemble.ensemble_iv:
+    if quality_floor >= 1.0:
+        iv_discount = 0.75  # 25% margin for quality businesses (ROIC >= 8%)
+    elif quality_floor > 0:
+        iv_discount = 0.65  # 35% margin for improving businesses
+    else:
+        iv_discount = 0.60  # 40% margin for low-quality (original)
+
+    if ensemble.converged and inputs.current_price < iv_discount * ensemble.ensemble_iv:
         gates_passed += 1
 
     # --- Gate 2: Downside Protection ---
@@ -238,16 +286,13 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
         institutional_percentile=inputs.institutional_percentile,
         sue_percentile=inputs.sue_percentile,
     )
-    catalyst_threshold = 60.0
+    catalyst_threshold = 40.0
     if inputs.regime_adjustments and inputs.regime_adjustments.track_b_catalyst_percentile_override:
         catalyst_threshold = inputs.regime_adjustments.track_b_catalyst_percentile_override
     if catalyst > catalyst_threshold:
         gates_passed += 1
 
-    # --- Gate 4: Quality Floor ---
-    roic = _current_roic(inputs.period)
-    improving = _is_roic_improving(inputs.history)
-    quality_floor = compute_quality_floor_factor(roic, improving)
+    # --- Gate 4: Quality Floor (reuses quality_floor computed before Gate 1) ---
     if quality_floor > 0:
         gates_passed += 1
 

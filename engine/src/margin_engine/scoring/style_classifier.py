@@ -83,6 +83,17 @@ def classify_investment_style(
     winners = [s for s, c in counts.items() if c == max_count]
 
     if len(winners) > 1:
+        # VALUE vs GROWTH tie: break using valuation signal (most investable)
+        if (
+            InvestmentStyle.VALUE in winners
+            and InvestmentStyle.GROWTH in winners
+            and InvestmentStyle.BLEND not in winners
+            and ev_fcf_sector_percentile is not None
+        ):
+            if ev_fcf_sector_percentile <= _VALUATION_LOW:
+                return InvestmentStyle.VALUE
+            elif ev_fcf_sector_percentile >= _VALUATION_HIGH:
+                return InvestmentStyle.GROWTH
         return InvestmentStyle.BLEND
 
     return winners[0]

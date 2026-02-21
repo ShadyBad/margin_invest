@@ -34,6 +34,14 @@ def compute_owner_earnings_iv(
     return owner_earnings_per_share * (1.0 + terminal_growth) / (wacc - terminal_growth)
 
 
+def _median_tax_rate(history: FinancialHistory) -> float:
+    """Return median effective tax rate across all periods."""
+    rates = [p.current_income.effective_tax_rate for p in history.periods]
+    if not rates:
+        return 0.21  # US statutory fallback
+    return statistics.median(rates)
+
+
 def _nopat_and_ic(period: FinancialPeriod) -> tuple[float, float]:
     """Return (NOPAT, Invested Capital) for a period."""
     ci = period.current_income
@@ -47,7 +55,10 @@ def _nopat_and_ic(period: FinancialPeriod) -> tuple[float, float]:
 
 
 def compute_compounding_power(history: FinancialHistory) -> float:
-    """Compute compounding power = incremental_ROIC * reinvestment_rate * (1 - ROIC_CV).
+    """Compute compounding power = incremental_ROIC * reinvestment_rate * stability.
+
+    Stability uses MAD (median absolute deviation) instead of CV, making it
+    robust to outliers. This benefits serial acquirers with lumpy ROIC histories.
 
     Returns 0.0 if insufficient data or any component is non-positive.
     """
@@ -75,22 +86,28 @@ def compute_compounding_power(history: FinancialHistory) -> float:
     if reinvestment_rate <= 0:
         return 0.0
 
-    # ROIC CV (coefficient of variation across all periods)
+    # ROIC stability via MAD (robust to outliers, benefits serial acquirers)
+    # Use median tax rate to isolate operating performance from tax volatility
+    med_tax = _median_tax_rate(history)
     roics = []
     for p in history.periods:
-        nopat, ic = _nopat_and_ic(p)
+        ci = p.current_income
+        cb = p.current_balance
+        ebit = float(ci.ebit)
+        nopat_m = ebit * (1.0 - med_tax)
+        cash = float(cb.cash_and_equivalents or Decimal("0"))
+        ic = float(cb.total_equity) + float(cb.total_debt) - cash
         if ic > 0:
-            roics.append(nopat / ic)
+            roics.append(nopat_m / ic)
     if len(roics) < 2:
-        cv = 0.0
+        stability = 1.0
     else:
-        mean_roic = statistics.mean(roics)
-        if mean_roic == 0:
-            return 0.0
-        stdev_roic = statistics.pstdev(roics)
-        cv = min(abs(stdev_roic / mean_roic), 1.0)
+        median_roic = statistics.median(roics)
+        mad = statistics.median([abs(r - median_roic) for r in roics])
+        normalized_mad = min(mad / max(abs(median_roic), 0.001), 1.0)
+        stability = 1.0 - normalized_mad
 
-    return inc_roic * reinvestment_rate * (1.0 - cv)
+    return inc_roic * reinvestment_rate * max(stability, 0.0)
 
 
 def _normalize_factor(raw_value: float, max_value: float) -> float:
@@ -159,11 +176,16 @@ def compute_catalyst_strength(
     institutional_percentile: float,
     sue_percentile: float,
 ) -> float:
-    """Catalyst strength = max of three catalyst signals.
+    """Catalyst strength = weighted blend favoring corroboration.
 
-    Each input is a percentile (0-100). Returns the strongest signal.
+    50% weight on strongest signal, 30% on second, 20% on third.
+    This rewards multiple confirming catalysts over a single outlier.
     """
-    return max(insider_percentile, institutional_percentile, sue_percentile)
+    sorted_signals = sorted(
+        [insider_percentile, institutional_percentile, sue_percentile],
+        reverse=True,
+    )
+    return 0.50 * sorted_signals[0] + 0.30 * sorted_signals[1] + 0.20 * sorted_signals[2]
 
 
 def compute_quality_floor_factor(roic: float, roic_improving: bool) -> float:

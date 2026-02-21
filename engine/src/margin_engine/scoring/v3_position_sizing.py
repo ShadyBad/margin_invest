@@ -1,6 +1,6 @@
 """v3 Position Sizing — track-specific with portfolio concentration cap.
 
-Medium = 0% (not actionable). Compounders slightly larger than mispricings.
+Compounders slightly larger than mispricings. Medium gets starter positions.
 "Both" classification gets maximum 20%.
 """
 
@@ -14,37 +14,37 @@ _SIZING: dict[str, dict[ConvictionLevel, float]] = {
     "compounder": {
         ConvictionLevel.EXCEPTIONAL: 15.0,
         ConvictionLevel.HIGH: 8.0,
-        ConvictionLevel.MEDIUM: 0.0,
+        ConvictionLevel.MEDIUM: 4.0,
         ConvictionLevel.NONE: 0.0,
     },
     "mispricing": {
         ConvictionLevel.EXCEPTIONAL: 12.0,
         ConvictionLevel.HIGH: 6.0,
-        ConvictionLevel.MEDIUM: 0.0,
+        ConvictionLevel.MEDIUM: 3.0,
         ConvictionLevel.NONE: 0.0,
     },
     "both": {
         ConvictionLevel.EXCEPTIONAL: 20.0,
         ConvictionLevel.HIGH: 10.0,
-        ConvictionLevel.MEDIUM: 0.0,
+        ConvictionLevel.MEDIUM: 5.0,
         ConvictionLevel.NONE: 0.0,
     },
     "efficient_growth": {
-        ConvictionLevel.EXCEPTIONAL: 12.0,
-        ConvictionLevel.HIGH: 7.0,
-        ConvictionLevel.MEDIUM: 0.0,
+        ConvictionLevel.EXCEPTIONAL: 15.0,
+        ConvictionLevel.HIGH: 8.0,
+        ConvictionLevel.MEDIUM: 3.0,
         ConvictionLevel.NONE: 0.0,
     },
     "compounder_growth": {
         ConvictionLevel.EXCEPTIONAL: 20.0,
         ConvictionLevel.HIGH: 10.0,
-        ConvictionLevel.MEDIUM: 0.0,
+        ConvictionLevel.MEDIUM: 5.0,
         ConvictionLevel.NONE: 0.0,
     },
     "all_three": {
         ConvictionLevel.EXCEPTIONAL: 20.0,
         ConvictionLevel.HIGH: 12.0,
-        ConvictionLevel.MEDIUM: 0.0,
+        ConvictionLevel.MEDIUM: 5.0,
         ConvictionLevel.NONE: 0.0,
     },
 }

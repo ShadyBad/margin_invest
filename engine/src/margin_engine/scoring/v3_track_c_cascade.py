@@ -90,10 +90,8 @@ def run_track_c_cascade(inputs: TrackCInputs) -> V3TrackResult:
     # CE = min(inc_roic / wacc, 3.0) if wacc > 0 else 0
     ce = min(inputs.incremental_roic / inputs.wacc, 3.0) if inputs.wacc > 0 else 0.0
 
-    # GD = min(tam / 3, 2.0) * (1 - max(-decel, 0) / 20)
-    gd = min(inputs.tam_headroom / 3.0, 2.0) * (
-        1.0 - max(-inputs.revenue_deceleration, 0.0) / 20.0
-    )
+    # GD = min(tam / 3, 1.5) * (1 - max(-decel, 0) / 20)
+    gd = min(inputs.tam_headroom / 3.0, 1.5) * (1.0 - max(-inputs.revenue_deceleration, 0.0) / 20.0)
 
     score = compute_track_c_score(
         growth_efficiency=ge,

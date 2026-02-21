@@ -33,6 +33,7 @@ def asset_floor_valuation(
     tangible_book: Decimal,
     sector: GICSSector,
     shares_outstanding: int,
+    regime_multiplier: float = 1.0,
 ) -> float:
     """Compute asset-based floor valuation per share.
 
@@ -41,6 +42,8 @@ def asset_floor_valuation(
         tangible_book: Total Equity - Intangible Assets - Goodwill.
         sector: GICS sector for liquidation multiple lookup.
         shares_outstanding: Total shares outstanding.
+        regime_multiplier: Scale factor for the sector liquidation multiple
+            (e.g., 0.7 in stressed regimes, 1.2 in boom).
 
     Returns:
         Floor value per share (>= 0.0).
@@ -49,6 +52,7 @@ def asset_floor_valuation(
         return 0.0
 
     multiple = _SECTOR_LIQUIDATION_MULTIPLES.get(sector, _DEFAULT_MULTIPLE)
+    multiple *= regime_multiplier
     total_floor = float(net_cash) + float(tangible_book) * multiple
     per_share = max(total_floor, 0.0) / shares_outstanding
 

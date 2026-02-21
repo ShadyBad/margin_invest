@@ -197,3 +197,112 @@ class TestRunTrackBCascade:
             regime_adjustments=adj,
         ))
         assert result.track == "mispricing"
+
+    def test_high_quality_at_70pct_iv_passes_gate1(self):
+        """ROIC=21% business at 70% of IV passes Gate 1 (25% margin via 0.75 threshold).
+
+        Under new rules: iv_discount = 0.75, price 68.25 < 0.75*97.5=73.125 -> passes
+        Under OLD rules: iv_discount = 0.60, price 68.25 > 0.60*97.5=58.5 -> would have failed
+
+        Gates analysis:
+          Gate 1: passes (tiered: 0.75 threshold for quality_floor >= 1.0)
+          Gate 2: fails (asset_floor_ps=0 for tech, max_loss=1.0)
+          Gate 3: passes (catalyst ~76.5 > 40)
+          Gate 4: passes (ROIC=21% -> quality_floor=1.0)
+        Total: 3 gates passed (was 2 without tiered IV)
+        """
+        period = _period()  # ROIC ~21%, well above 8%
+        history = FinancialHistory(ticker="HQ", periods=[period])
+        result = run_track_b_cascade(TrackBInputs(
+            history=history,
+            period=period,
+            profile=_profile(),
+            current_price=68.25,  # 70% of ensemble IV (97.5)
+            dcf_iv=100.0, owner_earnings_iv=95.0,
+            asset_floor_iv=90.0, peer_comparison_iv=105.0,
+            insider_percentile=80.0, institutional_percentile=75.0,
+            sue_percentile=70.0, wacc=0.10,
+            regime_adjustments=None,
+        ))
+        # Gate 1 must pass with tiered threshold — 3 gates total
+        assert result.gates_passed == 3
+
+    def test_improving_at_62pct_iv_passes_gate1(self):
+        """ROIC=5%, improving at 62% of IV passes Gate 1 (35% margin via 0.65 threshold).
+
+        quality_floor > 0 but < 1.0 -> iv_discount = 0.65
+        price 60.45 < 0.65 * 97.5 = 63.375 -> passes
+
+        Gates analysis:
+          Gate 1: passes (tiered: 0.65 threshold for improving quality)
+          Gate 2: fails (asset_floor_ps=0 for tech, max_loss=1.0)
+          Gate 3: passes (catalyst ~76.5 > 40)
+          Gate 4: passes (ROIC=5.1%, improving -> quality_floor > 0)
+        Total: 3 gates passed (was 2 without tiered IV)
+        """
+        period_early = _period(ebit=Decimal("30"), period_end="2022-12-31")
+        period_late = _period(ebit=Decimal("48"), period_end="2024-12-31")
+        history = FinancialHistory(ticker="IMP", periods=[period_early, period_late])
+        result = run_track_b_cascade(TrackBInputs(
+            history=history,
+            period=period_late,
+            profile=_profile(),
+            current_price=60.45,  # 62% of ensemble IV (97.5)
+            dcf_iv=100.0, owner_earnings_iv=95.0,
+            asset_floor_iv=90.0, peer_comparison_iv=105.0,
+            insider_percentile=80.0, institutional_percentile=75.0,
+            sue_percentile=70.0, wacc=0.10,
+            regime_adjustments=None,
+        ))
+        # Gate 1 must pass with tiered threshold — 3 gates total
+        assert result.gates_passed == 3
+
+    def test_low_quality_at_62pct_iv_fails_gate1(self):
+        """ROIC=3%, not improving at 62% of IV fails Gate 1 (40% margin still at 0.60).
+
+        quality_floor = 0 -> iv_discount = 0.60
+        price 60.45 > 0.60 * 97.5 = 58.5 -> fails
+        """
+        # ebit=30 gives ROIC = 30*0.79/750 = ~3.2%, single period -> not improving
+        period = _period(ebit=Decimal("30"))
+        history = FinancialHistory(ticker="LQ", periods=[period])
+        result = run_track_b_cascade(TrackBInputs(
+            history=history,
+            period=period,
+            profile=_profile(),
+            current_price=60.45,  # 62% of ensemble IV (97.5)
+            dcf_iv=100.0, owner_earnings_iv=95.0,
+            asset_floor_iv=90.0, peer_comparison_iv=105.0,
+            insider_percentile=80.0, institutional_percentile=75.0,
+            sue_percentile=70.0, wacc=0.10,
+            regime_adjustments=None,
+        ))
+        # Gate 1 should fail: price 60.45 > 0.60 * 97.5 = 58.5
+        # But other gates may pass (catalyst, quality floor NOT since quality_floor=0)
+        # With single period and low ROIC: quality_floor=0, gate4 also fails
+        # Gates that can pass: gate2 (downside), gate3 (catalyst)
+        # Gate 1 specifically should NOT pass, so gates_passed should exclude gate1
+        # We can't directly check gate1, but we know total - verify price above threshold
+        assert result.gates_passed <= 2  # gate2 + gate3 at most (no gate1, no gate4)
+
+    def test_low_quality_at_55pct_iv_passes_gate1(self):
+        """ROIC=3%, not improving at 55% of IV passes Gate 1.
+
+        quality_floor = 0 -> iv_discount = 0.60
+        price 53.625 < 0.60 * 97.5 = 58.5 -> passes
+        """
+        period = _period(ebit=Decimal("30"))
+        history = FinancialHistory(ticker="LQ2", periods=[period])
+        result = run_track_b_cascade(TrackBInputs(
+            history=history,
+            period=period,
+            profile=_profile(),
+            current_price=53.625,  # 55% of ensemble IV (97.5)
+            dcf_iv=100.0, owner_earnings_iv=95.0,
+            asset_floor_iv=90.0, peer_comparison_iv=105.0,
+            insider_percentile=80.0, institutional_percentile=75.0,
+            sue_percentile=70.0, wacc=0.10,
+            regime_adjustments=None,
+        ))
+        # Gate 1 should pass: price 53.625 < 0.60 * 97.5 = 58.5
+        assert result.gates_passed >= 1

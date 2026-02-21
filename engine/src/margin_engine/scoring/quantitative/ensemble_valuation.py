@@ -16,6 +16,14 @@ import statistics
 
 from pydantic import BaseModel
 
+from margin_engine.models.financial import GICSSector
+
+_ASSET_LIGHT_SECTORS = frozenset({
+    GICSSector.TECHNOLOGY,
+    GICSSector.COMMUNICATION_SERVICES,
+    GICSSector.HEALTHCARE,
+})
+
 
 class EnsembleResult(BaseModel):
     """Result of ensemble valuation convergence test."""
@@ -34,6 +42,7 @@ def compute_ensemble_valuation(
     peer_comparison_iv: float,
     convergence_pct: float = 0.30,
     min_converging: int = 3,
+    sector: GICSSector | None = None,
 ) -> EnsembleResult:
     """Compute ensemble intrinsic value from 4 independent methods.
 
@@ -97,6 +106,27 @@ def compute_ensemble_valuation(
         # Remove the value furthest from the median
         furthest = max(remaining, key=lambda v: abs(v - median_iv))
         remaining.remove(furthest)
+
+    # Asset-light fallback: converge on DCF + peer_comparison only.
+    # Asset-light businesses (Technology, Communication Services, Healthcare)
+    # have near-zero asset floor valuations, making 3-of-4 convergence impossible.
+    if sector in _ASSET_LIGHT_SECTORS:
+        core_methods = {"dcf": dcf_iv, "peer_comparison": peer_comparison_iv}
+        core_valid = {k: v for k, v in core_methods.items() if v > 0}
+        if len(core_valid) == 2:
+            vals = list(core_valid.values())
+            median_iv = statistics.median(vals)
+            if median_iv > 0:
+                within = [
+                    v for v in vals if abs(v - median_iv) / median_iv <= convergence_pct
+                ]
+                if len(within) >= 2:
+                    return EnsembleResult(
+                        converged=True,
+                        converging_count=2,
+                        ensemble_iv=median_iv,
+                        methods=methods,
+                    )
 
     converging_count = len(best_converging) if best_converging else 0
     return EnsembleResult(

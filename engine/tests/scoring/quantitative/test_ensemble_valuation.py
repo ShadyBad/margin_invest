@@ -72,6 +72,55 @@ class TestEnsembleValuation:
         assert result.converged is True
         assert result.converging_count == 3
 
+    def test_asset_light_dcf_peer_convergence(self):
+        """Tech company: DCF=100, peer=110, asset_floor=5, owner_earnings=50 ->
+        Standard 3-of-4 fails but asset-light fallback converges on DCF+peer."""
+        from margin_engine.models.financial import GICSSector
+
+        result = compute_ensemble_valuation(
+            dcf_iv=100.0,
+            owner_earnings_iv=50.0,
+            asset_floor_iv=5.0,
+            peer_comparison_iv=110.0,
+            sector=GICSSector.TECHNOLOGY,
+        )
+        assert result.converged is True
+        assert result.converging_count == 2
+
+    def test_same_inputs_no_sector_does_not_converge(self):
+        """Same inputs without sector parameter -> does NOT converge."""
+        result = compute_ensemble_valuation(
+            dcf_iv=100.0,
+            owner_earnings_iv=50.0,
+            asset_floor_iv=5.0,
+            peer_comparison_iv=110.0,
+        )
+        assert result.converged is False
+
+    def test_non_tech_same_inputs_does_not_converge(self):
+        """Non-tech company with same inputs -> does NOT converge."""
+        from margin_engine.models.financial import GICSSector
+
+        result = compute_ensemble_valuation(
+            dcf_iv=100.0,
+            owner_earnings_iv=50.0,
+            asset_floor_iv=5.0,
+            peer_comparison_iv=110.0,
+            sector=GICSSector.FINANCIALS,
+        )
+        assert result.converged is False
+
+    def test_existing_3_of_4_convergence_unchanged(self):
+        """Standard 3-of-4 convergence still works as before."""
+        result = compute_ensemble_valuation(
+            dcf_iv=100.0,
+            owner_earnings_iv=105.0,
+            asset_floor_iv=95.0,
+            peer_comparison_iv=110.0,
+        )
+        assert result.converged is True
+        assert result.converging_count >= 3
+
     def test_methods_dict_populated(self):
         result = compute_ensemble_valuation(
             dcf_iv=100.0,

@@ -185,7 +185,7 @@ class TestOrchestrate:
         # Both qualify but neither is HIGH+, so no "both" promotion
         assert result.opportunity_type != "both"
         assert result.conviction == ConvictionLevel.MEDIUM
-        assert result.max_position_pct == 0.0  # Medium = 0%
+        assert result.max_position_pct == 4.0  # Medium compounder starter
 
     def test_one_medium_one_high_no_promotion(self):
         """One MEDIUM + one HIGH should NOT promote — both need HIGH+."""
