@@ -8,10 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from margin_api.config import Settings, get_settings
 from margin_api.db.session import get_db
 from margin_api.deps import require_plan
+from margin_api.middleware.mfa_enforcement import require_mfa_dep
 from margin_api.schemas.keys import ApiKeyListResponse, ApiKeyResponse, SaveKeyRequest
 from margin_api.services.api_keys import ApiKeyService
 
-router = APIRouter(prefix="/api/v1/keys", tags=["keys"])
+router = APIRouter(prefix="/api/v1/keys", tags=["keys"], dependencies=[Depends(require_mfa_dep)])
 
 
 def _get_api_key_service(settings: Settings = Depends(get_settings)) -> ApiKeyService:
