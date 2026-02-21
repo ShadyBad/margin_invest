@@ -94,6 +94,7 @@ class OAuthSyncRequest(BaseModel):
     email: str = Field(max_length=320)
     name: str = Field(max_length=255)
     provider: str = Field(max_length=50)
+    oauth_id: str = Field(max_length=255)
     avatar_url: str | None = None
 
 

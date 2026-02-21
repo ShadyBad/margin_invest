@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from margin_api.config import get_settings
 
 logger = logging.getLogger(__name__)
-from margin_api.db.models import CredentialUser, User
+from margin_api.db.models import LinkedProvider, User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
 from margin_api.schemas.auth import (
@@ -85,7 +85,7 @@ async def register(
             status_code=409,
             detail="A user with this username or email already exists",
         ) from exc
-    return RegisterResponse(id=user.id, username=user.username, email=user.email)
+    return RegisterResponse(id=user.id, username=user.name, email=user.email)
 
 
 @router.post("/verify-credentials", response_model=VerifyCredentialsResponse)
@@ -125,7 +125,7 @@ async def setup_totp(
         raise HTTPException(status_code=403, detail="Invalid or expired challenge token")
 
     # Look up user to get their email
-    stmt = select(CredentialUser).where(CredentialUser.id == body.user_id)
+    stmt = select(User).where(User.id == body.user_id)
     user = (await db.execute(stmt)).scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -181,13 +181,13 @@ async def register_webauthn(
     if not valid:
         raise HTTPException(status_code=403, detail="Invalid or expired challenge token")
 
-    stmt = select(CredentialUser).where(CredentialUser.id == body.user_id)
+    stmt = select(User).where(User.id == body.user_id)
     user = (await db.execute(stmt)).scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
     options = await webauthn.generate_registration_options(
-        db, user.id, user.username, user.email
+        db, user.id, user.name or user.email, user.email
     )
     return WebAuthnOptionsResponse(options=options)
 
@@ -225,7 +225,6 @@ async def oauth_sync(
         user = User(
             email=body.email,
             name=body.name,
-            provider=body.provider,
             oauth_avatar_url=body.avatar_url,
         )
         db.add(user)
@@ -233,6 +232,21 @@ async def oauth_sync(
     else:
         user.name = body.name
         user.oauth_avatar_url = body.avatar_url
+
+    # Upsert LinkedProvider for this OAuth provider
+    lp_stmt = select(LinkedProvider).where(
+        LinkedProvider.user_id == user.id,
+        LinkedProvider.provider == body.provider,
+    )
+    lp = (await db.execute(lp_stmt)).scalar_one_or_none()
+    if lp is None:
+        lp = LinkedProvider(
+            user_id=user.id,
+            provider=body.provider,
+            oauth_id=body.oauth_id,
+            provider_email=body.email,
+        )
+        db.add(lp)
 
     await db.commit()
     await db.refresh(user)
@@ -247,7 +261,7 @@ async def check_session(
 ) -> dict:
     """Internal endpoint called by NextAuth JWT callback to check if password was changed."""
     result = await db.execute(
-        select(CredentialUser).where(CredentialUser.id == user_id)
+        select(User).where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
     if not user or not user.password_changed_at:
