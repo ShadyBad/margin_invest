@@ -2,6 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react"
 import { usePathname } from "next/navigation"
+import { getDisplayName } from "@/lib/user"
 
 export interface NavLink {
   href: string
@@ -11,6 +12,7 @@ export interface NavLink {
 
 export interface UserDropdownItem {
   label: string
+  title?: string
   href?: string
   onClick?: () => void
   type: "link" | "action" | "divider"
@@ -68,7 +70,12 @@ export function useNavigation(): NavigationState {
         avatarUrl: session!.avatarUrl ?? null,
         oauthAvatarUrl: session!.oauthAvatarUrl ?? session!.user?.image ?? null,
         dropdownItems: [
-          { label: "Account", href: "/account", type: "link" as const },
+          {
+            label: getDisplayName(session!.user!),
+            title: session!.user?.name?.trim() || session!.user?.email?.split("@")[0] || "User",
+            href: "/account",
+            type: "link" as const,
+          },
           { label: "", type: "divider" as const },
           { label: "Sign Out", onClick: () => signOut(), type: "action" as const },
         ],

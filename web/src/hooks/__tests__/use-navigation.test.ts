@@ -100,11 +100,11 @@ describe("useNavigation", () => {
       expect(result.current.user!.email).toBe("jane@example.com")
     })
 
-    it("returns dropdown items including sign out", () => {
+    it("returns dropdown items with display name and sign out", () => {
       const { result } = renderHook(() => useNavigation())
       const items = result.current.user!.dropdownItems
       const labels = items.map((i) => i.label)
-      expect(labels).toContain("Account")
+      expect(labels).toContain("Jane Doe")
       expect(labels).toContain("Sign Out")
     })
 
