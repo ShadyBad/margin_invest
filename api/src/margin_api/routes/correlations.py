@@ -106,8 +106,10 @@ async def get_correlations(
                 price_hist = row.price_history
                 bars_raw = price_hist.get("bars", []) if isinstance(price_hist, dict) else []
                 if bars_raw:
-                    bars = [PriceBar(**bar) for bar in bars_raw]
-                    price_data[ticker] = bars
+                    bars = [_parse_bar(bar) for bar in bars_raw]
+                    bars = [b for b in bars if b is not None]
+                    if bars:
+                        price_data[ticker] = bars
 
         if len(price_data) < 2:
             raise HTTPException(
@@ -148,6 +150,24 @@ async def get_correlations(
         result = compute_factor_correlations(factor_profiles)
 
     return CorrelationResponse(**result.model_dump())
+
+
+def _parse_bar(raw: dict) -> PriceBar | None:
+    """Parse a price bar from yfinance-formatted JSONB (capitalized keys)."""
+    from margin_engine.models.financial import PriceBar
+
+    try:
+        return PriceBar(
+            date=raw.get("Date", raw.get("date", "")),
+            open=raw.get("Open", raw.get("open", 0)),
+            high=raw.get("High", raw.get("high", 0)),
+            low=raw.get("Low", raw.get("low", 0)),
+            close=raw.get("Close", raw.get("close", 0)),
+            volume=int(raw.get("Volume", raw.get("volume", 0))),
+            adj_close=raw.get("Adj Close", raw.get("adj_close")),
+        )
+    except Exception:
+        return None
 
 
 def _rebuild_factor(data: dict) -> FactorBreakdown:
