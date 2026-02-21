@@ -26,7 +26,7 @@ from margin_engine.models.financial import (
     FinancialPeriod,
     GICSSector,
 )
-from margin_engine.models.scoring import FilterResult
+from margin_engine.models.scoring import FilterResult, InvestmentStyle
 
 _THRESHOLD = 0.0
 _FILTER_NAME = "fcf_distress"
@@ -82,6 +82,7 @@ def fcf_distress_check_v2(
     history_or_period: FinancialHistory | FinancialPeriod,
     config: FcfDistressConfig | None = None,
     sector: GICSSector | None = None,
+    style: InvestmentStyle | None = None,
 ) -> FilterResult:
     """Check if free cash flow indicates financial distress (multi-year).
 
@@ -99,6 +100,9 @@ def fcf_distress_check_v2(
         sector: Optional GICSSector for cyclical relaxation. Cyclical sectors
             (Energy, Materials, Industrials, Consumer Discretionary) use a
             relaxed positive-year threshold.
+        style: Optional InvestmentStyle for style-aware adjustments. Growth
+            stocks use a relaxed positive-year threshold and an additional
+            OCF + gross margin rescue path.
 
     Returns:
         FilterResult with computed_metrics, warning, and warning_reason
@@ -125,8 +129,12 @@ def fcf_distress_check_v2(
     # 1. Count positive FCF years
     positive_years = sum(1 for fcf in fcf_values if fcf >= 0)
 
-    # 2. Determine required positive years (with cyclical relaxation)
-    required = config.positive_years_required
+    # 2. Determine required positive years (with cyclical/style relaxation)
+    is_growth = style == InvestmentStyle.GROWTH
+    if is_growth:
+        required = config.growth_positive_years_required
+    else:
+        required = config.positive_years_required
     is_cyclical = sector is not None and sector.is_cyclical
     if is_cyclical:
         required = max(1, required - _CYCLICAL_RELAXATION)
@@ -186,6 +194,28 @@ def fcf_distress_check_v2(
                 f"FCF positive trend rescue: {consecutive_improving} consecutive "
                 f"improving years despite only {positive_years}/{total_years} "
                 f"positive years (required {required})"
+            )
+
+    if not count_passed and is_growth:
+        # Check 4: Growth OCF + gross margin rescue
+        # If the latest period has positive operating CF and the median gross
+        # margin across all periods exceeds the threshold, allow a pass with warning.
+        latest_period = periods[-1]
+        latest_ocf = float(latest_period.current_cash_flow.operating_cash_flow)
+        gross_margins = [p.current_income.gross_margin for p in periods]
+        median_gross_margin = statistics.median(gross_margins) if gross_margins else 0.0
+        if (
+            latest_ocf > 0
+            and median_gross_margin > config.growth_ocf_rescue_min_gross_margin
+        ):
+            count_passed = True
+            warning = True
+            warning_reason = (
+                f"Growth OCF rescue: latest OCF={latest_ocf:,.0f} (positive), "
+                f"median gross margin={median_gross_margin:.1%} > "
+                f"{config.growth_ocf_rescue_min_gross_margin:.0%} threshold, "
+                f"despite only {positive_years}/{total_years} positive FCF years "
+                f"(required {required})"
             )
 
     # Build detail string
