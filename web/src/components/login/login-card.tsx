@@ -68,13 +68,30 @@ function EyeOffIcon() {
   )
 }
 
-interface LoginCardProps {
-  initialMode?: "signin" | "signup"
+function getAuthErrorMessage(error?: string, code?: string): string | null {
+  if (error !== "CredentialsSignin") return null
+  switch (code) {
+    case "api_unreachable":
+      return "Unable to reach the authentication service. Please try again later."
+    case "account_locked":
+      return "Account locked due to too many failed attempts. Try again in 15 minutes."
+    case "invalid_credentials":
+    default:
+      return "Invalid username or password."
+  }
 }
 
-export function LoginCard({ initialMode = "signin" }: LoginCardProps) {
+interface LoginCardProps {
+  initialMode?: "signin" | "signup"
+  authError?: string
+  authCode?: string
+  resetSuccess?: boolean
+}
+
+export function LoginCard({ initialMode = "signin", authError, authCode, resetSuccess }: LoginCardProps) {
+  const authErrorMessage = getAuthErrorMessage(authError, authCode)
   const [mode, setMode] = useState<"signin" | "signup">(initialMode)
-  const [showCredentials, setShowCredentials] = useState(false)
+  const [showCredentials, setShowCredentials] = useState(!!authErrorMessage)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -83,6 +100,8 @@ export function LoginCard({ initialMode = "signin" }: LoginCardProps) {
   const [serverError, setServerError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [forgotMode, setForgotMode] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   const passwordRules = validatePassword(password)
 
@@ -93,6 +112,8 @@ export function LoginCard({ initialMode = "signin" }: LoginCardProps) {
     setConfirmPassword("")
     setConfirmPasswordError("")
     setServerError("")
+    setForgotMode(false)
+    setResetSent(false)
   }
 
   const handleCredentialsSubmit = (e: React.FormEvent) => {
@@ -155,6 +176,26 @@ export function LoginCard({ initialMode = "signin" }: LoginCardProps) {
       resetForm()
       setMode("signin")
       setSuccessMessage("Account created — sign in to continue")
+    } catch {
+      setServerError("Unable to reach the server. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setServerError("")
+    setIsSubmitting(true)
+    try {
+      const res = await fetch("/api/v1/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      if (res.ok) {
+        setResetSent(true)
+      }
     } catch {
       setServerError("Unable to reach the server. Please try again.")
     } finally {
@@ -237,14 +278,22 @@ export function LoginCard({ initialMode = "signin" }: LoginCardProps) {
       </div>
 
       {/* Status messages */}
+      {resetSuccess && (
+        <p className="text-[13px] text-green-400 text-center mb-4">
+          Password reset successfully. Sign in with your new password.
+        </p>
+      )}
       {successMessage && (
         <p className="text-[13px] text-green-400 text-center mb-4">{successMessage}</p>
+      )}
+      {authErrorMessage && (
+        <p className="text-[13px] text-red-400 text-center mb-4">{authErrorMessage}</p>
       )}
 
       {/* Credentials toggle + form */}
       <div className="grid transition-[grid-template-rows] duration-300 ease-out" style={{ gridTemplateRows: showCredentials ? "1fr" : "0fr" }}>
         <div className="overflow-hidden">
-          <form onSubmit={mode === "signin" ? handleCredentialsSubmit : handleSignUpSubmit} className="flex flex-col gap-4 pb-1">
+          <form onSubmit={forgotMode && mode === "signin" ? handleForgotSubmit : mode === "signin" ? handleCredentialsSubmit : handleSignUpSubmit} className="flex flex-col gap-4 pb-1">
             {serverError && (
               <p className="text-[13px] text-red-400 text-center">{serverError}</p>
             )}
@@ -261,29 +310,40 @@ export function LoginCard({ initialMode = "signin" }: LoginCardProps) {
                 placeholder="you@example.com"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="password" className="text-[13px] font-medium text-text-secondary">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 w-full rounded-xl bg-white/[0.04] border border-white/[0.08] px-4 pr-11 text-[15px] text-text-primary placeholder-text-secondary/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] transition-all duration-200 focus:border-accent focus:ring-1 focus:ring-accent/30 focus:outline-none"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors duration-200"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
+            {!(forgotMode && mode === "signin") && (
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="password" className="text-[13px] font-medium text-text-secondary">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-12 w-full rounded-xl bg-white/[0.04] border border-white/[0.08] px-4 pr-11 text-[15px] text-text-primary placeholder-text-secondary/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] transition-all duration-200 focus:border-accent focus:ring-1 focus:ring-accent/30 focus:outline-none"
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors duration-200"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+            {mode === "signin" && !forgotMode && (
+              <button
+                type="button"
+                onClick={() => { setForgotMode(true); setServerError("") }}
+                className="text-[13px] text-accent hover:brightness-110 transition-colors self-end -mt-2"
+              >
+                Forgot password?
+              </button>
+            )}
             {mode === "signup" && (
               <div className="flex flex-col gap-1.5 -mt-1">
                 {passwordRules.map((rule) => (
@@ -323,13 +383,25 @@ export function LoginCard({ initialMode = "signin" }: LoginCardProps) {
                 )}
               </div>
             )}
+            {resetSent && (
+              <p className="text-[13px] text-green-400 text-center">Check your email for a reset link.</p>
+            )}
             <button
               type="submit"
               disabled={isSubmitting}
               className="h-12 w-full rounded-xl bg-accent text-white text-[15px] font-semibold hover:brightness-110 active:scale-[0.98] transition-all duration-150 ease-out disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {mode === "signin" ? "Sign In" : "Create Account"}
+              {forgotMode && mode === "signin" ? "Send reset link" : mode === "signin" ? "Sign In" : "Create Account"}
             </button>
+            {forgotMode && (
+              <button
+                type="button"
+                onClick={() => { setForgotMode(false); setResetSent(false); setServerError("") }}
+                className="text-[13px] text-text-secondary hover:text-text-primary transition-colors text-center"
+              >
+                Back to sign in
+              </button>
+            )}
           </form>
         </div>
       </div>

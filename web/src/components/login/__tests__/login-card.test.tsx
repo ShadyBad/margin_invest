@@ -12,8 +12,14 @@ vi.mock("next-auth/react", () => ({
 }))
 
 describe("LoginCard", () => {
+  const originalFetch = global.fetch
+
   beforeEach(() => {
     mockSignIn.mockClear()
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
   })
 
   describe("structure", () => {
@@ -263,13 +269,40 @@ describe("LoginCard", () => {
     })
   })
 
-  describe("sign-up registration", () => {
-    const originalFetch = global.fetch
-
-    afterEach(() => {
-      global.fetch = originalFetch
+  describe("auth error display", () => {
+    it("shows invalid credentials error message", () => {
+      render(<LoginCard authError="CredentialsSignin" authCode="invalid_credentials" />)
+      expect(screen.getByText("Invalid username or password.")).toBeInTheDocument()
     })
 
+    it("shows API unreachable error message", () => {
+      render(<LoginCard authError="CredentialsSignin" authCode="api_unreachable" />)
+      expect(screen.getByText(/unable to reach the authentication service/i)).toBeInTheDocument()
+    })
+
+    it("shows account locked error message", () => {
+      render(<LoginCard authError="CredentialsSignin" authCode="account_locked" />)
+      expect(screen.getByText(/account locked/i)).toBeInTheDocument()
+    })
+
+    it("auto-expands credentials form when auth error is present", () => {
+      render(<LoginCard authError="CredentialsSignin" authCode="invalid_credentials" />)
+      expect(screen.getByLabelText("Email")).toBeInTheDocument()
+      expect(screen.getByLabelText("Password", { selector: "input" })).toBeInTheDocument()
+    })
+
+    it("shows default error for unknown code", () => {
+      render(<LoginCard authError="CredentialsSignin" authCode="credentials" />)
+      expect(screen.getByText("Invalid username or password.")).toBeInTheDocument()
+    })
+
+    it("does not show error when no auth error prop", () => {
+      render(<LoginCard />)
+      expect(screen.queryByText("Invalid username or password.")).not.toBeInTheDocument()
+    })
+  })
+
+  describe("sign-up registration", () => {
     it("calls register API and switches to sign-in on success", async () => {
       const user = userEvent.setup()
       global.fetch = vi.fn().mockResolvedValue({
@@ -345,6 +378,63 @@ describe("LoginCard", () => {
       await waitFor(() => {
         expect(screen.getByText(/unable to reach the server/i)).toBeInTheDocument()
       })
+    })
+  })
+
+  describe("forgot password", () => {
+    it("shows 'Forgot password?' link in sign-in mode when credentials visible", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.getByText("Forgot password?")).toBeInTheDocument()
+    })
+
+    it("does not show 'Forgot password?' in sign-up mode", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.queryByText("Forgot password?")).not.toBeInTheDocument()
+    })
+
+    it("switches to reset request form when clicked", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Forgot password?"))
+      expect(screen.getByText("Send reset link")).toBeInTheDocument()
+      // Password field should be gone
+      expect(screen.queryByLabelText("Password", { selector: "input" })).not.toBeInTheDocument()
+    })
+
+    it("returns to sign-in form when 'Back to sign in' clicked", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Forgot password?"))
+      await user.click(screen.getByText("Back to sign in"))
+      expect(screen.getByLabelText("Password", { selector: "input" })).toBeInTheDocument()
+    })
+
+    it("shows success message after submitting email", async () => {
+      const user = userEvent.setup()
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+
+      render(<LoginCard />)
+      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Forgot password?"))
+      await user.type(screen.getByLabelText("Email"), "test@example.com")
+      await user.click(screen.getByText("Send reset link"))
+
+      await waitFor(() => {
+        expect(screen.getByText(/check your email/i)).toBeInTheDocument()
+      })
+    })
+
+    it("shows resetSuccess message when prop is true", () => {
+      render(<LoginCard resetSuccess={true} />)
+      expect(screen.getByText(/password reset successfully/i)).toBeInTheDocument()
     })
   })
 })

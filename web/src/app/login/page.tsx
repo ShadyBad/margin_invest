@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string }>
+  searchParams: Promise<{ mode?: string; error?: string; code?: string; resetSuccess?: string }>
 }) {
   const params = await searchParams
   const initialMode = params.mode === "signup" ? "signup" : "signin"
@@ -19,7 +19,12 @@ export default async function LoginPage({
     <div className="relative min-h-screen flex items-center justify-center bg-bg-primary overflow-hidden">
       <LoginScene />
       <div className="relative z-10">
-        <LoginCard initialMode={initialMode} />
+        <LoginCard
+          initialMode={initialMode}
+          authError={params.error}
+          authCode={params.code}
+          resetSuccess={params.resetSuccess === "true"}
+        />
       </div>
     </div>
   )

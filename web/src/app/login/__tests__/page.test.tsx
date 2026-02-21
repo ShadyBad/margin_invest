@@ -8,8 +8,8 @@ vi.mock("@/components/login/login-scene", () => ({
 }))
 
 vi.mock("@/components/login/login-card", () => ({
-  LoginCard: ({ initialMode }: { initialMode?: string }) => (
-    <div data-testid="login-card" data-initial-mode={initialMode}>Mocked LoginCard</div>
+  LoginCard: ({ initialMode, authError, authCode, resetSuccess }: { initialMode?: string; authError?: string; authCode?: string; resetSuccess?: boolean }) => (
+    <div data-testid="login-card" data-initial-mode={initialMode} data-auth-error={authError || ""} data-auth-code={authCode || ""} data-reset-success={resetSuccess ? "true" : ""}>Mocked LoginCard</div>
   ),
 }))
 
@@ -36,5 +36,20 @@ describe("Login Page", () => {
     const page = await LoginPage({ searchParams: Promise.resolve({}) })
     render(page)
     expect(screen.getByTestId("login-card")).toHaveAttribute("data-initial-mode", "signin")
+  })
+
+  it("passes auth error and code from search params", async () => {
+    const page = await LoginPage({
+      searchParams: Promise.resolve({ error: "CredentialsSignin", code: "invalid_credentials" }),
+    })
+    render(page)
+    expect(screen.getByTestId("login-card")).toHaveAttribute("data-auth-error", "CredentialsSignin")
+    expect(screen.getByTestId("login-card")).toHaveAttribute("data-auth-code", "invalid_credentials")
+  })
+
+  it("passes resetSuccess when resetSuccess=true param is present", async () => {
+    const page = await LoginPage({ searchParams: Promise.resolve({ resetSuccess: "true" }) })
+    render(page)
+    expect(screen.getByTestId("login-card")).toHaveAttribute("data-reset-success", "true")
   })
 })
