@@ -40,6 +40,8 @@ from margin_engine.scoring.v3_intermediates import (
     compute_valuation_convergence_factor,
 )
 from margin_engine.scoring.v3_pipeline import TickerV3Data, score_universe_v3
+# v4 exports
+from margin_engine.scoring.v4_weights import weights_for_style_stage
 # Risk metrics exports
 from margin_engine.scoring.risk_metrics import (
     RiskMetrics,
@@ -98,6 +100,8 @@ __all__ = [
     "run_track_b_cascade",
     "run_track_c_cascade",
     "score_universe_v3",
+    # v4 exports
+    "weights_for_style_stage",
     # Risk metrics exports
     "RiskMetrics",
     "compute_max_drawdown",

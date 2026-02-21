@@ -123,8 +123,10 @@ export default function BacktestingPage() {
               </h2>
               <PerformanceChart
                 snapshots={result.snapshots ?? []}
-                portfolioLabel="Exceptional Portfolio (MoS > 30%, Equal-Weight, Monthly)"
+                portfolioLabel="Up to 5, Exceptional then High, MoS > 20%, Equal-Weight, Monthly"
                 benchmarkLabel="S&P 500 (SPY Total Return)"
+                mosThreshold={0.20}
+                maxHoldings={5}
               />
             </section>
 
