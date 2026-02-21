@@ -26,3 +26,19 @@ class CorrelationMatrix(BaseModel):
     excluded: list[ExcludedTicker]
     window_days: int
     computed_at: datetime
+
+
+def _pearson(xs: list[float], ys: list[float]) -> float | None:
+    """Compute Pearson correlation coefficient. Returns None if undefined."""
+    n = len(xs)
+    if n < 2 or n != len(ys):
+        return None
+    mean_x = sum(xs) / n
+    mean_y = sum(ys) / n
+    cov = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    var_x = sum((x - mean_x) ** 2 for x in xs)
+    var_y = sum((y - mean_y) ** 2 for y in ys)
+    denom = math.sqrt(var_x * var_y)
+    if denom == 0.0:
+        return None
+    return cov / denom

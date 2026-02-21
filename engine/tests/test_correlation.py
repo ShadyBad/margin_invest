@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from margin_engine.correlation import CorrelationMatrix, ExcludedTicker
+from margin_engine.correlation import CorrelationMatrix, ExcludedTicker, _pearson
 
 
 class TestCorrelationModels:
@@ -49,3 +49,28 @@ class TestCorrelationModels:
                 window_days=252,
                 computed_at=datetime.now(UTC),
             )
+
+
+class TestPearsonCorrelation:
+    def test_perfect_positive(self):
+        assert _pearson([1.0, 2.0, 3.0], [1.0, 2.0, 3.0]) == pytest.approx(1.0)
+
+    def test_perfect_negative(self):
+        assert _pearson([1.0, 2.0, 3.0], [3.0, 2.0, 1.0]) == pytest.approx(-1.0)
+
+    def test_no_correlation(self):
+        r = _pearson([1.0, -1.0, 1.0, -1.0], [1.0, 1.0, -1.0, -1.0])
+        assert r == pytest.approx(0.0)
+
+    def test_known_value(self):
+        r = _pearson([10.0, 20.0, 30.0], [12.0, 25.0, 28.0])
+        assert r == pytest.approx(0.94063, abs=1e-4)
+
+    def test_constant_series_returns_none(self):
+        assert _pearson([5.0, 5.0, 5.0], [1.0, 2.0, 3.0]) is None
+
+    def test_too_short_returns_none(self):
+        assert _pearson([1.0], [2.0]) is None
+
+    def test_empty_returns_none(self):
+        assert _pearson([], []) is None
