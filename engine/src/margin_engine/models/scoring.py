@@ -118,6 +118,7 @@ class CompositeScore(BaseModel):
     quality: FactorBreakdown
     value: FactorBreakdown
     momentum: FactorBreakdown
+    growth: FactorBreakdown | None = None  # v4: growth factor dimension
     filters_passed: list[FilterResult]
     data_coverage: float = Field(ge=0.0, le=1.0)
     growth_stage: GrowthStage | None = None
