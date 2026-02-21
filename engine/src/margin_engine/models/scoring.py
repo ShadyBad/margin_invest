@@ -185,6 +185,17 @@ class CompositeScore(BaseModel):
         return self.margin_invest_value
 
 
+class ScenarioIV(BaseModel):
+    """Bear/base/bull intrinsic value with confidence score."""
+
+    bear_iv: float  # 25th percentile scenario
+    base_iv: float  # 50th percentile scenario
+    bull_iv: float  # 75th percentile scenario
+    weighted_iv: float  # 0.25*bear + 0.50*base + 0.25*bull
+    confidence: float = Field(ge=0.0, le=1.0)  # 1 - (range / base)
+    range_pct: float  # (bull - bear) / base
+
+
 class ScoringConfig(BaseModel):
     """Configuration for the scoring engine — factor weights and thresholds."""
 
