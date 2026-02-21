@@ -35,6 +35,7 @@ def assess_track_c_conviction(
         and rule_of_40_score >= _EXCEPTIONAL_RULE_OF_40
         and incremental_roic > _EXCEPTIONAL_ROIC_WACC_MULTIPLE * wacc
         and tam_headroom > _EXCEPTIONAL_TAM_HEADROOM
+        and tam_headroom < 50  # reject implausible TAM estimates
     ):
         return ConvictionLevel.EXCEPTIONAL
 
