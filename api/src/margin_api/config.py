@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # API Key encryption (separate from MFA encryption key)
     api_key_encryption_key: str = ""
 
+    # Email (Resend)
+    resend_api_key: str = ""
+    app_url: str = "http://localhost:3000"
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
 
