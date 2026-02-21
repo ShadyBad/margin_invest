@@ -63,12 +63,30 @@ describe("BillingSection", () => {
     })
   })
 
+  it("disables action buttons when Stripe is not configured", async () => {
+    mockBillingFetch({
+      plan: "analyst",
+      status: null,
+      current_period_end: null,
+      is_active: true,
+      billing_configured: false,
+    })
+    render(<BillingSection />)
+    await waitFor(() => {
+      const portfolioBtn = screen.getByText("Upgrade to Portfolio - $29/mo")
+      const institutionalBtn = screen.getByText("Upgrade to Institutional - $79/mo")
+      expect(portfolioBtn.closest("button")).toBeDisabled()
+      expect(institutionalBtn.closest("button")).toBeDisabled()
+    })
+  })
+
   it("shows upgrade buttons for Analyst users", async () => {
     mockBillingFetch({
       plan: "analyst",
       status: null,
       current_period_end: null,
       is_active: true,
+      billing_configured: true,
     })
     render(<BillingSection />)
     await waitFor(() => {
@@ -83,6 +101,7 @@ describe("BillingSection", () => {
       status: "active",
       current_period_end: "2026-04-01T00:00:00Z",
       is_active: true,
+      billing_configured: true,
     })
     render(<BillingSection />)
     await waitFor(() => {
@@ -133,6 +152,7 @@ describe("BillingSection", () => {
       status: "past_due",
       current_period_end: "2026-03-01T00:00:00Z",
       is_active: true,
+      billing_configured: true,
     })
     render(<BillingSection />)
     await waitFor(() => {

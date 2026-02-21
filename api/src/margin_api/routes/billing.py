@@ -120,6 +120,7 @@ async def stripe_webhook(
 async def billing_status(
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> BillingStatusResponse:
     """Return the current subscription plan and status."""
     stmt = select(User).where(User.id == user_id)
@@ -129,9 +130,11 @@ async def billing_status(
         raise HTTPException(status_code=404, detail="User not found")
 
     is_active = user.subscription_plan in ("portfolio", "institutional", "operator")
+    billing_configured = bool(settings.stripe_secret_key and settings.stripe_portfolio_price_id)
     return BillingStatusResponse(
         plan=user.subscription_plan,
         status=user.subscription_status,
         current_period_end=user.current_period_end,
         is_active=is_active,
+        billing_configured=billing_configured,
     )

@@ -32,3 +32,4 @@ class BillingStatusResponse(BaseModel):
     status: str | None = None  # "active" | "trialing" | "past_due" | "canceled"
     current_period_end: datetime | None = None
     is_active: bool
+    billing_configured: bool = False

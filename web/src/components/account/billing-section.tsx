@@ -7,6 +7,7 @@ interface BillingStatus {
   status: string | null
   current_period_end: string | null
   is_active: boolean
+  billing_configured: boolean
 }
 
 const PLAN_BADGES: Record<string, { label: string; className: string }> = {
@@ -144,7 +145,7 @@ export function BillingSection() {
       )}
 
       {/* Past Due Warning */}
-      {isPastDue && (
+      {isPastDue && status.billing_configured && (
         <div className="rounded-sm border border-amber-500/30 bg-amber-500/5 p-3 mb-4">
           <p className="text-sm text-amber-400">
             Your payment method needs updating.{" "}
@@ -163,14 +164,14 @@ export function BillingSection() {
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={() => handleCheckout("portfolio")}
-            disabled={actionLoading !== null}
+            disabled={!status.billing_configured || actionLoading !== null}
             className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {actionLoading === "portfolio" ? "Loading..." : "Upgrade to Portfolio - $29/mo"}
           </button>
           <button
             onClick={() => handleCheckout("institutional")}
-            disabled={actionLoading !== null}
+            disabled={!status.billing_configured || actionLoading !== null}
             className="px-4 py-2 bg-amber-500 text-bg-primary font-medium text-sm rounded-sm hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {actionLoading === "institutional" ? "Loading..." : "Upgrade to Institutional - $79/mo"}
@@ -179,7 +180,7 @@ export function BillingSection() {
       ) : (
         <button
           onClick={handlePortal}
-          disabled={actionLoading !== null}
+          disabled={!status.billing_configured || actionLoading !== null}
           className="px-4 py-2 border border-border-primary text-text-primary font-medium text-sm rounded-sm hover:bg-bg-subtle transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {actionLoading === "portal" ? "Loading..." : "Manage subscription"}
