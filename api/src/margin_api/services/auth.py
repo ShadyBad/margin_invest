@@ -196,3 +196,28 @@ class AuthService:
         token_row.used = True
         await session.commit()
         return True
+
+    async def reset_password(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        raw_token: str,
+        new_password: str,
+    ) -> None:
+        """Reset a user's password using a valid challenge token."""
+        valid = await self.verify_challenge_token(session, user_id, raw_token)
+        if not valid:
+            raise LookupError("Invalid or expired reset token")
+
+        _validate_password(new_password)
+
+        stmt = select(User).where(User.id == user_id)
+        user = (await session.execute(stmt)).scalar_one_or_none()
+        if user is None:
+            raise LookupError("User not found")
+
+        user.password_hash = _hasher.hash(new_password)
+        user.password_changed_at = datetime.now(UTC)
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        await session.commit()
