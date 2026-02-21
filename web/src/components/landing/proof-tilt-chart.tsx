@@ -54,7 +54,7 @@ export function ProofTiltChart({ candidates }: ProofTiltChartProps) {
               tickLine={false}
               tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
             />
-            <YAxis hide domain={[0, maxCount + 1]} />
+            <YAxis hide domain={[0, Math.ceil(maxCount * 1.25)]} />
             <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={28} minPointSize={2}>
               {data.map((_, i) => (
                 <Cell key={CATEGORIES[i]} fill={BAR_COLORS[i]} />
