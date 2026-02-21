@@ -1,10 +1,22 @@
-import NextAuth from "next-auth"
+import NextAuth, { CredentialsSignin } from "next-auth"
 import Google from "next-auth/providers/google"
 import GitHub from "next-auth/providers/github"
 import Credentials from "next-auth/providers/credentials"
 
 // Server-side only — NextAuth runs on the server, needs full URL for direct API calls
 const API_URL = process.env.API_URL || "http://localhost:8000"
+
+class InvalidCredentialsError extends CredentialsSignin {
+  code = "invalid_credentials"
+}
+
+class AccountLockedError extends CredentialsSignin {
+  code = "account_locked"
+}
+
+class ApiUnreachableError extends CredentialsSignin {
+  code = "api_unreachable"
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -23,16 +35,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         mfaToken: { label: "MFA Token", type: "text" },
       },
       async authorize(credentials) {
-        const res = await fetch(`${API_URL}/api/v1/auth/verify-credentials`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: credentials.username,
-            password: credentials.password,
-          }),
-        })
+        let res: Response
+        try {
+          res = await fetch(`${API_URL}/api/v1/auth/verify-credentials`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username: credentials.username,
+              password: credentials.password,
+            }),
+          })
+        } catch (error) {
+          console.error("[auth] Failed to reach API at", API_URL, error)
+          throw new ApiUnreachableError()
+        }
 
-        if (!res.ok) return null
+        if (!res.ok) {
+          if (res.status === 423 || res.status === 429) {
+            throw new AccountLockedError()
+          }
+          throw new InvalidCredentialsError()
+        }
 
         const data = await res.json()
 
