@@ -4,6 +4,7 @@ export { getScore, getMetrics, getScoreHistory, listScores, deleteScore } from '
 export { getDashboard } from './dashboard'
 export { getHealth } from './health'
 export { runBacktest, getBacktestResults, getBacktestResult } from './backtest'
+export { getCorrelations, getShowcaseCorrelations } from './correlations'
 export type {
   ScoreResponse,
   ScoreListResponse,
@@ -25,4 +26,6 @@ export type {
   MetricStatus,
   ScoreHistoryPoint,
   ScoreHistoryResponse,
+  CorrelationResponse,
+  ExcludedTickerResponse,
 } from './types'

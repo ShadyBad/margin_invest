@@ -846,6 +846,59 @@ async def run_pipeline(tickers: list[str] | None = None) -> None:
     logger.info("=== Pipeline complete ===")
 
 
+async def run_correlations_showcase(tickers: list[str]) -> None:
+    """Compute and cache showcase correlation matrix in Redis."""
+    import json
+
+    import redis.asyncio as aioredis
+
+    from margin_engine.correlation import compute_return_correlations
+    from margin_engine.models.financial import PriceBar
+
+    engine_db = get_engine()
+    session_factory = get_session_factory(engine_db)
+
+    price_data: dict[str, list[PriceBar]] = {}
+    async with session_factory() as session:
+        for ticker in tickers:
+            result = await session.execute(
+                select(FinancialData)
+                .join(Asset, FinancialData.asset_id == Asset.id)
+                .where(Asset.ticker == ticker)
+                .order_by(FinancialData.period_end.desc())
+                .limit(1)
+            )
+            row = result.scalar_one_or_none()
+            if row and row.price_history:
+                price_hist = row.price_history
+                bars_raw = price_hist.get("bars", []) if isinstance(price_hist, dict) else []
+                if bars_raw:
+                    bars = [PriceBar(**bar) for bar in bars_raw]
+                    price_data[ticker] = bars
+                    logger.info("Loaded %d bars for %s", len(bars), ticker)
+                else:
+                    logger.warning("No price bars for %s", ticker)
+            else:
+                logger.warning("No price data for %s", ticker)
+
+    await engine_db.dispose()
+
+    if len(price_data) < 2:
+        logger.error("Need at least 2 tickers with price data, got %d", len(price_data))
+        return
+
+    result = compute_return_correlations(price_data)
+    logger.info("Computed %dx%d correlation matrix", len(result.tickers), len(result.tickers))
+
+    client = aioredis.Redis(host="localhost", port=6379)
+    try:
+        payload = json.dumps(result.model_dump(), default=str)
+        await client.set("correlation:showcase", payload, ex=86400)  # 24h TTL
+        logger.info("Cached showcase correlations in Redis (24h TTL)")
+    finally:
+        await client.aclose()
+
+
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
@@ -940,6 +993,18 @@ def main() -> None:
         help="Specific tickers (defaults to active universe)",
     )
 
+    # correlations
+    corr_parser = subparsers.add_parser("correlations", help="Compute and cache correlations")
+    corr_parser.add_argument(
+        "--showcase", action="store_true", help="Compute and cache showcase matrix"
+    )
+    corr_parser.add_argument(
+        "--tickers",
+        nargs="+",
+        default=["AAPL", "MSFT", "JNJ", "COST", "V", "JPM", "XOM", "PG"],
+        help="Tickers for showcase",
+    )
+
     args = parser.parse_args()
 
     if args.command == "universe":
@@ -962,6 +1027,12 @@ def main() -> None:
         asyncio.run(run_score_universe(limit=args.limit))
     elif args.command == "pipeline":
         asyncio.run(run_pipeline(tickers=args.tickers))
+    elif args.command == "correlations":
+        if args.showcase:
+            asyncio.run(run_correlations_showcase(tickers=args.tickers))
+        else:
+            corr_parser.print_help()
+            sys.exit(1)
     else:
         parser.print_help()
         sys.exit(1)
