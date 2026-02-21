@@ -75,14 +75,28 @@ def compute_compounding_power(history: FinancialHistory) -> float:
     if inc_roic <= 0:
         return 0.0
 
-    # Reinvestment rate from latest period: growth_capex / NOPAT
+    # Reinvestment rate from latest period: (growth_capex + rd_growth) / NOPAT
     latest = history.periods[-1]
     capex = abs(float(latest.current_cash_flow.capital_expenditures))
     depreciation = float(latest.current_income.depreciation or Decimal("0"))
     growth_capex = max(capex - depreciation, 0.0)
+
+    # Include R&D growth as reinvestment (captures R&D-intensive compounders)
+    rd_growth = 0.0
+    if (
+        latest.current_income.rd_expense is not None
+        and latest.prior_income is not None
+        and latest.prior_income.rd_expense is not None
+    ):
+        current_rd = float(latest.current_income.rd_expense)
+        prior_rd = float(latest.prior_income.rd_expense)
+        inflation_adj_prior = prior_rd * 1.03  # 3% inflation adjustment
+        rd_growth = max(current_rd - inflation_adj_prior, 0.0)
+
+    total_reinvestment = growth_capex + rd_growth
     if nopat_l <= 0:
         return 0.0
-    reinvestment_rate = growth_capex / nopat_l
+    reinvestment_rate = total_reinvestment / nopat_l
     if reinvestment_rate <= 0:
         return 0.0
 
