@@ -1211,7 +1211,7 @@ class TestConvictionMosSelection:
     def test_fails_conviction_threshold(self):
         sim = self._make_simulator()
         scores = [
-            ScoredStock(ticker="GOOG", composite_score=75.0, price=140.0, margin_of_safety=0.40),
+            ScoredStock(ticker="GOOG", composite_score=65.0, price=140.0, margin_of_safety=0.40),
         ]
         holdings = sim._select_holdings(scores, [])
         assert len(holdings) == 0
@@ -1467,6 +1467,121 @@ class TestConvictionMosSimulation:
             start_date=date(2020, 1, 1),
             end_date=date(2020, 2, 28),
             selection_mode=SelectionMode.CONVICTION_MOS,
+            transaction_cost_bps=0.0,
+            slippage_bps=0.0,
+        )
+
+        def run_once():
+            sim = WalkForwardSimulator(
+                config=config,
+                universe_provider=FakeUniverseProvider(universe_data),
+                benchmark_provider=FakeBenchmarkProvider({jan1: 100.0, feb3: 105.0}),
+            )
+            return [s.portfolio_value for s in sim.run().snapshots]
+
+        assert run_once() == run_once()
+
+
+# ---------------------------------------------------------------------------
+# Integration tests for full simulation with precedence-fill selection
+# ---------------------------------------------------------------------------
+
+
+class TestPrecedenceFillSimulation:
+    """Integration tests for full simulation with precedence-fill selection."""
+
+    def test_mixed_tiers_across_months(self):
+        """Multi-month simulation where tier composition changes each month."""
+        jan1 = date(2020, 1, 1)
+        feb3 = date(2020, 2, 3)
+        mar2 = date(2020, 3, 2)
+
+        universe_data = {
+            # Jan: 2 Exceptional + 3 High eligible → 5 holdings
+            jan1: [
+                ScoredStock(ticker="E1", composite_score=85.0, price=100.0, margin_of_safety=0.35),
+                ScoredStock(ticker="E2", composite_score=80.0, price=100.0, margin_of_safety=0.30),
+                ScoredStock(ticker="H1", composite_score=78.0, price=100.0, margin_of_safety=0.40),
+                ScoredStock(ticker="H2", composite_score=75.0, price=100.0, margin_of_safety=0.25),
+                ScoredStock(ticker="H3", composite_score=73.0, price=100.0, margin_of_safety=0.22),
+                ScoredStock(ticker="LOW", composite_score=60.0, price=100.0, margin_of_safety=0.50),
+            ],
+            # Feb: 0 Exceptional + 2 High eligible → 2 holdings
+            feb3: [
+                ScoredStock(ticker="E1", composite_score=85.0, price=110.0, margin_of_safety=0.15),
+                ScoredStock(ticker="E2", composite_score=80.0, price=105.0, margin_of_safety=0.10),
+                ScoredStock(ticker="H1", composite_score=78.0, price=105.0, margin_of_safety=0.30),
+                ScoredStock(ticker="H2", composite_score=75.0, price=102.0, margin_of_safety=0.25),
+            ],
+            # Mar: 0 eligible anywhere → hold-through
+            mar2: [
+                ScoredStock(ticker="E1", composite_score=85.0, price=108.0, margin_of_safety=0.10),
+                ScoredStock(ticker="H1", composite_score=78.0, price=103.0, margin_of_safety=0.15),
+            ],
+        }
+
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 3, 31),
+            selection_mode=SelectionMode.CONVICTION_MOS,
+            min_conviction_score=79.0,
+            min_conviction_score_high=72.0,
+            min_margin_of_safety=0.20,
+            max_holdings=5,
+            transaction_cost_bps=0.0,
+            slippage_bps=0.0,
+        )
+        sim = WalkForwardSimulator(
+            config=config,
+            universe_provider=FakeUniverseProvider(universe_data),
+            benchmark_provider=FakeBenchmarkProvider({jan1: 100.0, feb3: 105.0, mar2: 103.0}),
+        )
+        result = sim.run()
+
+        assert len(result.snapshots) == 3
+
+        # Jan: E1, E2 (Exceptional) + H1, H2, H3 (High backfill) = 5
+        snap1 = result.snapshots[0]
+        tickers1 = {h.ticker for h in snap1.holdings}
+        assert len(snap1.holdings) == 5
+        assert tickers1 == {"E1", "E2", "H1", "H2", "H3"}
+
+        # Feb: H1 (mos=0.30 > 0.20) and H2 (mos=0.25 > 0.20) only
+        snap2 = result.snapshots[1]
+        tickers2 = {h.ticker for h in snap2.holdings}
+        assert len(snap2.holdings) == 2
+        assert tickers2 == {"H1", "H2"}
+
+        # Mar: 0 eligible → hold-through from Feb
+        snap3 = result.snapshots[2]
+        tickers3 = {h.ticker for h in snap3.holdings}
+        assert tickers3 == {"H1", "H2"}
+        assert snap3.turnover == pytest.approx(0.0)
+
+    def test_determinism_precedence_fill(self):
+        """Same inputs produce identical outputs with precedence fill."""
+        jan1 = date(2020, 1, 1)
+        feb3 = date(2020, 2, 3)
+
+        universe_data = {
+            jan1: [
+                ScoredStock(ticker="E1", composite_score=85.0, price=100.0, margin_of_safety=0.35),
+                ScoredStock(ticker="H1", composite_score=75.0, price=100.0, margin_of_safety=0.30),
+            ],
+            feb3: [
+                ScoredStock(ticker="E1", composite_score=85.0, price=110.0, margin_of_safety=0.33),
+                ScoredStock(ticker="H1", composite_score=75.0, price=105.0, margin_of_safety=0.28),
+            ],
+        }
+
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 2, 28),
+            selection_mode=SelectionMode.CONVICTION_MOS,
+            min_conviction_score=79.0,
+            min_conviction_score_high=72.0,
+            min_margin_of_safety=0.20,
+            max_holdings=5,
             transaction_cost_bps=0.0,
             slippage_bps=0.0,
         )

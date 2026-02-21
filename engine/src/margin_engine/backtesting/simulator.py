@@ -249,25 +249,50 @@ class WalkForwardSimulator:
     def _select_by_conviction_mos(
         self, scores: list[ScoredStock], prev_holdings: list[HoldingRecord]
     ) -> list[HoldingRecord]:
-        """Select stocks with Exceptional conviction AND MoS above threshold.
+        """Select stocks using two-tier precedence fill.
 
-        If no stocks pass the filter, returns prev_holdings unchanged (hold-through).
+        Tier 1: Exceptional conviction (score >= min_conviction_score) with MoS above threshold.
+        Tier 2: High conviction (score >= min_conviction_score_high) with MoS above threshold.
+
+        Takes all tier 1 first (up to max_holdings), then fills remaining slots
+        with tier 2 candidates. If zero eligible across both tiers, returns
+        prev_holdings unchanged (hold-through).
         """
-        eligible = [
-            s for s in scores
-            if s.composite_score >= self._config.min_conviction_score
-            and s.margin_of_safety is not None
-            and s.margin_of_safety > self._config.min_margin_of_safety
+
+        def is_mos_eligible(s: ScoredStock) -> bool:
+            return (
+                s.margin_of_safety is not None
+                and s.margin_of_safety > self._config.min_margin_of_safety
+            )
+
+        eligible_exceptional = [
+            s
+            for s in scores
+            if s.composite_score >= self._config.min_conviction_score and is_mos_eligible(s)
+        ]
+        eligible_high = [
+            s
+            for s in scores
+            if self._config.min_conviction_score_high
+            <= s.composite_score
+            < self._config.min_conviction_score
+            and is_mos_eligible(s)
         ]
 
-        if not eligible:
+        sort_key = lambda s: (-s.composite_score, -(s.margin_of_safety or 0), s.ticker)
+        eligible_exceptional.sort(key=sort_key)
+        eligible_high.sort(key=sort_key)
+
+        max_h = self._config.max_holdings
+        selected_stocks = eligible_exceptional[:max_h]
+        if len(selected_stocks) < max_h:
+            remaining = max_h - len(selected_stocks)
+            selected_stocks += eligible_high[:remaining]
+
+        if not selected_stocks:
             return prev_holdings
 
-        eligible.sort(
-            key=lambda s: (-s.composite_score, -(s.margin_of_safety or 0), s.ticker)
-        )
-        weight = 1.0 / len(eligible)
-
+        weight = 1.0 / len(selected_stocks)
         return [
             HoldingRecord(
                 ticker=stock.ticker,
@@ -275,7 +300,7 @@ class WalkForwardSimulator:
                 entry_price=stock.price,
                 composite_score=stock.composite_score,
             )
-            for stock in eligible
+            for stock in selected_stocks
         ]
 
     @staticmethod
