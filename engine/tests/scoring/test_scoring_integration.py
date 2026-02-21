@@ -371,6 +371,8 @@ class TestImportsFromPackage:
             "run_track_b_cascade",
             "run_track_c_cascade",
             "score_universe_v3",
+            # v4 exports
+            "weights_for_style_stage",
             # Risk metrics exports
             "RiskMetrics",
             "compute_max_drawdown",
