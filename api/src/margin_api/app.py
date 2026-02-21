@@ -30,6 +30,7 @@ from margin_api.routes.metrics import router as metrics_router
 from margin_api.routes.scores import router as scores_router
 from margin_api.routes.universe import router as universe_router
 from margin_api.routes.v3_scores import router as v3_scores_router
+from margin_api.routes.correlations import router as correlations_router
 from margin_api.ws.scores import router as ws_router
 
 
@@ -115,6 +116,7 @@ def create_app() -> FastAPI:
     app.include_router(jobs_router)
     app.include_router(backtest_router)
     app.include_router(universe_router)
+    app.include_router(correlations_router)
     app.include_router(ws_router)
 
     @app.exception_handler(HTTPException)

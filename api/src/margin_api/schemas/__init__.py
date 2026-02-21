@@ -1,5 +1,6 @@
 """API response schemas."""
 
+from margin_api.schemas.correlations import CorrelationResponse, ExcludedTickerResponse
 from margin_api.schemas.backtest import (
     BacktestConfigRequest,
     BacktestListResponse,
@@ -31,6 +32,8 @@ from margin_api.schemas.universe import (
 
 __all__ = [
     "BacktestConfigRequest",
+    "CorrelationResponse",
+    "ExcludedTickerResponse",
     "BacktestListResponse",
     "BacktestResultResponse",
     "BacktestSummaryResponse",
