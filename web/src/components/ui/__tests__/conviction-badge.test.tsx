@@ -5,7 +5,7 @@ import { ConvictionBadge } from "../conviction-badge"
 describe("ConvictionBadge", () => {
   it("renders conviction level text", () => {
     render(<ConvictionBadge level="exceptional" />)
-    expect(screen.getByText("exceptional")).toBeInTheDocument()
+    expect(screen.getByText("Exceptional")).toBeInTheDocument()
   })
 
   it("applies gold styling for exceptional", () => {

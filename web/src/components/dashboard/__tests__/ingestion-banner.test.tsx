@@ -46,6 +46,7 @@ describe("IngestionBanner", () => {
         }}
       />
     )
-    expect(screen.getByText(/too low/i)).toBeInTheDocument()
+    expect(screen.getByText(/30%/)).toBeInTheDocument()
+    expect(screen.getByText(/Rankings may shift/)).toBeInTheDocument()
   })
 })
