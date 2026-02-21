@@ -20,6 +20,7 @@ vi.mock("recharts", () => ({
   Legend: () => null,
   ReferenceLine: () => null,
   Cell: () => null,
+  LabelList: () => null,
 }))
 
 import { ProofSection } from "../proof-section"
