@@ -6,7 +6,9 @@ Four signatures detected from multi-year financial data:
 3. Switching Costs: Revenue growth exceeds proportional cost growth (approximation)
 4. Capital Efficiency: Incremental ROIC >= trailing ROIC
 
-raw_value = count of detected signatures (0-4).
+Signatures are weighted by empirical durability:
+    switching_costs=1.5, pricing_power=1.25, scale_economics=1.0, capital_efficiency=0.75
+raw_value = weighted sum normalized to 0-4 scale.
 """
 
 from __future__ import annotations
@@ -96,8 +98,22 @@ def _detect_capital_efficiency(history: FinancialHistory) -> bool:
     return inc_roic >= median_roic and inc_roic > 0
 
 
+_SIGNATURE_WEIGHTS: dict[str, float] = {
+    "switching_costs": 1.5,
+    "pricing_power": 1.25,
+    "scale_economics": 1.0,
+    "capital_efficiency": 0.75,
+}
+
+_MAX_WEIGHTED = sum(_SIGNATURE_WEIGHTS.values())  # 4.5
+
+
 def moat_durability_score(history: FinancialHistory) -> FactorScore:
-    """Compute moat durability score (0-4 signatures detected)."""
+    """Compute moat durability score (weighted 0-4 scale).
+
+    Signatures are weighted by empirical durability, then normalized to
+    the 0-4 scale so that downstream thresholds (>= 2, >= 3) remain valid.
+    """
     if len(history.periods) < 2:
         return FactorScore(
             name="moat_durability",
@@ -116,9 +132,12 @@ def moat_durability_score(history: FinancialHistory) -> FactorScore:
     if _detect_capital_efficiency(history):
         signatures.append("capital_efficiency")
 
+    weighted_sum = sum(_SIGNATURE_WEIGHTS[s] for s in signatures)
+    normalized = weighted_sum * (4.0 / _MAX_WEIGHTED)
+
     return FactorScore(
         name="moat_durability",
-        raw_value=float(len(signatures)),
+        raw_value=normalized,
         percentile_rank=0.0,
         detail=f"signatures={signatures}, count={len(signatures)}",
     )

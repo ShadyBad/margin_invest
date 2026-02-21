@@ -2,6 +2,8 @@
 
 from decimal import Decimal
 
+import pytest
+
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,
@@ -216,3 +218,200 @@ class TestMoatDurability:
         result = moat_durability_score(history)
         assert result.percentile_rank == 0.0
         assert result.name == "moat_durability"
+
+
+class TestWeightedMoatSignatures:
+    """Moat signatures weighted by empirical durability.
+
+    Weights: switching_costs=1.5, pricing_power=1.25, scale_economics=1.0, capital_efficiency=0.75
+    Max weighted = 4.5, normalized to 0-4 scale: score = weighted_sum * (4.0 / 4.5)
+    """
+
+    def test_all_four_weighted_max(self):
+        """All 4 signatures detected -> normalized raw_value = 4.0."""
+        periods = [
+            _make_period(
+                revenue=Decimal("1000"),
+                ebit=Decimal("100"),
+                cost_of_revenue=Decimal("600"),
+                gross_profit=Decimal("400"),
+                total_equity=Decimal("500"),
+                period_end="2019-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1200"),
+                ebit=Decimal("160"),
+                cost_of_revenue=Decimal("680"),
+                gross_profit=Decimal("520"),
+                total_equity=Decimal("600"),
+                period_end="2020-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1400"),
+                ebit=Decimal("240"),
+                cost_of_revenue=Decimal("740"),
+                gross_profit=Decimal("660"),
+                total_equity=Decimal("700"),
+                period_end="2021-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1600"),
+                ebit=Decimal("340"),
+                cost_of_revenue=Decimal("780"),
+                gross_profit=Decimal("820"),
+                total_equity=Decimal("800"),
+                period_end="2022-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1800"),
+                ebit=Decimal("460"),
+                cost_of_revenue=Decimal("800"),
+                gross_profit=Decimal("1000"),
+                total_equity=Decimal("900"),
+                period_end="2023-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="ALL4", periods=periods)
+        result = moat_durability_score(history)
+        assert result.raw_value == pytest.approx(4.0, rel=0.01)
+
+    def test_durable_pair_higher_than_nondurable_pair(self):
+        """switching_costs + pricing_power (2.44) > scale + capital_efficiency (1.56)."""
+        # Durable pair: switching_costs + pricing_power only
+        # ROIC declines (no scale_economics), incremental ROIC < median (no capital_efficiency)
+        durable_periods = [
+            _make_period(
+                revenue=Decimal("1000"),
+                ebit=Decimal("200"),
+                cost_of_revenue=Decimal("600"),
+                gross_profit=Decimal("400"),
+                total_equity=Decimal("500"),
+                long_term_debt=Decimal("200"),
+                period_end="2019-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1200"),
+                ebit=Decimal("220"),
+                cost_of_revenue=Decimal("660"),
+                gross_profit=Decimal("540"),
+                total_equity=Decimal("800"),
+                long_term_debt=Decimal("300"),
+                period_end="2020-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1500"),
+                ebit=Decimal("240"),
+                cost_of_revenue=Decimal("700"),
+                gross_profit=Decimal("800"),
+                total_equity=Decimal("1200"),
+                long_term_debt=Decimal("400"),
+                period_end="2021-12-31",
+            ),
+        ]
+        durable_history = FinancialHistory(ticker="DURABLE", periods=durable_periods)
+        durable = moat_durability_score(durable_history)
+
+        # Non-durable pair: scale_economics + capital_efficiency only
+        # Gross margin declines (no pricing_power), cost growth > rev growth (no switching_costs)
+        nondurable_periods = [
+            _make_period(
+                revenue=Decimal("1000"),
+                ebit=Decimal("100"),
+                cost_of_revenue=Decimal("600"),
+                gross_profit=Decimal("400"),
+                total_equity=Decimal("400"),
+                period_end="2019-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1200"),
+                ebit=Decimal("150"),
+                cost_of_revenue=Decimal("740"),
+                gross_profit=Decimal("460"),
+                total_equity=Decimal("450"),
+                period_end="2020-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1400"),
+                ebit=Decimal("210"),
+                cost_of_revenue=Decimal("880"),
+                gross_profit=Decimal("520"),
+                total_equity=Decimal("500"),
+                period_end="2021-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1600"),
+                ebit=Decimal("280"),
+                cost_of_revenue=Decimal("1040"),
+                gross_profit=Decimal("560"),
+                total_equity=Decimal("550"),
+                period_end="2022-12-31",
+            ),
+        ]
+        nondurable_history = FinancialHistory(ticker="NONDURABLE", periods=nondurable_periods)
+        nondurable = moat_durability_score(nondurable_history)
+
+        assert durable.raw_value > nondurable.raw_value
+        assert durable.raw_value == pytest.approx(2.44, rel=0.02)
+        assert nondurable.raw_value == pytest.approx(1.56, rel=0.02)
+
+    def test_no_signatures_zero(self):
+        """No signatures detected -> raw_value = 0.0."""
+        periods = [
+            _make_period(
+                ebit=Decimal("200"),
+                total_equity=Decimal("400"),
+                gross_profit=Decimal("400"),
+                period_end="2019-12-31",
+            ),
+            _make_period(
+                ebit=Decimal("150"),
+                total_equity=Decimal("500"),
+                gross_profit=Decimal("380"),
+                period_end="2020-12-31",
+            ),
+            _make_period(
+                ebit=Decimal("100"),
+                total_equity=Decimal("600"),
+                gross_profit=Decimal("360"),
+                period_end="2021-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="NOMOAT", periods=periods)
+        result = moat_durability_score(history)
+        assert result.raw_value == pytest.approx(0.0)
+
+    def test_switching_costs_only(self):
+        """Single most-durable signature -> raw_value = 1.5 * 4/4.5 = 1.333."""
+        # Triggers ONLY switching_costs: rev growth > cost growth,
+        # but GM flat (no pricing_power), ROIC declining (no scale_economics),
+        # incremental ROIC < median (no capital_efficiency).
+        periods = [
+            _make_period(
+                revenue=Decimal("1000"),
+                ebit=Decimal("200"),
+                cost_of_revenue=Decimal("600"),
+                gross_profit=Decimal("400"),
+                total_equity=Decimal("400"),
+                period_end="2019-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1200"),
+                ebit=Decimal("170"),
+                cost_of_revenue=Decimal("650"),
+                gross_profit=Decimal("480"),
+                total_equity=Decimal("600"),
+                period_end="2020-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1500"),
+                ebit=Decimal("150"),
+                cost_of_revenue=Decimal("700"),
+                gross_profit=Decimal("600"),
+                total_equity=Decimal("900"),
+                period_end="2021-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="SWITCHONLY", periods=periods)
+        result = moat_durability_score(history)
+        assert "switching_costs" in result.detail
+        assert result.raw_value == pytest.approx(1.5 * 4.0 / 4.5, rel=0.01)
