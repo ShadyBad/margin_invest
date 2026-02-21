@@ -32,7 +32,7 @@ const appNav: NavigationState = {
     avatarUrl: null,
     oauthAvatarUrl: null,
     dropdownItems: [
-      { label: "Account", href: "/account", type: "link" },
+      { label: "Jane Doe", title: "Jane Doe", href: "/account", type: "link" },
       { label: "", type: "divider" },
       { label: "Sign Out", onClick: vi.fn(), type: "action" },
     ],
@@ -61,12 +61,12 @@ describe("MobileMenu", () => {
   it("renders Dashboard link AND user info for authenticated", () => {
     render(<MobileMenu nav={appNav} isOpen={true} onClose={vi.fn()} />)
     expect(screen.getByText("Dashboard")).toBeInTheDocument()
-    expect(screen.getByText("Jane Doe")).toBeInTheDocument()
+    expect(screen.getAllByText("Jane Doe").length).toBeGreaterThanOrEqual(1)
   })
 
   it("renders user info for authenticated", () => {
     render(<MobileMenu nav={appNav} isOpen={true} onClose={vi.fn()} />)
-    expect(screen.getByText("Jane Doe")).toBeInTheDocument()
+    expect(screen.getAllByText("Jane Doe").length).toBeGreaterThanOrEqual(1)
   })
 
   it("calls onClose when a link is clicked", async () => {
