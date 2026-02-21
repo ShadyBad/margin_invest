@@ -17,6 +17,9 @@ const { mockAuth, mockHandlers, mockSignIn, mockSignOut, mockNextAuth } = vi.hoi
 
 vi.mock("next-auth", () => ({
   default: mockNextAuth,
+  CredentialsSignin: class CredentialsSignin extends Error {
+    code = "credentials"
+  },
 }))
 
 vi.mock("next-auth/providers/google", () => ({
