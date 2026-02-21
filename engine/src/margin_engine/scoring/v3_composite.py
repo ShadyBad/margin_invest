@@ -35,3 +35,13 @@ def compute_track_b_score(
     """
     capped_asymmetry = min(asymmetry_ratio, _ASYMMETRY_CAP)
     return capped_asymmetry * catalyst_strength * quality_floor_factor * valuation_convergence
+
+
+def compute_track_c_score(
+    growth_efficiency: float,
+    unit_economics: float,
+    capital_efficiency: float,
+    growth_durability: float,
+) -> float:
+    """Track C multiplicative score: GE x UE x CE x GD."""
+    return growth_efficiency * unit_economics * capital_efficiency * growth_durability

@@ -346,8 +346,10 @@ class TestImportsFromPackage:
             "V3TrackResult",
             "assess_track_a_conviction",
             "assess_track_b_conviction",
+            "assess_track_c_conviction",
             "compute_track_a_score",
             "compute_track_b_score",
+            "compute_track_c_score",
             "compute_v3_position_size",
             "compute_v3_timing_signal",
             "detect_regime",
@@ -356,6 +358,7 @@ class TestImportsFromPackage:
             # v3 cascade exports
             "TrackAInputs",
             "TrackBInputs",
+            "TrackCInputs",
             "TickerV3Data",
             "compute_capital_allocation_composite",
             "compute_catalyst_strength",
@@ -366,6 +369,7 @@ class TestImportsFromPackage:
             "compute_valuation_convergence_factor",
             "run_track_a_cascade",
             "run_track_b_cascade",
+            "run_track_c_cascade",
             "score_universe_v3",
             # Risk metrics exports
             "RiskMetrics",

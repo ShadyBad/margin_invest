@@ -45,7 +45,14 @@ class BacktestConfig(BaseModel):
         default=79.0, description="Minimum composite_raw_score for CONVICTION_MOS mode"
     )
     min_margin_of_safety: float = Field(
-        default=0.30, description="Minimum margin of safety for CONVICTION_MOS mode"
+        default=0.20, description="Minimum margin of safety for CONVICTION_MOS mode"
+    )
+    max_holdings: int = Field(
+        default=5, description="Maximum number of holdings for CONVICTION_MOS mode"
+    )
+    min_conviction_score_high: float = Field(
+        default=72.0,
+        description="Minimum composite_raw_score for High-conviction tier 2 backfill",
     )
 
     @model_validator(mode="after")

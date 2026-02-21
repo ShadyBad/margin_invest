@@ -1,4 +1,7 @@
+"use client"
+
 import Link from "next/link"
+import { motion, useReducedMotion } from "framer-motion"
 
 export interface Tier {
   name: string
@@ -13,14 +16,34 @@ interface PricingTierCardProps {
   tier: Tier
 }
 
+const spring = { stiffness: 400, damping: 25 }
+
 export function PricingTierCard({ tier }: PricingTierCardProps) {
+  const prefersReducedMotion = useReducedMotion()
+
   const card = (
-    <div
-      className="terminal-card p-6 md:p-8 flex flex-col h-full"
+    <motion.div
+      className="terminal-card p-6 md:p-8 flex flex-col h-full focus-visible:outline-2 focus-visible:outline-accent/40 focus-visible:outline-offset-2"
       style={
         tier.highlighted
           ? { borderColor: "color-mix(in srgb, var(--color-accent), transparent 70%)" }
           : undefined
+      }
+      whileHover={
+        prefersReducedMotion
+          ? {}
+          : { y: -4, boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }
+      }
+      whileTap={
+        prefersReducedMotion
+          ? {}
+          : { y: -1, scale: 0.995 }
+      }
+      transition={spring}
+      whileFocus={
+        prefersReducedMotion
+          ? {}
+          : { y: -4, boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }
       }
     >
       <div className="flex items-center gap-2 mb-4">
@@ -54,7 +77,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
       >
         Get Started
       </Link>
-    </div>
+    </motion.div>
   )
 
   if (tier.highlighted) {

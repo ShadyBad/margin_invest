@@ -18,12 +18,18 @@ from margin_engine.scoring.timing_overlay import compute_timing_signal
 # v3 exports
 from margin_engine.scoring.market_regime import MarketRegime, detect_regime, regime_adjustments
 from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
-from margin_engine.scoring.v3_composite import compute_track_a_score, compute_track_b_score
+from margin_engine.scoring.v3_composite import (
+    compute_track_a_score,
+    compute_track_b_score,
+    compute_track_c_score,
+)
 from margin_engine.scoring.v3_orchestrator import V3Result, V3TrackResult, orchestrate_v3
 from margin_engine.scoring.v3_position_sizing import MAX_POSITIONS, compute_v3_position_size
 from margin_engine.scoring.v3_thresholds import assess_track_a_conviction, assess_track_b_conviction
+from margin_engine.scoring.v3_track_c_thresholds import assess_track_c_conviction
 # v3 cascade exports
 from margin_engine.scoring.v3_cascade import TrackAInputs, TrackBInputs, run_track_a_cascade, run_track_b_cascade
+from margin_engine.scoring.v3_track_c_cascade import TrackCInputs, run_track_c_cascade
 from margin_engine.scoring.v3_intermediates import (
     compute_capital_allocation_composite,
     compute_catalyst_strength,
@@ -67,8 +73,10 @@ __all__ = [
     "V3TrackResult",
     "assess_track_a_conviction",
     "assess_track_b_conviction",
+    "assess_track_c_conviction",
     "compute_track_a_score",
     "compute_track_b_score",
+    "compute_track_c_score",
     "compute_v3_position_size",
     "compute_v3_timing_signal",
     "detect_regime",
@@ -77,6 +85,7 @@ __all__ = [
     # v3 cascade exports
     "TrackAInputs",
     "TrackBInputs",
+    "TrackCInputs",
     "TickerV3Data",
     "compute_capital_allocation_composite",
     "compute_catalyst_strength",
@@ -87,6 +96,7 @@ __all__ = [
     "compute_valuation_convergence_factor",
     "run_track_a_cascade",
     "run_track_b_cascade",
+    "run_track_c_cascade",
     "score_universe_v3",
     # Risk metrics exports
     "RiskMetrics",

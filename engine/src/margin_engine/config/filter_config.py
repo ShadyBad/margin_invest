@@ -102,6 +102,10 @@ class FcfDistressConfig(BaseModel):
     min_fcf_margin: float = -0.05
     allow_positive_trend_rescue: bool = True
 
+    # Style-aware overrides for Growth stocks
+    growth_positive_years_required: int = 2
+    growth_ocf_rescue_min_gross_margin: float = 0.40
+
 
 class InterestCoverageConfig(BaseModel):
     """Interest Coverage Ratio filter configuration.

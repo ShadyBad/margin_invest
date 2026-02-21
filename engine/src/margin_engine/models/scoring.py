@@ -44,6 +44,12 @@ class OpportunityType(StrEnum):
     NEITHER = "neither"
 
 
+class InvestmentStyle(StrEnum):
+    VALUE = "value"
+    BLEND = "blend"
+    GROWTH = "growth"
+
+
 class FilterResult(BaseModel):
     """Result of a single elimination filter."""
 
@@ -115,6 +121,7 @@ class CompositeScore(BaseModel):
     filters_passed: list[FilterResult]
     data_coverage: float = Field(ge=0.0, le=1.0)
     growth_stage: GrowthStage | None = None
+    investment_style: InvestmentStyle | None = None
 
     # Price target fields (populated by PriceTargetCalculator)
     margin_invest_value: float | None = None
