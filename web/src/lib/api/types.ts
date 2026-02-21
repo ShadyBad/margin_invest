@@ -285,3 +285,18 @@ export interface ValuationAuditResponse {
   was_clamped: boolean
   clamp_reason: string | null
 }
+
+export interface ExcludedTickerResponse {
+  ticker: string
+  reason: string
+}
+
+export interface CorrelationResponse {
+  tickers: string[]
+  method: string
+  matrix: (number | null)[][]
+  sample_sizes: number[][]
+  excluded: ExcludedTickerResponse[]
+  window_days: number
+  computed_at: string
+}
