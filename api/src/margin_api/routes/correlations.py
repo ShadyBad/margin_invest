@@ -42,7 +42,9 @@ async def get_showcase_correlations() -> CorrelationResponse:
     try:
         import redis.asyncio as aioredis
 
-        client = aioredis.Redis(host="localhost", port=6379, socket_connect_timeout=1)
+        from margin_api.config import get_settings
+
+        client = aioredis.from_url(get_settings().redis_url, socket_connect_timeout=1)
         try:
             cached = await client.get("correlation:showcase")
             if cached:
@@ -101,8 +103,11 @@ async def get_correlations(
             )
             row = (await db.execute(stmt)).scalar_one_or_none()
             if row and row.price_history:
-                bars = [PriceBar(**bar) for bar in row.price_history]
-                price_data[ticker] = bars
+                price_hist = row.price_history
+                bars_raw = price_hist.get("bars", []) if isinstance(price_hist, dict) else []
+                if bars_raw:
+                    bars = [PriceBar(**bar) for bar in bars_raw]
+                    price_data[ticker] = bars
 
         if len(price_data) < 2:
             raise HTTPException(
