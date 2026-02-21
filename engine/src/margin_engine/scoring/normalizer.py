@@ -7,7 +7,9 @@ to sector peers rather than the entire universe.
 
 from __future__ import annotations
 
-from margin_engine.models.scoring import CompositeScore, FactorScore
+import statistics
+
+from margin_engine.models.scoring import CompositeScore, FactorScore, InvestmentStyle
 
 
 def compute_percentile_ranks(
@@ -165,4 +167,100 @@ def sector_neutral_ranks(
     for _sector, sector_scores in scores_by_sector.items():
         ranked = compute_percentile_ranks(sector_scores, invert=invert)
         result.extend(ranked)
+    return result
+
+
+def style_sector_neutral_ranks(
+    scores_by_bucket: dict[tuple[str, InvestmentStyle], list[FactorScore]],
+    invert: bool = False,
+    min_bucket_size: int = 5,
+) -> list[FactorScore]:
+    """Compute percentile ranks within (sector, style) buckets.
+
+    Stage 1 of two-stage style-aware normalization.
+    Uses existing compute_percentile_ranks() for each bucket.
+    Returns all scores concatenated in bucket insertion order.
+
+    Buckets smaller than min_bucket_size are still ranked (they just
+    may have less statistical power). The min_bucket_size parameter
+    is advisory and does not filter out small buckets.
+    """
+    if not scores_by_bucket:
+        return []
+
+    result: list[FactorScore] = []
+    for _bucket_key, bucket_scores in scores_by_bucket.items():
+        ranked = compute_percentile_ranks(bucket_scores, invert=invert)
+        result.extend(ranked)
+    return result
+
+
+def calibrate_cross_bucket(
+    scores: list[FactorScore],
+) -> list[FactorScore]:
+    """Z-score calibration across all buckets.
+
+    z = (percentile - mean) / std, then map back to 0-100.
+    Single score -> 50.0. All identical -> 50.0. Zero std -> 50.0.
+    Maps z-score to 0-100 using: 50 + z * 16.67 (clamped to [0, 100]).
+    """
+    if not scores:
+        return []
+
+    if len(scores) == 1:
+        s = scores[0]
+        return [
+            FactorScore(
+                name=s.name,
+                raw_value=s.raw_value,
+                percentile_rank=50.0,
+                detail=s.detail,
+                weight=s.weight,
+            )
+        ]
+
+    percentiles = [s.percentile_rank for s in scores]
+
+    # Check for zero variance (all identical percentiles)
+    if all(p == percentiles[0] for p in percentiles):
+        return [
+            FactorScore(
+                name=s.name,
+                raw_value=s.raw_value,
+                percentile_rank=50.0,
+                detail=s.detail,
+                weight=s.weight,
+            )
+            for s in scores
+        ]
+
+    mean = statistics.mean(percentiles)
+    std = statistics.stdev(percentiles)
+
+    if std == 0.0:
+        return [
+            FactorScore(
+                name=s.name,
+                raw_value=s.raw_value,
+                percentile_rank=50.0,
+                detail=s.detail,
+                weight=s.weight,
+            )
+            for s in scores
+        ]
+
+    result: list[FactorScore] = []
+    for s in scores:
+        z = (s.percentile_rank - mean) / std
+        calibrated = 50.0 + z * 16.67
+        calibrated = max(0.0, min(100.0, calibrated))
+        result.append(
+            FactorScore(
+                name=s.name,
+                raw_value=s.raw_value,
+                percentile_rank=calibrated,
+                detail=s.detail,
+                weight=s.weight,
+            )
+        )
     return result
