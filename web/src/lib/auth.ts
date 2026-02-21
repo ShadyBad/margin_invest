@@ -79,7 +79,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, user, account }) {
       if (user) {
-        token.userId = user.id
         token.authMethod = account?.type === "oauth" || account?.type === "oidc"
           ? "oauth"
           : "credentials"
@@ -90,6 +89,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           ? true
           : !!(user as Record<string, unknown>).mfaToken
 
+        // OAuth: sync user to backend and get database ID
+        if (token.authMethod === "oauth" && account) {
+          try {
+            const syncRes = await fetch(`${API_URL}/api/v1/auth/oauth-sync`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: user.email,
+                name: user.name,
+                provider: account.provider,
+                oauth_id: account.providerAccountId,
+                avatar_url: user.image,
+              }),
+            })
+            if (syncRes.ok) {
+              const syncData = await syncRes.json()
+              token.userId = String(syncData.id)
+            } else {
+              // Fallback to provider ID if sync fails
+              token.userId = user.id
+            }
+          } catch {
+            // If API is unavailable, fall back to provider ID
+            token.userId = user.id
+          }
+        } else {
+          token.userId = user.id
+        }
+
         // Avatar: OAuth providers include image in user profile
         if (token.authMethod === "oauth" && user.image) {
           token.oauthAvatarUrl = user.image
@@ -98,6 +126,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const avatarUrl = (user as Record<string, unknown>).avatarUrl as string | undefined
         if (avatarUrl) {
           token.avatarUrl = avatarUrl
+        }
+
+        // Fetch security status for the user (both OAuth and credentials)
+        if (token.userId) {
+          try {
+            const securityRes = await fetch(`${API_URL}/api/v1/auth/security-status`, {
+              headers: { "X-User-Id": String(token.userId) },
+            })
+            if (securityRes.ok) {
+              const security = await securityRes.json()
+              token.hasPassword = security.has_password
+              token.mfaEnabled = security.mfa_enabled
+              token.mfaGraceDeadline = security.mfa_grace_deadline ?? null
+              token.linkedProviders = (security.linked_providers ?? []).map(
+                (lp: { provider: string }) => lp.provider
+              )
+            }
+          } catch {
+            // If API is unavailable, leave security fields unset
+          }
         }
       } else if (token.authMethod === "credentials" && token.userId) {
         // Token refresh for credentials users — check if password was changed.
@@ -128,6 +176,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // If API is unavailable, don't invalidate — just skip the check
             token.sessionCheckAt = now
           }
+
+          // Refresh security status on the same cadence
+          try {
+            const securityRes = await fetch(`${API_URL}/api/v1/auth/security-status`, {
+              headers: { "X-User-Id": String(token.userId) },
+            })
+            if (securityRes.ok) {
+              const security = await securityRes.json()
+              token.hasPassword = security.has_password
+              token.mfaEnabled = security.mfa_enabled
+              token.mfaGraceDeadline = security.mfa_grace_deadline ?? null
+              token.linkedProviders = (security.linked_providers ?? []).map(
+                (lp: { provider: string }) => lp.provider
+              )
+            }
+          } catch {
+            // If API is unavailable, keep stale security info
+          }
         }
       }
       return token
@@ -137,6 +203,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.authMethod = token.authMethod as string
       session.oauthProvider = (token.oauthProvider as string) || null
       session.mfaVerified = token.mfaVerified as boolean
+      session.hasPassword = (token.hasPassword as boolean) ?? false
+      session.mfaEnabled = (token.mfaEnabled as boolean) ?? false
+      session.mfaGraceDeadline = (token.mfaGraceDeadline as string) ?? null
+      session.linkedProviders = (token.linkedProviders as string[]) ?? []
       session.avatarUrl = (token.avatarUrl as string) || null
       session.oauthAvatarUrl = (token.oauthAvatarUrl as string) || null
       return session

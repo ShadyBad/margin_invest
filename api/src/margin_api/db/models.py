@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Float, JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Float, JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -141,24 +141,82 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    oauth_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
-    name: Mapped[str] = mapped_column(String(255))
-    provider: Mapped[str] = mapped_column(String(50))  # google, github, etc.
-    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # OAuth fields (nullable — absent for credential-only users)
+    oauth_id: Mapped[str | None] = mapped_column(
+        String(255), unique=True, nullable=True, index=True
+    )
+
+    # Credential fields (nullable — absent for OAuth-only users)
+    password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mfa_enabled: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    mfa_grace_deadline: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    failed_login_attempts: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_totp_counter: Mapped[int | None] = mapped_column(nullable=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Billing
+    stripe_customer_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, unique=True
+    )
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subscription_plan: Mapped[str] = mapped_column(String(20), default="analyst")
     subscription_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     current_period_end: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC)
-    )
+
+    # Avatars
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     oauth_avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    # Relationships
+    linked_providers: Mapped[list[LinkedProvider]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     api_keys: Mapped[list[ApiKey]] = relationship(back_populates="user")
+    totp_secrets: Mapped[list[TotpSecret]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    webauthn_credentials: Mapped[list[WebAuthnCredential]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    challenge_tokens: Mapped[list[MfaChallengeToken]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    recovery_codes: Mapped[list[RecoveryCode]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+    @property
+    def has_password(self) -> bool:
+        return self.password_hash is not None
+
+    @property
+    def auth_methods(self) -> list[str]:
+        methods = []
+        if self.has_password:
+            methods.append("credentials")
+        if self.linked_providers:
+            methods.extend(lp.provider for lp in self.linked_providers)
+        return methods
 
 
 class Score(Base):
@@ -414,69 +472,67 @@ class ApiKeyEvent(Base):
 # ---------------------------------------------------------------------------
 
 
-class CredentialUser(Base):
-    """User with username/password credentials and optional MFA."""
+class LinkedProvider(Base):
+    """Tracks which OAuth providers are linked to a user account."""
 
-    __tablename__ = "credential_users"
+    __tablename__ = "linked_providers"
+    __table_args__ = (
+        UniqueConstraint("provider", "oauth_id", name="uq_linked_providers_provider_oauth_id"),
+        UniqueConstraint("user_id", "provider", name="uq_linked_providers_user_id_provider"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    username: Mapped[str] = mapped_column(String(150), unique=True, index=True)
-    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(Text)
-    mfa_enabled: Mapped[bool] = mapped_column(default=False)
-    failed_login_attempts: Mapped[int] = mapped_column(default=0)
-    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_totp_counter: Mapped[int | None] = mapped_column(nullable=True)
-    password_changed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    provider: Mapped[str] = mapped_column(String(50))
+    oauth_id: Mapped[str] = mapped_column(String(255))
+    provider_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    linked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
-    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
-    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    subscription_plan: Mapped[str] = mapped_column(String(20), default="analyst")
-    subscription_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    current_period_end: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+
+    user: Mapped[User] = relationship(back_populates="linked_providers")
+
+
+class RecoveryCode(Base):
+    """Hashed backup codes for MFA recovery."""
+
+    __tablename__ = "recovery_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    code_hash: Mapped[str] = mapped_column(Text)
+    used: Mapped[bool] = mapped_column(default=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-    )
-    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
-    totp_secrets: Mapped[list[TotpSecret]] = relationship(back_populates="user")
-    webauthn_credentials: Mapped[list[WebAuthnCredential]] = relationship(
-        back_populates="user"
-    )
-    challenge_tokens: Mapped[list[MfaChallengeToken]] = relationship(back_populates="user")
+    user: Mapped[User] = relationship(back_populates="recovery_codes")
 
 
 class TotpSecret(Base):
-    """Encrypted TOTP secret for a credential user."""
+    """Encrypted TOTP secret for a user."""
 
     __tablename__ = "totp_secrets"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("credential_users.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     encrypted_secret: Mapped[str] = mapped_column(Text)
     confirmed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
-    user: Mapped[CredentialUser] = relationship(back_populates="totp_secrets")
+    user: Mapped[User] = relationship(back_populates="totp_secrets")
 
 
 class WebAuthnCredential(Base):
-    """WebAuthn/passkey credential for a credential user."""
+    """WebAuthn/passkey credential for a user."""
 
     __tablename__ = "webauthn_credentials"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("credential_users.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     credential_id: Mapped[str] = mapped_column(Text, unique=True)
     public_key: Mapped[str] = mapped_column(Text)
     sign_count: Mapped[int] = mapped_column(default=0)
@@ -484,7 +540,7 @@ class WebAuthnCredential(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
-    user: Mapped[CredentialUser] = relationship(back_populates="webauthn_credentials")
+    user: Mapped[User] = relationship(back_populates="webauthn_credentials")
 
 
 class MfaChallengeToken(Base):
@@ -493,7 +549,7 @@ class MfaChallengeToken(Base):
     __tablename__ = "mfa_challenge_tokens"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("credential_users.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     token_hash: Mapped[str] = mapped_column(String(64))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used: Mapped[bool] = mapped_column(default=False)
@@ -501,4 +557,4 @@ class MfaChallengeToken(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
-    user: Mapped[CredentialUser] = relationship(back_populates="challenge_tokens")
+    user: Mapped[User] = relationship(back_populates="challenge_tokens")

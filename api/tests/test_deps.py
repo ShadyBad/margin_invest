@@ -22,11 +22,10 @@ async def setup():
 
     # Seed a free user and a paid user
     async with factory() as session:
-        free_user = User(email="free@test.com", name="Free", provider="google")
+        free_user = User(email="free@test.com", name="Free")
         paid_user = User(
             email="paid@test.com",
             name="Paid",
-            provider="google",
             subscription_plan="margin_invest",
         )
         session.add_all([free_user, paid_user])

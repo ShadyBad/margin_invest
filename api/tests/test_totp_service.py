@@ -9,7 +9,7 @@ import pytest
 import pytest_asyncio
 from cryptography.fernet import Fernet
 from margin_api.db.base import Base
-from margin_api.db.models import CredentialUser, TotpSecret
+from margin_api.db.models import TotpSecret, User
 from margin_api.services.totp import TotpService
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -42,10 +42,10 @@ def totp_service(encryption_key) -> TotpService:
 
 
 @pytest_asyncio.fixture()
-async def user(session) -> CredentialUser:
-    u = CredentialUser(
-        username="totptest",
+async def user(session) -> User:
+    u = User(
         email="totp@example.com",
+        name="totptest",
         password_hash="hash",
     )
     session.add(u)
@@ -120,7 +120,7 @@ class TestConfirmTotp:
         await session.refresh(secret_row)
         assert secret_row.confirmed is True
         # Check user.mfa_enabled
-        stmt_user = select(CredentialUser).where(CredentialUser.id == user.id)
+        stmt_user = select(User).where(User.id == user.id)
         updated_user = (await session.execute(stmt_user)).scalar_one()
         assert updated_user.mfa_enabled is True
 

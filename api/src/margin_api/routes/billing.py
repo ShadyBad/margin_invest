@@ -11,6 +11,7 @@ from margin_api.config import Settings, get_settings
 from margin_api.db.models import User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
+from margin_api.middleware.mfa_enforcement import require_mfa_dep
 from margin_api.schemas.billing import (
     BillingStatusResponse,
     CheckoutRequest,
@@ -34,6 +35,7 @@ def _get_billing_service(settings: Settings = Depends(get_settings)) -> BillingS
 @router.post("/checkout", response_model=CheckoutResponse)
 async def create_checkout(
     body: CheckoutRequest,
+    _mfa_user: User = Depends(require_mfa_dep),
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
     billing: BillingService = Depends(_get_billing_service),
@@ -53,6 +55,7 @@ async def create_checkout(
 
 @router.post("/portal", response_model=PortalResponse)
 async def create_portal(
+    _mfa_user: User = Depends(require_mfa_dep),
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
     billing: BillingService = Depends(_get_billing_service),

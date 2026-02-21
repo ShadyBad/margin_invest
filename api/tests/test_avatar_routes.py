@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from margin_api.app import create_app
 from margin_api.db.base import Base
-from margin_api.db.models import CredentialUser, User
+from margin_api.db.models import User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
 from margin_api.routes.avatar import _get_storage
@@ -86,7 +86,6 @@ async def app_and_db():
             id=_TEST_USER_ID,
             email="test@example.com",
             name="Test User",
-            provider="google",
         )
         session.add(user)
         await session.commit()

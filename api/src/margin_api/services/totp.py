@@ -7,7 +7,7 @@ from cryptography.fernet import Fernet
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.db.models import CredentialUser, TotpSecret
+from margin_api.db.models import TotpSecret, User
 
 _ISSUER_NAME = "Margin Invest"
 
@@ -61,7 +61,7 @@ class TotpService:
     ) -> bool:
         """Verify the code against the unconfirmed secret. Confirm on success.
 
-        Sets ``TotpSecret.confirmed = True`` and ``CredentialUser.mfa_enabled = True``.
+        Sets ``TotpSecret.confirmed = True`` and ``User.mfa_enabled = True``.
         """
         stmt = select(TotpSecret).where(TotpSecret.id == secret_id)
         secret_row = (await session.execute(stmt)).scalar_one_or_none()
@@ -75,7 +75,7 @@ class TotpService:
 
         secret_row.confirmed = True
 
-        user_stmt = select(CredentialUser).where(CredentialUser.id == secret_row.user_id)
+        user_stmt = select(User).where(User.id == secret_row.user_id)
         user = (await session.execute(user_stmt)).scalar_one()
         user.mfa_enabled = True
         await session.commit()

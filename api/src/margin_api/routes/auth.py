@@ -3,38 +3,57 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime, timedelta
 
+from argon2.exceptions import VerifyMismatchError
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
-
-logger = logging.getLogger(__name__)
-from margin_api.db.models import CredentialUser, User
+from margin_api.db.models import LinkedProvider, RecoveryCode, TotpSecret, User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
+from margin_api.middleware.mfa_enforcement import _ensure_utc, require_mfa_dep
 from margin_api.schemas.auth import (
     ChangePasswordRequest,
     ChangePasswordResponse,
     ConfirmTotpRequest,
+    ConfirmTotpResponse,
+    DisableMfaRequest,
+    DisableMfaResponse,
+    LinkProviderRequest,
+    LinkProviderResponse,
     MfaVerifyResponse,
     OAuthSyncRequest,
     OAuthSyncResponse,
+    ProviderInfo,
+    RegenerateRecoveryCodesRequest,
+    RegenerateRecoveryCodesResponse,
     RegisterRequest,
     RegisterResponse,
+    RemovePasswordRequest,
+    RemovePasswordResponse,
+    SecurityStatusResponse,
+    SetPasswordRequest,
+    SetPasswordResponse,
     SetupTotpRequest,
     SetupTotpResponse,
+    UnlinkProviderResponse,
     VerifyCredentialsRequest,
     VerifyCredentialsResponse,
+    VerifyRecoveryCodeRequest,
     VerifyTotpRequest,
     WebAuthnOptionsRequest,
     WebAuthnOptionsResponse,
 )
-from margin_api.services.auth import AuthService
+from margin_api.services.auth import AuthService, _hasher
+from margin_api.services.recovery_codes import RecoveryCodeService
 from margin_api.services.totp import TotpService
 from margin_api.services.webauthn import WebAuthnService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -62,6 +81,10 @@ def _get_webauthn_service() -> WebAuthnService:
     )
 
 
+def _get_recovery_code_service() -> RecoveryCodeService:
+    return RecoveryCodeService()
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -85,7 +108,7 @@ async def register(
             status_code=409,
             detail="A user with this username or email already exists",
         ) from exc
-    return RegisterResponse(id=user.id, username=user.username, email=user.email)
+    return RegisterResponse(id=user.id, username=user.name, email=user.email)
 
 
 @router.post("/verify-credentials", response_model=VerifyCredentialsResponse)
@@ -125,7 +148,7 @@ async def setup_totp(
         raise HTTPException(status_code=403, detail="Invalid or expired challenge token")
 
     # Look up user to get their email
-    stmt = select(CredentialUser).where(CredentialUser.id == body.user_id)
+    stmt = select(User).where(User.id == body.user_id)
     user = (await db.execute(stmt)).scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -137,15 +160,23 @@ async def setup_totp(
     )
 
 
-@router.post("/mfa/confirm-totp", response_model=MfaVerifyResponse)
+@router.post("/mfa/confirm-totp", response_model=ConfirmTotpResponse)
 async def confirm_totp(
     body: ConfirmTotpRequest,
     db: AsyncSession = Depends(get_db),
     totp: TotpService = Depends(_get_totp_service),
-) -> MfaVerifyResponse:
-    """Confirm a TOTP secret by verifying the first code."""
+    recovery: RecoveryCodeService = Depends(_get_recovery_code_service),
+) -> ConfirmTotpResponse:
+    """Confirm a TOTP secret by verifying the first code. Returns recovery codes."""
     confirmed = await totp.confirm_totp(db, body.secret_id, body.code)
-    return MfaVerifyResponse(verified=confirmed)
+    recovery_codes: list[str] = []
+    if confirmed:
+        # Look up user_id from the totp secret
+        secret_stmt = select(TotpSecret).where(TotpSecret.id == body.secret_id)
+        secret_row = (await db.execute(secret_stmt)).scalar_one_or_none()
+        if secret_row:
+            recovery_codes = await recovery.generate_codes(db, secret_row.user_id)
+    return ConfirmTotpResponse(confirmed=confirmed, recovery_codes=recovery_codes)
 
 
 @router.post("/mfa/verify-totp", response_model=MfaVerifyResponse)
@@ -181,13 +212,13 @@ async def register_webauthn(
     if not valid:
         raise HTTPException(status_code=403, detail="Invalid or expired challenge token")
 
-    stmt = select(CredentialUser).where(CredentialUser.id == body.user_id)
+    stmt = select(User).where(User.id == body.user_id)
     user = (await db.execute(stmt)).scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
     options = await webauthn.generate_registration_options(
-        db, user.id, user.username, user.email
+        db, user.id, user.name or user.email, user.email
     )
     return WebAuthnOptionsResponse(options=options)
 
@@ -225,7 +256,6 @@ async def oauth_sync(
         user = User(
             email=body.email,
             name=body.name,
-            provider=body.provider,
             oauth_avatar_url=body.avatar_url,
         )
         db.add(user)
@@ -233,6 +263,21 @@ async def oauth_sync(
     else:
         user.name = body.name
         user.oauth_avatar_url = body.avatar_url
+
+    # Upsert LinkedProvider for this OAuth provider
+    lp_stmt = select(LinkedProvider).where(
+        LinkedProvider.user_id == user.id,
+        LinkedProvider.provider == body.provider,
+    )
+    lp = (await db.execute(lp_stmt)).scalar_one_or_none()
+    if lp is None:
+        lp = LinkedProvider(
+            user_id=user.id,
+            provider=body.provider,
+            oauth_id=body.oauth_id,
+            provider_email=body.email,
+        )
+        db.add(lp)
 
     await db.commit()
     await db.refresh(user)
@@ -247,7 +292,7 @@ async def check_session(
 ) -> dict:
     """Internal endpoint called by NextAuth JWT callback to check if password was changed."""
     result = await db.execute(
-        select(CredentialUser).where(CredentialUser.id == user_id)
+        select(User).where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
     if not user or not user.password_changed_at:
@@ -258,13 +303,13 @@ async def check_session(
 @router.post("/change-password", response_model=ChangePasswordResponse)
 async def change_password(
     body: ChangePasswordRequest,
-    user_id: int = Depends(get_current_user_id),
+    user: User = Depends(require_mfa_dep),
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
 ) -> ChangePasswordResponse:
     """Change the current user's password. Requires valid current password."""
     try:
-        await auth.change_password(db, user_id, body.current_password, body.new_password)
+        await auth.change_password(db, user.id, body.current_password, body.new_password)
     except LookupError:
         raise HTTPException(status_code=404, detail="User not found")
     except PermissionError:
@@ -272,3 +317,289 @@ async def change_password(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return ChangePasswordResponse(message="Password changed successfully")
+
+
+# ---------------------------------------------------------------------------
+# Task 10: Recovery code endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/mfa/verify-recovery", response_model=MfaVerifyResponse)
+async def verify_recovery_code(
+    body: VerifyRecoveryCodeRequest,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthService = Depends(_get_auth_service),
+    recovery: RecoveryCodeService = Depends(_get_recovery_code_service),
+) -> MfaVerifyResponse:
+    """Verify an MFA recovery code during login."""
+    valid = await auth.verify_challenge_token(db, body.user_id, body.challenge_token)
+    if not valid:
+        raise HTTPException(status_code=403, detail="Invalid or expired challenge token")
+
+    verified = await recovery.verify_code(db, body.user_id, body.code)
+    if not verified:
+        raise HTTPException(status_code=401, detail="Invalid recovery code")
+
+    mfa_token = await auth.create_challenge_token(db, body.user_id)
+    return MfaVerifyResponse(verified=True, mfa_token=mfa_token)
+
+
+@router.post(
+    "/mfa/regenerate-recovery-codes",
+    response_model=RegenerateRecoveryCodesResponse,
+)
+async def regenerate_recovery_codes(
+    body: RegenerateRecoveryCodesRequest,
+    user: User = Depends(require_mfa_dep),
+    db: AsyncSession = Depends(get_db),
+    recovery: RecoveryCodeService = Depends(_get_recovery_code_service),
+) -> RegenerateRecoveryCodesResponse:
+    """Regenerate MFA recovery codes. Requires current password verification."""
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail="User has no password set")
+
+    try:
+        _hasher.verify(user.password_hash, body.current_password)
+    except VerifyMismatchError:
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    codes = await recovery.generate_codes(db, user.id)
+    return RegenerateRecoveryCodesResponse(codes=codes)
+
+
+# ---------------------------------------------------------------------------
+# Task 11: MFA disable endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/mfa/disable", response_model=DisableMfaResponse)
+async def disable_mfa(
+    body: DisableMfaRequest,
+    user: User = Depends(require_mfa_dep),
+    db: AsyncSession = Depends(get_db),
+    totp: TotpService = Depends(_get_totp_service),
+) -> DisableMfaResponse:
+    """Disable MFA. Requires both current password and a valid TOTP code."""
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail="User has no password set")
+
+    # Verify password
+    try:
+        _hasher.verify(user.password_hash, body.current_password)
+    except VerifyMismatchError:
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    # Verify TOTP code
+    verified = await totp.verify_totp(db, user.id, body.totp_code)
+    if not verified:
+        raise HTTPException(status_code=401, detail="Invalid TOTP code")
+
+    # Disable MFA
+    user.mfa_enabled = False
+    user.mfa_grace_deadline = datetime.now(UTC) + timedelta(hours=72)
+
+    # Delete TOTP secrets
+    await db.execute(delete(TotpSecret).where(TotpSecret.user_id == user.id))
+
+    # Delete recovery codes
+    await db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
+
+    await db.commit()
+    return DisableMfaResponse(mfa_disabled=True)
+
+
+# ---------------------------------------------------------------------------
+# Task 12: Provider linking and password management
+# ---------------------------------------------------------------------------
+
+
+@router.post("/link-provider", response_model=LinkProviderResponse)
+async def link_provider(
+    body: LinkProviderRequest,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> LinkProviderResponse:
+    """Link an OAuth provider to the current user account."""
+    lp = LinkedProvider(
+        user_id=user_id,
+        provider=body.provider,
+        oauth_id=body.oauth_id,
+        provider_email=body.provider_email,
+    )
+    db.add(lp)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This provider account is already linked",
+        )
+    return LinkProviderResponse(linked=True, provider=body.provider)
+
+
+@router.delete("/unlink-provider/{provider}", response_model=UnlinkProviderResponse)
+async def unlink_provider(
+    provider: str,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> UnlinkProviderResponse:
+    """Unlink an OAuth provider from the current user account."""
+    stmt = select(User).where(User.id == user_id)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Find the linked provider row
+    lp_stmt = select(LinkedProvider).where(
+        LinkedProvider.user_id == user_id,
+        LinkedProvider.provider == provider,
+    )
+    lp = (await db.execute(lp_stmt)).scalar_one_or_none()
+    if lp is None:
+        raise HTTPException(status_code=404, detail="Provider not linked")
+
+    # Count remaining auth methods
+    all_providers_stmt = select(LinkedProvider).where(LinkedProvider.user_id == user_id)
+    all_providers = (await db.execute(all_providers_stmt)).scalars().all()
+
+    if not user.has_password and len(all_providers) <= 1:
+        raise HTTPException(
+            status_code=403,
+            detail="Can't disconnect only sign-in method",
+        )
+
+    if user.has_password and not user.mfa_enabled:
+        # Check grace period
+        if not user.mfa_grace_deadline or _ensure_utc(
+            user.mfa_grace_deadline
+        ) <= datetime.now(UTC):
+            raise HTTPException(
+                status_code=403,
+                detail="Set up MFA first",
+            )
+
+    await db.delete(lp)
+    await db.commit()
+    return UnlinkProviderResponse(unlinked=True)
+
+
+@router.post("/set-password", response_model=SetPasswordResponse)
+async def set_password(
+    body: SetPasswordRequest,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> SetPasswordResponse:
+    """Set a password for an OAuth-only user account."""
+    from margin_api.services.auth import _validate_password
+
+    stmt = select(User).where(User.id == user_id)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.has_password:
+        raise HTTPException(
+            status_code=409, detail="Password already set. Use change-password instead."
+        )
+
+    try:
+        _validate_password(body.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    user.password_hash = _hasher.hash(body.new_password)
+    user.mfa_grace_deadline = datetime.now(UTC) + timedelta(hours=72)
+    await db.commit()
+    return SetPasswordResponse(password_set=True)
+
+
+@router.post("/remove-password", response_model=RemovePasswordResponse)
+async def remove_password(
+    body: RemovePasswordRequest,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> RemovePasswordResponse:
+    """Remove password authentication. User must have at least one linked provider."""
+    stmt = select(User).where(User.id == user_id)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Verify current password
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail="User has no password set")
+
+    try:
+        _hasher.verify(user.password_hash, body.current_password)
+    except VerifyMismatchError:
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    # Must have at least one linked provider
+    lp_stmt = select(LinkedProvider).where(LinkedProvider.user_id == user_id)
+    providers = (await db.execute(lp_stmt)).scalars().all()
+    if not providers:
+        raise HTTPException(
+            status_code=403,
+            detail="Must have at least one linked provider before removing password",
+        )
+
+    # Clear password and MFA
+    user.password_hash = None
+    user.password_changed_at = None
+    user.mfa_enabled = False
+    user.mfa_grace_deadline = None
+
+    # Delete TOTP secrets and recovery codes
+    await db.execute(delete(TotpSecret).where(TotpSecret.user_id == user_id))
+    await db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user_id))
+
+    await db.commit()
+    return RemovePasswordResponse(password_removed=True)
+
+
+# ---------------------------------------------------------------------------
+# Task 13: Security status endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.get("/security-status", response_model=SecurityStatusResponse)
+async def security_status(
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    recovery: RecoveryCodeService = Depends(_get_recovery_code_service),
+) -> SecurityStatusResponse:
+    """Return the full security status for the current user."""
+    stmt = select(User).where(User.id == user_id)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Determine MFA method
+    mfa_method: str | None = None
+    if user.mfa_enabled:
+        mfa_method = "totp"
+
+    # Get remaining recovery codes
+    remaining = await recovery.remaining_count(db, user_id)
+
+    # Get linked providers
+    lp_stmt = select(LinkedProvider).where(LinkedProvider.user_id == user_id)
+    providers = (await db.execute(lp_stmt)).scalars().all()
+    provider_info = [
+        ProviderInfo(
+            provider=lp.provider,
+            provider_email=lp.provider_email,
+            linked_at=lp.linked_at,
+        )
+        for lp in providers
+    ]
+
+    return SecurityStatusResponse(
+        has_password=user.has_password,
+        mfa_enabled=user.mfa_enabled,
+        mfa_method=mfa_method,
+        mfa_grace_deadline=user.mfa_grace_deadline,
+        recovery_codes_remaining=remaining,
+        linked_providers=provider_info,
+    )

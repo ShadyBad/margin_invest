@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -94,6 +96,7 @@ class OAuthSyncRequest(BaseModel):
     email: str = Field(max_length=320)
     name: str = Field(max_length=255)
     provider: str = Field(max_length=50)
+    oauth_id: str = Field(max_length=255)
     avatar_url: str | None = None
 
 
@@ -115,3 +118,137 @@ class ChangePasswordResponse(BaseModel):
     """Response after successful password change."""
 
     message: str
+
+
+# ---------------------------------------------------------------------------
+# MFA confirm TOTP response (with recovery codes)
+# ---------------------------------------------------------------------------
+
+
+class ConfirmTotpResponse(BaseModel):
+    """Response after confirming TOTP setup (includes recovery codes)."""
+
+    confirmed: bool
+    recovery_codes: list[str] = []
+
+
+# ---------------------------------------------------------------------------
+# Recovery code schemas
+# ---------------------------------------------------------------------------
+
+
+class VerifyRecoveryCodeRequest(BaseModel):
+    """Request body for verifying an MFA recovery code."""
+
+    user_id: int
+    code: str = Field(min_length=8, max_length=9)
+    challenge_token: str
+
+
+class RegenerateRecoveryCodesRequest(BaseModel):
+    """Request body for regenerating recovery codes."""
+
+    current_password: str
+
+
+class RegenerateRecoveryCodesResponse(BaseModel):
+    """Response with newly generated recovery codes."""
+
+    codes: list[str]
+
+
+# ---------------------------------------------------------------------------
+# MFA disable schemas
+# ---------------------------------------------------------------------------
+
+
+class DisableMfaRequest(BaseModel):
+    """Request body for disabling MFA."""
+
+    current_password: str
+    totp_code: str = Field(min_length=6, max_length=6)
+
+
+class DisableMfaResponse(BaseModel):
+    """Response after disabling MFA."""
+
+    mfa_disabled: bool
+
+
+# ---------------------------------------------------------------------------
+# Provider linking schemas
+# ---------------------------------------------------------------------------
+
+
+class LinkProviderRequest(BaseModel):
+    """Request body for linking an OAuth provider."""
+
+    provider: str = Field(max_length=50)
+    oauth_id: str = Field(max_length=255)
+    provider_email: str | None = None
+
+
+class LinkProviderResponse(BaseModel):
+    """Response after linking a provider."""
+
+    linked: bool
+    provider: str
+
+
+class UnlinkProviderResponse(BaseModel):
+    """Response after unlinking a provider."""
+
+    unlinked: bool
+
+
+# ---------------------------------------------------------------------------
+# Password management schemas
+# ---------------------------------------------------------------------------
+
+
+class SetPasswordRequest(BaseModel):
+    """Request body for setting a password (for OAuth-only users)."""
+
+    new_password: str = Field(min_length=12)
+
+
+class SetPasswordResponse(BaseModel):
+    """Response after setting a password."""
+
+    password_set: bool
+
+
+class RemovePasswordRequest(BaseModel):
+    """Request body for removing password authentication."""
+
+    current_password: str
+
+
+class RemovePasswordResponse(BaseModel):
+    """Response after removing password."""
+
+    password_removed: bool
+
+
+# ---------------------------------------------------------------------------
+# Security status schemas
+# ---------------------------------------------------------------------------
+
+
+class ProviderInfo(BaseModel):
+    """Info about a linked OAuth provider."""
+
+    provider: str
+    provider_email: str | None
+    linked_at: datetime
+
+
+class SecurityStatusResponse(BaseModel):
+    """Full security status for a user account."""
+
+    has_password: bool
+    mfa_enabled: bool
+    mfa_method: str | None
+    mfa_grace_deadline: datetime | None
+    recovery_codes_remaining: int
+    linked_providers: list[ProviderInfo]

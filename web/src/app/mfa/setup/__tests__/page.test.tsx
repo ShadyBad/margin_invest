@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
   }),
-  useSearchParams: () => new URLSearchParams("userId=1"),
+  useSearchParams: () => new URLSearchParams("userId=1&challengeToken=test-token"),
 }))
 
 vi.mock("qrcode.react", () => ({
@@ -18,9 +18,50 @@ vi.mock("qrcode.react", () => ({
   ),
 }))
 
+vi.mock("@simplewebauthn/browser", () => ({
+  startRegistration: vi.fn(),
+}))
+
+const mockRecoveryCodes = [
+  "aaaa-bbbb",
+  "cccc-dddd",
+  "eeee-ffff",
+  "gggg-hhhh",
+  "iiii-jjjj",
+  "kkkk-llll",
+  "mmmm-nnnn",
+  "oooo-pppp",
+]
+
+function mockFetchForSetup() {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+    const urlStr = typeof url === "string" ? url : url.toString()
+    if (urlStr.includes("setup-totp")) {
+      return new Response(
+        JSON.stringify({
+          provisioning_uri: "otpauth://totp/MarginInvest:user?secret=ABC123",
+          secret_id: 42,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    }
+    if (urlStr.includes("confirm-totp")) {
+      return new Response(
+        JSON.stringify({
+          confirmed: true,
+          recovery_codes: mockRecoveryCodes,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    }
+    return new Response("{}", { status: 404 })
+  })
+}
+
 describe("MFA Setup Page", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.restoreAllMocks()
   })
 
   it("renders 'Set Up MFA' heading", () => {
@@ -42,14 +83,7 @@ describe("MFA Setup Page", () => {
 
   it("renders 'Verification Code' input field after choosing authenticator", async () => {
     const user = userEvent.setup()
-
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          provisioning_uri: "otpauth://totp/MarginInvest:user?secret=ABC123",
-        }),
-    })
+    mockFetchForSetup()
 
     render(<MfaSetupPage />)
 
@@ -60,5 +94,52 @@ describe("MFA Setup Page", () => {
     await waitFor(() => {
       expect(screen.getByLabelText(/verification code/i)).toBeInTheDocument()
     })
+  })
+
+  it("shows recovery codes step after TOTP confirmation", async () => {
+    const user = userEvent.setup()
+    mockFetchForSetup()
+
+    render(<MfaSetupPage />)
+
+    // Choose authenticator
+    await user.click(screen.getByRole("button", { name: /authenticator app/i }))
+    await waitFor(() => expect(screen.getByTestId("qr-code")).toBeInTheDocument())
+
+    // Enter code and submit
+    await user.type(screen.getByPlaceholderText("000000"), "123456")
+    await user.click(screen.getByRole("button", { name: /verify & enable/i }))
+
+    // Recovery codes step should appear
+    await waitFor(() => {
+      expect(screen.getByText("Save your recovery codes")).toBeInTheDocument()
+    })
+    const codeElements = screen.getAllByTestId("recovery-code")
+    expect(codeElements).toHaveLength(8)
+
+    // Should NOT have redirected yet
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it("redirects to /account after confirming recovery codes saved", async () => {
+    const user = userEvent.setup()
+    mockFetchForSetup()
+
+    render(<MfaSetupPage />)
+
+    // Go through full setup flow
+    await user.click(screen.getByRole("button", { name: /authenticator app/i }))
+    await waitFor(() => expect(screen.getByTestId("qr-code")).toBeInTheDocument())
+    await user.type(screen.getByPlaceholderText("000000"), "123456")
+    await user.click(screen.getByRole("button", { name: /verify & enable/i }))
+
+    // Wait for recovery codes
+    await waitFor(() => expect(screen.getByText("Save your recovery codes")).toBeInTheDocument())
+
+    // Check the checkbox and click Continue
+    await user.click(screen.getByTestId("saved-checkbox"))
+    await user.click(screen.getByRole("button", { name: "Continue" }))
+
+    expect(mockPush).toHaveBeenCalledWith("/account")
   })
 })

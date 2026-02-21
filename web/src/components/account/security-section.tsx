@@ -1,7 +1,11 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { signIn, useSession } from "next-auth/react"
 import { useState } from "react"
+import { RecoveryCodesDisplay } from "../mfa/recovery-codes-display"
+import { ProviderIcons } from "./provider-icons"
+import { PasswordSection } from "./password-section"
+import { MfaStatus } from "./mfa-status"
 
 const PROVIDER_LABELS: Record<string, string> = {
   google: "Google",
@@ -9,63 +13,107 @@ const PROVIDER_LABELS: Record<string, string> = {
 }
 
 export function SecuritySection() {
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
   const authMethod = session?.authMethod
-  const oauthProvider = session?.oauthProvider
-  const mfaVerified = session?.mfaVerified
+  const oauthProvider = session?.oauthProvider ?? null
+  const hasPassword = session?.hasPassword ?? false
+  const mfaEnabled = session?.mfaEnabled ?? false
+  const mfaGraceDeadline = session?.mfaGraceDeadline ?? null
+  const linkedProviders = session?.linkedProviders ?? []
 
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [submitting, setSubmitting] = useState(false)
+  const [connecting, setConnecting] = useState<string | null>(null)
+  const [regenerating, setRegenerating] = useState(false)
+  const [disabling, setDisabling] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [newRecoveryCodes, setNewRecoveryCodes] = useState<string[] | null>(null)
 
   const providerLabel =
     oauthProvider && PROVIDER_LABELS[oauthProvider]
       ? PROVIDER_LABELS[oauthProvider]
       : oauthProvider || "your OAuth provider"
 
-  async function handleChangePassword(e: React.FormEvent) {
-    e.preventDefault()
+  const isOAuthOnly = authMethod === "oauth" && !hasPassword
+
+  async function handleConnect(provider: string) {
     setError(null)
-    setSuccess(null)
-
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.")
-      return
-    }
-
-    if (newPassword.length < 12) {
-      setError("New password must be at least 12 characters.")
-      return
-    }
-
-    setSubmitting(true)
-
+    setConnecting(provider)
     try {
-      const res = await fetch("/api/v1/auth/change-password", {
+      // NextAuth's signIn will redirect to the OAuth provider
+      // The oauth-sync callback will create the LinkedProvider record
+      await signIn(provider, { callbackUrl: "/account" })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to link provider")
+    } finally {
+      setConnecting(null)
+    }
+  }
+
+  async function handleDisconnect(provider: string) {
+    setError(null)
+    try {
+      const res = await fetch(`/api/v1/auth/unlink-provider/${provider}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ detail: "Failed to unlink provider" }))
+        throw new Error(data.detail ?? data.message ?? "Failed to unlink provider")
+      }
+      await update()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to unlink provider")
+    }
+  }
+
+  async function handleRegenerateCodes() {
+    const password = window.prompt("Enter your current password to regenerate recovery codes")
+    if (!password) return
+
+    setError(null)
+    setRegenerating(true)
+    try {
+      const res = await fetch("/api/v1/auth/mfa/regenerate-recovery-codes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword,
-        }),
+        body: JSON.stringify({ current_password: password }),
       })
-
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ detail: "Password change failed" }))
-        throw new Error(data.detail ?? data.message ?? "Password change failed")
+        const data = await res
+          .json()
+          .catch(() => ({ detail: "Failed to regenerate recovery codes" }))
+        throw new Error(data.detail ?? data.message ?? "Failed to regenerate recovery codes")
       }
-
-      setSuccess("Password updated. Other sessions have been signed out.")
-      setCurrentPassword("")
-      setNewPassword("")
-      setConfirmPassword("")
+      const data = await res.json()
+      setNewRecoveryCodes(data.codes)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Password change failed")
+      setError(err instanceof Error ? err.message : "Failed to regenerate recovery codes")
     } finally {
-      setSubmitting(false)
+      setRegenerating(false)
+    }
+  }
+
+  async function handleDisableMfa() {
+    const password = window.prompt("Enter your current password")
+    if (!password) return
+    const totpCode = window.prompt("Enter your current TOTP code")
+    if (!totpCode) return
+
+    setError(null)
+    setDisabling(true)
+    try {
+      const res = await fetch("/api/v1/auth/mfa/disable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: password, totp_code: totpCode }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ detail: "Failed to disable MFA" }))
+        throw new Error(data.detail ?? data.message ?? "Failed to disable MFA")
+      }
+      await update()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to disable MFA")
+    } finally {
+      setDisabling(false)
     }
   }
 
@@ -75,103 +123,60 @@ export function SecuritySection() {
 
   return (
     <section className="bg-bg-elevated border border-border-primary rounded-sm p-6">
-      <h2 className="text-lg font-bold text-text-primary mb-4">Security</h2>
+      <h2 className="text-lg font-bold text-text-primary mb-6">Security</h2>
 
-      {authMethod === "oauth" ? (
-        <div className="space-y-2">
+      {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
+
+      <div className="space-y-6">
+        {/* Provider Icons Row */}
+        <ProviderIcons
+          linkedProviders={linkedProviders}
+          onConnect={handleConnect}
+          onDisconnect={handleDisconnect}
+          connecting={connecting}
+        />
+
+        {/* OAuth-only message */}
+        {isOAuthOnly && (
           <p className="text-sm text-text-secondary">
-            Your account is secured by {providerLabel}. Password and MFA settings are managed
-            through your {providerLabel} account.
+            Your account is secured by {providerLabel} OAuth. Password and MFA settings are
+            managed through your {providerLabel} account.
           </p>
+        )}
+
+        {/* Password Section */}
+        <div className="border-t border-border-primary pt-6">
+          <PasswordSection
+            hasPassword={hasPassword}
+            oauthProvider={oauthProvider}
+            linkedProviders={linkedProviders}
+          />
         </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Change Password */}
-          <div>
-            <h3 className="text-md font-medium text-text-primary mb-3">Change Password</h3>
-            <form onSubmit={handleChangePassword} className="space-y-3 max-w-sm">
-              <div>
-                <label
-                  htmlFor="current-password"
-                  className="block text-sm text-text-secondary mb-1"
-                >
-                  Current password
-                </label>
-                <input
-                  id="current-password"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="new-password"
-                  className="block text-sm text-text-secondary mb-1"
-                >
-                  New password
-                </label>
-                <input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  minLength={12}
-                  className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="confirm-password"
-                  className="block text-sm text-text-secondary mb-1"
-                >
-                  Confirm new password
-                </label>
-                <input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  minLength={12}
-                  className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
-                />
-              </div>
 
-              {error && <p className="text-sm text-red-400">{error}</p>}
-              {success && <p className="text-sm text-green-400">{success}</p>}
-
-              <button
-                type="submit"
-                disabled={submitting || !currentPassword || !newPassword || !confirmPassword}
-                className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? "Updating..." : "Update Password"}
-              </button>
-            </form>
-          </div>
-
-          {/* MFA Status */}
-          <div className="border-t border-border-primary pt-4">
-            <h3 className="text-md font-medium text-text-primary mb-2">
-              Multi-Factor Authentication
-            </h3>
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-block w-2 h-2 rounded-full ${
-                  mfaVerified ? "bg-green-400" : "bg-yellow-400"
-                }`}
-              />
-              <span className="text-sm text-text-secondary">
-                {mfaVerified ? "MFA is enabled" : "MFA is not configured"}
-              </span>
-            </div>
-          </div>
+        {/* MFA Section */}
+        <div className="border-t border-border-primary pt-6">
+          <MfaStatus
+            hasPassword={hasPassword}
+            mfaEnabled={mfaEnabled}
+            mfaGraceDeadline={mfaGraceDeadline}
+            oauthProvider={oauthProvider}
+            onRegenerateCodes={handleRegenerateCodes}
+            onDisableMfa={handleDisableMfa}
+            regenerating={regenerating}
+            disabling={disabling}
+          />
         </div>
-      )}
+
+        {/* Recovery Codes Display (after regeneration) */}
+        {newRecoveryCodes && (
+          <div className="border-t border-border-primary pt-6">
+            <RecoveryCodesDisplay
+              codes={newRecoveryCodes}
+              onContinue={() => setNewRecoveryCodes(null)}
+            />
+          </div>
+        )}
+      </div>
     </section>
   )
 }

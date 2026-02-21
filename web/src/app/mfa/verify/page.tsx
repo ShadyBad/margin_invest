@@ -16,6 +16,8 @@ function MfaVerifyContent() {
 
   const [method, setMethod] = useState<Method>("totp")
   const [verificationCode, setVerificationCode] = useState("")
+  const [showRecovery, setShowRecovery] = useState(false)
+  const [recoveryCode, setRecoveryCode] = useState("")
   const [error, setError] = useState("")
 
   const handleVerifyTotp = async (e: React.FormEvent) => {
@@ -90,6 +92,45 @@ function MfaVerifyContent() {
     }
   }
 
+  const handleVerifyRecovery = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+
+    try {
+      const res = await fetch(`/api/v1/auth/mfa/verify-recovery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: Number(userId),
+          code: recoveryCode,
+          challenge_token: challengeToken,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.detail ?? data.message ?? "Invalid recovery code")
+        return
+      }
+
+      const data = await res.json()
+
+      // Retrieve credentials from session storage for second-pass auth
+      const username = sessionStorage.getItem("mfa_username") || ""
+      const password = sessionStorage.getItem("mfa_password") || ""
+
+      await signIn("credentials", {
+        username,
+        password,
+        mfaToken: data.mfa_token,
+        callbackUrl: "/dashboard",
+      })
+    } catch (err) {
+      console.error("Recovery code verification error:", err)
+      setError("Unable to reach the server. Please try again.")
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
       <div className="flex flex-col items-center gap-8 p-8 w-full max-w-sm">
@@ -124,37 +165,100 @@ function MfaVerifyContent() {
           </button>
         </div>
 
-        {method === "totp" && (
-          <form
-            onSubmit={handleVerifyTotp}
-            className="flex flex-col gap-3 w-full"
-          >
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="verification-code"
-                className="text-sm text-[#8A8473]"
-              >
-                Verification Code
-              </label>
-              <input
-                id="verification-code"
-                type="text"
-                inputMode="numeric"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
-                className="w-full px-4 py-3 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] placeholder-[#8A8473] focus:border-[#D4A843] focus:outline-none transition-colors text-center text-lg tracking-widest"
-                placeholder="000000"
-                maxLength={6}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+        {method === "totp" && !showRecovery && (
+          <div className="flex flex-col gap-4 w-full">
+            <form
+              onSubmit={handleVerifyTotp}
+              className="flex flex-col gap-3 w-full"
             >
-              Verify
-            </button>
-          </form>
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor="verification-code"
+                  className="text-sm text-[#8A8473]"
+                >
+                  Verification Code
+                </label>
+                <input
+                  id="verification-code"
+                  type="text"
+                  inputMode="numeric"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  className="w-full px-4 py-3 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] placeholder-[#8A8473] focus:border-[#D4A843] focus:outline-none transition-colors text-center text-lg tracking-widest"
+                  placeholder="000000"
+                  maxLength={6}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+              >
+                Verify
+              </button>
+            </form>
+            <p className="text-sm text-[#8A8473] text-center">
+              Lost your authenticator?{" "}
+              <button
+                type="button"
+                onClick={() => setShowRecovery(true)}
+                className="font-semibold text-[#E8E4DD] hover:text-[#D4A843] transition-colors"
+              >
+                Use a recovery code
+              </button>
+            </p>
+          </div>
+        )}
+
+        {method === "totp" && showRecovery && (
+          <div className="flex flex-col gap-4 w-full">
+            <form
+              onSubmit={handleVerifyRecovery}
+              className="flex flex-col gap-3 w-full"
+            >
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor="recovery-code"
+                  className="text-sm text-[#8A8473]"
+                >
+                  Recovery code
+                </label>
+                <input
+                  id="recovery-code"
+                  type="text"
+                  value={recoveryCode}
+                  onChange={(e) => setRecoveryCode(e.target.value)}
+                  className="w-full px-4 py-3 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] placeholder-[#8A8473] focus:border-[#D4A843] focus:outline-none transition-colors text-center text-lg tracking-widest font-mono"
+                  placeholder="xxxx-xxxx"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+              >
+                Verify
+              </button>
+            </form>
+            <p className="text-sm text-[#8A8473] text-center">
+              <button
+                type="button"
+                onClick={() => setShowRecovery(false)}
+                className="font-semibold text-[#E8E4DD] hover:text-[#D4A843] transition-colors"
+              >
+                Back to authenticator
+              </button>
+            </p>
+            <p className="text-sm text-[#8A8473] text-center">
+              Lost your recovery codes too?{" "}
+              <a
+                href="/support?subject=MFA+recovery"
+                className="font-semibold text-[#E8E4DD] hover:text-[#D4A843] transition-colors"
+              >
+                Contact support
+              </a>
+            </p>
+          </div>
         )}
 
         {method === "webauthn" && (

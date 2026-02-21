@@ -27,10 +27,9 @@ async def setup():
         paid_user = User(
             email="paid@test.com",
             name="Paid",
-            provider="google",
             subscription_plan="margin_invest",
         )
-        free_user = User(email="free@test.com", name="Free", provider="google")
+        free_user = User(email="free@test.com", name="Free")
         session.add_all([paid_user, free_user])
         await session.commit()
         await session.refresh(paid_user)

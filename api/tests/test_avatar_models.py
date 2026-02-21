@@ -1,11 +1,11 @@
-"""Tests for avatar URL columns on User and CredentialUser models."""
+"""Tests for avatar URL columns on the User model."""
 
 from __future__ import annotations
 
 import pytest
 import pytest_asyncio
 from margin_api.db.base import Base
-from margin_api.db.models import CredentialUser, User
+from margin_api.db.models import User
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
@@ -23,7 +23,7 @@ async def db():
 class TestUserAvatarFields:
     @pytest.mark.asyncio
     async def test_user_avatar_urls_default_to_none(self, db):
-        user = User(email="a@b.com", name="A", provider="google")
+        user = User(email="a@b.com", name="A")
         db.add(user)
         await db.commit()
         await db.refresh(user)
@@ -35,7 +35,6 @@ class TestUserAvatarFields:
         user = User(
             email="a@b.com",
             name="A",
-            provider="google",
             avatar_url="https://example.com/custom-avatar.png",
         )
         db.add(user)
@@ -48,7 +47,6 @@ class TestUserAvatarFields:
         user = User(
             email="a@b.com",
             name="A",
-            provider="google",
             oauth_avatar_url="https://lh3.googleusercontent.com/a/photo.jpg",
         )
         db.add(user)
@@ -61,7 +59,6 @@ class TestUserAvatarFields:
         user = User(
             email="a@b.com",
             name="A",
-            provider="github",
             avatar_url="https://example.com/uploaded.png",
             oauth_avatar_url="https://avatars.githubusercontent.com/u/12345",
         )
@@ -75,8 +72,7 @@ class TestUserAvatarFields:
 class TestCredentialUserAvatarFields:
     @pytest.mark.asyncio
     async def test_credential_user_avatar_url_defaults_to_none(self, db):
-        user = CredentialUser(
-            username="alice",
+        user = User(
             email="alice@example.com",
             password_hash="hashed",
         )
@@ -87,8 +83,7 @@ class TestCredentialUserAvatarFields:
 
     @pytest.mark.asyncio
     async def test_credential_user_can_store_avatar_url(self, db):
-        user = CredentialUser(
-            username="alice",
+        user = User(
             email="alice@example.com",
             password_hash="hashed",
             avatar_url="https://example.com/alice-avatar.png",

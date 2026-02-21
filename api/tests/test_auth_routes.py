@@ -115,20 +115,21 @@ class TestRegister:
         assert "uppercase" in data["detail"].lower()
 
     @pytest.mark.asyncio
-    async def test_register_duplicate_username(self, client):
+    async def test_register_different_name_same_email(self, client):
+        """Duplicate email should be rejected regardless of name."""
         await _register_user(client, "alice")
         resp = await client.post(
             "/api/v1/auth/register",
             json={
-                "username": "alice",
-                "email": "bob@example.com",
+                "username": "bob",
+                "email": "alice@example.com",
                 "password": _VALID_PASSWORD,
             },
         )
         assert resp.status_code == 400
         data = resp.json()
         assert "detail" in data
-        assert "username" in data["detail"].lower()
+        assert "email" in data["detail"].lower()
 
     @pytest.mark.asyncio
     async def test_register_duplicate_email(self, client):
@@ -174,11 +175,11 @@ class TestVerifyCredentials:
         await _register_user(client, "alice")
         resp = await client.post(
             "/api/v1/auth/verify-credentials",
-            json={"username": "alice", "password": _VALID_PASSWORD},
+            json={"username": "alice@example.com", "password": _VALID_PASSWORD},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["username"] == "alice"
+        assert data["username"] == "alice@example.com"
         assert data["email"] == "alice@example.com"
         assert "mfa_status" in data
         assert "challenge_token" in data
@@ -189,6 +190,6 @@ class TestVerifyCredentials:
         await _register_user(client, "alice")
         resp = await client.post(
             "/api/v1/auth/verify-credentials",
-            json={"username": "alice", "password": "WrongPassword1!"},
+            json={"username": "alice@example.com", "password": "WrongPassword1!"},
         )
         assert resp.status_code == 401

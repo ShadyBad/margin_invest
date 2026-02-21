@@ -7,7 +7,7 @@ import secrets
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.db.models import CredentialUser, WebAuthnCredential
+from margin_api.db.models import User, WebAuthnCredential
 
 
 class WebAuthnService:
@@ -107,7 +107,7 @@ class WebAuthnService:
         )
         session.add(cred)
 
-        user_stmt = select(CredentialUser).where(CredentialUser.id == user_id)
+        user_stmt = select(User).where(User.id == user_id)
         user = (await session.execute(user_stmt)).scalar_one()
         user.mfa_enabled = True
 

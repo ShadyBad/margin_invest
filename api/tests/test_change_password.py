@@ -8,7 +8,7 @@ from cryptography.fernet import Fernet
 from httpx import ASGITransport, AsyncClient
 from margin_api.app import create_app
 from margin_api.db.base import Base
-from margin_api.db.models import CredentialUser
+from margin_api.db.models import User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
 from margin_api.services.auth import AuthService
@@ -137,7 +137,7 @@ class TestChangePassword:
         async with factory() as session:
             user = (
                 await session.execute(
-                    select(CredentialUser).where(CredentialUser.id == user_id)
+                    select(User).where(User.id == user_id)
                 )
             ).scalar_one()
             assert user.password_changed_at is not None
@@ -155,7 +155,9 @@ class TestChangePassword:
                 },
             )
         async with factory() as session:
-            result = await _auth.verify_credentials(session, "testuser", "NewPassword2@")
+            result = await _auth.verify_credentials(
+                session, "test@example.com", "NewPassword2@"
+            )
             assert result is not None
             assert result["id"] == user_id
 
