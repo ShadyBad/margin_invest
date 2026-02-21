@@ -75,6 +75,7 @@ export function UserDropdown({ user }: UserDropdownProps) {
                   key={item.label}
                   href={item.href}
                   role="menuitem"
+                  title={item.title ?? item.label}
                   className="block px-4 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors duration-150"
                   onClick={() => setIsOpen(false)}
                 >

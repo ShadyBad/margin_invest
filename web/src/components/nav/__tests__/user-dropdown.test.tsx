@@ -12,7 +12,7 @@ const user: NavigationUser = {
   avatarUrl: null,
   oauthAvatarUrl: null,
   dropdownItems: [
-    { label: "Account", href: "/account", type: "link" },
+    { label: "jane", title: "jane", href: "/account", type: "link" },
     { label: "", type: "divider" },
     { label: "Sign Out", onClick: mockSignOut, type: "action" },
   ],
@@ -44,7 +44,7 @@ describe("UserDropdown", () => {
     const u = userEvent.setup()
     render(<UserDropdown user={user} />)
     await u.click(screen.getByRole("button", { name: /user menu/i }))
-    expect(screen.getByText("Account")).toBeInTheDocument()
+    expect(screen.getByText("jane")).toBeInTheDocument()
     expect(screen.getByText("Sign Out")).toBeInTheDocument()
   })
 
@@ -52,7 +52,25 @@ describe("UserDropdown", () => {
     const u = userEvent.setup()
     render(<UserDropdown user={user} />)
     await u.click(screen.getByRole("button", { name: /user menu/i }))
-    expect(screen.getByText("Account").closest("a")).toHaveAttribute("href", "/account")
+    expect(screen.getByText("jane").closest("a")).toHaveAttribute("href", "/account")
+  })
+
+  it("renders title tooltip on link items", async () => {
+    const truncatedUser: NavigationUser = {
+      ...user,
+      dropdownItems: [
+        { label: "averylongemailprefix…", title: "averylongemailprefix123", href: "/account", type: "link" },
+        { label: "", type: "divider" },
+        { label: "Sign Out", onClick: mockSignOut, type: "action" },
+      ],
+    }
+    const u = userEvent.setup()
+    render(<UserDropdown user={truncatedUser} />)
+    await u.click(screen.getByRole("button", { name: /user menu/i }))
+    expect(screen.getByText("averylongemailprefix…").closest("a")).toHaveAttribute(
+      "title",
+      "averylongemailprefix123"
+    )
   })
 
   it("calls onClick for action items", async () => {
@@ -94,7 +112,7 @@ describe("UserDropdown", () => {
     render(<UserDropdown user={user} />)
     await u.click(screen.getByRole("button", { name: /user menu/i }))
     expect(screen.getByRole("menu")).toBeInTheDocument()
-    await u.click(screen.getByText("Account"))
+    await u.click(screen.getByText("jane"))
     expect(screen.queryByRole("menu")).not.toBeInTheDocument()
   })
 
