@@ -10,6 +10,13 @@ export class ApiError extends Error {
   }
 }
 
+export class MfaRequiredError extends ApiError {
+  constructor(message: string) {
+    super(403, 'mfa_required', message)
+    this.name = 'MfaRequiredError'
+  }
+}
+
 const BASE_URL = ''
 
 export async function apiFetch<T>(
@@ -34,10 +41,20 @@ export async function apiFetch<T>(
 
     try {
       const body = await response.json()
-      errorCode = body.error_code || errorCode
+      errorCode = body.error_code || body.error || errorCode
       message = body.message || message
       requestId = body.request_id
-    } catch {
+
+      // Intercept MFA-required 403 responses
+      if (response.status === 403 && (body.error === 'mfa_required' || body.error_code === 'mfa_required')) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('mfa-required', { detail: body }))
+        }
+        throw new MfaRequiredError(message)
+      }
+    } catch (err) {
+      // Re-throw MfaRequiredError
+      if (err instanceof MfaRequiredError) throw err
       // Non-JSON error response — use status text
       message = response.statusText || message
     }

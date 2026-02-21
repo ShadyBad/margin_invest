@@ -3,6 +3,7 @@ import { Inter_Tight, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { ConditionalFooter } from "@/components/layout/conditional-footer";
+import { MfaRequiredModal } from "@/components/modals/mfa-required-modal";
 import "./globals.css";
 
 const interTight = Inter_Tight({
@@ -43,6 +44,7 @@ export default function RootLayout({
           <SessionProvider>
             {children}
             <ConditionalFooter />
+            <MfaRequiredModal />
           </SessionProvider>
         </ThemeProvider>
       </body>

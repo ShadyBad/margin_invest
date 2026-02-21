@@ -1,4 +1,4 @@
-export { apiFetch, ApiError } from './client'
+export { apiFetch, ApiError, MfaRequiredError } from './client'
 export { serverFetch } from './server'
 export { getScore, getMetrics, getScoreHistory, listScores, deleteScore } from './scores'
 export { getDashboard } from './dashboard'
