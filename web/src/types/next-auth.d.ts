@@ -7,6 +7,10 @@ declare module "next-auth" {
     authMethod: string
     oauthProvider: string | null
     mfaVerified: boolean
+    hasPassword: boolean
+    mfaEnabled: boolean
+    mfaGraceDeadline: string | null
+    linkedProviders: string[]
     avatarUrl: string | null
     oauthAvatarUrl: string | null
   }
@@ -18,6 +22,10 @@ declare module "next-auth/jwt" {
     authMethod?: string
     oauthProvider?: string | null
     mfaVerified?: boolean
+    hasPassword?: boolean
+    mfaEnabled?: boolean
+    mfaGraceDeadline?: string | null
+    linkedProviders?: string[]
     avatarUrl?: string | null
     oauthAvatarUrl?: string | null
   }
