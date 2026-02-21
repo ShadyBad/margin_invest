@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, fireEvent } from "@testing-library/react"
 import { PerformanceChart } from "../performance-chart"
 
 const mockSnapshots = [
@@ -132,5 +132,32 @@ describe("PerformanceChart", () => {
       const num = parseFloat(coord)
       expect(Number.isFinite(num)).toBe(true)
     }
+  })
+
+  it("shows tooltip on hover with date", () => {
+    render(<PerformanceChart snapshots={mockSnapshots} />)
+    const hitAreas = screen.getAllByTestId(/^chart-hit-area-/)
+    expect(hitAreas.length).toBe(mockSnapshots.length)
+
+    fireEvent.mouseEnter(hitAreas[1])
+    const tooltip = screen.getByTestId("chart-tooltip")
+    expect(tooltip).toBeInTheDocument()
+    expect(tooltip.textContent).toContain("2024-02")
+  })
+
+  it("hides tooltip on mouse leave", () => {
+    render(<PerformanceChart snapshots={mockSnapshots} />)
+    const hitAreas = screen.getAllByTestId(/^chart-hit-area-/)
+
+    fireEvent.mouseEnter(hitAreas[0])
+    expect(screen.getByTestId("chart-tooltip")).toBeInTheDocument()
+
+    fireEvent.mouseLeave(hitAreas[0])
+    expect(screen.queryByTestId("chart-tooltip")).not.toBeInTheDocument()
+  })
+
+  it("does not render tooltips for empty snapshots", () => {
+    render(<PerformanceChart snapshots={[]} />)
+    expect(screen.queryAllByTestId(/^chart-hit-area-/)).toHaveLength(0)
   })
 })

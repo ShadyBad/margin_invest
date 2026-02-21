@@ -1,3 +1,7 @@
+"use client"
+
+import { useState } from "react"
+
 interface SnapshotData {
   date: string
   portfolio_value: number
@@ -62,6 +66,8 @@ export function PerformanceChart({
   benchmarkLabel = "Benchmark",
   className,
 }: PerformanceChartProps) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+
   if (snapshots.length === 0) {
     return (
       <div
@@ -118,7 +124,7 @@ export function PerformanceChart({
   }
 
   return (
-    <div className={className ?? ""}>
+    <div className={`relative ${className ?? ""}`}>
       <svg
         viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
         className="w-full h-auto"
@@ -206,7 +212,60 @@ export function PerformanceChart({
           strokeWidth={2.5}
           data-testid="portfolio-line"
         />
+
+        {/* Tooltip hit areas */}
+        {snapshots.map((_, i) => {
+          const hitWidth = snapshots.length <= 1
+            ? PLOT_WIDTH
+            : PLOT_WIDTH / (snapshots.length - 1)
+          const x = scaleX(i) - hitWidth / 2
+          return (
+            <rect
+              key={`hit-${i}`}
+              data-testid={`chart-hit-area-${i}`}
+              x={Math.max(PADDING.left, x)}
+              y={PADDING.top}
+              width={hitWidth}
+              height={PLOT_HEIGHT}
+              fill="transparent"
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            />
+          )
+        })}
       </svg>
+
+      {hoveredIndex !== null && (
+        <div
+          data-testid="chart-tooltip"
+          className="absolute bg-bg-elevated border border-border-primary rounded-sm px-3 py-2 shadow-lg pointer-events-none text-xs z-10"
+          style={{
+            left: scaleX(hoveredIndex) > CHART_WIDTH / 2
+              ? `calc(${((scaleX(hoveredIndex)) / CHART_WIDTH) * 100}% - 160px)`
+              : `${(scaleX(hoveredIndex) / CHART_WIDTH) * 100}%`,
+            top: `${((scaleY(portfolioCumulative[hoveredIndex])) / CHART_HEIGHT) * 100}%`,
+          }}
+        >
+          <div className="font-semibold text-text-primary mb-1">
+            {formatDateLabel(dates[hoveredIndex])}
+          </div>
+          <div className="text-text-secondary">
+            {portfolioLabel}: {formatPercent(portfolioCumulative[hoveredIndex])}
+          </div>
+          <div className="text-text-secondary">
+            {benchmarkLabel}: {formatPercent(benchmarkCumulative[hoveredIndex])}
+          </div>
+          <div
+            className={
+              portfolioCumulative[hoveredIndex] - benchmarkCumulative[hoveredIndex] >= 0
+                ? "text-bullish"
+                : "text-bearish"
+            }
+          >
+            Excess: {formatPercent(portfolioCumulative[hoveredIndex] - benchmarkCumulative[hoveredIndex])}
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div
