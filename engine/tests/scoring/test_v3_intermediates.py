@@ -120,6 +120,129 @@ class TestComputeCompoundingPower:
         result = compute_compounding_power(history)
         assert result == 0.0
 
+    def test_steady_roic_stability_near_one(self):
+        """Steady ROICs -> MAD-based stability near 1.0."""
+        # Target ROICs ~ [0.14, 0.15, 0.16, 0.15, 0.155]
+        # IC = equity + ltd(200) + std(100) - cash(50) = equity + 250
+        # ebit = target_roic * IC / 0.79
+        periods = [
+            _period(ebit=Decimal("115.19"), total_equity=Decimal("400"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("40"), capital_expenditures=Decimal("-80"),
+                    period_end="2020-12-31"),
+            _period(ebit=Decimal("132.91"), total_equity=Decimal("450"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("45"), capital_expenditures=Decimal("-90"),
+                    period_end="2021-12-31"),
+            _period(ebit=Decimal("151.90"), total_equity=Decimal("500"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("50"), capital_expenditures=Decimal("-100"),
+                    period_end="2022-12-31"),
+            _period(ebit=Decimal("151.90"), total_equity=Decimal("550"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("55"), capital_expenditures=Decimal("-110"),
+                    period_end="2023-12-31"),
+            _period(ebit=Decimal("166.77"), total_equity=Decimal("600"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("60"), capital_expenditures=Decimal("-120"),
+                    period_end="2024-12-31"),
+        ]
+        history = FinancialHistory(ticker="STEADY", periods=periods)
+        result = compute_compounding_power(history)
+        assert result > 0.0
+        # With MAD-based stability near 1.0, result should be high relative to
+        # inc_roic * reinvestment_rate (the stability multiplier is close to 1.0)
+
+    def test_identical_roics_stability_one(self):
+        """Identical ROICs [0.12, 0.12, 0.12] -> MAD=0, stability=1.0."""
+        # IC = equity + 250; ebit = 0.12 * IC / 0.79
+        periods = [
+            _period(ebit=Decimal("98.73"), total_equity=Decimal("400"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("40"), capital_expenditures=Decimal("-80"),
+                    period_end="2020-12-31"),
+            _period(ebit=Decimal("113.92"), total_equity=Decimal("500"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("45"), capital_expenditures=Decimal("-90"),
+                    period_end="2022-12-31"),
+            _period(ebit=Decimal("129.11"), total_equity=Decimal("600"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("50"), capital_expenditures=Decimal("-100"),
+                    period_end="2024-12-31"),
+        ]
+        history = FinancialHistory(ticker="IDENT", periods=periods)
+        result = compute_compounding_power(history)
+        # MAD = 0 => stability = 1.0 => result = inc_roic * reinvestment_rate * 1.0
+        # inc_roic = 0.12, reinvestment_rate = (100-50)/102 ~ 0.49
+        expected = 0.12 * ((100 - 50) / (129.11 * 0.79))
+        assert result == pytest.approx(expected, rel=0.02)
+
+    def test_lumpy_roic_positive_result(self):
+        """Lumpy ROICs [0.10, 0.25, 0.12, 0.22, 0.14] -> still positive with MAD."""
+        # IC = equity + 250; ebit = target_roic * IC / 0.79
+        periods = [
+            _period(ebit=Decimal("82.28"), total_equity=Decimal("400"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("40"), capital_expenditures=Decimal("-80"),
+                    period_end="2020-12-31"),
+            _period(ebit=Decimal("221.52"), total_equity=Decimal("450"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("45"), capital_expenditures=Decimal("-90"),
+                    period_end="2021-12-31"),
+            _period(ebit=Decimal("113.92"), total_equity=Decimal("500"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("50"), capital_expenditures=Decimal("-100"),
+                    period_end="2022-12-31"),
+            _period(ebit=Decimal("222.78"), total_equity=Decimal("550"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("55"), capital_expenditures=Decimal("-110"),
+                    period_end="2023-12-31"),
+            _period(ebit=Decimal("150.63"), total_equity=Decimal("600"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("60"), capital_expenditures=Decimal("-120"),
+                    period_end="2024-12-31"),
+        ]
+        history = FinancialHistory(ticker="LUMPY", periods=periods)
+        result = compute_compounding_power(history)
+        # MAD-based stability ~ 0.71, more forgiving than CV-based ~ 0.65
+        assert result > 0.0
+
+    def test_single_outlier_forgiving(self):
+        """Single outlier [0.15, 0.15, 0.15, 0.15, 0.40] -> MAD handles outlier well."""
+        # Most ROICs match the median (0.15), so MAD = 0, stability = 1.0
+        # CV would penalize heavily (stability ~ 0.50)
+        periods = [
+            _period(ebit=Decimal("123.42"), total_equity=Decimal("400"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("40"), capital_expenditures=Decimal("-80"),
+                    period_end="2020-12-31"),
+            _period(ebit=Decimal("132.91"), total_equity=Decimal("450"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("45"), capital_expenditures=Decimal("-90"),
+                    period_end="2021-12-31"),
+            _period(ebit=Decimal("142.41"), total_equity=Decimal("500"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("50"), capital_expenditures=Decimal("-100"),
+                    period_end="2022-12-31"),
+            _period(ebit=Decimal("151.90"), total_equity=Decimal("550"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("55"), capital_expenditures=Decimal("-110"),
+                    period_end="2023-12-31"),
+            _period(ebit=Decimal("430.38"), total_equity=Decimal("600"),
+                    long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("50"),
+                    depreciation=Decimal("60"), capital_expenditures=Decimal("-120"),
+                    period_end="2024-12-31"),
+        ]
+        history = FinancialHistory(ticker="OUTLIER", periods=periods)
+        result = compute_compounding_power(history)
+        # With MAD: stability = 1.0 (median ROIC is 0.15, most match it)
+        # With CV: stability = 0.50 (stdev/mean penalizes the outlier)
+        assert result > 0.0
+        # MAD gives stability=1.0 (median is 0.15, most values match it)
+        # CV would give stability=0.50, halving the result.
+        # Under MAD the result exceeds 0.15; under CV it would be ~0.107
+        assert result > 0.15
+
 
 class TestComputeCapitalAllocationComposite:
     def test_all_strong_subfactors(self):

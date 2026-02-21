@@ -47,7 +47,10 @@ def _nopat_and_ic(period: FinancialPeriod) -> tuple[float, float]:
 
 
 def compute_compounding_power(history: FinancialHistory) -> float:
-    """Compute compounding power = incremental_ROIC * reinvestment_rate * (1 - ROIC_CV).
+    """Compute compounding power = incremental_ROIC * reinvestment_rate * stability.
+
+    Stability uses MAD (median absolute deviation) instead of CV, making it
+    robust to outliers. This benefits serial acquirers with lumpy ROIC histories.
 
     Returns 0.0 if insufficient data or any component is non-positive.
     """
@@ -75,22 +78,21 @@ def compute_compounding_power(history: FinancialHistory) -> float:
     if reinvestment_rate <= 0:
         return 0.0
 
-    # ROIC CV (coefficient of variation across all periods)
+    # ROIC stability via MAD (robust to outliers, benefits serial acquirers)
     roics = []
     for p in history.periods:
         nopat, ic = _nopat_and_ic(p)
         if ic > 0:
             roics.append(nopat / ic)
     if len(roics) < 2:
-        cv = 0.0
+        stability = 1.0
     else:
-        mean_roic = statistics.mean(roics)
-        if mean_roic == 0:
-            return 0.0
-        stdev_roic = statistics.pstdev(roics)
-        cv = min(abs(stdev_roic / mean_roic), 1.0)
+        median_roic = statistics.median(roics)
+        mad = statistics.median([abs(r - median_roic) for r in roics])
+        normalized_mad = min(mad / max(abs(median_roic), 0.001), 1.0)
+        stability = 1.0 - normalized_mad
 
-    return inc_roic * reinvestment_rate * (1.0 - cv)
+    return inc_roic * reinvestment_rate * max(stability, 0.0)
 
 
 def _normalize_factor(raw_value: float, max_value: float) -> float:
