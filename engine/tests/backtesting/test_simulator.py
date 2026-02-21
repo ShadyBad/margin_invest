@@ -9,6 +9,7 @@ from margin_engine.backtesting.models import (
     BacktestConfig,
     HoldingRecord,
     RebalanceFrequency,
+    SelectionMode,
 )
 from margin_engine.backtesting.simulator import (
     STARTING_CAPITAL,
@@ -265,7 +266,7 @@ class TestStockSelection:
             ScoredStock(ticker=f"STOCK{i:03d}", composite_score=float(i), price=100.0 + i)
             for i in range(100)
         ]
-        holdings = sim._select_holdings(scores)
+        holdings = sim._select_holdings(scores, [])
 
         assert len(holdings) == 5
         # Should be the top 5 by score (scores 99, 98, 97, 96, 95)
@@ -293,7 +294,7 @@ class TestStockSelection:
             ScoredStock(ticker=f"STOCK{i:03d}", composite_score=float(i), price=100.0)
             for i in range(100)
         ]
-        holdings = sim._select_holdings(scores)
+        holdings = sim._select_holdings(scores, [])
 
         expected_weight = 1.0 / 5
         for h in holdings:
@@ -319,7 +320,7 @@ class TestStockSelection:
             ScoredStock(ticker=f"S{i}", composite_score=float(i), price=50.0)
             for i in range(20)
         ]
-        holdings = sim._select_holdings(scores)
+        holdings = sim._select_holdings(scores, [])
 
         assert len(holdings) == 2
         assert holdings[0].ticker == "S19"
@@ -336,7 +337,7 @@ class TestStockSelection:
             universe_provider=FakeUniverseProvider({}),
             benchmark_provider=FakeBenchmarkProvider({}),
         )
-        holdings = sim._select_holdings([])
+        holdings = sim._select_holdings([], [])
         assert holdings == []
 
     def test_minimum_one_stock_selected(self):
@@ -355,7 +356,7 @@ class TestStockSelection:
         scores = [
             ScoredStock(ticker="ONLY", composite_score=95.0, price=100.0),
         ]
-        holdings = sim._select_holdings(scores)
+        holdings = sim._select_holdings(scores, [])
 
         assert len(holdings) == 1
         assert holdings[0].ticker == "ONLY"
@@ -377,7 +378,7 @@ class TestStockSelection:
         scores = [
             ScoredStock(ticker="AAPL", composite_score=95.5, price=175.50),
         ]
-        holdings = sim._select_holdings(scores)
+        holdings = sim._select_holdings(scores, [])
 
         assert holdings[0].entry_price == 175.50
         assert holdings[0].composite_score == 95.5
@@ -401,8 +402,8 @@ class TestStockSelection:
             ScoredStock(ticker="MMM", composite_score=90.0, price=100.0),
             ScoredStock(ticker="BBB", composite_score=90.0, price=100.0),
         ]
-        holdings1 = sim._select_holdings(scores)
-        holdings2 = sim._select_holdings(scores)
+        holdings1 = sim._select_holdings(scores, [])
+        holdings2 = sim._select_holdings(scores, [])
 
         # Should be deterministic
         tickers1 = [h.ticker for h in holdings1]
@@ -1132,3 +1133,316 @@ class TestScoredStockModel:
             ticker="TSLA", composite_score=60.0, price=300.0, margin_of_safety=-0.20
         )
         assert stock.margin_of_safety == -0.20
+
+
+# ---------------------------------------------------------------------------
+# Test conviction + margin-of-safety selection mode
+# ---------------------------------------------------------------------------
+
+
+class TestConvictionMosSelection:
+    """Tests for _select_by_conviction_mos stock selection."""
+
+    def _make_simulator(self, min_score: float = 79.0, min_mos: float = 0.30):
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 12, 31),
+            selection_mode=SelectionMode.CONVICTION_MOS,
+            min_conviction_score=min_score,
+            min_margin_of_safety=min_mos,
+        )
+        return WalkForwardSimulator(
+            config=config,
+            universe_provider=FakeUniverseProvider({}),
+            benchmark_provider=FakeBenchmarkProvider({}),
+        )
+
+    def test_passes_both_thresholds(self):
+        sim = self._make_simulator()
+        scores = [
+            ScoredStock(ticker="AAPL", composite_score=82.0, price=150.0, margin_of_safety=0.35),
+        ]
+        holdings = sim._select_holdings(scores, [])
+        assert len(holdings) == 1
+        assert holdings[0].ticker == "AAPL"
+
+    def test_fails_mos_threshold(self):
+        sim = self._make_simulator()
+        scores = [
+            ScoredStock(ticker="MSFT", composite_score=82.0, price=300.0, margin_of_safety=0.25),
+        ]
+        holdings = sim._select_holdings(scores, [])
+        assert len(holdings) == 0
+
+    def test_fails_conviction_threshold(self):
+        sim = self._make_simulator()
+        scores = [
+            ScoredStock(ticker="GOOG", composite_score=75.0, price=140.0, margin_of_safety=0.40),
+        ]
+        holdings = sim._select_holdings(scores, [])
+        assert len(holdings) == 0
+
+    def test_mos_none_rejected(self):
+        sim = self._make_simulator()
+        scores = [
+            ScoredStock(ticker="AMZN", composite_score=80.0, price=180.0, margin_of_safety=None),
+        ]
+        holdings = sim._select_holdings(scores, [])
+        assert len(holdings) == 0
+
+    def test_mos_exactly_threshold_rejected(self):
+        sim = self._make_simulator()
+        scores = [
+            ScoredStock(ticker="META", composite_score=79.0, price=500.0, margin_of_safety=0.30),
+        ]
+        holdings = sim._select_holdings(scores, [])
+        assert len(holdings) == 0
+
+    def test_mos_barely_above_threshold(self):
+        sim = self._make_simulator()
+        scores = [
+            ScoredStock(ticker="META", composite_score=79.0, price=500.0, margin_of_safety=0.3001),
+        ]
+        holdings = sim._select_holdings(scores, [])
+        assert len(holdings) == 1
+
+    def test_zero_eligible_returns_prev_holdings(self):
+        sim = self._make_simulator()
+        prev = [
+            HoldingRecord(ticker="AAPL", weight=0.5, entry_price=150.0, composite_score=82.0),
+            HoldingRecord(ticker="MSFT", weight=0.5, entry_price=300.0, composite_score=80.0),
+        ]
+        scores = [
+            ScoredStock(ticker="GOOG", composite_score=70.0, price=140.0, margin_of_safety=0.10),
+        ]
+        holdings = sim._select_holdings(scores, prev)
+        assert holdings == prev
+
+    def test_equal_weight_multiple(self):
+        sim = self._make_simulator()
+        scores = [
+            ScoredStock(ticker="A", composite_score=85.0, price=100.0, margin_of_safety=0.40),
+            ScoredStock(ticker="B", composite_score=82.0, price=100.0, margin_of_safety=0.35),
+            ScoredStock(ticker="C", composite_score=80.0, price=100.0, margin_of_safety=0.32),
+            ScoredStock(ticker="D", composite_score=79.5, price=100.0, margin_of_safety=0.31),
+        ]
+        holdings = sim._select_holdings(scores, [])
+        assert len(holdings) == 4
+        for h in holdings:
+            assert h.weight == pytest.approx(0.25)
+        assert sum(h.weight for h in holdings) == pytest.approx(1.0)
+
+    def test_single_eligible_full_weight(self):
+        sim = self._make_simulator()
+        scores = [
+            ScoredStock(ticker="AAPL", composite_score=85.0, price=150.0, margin_of_safety=0.40),
+            ScoredStock(ticker="MSFT", composite_score=70.0, price=300.0, margin_of_safety=0.50),
+        ]
+        holdings = sim._select_holdings(scores, [])
+        assert len(holdings) == 1
+        assert holdings[0].weight == pytest.approx(1.0)
+
+    def test_deterministic_sort_order(self):
+        sim = self._make_simulator()
+        scores = [
+            ScoredStock(ticker="ZZZ", composite_score=80.0, price=100.0, margin_of_safety=0.35),
+            ScoredStock(ticker="AAA", composite_score=80.0, price=100.0, margin_of_safety=0.35),
+            ScoredStock(ticker="MMM", composite_score=85.0, price=100.0, margin_of_safety=0.40),
+        ]
+        holdings1 = sim._select_holdings(scores, [])
+        holdings2 = sim._select_holdings(scores, [])
+        tickers1 = [h.ticker for h in holdings1]
+        tickers2 = [h.ticker for h in holdings2]
+        assert tickers1 == tickers2
+        assert tickers1 == ["MMM", "AAA", "ZZZ"]
+
+    def test_top_percentile_mode_unchanged(self):
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 12, 31),
+            selection_mode=SelectionMode.TOP_PERCENTILE,
+            top_percentile=0.50,
+        )
+        sim = WalkForwardSimulator(
+            config=config,
+            universe_provider=FakeUniverseProvider({}),
+            benchmark_provider=FakeBenchmarkProvider({}),
+        )
+        scores = [
+            ScoredStock(ticker="A", composite_score=90.0, price=100.0),
+            ScoredStock(ticker="B", composite_score=80.0, price=100.0),
+            ScoredStock(ticker="C", composite_score=70.0, price=100.0),
+            ScoredStock(ticker="D", composite_score=60.0, price=100.0),
+        ]
+        holdings = sim._select_holdings(scores, [])
+        assert len(holdings) == 2
+        assert holdings[0].ticker == "A"
+        assert holdings[1].ticker == "B"
+
+
+# ---------------------------------------------------------------------------
+# Integration tests for full simulation with CONVICTION_MOS mode
+# ---------------------------------------------------------------------------
+
+
+class TestConvictionMosSimulation:
+    """Integration tests for full simulation with CONVICTION_MOS mode."""
+
+    def test_basic_conviction_mos_simulation(self):
+        """Run a full simulation with CONVICTION_MOS selection."""
+        jan1 = date(2020, 1, 1)
+        feb3 = date(2020, 2, 3)
+        mar2 = date(2020, 3, 2)
+
+        universe_data = {
+            jan1: [
+                ScoredStock(ticker="A", composite_score=85.0, price=100.0, margin_of_safety=0.40),
+                ScoredStock(ticker="B", composite_score=80.0, price=50.0, margin_of_safety=0.35),
+                ScoredStock(ticker="C", composite_score=70.0, price=80.0, margin_of_safety=0.50),
+            ],
+            feb3: [
+                ScoredStock(ticker="A", composite_score=85.0, price=110.0, margin_of_safety=0.38),
+                ScoredStock(ticker="B", composite_score=80.0, price=55.0, margin_of_safety=0.33),
+                ScoredStock(ticker="C", composite_score=70.0, price=85.0, margin_of_safety=0.48),
+            ],
+            mar2: [
+                ScoredStock(ticker="A", composite_score=85.0, price=105.0, margin_of_safety=0.36),
+                ScoredStock(ticker="B", composite_score=80.0, price=52.0, margin_of_safety=0.31),
+                ScoredStock(ticker="C", composite_score=70.0, price=90.0, margin_of_safety=0.45),
+            ],
+        }
+
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 3, 31),
+            selection_mode=SelectionMode.CONVICTION_MOS,
+            min_conviction_score=79.0,
+            min_margin_of_safety=0.30,
+            transaction_cost_bps=0.0,
+            slippage_bps=0.0,
+        )
+        sim = WalkForwardSimulator(
+            config=config,
+            universe_provider=FakeUniverseProvider(universe_data),
+            benchmark_provider=FakeBenchmarkProvider({jan1: 100.0, feb3: 105.0, mar2: 103.0}),
+        )
+        result = sim.run()
+
+        assert len(result.snapshots) == 3
+        # Jan: A (score=85, mos=0.40) and B (score=80, mos=0.35) selected
+        # C rejected (score=70, below 79)
+        snap1 = result.snapshots[0]
+        assert len(snap1.holdings) == 2
+        tickers = {h.ticker for h in snap1.holdings}
+        assert tickers == {"A", "B"}
+
+    def test_hold_through_zero_eligible_period(self):
+        """Portfolio holds when no candidates pass filter."""
+        jan1 = date(2020, 1, 1)
+        feb3 = date(2020, 2, 3)
+        mar2 = date(2020, 3, 2)
+
+        universe_data = {
+            jan1: [
+                ScoredStock(ticker="A", composite_score=85.0, price=100.0, margin_of_safety=0.40),
+            ],
+            feb3: [
+                ScoredStock(ticker="A", composite_score=85.0, price=110.0, margin_of_safety=0.20),
+            ],
+            mar2: [
+                ScoredStock(ticker="A", composite_score=85.0, price=115.0, margin_of_safety=0.35),
+            ],
+        }
+
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 3, 31),
+            selection_mode=SelectionMode.CONVICTION_MOS,
+            transaction_cost_bps=0.0,
+            slippage_bps=0.0,
+        )
+        sim = WalkForwardSimulator(
+            config=config,
+            universe_provider=FakeUniverseProvider(universe_data),
+            benchmark_provider=FakeBenchmarkProvider({jan1: 100.0, feb3: 105.0, mar2: 103.0}),
+        )
+        result = sim.run()
+
+        assert len(result.snapshots[0].holdings) == 1
+        assert result.snapshots[0].holdings[0].ticker == "A"
+
+        # Month 2: zero eligible -> hold prior
+        assert len(result.snapshots[1].holdings) == 1
+        assert result.snapshots[1].holdings[0].ticker == "A"
+        assert result.snapshots[1].turnover == pytest.approx(0.0)
+        assert result.snapshots[1].transaction_costs == pytest.approx(0.0)
+
+        # Month 3: A qualifies again
+        assert len(result.snapshots[2].holdings) == 1
+        assert result.snapshots[2].holdings[0].ticker == "A"
+
+    def test_point_in_time_correctness(self):
+        """Scores from each date are used, not current values."""
+        jan1 = date(2020, 1, 1)
+        feb3 = date(2020, 2, 3)
+
+        universe_data = {
+            jan1: [
+                ScoredStock(ticker="X", composite_score=82.0, price=100.0, margin_of_safety=0.35),
+            ],
+            feb3: [
+                ScoredStock(ticker="X", composite_score=70.0, price=110.0, margin_of_safety=0.35),
+            ],
+        }
+
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 2, 28),
+            selection_mode=SelectionMode.CONVICTION_MOS,
+            transaction_cost_bps=0.0,
+            slippage_bps=0.0,
+        )
+        sim = WalkForwardSimulator(
+            config=config,
+            universe_provider=FakeUniverseProvider(universe_data),
+            benchmark_provider=FakeBenchmarkProvider({jan1: 100.0, feb3: 105.0}),
+        )
+        result = sim.run()
+
+        assert len(result.snapshots[0].holdings) == 1
+        assert len(result.snapshots[1].holdings) == 1
+        assert result.snapshots[1].turnover == pytest.approx(0.0)
+
+    def test_determinism_conviction_mos(self):
+        """Same inputs produce identical outputs."""
+        jan1 = date(2020, 1, 1)
+        feb3 = date(2020, 2, 3)
+
+        universe_data = {
+            jan1: [
+                ScoredStock(ticker="A", composite_score=85.0, price=100.0, margin_of_safety=0.40),
+                ScoredStock(ticker="B", composite_score=80.0, price=50.0, margin_of_safety=0.35),
+            ],
+            feb3: [
+                ScoredStock(ticker="A", composite_score=85.0, price=110.0, margin_of_safety=0.38),
+                ScoredStock(ticker="B", composite_score=80.0, price=55.0, margin_of_safety=0.33),
+            ],
+        }
+
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 2, 28),
+            selection_mode=SelectionMode.CONVICTION_MOS,
+            transaction_cost_bps=0.0,
+            slippage_bps=0.0,
+        )
+
+        def run_once():
+            sim = WalkForwardSimulator(
+                config=config,
+                universe_provider=FakeUniverseProvider(universe_data),
+                benchmark_provider=FakeBenchmarkProvider({jan1: 100.0, feb3: 105.0}),
+            )
+            return [s.portfolio_value for s in sim.run().snapshots]
+
+        assert run_once() == run_once()
