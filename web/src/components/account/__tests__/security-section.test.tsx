@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import { render, screen } from "@testing-library/react"
 
 vi.mock("next-auth/react", () => ({
   useSession: vi.fn(),
+}))
+
+vi.mock("next/link", () => ({
+  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }))
 
 import { useSession } from "next-auth/react"
@@ -21,6 +28,10 @@ function mockSession(overrides: Record<string, unknown> = {}) {
     authMethod: "credentials" as const,
     oauthProvider: null as string | null,
     mfaVerified: false,
+    hasPassword: true,
+    mfaEnabled: false,
+    mfaGraceDeadline: null as string | null,
+    linkedProviders: [] as string[],
     expires: "2099-01-01",
     ...overrides,
   }
@@ -36,78 +47,10 @@ describe("SecuritySection", () => {
     vi.clearAllMocks()
   })
 
-  it("renders security heading for credentials user", () => {
+  it("renders security heading", () => {
     mockSession()
     render(<SecuritySection />)
     expect(screen.getByRole("heading", { name: /security/i })).toBeInTheDocument()
-  })
-
-  it("shows change password form for credentials user", () => {
-    mockSession()
-    render(<SecuritySection />)
-    expect(screen.getByLabelText("Current password")).toBeInTheDocument()
-    expect(screen.getByLabelText("New password")).toBeInTheDocument()
-    expect(screen.getByLabelText("Confirm new password")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /update password/i })).toBeInTheDocument()
-  })
-
-  it('shows "secured by Google" message for Google OAuth user', () => {
-    mockSession({ authMethod: "oauth", oauthProvider: "google" })
-    render(<SecuritySection />)
-    expect(screen.getByText(/secured by Google/)).toBeInTheDocument()
-  })
-
-  it('shows "secured by GitHub" message for GitHub OAuth user', () => {
-    mockSession({ authMethod: "oauth", oauthProvider: "github" })
-    render(<SecuritySection />)
-    expect(screen.getByText(/secured by GitHub/)).toBeInTheDocument()
-  })
-
-  it("shows MFA enabled indicator when mfaVerified is true", () => {
-    mockSession({ mfaVerified: true })
-    render(<SecuritySection />)
-    expect(screen.getByText("MFA is enabled")).toBeInTheDocument()
-  })
-
-  it("shows MFA not configured when mfaVerified is false", () => {
-    mockSession({ mfaVerified: false })
-    render(<SecuritySection />)
-    expect(screen.getByText("MFA is not configured")).toBeInTheDocument()
-  })
-
-  it("shows error when passwords don't match", async () => {
-    mockSession()
-    global.fetch = vi.fn()
-    const user = userEvent.setup()
-    render(<SecuritySection />)
-
-    await user.type(screen.getByLabelText("Current password"), "OldPassword123!")
-    await user.type(screen.getByLabelText("New password"), "NewPassword123!")
-    await user.type(screen.getByLabelText("Confirm new password"), "DifferentPass123!")
-    await user.click(screen.getByRole("button", { name: /update password/i }))
-
-    expect(screen.getByText("Passwords do not match.")).toBeInTheDocument()
-    expect(global.fetch).not.toHaveBeenCalled()
-  })
-
-  it("shows error when password too short (< 12 chars)", async () => {
-    mockSession()
-    global.fetch = vi.fn()
-    const user = userEvent.setup()
-    render(<SecuritySection />)
-
-    await user.type(screen.getByLabelText("Current password"), "OldPassword123!")
-    await user.type(screen.getByLabelText("New password"), "Short1!")
-    await user.type(screen.getByLabelText("Confirm new password"), "Short1!")
-
-    // Use fireEvent.submit to bypass HTML5 minLength validation
-    const form = screen.getByRole("button", { name: /update password/i }).closest("form")!
-    fireEvent.submit(form)
-
-    expect(
-      screen.getByText("New password must be at least 12 characters.")
-    ).toBeInTheDocument()
-    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   it("returns null when no session user", () => {
@@ -118,5 +61,166 @@ describe("SecuritySection", () => {
     } as ReturnType<typeof useSession>)
     const { container } = render(<SecuritySection />)
     expect(container.innerHTML).toBe("")
+  })
+
+  it("renders all five provider icons", () => {
+    mockSession()
+    render(<SecuritySection />)
+    expect(screen.getByText("Google")).toBeInTheDocument()
+    expect(screen.getByText("GitHub")).toBeInTheDocument()
+    expect(screen.getByText("Apple")).toBeInTheDocument()
+    expect(screen.getByText("Amazon")).toBeInTheDocument()
+    expect(screen.getByText("Facebook")).toBeInTheDocument()
+  })
+
+  it("shows OAuth-only message for OAuth user without password", () => {
+    mockSession({
+      authMethod: "oauth",
+      oauthProvider: "google",
+      hasPassword: false,
+      linkedProviders: ["google"],
+    })
+    render(<SecuritySection />)
+    expect(screen.getByText(/secured by Google OAuth/)).toBeInTheDocument()
+  })
+
+  it("does not show OAuth-only message for credentials user with password", () => {
+    mockSession({ authMethod: "credentials", hasPassword: true })
+    render(<SecuritySection />)
+    expect(screen.queryByText(/secured by.*OAuth/)).not.toBeInTheDocument()
+  })
+
+  it("renders password section", () => {
+    mockSession()
+    render(<SecuritySection />)
+    expect(screen.getByText("Password")).toBeInTheDocument()
+  })
+
+  it("renders MFA section", () => {
+    mockSession()
+    render(<SecuritySection />)
+    expect(screen.getByText("Multi-Factor Authentication")).toBeInTheDocument()
+  })
+
+  describe("credentials user with password, MFA not enabled", () => {
+    it("shows change password button and MFA not configured", () => {
+      mockSession({ hasPassword: true, mfaEnabled: false })
+      render(<SecuritySection />)
+      expect(
+        screen.getByRole("button", { name: /change password/i })
+      ).toBeInTheDocument()
+      expect(screen.getByText("Not configured")).toBeInTheDocument()
+    })
+
+    it("shows Set Up MFA link", () => {
+      mockSession({ hasPassword: true, mfaEnabled: false })
+      render(<SecuritySection />)
+      const link = screen.getByText("Set Up MFA")
+      expect(link.closest("a")).toHaveAttribute("href", "/mfa/setup")
+    })
+  })
+
+  describe("credentials user with password, MFA enabled", () => {
+    it("shows MFA enabled status", () => {
+      mockSession({ hasPassword: true, mfaEnabled: true })
+      render(<SecuritySection />)
+      expect(screen.getByText(/Authenticator app/)).toBeInTheDocument()
+    })
+
+    it("shows regenerate and remove MFA buttons", () => {
+      mockSession({ hasPassword: true, mfaEnabled: true })
+      render(<SecuritySection />)
+      expect(screen.getByText("Regenerate Recovery Codes")).toBeInTheDocument()
+      expect(screen.getByText("Remove MFA")).toBeInTheDocument()
+    })
+  })
+
+  describe("OAuth user without password", () => {
+    it("shows set password option", () => {
+      mockSession({
+        authMethod: "oauth",
+        oauthProvider: "google",
+        hasPassword: false,
+        linkedProviders: ["google"],
+      })
+      render(<SecuritySection />)
+      expect(
+        screen.getByRole("button", { name: /set password/i })
+      ).toBeInTheDocument()
+    })
+
+    it("shows MFA managed through provider", () => {
+      mockSession({
+        authMethod: "oauth",
+        oauthProvider: "google",
+        hasPassword: false,
+        linkedProviders: ["google"],
+      })
+      render(<SecuritySection />)
+      expect(
+        screen.getByText(/Multi-factor authentication is managed through your Google account/)
+      ).toBeInTheDocument()
+    })
+  })
+
+  describe("hybrid user (OAuth + password)", () => {
+    it("shows both change password and remove password", () => {
+      mockSession({
+        authMethod: "oauth",
+        oauthProvider: "google",
+        hasPassword: true,
+        linkedProviders: ["google"],
+      })
+      render(<SecuritySection />)
+      expect(
+        screen.getByRole("button", { name: /change password/i })
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole("button", { name: /remove password/i })
+      ).toBeInTheDocument()
+    })
+
+    it("shows MFA section with set up option when MFA not enabled", () => {
+      mockSession({
+        authMethod: "oauth",
+        oauthProvider: "google",
+        hasPassword: true,
+        mfaEnabled: false,
+        linkedProviders: ["google"],
+      })
+      render(<SecuritySection />)
+      expect(screen.getByText("Set Up MFA")).toBeInTheDocument()
+    })
+  })
+
+  describe("grace period", () => {
+    it("shows grace period warning banner", () => {
+      const futureDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+      mockSession({
+        hasPassword: true,
+        mfaEnabled: false,
+        mfaGraceDeadline: futureDate,
+      })
+      render(<SecuritySection />)
+      expect(screen.getByRole("alert")).toBeInTheDocument()
+    })
+  })
+
+  describe("connected providers", () => {
+    it("shows connected state for linked provider", () => {
+      mockSession({
+        linkedProviders: ["google"],
+      })
+      render(<SecuritySection />)
+      expect(screen.getByLabelText("Google \u2014 Connected")).toBeInTheDocument()
+    })
+
+    it("shows not connected for unlinked available provider", () => {
+      mockSession({
+        linkedProviders: [],
+      })
+      render(<SecuritySection />)
+      expect(screen.getByLabelText("GitHub \u2014 Not connected")).toBeInTheDocument()
+    })
   })
 })
