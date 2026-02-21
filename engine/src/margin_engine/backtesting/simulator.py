@@ -36,6 +36,7 @@ class ScoredStock(BaseModel):
     ticker: str
     composite_score: float
     price: float
+    margin_of_safety: float | None = None
 
 
 @runtime_checkable

@@ -1106,3 +1106,29 @@ class TestPreciseCalculation:
         assert snap2.turnover == pytest.approx(0.0)
         assert snap2.transaction_costs == pytest.approx(0.0)
         assert snap2.portfolio_value == pytest.approx(STARTING_CAPITAL - 1500.0)
+
+
+# ---------------------------------------------------------------------------
+# Test ScoredStock model (margin_of_safety field)
+# ---------------------------------------------------------------------------
+
+
+class TestScoredStockModel:
+    def test_scored_stock_without_mos(self):
+        """ScoredStock should work without margin_of_safety (backward compat)."""
+        stock = ScoredStock(ticker="AAPL", composite_score=85.0, price=150.0)
+        assert stock.margin_of_safety is None
+
+    def test_scored_stock_with_mos(self):
+        """ScoredStock should accept margin_of_safety."""
+        stock = ScoredStock(
+            ticker="AAPL", composite_score=85.0, price=150.0, margin_of_safety=0.35
+        )
+        assert stock.margin_of_safety == 0.35
+
+    def test_scored_stock_with_negative_mos(self):
+        """Negative MoS means overvalued — should be accepted."""
+        stock = ScoredStock(
+            ticker="TSLA", composite_score=60.0, price=300.0, margin_of_safety=-0.20
+        )
+        assert stock.margin_of_safety == -0.20
