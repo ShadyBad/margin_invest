@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Float, JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Float, JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -151,11 +151,11 @@ class User(Base):
 
     # Credential fields (nullable — absent for OAuth-only users)
     password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
-    mfa_enabled: Mapped[bool] = mapped_column(default=False)
+    mfa_enabled: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     mfa_grace_deadline: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    failed_login_attempts: Mapped[int] = mapped_column(default=0)
+    failed_login_attempts: Mapped[int] = mapped_column(default=0, server_default=text("0"))
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_totp_counter: Mapped[int | None] = mapped_column(nullable=True)
     password_changed_at: Mapped[datetime | None] = mapped_column(
@@ -208,6 +208,15 @@ class User(Base):
     @property
     def has_password(self) -> bool:
         return self.password_hash is not None
+
+    @property
+    def auth_methods(self) -> list[str]:
+        methods = []
+        if self.has_password:
+            methods.append("credentials")
+        if self.linked_providers:
+            methods.extend(lp.provider for lp in self.linked_providers)
+        return methods
 
 
 class Score(Base):
@@ -507,7 +516,7 @@ class TotpSecret(Base):
     __tablename__ = "totp_secrets"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     encrypted_secret: Mapped[str] = mapped_column(Text)
     confirmed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -523,7 +532,7 @@ class WebAuthnCredential(Base):
     __tablename__ = "webauthn_credentials"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     credential_id: Mapped[str] = mapped_column(Text, unique=True)
     public_key: Mapped[str] = mapped_column(Text)
     sign_count: Mapped[int] = mapped_column(default=0)
@@ -540,7 +549,7 @@ class MfaChallengeToken(Base):
     __tablename__ = "mfa_challenge_tokens"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     token_hash: Mapped[str] = mapped_column(String(64))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used: Mapped[bool] = mapped_column(default=False)
