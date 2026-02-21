@@ -238,7 +238,7 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
         institutional_percentile=inputs.institutional_percentile,
         sue_percentile=inputs.sue_percentile,
     )
-    catalyst_threshold = 60.0
+    catalyst_threshold = 40.0
     if inputs.regime_adjustments and inputs.regime_adjustments.track_b_catalyst_percentile_override:
         catalyst_threshold = inputs.regime_adjustments.track_b_catalyst_percentile_override
     if catalyst > catalyst_threshold:

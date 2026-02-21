@@ -159,11 +159,16 @@ def compute_catalyst_strength(
     institutional_percentile: float,
     sue_percentile: float,
 ) -> float:
-    """Catalyst strength = max of three catalyst signals.
+    """Catalyst strength = weighted blend favoring corroboration.
 
-    Each input is a percentile (0-100). Returns the strongest signal.
+    50% weight on strongest signal, 30% on second, 20% on third.
+    This rewards multiple confirming catalysts over a single outlier.
     """
-    return max(insider_percentile, institutional_percentile, sue_percentile)
+    sorted_signals = sorted(
+        [insider_percentile, institutional_percentile, sue_percentile],
+        reverse=True,
+    )
+    return 0.50 * sorted_signals[0] + 0.30 * sorted_signals[1] + 0.20 * sorted_signals[2]
 
 
 def compute_quality_floor_factor(roic: float, roic_improving: bool) -> float:
