@@ -6,8 +6,9 @@ import pytest
 from pydantic import ValidationError
 
 from margin_engine.correlation import CorrelationMatrix, ExcludedTicker, _pearson
-from margin_engine.correlation import compute_return_correlations
+from margin_engine.correlation import compute_factor_correlations, compute_return_correlations
 from margin_engine.models.financial import PriceBar
+from margin_engine.models.scoring import FactorBreakdown, FactorScore
 
 
 class TestCorrelationModels:
@@ -177,3 +178,73 @@ class TestReturnCorrelations:
         bars_b = _daily_bars("2025-01-02", [50 + i for i in range(50)])
         result = compute_return_correlations({"A": bars_a, "B": bars_b})
         assert result.method == "returns"
+
+
+def _factor(name: str, percentiles: list[float]) -> FactorBreakdown:
+    """Helper: build a FactorBreakdown with given sub-score percentiles."""
+    return FactorBreakdown(
+        factor_name=name,
+        weight=1.0,
+        sub_scores=[
+            FactorScore(name=f"metric_{i}", raw_value=0.0, percentile_rank=p, detail="")
+            for i, p in enumerate(percentiles)
+        ],
+    )
+
+
+def _factors(
+    quality: list[float], value: list[float], momentum: list[float]
+) -> dict[str, FactorBreakdown]:
+    """Helper: build the 3-factor dict for a ticker."""
+    return {
+        "quality": _factor("quality", quality),
+        "value": _factor("value", value),
+        "momentum": _factor("momentum", momentum),
+    }
+
+
+class TestFactorCorrelations:
+    def test_identical_profiles_correlation_one(self):
+        profiles = {
+            "AAPL": _factors([80, 70, 60], [50, 40, 30], [90, 85, 80]),
+            "COPY": _factors([80, 70, 60], [50, 40, 30], [90, 85, 80]),
+        }
+        result = compute_factor_correlations(profiles)
+        assert result.method == "factors"
+        assert result.matrix[0][1] == pytest.approx(1.0)
+
+    def test_opposite_profiles_negative(self):
+        profiles = {
+            "HIGH": _factors([90, 90, 90], [90, 90, 90], [90, 90, 90]),
+            "LOW": _factors([10, 10, 10], [10, 10, 10], [10, 10, 10]),
+        }
+        result = compute_factor_correlations(profiles)
+        # Constant vectors -> None (zero variance)
+        assert result.matrix[0][1] is None
+
+    def test_varied_profiles(self):
+        profiles = {
+            "A": _factors([90, 50, 30], [70, 60, 40], [80, 20, 50]),
+            "B": _factors([85, 55, 25], [65, 65, 35], [75, 25, 45]),
+        }
+        result = compute_factor_correlations(profiles)
+        assert result.matrix[0][1] is not None
+        assert result.matrix[0][1] > 0.9
+
+    def test_symmetric(self):
+        profiles = {
+            "A": _factors([90, 50], [70, 60], [80, 20]),
+            "B": _factors([20, 80], [30, 90], [50, 50]),
+            "C": _factors([50, 50], [50, 50], [50, 60]),
+        }
+        result = compute_factor_correlations(profiles)
+        for i in range(3):
+            for j in range(3):
+                if result.matrix[i][j] is not None and result.matrix[j][i] is not None:
+                    assert result.matrix[i][j] == result.matrix[j][i]
+
+    def test_single_ticker_returns_minimal(self):
+        profiles = {"ONLY": _factors([80, 70], [50, 40], [90, 85])}
+        result = compute_factor_correlations(profiles)
+        assert result.tickers == ["ONLY"]
+        assert result.matrix == [[1.0]]

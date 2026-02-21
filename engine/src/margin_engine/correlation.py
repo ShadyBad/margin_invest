@@ -9,6 +9,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from margin_engine.models.financial import PriceBar
+from margin_engine.models.scoring import FactorBreakdown
 
 
 class ExcludedTicker(BaseModel):
@@ -120,5 +121,60 @@ def compute_return_correlations(
         sample_sizes=sample_sizes,
         excluded=excluded,
         window_days=window_days,
+        computed_at=datetime.now(UTC),
+    )
+
+
+def _factor_vector(factors: dict[str, FactorBreakdown]) -> list[float]:
+    """Flatten factor breakdowns into a single percentile vector."""
+    vector: list[float] = []
+    for key in sorted(factors.keys()):
+        for sub in factors[key].sub_scores:
+            vector.append(sub.percentile_rank)
+    return vector
+
+
+def compute_factor_correlations(
+    profiles: dict[str, dict[str, FactorBreakdown]],
+) -> CorrelationMatrix:
+    """Compute Pearson correlations on factor score vectors."""
+    tickers = sorted(profiles.keys())
+    vectors = {t: _factor_vector(profiles[t]) for t in tickers}
+    n = len(tickers)
+
+    if n < 2:
+        return CorrelationMatrix(
+            tickers=tickers,
+            method="factors",
+            matrix=[[1.0]] if n == 1 else [],
+            sample_sizes=[[len(vectors[tickers[0]])]] if n == 1 else [],
+            excluded=[],
+            window_days=0,
+            computed_at=datetime.now(UTC),
+        )
+
+    matrix: list[list[float | None]] = [[None] * n for _ in range(n)]
+    sample_sizes: list[list[int]] = [[0] * n for _ in range(n)]
+
+    for i in range(n):
+        vec_i = vectors[tickers[i]]
+        matrix[i][i] = 1.0
+        sample_sizes[i][i] = len(vec_i)
+        for j in range(i + 1, n):
+            vec_j = vectors[tickers[j]]
+            size = min(len(vec_i), len(vec_j))
+            sample_sizes[i][j] = size
+            sample_sizes[j][i] = size
+            r = _pearson(vec_i[:size], vec_j[:size])
+            matrix[i][j] = r
+            matrix[j][i] = r
+
+    return CorrelationMatrix(
+        tickers=tickers,
+        method="factors",
+        matrix=matrix,
+        sample_sizes=sample_sizes,
+        excluded=[],
+        window_days=0,
         computed_at=datetime.now(UTC),
     )
