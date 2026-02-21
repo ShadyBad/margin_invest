@@ -34,6 +34,14 @@ def compute_owner_earnings_iv(
     return owner_earnings_per_share * (1.0 + terminal_growth) / (wacc - terminal_growth)
 
 
+def _median_tax_rate(history: FinancialHistory) -> float:
+    """Return median effective tax rate across all periods."""
+    rates = [p.current_income.effective_tax_rate for p in history.periods]
+    if not rates:
+        return 0.21  # US statutory fallback
+    return statistics.median(rates)
+
+
 def _nopat_and_ic(period: FinancialPeriod) -> tuple[float, float]:
     """Return (NOPAT, Invested Capital) for a period."""
     ci = period.current_income
@@ -79,11 +87,18 @@ def compute_compounding_power(history: FinancialHistory) -> float:
         return 0.0
 
     # ROIC stability via MAD (robust to outliers, benefits serial acquirers)
+    # Use median tax rate to isolate operating performance from tax volatility
+    med_tax = _median_tax_rate(history)
     roics = []
     for p in history.periods:
-        nopat, ic = _nopat_and_ic(p)
+        ci = p.current_income
+        cb = p.current_balance
+        ebit = float(ci.ebit)
+        nopat_m = ebit * (1.0 - med_tax)
+        cash = float(cb.cash_and_equivalents or Decimal("0"))
+        ic = float(cb.total_equity) + float(cb.total_debt) - cash
         if ic > 0:
-            roics.append(nopat / ic)
+            roics.append(nopat_m / ic)
     if len(roics) < 2:
         stability = 1.0
     else:
