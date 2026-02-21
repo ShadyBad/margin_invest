@@ -80,6 +80,30 @@ describe("PerformanceChart", () => {
     expect(screen.getByTestId("performance-chart-empty")).toBeInTheDocument()
   })
 
+  it("shows custom legend labels when provided", () => {
+    render(
+      <PerformanceChart
+        snapshots={mockSnapshots}
+        portfolioLabel="Exceptional Portfolio (MoS > 30%, Equal-Weight, Monthly)"
+        benchmarkLabel="S&P 500 (SPY Total Return)"
+      />,
+    )
+    expect(
+      screen.getByText(
+        "Exceptional Portfolio (MoS > 30%, Equal-Weight, Monthly)",
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("S&P 500 (SPY Total Return)"),
+    ).toBeInTheDocument()
+  })
+
+  it("shows default legend labels when props omitted", () => {
+    render(<PerformanceChart snapshots={mockSnapshots} />)
+    expect(screen.getByText("Portfolio")).toBeInTheDocument()
+    expect(screen.getByText("Benchmark")).toBeInTheDocument()
+  })
+
   it("handles single snapshot gracefully", () => {
     const singleSnapshot = [
       {

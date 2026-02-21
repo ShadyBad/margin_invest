@@ -8,6 +8,8 @@ interface SnapshotData {
 
 interface PerformanceChartProps {
   snapshots: SnapshotData[]
+  portfolioLabel?: string
+  benchmarkLabel?: string
   className?: string
 }
 
@@ -54,7 +56,12 @@ function selectXLabels(dates: string[], maxLabels: number): number[] {
   return indices
 }
 
-export function PerformanceChart({ snapshots, className }: PerformanceChartProps) {
+export function PerformanceChart({
+  snapshots,
+  portfolioLabel = "Portfolio",
+  benchmarkLabel = "Benchmark",
+  className,
+}: PerformanceChartProps) {
   if (snapshots.length === 0) {
     return (
       <div
@@ -208,11 +215,11 @@ export function PerformanceChart({ snapshots, className }: PerformanceChartProps
       >
         <div className="flex items-center gap-2">
           <span className="inline-block w-4 h-0.5 bg-accent rounded" />
-          <span className="text-sm text-text-primary">Portfolio</span>
+          <span className="text-sm text-text-primary">{portfolioLabel}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-block w-4 h-0.5 bg-text-secondary rounded" />
-          <span className="text-sm text-text-primary">Benchmark</span>
+          <span className="text-sm text-text-primary">{benchmarkLabel}</span>
         </div>
       </div>
     </div>
