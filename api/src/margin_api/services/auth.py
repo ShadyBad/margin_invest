@@ -12,7 +12,7 @@ from argon2.exceptions import VerifyMismatchError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.db.models import CredentialUser, MfaChallengeToken
+from margin_api.db.models import MfaChallengeToken, User
 
 # Argon2id hasher with OWASP-recommended parameters
 _hasher = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=4)
@@ -56,32 +56,25 @@ class AuthService:
         username: str,
         email: str,
         password: str,
-    ) -> CredentialUser:
+    ) -> User:
         """Register a new credential user after validating password strength and uniqueness."""
         _validate_password(password)
 
-        # Check uniqueness
+        # Check email uniqueness
         existing = (
             await session.execute(
-                select(CredentialUser).where(CredentialUser.username == username)
-            )
-        ).scalar_one_or_none()
-        if existing is not None:
-            raise ValueError(f"A user with this username already exists: {username}")
-
-        existing = (
-            await session.execute(
-                select(CredentialUser).where(CredentialUser.email == email)
+                select(User).where(User.email == email)
             )
         ).scalar_one_or_none()
         if existing is not None:
             raise ValueError(f"A user with this email already exists: {email}")
 
         password_hash = _hasher.hash(password)
-        user = CredentialUser(
-            username=username,
+        user = User(
             email=email,
+            name=username,
             password_hash=password_hash,
+            mfa_grace_deadline=datetime.now(UTC) + timedelta(hours=72),
         )
         session.add(user)
         await session.commit()
@@ -99,7 +92,10 @@ class AuthService:
         Tracks failed attempts and locks the account after 5 consecutive failures
         for 15 minutes.
         """
-        stmt = select(CredentialUser).where(CredentialUser.username == username)
+        stmt = select(User).where(
+            User.email == username,
+            User.password_hash.isnot(None),
+        )
         user = (await session.execute(stmt)).scalar_one_or_none()
         if user is None:
             return None
@@ -132,7 +128,7 @@ class AuthService:
 
         return {
             "id": user.id,
-            "username": user.username,
+            "username": user.email,
             "email": user.email,
             "mfa_enabled": user.mfa_enabled,
             "avatar_url": user.avatar_url,
@@ -168,7 +164,7 @@ class AuthService:
         Validates current password, enforces strength rules, updates hash,
         sets password_changed_at, and resets failed attempts.
         """
-        stmt = select(CredentialUser).where(CredentialUser.id == user_id)
+        stmt = select(User).where(User.id == user_id)
         user = (await session.execute(stmt)).scalar_one_or_none()
         if user is None:
             raise LookupError("User not found")

@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 from margin_api.db.base import Base
-from margin_api.db.models import CredentialUser, MfaChallengeToken
+from margin_api.db.models import MfaChallengeToken, User
 from margin_api.services.auth import AuthService
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -46,20 +46,11 @@ class TestRegisterUser:
             session, "alice", "alice@example.com", "Str0ng!Pass99"
         )
         assert user.id is not None
-        assert user.username == "alice"
+        assert user.name == "alice"
         assert user.email == "alice@example.com"
         assert user.password_hash != "Str0ng!Pass99"  # must be hashed
         assert user.mfa_enabled is False
-
-    @pytest.mark.asyncio
-    async def test_register_duplicate_username(self, auth_service, session):
-        await auth_service.register_user(
-            session, "alice", "alice@example.com", "Str0ng!Pass99"
-        )
-        with pytest.raises(ValueError, match="username"):
-            await auth_service.register_user(
-                session, "alice", "bob@example.com", "Str0ng!Pass99"
-            )
+        assert user.mfa_grace_deadline is not None
 
     @pytest.mark.asyncio
     async def test_register_duplicate_email(self, auth_service, session):
@@ -118,9 +109,10 @@ class TestVerifyCredentials:
         await auth_service.register_user(
             session, "alice", "alice@example.com", "Str0ng!Pass99"
         )
-        result = await auth_service.verify_credentials(session, "alice", "Str0ng!Pass99")
+        result = await auth_service.verify_credentials(
+            session, "alice@example.com", "Str0ng!Pass99"
+        )
         assert result is not None
-        assert result["username"] == "alice"
         assert result["email"] == "alice@example.com"
         assert "id" in result
         assert "mfa_enabled" in result
@@ -130,12 +122,16 @@ class TestVerifyCredentials:
         await auth_service.register_user(
             session, "alice", "alice@example.com", "Str0ng!Pass99"
         )
-        result = await auth_service.verify_credentials(session, "alice", "WrongPass1!")
+        result = await auth_service.verify_credentials(
+            session, "alice@example.com", "WrongPass1!"
+        )
         assert result is None
 
     @pytest.mark.asyncio
     async def test_verify_nonexistent_user(self, auth_service, session):
-        result = await auth_service.verify_credentials(session, "nobody", "Str0ng!Pass99")
+        result = await auth_service.verify_credentials(
+            session, "nobody@example.com", "Str0ng!Pass99"
+        )
         assert result is None
 
     @pytest.mark.asyncio
@@ -143,9 +139,13 @@ class TestVerifyCredentials:
         await auth_service.register_user(
             session, "alice", "alice@example.com", "Str0ng!Pass99"
         )
-        await auth_service.verify_credentials(session, "alice", "Wrong1!abcde")
-        await auth_service.verify_credentials(session, "alice", "Wrong2!abcde")
-        stmt = select(CredentialUser).where(CredentialUser.username == "alice")
+        await auth_service.verify_credentials(
+            session, "alice@example.com", "Wrong1!abcde"
+        )
+        await auth_service.verify_credentials(
+            session, "alice@example.com", "Wrong2!abcde"
+        )
+        stmt = select(User).where(User.email == "alice@example.com")
         user = (await session.execute(stmt)).scalar_one()
         assert user.failed_login_attempts == 2
 
@@ -155,12 +155,16 @@ class TestVerifyCredentials:
             session, "alice", "alice@example.com", "Str0ng!Pass99"
         )
         for _ in range(5):
-            await auth_service.verify_credentials(session, "alice", "Wrong1!abcde")
-        stmt = select(CredentialUser).where(CredentialUser.username == "alice")
+            await auth_service.verify_credentials(
+                session, "alice@example.com", "Wrong1!abcde"
+            )
+        stmt = select(User).where(User.email == "alice@example.com")
         user = (await session.execute(stmt)).scalar_one()
         assert user.locked_until is not None
         # Even correct password should fail during lockout
-        result = await auth_service.verify_credentials(session, "alice", "Str0ng!Pass99")
+        result = await auth_service.verify_credentials(
+            session, "alice@example.com", "Str0ng!Pass99"
+        )
         assert result is None
 
     @pytest.mark.asyncio
@@ -169,12 +173,18 @@ class TestVerifyCredentials:
             session, "alice", "alice@example.com", "Str0ng!Pass99"
         )
         # Build up some failures
-        await auth_service.verify_credentials(session, "alice", "Wrong1!abcde")
-        await auth_service.verify_credentials(session, "alice", "Wrong2!abcde")
+        await auth_service.verify_credentials(
+            session, "alice@example.com", "Wrong1!abcde"
+        )
+        await auth_service.verify_credentials(
+            session, "alice@example.com", "Wrong2!abcde"
+        )
         # Succeed
-        result = await auth_service.verify_credentials(session, "alice", "Str0ng!Pass99")
+        result = await auth_service.verify_credentials(
+            session, "alice@example.com", "Str0ng!Pass99"
+        )
         assert result is not None
-        stmt = select(CredentialUser).where(CredentialUser.username == "alice")
+        stmt = select(User).where(User.email == "alice@example.com")
         user = (await session.execute(stmt)).scalar_one()
         assert user.failed_login_attempts == 0
 
@@ -184,13 +194,15 @@ class TestVerifyCredentials:
             session, "alice", "alice@example.com", "Str0ng!Pass99"
         )
         # Lock user manually with expired time
-        stmt = select(CredentialUser).where(CredentialUser.username == "alice")
+        stmt = select(User).where(User.email == "alice@example.com")
         user = (await session.execute(stmt)).scalar_one()
         user.locked_until = datetime.now(UTC) - timedelta(minutes=1)
         user.failed_login_attempts = 5
         await session.commit()
         # Should succeed now
-        result = await auth_service.verify_credentials(session, "alice", "Str0ng!Pass99")
+        result = await auth_service.verify_credentials(
+            session, "alice@example.com", "Str0ng!Pass99"
+        )
         assert result is not None
 
 
