@@ -195,22 +195,38 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
     """Run the 4-gate Mispricing cascade and return a V3TrackResult.
 
     Gates:
-        1. Ensemble Valuation: converged AND price < 0.60 * ensemble_iv
+        1. Ensemble Valuation: converged AND price < iv_discount * ensemble_iv
+           iv_discount is tiered by quality floor:
+             0.75 (25% margin) if quality_floor >= 1.0 (ROIC >= 8%)
+             0.65 (35% margin) if quality_floor > 0 (improving)
+             0.60 (40% margin) if quality_floor == 0 (low quality)
         2. Downside Protection: max loss < 50%
-        3. Catalyst: catalyst_strength > 60 (or regime override)
+        3. Catalyst: catalyst_strength > 40 (or regime override)
         4. Quality Floor: quality_floor_factor > 0
     """
     gates_passed = 0
     total_gates = 4
 
-    # --- Gate 1: Ensemble Valuation ---
+    # Compute quality floor early (needed for tiered Gate 1 threshold)
+    roic = _current_roic(inputs.period)
+    improving = _is_roic_improving(inputs.history)
+    quality_floor = compute_quality_floor_factor(roic, improving)
+
+    # --- Gate 1: Ensemble Valuation (tiered IV discount by quality) ---
     ensemble = compute_ensemble_valuation(
         dcf_iv=inputs.dcf_iv,
         owner_earnings_iv=inputs.owner_earnings_iv,
         asset_floor_iv=inputs.asset_floor_iv,
         peer_comparison_iv=inputs.peer_comparison_iv,
     )
-    if ensemble.converged and inputs.current_price < 0.60 * ensemble.ensemble_iv:
+    if quality_floor >= 1.0:
+        iv_discount = 0.75  # 25% margin for quality businesses (ROIC >= 8%)
+    elif quality_floor > 0:
+        iv_discount = 0.65  # 35% margin for improving businesses
+    else:
+        iv_discount = 0.60  # 40% margin for low-quality (original)
+
+    if ensemble.converged and inputs.current_price < iv_discount * ensemble.ensemble_iv:
         gates_passed += 1
 
     # --- Gate 2: Downside Protection ---
@@ -244,10 +260,7 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
     if catalyst > catalyst_threshold:
         gates_passed += 1
 
-    # --- Gate 4: Quality Floor ---
-    roic = _current_roic(inputs.period)
-    improving = _is_roic_improving(inputs.history)
-    quality_floor = compute_quality_floor_factor(roic, improving)
+    # --- Gate 4: Quality Floor (reuses quality_floor computed before Gate 1) ---
     if quality_floor > 0:
         gates_passed += 1
 
