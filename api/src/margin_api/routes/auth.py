@@ -23,6 +23,8 @@ from margin_api.schemas.auth import (
     ConfirmTotpResponse,
     DisableMfaRequest,
     DisableMfaResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LinkProviderRequest,
     LinkProviderResponse,
     MfaVerifyResponse,
@@ -35,6 +37,8 @@ from margin_api.schemas.auth import (
     RegisterResponse,
     RemovePasswordRequest,
     RemovePasswordResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     SecurityStatusResponse,
     SetPasswordRequest,
     SetPasswordResponse,
@@ -51,6 +55,7 @@ from margin_api.schemas.auth import (
 from margin_api.services.auth import AuthService, _hasher
 from margin_api.services.recovery_codes import RecoveryCodeService
 from margin_api.services.totp import TotpService
+from margin_api.services.email import EmailService
 from margin_api.services.webauthn import WebAuthnService
 
 logger = logging.getLogger(__name__)
@@ -83,6 +88,11 @@ def _get_webauthn_service() -> WebAuthnService:
 
 def _get_recovery_code_service() -> RecoveryCodeService:
     return RecoveryCodeService()
+
+
+def _get_email_service() -> EmailService:
+    settings = get_settings()
+    return EmailService(api_key=settings.resend_api_key)
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +327,52 @@ async def change_password(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return ChangePasswordResponse(message="Password changed successfully")
+
+
+# ---------------------------------------------------------------------------
+# Password reset endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthService = Depends(_get_auth_service),
+    email_svc: EmailService = Depends(_get_email_service),
+) -> ForgotPasswordResponse:
+    """Initiate password reset. Always returns 200 to prevent email enumeration."""
+    stmt = select(User).where(
+        User.email == body.email,
+        User.password_hash.isnot(None),
+    )
+    user = (await db.execute(stmt)).scalar_one_or_none()
+
+    if user is not None:
+        settings = get_settings()
+        raw_token = await auth.create_challenge_token(db, user.id, ttl_minutes=60)
+        reset_url = f"{settings.app_url}/reset-password?token={raw_token}&userId={user.id}"
+        email_svc.send_password_reset(to_email=user.email, reset_url=reset_url)
+
+    return ForgotPasswordResponse(
+        message="If an account exists with that email, a reset link has been sent."
+    )
+
+
+@router.post("/reset-password", response_model=ResetPasswordResponse)
+async def reset_password(
+    body: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthService = Depends(_get_auth_service),
+) -> ResetPasswordResponse:
+    """Complete password reset using a valid token."""
+    try:
+        await auth.reset_password(db, body.user_id, body.token, body.new_password)
+    except LookupError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ResetPasswordResponse(message="Password has been reset.")
 
 
 # ---------------------------------------------------------------------------

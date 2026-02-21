@@ -252,3 +252,34 @@ class SecurityStatusResponse(BaseModel):
     mfa_grace_deadline: datetime | None
     recovery_codes_remaining: int
     linked_providers: list[ProviderInfo]
+
+
+# ---------------------------------------------------------------------------
+# Password reset schemas
+# ---------------------------------------------------------------------------
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Request body for initiating password reset."""
+
+    email: str = Field(min_length=5, max_length=320)
+
+
+class ForgotPasswordResponse(BaseModel):
+    """Response after initiating password reset."""
+
+    message: str
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request body for completing password reset."""
+
+    user_id: int
+    token: str
+    new_password: str = Field(min_length=12)
+
+
+class ResetPasswordResponse(BaseModel):
+    """Response after successful password reset."""
+
+    message: str
