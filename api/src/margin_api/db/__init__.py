@@ -4,7 +4,6 @@ from margin_api.db.base import Base
 from margin_api.db.models import (
     ApiKey,
     Asset,
-    CredentialUser,
     LinkedProvider,
     MfaChallengeToken,
     RecoveryCode,
@@ -20,7 +19,6 @@ __all__ = [
     "ApiKey",
     "Asset",
     "Base",
-    "CredentialUser",  # Backwards-compat alias; remove after migration
     "LinkedProvider",
     "MfaChallengeToken",
     "RecoveryCode",

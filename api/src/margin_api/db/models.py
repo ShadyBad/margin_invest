@@ -558,8 +558,3 @@ class MfaChallengeToken(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="challenge_tokens")
-
-
-# Backwards-compat alias — existing code still imports CredentialUser.
-# TODO: remove once all references are migrated to User.
-CredentialUser = User

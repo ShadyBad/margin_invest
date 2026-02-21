@@ -26,7 +26,7 @@ async def setup():
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with factory() as session:
-        user = User(email="a@b.com", name="A", provider="google")
+        user = User(email="a@b.com", name="A")
         session.add(user)
         await session.commit()
         await session.refresh(user)

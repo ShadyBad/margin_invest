@@ -29,7 +29,7 @@ async def db():
 
 @pytest_asyncio.fixture()
 async def user(db):
-    u = User(email="a@b.com", name="A", provider="google")
+    u = User(email="a@b.com", name="A")
     db.add(u)
     await db.commit()
     await db.refresh(u)

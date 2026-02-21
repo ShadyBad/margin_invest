@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.db.models import User, CredentialUser
+from margin_api.db.models import User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
 from margin_api.schemas.avatar import AvatarResponse
@@ -41,14 +41,9 @@ async def upload_avatar(
     processed = process_avatar(data)
     url = storage.upload(user_id, processed)
 
-    # Update whichever user table this user belongs to
-    result = await db.execute(
+    await db.execute(
         update(User).where(User.id == user_id).values(avatar_url=url)
     )
-    if result.rowcount == 0:
-        await db.execute(
-            update(CredentialUser).where(CredentialUser.id == user_id).values(avatar_url=url)
-        )
     await db.commit()
     return AvatarResponse(avatar_url=url)
 
@@ -61,12 +56,8 @@ async def delete_avatar(
 ) -> AvatarResponse:
     """Remove a user's custom avatar."""
     storage.delete(user_id)
-    result = await db.execute(
+    await db.execute(
         update(User).where(User.id == user_id).values(avatar_url=None)
     )
-    if result.rowcount == 0:
-        await db.execute(
-            update(CredentialUser).where(CredentialUser.id == user_id).values(avatar_url=None)
-        )
     await db.commit()
     return AvatarResponse(avatar_url=None)

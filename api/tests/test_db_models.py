@@ -49,7 +49,7 @@ class TestUserModel:
         assert "id" in columns
         assert "email" in columns
         assert "name" in columns
-        assert "provider" in columns
+        assert "password_hash" in columns
 
     def test_email_unique_constraint(self):
         email_col = User.__table__.columns["email"]
