@@ -30,8 +30,8 @@ _SIZING: dict[str, dict[ConvictionLevel, float]] = {
         ConvictionLevel.NONE: 0.0,
     },
     "efficient_growth": {
-        ConvictionLevel.EXCEPTIONAL: 12.0,
-        ConvictionLevel.HIGH: 7.0,
+        ConvictionLevel.EXCEPTIONAL: 15.0,
+        ConvictionLevel.HIGH: 8.0,
         ConvictionLevel.MEDIUM: 3.0,
         ConvictionLevel.NONE: 0.0,
     },

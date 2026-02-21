@@ -98,7 +98,7 @@ class TestV4Orchestrator:
             track_c=self._make_track("efficient_growth", True, ConvictionLevel.HIGH),
             timing_signal="buy_now",
         )
-        assert result.max_position_pct == 7.0
+        assert result.max_position_pct == 8.0
 
     def test_position_sizing_compounder_growth_exceptional(self):
         result = orchestrate_v4(

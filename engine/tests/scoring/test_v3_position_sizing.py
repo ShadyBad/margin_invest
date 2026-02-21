@@ -66,6 +66,14 @@ class TestV3PositionSizing:
         ):
             assert compute_v3_position_size(track, ConvictionLevel.NONE) == 0.0
 
+    def test_efficient_growth_exceptional_matches_compounder(self):
+        """Track C EXCEPTIONAL should match compounder at 15%."""
+        assert compute_v3_position_size("efficient_growth", ConvictionLevel.EXCEPTIONAL) == 15.0
+
+    def test_efficient_growth_high_matches_compounder(self):
+        """Track C HIGH should match compounder at 8%."""
+        assert compute_v3_position_size("efficient_growth", ConvictionLevel.HIGH) == 8.0
+
     def test_exceptional_and_high_unchanged(self):
         """Verify EXCEPTIONAL and HIGH values were not modified."""
         assert compute_v3_position_size("compounder", ConvictionLevel.EXCEPTIONAL) == 15.0
