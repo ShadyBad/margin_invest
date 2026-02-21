@@ -29,8 +29,10 @@ async function getHomepageData(): Promise<HomepageData | null> {
   try {
     const data = await serverFetch<DashboardResponse>("/api/v1/dashboard")
     if (!data.picks || data.picks.length === 0) return null
+    const allCards = data.picks.map(toCandidateCard)
     return {
-      candidates: data.picks.slice(0, 5).map(toCandidateCard),
+      candidates: allCards.slice(0, 5),
+      allPicks: allCards,
       last_updated: data.last_updated,
       universe_size: data.universe?.size ?? 0,
       eligible_count: data.total_scored,

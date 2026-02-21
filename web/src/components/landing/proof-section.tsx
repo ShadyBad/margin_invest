@@ -6,6 +6,7 @@ import { ProofFactorBars } from "./proof-factor-bars"
 import { ProofTiltChart } from "./proof-tilt-chart"
 import { ProofHeatmap } from "./proof-heatmap"
 import { ProofHistoricalChart } from "./proof-historical-chart"
+import type { CandidateCard } from "./types"
 
 interface ProofCardProps {
   title: string
@@ -62,7 +63,11 @@ function ProofCard({ title, children }: ProofCardProps) {
   )
 }
 
-export function ProofSection() {
+interface ProofSectionProps {
+  candidates?: CandidateCard[]
+}
+
+export function ProofSection({ candidates = [] }: ProofSectionProps) {
   return (
     <section id="proof" className="py-24 px-6">
       <div className="max-w-5xl mx-auto">
@@ -77,6 +82,7 @@ export function ProofSection() {
             <ProofFactorBars />
           </ProofCard>
           <ProofCard title="Growth vs Value Tilt">
+            {/* TODO: pass candidates in Task 3 — <ProofTiltChart candidates={candidates} /> */}
             <ProofTiltChart />
           </ProofCard>
           <ProofCard title="Correlation Heatmap">

@@ -27,7 +27,7 @@ export function HomepageClient({ data }: HomepageClientProps) {
       <ProblemSection />
       <PipelineChips activeStage={activeStage} />
       <EngineSection onStageChange={handleStageChange} />
-      <ProofSection />
+      <ProofSection candidates={data?.allPicks ?? []} />
       <PositioningSection />
       <PricingSection />
       <InfrastructureSection />

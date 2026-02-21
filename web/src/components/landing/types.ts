@@ -19,6 +19,7 @@ export interface CandidateCard {
 
 export interface HomepageData {
   candidates: CandidateCard[]
+  allPicks: CandidateCard[]
   last_updated: string
   universe_size: number
   eligible_count: number
