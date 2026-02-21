@@ -65,7 +65,7 @@ class TestSelectionMode:
             selection_mode=SelectionMode.CONVICTION_MOS,
         )
         assert config.min_conviction_score == 79.0
-        assert config.min_margin_of_safety == 0.30
+        assert config.min_margin_of_safety == 0.20
 
 
 class TestBacktestConfig:
