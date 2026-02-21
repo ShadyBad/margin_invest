@@ -18,7 +18,10 @@ from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
 from margin_engine.scoring.quantitative.asymmetry import asymmetry_ratio as compute_asymmetry
 from margin_engine.scoring.quantitative.ensemble_valuation import compute_ensemble_valuation
 from margin_engine.scoring.quantitative.moat_durability import moat_durability_score
-from margin_engine.scoring.quantitative.reverse_dcf import reverse_dcf_growth_gap
+from margin_engine.scoring.quantitative.reverse_dcf import (
+    reverse_dcf_combined_gap,
+    reverse_dcf_growth_gap,
+)
 from margin_engine.scoring.v3_composite import compute_track_a_score, compute_track_b_score
 from margin_engine.scoring.v3_intermediates import (
     compute_capital_allocation_composite,
@@ -43,6 +46,10 @@ class TrackAInputs(BaseModel):
     wacc: float
     terminal_growth: float = 0.03
     sustainable_growth_rate: float
+    current_revenue: float | None = None
+    current_fcf_margin: float | None = None
+    sustainable_fcf_margin: float | None = None
+    revenue_growth_for_margin_solve: float | None = None
     buyback_yield: float | None = None
     insider_ownership_pct: float | None = None
     sbc_pct: float | None = None
@@ -95,15 +102,39 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
     shares = inputs.profile.shares_outstanding or 1
     current_fcf = inputs.current_fcf_per_share * shares
 
-    growth_gap_result = reverse_dcf_growth_gap(
-        current_price=inputs.current_price,
-        current_fcf=current_fcf,
-        wacc=inputs.wacc,
-        terminal_growth=inputs.terminal_growth,
-        shares_outstanding=shares,
-        sustainable_growth_rate=inputs.sustainable_growth_rate,
-    )
-    growth_gap = growth_gap_result.raw_value
+    # If margin inputs available, use combined gap; otherwise use growth-only gap
+    if all(
+        v is not None
+        for v in [
+            inputs.current_revenue,
+            inputs.current_fcf_margin,
+            inputs.sustainable_fcf_margin,
+            inputs.revenue_growth_for_margin_solve,
+        ]
+    ):
+        combined = reverse_dcf_combined_gap(
+            current_price=inputs.current_price,
+            current_fcf=current_fcf,
+            current_revenue=inputs.current_revenue,
+            current_fcf_margin=inputs.current_fcf_margin,
+            sustainable_fcf_margin=inputs.sustainable_fcf_margin,
+            wacc=inputs.wacc,
+            terminal_growth=inputs.terminal_growth,
+            shares_outstanding=shares,
+            sustainable_growth_rate=inputs.sustainable_growth_rate,
+            revenue_growth_for_margin_solve=inputs.revenue_growth_for_margin_solve,
+        )
+        growth_gap = combined.raw_value
+    else:
+        growth_gap_result = reverse_dcf_growth_gap(
+            current_price=inputs.current_price,
+            current_fcf=current_fcf,
+            wacc=inputs.wacc,
+            terminal_growth=inputs.terminal_growth,
+            shares_outstanding=shares,
+            sustainable_growth_rate=inputs.sustainable_growth_rate,
+        )
+        growth_gap = growth_gap_result.raw_value
 
     growth_gap_adjustment = 0.0
     if inputs.regime_adjustments is not None:
