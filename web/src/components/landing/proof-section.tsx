@@ -82,8 +82,7 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
             <ProofFactorBars />
           </ProofCard>
           <ProofCard title="Growth vs Value Tilt">
-            {/* TODO: pass candidates in Task 3 — <ProofTiltChart candidates={candidates} /> */}
-            <ProofTiltChart />
+            <ProofTiltChart candidates={candidates} />
           </ProofCard>
           <ProofCard title="Correlation Heatmap">
             <ProofHeatmap />
