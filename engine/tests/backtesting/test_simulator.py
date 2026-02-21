@@ -1136,6 +1136,40 @@ class TestScoredStockModel:
 
 
 # ---------------------------------------------------------------------------
+# Test v2 config fields: max_holdings, min_conviction_score_high
+# ---------------------------------------------------------------------------
+
+
+class TestBacktestConfigV2Fields:
+    """Tests for v2 config fields: max_holdings, min_conviction_score_high, updated MoS default."""
+
+    def test_max_holdings_default(self):
+        config = BacktestConfig(start_date=date(2020, 1, 1), end_date=date(2020, 12, 31))
+        assert config.max_holdings == 5
+
+    def test_min_conviction_score_high_default(self):
+        config = BacktestConfig(start_date=date(2020, 1, 1), end_date=date(2020, 12, 31))
+        assert config.min_conviction_score_high == 72.0
+
+    def test_min_margin_of_safety_default_changed(self):
+        config = BacktestConfig(start_date=date(2020, 1, 1), end_date=date(2020, 12, 31))
+        assert config.min_margin_of_safety == 0.20
+
+    def test_custom_max_holdings(self):
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1), end_date=date(2020, 12, 31), max_holdings=10
+        )
+        assert config.max_holdings == 10
+
+    def test_custom_min_conviction_score_high(self):
+        config = BacktestConfig(
+            start_date=date(2020, 1, 1), end_date=date(2020, 12, 31),
+            min_conviction_score_high=75.0,
+        )
+        assert config.min_conviction_score_high == 75.0
+
+
+# ---------------------------------------------------------------------------
 # Test conviction + margin-of-safety selection mode
 # ---------------------------------------------------------------------------
 
