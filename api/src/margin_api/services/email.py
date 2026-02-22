@@ -26,7 +26,7 @@ class EmailService:
         try:
             resend.Emails.send(
                 {
-                    "from": "Margin Invest <noreply@margin-invest.app>",
+                    "from": "Margin Invest <noreply@send.margin-invest.com>",
                     "to": to_email,
                     "subject": "Reset your Margin Invest password",
                     "html": (
