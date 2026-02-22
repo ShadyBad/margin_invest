@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 
-import resend
-
 logger = logging.getLogger(__name__)
 
 
@@ -14,8 +12,7 @@ class EmailService:
 
     def __init__(self, *, api_key: str = ""):
         self._dev_mode = not api_key
-        if api_key:
-            resend.api_key = api_key
+        self._api_key = api_key
 
     def send_password_reset(self, to_email: str, reset_url: str) -> bool:
         """Send password reset email. Returns True on success."""
@@ -24,6 +21,9 @@ class EmailService:
             return True
 
         try:
+            import resend
+
+            resend.api_key = self._api_key
             resend.Emails.send(
                 {
                     "from": "Margin Invest <noreply@send.margin-invest.com>",

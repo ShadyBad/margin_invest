@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -13,8 +14,9 @@ class TestEmailService:
     def test_send_password_reset_calls_resend(self):
         """EmailService calls Resend API with correct params."""
         service = EmailService(api_key="re_test_key")
+        mock_resend = MagicMock()
 
-        with patch("margin_api.services.email.resend") as mock_resend:
+        with patch.dict(sys.modules, {"resend": mock_resend}):
             service.send_password_reset(
                 to_email="user@example.com",
                 reset_url="https://app.test/reset-password?token=abc123",
@@ -29,10 +31,10 @@ class TestEmailService:
     def test_send_password_reset_returns_false_on_error(self):
         """EmailService returns False when Resend raises."""
         service = EmailService(api_key="re_test_key")
+        mock_resend = MagicMock()
+        mock_resend.Emails.send.side_effect = Exception("API error")
 
-        with patch("margin_api.services.email.resend") as mock_resend:
-            mock_resend.Emails.send.side_effect = Exception("API error")
-
+        with patch.dict(sys.modules, {"resend": mock_resend}):
             result = service.send_password_reset(
                 to_email="user@example.com",
                 reset_url="https://app.test/reset-password?token=abc123",
