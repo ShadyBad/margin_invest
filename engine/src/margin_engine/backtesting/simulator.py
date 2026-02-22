@@ -279,7 +279,8 @@ class WalkForwardSimulator:
             and is_mos_eligible(s)
         ]
 
-        sort_key = lambda s: (-s.composite_score, -(s.margin_of_safety or 0), s.ticker)
+        def sort_key(s):
+            return (-s.composite_score, -(s.margin_of_safety or 0), s.ticker)
         eligible_exceptional.sort(key=sort_key)
         eligible_high.sort(key=sort_key)
 

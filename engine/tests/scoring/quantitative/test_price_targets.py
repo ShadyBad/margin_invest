@@ -3,8 +3,6 @@
 from decimal import Decimal
 
 import pytest
-from pydantic import ValidationError
-
 from margin_engine.models.financial import (
     AssetProfile,
     BalanceSheet,
@@ -15,7 +13,6 @@ from margin_engine.models.financial import (
     PriceBar,
 )
 from margin_engine.models.scoring import ConvictionLevel
-from margin_engine.models.valuation_audit import MethodAudit, ValuationAudit
 from margin_engine.scoring.quantitative.price_targets import (
     PriceTargets,
     _clamp_intrinsic_value,
@@ -23,6 +20,7 @@ from margin_engine.scoring.quantitative.price_targets import (
     _filter_outlier_methods,
     compute_price_targets,
 )
+from pydantic import ValidationError
 
 
 class TestPriceTargetsModel:
@@ -769,14 +767,20 @@ class TestFilterOutlierMethods:
 
     def test_high_outlier_excluded(self):
         """A method 20x the median should be excluded."""
-        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 52.0, "shareholder_yield": 5000.0}
+        methods = {
+            "dcf": 50.0, "ev_fcf": 55.0,
+            "acquirers_multiple": 52.0, "shareholder_yield": 5000.0,
+        }
         filtered = _filter_outlier_methods(methods)
         assert "shareholder_yield" not in filtered
         assert len(filtered) == 3
 
     def test_all_methods_agree_kept(self):
         """When all methods are within 10x of median, all are kept."""
-        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 48.0, "shareholder_yield": 60.0}
+        methods = {
+            "dcf": 50.0, "ev_fcf": 55.0,
+            "acquirers_multiple": 48.0, "shareholder_yield": 60.0,
+        }
         filtered = _filter_outlier_methods(methods)
         assert len(filtered) == 4
 
@@ -788,7 +792,10 @@ class TestFilterOutlierMethods:
 
     def test_low_outlier_excluded(self):
         """A method < 0.1x median should be excluded."""
-        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 52.0, "shareholder_yield": 2.0}
+        methods = {
+            "dcf": 50.0, "ev_fcf": 55.0,
+            "acquirers_multiple": 52.0, "shareholder_yield": 2.0,
+        }
         filtered = _filter_outlier_methods(methods)
         assert "shareholder_yield" not in filtered
 
@@ -815,14 +822,20 @@ class TestLayer3CrossMethodConsistency:
 
     def test_outlier_method_excluded(self):
         """A method 20x the median should be excluded."""
-        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 52.0, "shareholder_yield": 5000.0}
+        methods = {
+            "dcf": 50.0, "ev_fcf": 55.0,
+            "acquirers_multiple": 52.0, "shareholder_yield": 5000.0,
+        }
         filtered = _filter_outlier_methods(methods)
         assert "shareholder_yield" not in filtered
         assert len(filtered) == 3
 
     def test_all_methods_agree_kept(self):
         """When all methods are within 10x of median, all are kept."""
-        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 48.0, "shareholder_yield": 60.0}
+        methods = {
+            "dcf": 50.0, "ev_fcf": 55.0,
+            "acquirers_multiple": 48.0, "shareholder_yield": 60.0,
+        }
         filtered = _filter_outlier_methods(methods)
         assert len(filtered) == 4
 
@@ -834,7 +847,10 @@ class TestLayer3CrossMethodConsistency:
 
     def test_low_outlier_excluded(self):
         """A method < 0.1x median should be excluded."""
-        methods = {"dcf": 50.0, "ev_fcf": 55.0, "acquirers_multiple": 52.0, "shareholder_yield": 2.0}
+        methods = {
+            "dcf": 50.0, "ev_fcf": 55.0,
+            "acquirers_multiple": 52.0, "shareholder_yield": 2.0,
+        }
         filtered = _filter_outlier_methods(methods)
         assert "shareholder_yield" not in filtered
 

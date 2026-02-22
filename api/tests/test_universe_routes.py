@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import pytest
-
 
 class TestUniverseStatusSchema:
     def test_universe_status_model(self):

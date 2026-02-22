@@ -5,17 +5,17 @@ Revises: a1b2c3d4e5f6
 Create Date: 2026-02-16 13:10:00.516079
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'a60167c570ed'
-down_revision: Union[str, Sequence[str], None] = 'a1b2c3d4e5f6'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'a1b2c3d4e5f6'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -86,14 +86,16 @@ def upgrade() -> None:
     sa.Column('start_date', sa.String(length=10), nullable=False),
     sa.Column('end_date', sa.String(length=10), nullable=False),
     sa.Column('rebalance_frequency', sa.String(length=20), nullable=False),
-    sa.Column('config', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=False),
+    sa.Column('config', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=False),
     sa.Column('config_hash', sa.String(length=64), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('total_return', sa.Float(), nullable=True),
     sa.Column('annualized_return', sa.Float(), nullable=True),
     sa.Column('sharpe_ratio', sa.Float(), nullable=True),
     sa.Column('max_drawdown', sa.Float(), nullable=True),
-    sa.Column('summary_stats', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('summary_stats', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
@@ -116,11 +118,14 @@ def upgrade() -> None:
     sa.Column('return_3m', sa.Float(), nullable=True),
     sa.Column('return_6m', sa.Float(), nullable=True),
     sa.Column('return_12m', sa.Float(), nullable=True),
-    sa.Column('extra', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('extra', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.Column('computed_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('asset_id', 'as_of_date', name='uq_metrics_asset_date')
+    sa.UniqueConstraint(
+        'asset_id', 'as_of_date', name='uq_metrics_asset_date',
+    )
     )
     op.create_index('ix_metrics_derived_date', 'metrics_derived', ['as_of_date'], unique=False)
     op.create_table('backtest_results',
@@ -134,16 +139,29 @@ def upgrade() -> None:
     sa.Column('entry_price', sa.Float(), nullable=True),
     sa.Column('exit_price', sa.Float(), nullable=True),
     sa.Column('position_return', sa.Float(), nullable=True),
-    sa.Column('detail', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('detail', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
     sa.ForeignKeyConstraint(['run_id'], ['backtest_runs.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('run_id', 'asset_id', 'as_of_date', name='uq_backtest_result')
+    sa.UniqueConstraint(
+        'run_id', 'asset_id', 'as_of_date', name='uq_backtest_result',
     )
-    op.create_index('ix_backtest_results_run_date', 'backtest_results', ['run_id', 'as_of_date'], unique=False)
-    op.add_column('ingestion_runs', sa.Column('data_types', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True))
+    )
+    op.create_index(
+        'ix_backtest_results_run_date', 'backtest_results',
+        ['run_id', 'as_of_date'], unique=False,
+    )
+    op.add_column('ingestion_runs', sa.Column(
+        'data_types', sa.JSON().with_variant(
+            postgresql.JSONB(astext_type=sa.Text()), 'postgresql',
+        ), nullable=True,
+    ))
     op.add_column('scores', sa.Column('universe_snapshot_id', sa.Integer(), nullable=True))
-    op.create_foreign_key('scores_universe_snapshot_id_fkey', 'scores', 'universe_snapshots', ['universe_snapshot_id'], ['id'])
+    op.create_foreign_key(
+        'scores_universe_snapshot_id_fkey', 'scores',
+        'universe_snapshots', ['universe_snapshot_id'], ['id'],
+    )
     # ### end Alembic commands ###
 
 

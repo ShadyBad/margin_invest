@@ -1,6 +1,5 @@
 """Tests for reverse DCF — implied growth rate vs sustainable growth gap."""
 
-import pytest
 from margin_engine.scoring.quantitative.reverse_dcf import (
     reverse_dcf_combined_gap,
     reverse_dcf_growth_gap,

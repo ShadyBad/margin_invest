@@ -65,9 +65,16 @@ def _score_response_from_row(
             )
             for f in detail.get("filters_passed", []):
                 f.setdefault("verdict", "pass" if f.get("passed") else "fail")
-            for factor_key in ("quality", "value", "momentum", "capital_allocation", "catalyst"):
+            for factor_key in (
+                "quality", "value", "momentum",
+                "capital_allocation", "catalyst",
+            ):
                 factor = detail.get(factor_key)
-                if factor is not None and isinstance(factor, dict) and "average_percentile" not in factor:
+                if (
+                    factor is not None
+                    and isinstance(factor, dict)
+                    and "average_percentile" not in factor
+                ):
                     subs = factor.get("sub_scores", [])
                     avg = (
                         sum(s.get("percentile_rank", 0) for s in subs) / len(subs)
@@ -76,14 +83,23 @@ def _score_response_from_row(
                     )
                     factor["average_percentile"] = avg
             # Populate score and universe_percentile from raw score / percentile
-            detail.setdefault("score", detail.get("composite_raw_score", score.composite_raw_score))
-            detail.setdefault("universe_percentile", detail.get("composite_percentile", score.composite_percentile))
+            detail.setdefault(
+                "score",
+                detail.get("composite_raw_score", score.composite_raw_score),
+            )
+            detail.setdefault(
+                "universe_percentile",
+                detail.get("composite_percentile", score.composite_percentile),
+            )
             # Include price target fields from DB columns
             detail.setdefault("margin_invest_value", getattr(score, "margin_invest_value", None))
             detail.setdefault("buy_price", getattr(score, "buy_price", None))
             detail.setdefault("sell_price", getattr(score, "sell_price", None))
             detail.setdefault("actual_price", getattr(score, "actual_price", None))
-            detail.setdefault("price_target_invalid_reason", getattr(score, "price_target_invalid_reason", None))
+            detail.setdefault(
+                "price_target_invalid_reason",
+                getattr(score, "price_target_invalid_reason", None),
+            )
             # v2 conviction engine fields from DB columns
             detail.setdefault("opportunity_type", getattr(score, "opportunity_type", None))
             detail.setdefault("winning_track", getattr(score, "winning_track", None))
@@ -278,7 +294,11 @@ async def get_score_history(
             momentum_percentile=row.momentum_percentile,
             conviction_level=row.conviction_level,
             signal=row.signal,
-            margin_invest_value=float(row.margin_invest_value) if row.margin_invest_value is not None else None,
+            margin_invest_value=(
+                float(row.margin_invest_value)
+                if row.margin_invest_value is not None
+                else None
+            ),
             buy_price=float(row.buy_price) if row.buy_price is not None else None,
             sell_price=float(row.sell_price) if row.sell_price is not None else None,
             actual_price=float(row.actual_price) if row.actual_price is not None else None,

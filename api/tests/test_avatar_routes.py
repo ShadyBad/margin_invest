@@ -9,16 +9,15 @@ import pytest
 import pytest_asyncio
 from cryptography.fernet import Fernet
 from httpx import ASGITransport, AsyncClient
-from PIL import Image
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.app import create_app
 from margin_api.db.base import Base
 from margin_api.db.models import User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
 from margin_api.routes.avatar import _get_storage
+from PIL import Image
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 _TEST_FERNET_KEY = Fernet.generate_key().decode()
 _TEST_USER_ID = 1
@@ -36,10 +35,9 @@ def _make_large_png() -> bytes:
     """Create a PNG that exceeds the 5 MB limit."""
     # 5 MB + 1 byte of raw data, but we need the actual encoded file to exceed the limit.
     # A large uncompressed image will do.
-    buf = BytesIO()
+    _buf = BytesIO()
     # 2000x2000 RGB image is ~12 MB uncompressed; PNG compression won't bring it under 5 MB
     # Actually, solid-color PNGs compress extremely well. Use random-ish data instead.
-    import os
 
     # Just return raw bytes larger than 5MB with a valid PNG header at the start
     # But validate_image checks real PNG parsing, so let's make a real large PNG.

@@ -1,7 +1,6 @@
 """Tests for scoring result models."""
 
 import pytest
-
 from margin_engine.models.scoring import (
     CompositeScore,
     FactorBreakdown,
@@ -11,7 +10,6 @@ from margin_engine.models.scoring import (
     OpportunityType,
     Signal,
 )
-
 
 # ---------------------------------------------------------------------------
 # FilterResult insufficient_data / missing_fields tests

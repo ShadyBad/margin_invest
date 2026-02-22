@@ -1,10 +1,13 @@
 """Tests for FCF conversion ratio factor."""
 
-import pytest
 from decimal import Decimal
 
+import pytest
 from margin_engine.models.financial import (
-    CashFlowStatement, FinancialPeriod, IncomeStatement, BalanceSheet,
+    BalanceSheet,
+    CashFlowStatement,
+    FinancialPeriod,
+    IncomeStatement,
 )
 from margin_engine.scoring.quantitative.fcf_conversion import fcf_conversion
 

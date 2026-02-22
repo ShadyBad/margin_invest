@@ -1,7 +1,6 @@
 """Tests for style drift monitoring."""
 
 from margin_engine.scoring.drift_monitor import (
-    DriftAlert,
     check_concentration,
 )
 

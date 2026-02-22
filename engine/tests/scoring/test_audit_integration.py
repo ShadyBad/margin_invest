@@ -1,22 +1,18 @@
 """Integration test: verify new factors are accessible and produce valid scores."""
 
-from decimal import Decimal
 
-from margin_engine.models.financial import (
-    BalanceSheet, CashFlowStatement, FinancialHistory,
-    FinancialPeriod, IncomeStatement, PriceBar,
-)
-from margin_engine.scoring.quantitative.roic_trend import roic_trend
-from margin_engine.scoring.quantitative.fcf_conversion import fcf_conversion
-from margin_engine.scoring.quantitative.multi_horizon_momentum import multi_horizon_momentum
-from margin_engine.scoring.quantitative.competitive_dynamics import (
-    gross_margin_stability, relative_revenue_growth,
-)
-from margin_engine.scoring.quantitative.earnings_revision import earnings_revision_momentum
-from margin_engine.scoring.quantitative.scenario_iv import compute_scenario_iv
+from margin_engine.models.scoring import ConvictionLevel, ScenarioIV
 from margin_engine.scoring.data_quality_gate import apply_data_quality_gate
 from margin_engine.scoring.drift_monitor import check_concentration
-from margin_engine.models.scoring import ConvictionLevel, ScenarioIV
+from margin_engine.scoring.quantitative.competitive_dynamics import (
+    gross_margin_stability,
+    relative_revenue_growth,
+)
+from margin_engine.scoring.quantitative.earnings_revision import earnings_revision_momentum
+from margin_engine.scoring.quantitative.fcf_conversion import fcf_conversion
+from margin_engine.scoring.quantitative.multi_horizon_momentum import multi_horizon_momentum
+from margin_engine.scoring.quantitative.roic_trend import roic_trend
+from margin_engine.scoring.quantitative.scenario_iv import compute_scenario_iv
 
 
 def test_all_new_factors_importable():

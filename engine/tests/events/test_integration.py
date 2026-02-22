@@ -12,10 +12,8 @@ from margin_engine.events.pipeline import (
     RelevanceFilter,
     RescoreTrigger,
     ScoreDeltaChecker,
-    get_rescore_trigger,
 )
 from margin_engine.events.throttle import NotificationThrottle
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -194,7 +192,7 @@ class TestPipelineWithThrottle:
         minor_events = [
             _make_event(event_type=EventType.PRICE_ALERT, ticker="AAPL", timestamp=base_time),
         ]
-        minor_results = pipeline.process(minor_events)
+        _minor_results = pipeline.process(minor_events)
         throttle.record_notification("AAPL", base_time)
 
         # Major event 5 minutes later — should bypass throttle

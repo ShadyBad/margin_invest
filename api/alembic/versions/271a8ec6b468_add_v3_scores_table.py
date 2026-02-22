@@ -5,17 +5,17 @@ Revises: 3209b20e008b
 Create Date: 2026-02-17 07:33:16.723515
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '271a8ec6b468'
-down_revision: Union[str, Sequence[str], None] = '3209b20e008b'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '3209b20e008b'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -27,8 +27,10 @@ def upgrade() -> None:
     sa.Column('scored_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('opportunity_type', sa.String(length=20), nullable=False),
     sa.Column('conviction', sa.String(length=20), nullable=False),
-    sa.Column('track_a', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
-    sa.Column('track_b', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('track_a', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('track_b', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.Column('timing_signal', sa.String(length=30), nullable=False),
     sa.Column('max_position_pct', sa.Float(), nullable=False),
     sa.Column('regime', sa.String(length=20), nullable=False),
@@ -37,7 +39,10 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_v3_scores_asset_id'), 'v3_scores', ['asset_id'], unique=False)
-    op.create_index('ix_v3_scores_asset_scored', 'v3_scores', ['asset_id', 'scored_at'], unique=False)
+    op.create_index(
+        'ix_v3_scores_asset_scored', 'v3_scores',
+        ['asset_id', 'scored_at'], unique=False,
+    )
     # ### end Alembic commands ###
 
 

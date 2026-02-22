@@ -1,6 +1,6 @@
 """Tests for DB model definitions."""
 
-from margin_api.db.models import SignalTransition, Score
+from margin_api.db.models import Score, SignalTransition
 
 
 def test_signal_transition_model_exists():

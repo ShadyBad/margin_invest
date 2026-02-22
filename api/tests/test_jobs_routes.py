@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import pytest
-
 
 class TestJobRunResponse:
     def test_job_run_response_model(self):

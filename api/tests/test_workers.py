@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from margin_api.services.seed_result import SeedResult
 from margin_api.workers import WorkerSettings
 
@@ -72,7 +71,11 @@ class TestFullIngest:
         mock_run.started_at = datetime.now(UTC)
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one=MagicMock(return_value=mock_run)))
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(
+                scalar_one=MagicMock(return_value=mock_run),
+            ),
+        )
 
         mock_session_factory = MagicMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -113,7 +116,11 @@ class TestFullScore:
         mock_job.id = 1
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one=MagicMock(return_value=mock_job)))
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(
+                scalar_one=MagicMock(return_value=mock_job),
+            ),
+        )
 
         mock_session_factory = MagicMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -143,7 +150,11 @@ class TestFullScore:
         mock_job.id = 1
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one=MagicMock(return_value=mock_job)))
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(
+                scalar_one=MagicMock(return_value=mock_job),
+            ),
+        )
 
         mock_session_factory = MagicMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -172,7 +183,11 @@ class TestFullScoreV3:
         mock_job.id = 1
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one=MagicMock(return_value=mock_job)))
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(
+                scalar_one=MagicMock(return_value=mock_job),
+            ),
+        )
 
         mock_session_factory = MagicMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -217,7 +232,6 @@ class TestLivePricePoll:
     async def test_live_price_poll_with_tickers(self):
         """Fetches prices for recommended tickers and stores in Redis."""
         import fakeredis.aioredis
-
         from margin_api.workers import live_price_poll
 
         fake_redis = fakeredis.aioredis.FakeRedis()
@@ -261,7 +275,6 @@ class TestLivePricePoll:
     async def test_live_price_poll_skips_failed_tickers(self):
         """A failing ticker is skipped gracefully."""
         import fakeredis.aioredis
-
         from margin_api.workers import live_price_poll
 
         fake_redis = fakeredis.aioredis.FakeRedis()

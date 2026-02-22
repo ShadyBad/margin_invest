@@ -36,7 +36,10 @@ def gross_margin_stability(history: FinancialHistory) -> FactorScore:
         name="gross_margin_stability",
         raw_value=std,
         percentile_rank=0.0,
-        detail=f"stdev={std:.4f} over {len(margins)} periods, margins={[round(m, 4) for m in margins]}",
+        detail=(
+            f"stdev={std:.4f} over {len(margins)} periods,"
+            f" margins={[round(m, 4) for m in margins]}"
+        ),
     )
 
 

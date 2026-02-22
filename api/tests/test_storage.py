@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 ENV_VARS = {
     "R2_ACCOUNT_ID": "fake-account-id",
     "R2_BUCKET_NAME": "test-bucket",

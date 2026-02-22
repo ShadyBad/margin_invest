@@ -1,13 +1,10 @@
 """Tests for universe config loading and validation."""
 from __future__ import annotations
 
-import hashlib
-from pathlib import Path
 from textwrap import dedent
 
 import pytest
-
-from margin_engine.universe.config import UniverseConfig, load_universe_config
+from margin_engine.universe.config import load_universe_config
 
 
 class TestLoadUniverseConfig:

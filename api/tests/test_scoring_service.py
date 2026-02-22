@@ -13,8 +13,8 @@ import pytest
 from margin_api.services.scoring import (
     INVERTED_FACTORS,
     build_asset_profile,
-    build_financial_period,
     build_financial_history_from_rows,
+    build_financial_period,
     compute_raw_factor_scores,
     rank_and_compute_composites,
     run_scoring_pipeline,
@@ -525,7 +525,10 @@ class TestNewFactorWiring:
         return build_financial_history_from_rows("AAPL", rows)
 
     def test_quality_factors_with_history(self):
-        """With history, quality should have 7 factors (base 5 + roic_trend + gross_margin_stability)."""
+        """With history, quality should have 7 factors.
+
+        Base 5 + roic_trend + gross_margin_stability.
+        """
         period = self._build_period_with_priors()
         profile = self._build_profile()
         history = self._build_history()
@@ -545,7 +548,10 @@ class TestNewFactorWiring:
         assert "fcf_conversion" in quality_names
 
     def test_quality_factors_without_history(self):
-        """Without history, quality should have 5 factors (no roic_trend or gross_margin_stability)."""
+        """Without history, quality should have 5 factors.
+
+        No roic_trend or gross_margin_stability.
+        """
         period = self._build_period_with_priors()
         profile = self._build_profile()
 

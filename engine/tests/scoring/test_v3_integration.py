@@ -1,6 +1,5 @@
 """Integration test -- full v3 pipeline from financial data to conviction output."""
 
-import pytest
 from decimal import Decimal
 
 from margin_engine.models.financial import (
@@ -8,17 +7,16 @@ from margin_engine.models.financial import (
     CashFlowStatement,
     FinancialHistory,
     FinancialPeriod,
-    GICSSector,
     IncomeStatement,
 )
 from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.scoring.quantitative.ensemble_valuation import compute_ensemble_valuation
 from margin_engine.scoring.quantitative.moat_durability import moat_durability_score
 from margin_engine.scoring.quantitative.reverse_dcf import reverse_dcf_growth_gap
-from margin_engine.scoring.quantitative.ensemble_valuation import compute_ensemble_valuation
-from margin_engine.scoring.v3_composite import compute_track_a_score, compute_track_b_score
-from margin_engine.scoring.v3_thresholds import assess_track_a_conviction, assess_track_b_conviction
-from margin_engine.scoring.v3_orchestrator import V3TrackResult, orchestrate_v3
 from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
+from margin_engine.scoring.v3_composite import compute_track_a_score, compute_track_b_score
+from margin_engine.scoring.v3_orchestrator import V3TrackResult, orchestrate_v3
+from margin_engine.scoring.v3_thresholds import assess_track_a_conviction, assess_track_b_conviction
 
 
 def _make_compounder_history() -> FinancialHistory:

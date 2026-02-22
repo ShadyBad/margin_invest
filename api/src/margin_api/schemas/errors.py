@@ -19,7 +19,7 @@ class ErrorResponse(BaseModel):
     status_code: int
 
     @model_validator(mode="after")
-    def _sync_detail(self) -> "ErrorResponse":
+    def _sync_detail(self) -> ErrorResponse:
         """Keep ``detail`` in sync with ``message`` when not set explicitly."""
         if not self.detail:
             self.detail = self.message

@@ -5,17 +5,16 @@ Revises: 4ee2f8646129
 Create Date: 2026-02-14 16:38:36.103797
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'b41b14886872'
-down_revision: Union[str, Sequence[str], None] = '4ee2f8646129'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '4ee2f8646129'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -30,19 +29,40 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['api_key_id'], ['api_keys.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_api_key_events_api_key_id'), 'api_key_events', ['api_key_id'], unique=False)
+    op.create_index(
+        op.f('ix_api_key_events_api_key_id'), 'api_key_events',
+        ['api_key_id'], unique=False,
+    )
     op.add_column('api_keys', sa.Column('is_platform_managed', sa.Boolean(), nullable=False))
     op.add_column('api_keys', sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True))
     op.add_column('api_keys', sa.Column('revoked_at', sa.DateTime(timezone=True), nullable=True))
     op.drop_constraint(op.f('uq_user_provider'), 'api_keys', type_='unique')
-    op.add_column('credential_users', sa.Column('stripe_customer_id', sa.String(length=255), nullable=True))
-    op.add_column('credential_users', sa.Column('stripe_subscription_id', sa.String(length=255), nullable=True))
-    op.add_column('credential_users', sa.Column('subscription_plan', sa.String(length=20), nullable=False, server_default='free'))
-    op.create_unique_constraint('uq_credential_users_stripe_customer_id', 'credential_users', ['stripe_customer_id'])
+    op.add_column('credential_users', sa.Column(
+        'stripe_customer_id', sa.String(length=255), nullable=True,
+    ))
+    op.add_column('credential_users', sa.Column(
+        'stripe_subscription_id', sa.String(length=255), nullable=True,
+    ))
+    op.add_column('credential_users', sa.Column(
+        'subscription_plan', sa.String(length=20),
+        nullable=False, server_default='free',
+    ))
+    op.create_unique_constraint(
+        'uq_credential_users_stripe_customer_id',
+        'credential_users', ['stripe_customer_id'],
+    )
     op.add_column('users', sa.Column('stripe_customer_id', sa.String(length=255), nullable=True))
-    op.add_column('users', sa.Column('stripe_subscription_id', sa.String(length=255), nullable=True))
-    op.add_column('users', sa.Column('subscription_plan', sa.String(length=20), nullable=False, server_default='free'))
-    op.create_unique_constraint('uq_users_stripe_customer_id', 'users', ['stripe_customer_id'])
+    op.add_column('users', sa.Column(
+        'stripe_subscription_id', sa.String(length=255), nullable=True,
+    ))
+    op.add_column('users', sa.Column(
+        'subscription_plan', sa.String(length=20),
+        nullable=False, server_default='free',
+    ))
+    op.create_unique_constraint(
+        'uq_users_stripe_customer_id', 'users',
+        ['stripe_customer_id'],
+    )
     # ### end Alembic commands ###
 
 
@@ -57,7 +77,11 @@ def downgrade() -> None:
     op.drop_column('credential_users', 'subscription_plan')
     op.drop_column('credential_users', 'stripe_subscription_id')
     op.drop_column('credential_users', 'stripe_customer_id')
-    op.create_unique_constraint(op.f('uq_user_provider'), 'api_keys', ['user_id', 'provider_name'], postgresql_nulls_not_distinct=False)
+    op.create_unique_constraint(
+        op.f('uq_user_provider'), 'api_keys',
+        ['user_id', 'provider_name'],
+        postgresql_nulls_not_distinct=False,
+    )
     op.drop_column('api_keys', 'revoked_at')
     op.drop_column('api_keys', 'expires_at')
     op.drop_column('api_keys', 'is_platform_managed')

@@ -255,7 +255,9 @@ def _make_period(
     """Build a FinancialPeriod with configurable current/prior data."""
     ci = IncomeStatement(
         revenue=Decimal(str(revenue_current)),
-        cost_of_revenue=Decimal(str(revenue_current - (gross_profit_current or revenue_current // 2))),
+        cost_of_revenue=Decimal(
+            str(revenue_current - (gross_profit_current or revenue_current // 2))
+        ),
         gross_profit=Decimal(str(gross_profit_current or revenue_current // 2)),
         sga_expense=Decimal("100"),
         depreciation=Decimal("50"),
@@ -284,7 +286,9 @@ def _make_period(
     if has_prior and revenue_prior is not None and total_assets_prior is not None:
         pi = IncomeStatement(
             revenue=Decimal(str(revenue_prior)),
-            cost_of_revenue=Decimal(str(revenue_prior - (gross_profit_prior or revenue_prior // 2))),
+            cost_of_revenue=Decimal(
+                str(revenue_prior - (gross_profit_prior or revenue_prior // 2))
+            ),
             gross_profit=Decimal(str(gross_profit_prior or revenue_prior // 2)),
             sga_expense=Decimal("100"),
             depreciation=Decimal("50"),

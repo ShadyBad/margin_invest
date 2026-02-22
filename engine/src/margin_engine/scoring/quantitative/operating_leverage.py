@@ -16,8 +16,6 @@ Capped at 10.0 to prevent extreme outliers when opex growth is near zero.
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 from margin_engine.models.financial import FinancialHistory
 from margin_engine.models.scoring import FactorScore
 

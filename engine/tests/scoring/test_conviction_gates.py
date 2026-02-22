@@ -1,12 +1,10 @@
 """Tests for conviction gates — absolute quality thresholds for Track A and Track B."""
 
-import pytest
 from margin_engine.scoring.conviction_gates import (
     ConvictionGateResult,
     check_track_a_gates,
     check_track_b_gates,
 )
-
 
 # ---------------------------------------------------------------------------
 # ConvictionGateResult model
@@ -33,7 +31,11 @@ class TestConvictionGateResult:
 
 
 class TestTrackAGates:
-    """Track A requires: ROIC > 15%, CV < 0.30, reinvestment > 30%, price < 2x IV, coverage > 85%."""
+    """Track A gate checks.
+
+    Requires: ROIC > 15%, CV < 0.30, reinvestment > 30%,
+    price < 2x IV, coverage > 85%.
+    """
 
     def test_all_gates_pass(self):
         result = check_track_a_gates(

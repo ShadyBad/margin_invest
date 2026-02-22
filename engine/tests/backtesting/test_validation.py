@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
 from margin_engine.backtesting.metrics import PerformanceCalculator
 from margin_engine.backtesting.models import (
     BacktestConfig,
@@ -17,8 +16,7 @@ from margin_engine.backtesting.models import (
     PassThreshold,
     PerformanceMetrics,
 )
-from margin_engine.backtesting.validation import MethodologyComparison, ValidationGate
-
+from margin_engine.backtesting.validation import ValidationGate
 
 # ---------------------------------------------------------------------------
 # Helpers

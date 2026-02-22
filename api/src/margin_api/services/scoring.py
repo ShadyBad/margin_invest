@@ -31,28 +31,27 @@ from margin_engine.models.scoring import (
     FactorScore,
     FilterResult,
     GrowthStage,
-    ScenarioIV,
 )
 from margin_engine.scoring.classifier import classify_growth_stage
 from margin_engine.scoring.composite import compute_composite_score
+from margin_engine.scoring.data_quality_gate import apply_data_quality_gate
 from margin_engine.scoring.filters.pipeline import run_elimination_filters
 from margin_engine.scoring.normalizer import compute_percentile_ranks, rerank_composites
 from margin_engine.scoring.quantitative.accrual_ratio import sloan_accrual_ratio
 from margin_engine.scoring.quantitative.acquirers_multiple import acquirers_multiple
+from margin_engine.scoring.quantitative.competitive_dynamics import gross_margin_stability
 from margin_engine.scoring.quantitative.dcf_mos import dcf_margin_of_safety
 from margin_engine.scoring.quantitative.ev_fcf import ev_fcf
 from margin_engine.scoring.quantitative.f_score import piotroski_f_score
-from margin_engine.scoring.quantitative.gross_profitability import gross_profitability
-from margin_engine.scoring.quantitative.roic_wacc import roic_wacc_spread
-from margin_engine.scoring.quantitative.roic_trend import roic_trend
 from margin_engine.scoring.quantitative.fcf_conversion import fcf_conversion
+from margin_engine.scoring.quantitative.gross_profitability import gross_profitability
 from margin_engine.scoring.quantitative.multi_horizon_momentum import multi_horizon_momentum
-from margin_engine.scoring.quantitative.competitive_dynamics import gross_margin_stability
-from margin_engine.scoring.quantitative.scenario_iv import compute_scenario_iv
 from margin_engine.scoring.quantitative.price_targets import compute_price_targets
+from margin_engine.scoring.quantitative.roic_trend import roic_trend
+from margin_engine.scoring.quantitative.roic_wacc import roic_wacc_spread
+from margin_engine.scoring.quantitative.scenario_iv import compute_scenario_iv
 from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yield
 from margin_engine.scoring.quantitative.sue import sue_score
-from margin_engine.scoring.data_quality_gate import apply_data_quality_gate
 
 # Sector string -> GICSSector mapping for lookups
 _SECTOR_MAP: dict[str, GICSSector] = {s.value: s for s in GICSSector}
@@ -374,7 +373,7 @@ def rank_and_compute_composites(
     composites = rerank_composites(composites)
 
     # Apply data quality gate: cap conviction when data coverage is low
-    _CONVICTION_SCORE_CAP: dict[ConvictionLevel, float] = {
+    conviction_score_cap: dict[ConvictionLevel, float] = {
         ConvictionLevel.NONE: 64.9,
         ConvictionLevel.MEDIUM: 71.9,
         ConvictionLevel.HIGH: 78.9,
@@ -385,7 +384,7 @@ def rank_and_compute_composites(
             composite.conviction_level, composite.data_coverage
         )
         if gated_conviction != composite.conviction_level:
-            max_score = _CONVICTION_SCORE_CAP.get(
+            max_score = conviction_score_cap.get(
                 gated_conviction, composite.composite_raw_score
             )
             composite = composite.model_copy(update={

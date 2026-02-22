@@ -101,7 +101,9 @@ def run_elimination_filters(
 
     # --- Liquidity ---
     if price_bars is not None:
-        liquidity_result = liquidity_check_v2(profile, price_bars=price_bars, config=config.liquidity)
+        liquidity_result = liquidity_check_v2(
+            profile, price_bars=price_bars, config=config.liquidity,
+        )
     else:
         liquidity_result = liquidity_check(profile, config=config.liquidity)
 

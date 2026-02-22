@@ -1,6 +1,6 @@
 """Tests for score-related API schemas."""
 
-from margin_api.schemas.scores import ScoreResponse, PriceBarResponse, SignalTransitionResponse
+from margin_api.schemas.scores import PriceBarResponse, ScoreResponse, SignalTransitionResponse
 
 
 def test_score_response_has_price_fields():
@@ -9,9 +9,18 @@ def test_score_response_has_price_fields():
         "composite_percentile": 96.0,
         "conviction_level": "high",
         "signal": "buy",
-        "quality": {"factor_name": "quality", "weight": 0.35, "sub_scores": [], "average_percentile": 80.0},
-        "value": {"factor_name": "value", "weight": 0.30, "sub_scores": [], "average_percentile": 75.0},
-        "momentum": {"factor_name": "momentum", "weight": 0.35, "sub_scores": [], "average_percentile": 60.0},
+        "quality": {
+            "factor_name": "quality", "weight": 0.35,
+            "sub_scores": [], "average_percentile": 80.0,
+        },
+        "value": {
+            "factor_name": "value", "weight": 0.30,
+            "sub_scores": [], "average_percentile": 75.0,
+        },
+        "momentum": {
+            "factor_name": "momentum", "weight": 0.35,
+            "sub_scores": [], "average_percentile": 60.0,
+        },
         "filters_passed": [],
         "data_coverage": 1.0,
         "margin_invest_value": 195.20,
@@ -33,9 +42,18 @@ def test_score_response_price_fields_default_none():
         "composite_percentile": 50.0,
         "conviction_level": "none",
         "signal": "no_action",
-        "quality": {"factor_name": "quality", "weight": 0.35, "sub_scores": [], "average_percentile": 50.0},
-        "value": {"factor_name": "value", "weight": 0.30, "sub_scores": [], "average_percentile": 50.0},
-        "momentum": {"factor_name": "momentum", "weight": 0.35, "sub_scores": [], "average_percentile": 50.0},
+        "quality": {
+            "factor_name": "quality", "weight": 0.35,
+            "sub_scores": [], "average_percentile": 50.0,
+        },
+        "value": {
+            "factor_name": "value", "weight": 0.30,
+            "sub_scores": [], "average_percentile": 50.0,
+        },
+        "momentum": {
+            "factor_name": "momentum", "weight": 0.35,
+            "sub_scores": [], "average_percentile": 50.0,
+        },
         "filters_passed": [],
         "data_coverage": 1.0,
     }

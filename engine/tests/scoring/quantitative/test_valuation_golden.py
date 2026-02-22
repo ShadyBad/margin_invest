@@ -8,7 +8,6 @@ from the deterministic engine and then hard-coded as the golden expected.
 from decimal import Decimal
 
 import pytest
-
 from margin_engine.models.financial import (
     AssetProfile,
     BalanceSheet,
@@ -20,7 +19,6 @@ from margin_engine.models.financial import (
 )
 from margin_engine.models.scoring import ConvictionLevel, GrowthStage
 from margin_engine.scoring.quantitative.price_targets import compute_price_targets
-
 
 # ---------------------------------------------------------------------------
 # Fixtures: each test builds its own complete fixture for isolation.

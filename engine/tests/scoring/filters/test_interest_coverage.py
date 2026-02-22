@@ -157,7 +157,11 @@ class TestInterestCoverageWithConfig:
         from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
 
         config = InterestCoverageConfig()
-        result = interest_coverage_check(APPLE_PERIOD_2024, sector=GICSSector.TECHNOLOGY, config=config)
+        result = interest_coverage_check(
+            APPLE_PERIOD_2024,
+            sector=GICSSector.TECHNOLOGY,
+            config=config,
+        )
         assert result.passed is True
 
     def test_config_threshold_overrides_hardcoded(self):

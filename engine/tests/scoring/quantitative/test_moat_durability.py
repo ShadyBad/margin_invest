@@ -3,7 +3,6 @@
 from decimal import Decimal
 
 import pytest
-
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,

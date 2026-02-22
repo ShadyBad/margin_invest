@@ -1,14 +1,15 @@
-"""Tests for pipeline database models: UniverseSnapshot, IngestionRun, IngestionTickerStatus, JobRun, and Asset failure tracking."""
+"""Tests for pipeline database models.
+
+Covers UniverseSnapshot, IngestionRun, IngestionTickerStatus,
+JobRun, and Asset failure tracking.
+"""
 
 from __future__ import annotations
 
-import pytest
-import pytest_asyncio
 from datetime import UTC, datetime
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
+import pytest
+import pytest_asyncio
 from margin_api.db.base import Base
 from margin_api.db.models import (
     Asset,
@@ -17,6 +18,8 @@ from margin_api.db.models import (
     JobRun,
     UniverseSnapshot,
 )
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
 @pytest_asyncio.fixture()

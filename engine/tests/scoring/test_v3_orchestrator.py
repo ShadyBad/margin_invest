@@ -1,9 +1,7 @@
 """Tests for v3 orchestrator — runs both tracks, assigns conviction, handles 'both'."""
 
-import pytest
 from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.v3_orchestrator import (
-    V3Result,
     V3TrackResult,
     orchestrate_v3,
 )

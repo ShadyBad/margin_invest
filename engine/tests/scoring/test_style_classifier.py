@@ -1,7 +1,5 @@
 """Tests for investment style classification (Value/Blend/Growth)."""
 
-import pytest
-from decimal import Decimal
 
 from margin_engine.models.scoring import InvestmentStyle
 

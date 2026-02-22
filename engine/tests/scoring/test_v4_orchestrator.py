@@ -1,9 +1,8 @@
 """Tests for v4 orchestrator — three-track scoring with style-aware promotion rules."""
 
-import pytest
 from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.v3_orchestrator import V3TrackResult
-from margin_engine.scoring.v4_orchestrator import V4Result, orchestrate_v4
+from margin_engine.scoring.v4_orchestrator import orchestrate_v4
 
 
 class TestV4Orchestrator:

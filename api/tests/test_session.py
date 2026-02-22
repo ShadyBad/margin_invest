@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-from margin_api.config import Settings, get_settings
+from margin_api.config import get_settings
 from margin_api.db.session import get_engine
 
 

@@ -23,7 +23,6 @@ hardcoded behaviour is preserved for backward compatibility.
 
 from __future__ import annotations
 
-import warnings
 from decimal import Decimal
 
 from margin_engine.config.filter_config import LiquidityConfig

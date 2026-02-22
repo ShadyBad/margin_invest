@@ -1,15 +1,13 @@
 """Tests for style-aware FCF distress filter adjustments."""
 
-import pytest
 from decimal import Decimal
 
-from margin_engine.config.filter_config import FcfDistressConfig
 from margin_engine.models.financial import (
+    BalanceSheet,
     CashFlowStatement,
     FinancialHistory,
     FinancialPeriod,
     IncomeStatement,
-    BalanceSheet,
 )
 from margin_engine.models.scoring import InvestmentStyle
 from margin_engine.scoring.filters.fcf_distress import fcf_distress_check_v2
@@ -88,7 +86,10 @@ class TestFcfDistressStyleAware:
         assert result.passed is False
 
     def test_growth_stock_ocf_plus_margin_rescue(self):
-        """Growth stock with positive operating CF + gross margin > 40% passes even with 1/5 positive FCF."""
+        """Growth stock with positive operating CF + gross margin > 40%.
+
+        Passes even with 1/5 positive FCF.
+        """
         periods = [
             _make_period(False, gross_margin=0.55, year=2020),
             _make_period(False, gross_margin=0.55, year=2021),

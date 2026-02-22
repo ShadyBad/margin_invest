@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
-
 from margin_engine.models.financial import (
     AssetProfile,
     BalanceSheet,
@@ -28,9 +26,8 @@ from margin_engine.scoring.v3_cascade import (
     run_track_a_cascade,
     run_track_b_cascade,
 )
-from margin_engine.scoring.v3_orchestrator import V3Result, orchestrate_v3
+from margin_engine.scoring.v3_orchestrator import orchestrate_v3
 from margin_engine.scoring.v3_pipeline import TickerV3Data, score_universe_v3
-
 
 # ---------------------------------------------------------------------------
 # Helpers — build synthetic financial data
@@ -423,7 +420,10 @@ class TestBothTracksPromoteToExceptional:
         assert result.ticker == "BOTH"
         # If both tracks are at HIGH+, opportunity_type should be "both"
         # and conviction promoted to EXCEPTIONAL.
-        if track_a.conviction in (ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH) and track_b.conviction in (ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH):
+        if (
+            track_a.conviction in (ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH)
+            and track_b.conviction in (ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH)
+        ):
             assert result.opportunity_type == "both"
             assert result.conviction == ConvictionLevel.EXCEPTIONAL
             assert result.max_position_pct == 20.0

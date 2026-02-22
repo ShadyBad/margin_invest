@@ -5,7 +5,6 @@ from decimal import Decimal
 import pytest
 from margin_engine.models.financial import PriceBar
 from margin_engine.models.liquidity import (
-    LiquidityProfile,
     compute_liquidity_profile,
     days_to_fill,
     liquidity_divergence_ratio,
@@ -151,4 +150,7 @@ class TestPositionSizing:
 
     def test_divergence_ratio_zero_20d(self):
         """Zero 20d volume returns None (avoid division by zero)."""
-        assert liquidity_divergence_ratio(vol_20d=Decimal("0"), vol_90d=Decimal("1_000_000")) is None
+        result = liquidity_divergence_ratio(
+            vol_20d=Decimal("0"), vol_90d=Decimal("1_000_000"),
+        )
+        assert result is None

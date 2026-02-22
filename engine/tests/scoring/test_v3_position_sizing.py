@@ -1,10 +1,9 @@
 """Tests for v3 position sizing — track-specific with portfolio cap."""
 
-import pytest
 from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.v3_position_sizing import (
-    compute_v3_position_size,
     MAX_POSITIONS,
+    compute_v3_position_size,
 )
 
 

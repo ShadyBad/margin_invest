@@ -6,7 +6,6 @@ import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from margin_api.app import create_app
 from margin_api.config import get_settings
 

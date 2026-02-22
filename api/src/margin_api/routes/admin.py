@@ -218,7 +218,7 @@ async def flush_redis_jobs(x_admin_key: str = Header()) -> dict:
         job_ids = [j.decode() if isinstance(j, bytes) else j for j in queued]
 
         # Remove the queue sorted set
-        removed = await client.delete("arq:queue")
+        _removed = await client.delete("arq:queue")
 
         # Remove job data keys (arq:job:<id>) for each stale job
         for jid in job_ids:

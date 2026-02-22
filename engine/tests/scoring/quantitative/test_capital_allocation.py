@@ -4,14 +4,17 @@ from decimal import Decimal
 
 import pytest
 from margin_engine.models.financial import (
-    BalanceSheet, CashFlowStatement, FinancialHistory,
-    FinancialPeriod, IncomeStatement,
+    BalanceSheet,
+    CashFlowStatement,
+    FinancialHistory,
+    FinancialPeriod,
+    IncomeStatement,
 )
 from margin_engine.scoring.quantitative.capital_allocation import (
     buyback_effectiveness,
     debt_discipline,
-    organic_reinvestment_ratio,
     insider_ownership_score,
+    organic_reinvestment_ratio,
 )
 
 

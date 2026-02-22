@@ -1,6 +1,5 @@
 """Tests for gate hysteresis — conviction stability buffer."""
 
-import pytest
 from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.v3_thresholds import assess_track_a_conviction
 

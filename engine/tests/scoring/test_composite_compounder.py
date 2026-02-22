@@ -2,13 +2,11 @@
 
 import pytest
 from margin_engine.models.scoring import (
-    ConvictionLevel,
     FactorScore,
     FilterResult,
     GrowthStage,
 )
 from margin_engine.scoring.composite_compounder import compute_compounder_score
-
 
 # ---------------------------------------------------------------------------
 # Helpers

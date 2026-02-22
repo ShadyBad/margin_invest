@@ -9,12 +9,11 @@ from decimal import Decimal
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.app import create_app
 from margin_api.db.base import Base
 from margin_api.db.models import Asset, Score
 from margin_api.db.session import get_db
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
 @pytest_asyncio.fixture
@@ -182,19 +181,19 @@ class TestComputeDNA:
     """Unit tests for the compute_dna function."""
 
     def test_empty_weights_returns_default(self):
-        from margin_api.routes.dna import compute_dna, DEFAULT_DNA
+        from margin_api.routes.dna import DEFAULT_DNA, compute_dna
 
         result = compute_dna({}, 0, 1.0)
         assert result == DEFAULT_DNA
 
     def test_unknown_sectors_returns_default(self):
-        from margin_api.routes.dna import compute_dna, DEFAULT_DNA
+        from margin_api.routes.dna import DEFAULT_DNA, compute_dna
 
         result = compute_dna({"Unknown Sector": 1.0}, 5, 1.0)
         assert result == DEFAULT_DNA
 
     def test_single_sector_uses_sector_color(self):
-        from margin_api.routes.dna import compute_dna, SECTOR_COLORS
+        from margin_api.routes.dna import SECTOR_COLORS, compute_dna
 
         result = compute_dna({"Information Technology": 1.0}, 10, 1.0)
         assert HEX_PATTERN.match(result.base)

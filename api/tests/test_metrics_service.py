@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 from margin_api.services.metrics import (
-    compute_sharpe_ratio,
-    compute_max_drawdown,
-    compute_volatility,
-    compute_avg_profit_margin,
     classify_risk,
     compute_allocation_weight,
+    compute_avg_profit_margin,
+    compute_max_drawdown,
+    compute_sharpe_ratio,
+    compute_volatility,
 )
 
 
@@ -112,7 +113,10 @@ class TestAvgProfitMargin:
 
 class TestNaNHandling:
     def test_sharpe_ratio_with_nan_values(self):
-        closes = [100.0, float("nan"), 101.0, 102.0, float("nan"), 103.0, 104.0, 105.0, 106.0, 107.0]
+        closes = [
+            100.0, float("nan"), 101.0, 102.0, float("nan"),
+            103.0, 104.0, 105.0, 106.0, 107.0,
+        ]
         result = compute_sharpe_ratio(closes)
         # Should not crash — either returns a valid number or None (never NaN)
         assert result is None or (isinstance(result, float) and not math.isnan(result))

@@ -1,8 +1,6 @@
 """Tests for timing overlay — momentum as entry signal, not conviction."""
 
-import pytest
 from margin_engine.scoring.timing_overlay import compute_timing_signal
-
 
 # ---------------------------------------------------------------------------
 # Track A (Compounder) timing

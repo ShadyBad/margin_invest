@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -21,9 +20,18 @@ def _score_detail() -> dict:
         "composite_percentile": 95.0,
         "conviction_level": "high",
         "signal": "buy",
-        "quality": {"factor_name": "quality", "weight": 0.35, "sub_scores": [], "average_percentile": 90.0},
-        "value": {"factor_name": "value", "weight": 0.30, "sub_scores": [], "average_percentile": 85.0},
-        "momentum": {"factor_name": "momentum", "weight": 0.35, "sub_scores": [], "average_percentile": 88.0},
+        "quality": {
+            "factor_name": "quality", "weight": 0.35,
+            "sub_scores": [], "average_percentile": 90.0,
+        },
+        "value": {
+            "factor_name": "value", "weight": 0.30,
+            "sub_scores": [], "average_percentile": 85.0,
+        },
+        "momentum": {
+            "factor_name": "momentum", "weight": 0.35,
+            "sub_scores": [], "average_percentile": 88.0,
+        },
         "filters_passed": [],
         "data_coverage": 1.0,
     }
@@ -145,7 +153,9 @@ async def test_metrics_returns_all_fields(client):
     assert data["max_drawdown"]["value"] is not None
     assert data["volatility"]["value"] is not None
     assert data["avg_profit_margin"]["value"] is not None
-    assert data["risk_classification"] in ("Conservative", "Moderate", "Moderate-High", "Aggressive")
+    assert data["risk_classification"] in (
+        "Conservative", "Moderate", "Moderate-High", "Aggressive",
+    )
     assert data["margin_of_safety"]["value"] is not None
 
     # 3Y Sharpe and volatility should be None with only 260 bars (need >= 757)

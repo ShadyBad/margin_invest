@@ -53,9 +53,9 @@ from margin_api.schemas.auth import (
     WebAuthnOptionsResponse,
 )
 from margin_api.services.auth import AuthService, _hasher
+from margin_api.services.email import EmailService
 from margin_api.services.recovery_codes import RecoveryCodeService
 from margin_api.services.totp import TotpService
-from margin_api.services.email import EmailService
 from margin_api.services.webauthn import WebAuthnService
 
 logger = logging.getLogger(__name__)

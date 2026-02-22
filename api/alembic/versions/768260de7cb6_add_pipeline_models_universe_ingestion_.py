@@ -5,17 +5,17 @@ Revises: 20b055b686eb
 Create Date: 2026-02-15 19:55:57.190797
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '768260de7cb6'
-down_revision: Union[str, Sequence[str], None] = '20b055b686eb'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '20b055b686eb'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -40,8 +40,10 @@ def upgrade() -> None:
     sa.Column('version', sa.String(length=50), nullable=False),
     sa.Column('config_hash', sa.String(length=64), nullable=False),
     sa.Column('ticker_count', sa.Integer(), nullable=False),
-    sa.Column('tickers', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
-    sa.Column('exclusion_rules', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('tickers', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('exclusion_rules', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('activated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
@@ -54,7 +56,8 @@ def upgrade() -> None:
     sa.Column('tickers_succeeded', sa.Integer(), nullable=False),
     sa.Column('tickers_failed', sa.Integer(), nullable=False),
     sa.Column('tickers_skipped', sa.Integer(), nullable=False),
-    sa.Column('failed_tickers', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('failed_tickers', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('started_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
@@ -68,15 +71,22 @@ def upgrade() -> None:
     sa.Column('ticker', sa.String(length=10), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('error_message', sa.Text(), nullable=True),
-    sa.Column('data_fetched', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('data_fetched', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.Column('duration_ms', sa.Integer(), nullable=True),
     sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['run_id'], ['ingestion_runs.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.add_column('assets', sa.Column('ingestion_status', sa.String(length=30), nullable=False, server_default='active'))
-    op.add_column('assets', sa.Column('consecutive_failures', sa.Integer(), nullable=False, server_default='0'))
+    op.add_column('assets', sa.Column(
+        'ingestion_status', sa.String(length=30),
+        nullable=False, server_default='active',
+    ))
+    op.add_column('assets', sa.Column(
+        'consecutive_failures', sa.Integer(),
+        nullable=False, server_default='0',
+    ))
     op.add_column('assets', sa.Column('last_failure_reason', sa.Text(), nullable=True))
     op.add_column('assets', sa.Column('quarantined_at', sa.DateTime(timezone=True), nullable=True))
     op.add_column('assets', sa.Column('last_retry_at', sa.DateTime(timezone=True), nullable=True))

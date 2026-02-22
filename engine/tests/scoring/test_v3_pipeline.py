@@ -2,10 +2,14 @@
 
 from decimal import Decimal
 
-import pytest
 from margin_engine.models.financial import (
-    AssetProfile, BalanceSheet, CashFlowStatement, FinancialHistory,
-    FinancialPeriod, GICSSector, IncomeStatement,
+    AssetProfile,
+    BalanceSheet,
+    CashFlowStatement,
+    FinancialHistory,
+    FinancialPeriod,
+    GICSSector,
+    IncomeStatement,
 )
 from margin_engine.scoring.v3_pipeline import TickerV3Data, score_universe_v3
 

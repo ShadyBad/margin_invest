@@ -2,12 +2,14 @@
 
 from decimal import Decimal
 
-import pytest
 from margin_engine.models.financial import (
-    BalanceSheet, CashFlowStatement, FinancialHistory,
-    FinancialPeriod, GICSSector, IncomeStatement,
+    BalanceSheet,
+    CashFlowStatement,
+    FinancialHistory,
+    FinancialPeriod,
+    GICSSector,
+    IncomeStatement,
 )
-from margin_engine.models.scoring import FilterResult
 from margin_engine.scoring.filters.mediocrity_gate import mediocrity_gate
 
 

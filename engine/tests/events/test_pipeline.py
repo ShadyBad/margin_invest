@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import pytest
 from margin_engine.events.models import EventRecord, EventSeverity, EventType
 from margin_engine.events.pipeline import (
     EventPipeline,
@@ -15,7 +14,6 @@ from margin_engine.events.pipeline import (
     ScoreDeltaChecker,
     get_rescore_trigger,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

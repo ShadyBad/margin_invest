@@ -1,8 +1,6 @@
 """Tests for price ingestion batch upserts."""
 from __future__ import annotations
 
-import pytest
-
 
 class TestPreparePriceValues:
     def test_insert_new_bars(self):

@@ -1,6 +1,5 @@
 """API response schemas."""
 
-from margin_api.schemas.correlations import CorrelationResponse, ExcludedTickerResponse
 from margin_api.schemas.backtest import (
     BacktestConfigRequest,
     BacktestListResponse,
@@ -10,6 +9,7 @@ from margin_api.schemas.backtest import (
     ValidationCheckResponse,
     ValidationResponse,
 )
+from margin_api.schemas.correlations import CorrelationResponse, ExcludedTickerResponse
 from margin_api.schemas.dashboard import DashboardResponse, PickSummary, WatchlistItem
 from margin_api.schemas.events import (
     EventListResponse,

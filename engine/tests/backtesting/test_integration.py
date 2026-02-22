@@ -27,7 +27,6 @@ from margin_engine.backtesting import (
     WalkForwardSimulator,
 )
 
-
 # ---------------------------------------------------------------------------
 # In-memory fake providers
 # ---------------------------------------------------------------------------
@@ -454,12 +453,9 @@ class TestExportVerification:
         from margin_engine.backtesting import (
             BacktestConfig,
             BacktestResult,
-            HoldingRecord,
-            MonthlySnapshot,
             PassThreshold,
             PerformanceMetrics,
             RebalanceFrequency,
-            ValidationResult,
         )
         # Verify they are real classes
         assert BacktestConfig is not None
@@ -477,9 +473,7 @@ class TestExportVerification:
 
     def test_simulator_importable(self):
         from margin_engine.backtesting import (
-            BenchmarkProvider,
             ScoredStock,
-            ScoredUniverseProvider,
             WalkForwardSimulator,
         )
         assert BenchmarkProvider is not None

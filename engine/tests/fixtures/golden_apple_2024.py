@@ -81,7 +81,8 @@ APPLE_BALANCE_2023 = BalanceSheet(
     total_liabilities=Decimal("290437000000"),
     current_liabilities=Decimal("145308000000"),
     long_term_debt=Decimal("95281000000"),
-    short_term_debt=Decimal("15972000000"),  # Commercial paper $5,985M + current term debt $9,822M + leases $165M
+    # Commercial paper $5,985M + current term debt $9,822M + leases $165M
+    short_term_debt=Decimal("15972000000"),
     total_equity=Decimal("62146000000"),
     retained_earnings=Decimal("4336000000"),
     pp_and_e=Decimal("43715000000"),

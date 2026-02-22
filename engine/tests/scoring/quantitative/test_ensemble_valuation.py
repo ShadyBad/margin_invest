@@ -2,7 +2,6 @@
 
 import pytest
 from margin_engine.scoring.quantitative.ensemble_valuation import (
-    EnsembleResult,
     compute_ensemble_valuation,
 )
 

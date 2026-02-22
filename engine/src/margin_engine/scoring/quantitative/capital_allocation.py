@@ -9,7 +9,6 @@ Four metrics measuring management's skill at deploying capital:
 
 from __future__ import annotations
 
-import statistics
 from decimal import Decimal
 
 from margin_engine.models.financial import FinancialHistory, FinancialPeriod
@@ -45,7 +44,10 @@ def buyback_effectiveness(
         name="buyback_effectiveness",
         raw_value=ratio,
         percentile_rank=0.0,
-        detail=f"avg_buyback={avg_buyback_price:.2f}, avg_price={avg_stock_price:.2f}, ratio={ratio:.4f}",
+        detail=(
+            f"avg_buyback={avg_buyback_price:.2f},"
+            f" avg_price={avg_stock_price:.2f}, ratio={ratio:.4f}"
+        ),
     )
 
 
@@ -172,5 +174,8 @@ def ma_discipline(
         name="ma_discipline",
         raw_value=delta,
         percentile_rank=0.0,
-        detail=f"ROIC_before={roic_before_acquisition:.4f}, after={roic_after_acquisition:.4f}, delta={delta:.4f}",
+        detail=(
+            f"ROIC_before={roic_before_acquisition:.4f},"
+            f" after={roic_after_acquisition:.4f}, delta={delta:.4f}"
+        ),
     )

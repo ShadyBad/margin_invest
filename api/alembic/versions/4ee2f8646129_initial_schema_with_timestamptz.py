@@ -1,21 +1,21 @@
 """initial schema with timestamptz
 
 Revision ID: 4ee2f8646129
-Revises: 
+Revises:
 Create Date: 2026-02-13 17:13:26.725771
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '4ee2f8646129'
-down_revision: Union[str, Sequence[str], None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -46,8 +46,14 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_credential_users_email'), 'credential_users', ['email'], unique=True)
-    op.create_index(op.f('ix_credential_users_username'), 'credential_users', ['username'], unique=True)
+    op.create_index(
+        op.f('ix_credential_users_email'), 'credential_users',
+        ['email'], unique=True,
+    )
+    op.create_index(
+        op.f('ix_credential_users_username'), 'credential_users',
+        ['username'], unique=True,
+    )
     op.create_table('users',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('email', sa.String(length=320), nullable=False),
@@ -73,18 +79,28 @@ def upgrade() -> None:
     sa.Column('asset_id', sa.Integer(), nullable=False),
     sa.Column('period_end', sa.String(length=10), nullable=False),
     sa.Column('filing_date', sa.String(length=10), nullable=False),
-    sa.Column('income_statement', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
-    sa.Column('balance_sheet', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
-    sa.Column('cash_flow', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
-    sa.Column('price_history', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
-    sa.Column('earnings_data', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('income_statement', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('balance_sheet', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('cash_flow', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('price_history', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('earnings_data', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.Column('source', sa.String(length=50), nullable=False),
     sa.Column('fetched_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('asset_id', 'period_end', name='uq_financial_data_asset_period')
+    sa.UniqueConstraint(
+        'asset_id', 'period_end', name='uq_financial_data_asset_period',
     )
-    op.create_index(op.f('ix_financial_data_asset_id'), 'financial_data', ['asset_id'], unique=False)
+    )
+    op.create_index(
+        op.f('ix_financial_data_asset_id'), 'financial_data',
+        ['asset_id'], unique=False,
+    )
     op.create_table('mfa_challenge_tokens',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
@@ -95,7 +111,10 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['user_id'], ['credential_users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_mfa_challenge_tokens_user_id'), 'mfa_challenge_tokens', ['user_id'], unique=False)
+    op.create_index(
+        op.f('ix_mfa_challenge_tokens_user_id'),
+        'mfa_challenge_tokens', ['user_id'], unique=False,
+    )
     op.create_table('recommendations',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('asset_id', sa.Integer(), nullable=False),
@@ -107,7 +126,10 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_recommendations_asset_id'), 'recommendations', ['asset_id'], unique=False)
+    op.create_index(
+        op.f('ix_recommendations_asset_id'), 'recommendations',
+        ['asset_id'], unique=False,
+    )
     op.create_table('scores',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('asset_id', sa.Integer(), nullable=False),
@@ -119,13 +141,17 @@ def upgrade() -> None:
     sa.Column('momentum_percentile', sa.Float(), nullable=False),
     sa.Column('data_coverage', sa.Float(), nullable=False),
     sa.Column('growth_stage', sa.String(length=30), nullable=True),
-    sa.Column('score_detail', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
+    sa.Column('score_detail', sa.JSON().with_variant(
+        postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=True),
     sa.Column('scored_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_scores_asset_id'), 'scores', ['asset_id'], unique=False)
-    op.create_index('ix_scores_asset_scored', 'scores', ['asset_id', 'scored_at'], unique=False)
+    op.create_index(
+        'ix_scores_asset_scored', 'scores',
+        ['asset_id', 'scored_at'], unique=False,
+    )
     op.create_table('totp_secrets',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
@@ -147,7 +173,10 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('credential_id')
     )
-    op.create_index(op.f('ix_webauthn_credentials_user_id'), 'webauthn_credentials', ['user_id'], unique=False)
+    op.create_index(
+        op.f('ix_webauthn_credentials_user_id'),
+        'webauthn_credentials', ['user_id'], unique=False,
+    )
     # ### end Alembic commands ###
 
 

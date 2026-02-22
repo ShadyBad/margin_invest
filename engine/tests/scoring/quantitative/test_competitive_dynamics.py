@@ -1,11 +1,13 @@
 """Tests for competitive dynamics proxies."""
 
-import pytest
 from decimal import Decimal
 
 from margin_engine.models.financial import (
-    FinancialHistory, FinancialPeriod, IncomeStatement, BalanceSheet,
+    BalanceSheet,
     CashFlowStatement,
+    FinancialHistory,
+    FinancialPeriod,
+    IncomeStatement,
 )
 from margin_engine.scoring.quantitative.competitive_dynamics import (
     gross_margin_stability,

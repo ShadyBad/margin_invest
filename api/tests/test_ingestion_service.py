@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 import pytest_asyncio
 from margin_api.db.base import Base
-from margin_api.db.models import Asset, IngestionRun, IngestionTickerStatus, UniverseSnapshot
+from margin_api.db.models import Asset
 from margin_api.services.ingestion import (
     classify_error,
     should_ingest_ticker,

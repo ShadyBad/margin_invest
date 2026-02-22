@@ -1,8 +1,8 @@
 """Tests for ROIC trend (3-year slope) factor."""
 
-import pytest
 from decimal import Decimal
 
+import pytest
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,

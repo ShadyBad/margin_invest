@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
-
 from margin_api.app import create_app
 from margin_api.config import get_settings
 from margin_api.db.models import Asset

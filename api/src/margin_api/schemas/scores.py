@@ -149,7 +149,11 @@ class ScoreResponse(BaseModel):
             asymmetry_ratio=score.asymmetry_ratio,
             max_position_pct=score.max_position_pct,
             timing_signal=score.timing_signal,
-            capital_allocation=_breakdown_from_engine(score.capital_allocation) if score.capital_allocation else None,
+            capital_allocation=(
+                _breakdown_from_engine(score.capital_allocation)
+                if score.capital_allocation
+                else None
+            ),
             catalyst=_breakdown_from_engine(score.catalyst) if score.catalyst else None,
         )
 

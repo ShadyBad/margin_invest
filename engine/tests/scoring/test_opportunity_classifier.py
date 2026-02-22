@@ -1,6 +1,5 @@
 """Tests for Opportunity Type classifier."""
 
-import pytest
 from margin_engine.models.scoring import OpportunityType
 from margin_engine.scoring.opportunity_classifier import classify_opportunity_type
 

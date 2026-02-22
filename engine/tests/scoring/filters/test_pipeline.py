@@ -305,8 +305,16 @@ class TestFilterPipelineV2:
         )
 
         p1 = _make_period("2022-12-31", prior_income=prior_income, prior_balance=prior_balance)
-        p2 = _make_period("2023-12-31", prior_income=p1.current_income, prior_balance=p1.current_balance)
-        p3 = _make_period("2024-12-31", prior_income=p2.current_income, prior_balance=p2.current_balance)
+        p2 = _make_period(
+            "2023-12-31",
+            prior_income=p1.current_income,
+            prior_balance=p1.current_balance,
+        )
+        p3 = _make_period(
+            "2024-12-31",
+            prior_income=p2.current_income,
+            prior_balance=p2.current_balance,
+        )
 
         history = FinancialHistory(ticker="TEST", periods=[p1, p2, p3])
 
@@ -414,8 +422,16 @@ class TestFilterPipelineV2:
         )
 
         p1 = _make_period("2022-12-31", prior_income=prior_income, prior_balance=prior_balance)
-        p2 = _make_period("2023-12-31", prior_income=p1.current_income, prior_balance=p1.current_balance)
-        p3 = _make_period("2024-12-31", prior_income=p2.current_income, prior_balance=p2.current_balance)
+        p2 = _make_period(
+            "2023-12-31",
+            prior_income=p1.current_income,
+            prior_balance=p1.current_balance,
+        )
+        p3 = _make_period(
+            "2024-12-31",
+            prior_income=p2.current_income,
+            prior_balance=p2.current_balance,
+        )
 
         history = FinancialHistory(ticker="TEST", periods=[p1, p2, p3])
         price_bars = _make_price_bars(100)
@@ -488,7 +504,11 @@ class TestFilterPipelineV2:
         )
 
         p1 = _make_period("2022-12-31", prior_income=prior_income, prior_balance=prior_balance)
-        p2 = _make_period("2023-12-31", prior_income=p1.current_income, prior_balance=p1.current_balance)
+        p2 = _make_period(
+            "2023-12-31",
+            prior_income=p1.current_income,
+            prior_balance=p1.current_balance,
+        )
 
         history = FinancialHistory(ticker="TEST", periods=[p1, p2])
 

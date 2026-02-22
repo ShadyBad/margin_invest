@@ -20,7 +20,6 @@ from margin_engine.scoring.opportunity_classifier import classify_opportunity_ty
 from margin_engine.scoring.position_sizing import compute_position_size
 from margin_engine.scoring.timing_overlay import compute_timing_signal
 
-
 # ---------------------------------------------------------------------------
 # Shared test data — "fake Costco" compounder profile
 # ---------------------------------------------------------------------------

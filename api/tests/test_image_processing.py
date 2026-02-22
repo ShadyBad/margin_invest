@@ -5,17 +5,14 @@ from __future__ import annotations
 from io import BytesIO
 
 import pytest
-from PIL import Image
-
 from margin_api.services.image_processing import (
-    ALLOWED_TYPES,
     MAX_SIZE,
     OUTPUT_SIZE,
     InvalidImageError,
     process_avatar,
     validate_image,
 )
-
+from PIL import Image
 
 # ---------------------------------------------------------------------------
 # Helpers

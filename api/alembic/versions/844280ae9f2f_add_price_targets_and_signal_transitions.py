@@ -5,17 +5,16 @@ Revises: b41b14886872
 Create Date: 2026-02-15 00:08:45.109036
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '844280ae9f2f'
-down_revision: Union[str, Sequence[str], None] = 'b41b14886872'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'b41b14886872'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -34,9 +33,15 @@ def upgrade() -> None:
     sa.Column('transitioned_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('asset_id', 'transitioned_at', name='uq_signal_transition_asset_time')
+    sa.UniqueConstraint(
+        'asset_id', 'transitioned_at',
+        name='uq_signal_transition_asset_time',
     )
-    op.create_index(op.f('ix_signal_transitions_asset_id'), 'signal_transitions', ['asset_id'], unique=False)
+    )
+    op.create_index(
+        op.f('ix_signal_transitions_asset_id'),
+        'signal_transitions', ['asset_id'], unique=False,
+    )
     op.add_column('scores', sa.Column('intrinsic_value', sa.Float(), nullable=True))
     op.add_column('scores', sa.Column('buy_price', sa.Float(), nullable=True))
     op.add_column('scores', sa.Column('sell_price', sa.Float(), nullable=True))

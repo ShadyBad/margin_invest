@@ -11,7 +11,6 @@ from decimal import Decimal
 
 from margin_engine.models.financial import FinancialHistory, FinancialPeriod
 from margin_engine.scoring.quantitative.capital_allocation import (
-    buyback_effectiveness,
     debt_discipline,
     insider_ownership_score,
     ma_discipline,

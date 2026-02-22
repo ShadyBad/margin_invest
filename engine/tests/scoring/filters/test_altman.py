@@ -149,7 +149,11 @@ class TestAltmanWithConfig:
         from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
 
         strict_config = AltmanConfig(threshold=2.0)
-        result = altman_z_score(APPLE_PERIOD_2024, sector=GICSSector.TECHNOLOGY, config=strict_config)
+        result = altman_z_score(
+            APPLE_PERIOD_2024,
+            sector=GICSSector.TECHNOLOGY,
+            config=strict_config,
+        )
         assert result.passed is False
         assert result.threshold == 2.0
 

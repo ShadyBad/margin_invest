@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import asyncio
 
-from alembic import context
-from sqlalchemy.ext.asyncio import create_async_engine
-
-from margin_api.config import get_settings
-from margin_api.db.base import Base
-
 # Import all models so they register with Base.metadata
 import margin_api.db.models  # noqa: F401
+from alembic import context
+from margin_api.config import get_settings
+from margin_api.db.base import Base
+from sqlalchemy.ext.asyncio import create_async_engine
 
 target_metadata = Base.metadata
 

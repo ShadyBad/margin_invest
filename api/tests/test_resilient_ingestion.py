@@ -6,10 +6,9 @@ Verifies SeedResult statuses, per-category tracking, and error classification.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from margin_api.services.seed_result import SeedResult
 from margin_engine.ingestion.types import DataCategory, FetchResult
 

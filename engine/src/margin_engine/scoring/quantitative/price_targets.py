@@ -28,13 +28,13 @@ import math
 import statistics
 from decimal import Decimal
 
-logger = logging.getLogger(__name__)
-
 from pydantic import BaseModel, model_validator
 
 from margin_engine.models.financial import AssetProfile, FinancialPeriod, PriceBar
 from margin_engine.models.scoring import ConvictionLevel, GrowthStage
 from margin_engine.models.valuation_audit import MethodAudit, ValuationAudit
+
+logger = logging.getLogger(__name__)
 
 # Method weights (must sum to 1.0)
 _METHOD_WEIGHTS: dict[str, float] = {
@@ -110,7 +110,10 @@ class PriceTargets(BaseModel):
     def check_invalid_reason_consistency(self) -> PriceTargets:
         """If invalid_reason is set, all price fields must be None."""
         if self.invalid_reason is not None:
-            price_fields = [self.margin_invest_value, self.buy_price, self.sell_price, self.price_upside]
+            price_fields = [
+                self.margin_invest_value, self.buy_price,
+                self.sell_price, self.price_upside,
+            ]
             if any(f is not None for f in price_fields):
                 raise ValueError(
                     "Price fields must be None when invalid_reason is set"
@@ -193,7 +196,10 @@ def compute_price_targets(
         )
 
     # Compute each valuation method (returns (result, inputs, intermediates, exclusion_reason))
-    method_results: dict[str, tuple[float | None, dict[str, float], dict[str, float], str | None]] = {
+    method_results: dict[
+        str,
+        tuple[float | None, dict[str, float], dict[str, float], str | None],
+    ] = {
         "dcf": _dcf_intrinsic_per_share(
             period=period,
             shares=shares,
@@ -508,10 +514,20 @@ def _dcf_intrinsic_per_share(
 
     result = intrinsic_total / shares
     if result < _MIN_PER_SHARE_PRICE:
-        logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "DCF", result, _MIN_PER_SHARE_PRICE)
+        logger.debug(
+            "Layer 2: %s result $%.4f < min $%.2f, excluding",
+            "DCF", result, _MIN_PER_SHARE_PRICE,
+        )
         return None, inputs, intermediates, "below_min_per_share"
-    if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
-        logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "DCF", result, _MAX_PRICE_MULTIPLE, actual_price)
+    if (
+        actual_price is not None
+        and actual_price > 0
+        and result > _MAX_PRICE_MULTIPLE * actual_price
+    ):
+        logger.debug(
+            "Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding",
+            "DCF", result, _MAX_PRICE_MULTIPLE, actual_price,
+        )
         return None, inputs, intermediates, "exceeds_20x_price"
     return result, inputs, intermediates, None
 
@@ -553,10 +569,20 @@ def _ev_fcf_implied_per_share(
 
     result = implied_equity / shares
     if result < _MIN_PER_SHARE_PRICE:
-        logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "EV/FCF", result, _MIN_PER_SHARE_PRICE)
+        logger.debug(
+            "Layer 2: %s result $%.4f < min $%.2f, excluding",
+            "EV/FCF", result, _MIN_PER_SHARE_PRICE,
+        )
         return None, inputs, intermediates, "below_min_per_share"
-    if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
-        logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "EV/FCF", result, _MAX_PRICE_MULTIPLE, actual_price)
+    if (
+        actual_price is not None
+        and actual_price > 0
+        and result > _MAX_PRICE_MULTIPLE * actual_price
+    ):
+        logger.debug(
+            "Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding",
+            "EV/FCF", result, _MAX_PRICE_MULTIPLE, actual_price,
+        )
         return None, inputs, intermediates, "exceeds_20x_price"
     return result, inputs, intermediates, None
 
@@ -598,10 +624,20 @@ def _acquirers_implied_per_share(
 
     result = implied_equity / shares
     if result < _MIN_PER_SHARE_PRICE:
-        logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "Acquirer's Multiple", result, _MIN_PER_SHARE_PRICE)
+        logger.debug(
+            "Layer 2: %s result $%.4f < min $%.2f, excluding",
+            "Acquirer's Multiple", result, _MIN_PER_SHARE_PRICE,
+        )
         return None, inputs, intermediates, "below_min_per_share"
-    if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
-        logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "Acquirer's Multiple", result, _MAX_PRICE_MULTIPLE, actual_price)
+    if (
+        actual_price is not None
+        and actual_price > 0
+        and result > _MAX_PRICE_MULTIPLE * actual_price
+    ):
+        logger.debug(
+            "Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding",
+            "Acquirer's Multiple", result, _MAX_PRICE_MULTIPLE, actual_price,
+        )
         return None, inputs, intermediates, "exceeds_20x_price"
     return result, inputs, intermediates, None
 
@@ -639,9 +675,19 @@ def _shareholder_yield_implied_per_share(
 
     result = implied_market_cap / shares
     if result < _MIN_PER_SHARE_PRICE:
-        logger.debug("Layer 2: %s result $%.4f < min $%.2f, excluding", "Shareholder Yield", result, _MIN_PER_SHARE_PRICE)
+        logger.debug(
+            "Layer 2: %s result $%.4f < min $%.2f, excluding",
+            "Shareholder Yield", result, _MIN_PER_SHARE_PRICE,
+        )
         return None, inputs, intermediates, "below_min_per_share"
-    if actual_price is not None and actual_price > 0 and result > _MAX_PRICE_MULTIPLE * actual_price:
-        logger.debug("Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding", "Shareholder Yield", result, _MAX_PRICE_MULTIPLE, actual_price)
+    if (
+        actual_price is not None
+        and actual_price > 0
+        and result > _MAX_PRICE_MULTIPLE * actual_price
+    ):
+        logger.debug(
+            "Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding",
+            "Shareholder Yield", result, _MAX_PRICE_MULTIPLE, actual_price,
+        )
         return None, inputs, intermediates, "exceeds_20x_price"
     return result, inputs, intermediates, None

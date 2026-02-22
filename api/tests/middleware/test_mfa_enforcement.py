@@ -1,8 +1,8 @@
 """Tests for MFA enforcement middleware."""
-import pytest
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
+import pytest
 from fastapi import HTTPException
 
 

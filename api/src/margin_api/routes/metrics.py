@@ -5,6 +5,8 @@ from __future__ import annotations
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
+from margin_engine.models.financial import PriceBar
+from margin_engine.scoring.risk_metrics import RiskMetrics, compute_risk_metrics
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,8 +17,6 @@ from margin_api.services.metrics import (
     classify_risk,
     compute_avg_profit_margin,
 )
-from margin_engine.models.financial import PriceBar
-from margin_engine.scoring.risk_metrics import RiskMetrics, compute_risk_metrics
 
 router = APIRouter(prefix="/api/v1/scores", tags=["metrics"])
 

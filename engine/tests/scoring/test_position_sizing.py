@@ -4,7 +4,6 @@ import pytest
 from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.position_sizing import compute_position_size
 
-
 # ---------------------------------------------------------------------------
 # Asymmetry tiers
 # ---------------------------------------------------------------------------

@@ -1,6 +1,5 @@
 """Tests for filter configuration loading."""
 
-import pytest
 from margin_engine.config.filter_config import FilterConfig, load_filter_config
 
 

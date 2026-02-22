@@ -2,10 +2,14 @@
 
 from decimal import Decimal
 
-import pytest
 from margin_engine.models.financial import (
-    AssetProfile, BalanceSheet, CashFlowStatement, FinancialHistory,
-    FinancialPeriod, GICSSector, IncomeStatement,
+    AssetProfile,
+    BalanceSheet,
+    CashFlowStatement,
+    FinancialHistory,
+    FinancialPeriod,
+    GICSSector,
+    IncomeStatement,
 )
 from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.v3_cascade import (
@@ -109,7 +113,7 @@ class TestRunTrackACascade:
 
     def test_regime_adjustments_accepted(self):
         """Regime adjustments are accepted and don't crash."""
-        from margin_engine.scoring.market_regime import RegimeAdjustments, MarketRegime
+        from margin_engine.scoring.market_regime import MarketRegime, RegimeAdjustments
         history = FinancialHistory(ticker="REG", periods=[
             _period(period_end="2020-12-31"), _period(period_end="2024-12-31"),
         ])
@@ -179,7 +183,7 @@ class TestRunTrackBCascade:
         assert result.qualifies is False
 
     def test_regime_adjustments_accepted(self):
-        from margin_engine.scoring.market_regime import RegimeAdjustments, MarketRegime
+        from margin_engine.scoring.market_regime import MarketRegime, RegimeAdjustments
         adj = RegimeAdjustments(
             regime=MarketRegime.EUPHORIA,
             track_a_growth_gap_adjustment=0.05,

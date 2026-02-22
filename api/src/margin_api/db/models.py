@@ -5,7 +5,18 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Float, JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -73,7 +84,8 @@ class JobRun(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     job_type: Mapped[str] = mapped_column(String(50))
-    status: Mapped[str] = mapped_column(String(20))  # queued | running | completed | failed | cancelled
+    # queued | running | completed | failed | cancelled
+    status: Mapped[str] = mapped_column(String(20))
     progress: Mapped[float] = mapped_column(Float, default=0.0)
     progress_detail: Mapped[str | None] = mapped_column(String(255), nullable=True)
     triggered_by: Mapped[str] = mapped_column(String(20))  # schedule | cli | chained
@@ -279,7 +291,7 @@ class V3Score(Base):
     regime: Mapped[str] = mapped_column(String(20))
     composite_score: Mapped[float] = mapped_column(Float, default=0.0)
 
-    asset: Mapped["Asset"] = relationship(back_populates="v3_scores")
+    asset: Mapped[Asset] = relationship(back_populates="v3_scores")
 
     __table_args__ = (
         Index("ix_v3_scores_asset_scored", "asset_id", "scored_at"),

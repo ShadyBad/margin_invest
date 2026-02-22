@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 from margin_api.app import create_app
@@ -40,14 +43,13 @@ class TestShowcaseEndpoint:
         assert "/api/v1/correlations/showcase" in routes
 
 
-from unittest.mock import AsyncMock, patch
-from datetime import UTC, datetime
-
-
 class TestShowcaseLiveComputation:
     """Tests for live correlation computation on cache miss."""
 
-    @patch("margin_api.routes.correlations._get_redis_cached", new_callable=AsyncMock, return_value=None)
+    @patch(
+        "margin_api.routes.correlations._get_redis_cached",
+        new_callable=AsyncMock, return_value=None,
+    )
     @patch("margin_api.routes.correlations._cache_to_redis", new_callable=AsyncMock)
     @patch("margin_api.routes.correlations._compute_live_showcase", new_callable=AsyncMock)
     def test_calls_live_computation_on_cache_miss(
@@ -62,7 +64,10 @@ class TestShowcaseLiveComputation:
         data = resp.json()
         assert data["tickers"] == ["AAPL", "MSFT", "JNJ", "COST", "V"]
 
-    @patch("margin_api.routes.correlations._get_redis_cached", new_callable=AsyncMock, return_value=None)
+    @patch(
+        "margin_api.routes.correlations._get_redis_cached",
+        new_callable=AsyncMock, return_value=None,
+    )
     @patch("margin_api.routes.correlations._cache_to_redis", new_callable=AsyncMock)
     @patch("margin_api.routes.correlations._compute_live_showcase", new_callable=AsyncMock)
     def test_returns_live_data_when_available(

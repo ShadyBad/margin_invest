@@ -2,6 +2,13 @@
 
 from margin_engine.scoring.quantitative.accrual_ratio import sloan_accrual_ratio
 from margin_engine.scoring.quantitative.acquirers_multiple import acquirers_multiple
+
+# v3 quantitative exports
+from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
+from margin_engine.scoring.quantitative.capital_allocation import (
+    ma_discipline,
+    sbc_dilution_tax,
+)
 from margin_engine.scoring.quantitative.dcf_mos import dcf_margin_of_safety
 from margin_engine.scoring.quantitative.ensemble_valuation import (
     EnsembleResult,
@@ -17,26 +24,20 @@ from margin_engine.scoring.quantitative.insider_cluster import insider_cluster_s
 from margin_engine.scoring.quantitative.institutional_accumulation import (
     institutional_accumulation,
 )
+from margin_engine.scoring.quantitative.moat_durability import moat_durability_score
 from margin_engine.scoring.quantitative.price_momentum import price_momentum
 from margin_engine.scoring.quantitative.price_targets import (
     PriceTargets,
     compute_price_targets,
 )
-from margin_engine.scoring.quantitative.roic_wacc import compute_roic, roic_wacc_spread
-from margin_engine.scoring.quantitative.sentiment_score import sentiment_score
-from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yield
-from margin_engine.scoring.quantitative.sue import sue_score
-# v3 quantitative exports
-from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
-from margin_engine.scoring.quantitative.capital_allocation import (
-    ma_discipline,
-    sbc_dilution_tax,
-)
-from margin_engine.scoring.quantitative.moat_durability import moat_durability_score
 from margin_engine.scoring.quantitative.reverse_dcf import (
     reverse_dcf_growth_gap,
     solve_implied_growth_rate,
 )
+from margin_engine.scoring.quantitative.roic_wacc import compute_roic, roic_wacc_spread
+from margin_engine.scoring.quantitative.sentiment_score import sentiment_score
+from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yield
+from margin_engine.scoring.quantitative.sue import sue_score
 from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
 
 __all__ = [

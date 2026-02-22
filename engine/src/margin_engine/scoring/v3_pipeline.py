@@ -11,13 +11,23 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod, GICSSector
+from margin_engine.models.financial import (
+    AssetProfile,
+    FinancialHistory,
+    FinancialPeriod,
+    GICSSector,
+)
 from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.market_regime import detect_regime, regime_adjustments
 from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
 from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
 from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
-from margin_engine.scoring.v3_cascade import TrackAInputs, TrackBInputs, run_track_a_cascade, run_track_b_cascade
+from margin_engine.scoring.v3_cascade import (
+    TrackAInputs,
+    TrackBInputs,
+    run_track_a_cascade,
+    run_track_b_cascade,
+)
 from margin_engine.scoring.v3_intermediates import compute_owner_earnings_iv
 from margin_engine.scoring.v3_orchestrator import V3Result, orchestrate_v3
 from margin_engine.scoring.v3_position_sizing import MAX_POSITIONS

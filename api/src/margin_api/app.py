@@ -10,8 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from margin_api.schemas.errors import ErrorResponse
-
 from margin_api import __version__
 from margin_api.config import get_settings
 from margin_api.routes.admin import router as admin_router
@@ -19,6 +17,7 @@ from margin_api.routes.auth import router as auth_router
 from margin_api.routes.avatar import router as avatar_router
 from margin_api.routes.backtest import router as backtest_router
 from margin_api.routes.billing import router as billing_router
+from margin_api.routes.correlations import router as correlations_router
 from margin_api.routes.dashboard import router as dashboard_router
 from margin_api.routes.dna import router as dna_router
 from margin_api.routes.events import router as events_router
@@ -30,9 +29,8 @@ from margin_api.routes.metrics import router as metrics_router
 from margin_api.routes.scores import router as scores_router
 from margin_api.routes.universe import router as universe_router
 from margin_api.routes.v3_scores import router as v3_scores_router
-from margin_api.routes.correlations import router as correlations_router
+from margin_api.schemas.errors import ErrorResponse
 from margin_api.ws.scores import router as ws_router
-
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +124,11 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=exc.status_code,
             content=ErrorResponse(
-                error_code=detail.upper().replace(" ", "_") if exc.status_code == 404 else "HTTP_ERROR",
+                error_code=(
+                    detail.upper().replace(" ", "_")
+                    if exc.status_code == 404
+                    else "HTTP_ERROR"
+                ),
                 message=detail,
                 request_id=request_id,
                 status_code=exc.status_code,

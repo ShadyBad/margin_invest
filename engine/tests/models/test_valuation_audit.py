@@ -1,9 +1,7 @@
 """Tests for valuation audit models."""
 
-import pytest
 
 from margin_engine.models.valuation_audit import MethodAudit, ValuationAudit
-
 
 # ---------------------------------------------------------------------------
 # MethodAudit tests

@@ -3,12 +3,16 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from pydantic import ValidationError
-
-from margin_engine.correlation import CorrelationMatrix, ExcludedTicker, _pearson
-from margin_engine.correlation import compute_factor_correlations, compute_return_correlations
+from margin_engine.correlation import (
+    CorrelationMatrix,
+    ExcludedTicker,
+    _pearson,
+    compute_factor_correlations,
+    compute_return_correlations,
+)
 from margin_engine.models.financial import PriceBar
 from margin_engine.models.scoring import FactorBreakdown, FactorScore
+from pydantic import ValidationError
 
 
 class TestCorrelationModels:

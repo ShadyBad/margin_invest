@@ -1,10 +1,9 @@
 """Tests for style-aware two-stage normalization."""
 
-import pytest
 from margin_engine.models.scoring import FactorScore, InvestmentStyle
 from margin_engine.scoring.normalizer import (
-    style_sector_neutral_ranks,
     calibrate_cross_bucket,
+    style_sector_neutral_ranks,
 )
 
 

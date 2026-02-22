@@ -6,12 +6,11 @@ import re
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.db.base import Base
 from margin_api.db.models import RecoveryCode, User
 from margin_api.services.recovery_codes import RecoveryCodeService
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
 @pytest_asyncio.fixture()

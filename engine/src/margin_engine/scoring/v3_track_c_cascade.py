@@ -16,7 +16,6 @@ from margin_engine.scoring.v3_composite import compute_track_c_score
 from margin_engine.scoring.v3_orchestrator import V3TrackResult
 from margin_engine.scoring.v3_track_c_thresholds import assess_track_c_conviction
 
-
 # Conviction levels that qualify for inclusion
 _QUALIFYING_CONVICTIONS = frozenset(
     {ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH, ConvictionLevel.MEDIUM}

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, patch
 
-from margin_api.data.fred_client import fetch_shiller_cape, _DEFAULT_CAPE
+import pytest
+from margin_api.data.fred_client import _DEFAULT_CAPE, fetch_shiller_cape
 
 
 class TestFetchShillerCape:

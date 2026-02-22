@@ -12,7 +12,6 @@ from margin_engine.models.scoring import (
 from margin_engine.scoring.conviction_gates import ConvictionGateResult
 from margin_engine.scoring.dual_track import score_dual_track
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

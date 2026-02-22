@@ -10,12 +10,9 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-import pytest
-
 # ---------------------------------------------------------------------------
 # Helpers — synthetic data factories
 # ---------------------------------------------------------------------------
-
 from margin_engine.models.financial import (
     AssetProfile,
     BalanceSheet,
@@ -26,11 +23,9 @@ from margin_engine.models.financial import (
 )
 from margin_engine.models.scoring import (
     CompositeScore,
-    FactorBreakdown,
     FactorScore,
     FilterResult,
     GrowthStage,
-    ScoringConfig,
 )
 
 
@@ -460,7 +455,6 @@ class TestCompositeToBacktestingPipeline:
     def test_backtest_result_has_performance_metrics(self) -> None:
         from margin_engine.backtesting import (
             BacktestConfig,
-            PerformanceCalculator,
             ScoredStock,
             WalkForwardSimulator,
         )
@@ -517,7 +511,6 @@ class TestEventPipelineEndToEnd:
             EventRecord,
             EventSeverity,
             EventType,
-            ImpactClassifier,
             NotificationThrottle,
             RelevanceFilter,
         )
@@ -753,7 +746,10 @@ class TestVersionAvailable:
         import margin_engine
 
         parts = margin_engine.__version__.split(".")
-        assert len(parts) >= 2, f"Version should have at least major.minor: {margin_engine.__version__}"
+        assert len(parts) >= 2, (
+            f"Version should have at least major.minor:"
+            f" {margin_engine.__version__}"
+        )
         # Major and minor should be numeric
         assert parts[0].isdigit()
         assert parts[1].isdigit()

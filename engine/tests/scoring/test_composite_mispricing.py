@@ -4,10 +4,8 @@ import pytest
 from margin_engine.models.scoring import (
     FactorScore,
     FilterResult,
-    GrowthStage,
 )
 from margin_engine.scoring.composite_mispricing import compute_mispricing_score
-
 
 # ---------------------------------------------------------------------------
 # Helpers

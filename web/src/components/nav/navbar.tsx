@@ -25,10 +25,10 @@ export function Navbar() {
 
         <div className="hidden md:flex items-center gap-3">
           {nav.cta && <NavCTA cta={nav.cta} />}
-          <ThemeToggle />
           {nav.user && (
             <UserDropdown user={nav.user} />
           )}
+          <ThemeToggle />
         </div>
 
         <button

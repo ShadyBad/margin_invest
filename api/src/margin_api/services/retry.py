@@ -4,18 +4,16 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
-from typing import TypeVar
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
 
 MAX_RETRIES = 3
 BASE_DELAY = 2.0
 MAX_DELAY = 60.0
 
 
-async def with_retry(
+async def with_retry[T](
     fn: Callable[..., T],
     *args,
     ticker: str,

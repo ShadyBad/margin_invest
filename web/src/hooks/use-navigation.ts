@@ -40,6 +40,7 @@ export interface NavigationState {
 }
 
 const PUBLIC_LINKS: { href: string; label: string }[] = [
+  { href: "/login", label: "Dashboard" },
   { href: "/guides", label: "Guides" },
 ]
 
@@ -59,9 +60,7 @@ export function useNavigation(): NavigationState {
     isActive: pathname === link.href,
   }))
 
-  const cta: NavigationCTA | null = isAuthenticated
-    ? null
-    : { primary: { label: "Dashboard", href: "/login" } }
+  const cta: NavigationCTA | null = null
 
   const user: NavigationUser | null = isAuthenticated
     ? {

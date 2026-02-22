@@ -149,7 +149,11 @@ class TestCurrentRatioWithConfig:
             default=1.0,
             sector_overrides={"information technology": 1.0},
         )
-        result = current_ratio_check(APPLE_PERIOD_2024, sector=GICSSector.TECHNOLOGY, config=strict_config)
+        result = current_ratio_check(
+            APPLE_PERIOD_2024,
+            sector=GICSSector.TECHNOLOGY,
+            config=strict_config,
+        )
         assert result.passed is False
         assert result.threshold == 1.0
 
@@ -283,7 +287,10 @@ class TestCurrentRatioV2:
         assert result.warning is True
         assert result.computed_metrics is not None
         assert result.computed_metrics["quick_ratio"] == pytest.approx(0.6)
-        assert "quick ratio rescue" in result.detail.lower() or "rescue" in (result.warning_reason or "").lower()
+        assert (
+            "quick ratio rescue" in result.detail.lower()
+            or "rescue" in (result.warning_reason or "").lower()
+        )
 
     def test_cr_3yr_decline_guard(self):
         """>30% decline over 3 years triggers warning.

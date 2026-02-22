@@ -23,7 +23,6 @@ from margin_api.db.models import (
     IngestionRun,
     JobRun,
     Score,
-    UniverseSnapshot,
 )
 from margin_api.db.session import get_engine, get_session_factory, reset_engine_cache
 from margin_api.services.live_prices import LivePriceService
@@ -420,7 +419,10 @@ class WorkerSettings:
             host_part = url.split("@", 1)[1]
             url = f"{scheme}://***@{host_part}"
         logger.info("[worker] Started — Redis: %s", url)
-        logger.info("[worker] Registered functions: %s", [f.__name__ if callable(f) else str(f) for f in WorkerSettings.functions])
+        logger.info(
+            "[worker] Registered functions: %s",
+            [f.__name__ if callable(f) else str(f) for f in WorkerSettings.functions],
+        )
     functions = [
         full_ingest,
         full_score,

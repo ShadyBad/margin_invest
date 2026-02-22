@@ -11,9 +11,13 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 from margin_api.db.base import Base
-from margin_api.db.models import Asset, FinancialData, Score, UniverseSnapshot
+from margin_api.db.models import Asset, Score
 from margin_api.services.freshness import compute_freshness
-from margin_api.services.ingestion import classify_error, should_ingest_ticker, update_failure_status
+from margin_api.services.ingestion import (
+    classify_error,
+    should_ingest_ticker,
+    update_failure_status,
+)
 from margin_api.services.universe import activate_universe, get_active_snapshot
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 

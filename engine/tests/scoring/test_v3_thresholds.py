@@ -1,6 +1,5 @@
 """Tests for v3 absolute conviction thresholds."""
 
-import pytest
 from margin_engine.models.scoring import ConvictionLevel
 from margin_engine.scoring.v3_thresholds import (
     assess_track_a_conviction,

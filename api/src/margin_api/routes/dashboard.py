@@ -161,7 +161,12 @@ def _derive_conviction_level(raw_score: float) -> str:
     return "none"
 
 
-def _derive_signal(conviction_level: str, actual_price=None, buy_price=None, sell_price=None) -> str:
+def _derive_signal(
+    conviction_level: str,
+    actual_price=None,
+    buy_price=None,
+    sell_price=None,
+) -> str:
     """Re-derive signal from conviction_level and price targets."""
     if conviction_level == "medium":
         return "watch"
@@ -185,7 +190,9 @@ async def audit_dashboard(
     """Audit dashboard card values against DB and engine-derived values."""
     latest = _latest_score_subquery()
     base = (
-        select(Score, Asset.ticker, Asset.name.label("asset_name"))
+        select(
+            Score, Asset.ticker, Asset.name.label("asset_name"),
+        )
         .join(Asset, Score.asset_id == Asset.id)
         .join(
             latest,
@@ -270,7 +277,12 @@ async def get_dashboard(
 
     # Base query: latest score per asset joined with asset metadata.
     base_unfiltered = (
-        select(Score, Asset.ticker, Asset.name.label("asset_name"), Asset.sector.label("asset_sector"))
+        select(
+            Score,
+            Asset.ticker,
+            Asset.name.label("asset_name"),
+            Asset.sector.label("asset_sector"),
+        )
         .join(Asset, Score.asset_id == Asset.id)
         .join(
             latest,
@@ -339,7 +351,11 @@ async def get_dashboard(
             )
         )
     else:
-        scoring_coverage = total_scored / snapshot.ticker_count if snapshot.ticker_count > 0 else 0.0
+        scoring_coverage = (
+            total_scored / snapshot.ticker_count
+            if snapshot.ticker_count > 0
+            else 0.0
+        )
         is_complete = scoring_coverage >= 0.95
         universe = UniverseSummary(
             version=snapshot.version,
@@ -353,7 +369,10 @@ async def get_dashboard(
             warnings.append(
                 Warning(
                     code="LOW_COVERAGE",
-                    message=f"Only {pct}% of the universe has been scored. Rankings may shift as more data arrives.",
+                    message=(
+                        f"Only {pct}% of the universe has been scored."
+                        " Rankings may shift as more data arrives."
+                    ),
                     severity="warning",
                 )
             )
@@ -409,7 +428,11 @@ async def get_dashboard_status(
     conviction_counts = {}
     rows = (await db.execute(
         select(Score.conviction_level, func.count())
-        .join(latest, (Score.asset_id == latest.c.asset_id) & (Score.scored_at == latest.c.max_scored_at))
+        .join(
+            latest,
+            (Score.asset_id == latest.c.asset_id)
+            & (Score.scored_at == latest.c.max_scored_at),
+        )
         .group_by(Score.conviction_level)
     )).all()
     for row in rows:
