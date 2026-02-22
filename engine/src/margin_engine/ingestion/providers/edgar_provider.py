@@ -279,9 +279,7 @@ class EDGARProvider(DataProvider):
 
                 self._acquire_rate_limit()
                 try:
-                    filing_resp = httpx.get(
-                        filing_url, headers={"User-Agent": self._user_agent}
-                    )
+                    filing_resp = httpx.get(filing_url, headers={"User-Agent": self._user_agent})
                     if not filing_resp.is_success:
                         continue
                     parsed = self._parse_form4_xml(filing_resp.text, dates[idx])
@@ -348,29 +346,29 @@ class EDGARProvider(DataProvider):
             price_el = txn.find(".//transactionAmounts/transactionPricePerShare/value")
             ad_el = txn.find(".//transactionAmounts/transactionAcquiredDisposedCode/value")
 
-            transactions.append({
-                "owner_name": owner_name,
-                "owner_cik": owner_cik,
-                "is_director": is_director,
-                "is_officer": is_officer,
-                "officer_title": officer_title,
-                "transaction_date": (
-                    date_el.text if date_el is not None and date_el.text else ""
-                ),
-                "transaction_code": (
-                    code_el.text if code_el is not None and code_el.text else ""
-                ),
-                "shares": (
-                    float(shares_el.text) if shares_el is not None and shares_el.text else 0.0
-                ),
-                "price_per_share": (
-                    float(price_el.text) if price_el is not None and price_el.text else 0.0
-                ),
-                "acquired_disposed": (
-                    ad_el.text if ad_el is not None and ad_el.text else ""
-                ),
-                "filing_date": filing_date,
-            })
+            transactions.append(
+                {
+                    "owner_name": owner_name,
+                    "owner_cik": owner_cik,
+                    "is_director": is_director,
+                    "is_officer": is_officer,
+                    "officer_title": officer_title,
+                    "transaction_date": (
+                        date_el.text if date_el is not None and date_el.text else ""
+                    ),
+                    "transaction_code": (
+                        code_el.text if code_el is not None and code_el.text else ""
+                    ),
+                    "shares": (
+                        float(shares_el.text) if shares_el is not None and shares_el.text else 0.0
+                    ),
+                    "price_per_share": (
+                        float(price_el.text) if price_el is not None and price_el.text else 0.0
+                    ),
+                    "acquired_disposed": (ad_el.text if ad_el is not None and ad_el.text else ""),
+                    "filing_date": filing_date,
+                }
+            )
 
         return transactions
 
@@ -451,9 +449,7 @@ class EDGARProvider(DataProvider):
                     return []
 
                 self._acquire_rate_limit()
-                info_resp = httpx.get(
-                    infotable_url, headers={"User-Agent": self._user_agent}
-                )
+                info_resp = httpx.get(infotable_url, headers={"User-Agent": self._user_agent})
                 if not info_resp.is_success:
                     return []
 
@@ -472,8 +468,7 @@ class EDGARProvider(DataProvider):
         """Find the infotable XML URL for a 13F filing via its index."""
         self._acquire_rate_limit()
         index_url = (
-            f"{_SEC_ARCHIVES_BASE}/Archives/edgar/data/{cik_int}/"
-            f"{accession_no_dashes}/index.json"
+            f"{_SEC_ARCHIVES_BASE}/Archives/edgar/data/{cik_int}/{accession_no_dashes}/index.json"
         )
         resp = httpx.get(index_url, headers={"User-Agent": self._user_agent})
         if not resp.is_success:
@@ -515,17 +510,19 @@ class EDGARProvider(DataProvider):
             value_text = entry.findtext("value") or "0"
             cusip = entry.findtext("cusip") or ""
 
-            holdings.append({
-                "fund_name": fund_name,
-                "fund_cik": fund_cik,
-                "issuer_name": issuer,
-                "cusip": cusip,
-                "shares": (
-                    int(shares_el.text) if shares_el is not None and shares_el.text else 0
-                ),
-                "value_thousands": int(value_text) if value_text else 0,
-                "filing_date": filing_date,
-                "report_date": report_date,
-            })
+            holdings.append(
+                {
+                    "fund_name": fund_name,
+                    "fund_cik": fund_cik,
+                    "issuer_name": issuer,
+                    "cusip": cusip,
+                    "shares": (
+                        int(shares_el.text) if shares_el is not None and shares_el.text else 0
+                    ),
+                    "value_thousands": int(value_text) if value_text else 0,
+                    "filing_date": filing_date,
+                    "report_date": report_date,
+                }
+            )
 
         return holdings

@@ -325,10 +325,10 @@ class TestFetchInsiderTransactions:
     @patch("margin_engine.ingestion.providers.edgar_provider.httpx.get")
     def test_success(self, mock_get):
         mock_get.side_effect = [
-            _make_response(json_data=CIK_MAP_RESPONSE),       # CIK map
-            _make_response(json_data=SUBMISSIONS_RESPONSE),    # submissions
-            _make_response(text_data=FORM4_XML),               # Form 4 filing 1
-            _make_response(text_data=FORM4_XML),               # Form 4 filing 2
+            _make_response(json_data=CIK_MAP_RESPONSE),  # CIK map
+            _make_response(json_data=SUBMISSIONS_RESPONSE),  # submissions
+            _make_response(text_data=FORM4_XML),  # Form 4 filing 1
+            _make_response(text_data=FORM4_XML),  # Form 4 filing 2
         ]
 
         provider = EDGARProvider(user_agent="Test test@example.com")
@@ -375,8 +375,8 @@ class TestFetchInsiderTransactions:
         mock_get.side_effect = [
             _make_response(json_data=CIK_MAP_RESPONSE),
             _make_response(json_data=SUBMISSIONS_RESPONSE),
-            _make_response(text_data="<not valid xml"),         # bad XML
-            _make_response(text_data=FORM4_XML),                # good XML
+            _make_response(text_data="<not valid xml"),  # bad XML
+            _make_response(text_data=FORM4_XML),  # good XML
         ]
 
         provider = EDGARProvider(user_agent="Test test@example.com")
@@ -467,10 +467,10 @@ class TestFetchInstitutionalHoldings:
     @patch("margin_engine.ingestion.providers.edgar_provider.httpx.get")
     def test_success(self, mock_get):
         mock_get.side_effect = [
-            _make_response(json_data=CIK_MAP_RESPONSE),           # CIK map
-            _make_response(json_data=FUND_SUBMISSIONS_RESPONSE),   # fund submissions
-            _make_response(json_data=FILING_INDEX_RESPONSE),       # filing index
-            _make_response(text_data=INFOTABLE_XML),               # infotable
+            _make_response(json_data=CIK_MAP_RESPONSE),  # CIK map
+            _make_response(json_data=FUND_SUBMISSIONS_RESPONSE),  # fund submissions
+            _make_response(json_data=FILING_INDEX_RESPONSE),  # filing index
+            _make_response(text_data=INFOTABLE_XML),  # infotable
         ]
 
         provider = EDGARProvider(user_agent="Test test@example.com")
