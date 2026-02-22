@@ -46,6 +46,6 @@ describe("ContactSection", () => {
   it("renders the status page link", () => {
     render(<ContactSection cards={mockCards} />)
     const statusLink = screen.getByRole("link", { name: /system status/i })
-    expect(statusLink).toHaveAttribute("href", "https://status.margin-invest.com")
+    expect(statusLink).toHaveAttribute("href", "/status")
   })
 })

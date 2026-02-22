@@ -27,9 +27,7 @@ export function ContactSection({ cards }: { cards: ContactCard[] }) {
       <p className="text-[13px] text-text-tertiary">
         Check our{" "}
         <a
-          href="https://status.margin-invest.com"
-          target="_blank"
-          rel="noopener noreferrer"
+          href="/status"
           className="text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
         >
           system status

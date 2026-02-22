@@ -62,7 +62,7 @@ describe("Support page integration", () => {
     renderSupportContent()
     expect(screen.getByRole("link", { name: /system status/i })).toHaveAttribute(
       "href",
-      "https://status.margin-invest.com"
+      "/status"
     )
   })
 
