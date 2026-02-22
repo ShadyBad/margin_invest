@@ -26,7 +26,7 @@ class EmailService:
             resend.api_key = self._api_key
             resend.Emails.send(
                 {
-                    "from": "Margin Invest <noreply@send.margin-invest.com>",
+                    "from": "Margin Invest <noreply@margin-invest.com>",
                     "to": to_email,
                     "subject": "Reset your Margin Invest password",
                     "html": (
