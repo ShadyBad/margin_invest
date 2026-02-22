@@ -394,3 +394,157 @@ class TestFetchInsiderTransactions:
 
         assert result.success is False
         assert "network timeout" in result.error
+
+
+FUND_SUBMISSIONS_RESPONSE = {
+    "cik": "1067983",
+    "name": "BERKSHIRE HATHAWAY INC",
+    "filings": {
+        "recent": {
+            "accessionNumber": ["0001067983-24-000010", "0001067983-24-000005"],
+            "filingDate": ["2024-11-14", "2024-08-14"],
+            "reportDate": ["2024-09-30", "2024-06-30"],
+            "form": ["13F-HR", "13F-HR"],
+            "primaryDocument": ["primary.htm", "primary.htm"],
+        }
+    },
+}
+
+FILING_INDEX_RESPONSE = {
+    "directory": {
+        "item": [
+            {"name": "primary.htm", "type": "primary_doc"},
+            {"name": "infotable.xml", "type": "informationtable"},
+            {"name": "primary_doc.xml", "type": "xml"},
+        ]
+    }
+}
+
+INFOTABLE_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
+  <infoTable>
+    <nameOfIssuer>APPLE INC</nameOfIssuer>
+    <titleOfClass>COM</titleOfClass>
+    <cusip>037833100</cusip>
+    <value>45123</value>
+    <shrsOrPrnAmt>
+      <sshPrnamt>250000</sshPrnamt>
+      <sshPrnamtType>SH</sshPrnamtType>
+    </shrsOrPrnAmt>
+    <investmentDiscretion>SOLE</investmentDiscretion>
+    <votingAuthority>
+      <Sole>250000</Sole>
+      <Shared>0</Shared>
+      <None>0</None>
+    </votingAuthority>
+  </infoTable>
+  <infoTable>
+    <nameOfIssuer>MICROSOFT CORP</nameOfIssuer>
+    <titleOfClass>COM</titleOfClass>
+    <cusip>594918104</cusip>
+    <value>30000</value>
+    <shrsOrPrnAmt>
+      <sshPrnamt>100000</sshPrnamt>
+      <sshPrnamtType>SH</sshPrnamtType>
+    </shrsOrPrnAmt>
+    <investmentDiscretion>SOLE</investmentDiscretion>
+    <votingAuthority>
+      <Sole>100000</Sole>
+      <Shared>0</Shared>
+      <None>0</None>
+    </votingAuthority>
+  </infoTable>
+</informationTable>
+"""
+
+
+class TestFetchInstitutionalHoldings:
+    @patch(
+        "margin_engine.ingestion.providers.edgar_provider._TOP_FUND_CIKS",
+        {"Berkshire Hathaway": "0001067983"},
+    )
+    @patch("margin_engine.ingestion.providers.edgar_provider.httpx.get")
+    def test_success(self, mock_get):
+        mock_get.side_effect = [
+            _make_response(json_data=CIK_MAP_RESPONSE),           # CIK map
+            _make_response(json_data=FUND_SUBMISSIONS_RESPONSE),   # fund submissions
+            _make_response(json_data=FILING_INDEX_RESPONSE),       # filing index
+            _make_response(text_data=INFOTABLE_XML),               # infotable
+        ]
+
+        provider = EDGARProvider(user_agent="Test test@example.com")
+        result = provider.fetch_institutional_holdings("AAPL")
+
+        assert result.success is True
+        assert result.provider_name == "edgar"
+        assert result.category == DataCategory.INSTITUTIONAL
+        holdings = result.raw_data["holdings"]
+        assert len(holdings) == 1
+        assert holdings[0]["fund_name"] == "BERKSHIRE HATHAWAY INC"
+        assert holdings[0]["shares"] == 250000
+        assert holdings[0]["value_thousands"] == 45123
+
+    @patch(
+        "margin_engine.ingestion.providers.edgar_provider._TOP_FUND_CIKS",
+        {"Berkshire Hathaway": "0001067983"},
+    )
+    @patch("margin_engine.ingestion.providers.edgar_provider.httpx.get")
+    def test_no_matching_holdings(self, mock_get):
+        """Fund holds other stocks but not the target ticker."""
+        no_apple_xml = INFOTABLE_XML.replace("APPLE INC", "COCA COLA CO")
+        mock_get.side_effect = [
+            _make_response(json_data=CIK_MAP_RESPONSE),
+            _make_response(json_data=FUND_SUBMISSIONS_RESPONSE),
+            _make_response(json_data=FILING_INDEX_RESPONSE),
+            _make_response(text_data=no_apple_xml),
+        ]
+
+        provider = EDGARProvider(user_agent="Test test@example.com")
+        result = provider.fetch_institutional_holdings("AAPL")
+
+        assert result.success is True
+        assert result.raw_data["holdings"] == []
+
+    @patch(
+        "margin_engine.ingestion.providers.edgar_provider._TOP_FUND_CIKS",
+        {"Berkshire Hathaway": "0001067983"},
+    )
+    @patch("margin_engine.ingestion.providers.edgar_provider.httpx.get")
+    def test_fund_with_no_13f_skipped(self, mock_get):
+        """Fund with no 13F filings is skipped gracefully."""
+        no_13f = {
+            "filings": {
+                "recent": {
+                    "accessionNumber": [],
+                    "filingDate": [],
+                    "reportDate": [],
+                    "form": [],
+                    "primaryDocument": [],
+                }
+            }
+        }
+        mock_get.side_effect = [
+            _make_response(json_data=CIK_MAP_RESPONSE),
+            _make_response(json_data=no_13f),
+        ]
+
+        provider = EDGARProvider(user_agent="Test test@example.com")
+        result = provider.fetch_institutional_holdings("AAPL")
+
+        assert result.success is True
+        assert result.raw_data["holdings"] == []
+
+    @patch(
+        "margin_engine.ingestion.providers.edgar_provider._TOP_FUND_CIKS",
+        {"Berkshire Hathaway": "0001067983"},
+    )
+    @patch("margin_engine.ingestion.providers.edgar_provider.httpx.get")
+    def test_api_error(self, mock_get):
+        mock_get.side_effect = Exception("connection refused")
+
+        provider = EDGARProvider(user_agent="Test test@example.com")
+        result = provider.fetch_institutional_holdings("AAPL")
+
+        assert result.success is False
+        assert "connection refused" in result.error

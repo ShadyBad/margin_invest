@@ -374,6 +374,158 @@ class EDGARProvider(DataProvider):
 
         return transactions
 
+    # ------------------------------------------------------------------
+    # 13F (institutional holdings)
+    # ------------------------------------------------------------------
+
     def fetch_institutional_holdings(self, ticker: str) -> FetchResult:
-        """Fetch institutional holdings from 13F filings."""
-        raise NotImplementedError("fetch_institutional_holdings not yet implemented")
+        """Fetch institutional holdings from curated funds' 13F filings.
+
+        Checks a curated list of top institutional investors' most
+        recent 13F-HR filings for holdings matching the target company.
+        """
+        self._acquire_rate_limit()
+        try:
+            company_name = self._get_company_name(ticker)
+            if not company_name:
+                raise ValueError(f"No company name found for {ticker}")
+
+            holdings: list[dict] = []
+
+            for fund_name_label, fund_cik in _TOP_FUND_CIKS.items():
+                try:
+                    self._acquire_rate_limit()
+                    fund_holdings = self._fetch_fund_13f(fund_cik, company_name)
+                    holdings.extend(fund_holdings)
+                except Exception:
+                    logger.debug(
+                        "Failed to fetch 13F for %s (%s)",
+                        fund_name_label,
+                        fund_cik,
+                        exc_info=True,
+                    )
+                    continue
+
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.INSTITUTIONAL,
+                ticker=ticker,
+                raw_data={"holdings": holdings},
+                fetched_at=_now_iso(),
+            )
+        except Exception as exc:
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.INSTITUTIONAL,
+                ticker=ticker,
+                raw_data={},
+                fetched_at=_now_iso(),
+                success=False,
+                error=str(exc),
+            )
+
+    def _fetch_fund_13f(self, fund_cik: str, target_company: str) -> list[dict]:
+        """Fetch a single fund's latest 13F and filter for target company."""
+        cik_int = str(int(fund_cik))
+
+        url = f"{_SEC_DATA_BASE}/submissions/CIK{fund_cik}.json"
+        resp = httpx.get(url, headers={"User-Agent": self._user_agent})
+        resp.raise_for_status()
+        submissions = resp.json()
+
+        fund_name = submissions.get("name", "")
+        recent = submissions.get("filings", {}).get("recent", {})
+        forms = recent.get("form", [])
+        accessions = recent.get("accessionNumber", [])
+        filing_dates = recent.get("filingDate", [])
+        report_dates = recent.get("reportDate", [])
+
+        # Find the latest 13F-HR
+        for i, form in enumerate(forms):
+            if form in ("13F-HR", "13F-HR/A"):
+                accession_no_dashes = accessions[i].replace("-", "")
+
+                # Find the infotable XML via the filing index
+                infotable_url = self._find_13f_infotable(cik_int, accession_no_dashes)
+                if infotable_url is None:
+                    return []
+
+                self._acquire_rate_limit()
+                info_resp = httpx.get(
+                    infotable_url, headers={"User-Agent": self._user_agent}
+                )
+                if not info_resp.is_success:
+                    return []
+
+                return self._parse_13f_infotable(
+                    info_resp.text,
+                    target_company,
+                    fund_name,
+                    fund_cik,
+                    filing_dates[i] if i < len(filing_dates) else "",
+                    report_dates[i] if i < len(report_dates) else "",
+                )
+
+        return []
+
+    def _find_13f_infotable(self, cik_int: str, accession_no_dashes: str) -> str | None:
+        """Find the infotable XML URL for a 13F filing via its index."""
+        self._acquire_rate_limit()
+        index_url = (
+            f"{_SEC_ARCHIVES_BASE}/Archives/edgar/data/{cik_int}/"
+            f"{accession_no_dashes}/index.json"
+        )
+        resp = httpx.get(index_url, headers={"User-Agent": self._user_agent})
+        if not resp.is_success:
+            return None
+
+        index = resp.json()
+        for doc in index.get("directory", {}).get("item", []):
+            name = doc.get("name", "").lower()
+            if "infotable" in name and name.endswith(".xml"):
+                return (
+                    f"{_SEC_ARCHIVES_BASE}/Archives/edgar/data/{cik_int}/"
+                    f"{accession_no_dashes}/{doc['name']}"
+                )
+        return None
+
+    @staticmethod
+    def _parse_13f_infotable(
+        xml_text: str,
+        target_company: str,
+        fund_name: str,
+        fund_cik: str,
+        filing_date: str,
+        report_date: str,
+    ) -> list[dict]:
+        """Parse 13F infotable XML, filtering for a target company."""
+        # Strip namespace for simpler parsing
+        cleaned = re.sub(r'\sxmlns="[^"]*"', "", xml_text, count=1)
+        root = ET.fromstring(cleaned)
+
+        target_upper = target_company.upper()
+        holdings: list[dict] = []
+
+        for entry in root.findall(".//infoTable"):
+            issuer = (entry.findtext("nameOfIssuer") or "").upper()
+            if target_upper not in issuer and issuer not in target_upper:
+                continue
+
+            shares_el = entry.find("shrsOrPrnAmt/sshPrnamt")
+            value_text = entry.findtext("value") or "0"
+            cusip = entry.findtext("cusip") or ""
+
+            holdings.append({
+                "fund_name": fund_name,
+                "fund_cik": fund_cik,
+                "issuer_name": issuer,
+                "cusip": cusip,
+                "shares": (
+                    int(shares_el.text) if shares_el is not None and shares_el.text else 0
+                ),
+                "value_thousands": int(value_text) if value_text else 0,
+                "filing_date": filing_date,
+                "report_date": report_date,
+            })
+
+        return holdings
