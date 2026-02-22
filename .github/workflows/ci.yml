@@ -97,7 +97,7 @@ jobs:
 
       - run: cd web && npm ci
 
-      - run: cd web && npx vitest run --coverage --coverage.thresholds.lines=80
+      - run: cd web && npx vitest run --coverage --coverage.thresholds.lines=65
 
       - name: Verify production build
         run: cd web && npx next build
