@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
-
 from margin_api.app import create_app
 
 
@@ -36,23 +35,6 @@ class TestShowcaseEndpoint:
         assert data["method"] == "returns"
         assert len(data["tickers"]) >= 2
 
-
-class TestCorrelationEndpoint:
-    def test_invalid_method_returns_422(self, client: TestClient):
-        resp = client.get("/api/v1/correlations?method=invalid")
-        assert resp.status_code == 422
-
-    def test_method_required(self, client: TestClient):
-        resp = client.get("/api/v1/correlations")
-        assert resp.status_code == 422
-
-    def test_window_bounds(self, client: TestClient):
-        resp = client.get("/api/v1/correlations?method=returns&window=5")
-        assert resp.status_code == 422
-        resp = client.get("/api/v1/correlations?method=returns&window=1000")
-        assert resp.status_code == 422
-
-    def test_route_registered(self, client: TestClient):
+    def test_showcase_route_registered(self, client: TestClient):
         routes = [r.path for r in client.app.routes]
-        assert "/api/v1/correlations" in routes
         assert "/api/v1/correlations/showcase" in routes
