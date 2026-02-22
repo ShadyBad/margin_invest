@@ -240,9 +240,139 @@ class EDGARProvider(DataProvider):
                 error=str(exc),
             )
 
+    # ------------------------------------------------------------------
+    # Form 4 (insider transactions)
+    # ------------------------------------------------------------------
+
     def fetch_insider_transactions(self, ticker: str) -> FetchResult:
-        """Fetch insider transactions from Form 4 filings."""
-        raise NotImplementedError("fetch_insider_transactions not yet implemented")
+        """Fetch insider transactions from recent Form 4 filings.
+
+        Gets the company's filing history, finds the most recent Form 4
+        filings (up to 10), fetches each XML document, and parses
+        transaction details.
+        """
+        self._acquire_rate_limit()
+        try:
+            cik = self._get_cik(ticker)
+            cik_int = str(int(cik))
+
+            url = f"{_SEC_DATA_BASE}/submissions/CIK{cik}.json"
+            resp = httpx.get(url, headers={"User-Agent": self._user_agent})
+            resp.raise_for_status()
+            submissions = resp.json()
+
+            recent = submissions.get("filings", {}).get("recent", {})
+            forms = recent.get("form", [])
+            accessions = recent.get("accessionNumber", [])
+            dates = recent.get("filingDate", [])
+            docs = recent.get("primaryDocument", [])
+
+            form4_indices = [i for i, f in enumerate(forms) if f == "4"][:10]
+
+            transactions: list[dict] = []
+            for idx in form4_indices:
+                accession_no_dashes = accessions[idx].replace("-", "")
+                filing_url = (
+                    f"{_SEC_ARCHIVES_BASE}/Archives/edgar/data/{cik_int}/"
+                    f"{accession_no_dashes}/{docs[idx]}"
+                )
+
+                self._acquire_rate_limit()
+                try:
+                    filing_resp = httpx.get(
+                        filing_url, headers={"User-Agent": self._user_agent}
+                    )
+                    if not filing_resp.is_success:
+                        continue
+                    parsed = self._parse_form4_xml(filing_resp.text, dates[idx])
+                    transactions.extend(parsed)
+                except Exception:
+                    logger.debug("Failed to parse Form 4 at %s", filing_url, exc_info=True)
+                    continue
+
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.INSIDER,
+                ticker=ticker,
+                raw_data={"transactions": transactions},
+                fetched_at=_now_iso(),
+            )
+        except Exception as exc:
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.INSIDER,
+                ticker=ticker,
+                raw_data={},
+                fetched_at=_now_iso(),
+                success=False,
+                error=str(exc),
+            )
+
+    @staticmethod
+    def _parse_form4_xml(xml_text: str, filing_date: str) -> list[dict]:
+        """Parse a Form 4 XML document into transaction dicts."""
+        root = ET.fromstring(xml_text)
+
+        owner = root.find(".//reportingOwner")
+        owner_name = ""
+        owner_cik = ""
+        is_director = False
+        is_officer = False
+        officer_title = ""
+
+        if owner is not None:
+            name_el = owner.find(".//rptOwnerName")
+            if name_el is not None and name_el.text:
+                owner_name = name_el.text
+            cik_el = owner.find(".//rptOwnerCik")
+            if cik_el is not None and cik_el.text:
+                owner_cik = cik_el.text
+
+            rel = owner.find(".//reportingOwnerRelationship")
+            if rel is not None:
+                dir_el = rel.find("isDirector")
+                if dir_el is not None and dir_el.text:
+                    is_director = dir_el.text.lower() in ("true", "1")
+                off_el = rel.find("isOfficer")
+                if off_el is not None and off_el.text:
+                    is_officer = off_el.text.lower() in ("true", "1")
+                title_el = rel.find("officerTitle")
+                if title_el is not None and title_el.text:
+                    officer_title = title_el.text
+
+        transactions: list[dict] = []
+        for txn in root.findall(".//nonDerivativeTransaction"):
+            date_el = txn.find(".//transactionDate/value")
+            code_el = txn.find(".//transactionCoding/transactionCode")
+            shares_el = txn.find(".//transactionAmounts/transactionShares/value")
+            price_el = txn.find(".//transactionAmounts/transactionPricePerShare/value")
+            ad_el = txn.find(".//transactionAmounts/transactionAcquiredDisposedCode/value")
+
+            transactions.append({
+                "owner_name": owner_name,
+                "owner_cik": owner_cik,
+                "is_director": is_director,
+                "is_officer": is_officer,
+                "officer_title": officer_title,
+                "transaction_date": (
+                    date_el.text if date_el is not None and date_el.text else ""
+                ),
+                "transaction_code": (
+                    code_el.text if code_el is not None and code_el.text else ""
+                ),
+                "shares": (
+                    float(shares_el.text) if shares_el is not None and shares_el.text else 0.0
+                ),
+                "price_per_share": (
+                    float(price_el.text) if price_el is not None and price_el.text else 0.0
+                ),
+                "acquired_disposed": (
+                    ad_el.text if ad_el is not None and ad_el.text else ""
+                ),
+                "filing_date": filing_date,
+            })
+
+        return transactions
 
     def fetch_institutional_holdings(self, ticker: str) -> FetchResult:
         """Fetch institutional holdings from 13F filings."""
