@@ -891,6 +891,7 @@ name = "margin-engine"
 version = "0.1.0"
 source = { editable = "engine" }
 dependencies = [
+    { name = "httpx" },
     { name = "lxml" },
     { name = "numpy" },
     { name = "pydantic" },
@@ -912,6 +913,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
     { name = "lxml", specifier = ">=5.0" },
     { name = "numpy", specifier = ">=2.2" },
     { name = "pydantic", specifier = ">=2.10" },
