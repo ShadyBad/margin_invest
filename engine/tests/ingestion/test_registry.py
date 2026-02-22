@@ -744,3 +744,71 @@ class TestPerCategoryPriority:
         # INSTITUTIONAL not in overrides -> uses base priority 10 (below other at 12)
         chain = registry.get_fallback_chain(DataCategory.INSTITUTIONAL)
         assert [p.info.name for p in chain] == ["other", "partial"]
+
+
+# ---------------------------------------------------------------------------
+# Tests: real EDGARProvider in fallback chain
+# ---------------------------------------------------------------------------
+
+
+class TestEdgarInFallbackChain:
+    """Verify real EDGARProvider integrates with registry per-category priority."""
+
+    def test_edgar_is_last_for_fundamentals(self):
+        from margin_engine.ingestion.providers.edgar_provider import EDGARProvider
+        from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
+
+        registry = ProviderRegistry()
+        registry.register(YFinanceProvider())
+        registry.register(EDGARProvider(user_agent="Test test@example.com"))
+
+        chain = registry.get_fallback_chain(DataCategory.FUNDAMENTALS)
+        names = [p.info.name for p in chain]
+        assert names == ["yfinance", "edgar"]
+
+    def test_edgar_above_finnhub_for_insider(self):
+        from margin_engine.ingestion.providers.edgar_provider import EDGARProvider
+        from margin_engine.ingestion.providers.finnhub_provider import FinnhubProvider
+
+        registry = ProviderRegistry(api_keys={"finnhub": "test_key"})
+        registry.register(FinnhubProvider(api_key="test_key"))
+        registry.register(EDGARProvider(user_agent="Test test@example.com"))
+
+        chain = registry.get_fallback_chain(DataCategory.INSIDER)
+        names = [p.info.name for p in chain]
+        assert names == ["edgar", "finnhub"]
+
+    def test_edgar_above_finnhub_for_institutional(self):
+        from margin_engine.ingestion.providers.edgar_provider import EDGARProvider
+        from margin_engine.ingestion.providers.finnhub_provider import FinnhubProvider
+
+        registry = ProviderRegistry(api_keys={"finnhub": "test_key"})
+        registry.register(FinnhubProvider(api_key="test_key"))
+        registry.register(EDGARProvider(user_agent="Test test@example.com"))
+
+        chain = registry.get_fallback_chain(DataCategory.INSTITUTIONAL)
+        names = [p.info.name for p in chain]
+        assert names == ["edgar", "finnhub"]
+
+    def test_edgar_not_in_price_chain(self):
+        from margin_engine.ingestion.providers.edgar_provider import EDGARProvider
+
+        registry = ProviderRegistry()
+        registry.register(EDGARProvider(user_agent="Test test@example.com"))
+
+        chain = registry.get_fallback_chain(DataCategory.PRICE)
+        assert len(chain) == 0
+
+    def test_full_fundamentals_chain(self):
+        from margin_engine.ingestion.providers.edgar_provider import EDGARProvider
+        from margin_engine.ingestion.providers.fmp_provider import FMPProvider
+        from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
+
+        registry = ProviderRegistry(api_keys={"fmp": "test_key"})
+        registry.register(YFinanceProvider())
+        registry.register(FMPProvider(api_key="test_key"))
+        registry.register(EDGARProvider(user_agent="Test test@example.com"))
+
+        chain = registry.get_fallback_chain(DataCategory.FUNDAMENTALS)
+        names = [p.info.name for p in chain]
+        assert names == ["yfinance", "fmp", "edgar"]
