@@ -538,3 +538,45 @@ class TestUnsupportedCategoryFetch:
 
         with pytest.raises(NotImplementedError, match="NEWS"):
             registry.fetch(DataCategory.NEWS, "N/A")
+
+
+# ---------------------------------------------------------------------------
+# Tests: real PolygonProvider in fallback chain
+# ---------------------------------------------------------------------------
+
+
+class TestPolygonInFallbackChain:
+    """Verify real PolygonProvider integrates with registry correctly."""
+
+    def test_polygon_is_primary_price_provider(self):
+        from margin_engine.ingestion.providers.polygon_provider import PolygonProvider
+        from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
+
+        registry = ProviderRegistry(api_keys={"polygon": "test_key"})
+        registry.register(PolygonProvider(api_key="test_key"))
+        registry.register(YFinanceProvider())
+
+        chain = registry.get_fallback_chain(DataCategory.PRICE)
+        names = [p.info.name for p in chain]
+        assert names == ["polygon", "yfinance"]
+
+    def test_polygon_excluded_without_api_key(self):
+        from margin_engine.ingestion.providers.polygon_provider import PolygonProvider
+        from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
+
+        registry = ProviderRegistry(api_keys={})
+        registry.register(PolygonProvider(api_key="test_key"))
+        registry.register(YFinanceProvider())
+
+        chain = registry.get_fallback_chain(DataCategory.PRICE)
+        names = [p.info.name for p in chain]
+        assert names == ["yfinance"]
+
+    def test_polygon_not_in_fundamentals_chain(self):
+        from margin_engine.ingestion.providers.polygon_provider import PolygonProvider
+
+        registry = ProviderRegistry(api_keys={"polygon": "test_key"})
+        registry.register(PolygonProvider(api_key="test_key"))
+
+        chain = registry.get_fallback_chain(DataCategory.FUNDAMENTALS)
+        assert len(chain) == 0
