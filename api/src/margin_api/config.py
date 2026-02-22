@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     # Data providers
     polygon_api_key: str = ""
     fmp_api_key: str = ""
+    finnhub_api_key: str = ""
 
     # Email (Resend)
     resend_api_key: str = ""
