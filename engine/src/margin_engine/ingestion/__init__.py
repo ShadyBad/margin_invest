@@ -10,6 +10,7 @@ from margin_engine.ingestion.normalizer import (
     normalize_income_statement,
     normalize_price_bar,
 )
+from margin_engine.ingestion.providers.edgar_provider import EDGARProvider
 from margin_engine.ingestion.providers.finnhub_provider import FinnhubProvider
 from margin_engine.ingestion.providers.polygon_provider import PolygonProvider
 from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
@@ -29,6 +30,7 @@ __all__ = [
     "CircuitState",
     "DataCategory",
     "DataProvider",
+    "EDGARProvider",
     "FetchResult",
     "FinnhubProvider",
     "normalize_balance_sheet",

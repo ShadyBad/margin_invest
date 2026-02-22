@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     polygon_api_key: str = ""
     fmp_api_key: str = ""
     finnhub_api_key: str = ""
+    edgar_user_agent: str = ""
 
     # Email (Resend)
     resend_api_key: str = ""
