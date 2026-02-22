@@ -52,7 +52,7 @@ jobs:
           key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: uv-${{ runner.os }}-
 
-      - run: uv sync
+      - run: uv sync --all-packages
 
       - run: uv run pytest engine/ -v --tb=short --cov=margin_engine --cov-report=term-missing --cov-fail-under=95
 
@@ -76,7 +76,7 @@ jobs:
           key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: uv-${{ runner.os }}-
 
-      - run: uv sync
+      - run: uv sync --all-packages
 
       - run: uv run pytest api/ -v --tb=short --cov=margin_api --cov-report=term-missing --cov-fail-under=90
 
