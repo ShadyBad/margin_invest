@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { AppShell } from "@/components/layout"
-import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction, CorrelationHeatmap } from "@/components/dashboard"
+import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction } from "@/components/dashboard"
 import { serverFetch } from "@/lib/api/server"
 import type { DashboardResponse, PickSummary } from "@/lib/api/types"
 
@@ -78,10 +78,6 @@ export default async function DashboardPage() {
           Top Picks
         </h2>
         <PicksGrid picks={data?.picks ?? []} />
-      </section>
-
-      <section className="mb-10">
-        <CorrelationHeatmap />
       </section>
 
       {(data?.watchlist?.length ?? 0) > 0 && (
