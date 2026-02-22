@@ -251,7 +251,7 @@ class TestCurrentRatioV2:
         """Uses 3-year median: CR values [1.2, 0.9, 1.0] -> median=1.0, passes threshold 0.8."""
         periods = [
             _make_period("1200", "1000", period_end="2022-09-28"),  # CR = 1.2
-            _make_period("900", "1000", period_end="2023-09-28"),   # CR = 0.9
+            _make_period("900", "1000", period_end="2023-09-28"),  # CR = 0.9
             _make_period("1000", "1000", period_end="2024-09-28"),  # CR = 1.0
         ]
         history = _make_history(periods)
@@ -274,7 +274,8 @@ class TestCurrentRatioV2:
             _make_period("600", "1000", period_end="2022-09-28"),  # CR = 0.6
             _make_period("600", "1000", period_end="2023-09-28"),  # CR = 0.6
             _make_period(
-                "600", "1000",
+                "600",
+                "1000",
                 period_end="2024-09-28",
                 cash_and_equivalents="300",
                 receivables="300",
@@ -301,7 +302,7 @@ class TestCurrentRatioV2:
         periods = [
             _make_period("1500", "1000", period_end="2022-09-28"),  # CR = 1.5
             _make_period("1200", "1000", period_end="2023-09-28"),  # CR = 1.2
-            _make_period("950", "1000", period_end="2024-09-28"),   # CR = 0.95
+            _make_period("950", "1000", period_end="2024-09-28"),  # CR = 0.95
         ]
         history = _make_history(periods)
         result = current_ratio_check_v2(history)
@@ -355,7 +356,8 @@ class TestCurrentRatioV2:
         """CR below threshold and quick ratio <= 0.5 -> FAIL (no rescue)."""
         periods = [
             _make_period(
-                "600", "1000",
+                "600",
+                "1000",
                 period_end="2024-09-28",
                 cash_and_equivalents="200",
                 receivables="200",

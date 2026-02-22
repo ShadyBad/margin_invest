@@ -33,22 +33,26 @@ def check_concentration(
 
     for sector, weight in sector_weights.items():
         if weight > max_sector_pct:
-            alerts.append(DriftAlert(
-                alert_type="sector_concentration",
-                dimension=sector,
-                weight=weight,
-                threshold=max_sector_pct,
-                message=f"{sector} at {weight:.1%} exceeds {max_sector_pct:.0%} limit",
-            ))
+            alerts.append(
+                DriftAlert(
+                    alert_type="sector_concentration",
+                    dimension=sector,
+                    weight=weight,
+                    threshold=max_sector_pct,
+                    message=f"{sector} at {weight:.1%} exceeds {max_sector_pct:.0%} limit",
+                )
+            )
 
     for style, weight in style_weights.items():
         if weight > max_style_pct:
-            alerts.append(DriftAlert(
-                alert_type="style_concentration",
-                dimension=style,
-                weight=weight,
-                threshold=max_style_pct,
-                message=f"{style} at {weight:.1%} exceeds {max_style_pct:.0%} limit",
-            ))
+            alerts.append(
+                DriftAlert(
+                    alert_type="style_concentration",
+                    dimension=style,
+                    weight=weight,
+                    threshold=max_style_pct,
+                    message=f"{style} at {weight:.1%} exceeds {max_style_pct:.0%} limit",
+                )
+            )
 
     return alerts

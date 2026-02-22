@@ -1,4 +1,5 @@
 """Admin endpoints for pipeline management."""
+
 from __future__ import annotations
 
 import logging
@@ -182,8 +183,7 @@ async def redis_health(x_admin_key: str = Header()) -> dict:
         job_ids = [j.decode() if isinstance(j, bytes) else j for j in queued_jobs]
         # Check ARQ results for recent job results
         result_keys = [
-            k.decode() if isinstance(k, bytes) else k
-            for k in await client.keys("arq:result:*")
+            k.decode() if isinstance(k, bytes) else k for k in await client.keys("arq:result:*")
         ]
         await client.aclose()
     except Exception as e:

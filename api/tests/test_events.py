@@ -239,8 +239,8 @@ class TestListNotifications:
         _add_event_with_notification(ticker="NVDA")
         # Mark one as read
         nid = n1["notification_id"]
-        events_module._notification_store[nid] = (
-            events_module._notification_store[nid].model_copy(update={"read": True})
+        events_module._notification_store[nid] = events_module._notification_store[nid].model_copy(
+            update={"read": True}
         )
         response = client.get("/api/v1/notifications")
         data = response.json()

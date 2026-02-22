@@ -59,10 +59,7 @@ def owner_earnings_yield(
             name="owner_earnings_yield",
             raw_value=0.0,
             percentile_rank=0.0,
-            detail=(
-                f"OwnerEarnings={owner_earnings:,.2f}, "
-                f"EV={ev:,.2f} (non-positive)"
-            ),
+            detail=(f"OwnerEarnings={owner_earnings:,.2f}, EV={ev:,.2f} (non-positive)"),
         )
 
     raw_value = owner_earnings / ev

@@ -17,7 +17,8 @@ def _make_period(net_income: float, ocf: float, capex: float) -> FinancialPeriod
         period_end="2024-12-31",
         filing_date="2025-02-15",
         current_income=IncomeStatement(
-            revenue=Decimal("1000"), net_income=Decimal(str(net_income)),
+            revenue=Decimal("1000"),
+            net_income=Decimal(str(net_income)),
         ),
         current_balance=BalanceSheet(total_assets=Decimal("5000")),
         current_cash_flow=CashFlowStatement(

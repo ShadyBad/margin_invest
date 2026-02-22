@@ -61,13 +61,13 @@ def compute_f_score_signals(period: FinancialPeriod) -> dict[str, int]:
     # 5. Leverage Change: LT Debt/TA decreased YoY (requires prior)
     leverage = 0
     if period.prior_balance is not None:
-        current_ltd_ta = float(
-            (balance.long_term_debt or 0) / total_assets
-        ) if total_assets != 0 else 0.0
+        current_ltd_ta = (
+            float((balance.long_term_debt or 0) / total_assets) if total_assets != 0 else 0.0
+        )
         prior_ta = period.prior_balance.total_assets
-        prior_ltd_ta = float(
-            (period.prior_balance.long_term_debt or 0) / prior_ta
-        ) if prior_ta != 0 else 0.0
+        prior_ltd_ta = (
+            float((period.prior_balance.long_term_debt or 0) / prior_ta) if prior_ta != 0 else 0.0
+        )
         leverage = 1 if current_ltd_ta < prior_ltd_ta else 0
 
     # 6. Liquidity: Current Ratio increased YoY (requires prior)
@@ -96,9 +96,7 @@ def compute_f_score_signals(period: FinancialPeriod) -> dict[str, int]:
     if period.prior_income is not None and period.prior_balance is not None:
         current_at = float(income.revenue / total_assets) if total_assets != 0 else 0.0
         prior_ta = period.prior_balance.total_assets
-        prior_at = (
-            float(period.prior_income.revenue / prior_ta) if prior_ta != 0 else 0.0
-        )
+        prior_at = float(period.prior_income.revenue / prior_ta) if prior_ta != 0 else 0.0
         asset_turnover = 1 if current_at > prior_at else 0
 
     return {
@@ -125,9 +123,7 @@ def piotroski_f_score(period: FinancialPeriod) -> FactorScore:
     signals = compute_f_score_signals(period)
     f_score = sum(signals.values())
 
-    detail_parts = [
-        f"{name}={'PASS' if value else 'FAIL'}" for name, value in signals.items()
-    ]
+    detail_parts = [f"{name}={'PASS' if value else 'FAIL'}" for name, value in signals.items()]
     detail = f"F-Score={f_score}/9 | {', '.join(detail_parts)}"
 
     return FactorScore(

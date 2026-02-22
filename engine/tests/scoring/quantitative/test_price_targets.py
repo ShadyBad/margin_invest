@@ -120,9 +120,7 @@ def price_bars():
 
 
 class TestPriceTargets:
-    def test_returns_price_targets_model(
-        self, healthy_period, healthy_profile, price_bars
-    ):
+    def test_returns_price_targets_model(self, healthy_period, healthy_profile, price_bars):
         """Verify result is a PriceTargets instance."""
         result = compute_price_targets(
             period=healthy_period,
@@ -132,9 +130,7 @@ class TestPriceTargets:
         )
         assert isinstance(result, PriceTargets)
 
-    def test_margin_invest_value_is_positive(
-        self, healthy_period, healthy_profile, price_bars
-    ):
+    def test_margin_invest_value_is_positive(self, healthy_period, healthy_profile, price_bars):
         """With healthy data, margin invest value should be positive."""
         result = compute_price_targets(
             period=healthy_period,
@@ -145,9 +141,7 @@ class TestPriceTargets:
         assert result.margin_invest_value is not None
         assert result.margin_invest_value > 0
 
-    def test_dual_threshold_mos(
-        self, healthy_period, healthy_profile, price_bars
-    ):
+    def test_dual_threshold_mos(self, healthy_period, healthy_profile, price_bars):
         """buy_price = MIV * (1 - MoS), sell_price = MIV * (1 + MoS)."""
         result = compute_price_targets(
             period=healthy_period,
@@ -161,18 +155,12 @@ class TestPriceTargets:
         assert result.margin_of_safety is not None
         mos = result.margin_of_safety
         # Dual threshold: buy below fair value, sell above
-        assert result.buy_price == pytest.approx(
-            result.margin_invest_value * (1 - mos), rel=1e-2
-        )
-        assert result.sell_price == pytest.approx(
-            result.margin_invest_value * (1 + mos), rel=1e-2
-        )
+        assert result.buy_price == pytest.approx(result.margin_invest_value * (1 - mos), rel=1e-2)
+        assert result.sell_price == pytest.approx(result.margin_invest_value * (1 + mos), rel=1e-2)
         # Ordering invariant
         assert result.buy_price < result.margin_invest_value < result.sell_price
 
-    def test_actual_price_from_latest_bar(
-        self, healthy_period, healthy_profile, price_bars
-    ):
+    def test_actual_price_from_latest_bar(self, healthy_period, healthy_profile, price_bars):
         """actual_price should be the close of the latest-dated bar."""
         result = compute_price_targets(
             period=healthy_period,
@@ -183,9 +171,7 @@ class TestPriceTargets:
         # Latest bar is 2025-09-28 with close=197
         assert result.actual_price == pytest.approx(197.0)
 
-    def test_mos_symmetry_across_growth_stages(
-        self, healthy_period, healthy_profile, price_bars
-    ):
+    def test_mos_symmetry_across_growth_stages(self, healthy_period, healthy_profile, price_bars):
         """Both buy and sell prices should widen symmetrically with higher MoS."""
         from margin_engine.models.scoring import GrowthStage
 
@@ -204,9 +190,7 @@ class TestPriceTargets:
             growth_stage=GrowthStage.TURNAROUND,
         )
         # Same intrinsic value (same inputs)
-        assert steady.margin_invest_value == pytest.approx(
-            turnaround.margin_invest_value, rel=1e-4
-        )
+        assert steady.margin_invest_value == pytest.approx(turnaround.margin_invest_value, rel=1e-4)
         # Turnaround has wider MoS -> lower buy price, higher sell price
         assert turnaround.buy_price < steady.buy_price
         assert turnaround.sell_price > steady.sell_price
@@ -218,9 +202,7 @@ class TestPriceTargets:
             turnaround.margin_invest_value * (1 - turnaround.margin_of_safety), rel=1e-2
         )
 
-    def test_no_price_bars_returns_none_actual(
-        self, healthy_period, healthy_profile
-    ):
+    def test_no_price_bars_returns_none_actual(self, healthy_period, healthy_profile):
         """Empty bars should produce actual_price = None."""
         result = compute_price_targets(
             period=healthy_period,
@@ -230,9 +212,7 @@ class TestPriceTargets:
         )
         assert result.actual_price is None
 
-    def test_negative_fcf_uses_fewer_methods(
-        self, healthy_profile, price_bars
-    ):
+    def test_negative_fcf_uses_fewer_methods(self, healthy_profile, price_bars):
         """FCF <= 0 excludes DCF and EV/FCF methods from valuation_methods."""
         period = FinancialPeriod(
             period_end="2025-09-28",
@@ -273,9 +253,7 @@ class TestPriceTargets:
         assert "acquirers_multiple" in result.valuation_methods
         assert "shareholder_yield" in result.valuation_methods
 
-    def test_no_shares_outstanding_returns_invalid(
-        self, healthy_period, price_bars
-    ):
+    def test_no_shares_outstanding_returns_invalid(self, healthy_period, price_bars):
         """No shares_outstanding in profile -> invalid_reason set."""
         profile = AssetProfile(
             ticker="AAPL",
@@ -295,9 +273,7 @@ class TestPriceTargets:
         assert result.sell_price is None
         assert result.invalid_reason == "shares_outstanding_missing"
 
-    def test_valuation_methods_dict(
-        self, healthy_period, healthy_profile, price_bars
-    ):
+    def test_valuation_methods_dict(self, healthy_period, healthy_profile, price_bars):
         """With healthy data, all 4 valuation methods should appear in the dict."""
         result = compute_price_targets(
             period=healthy_period,
@@ -312,9 +288,7 @@ class TestPriceTargets:
         assert "acquirers_multiple" in result.valuation_methods
         assert "shareholder_yield" in result.valuation_methods
 
-    def test_price_upside_calculation(
-        self, healthy_period, healthy_profile, price_bars
-    ):
+    def test_price_upside_calculation(self, healthy_period, healthy_profile, price_bars):
         """Verify price_upside = (intrinsic - actual) / actual."""
         result = compute_price_targets(
             period=healthy_period,
@@ -379,9 +353,7 @@ class TestPriceTargets:
             else:
                 assert m.renormalized_weight is None
 
-    def test_audit_mos_components(
-        self, healthy_period, healthy_profile, price_bars
-    ):
+    def test_audit_mos_components(self, healthy_period, healthy_profile, price_bars):
         """Audit should capture MoS base, CV, and adjustment."""
         result = compute_price_targets(
             period=healthy_period,
@@ -535,9 +507,9 @@ class TestLayer1InputValidation:
             period_end="2025-09-28",
             filing_date="2025-11-01",
             current_income=IncomeStatement(
-                revenue=Decimal("20000000"),        # $20M → $200/share (~1x price)
+                revenue=Decimal("20000000"),  # $20M → $200/share (~1x price)
                 gross_profit=Decimal("8000000"),
-                ebit=Decimal("3000000"),            # $30/share
+                ebit=Decimal("3000000"),  # $30/share
                 net_income=Decimal("2000000"),
                 shares_outstanding=100_000,
             ),
@@ -551,7 +523,7 @@ class TestLayer1InputValidation:
                 shares_outstanding=100_000,
             ),
             current_cash_flow=CashFlowStatement(
-                operating_cash_flow=Decimal("4000000"),   # $40/share
+                operating_cash_flow=Decimal("4000000"),  # $40/share
                 capital_expenditures=Decimal("-1000000"),  # FCF=$30/share
                 dividends_paid=Decimal("-500000"),
                 share_repurchases=Decimal("-300000"),
@@ -717,9 +689,9 @@ class TestLayer2PerMethodBounds:
             period_end="2025-09-28",
             filing_date="2025-11-01",
             current_income=IncomeStatement(
-                revenue=Decimal("200000000000"),   # $400/share (2x price, safe)
+                revenue=Decimal("200000000000"),  # $400/share (2x price, safe)
                 gross_profit=Decimal("100000000000"),
-                ebit=Decimal("80000000000"),        # $160/share -> acq mult = 12*160 = $1920
+                ebit=Decimal("80000000000"),  # $160/share -> acq mult = 12*160 = $1920
                 net_income=Decimal("60000000000"),
                 shares_outstanding=500_000_000,
             ),
@@ -768,8 +740,10 @@ class TestFilterOutlierMethods:
     def test_high_outlier_excluded(self):
         """A method 20x the median should be excluded."""
         methods = {
-            "dcf": 50.0, "ev_fcf": 55.0,
-            "acquirers_multiple": 52.0, "shareholder_yield": 5000.0,
+            "dcf": 50.0,
+            "ev_fcf": 55.0,
+            "acquirers_multiple": 52.0,
+            "shareholder_yield": 5000.0,
         }
         filtered = _filter_outlier_methods(methods)
         assert "shareholder_yield" not in filtered
@@ -778,8 +752,10 @@ class TestFilterOutlierMethods:
     def test_all_methods_agree_kept(self):
         """When all methods are within 10x of median, all are kept."""
         methods = {
-            "dcf": 50.0, "ev_fcf": 55.0,
-            "acquirers_multiple": 48.0, "shareholder_yield": 60.0,
+            "dcf": 50.0,
+            "ev_fcf": 55.0,
+            "acquirers_multiple": 48.0,
+            "shareholder_yield": 60.0,
         }
         filtered = _filter_outlier_methods(methods)
         assert len(filtered) == 4
@@ -793,8 +769,10 @@ class TestFilterOutlierMethods:
     def test_low_outlier_excluded(self):
         """A method < 0.1x median should be excluded."""
         methods = {
-            "dcf": 50.0, "ev_fcf": 55.0,
-            "acquirers_multiple": 52.0, "shareholder_yield": 2.0,
+            "dcf": 50.0,
+            "ev_fcf": 55.0,
+            "acquirers_multiple": 52.0,
+            "shareholder_yield": 2.0,
         }
         filtered = _filter_outlier_methods(methods)
         assert "shareholder_yield" not in filtered
@@ -823,8 +801,10 @@ class TestLayer3CrossMethodConsistency:
     def test_outlier_method_excluded(self):
         """A method 20x the median should be excluded."""
         methods = {
-            "dcf": 50.0, "ev_fcf": 55.0,
-            "acquirers_multiple": 52.0, "shareholder_yield": 5000.0,
+            "dcf": 50.0,
+            "ev_fcf": 55.0,
+            "acquirers_multiple": 52.0,
+            "shareholder_yield": 5000.0,
         }
         filtered = _filter_outlier_methods(methods)
         assert "shareholder_yield" not in filtered
@@ -833,8 +813,10 @@ class TestLayer3CrossMethodConsistency:
     def test_all_methods_agree_kept(self):
         """When all methods are within 10x of median, all are kept."""
         methods = {
-            "dcf": 50.0, "ev_fcf": 55.0,
-            "acquirers_multiple": 48.0, "shareholder_yield": 60.0,
+            "dcf": 50.0,
+            "ev_fcf": 55.0,
+            "acquirers_multiple": 48.0,
+            "shareholder_yield": 60.0,
         }
         filtered = _filter_outlier_methods(methods)
         assert len(filtered) == 4
@@ -848,8 +830,10 @@ class TestLayer3CrossMethodConsistency:
     def test_low_outlier_excluded(self):
         """A method < 0.1x median should be excluded."""
         methods = {
-            "dcf": 50.0, "ev_fcf": 55.0,
-            "acquirers_multiple": 52.0, "shareholder_yield": 2.0,
+            "dcf": 50.0,
+            "ev_fcf": 55.0,
+            "acquirers_multiple": 52.0,
+            "shareholder_yield": 2.0,
         }
         filtered = _filter_outlier_methods(methods)
         assert "shareholder_yield" not in filtered
@@ -1083,7 +1067,7 @@ class TestInsufficientDataReason:
             period_end="2025-09-28",
             filing_date="2025-11-01",
             current_income=IncomeStatement(
-                revenue=Decimal("50000000"),   # $5/share (safe ratio)
+                revenue=Decimal("50000000"),  # $5/share (safe ratio)
                 gross_profit=Decimal("-10000000"),
                 ebit=Decimal("-20000000"),
                 net_income=Decimal("-30000000"),

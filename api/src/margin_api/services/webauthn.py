@@ -39,8 +39,7 @@ class WebAuthnService:
         challenge = secrets.token_urlsafe(32)
         existing = await self._get_existing_credentials(session, user_id)
         exclude_credentials = [
-            {"id": cred.credential_id, "type": "public-key"}
-            for cred in existing
+            {"id": cred.credential_id, "type": "public-key"} for cred in existing
         ]
 
         return {
@@ -55,7 +54,7 @@ class WebAuthnService:
             },
             "challenge": challenge,
             "pubKeyCredParams": [
-                {"type": "public-key", "alg": -7},   # ES256
+                {"type": "public-key", "alg": -7},  # ES256
                 {"type": "public-key", "alg": -257},  # RS256
             ],
             "excludeCredentials": exclude_credentials,
@@ -79,10 +78,7 @@ class WebAuthnService:
         """
         challenge = secrets.token_urlsafe(32)
         existing = await self._get_existing_credentials(session, user_id)
-        allow_credentials = [
-            {"id": cred.credential_id, "type": "public-key"}
-            for cred in existing
-        ]
+        allow_credentials = [{"id": cred.credential_id, "type": "public-key"} for cred in existing]
 
         return {
             "challenge": challenge,

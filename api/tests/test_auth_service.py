@@ -54,20 +54,14 @@ class TestRegisterUser:
 
     @pytest.mark.asyncio
     async def test_register_duplicate_email(self, auth_service, session):
-        await auth_service.register_user(
-            session, "alice", "alice@example.com", "Str0ng!Pass99"
-        )
+        await auth_service.register_user(session, "alice", "alice@example.com", "Str0ng!Pass99")
         with pytest.raises(ValueError, match="email"):
-            await auth_service.register_user(
-                session, "bob", "alice@example.com", "Str0ng!Pass99"
-            )
+            await auth_service.register_user(session, "bob", "alice@example.com", "Str0ng!Pass99")
 
     @pytest.mark.asyncio
     async def test_register_weak_password_too_short(self, auth_service, session):
         with pytest.raises(ValueError, match="12"):
-            await auth_service.register_user(
-                session, "alice", "alice@example.com", "Short1!"
-            )
+            await auth_service.register_user(session, "alice", "alice@example.com", "Short1!")
 
     @pytest.mark.asyncio
     async def test_register_weak_password_no_uppercase(self, auth_service, session):
@@ -106,9 +100,7 @@ class TestRegisterUser:
 class TestVerifyCredentials:
     @pytest.mark.asyncio
     async def test_verify_success(self, auth_service, session):
-        await auth_service.register_user(
-            session, "alice", "alice@example.com", "Str0ng!Pass99"
-        )
+        await auth_service.register_user(session, "alice", "alice@example.com", "Str0ng!Pass99")
         result = await auth_service.verify_credentials(
             session, "alice@example.com", "Str0ng!Pass99"
         )
@@ -119,12 +111,8 @@ class TestVerifyCredentials:
 
     @pytest.mark.asyncio
     async def test_verify_wrong_password(self, auth_service, session):
-        await auth_service.register_user(
-            session, "alice", "alice@example.com", "Str0ng!Pass99"
-        )
-        result = await auth_service.verify_credentials(
-            session, "alice@example.com", "WrongPass1!"
-        )
+        await auth_service.register_user(session, "alice", "alice@example.com", "Str0ng!Pass99")
+        result = await auth_service.verify_credentials(session, "alice@example.com", "WrongPass1!")
         assert result is None
 
     @pytest.mark.asyncio
@@ -136,28 +124,18 @@ class TestVerifyCredentials:
 
     @pytest.mark.asyncio
     async def test_failed_attempts_increment(self, auth_service, session):
-        await auth_service.register_user(
-            session, "alice", "alice@example.com", "Str0ng!Pass99"
-        )
-        await auth_service.verify_credentials(
-            session, "alice@example.com", "Wrong1!abcde"
-        )
-        await auth_service.verify_credentials(
-            session, "alice@example.com", "Wrong2!abcde"
-        )
+        await auth_service.register_user(session, "alice", "alice@example.com", "Str0ng!Pass99")
+        await auth_service.verify_credentials(session, "alice@example.com", "Wrong1!abcde")
+        await auth_service.verify_credentials(session, "alice@example.com", "Wrong2!abcde")
         stmt = select(User).where(User.email == "alice@example.com")
         user = (await session.execute(stmt)).scalar_one()
         assert user.failed_login_attempts == 2
 
     @pytest.mark.asyncio
     async def test_lockout_after_five_failures(self, auth_service, session):
-        await auth_service.register_user(
-            session, "alice", "alice@example.com", "Str0ng!Pass99"
-        )
+        await auth_service.register_user(session, "alice", "alice@example.com", "Str0ng!Pass99")
         for _ in range(5):
-            await auth_service.verify_credentials(
-                session, "alice@example.com", "Wrong1!abcde"
-            )
+            await auth_service.verify_credentials(session, "alice@example.com", "Wrong1!abcde")
         stmt = select(User).where(User.email == "alice@example.com")
         user = (await session.execute(stmt)).scalar_one()
         assert user.locked_until is not None
@@ -169,16 +147,10 @@ class TestVerifyCredentials:
 
     @pytest.mark.asyncio
     async def test_reset_on_success(self, auth_service, session):
-        await auth_service.register_user(
-            session, "alice", "alice@example.com", "Str0ng!Pass99"
-        )
+        await auth_service.register_user(session, "alice", "alice@example.com", "Str0ng!Pass99")
         # Build up some failures
-        await auth_service.verify_credentials(
-            session, "alice@example.com", "Wrong1!abcde"
-        )
-        await auth_service.verify_credentials(
-            session, "alice@example.com", "Wrong2!abcde"
-        )
+        await auth_service.verify_credentials(session, "alice@example.com", "Wrong1!abcde")
+        await auth_service.verify_credentials(session, "alice@example.com", "Wrong2!abcde")
         # Succeed
         result = await auth_service.verify_credentials(
             session, "alice@example.com", "Str0ng!Pass99"
@@ -190,9 +162,7 @@ class TestVerifyCredentials:
 
     @pytest.mark.asyncio
     async def test_lockout_expires(self, auth_service, session):
-        await auth_service.register_user(
-            session, "alice", "alice@example.com", "Str0ng!Pass99"
-        )
+        await auth_service.register_user(session, "alice", "alice@example.com", "Str0ng!Pass99")
         # Lock user manually with expired time
         stmt = select(User).where(User.email == "alice@example.com")
         user = (await session.execute(stmt)).scalar_one()
@@ -246,9 +216,7 @@ class TestChallengeToken:
         user = await auth_service.register_user(
             session, "alice", "alice@example.com", "Str0ng!Pass99"
         )
-        raw_token = await auth_service.create_challenge_token(
-            session, user.id, ttl_minutes=0
-        )
+        raw_token = await auth_service.create_challenge_token(session, user.id, ttl_minutes=0)
         # Manually expire the token
         stmt = select(MfaChallengeToken).where(MfaChallengeToken.user_id == user.id)
         token_row = (await session.execute(stmt)).scalar_one()

@@ -48,9 +48,8 @@ class FakeUniverseProvider:
         self._start_date = start_date
 
     def get_scores(self, as_of_date: date) -> list[ScoredStock]:
-        months = (
-            (as_of_date.year - self._start_date.year) * 12
-            + (as_of_date.month - self._start_date.month)
+        months = (as_of_date.year - self._start_date.year) * 12 + (
+            as_of_date.month - self._start_date.month
         )
         price = self._base_price * (1 + self._monthly_return) ** months
         return [
@@ -77,9 +76,8 @@ class FakeBenchmarkProvider:
         self._start_date = start_date
 
     def get_price(self, ticker: str, as_of_date: date) -> float:
-        months = (
-            (as_of_date.year - self._start_date.year) * 12
-            + (as_of_date.month - self._start_date.month)
+        months = (as_of_date.year - self._start_date.year) * 12 + (
+            as_of_date.month - self._start_date.month
         )
         return self._base_price * (1 + self._monthly_return) ** months
 
@@ -321,8 +319,13 @@ class TestMethodologyComparisonFlow:
         gate = ValidationGate()
         comparison = gate.compare_methodologies(old_metrics, new_metrics)
 
-        expected_metrics = {"excess_cagr", "sharpe_ratio", "sortino_ratio", "max_drawdown",
-                            "win_rate"}
+        expected_metrics = {
+            "excess_cagr",
+            "sharpe_ratio",
+            "sortino_ratio",
+            "max_drawdown",
+            "win_rate",
+        }
         assert set(comparison.metrics_compared) == expected_metrics
 
     def test_ties_counted(self):
@@ -457,6 +460,7 @@ class TestExportVerification:
             PerformanceMetrics,
             RebalanceFrequency,
         )
+
         # Verify they are real classes
         assert BacktestConfig is not None
         assert BacktestResult is not None
@@ -469,6 +473,7 @@ class TestExportVerification:
 
     def test_metrics_importable(self):
         from margin_engine.backtesting import PerformanceCalculator
+
         assert PerformanceCalculator is not None
 
     def test_simulator_importable(self):
@@ -476,6 +481,7 @@ class TestExportVerification:
             ScoredStock,
             WalkForwardSimulator,
         )
+
         assert BenchmarkProvider is not None
         assert ScoredStock is not None
         assert ScoredUniverseProvider is not None
@@ -483,11 +489,13 @@ class TestExportVerification:
 
     def test_validation_importable(self):
         from margin_engine.backtesting import MethodologyComparison, ValidationGate
+
         assert MethodologyComparison is not None
         assert ValidationGate is not None
 
     def test_all_exports_in_dunder_all(self):
         import margin_engine.backtesting as bt
+
         expected = {
             "BacktestConfig",
             "BacktestResult",
@@ -518,6 +526,7 @@ class TestTopLevelAccess:
 
     def test_import_backtesting_from_engine(self):
         from margin_engine import backtesting
+
         assert hasattr(backtesting, "WalkForwardSimulator")
         assert hasattr(backtesting, "PerformanceCalculator")
         assert hasattr(backtesting, "ValidationGate")
@@ -525,4 +534,5 @@ class TestTopLevelAccess:
 
     def test_backtesting_in_engine_all(self):
         import margin_engine
+
         assert "backtesting" in margin_engine.__all__

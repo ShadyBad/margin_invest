@@ -61,20 +61,34 @@ def compute_scenario_iv(
     """
     if base_fcf <= 0 or shares_outstanding <= 0:
         return ScenarioIV(
-            bear_iv=0.0, base_iv=0.0, bull_iv=0.0,
-            weighted_iv=0.0, confidence=0.0, range_pct=0.0,
+            bear_iv=0.0,
+            base_iv=0.0,
+            bull_iv=0.0,
+            weighted_iv=0.0,
+            confidence=0.0,
+            range_pct=0.0,
         )
 
     bear_total = _two_stage_dcf(
-        base_fcf, base_growth - growth_spread, wacc + wacc_spread,
-        terminal_growth, projection_years,
+        base_fcf,
+        base_growth - growth_spread,
+        wacc + wacc_spread,
+        terminal_growth,
+        projection_years,
     )
     base_total = _two_stage_dcf(
-        base_fcf, base_growth, wacc, terminal_growth, projection_years,
+        base_fcf,
+        base_growth,
+        wacc,
+        terminal_growth,
+        projection_years,
     )
     bull_total = _two_stage_dcf(
-        base_fcf, base_growth + growth_spread, wacc - wacc_spread,
-        terminal_growth, projection_years,
+        base_fcf,
+        base_growth + growth_spread,
+        wacc - wacc_spread,
+        terminal_growth,
+        projection_years,
     )
 
     bear_iv = max(bear_total / shares_outstanding, 0.0)
@@ -91,7 +105,10 @@ def compute_scenario_iv(
         confidence = 0.0
 
     return ScenarioIV(
-        bear_iv=bear_iv, base_iv=base_iv, bull_iv=bull_iv,
-        weighted_iv=weighted_iv, confidence=min(confidence, 1.0),
+        bear_iv=bear_iv,
+        base_iv=base_iv,
+        bull_iv=bull_iv,
+        weighted_iv=weighted_iv,
+        confidence=min(confidence, 1.0),
         range_pct=range_pct,
     )

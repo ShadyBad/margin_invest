@@ -40,9 +40,7 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
     """
     try:
         # 1. Load Asset
-        result = await session.execute(
-            select(Asset).where(Asset.ticker == ticker)
-        )
+        result = await session.execute(select(Asset).where(Asset.ticker == ticker))
         asset = result.scalar_one_or_none()
         if asset is None:
             logger.warning("Asset not found for ticker: %s", ticker)
@@ -113,9 +111,7 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
             actual_price=composite.actual_price,
             price_target_invalid_reason=composite.price_target_invalid_reason,
             opportunity_type=(
-                composite.opportunity_type.value
-                if composite.opportunity_type
-                else None
+                composite.opportunity_type.value if composite.opportunity_type else None
             ),
             winning_track=composite.winning_track,
             asymmetry_ratio=composite.asymmetry_ratio,
@@ -193,9 +189,7 @@ async def rotate_platform_keys(
     for old_key in old_keys:
         # Set overlap window on old key
         old_key.expires_at = datetime.now(UTC) + timedelta(hours=_OVERLAP_HOURS)
-        session.add(
-            ApiKeyEvent(api_key_id=old_key.id, event_type="rotated")
-        )
+        session.add(ApiKeyEvent(api_key_id=old_key.id, event_type="rotated"))
 
         # Create new key with same plaintext
         plaintext = service.decrypt(old_key.encrypted_key)

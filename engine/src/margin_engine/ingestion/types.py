@@ -94,30 +94,20 @@ class DataProvider(ABC):
 
     def fetch_fundamentals(self, ticker: str) -> FetchResult:
         """Fetch fundamental financial data for a ticker."""
-        raise NotImplementedError(
-            f"{self.info.name} does not support fetch_fundamentals"
-        )
+        raise NotImplementedError(f"{self.info.name} does not support fetch_fundamentals")
 
     def fetch_price_history(self, ticker: str, days: int = 365) -> FetchResult:
         """Fetch historical price data for a ticker."""
-        raise NotImplementedError(
-            f"{self.info.name} does not support fetch_price_history"
-        )
+        raise NotImplementedError(f"{self.info.name} does not support fetch_price_history")
 
     def fetch_insider_transactions(self, ticker: str) -> FetchResult:
         """Fetch insider transaction data for a ticker."""
-        raise NotImplementedError(
-            f"{self.info.name} does not support fetch_insider_transactions"
-        )
+        raise NotImplementedError(f"{self.info.name} does not support fetch_insider_transactions")
 
     def fetch_institutional_holdings(self, ticker: str) -> FetchResult:
         """Fetch institutional holdings data for a ticker."""
-        raise NotImplementedError(
-            f"{self.info.name} does not support fetch_institutional_holdings"
-        )
+        raise NotImplementedError(f"{self.info.name} does not support fetch_institutional_holdings")
 
     def fetch_earnings(self, ticker: str) -> FetchResult:
         """Fetch earnings data for a ticker."""
-        raise NotImplementedError(
-            f"{self.info.name} does not support fetch_earnings"
-        )
+        raise NotImplementedError(f"{self.info.name} does not support fetch_earnings")

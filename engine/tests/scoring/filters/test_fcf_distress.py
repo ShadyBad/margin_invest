@@ -288,9 +288,7 @@ class TestFCFDistressV2MultiYear:
     def test_fcf_distress_cyclical_consumer_discretionary(self):
         """Consumer Discretionary sector also uses cyclical relaxation."""
         history = _make_history([100, -50, -200, -30, 150])
-        result = fcf_distress_check_v2(
-            history, sector=GICSSector.CONSUMER_DISCRETIONARY
-        )
+        result = fcf_distress_check_v2(history, sector=GICSSector.CONSUMER_DISCRETIONARY)
         assert result.passed is True
 
     def test_fcf_distress_cyclical_still_fails_with_1_of_5(self):

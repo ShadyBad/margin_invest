@@ -31,9 +31,7 @@ SECTOR_COLORS: dict[str, str] = {
     "Consumer Staples": "#8e8440",
 }
 
-DEFAULT_DNA = DNAResponse(
-    base="#0f0d0b", mid="#1a5a3e", accent="#1a7a5a", density=0.5, tempo=1.0
-)
+DEFAULT_DNA = DNAResponse(base="#0f0d0b", mid="#1a5a3e", accent="#1a7a5a", density=0.5, tempo=1.0)
 
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
@@ -76,11 +74,7 @@ def compute_dna(
     -------
     DNAResponse with blended colors, density, and tempo.
     """
-    entries = [
-        (sector, w)
-        for sector, w in sector_weights.items()
-        if sector in SECTOR_COLORS
-    ]
+    entries = [(sector, w) for sector, w in sector_weights.items() if sector in SECTOR_COLORS]
     if not entries:
         return DEFAULT_DNA
 

@@ -101,12 +101,10 @@ def altman_z_score(
     passed = z_score >= threshold
 
     components = (
-        f"WC/TA={wc_ta:.4f}, RE/TA={re_ta:.4f}, "
-        f"EBIT/TA={ebit_ta:.4f}, Equity/TL={equity_tl:.4f}"
+        f"WC/TA={wc_ta:.4f}, RE/TA={re_ta:.4f}, EBIT/TA={ebit_ta:.4f}, Equity/TL={equity_tl:.4f}"
     )
     detail = (
-        f"Z''={z_score:.4f} ({'PASS' if passed else 'FAIL'}, "
-        f"threshold={threshold}). {components}"
+        f"Z''={z_score:.4f} ({'PASS' if passed else 'FAIL'}, threshold={threshold}). {components}"
     )
 
     return FilterResult(

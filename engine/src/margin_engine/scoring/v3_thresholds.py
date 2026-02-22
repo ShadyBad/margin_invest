@@ -56,8 +56,14 @@ def assess_track_a_conviction(
             remain within that buffer, the prior conviction is retained.
             Hysteresis only prevents demotion, never prevents promotion.
     """
-    computed = _compute_track_a(gates_passed, total_gates, compounding_power,
-                                moat_durability, growth_gap, growth_gap_adjustment)
+    computed = _compute_track_a(
+        gates_passed,
+        total_gates,
+        compounding_power,
+        moat_durability,
+        growth_gap,
+        growth_gap_adjustment,
+    )
 
     if prior_conviction is None:
         return computed
@@ -67,8 +73,9 @@ def assess_track_a_conviction(
         return computed
 
     # Prior is higher than computed — check if within buffer
-    if _within_buffer_track_a(prior_conviction, compounding_power,
-                              moat_durability, growth_gap, growth_gap_adjustment):
+    if _within_buffer_track_a(
+        prior_conviction, compounding_power, moat_durability, growth_gap, growth_gap_adjustment
+    ):
         return prior_conviction
 
     return computed

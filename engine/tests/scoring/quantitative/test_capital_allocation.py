@@ -33,19 +33,23 @@ def _make_period(
         period_end=f"{year}-12-31",
         filing_date=f"{year + 1}-02-15",
         current_income=IncomeStatement(
-            revenue=Decimal("1000"), ebit=ebit,
+            revenue=Decimal("1000"),
+            ebit=ebit,
             depreciation=depreciation,
             net_income=ebit * Decimal("0.79"),
             shares_outstanding=shares_outstanding,
         ),
         current_balance=BalanceSheet(
-            total_assets=Decimal("2000"), total_equity=Decimal("800"),
+            total_assets=Decimal("2000"),
+            total_equity=Decimal("800"),
             long_term_debt=long_term_debt,
             shares_outstanding=shares_outstanding,
         ),
         current_cash_flow=CashFlowStatement(
-            operating_cash_flow=cfo, capital_expenditures=capex,
-            dividends_paid=dividends, share_repurchases=share_repurchases,
+            operating_cash_flow=cfo,
+            capital_expenditures=capex,
+            dividends_paid=dividends,
+            share_repurchases=share_repurchases,
         ),
     )
 
@@ -113,6 +117,7 @@ class TestSbcDilutionTax:
     def test_low_sbc_good_score(self):
         """SBC < 3% of revenue -> low dilution."""
         from margin_engine.scoring.quantitative.capital_allocation import sbc_dilution_tax
+
         result = sbc_dilution_tax(
             sbc_amount=Decimal("30"),
             revenue=Decimal("1000"),
@@ -123,6 +128,7 @@ class TestSbcDilutionTax:
     def test_high_sbc_bad_score(self):
         """SBC > 10% of revenue -> heavy dilution."""
         from margin_engine.scoring.quantitative.capital_allocation import sbc_dilution_tax
+
         result = sbc_dilution_tax(
             sbc_amount=Decimal("120"),
             revenue=Decimal("1000"),
@@ -131,6 +137,7 @@ class TestSbcDilutionTax:
 
     def test_zero_revenue(self):
         from margin_engine.scoring.quantitative.capital_allocation import sbc_dilution_tax
+
         result = sbc_dilution_tax(
             sbc_amount=Decimal("30"),
             revenue=Decimal("0"),
@@ -142,6 +149,7 @@ class TestMaDiscipline:
     def test_roic_stable_after_acquisition(self):
         """ROIC doesn't decline after acquisition -> good discipline."""
         from margin_engine.scoring.quantitative.capital_allocation import ma_discipline
+
         result = ma_discipline(
             roic_before_acquisition=0.20,
             roic_after_acquisition=0.22,
@@ -152,6 +160,7 @@ class TestMaDiscipline:
     def test_roic_declines_after_acquisition(self):
         """ROIC declines after acquisition -> bad discipline."""
         from margin_engine.scoring.quantitative.capital_allocation import ma_discipline
+
         result = ma_discipline(
             roic_before_acquisition=0.20,
             roic_after_acquisition=0.12,
@@ -161,6 +170,7 @@ class TestMaDiscipline:
     def test_no_acquisition(self):
         """No acquisition data -> neutral."""
         from margin_engine.scoring.quantitative.capital_allocation import ma_discipline
+
         result = ma_discipline(
             roic_before_acquisition=None,
             roic_after_acquisition=None,

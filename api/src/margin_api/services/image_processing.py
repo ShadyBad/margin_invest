@@ -54,16 +54,12 @@ def validate_image(data: bytes, content_type: str) -> None:
 
     # 2. File size
     if len(data) > MAX_SIZE:
-        raise InvalidImageError(
-            f"File size ({len(data)} bytes) exceeds maximum ({MAX_SIZE} bytes)"
-        )
+        raise InvalidImageError(f"File size ({len(data)} bytes) exceeds maximum ({MAX_SIZE} bytes)")
 
     # 3. Magic-byte check
     expected_prefix = _MAGIC_BYTES[content_type]
     if not data[: len(expected_prefix)].startswith(expected_prefix):
-        raise InvalidImageError(
-            f"File header does not match declared content type {content_type}"
-        )
+        raise InvalidImageError(f"File header does not match declared content type {content_type}")
 
     # 4. Pillow decode check
     try:

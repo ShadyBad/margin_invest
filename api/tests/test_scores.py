@@ -318,9 +318,7 @@ class TestMalformedScoreDetail:
 
         app.dependency_overrides[get_db] = override_get_db
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as ac:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             resp = await ac.get("/api/v1/scores/BROKEN")
 
         assert resp.status_code == 200  # Not 500!

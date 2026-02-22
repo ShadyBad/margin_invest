@@ -82,8 +82,8 @@ def dcf_margin_of_safety(
 
     # Stage 2: Terminal value and its present value
     final_year_fcf = fcf_0_float * (1 + growth_rate) ** projection_years
-    terminal_value = final_year_fcf * (1 + terminal_growth_rate) / (
-        discount_rate - terminal_growth_rate
+    terminal_value = (
+        final_year_fcf * (1 + terminal_growth_rate) / (discount_rate - terminal_growth_rate)
     )
     pv_terminal = terminal_value / (1 + discount_rate) ** projection_years
 

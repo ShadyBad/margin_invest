@@ -237,6 +237,7 @@ class TestBeneishWithConfig:
 # Helper to build multi-period FinancialHistory for v2 tests
 # ---------------------------------------------------------------------------
 
+
 def _make_period(
     period_end: str,
     revenue_current: int,
@@ -327,16 +328,37 @@ class TestBeneishMScoreV2:
         # Build 3 periods, each with prior data -> 3 computable M-Scores
         periods = [
             _make_period(
-                "2022-09-30", 1000, 900, 100, 90, 2000, 1800,
-                net_income=150, operating_cf=180,
+                "2022-09-30",
+                1000,
+                900,
+                100,
+                90,
+                2000,
+                1800,
+                net_income=150,
+                operating_cf=180,
             ),
             _make_period(
-                "2023-09-30", 1100, 1000, 110, 100, 2200, 2000,
-                net_income=160, operating_cf=190,
+                "2023-09-30",
+                1100,
+                1000,
+                110,
+                100,
+                2200,
+                2000,
+                net_income=160,
+                operating_cf=190,
             ),
             _make_period(
-                "2024-09-30", 1200, 1100, 120, 110, 2400, 2200,
-                net_income=170, operating_cf=200,
+                "2024-09-30",
+                1200,
+                1100,
+                120,
+                110,
+                2400,
+                2200,
+                net_income=170,
+                operating_cf=200,
             ),
         ]
         history = FinancialHistory(ticker="TEST", periods=periods)
@@ -356,8 +378,16 @@ class TestBeneishMScoreV2:
     def test_beneish_inconclusive_no_prior(self):
         """Single period with no prior -> INCONCLUSIVE."""
         period = _make_period(
-            "2024-09-30", 1000, None, 100, None, 2000, None,
-            net_income=150, operating_cf=180, has_prior=False,
+            "2024-09-30",
+            1000,
+            None,
+            100,
+            None,
+            2000,
+            None,
+            net_income=150,
+            operating_cf=180,
+            has_prior=False,
         )
         history = FinancialHistory(ticker="TEST", periods=[period])
         result = beneish_m_score_v2(history)
@@ -374,19 +404,43 @@ class TestBeneishMScoreV2:
         # Achieve this by increasing receivables ratio and accruals over time
         periods = [
             _make_period(
-                "2022-09-30", 1000, 900, 80, 72, 2000, 1800,
-                net_income=150, operating_cf=200,
-                gross_profit_current=500, gross_profit_prior=450,
+                "2022-09-30",
+                1000,
+                900,
+                80,
+                72,
+                2000,
+                1800,
+                net_income=150,
+                operating_cf=200,
+                gross_profit_current=500,
+                gross_profit_prior=450,
             ),
             _make_period(
-                "2023-09-30", 1100, 1000, 150, 80, 2200, 2000,
-                net_income=180, operating_cf=160,  # accruals getting worse
-                gross_profit_current=500, gross_profit_prior=500,
+                "2023-09-30",
+                1100,
+                1000,
+                150,
+                80,
+                2200,
+                2000,
+                net_income=180,
+                operating_cf=160,  # accruals getting worse
+                gross_profit_current=500,
+                gross_profit_prior=500,
             ),
             _make_period(
-                "2024-09-30", 1200, 1100, 280, 150, 2400, 2200,
-                net_income=250, operating_cf=100,  # accruals much worse
-                gross_profit_current=480, gross_profit_prior=500,
+                "2024-09-30",
+                1200,
+                1100,
+                280,
+                150,
+                2400,
+                2200,
+                net_income=250,
+                operating_cf=100,  # accruals much worse
+                gross_profit_current=480,
+                gross_profit_prior=500,
             ),
         ]
         history = FinancialHistory(ticker="TEST", periods=periods)
@@ -414,15 +468,31 @@ class TestBeneishMScoreV2:
         periods = [
             # Period 1: normal company
             _make_period(
-                "2022-09-30", 1000, 900, 100, 90, 2000, 1800,
-                net_income=150, operating_cf=180,
-                gross_profit_current=500, gross_profit_prior=450,
+                "2022-09-30",
+                1000,
+                900,
+                100,
+                90,
+                2000,
+                1800,
+                net_income=150,
+                operating_cf=180,
+                gross_profit_current=500,
+                gross_profit_prior=450,
             ),
             # Period 2: heavy manipulation signals
             _make_period(
-                "2023-09-30", 1200, 1000, 480, 100, 2000, 1800,
-                net_income=400, operating_cf=50,  # huge accruals
-                gross_profit_current=300, gross_profit_prior=500,
+                "2023-09-30",
+                1200,
+                1000,
+                480,
+                100,
+                2000,
+                1800,
+                net_income=400,
+                operating_cf=50,  # huge accruals
+                gross_profit_current=300,
+                gross_profit_prior=500,
             ),
         ]
         history = FinancialHistory(ticker="MANIP", periods=periods)
@@ -437,12 +507,28 @@ class TestBeneishMScoreV2:
         """Multiple periods but none have prior data -> INCONCLUSIVE."""
         periods = [
             _make_period(
-                "2022-09-30", 1000, None, 100, None, 2000, None,
-                net_income=150, operating_cf=180, has_prior=False,
+                "2022-09-30",
+                1000,
+                None,
+                100,
+                None,
+                2000,
+                None,
+                net_income=150,
+                operating_cf=180,
+                has_prior=False,
             ),
             _make_period(
-                "2023-09-30", 1100, None, 110, None, 2200, None,
-                net_income=160, operating_cf=190, has_prior=False,
+                "2023-09-30",
+                1100,
+                None,
+                110,
+                None,
+                2200,
+                None,
+                net_income=160,
+                operating_cf=190,
+                has_prior=False,
             ),
         ]
         history = FinancialHistory(ticker="TEST", periods=periods)
@@ -455,12 +541,26 @@ class TestBeneishMScoreV2:
         """Config threshold should be respected in v2."""
         periods = [
             _make_period(
-                "2022-09-30", 1000, 900, 100, 90, 2000, 1800,
-                net_income=150, operating_cf=180,
+                "2022-09-30",
+                1000,
+                900,
+                100,
+                90,
+                2000,
+                1800,
+                net_income=150,
+                operating_cf=180,
             ),
             _make_period(
-                "2023-09-30", 1100, 1000, 110, 100, 2200, 2000,
-                net_income=160, operating_cf=190,
+                "2023-09-30",
+                1100,
+                1000,
+                110,
+                100,
+                2200,
+                2000,
+                net_income=160,
+                operating_cf=190,
             ),
         ]
         history = FinancialHistory(ticker="TEST", periods=periods)
@@ -480,19 +580,43 @@ class TestBeneishMScoreV2:
         # All periods have similar healthy data -> stable M-Scores
         periods = [
             _make_period(
-                "2022-09-30", 1000, 900, 100, 90, 2000, 1800,
-                net_income=150, operating_cf=180,
-                gross_profit_current=500, gross_profit_prior=450,
+                "2022-09-30",
+                1000,
+                900,
+                100,
+                90,
+                2000,
+                1800,
+                net_income=150,
+                operating_cf=180,
+                gross_profit_current=500,
+                gross_profit_prior=450,
             ),
             _make_period(
-                "2023-09-30", 1100, 1000, 110, 100, 2200, 2000,
-                net_income=165, operating_cf=198,
-                gross_profit_current=550, gross_profit_prior=500,
+                "2023-09-30",
+                1100,
+                1000,
+                110,
+                100,
+                2200,
+                2000,
+                net_income=165,
+                operating_cf=198,
+                gross_profit_current=550,
+                gross_profit_prior=500,
             ),
             _make_period(
-                "2024-09-30", 1200, 1100, 120, 110, 2400, 2200,
-                net_income=180, operating_cf=216,
-                gross_profit_current=600, gross_profit_prior=550,
+                "2024-09-30",
+                1200,
+                1100,
+                120,
+                110,
+                2400,
+                2200,
+                net_income=180,
+                operating_cf=216,
+                gross_profit_current=600,
+                gross_profit_prior=550,
             ),
         ]
         history = FinancialHistory(ticker="TEST", periods=periods)

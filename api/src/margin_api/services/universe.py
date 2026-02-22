@@ -1,4 +1,5 @@
 """Universe management service."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

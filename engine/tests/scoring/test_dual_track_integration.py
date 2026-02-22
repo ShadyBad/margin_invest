@@ -49,12 +49,8 @@ def _costco_value_scores_a() -> list[FactorScore]:
 def _costco_cap_alloc_scores() -> list[FactorScore]:
     """Track A capital allocation sub-factors."""
     return [
-        FactorScore(
-            name="organic_reinvestment", raw_value=0.70, percentile_rank=88.0, weight=0.30
-        ),
-        FactorScore(
-            name="buyback_effectiveness", raw_value=1.2, percentile_rank=75.0, weight=0.25
-        ),
+        FactorScore(name="organic_reinvestment", raw_value=0.70, percentile_rank=88.0, weight=0.30),
+        FactorScore(name="buyback_effectiveness", raw_value=1.2, percentile_rank=75.0, weight=0.25),
         FactorScore(name="insider_ownership", raw_value=0.03, percentile_rank=70.0, weight=0.25),
         FactorScore(name="debt_discipline", raw_value=0.25, percentile_rank=82.0, weight=0.20),
     ]
@@ -292,9 +288,7 @@ class TestMispricingDominantScenario:
                 FactorScore(
                     name="acquirers_multiple", raw_value=8.0, percentile_rank=70.0, weight=0.20
                 ),
-                FactorScore(
-                    name="runway_score", raw_value=0.50, percentile_rank=55.0, weight=0.25
-                ),
+                FactorScore(name="runway_score", raw_value=0.50, percentile_rank=55.0, weight=0.25),
             ],
             capital_allocation_scores=[
                 FactorScore(

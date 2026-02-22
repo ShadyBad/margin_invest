@@ -184,10 +184,7 @@ def fcf_distress_check_v2(
 
     if not count_passed:
         # Check 3: Positive trend rescue
-        if (
-            config.allow_positive_trend_rescue
-            and consecutive_improving >= 2
-        ):
+        if config.allow_positive_trend_rescue and consecutive_improving >= 2:
             count_passed = True
             warning = True
             warning_reason = (
@@ -204,10 +201,7 @@ def fcf_distress_check_v2(
         latest_ocf = float(latest_period.current_cash_flow.operating_cash_flow)
         gross_margins = [p.current_income.gross_margin for p in periods]
         median_gross_margin = statistics.median(gross_margins) if gross_margins else 0.0
-        if (
-            latest_ocf > 0
-            and median_gross_margin > config.growth_ocf_rescue_min_gross_margin
-        ):
+        if latest_ocf > 0 and median_gross_margin > config.growth_ocf_rescue_min_gross_margin:
             count_passed = True
             warning = True
             warning_reason = (

@@ -27,9 +27,7 @@ async def setup():
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with factory() as session:
-        user = await _auth.register_user(
-            session, "testuser", "test@example.com", "OldPassword1!"
-        )
+        user = await _auth.register_user(session, "testuser", "test@example.com", "OldPassword1!")
         user_id = user.id
 
     app = create_app()
@@ -135,11 +133,7 @@ class TestChangePassword:
                 },
             )
         async with factory() as session:
-            user = (
-                await session.execute(
-                    select(User).where(User.id == user_id)
-                )
-            ).scalar_one()
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
             assert user.password_changed_at is not None
 
     @pytest.mark.asyncio
@@ -155,9 +149,7 @@ class TestChangePassword:
                 },
             )
         async with factory() as session:
-            result = await _auth.verify_credentials(
-                session, "test@example.com", "NewPassword2@"
-            )
+            result = await _auth.verify_credentials(session, "test@example.com", "NewPassword2@")
             assert result is not None
             assert result["id"] == user_id
 

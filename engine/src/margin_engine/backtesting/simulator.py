@@ -115,9 +115,7 @@ class WalkForwardSimulator:
             turnover = self._calculate_turnover(prev_holdings, new_holdings)
 
             # 5. Calculate transaction costs
-            transaction_costs = portfolio_value * (
-                turnover * self._config.total_cost_bps / 10_000
-            )
+            transaction_costs = portfolio_value * (turnover * self._config.total_cost_bps / 10_000)
 
             # 6. Deduct transaction costs from portfolio value
             portfolio_value_after_costs = portfolio_value - transaction_costs
@@ -139,16 +137,16 @@ class WalkForwardSimulator:
                 prev_portfolio_value = snapshots[i - 1].portfolio_value
                 if prev_portfolio_value > 0:
                     portfolio_return = (
-                        (portfolio_value_after_costs - prev_portfolio_value) / prev_portfolio_value
-                    )
+                        portfolio_value_after_costs - prev_portfolio_value
+                    ) / prev_portfolio_value
                 else:
                     portfolio_return = 0.0
 
                 prev_benchmark_value = snapshots[i - 1].benchmark_value
                 if prev_benchmark_value > 0:
                     benchmark_return = (
-                        (benchmark_value - prev_benchmark_value) / prev_benchmark_value
-                    )
+                        benchmark_value - prev_benchmark_value
+                    ) / prev_benchmark_value
                 else:
                     benchmark_return = 0.0
 
@@ -281,6 +279,7 @@ class WalkForwardSimulator:
 
         def sort_key(s):
             return (-s.composite_score, -(s.margin_of_safety or 0), s.ticker)
+
         eligible_exceptional.sort(key=sort_key)
         eligible_high.sort(key=sort_key)
 
@@ -348,9 +347,7 @@ class WalkForwardSimulator:
             if score_map and holding.ticker in score_map:
                 current_price = score_map[holding.ticker]
             else:
-                current_price = self._benchmark_provider.get_price(
-                    holding.ticker, current_date
-                )
+                current_price = self._benchmark_provider.get_price(holding.ticker, current_date)
             if holding.entry_price > 0:
                 stock_return = (current_price / holding.entry_price) - 1.0
                 total_return += holding.weight * stock_return

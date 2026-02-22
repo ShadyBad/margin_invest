@@ -1,4 +1,5 @@
 """Universe screener — discover US equities via yfinance."""
+
 from __future__ import annotations
 
 import logging
@@ -78,8 +79,11 @@ def screen_us_equities(
 
         # First page to get total
         response = yf.screen(
-            query, sortField="intradaymarketcap", sortAsc=False,
-            size=_PAGE_SIZE, offset=0,
+            query,
+            sortField="intradaymarketcap",
+            sortAsc=False,
+            size=_PAGE_SIZE,
+            offset=0,
         )
         sector_total = response.get("total", 0)
         logger.info("  %s: %d tickers", sector, sector_total)
@@ -88,8 +92,11 @@ def screen_us_equities(
         while offset < sector_total:
             if offset > 0:
                 response = yf.screen(
-                    query, sortField="intradaymarketcap", sortAsc=False,
-                    size=_PAGE_SIZE, offset=offset,
+                    query,
+                    sortField="intradaymarketcap",
+                    sortAsc=False,
+                    size=_PAGE_SIZE,
+                    offset=offset,
                 )
 
             quotes = response.get("quotes", [])
@@ -109,13 +116,15 @@ def screen_us_equities(
                         foreign_skipped += 1
                         continue
 
-                results.append({
-                    "ticker": symbol,
-                    "name": q.get("shortName") or q.get("longName") or symbol,
-                    "market_cap": q.get("marketCap", 0),
-                    "avg_volume": q.get("averageDailyVolume3Month", 0),
-                    "sector": sector,
-                })
+                results.append(
+                    {
+                        "ticker": symbol,
+                        "name": q.get("shortName") or q.get("longName") or symbol,
+                        "market_cap": q.get("marketCap", 0),
+                        "avg_volume": q.get("averageDailyVolume3Month", 0),
+                        "sector": sector,
+                    }
+                )
 
             offset += _PAGE_SIZE
 
@@ -181,9 +190,10 @@ def filter_by_country(
             removed += 1
 
     logger.info(
-        "Country filter: kept %d, removed %d foreign-domiciled, "
-        "dropped %d with unknown country",
-        len(kept), removed, unknown,
+        "Country filter: kept %d, removed %d foreign-domiciled, dropped %d with unknown country",
+        len(kept),
+        removed,
+        unknown,
     )
     return kept
 

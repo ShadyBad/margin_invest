@@ -14,9 +14,7 @@ from margin_engine.scoring.composite_compounder import compute_compounder_score
 
 
 def _fs(name: str, percentile: float, weight: float | None = None) -> FactorScore:
-    return FactorScore(
-        name=name, raw_value=1.0, percentile_rank=percentile, weight=weight
-    )
+    return FactorScore(name=name, raw_value=1.0, percentile_rank=percentile, weight=weight)
 
 
 def _filter(name: str = "altman_z", passed: bool = True) -> FilterResult:

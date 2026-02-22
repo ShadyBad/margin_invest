@@ -301,9 +301,7 @@ async def check_session(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Internal endpoint called by NextAuth JWT callback to check if password was changed."""
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user or not user.password_changed_at:
         return {"password_changed_at": None}
@@ -527,9 +525,7 @@ async def unlink_provider(
 
     if user.has_password and not user.mfa_enabled:
         # Check grace period
-        if not user.mfa_grace_deadline or _ensure_utc(
-            user.mfa_grace_deadline
-        ) <= datetime.now(UTC):
+        if not user.mfa_grace_deadline or _ensure_utc(user.mfa_grace_deadline) <= datetime.now(UTC):
             raise HTTPException(
                 status_code=403,
                 detail="Set up MFA first",

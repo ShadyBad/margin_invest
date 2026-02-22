@@ -66,7 +66,8 @@ class TestFcfDistressStyleAware:
         ]
         history = FinancialHistory(ticker="TEST", periods=periods)
         result = fcf_distress_check_v2(
-            history, style=InvestmentStyle.GROWTH,
+            history,
+            style=InvestmentStyle.GROWTH,
         )
         assert result.passed is True
 
@@ -81,7 +82,8 @@ class TestFcfDistressStyleAware:
         ]
         history = FinancialHistory(ticker="TEST", periods=periods)
         result = fcf_distress_check_v2(
-            history, style=InvestmentStyle.VALUE,
+            history,
+            style=InvestmentStyle.VALUE,
         )
         assert result.passed is False
 
@@ -99,7 +101,8 @@ class TestFcfDistressStyleAware:
         ]
         history = FinancialHistory(ticker="TEST", periods=periods)
         result = fcf_distress_check_v2(
-            history, style=InvestmentStyle.GROWTH,
+            history,
+            style=InvestmentStyle.GROWTH,
         )
         # 1/5 positive < 2 required, but OCF rescue applies (latest has positive OCF + margin > 40%)
         assert result.passed is True
@@ -115,7 +118,8 @@ class TestFcfDistressStyleAware:
         ]
         history = FinancialHistory(ticker="TEST", periods=periods)
         result = fcf_distress_check_v2(
-            history, style=InvestmentStyle.GROWTH,
+            history,
+            style=InvestmentStyle.GROWTH,
         )
         # 1/5 positive < 2, low margin = no rescue
         assert result.passed is False

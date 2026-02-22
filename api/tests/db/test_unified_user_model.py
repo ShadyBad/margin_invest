@@ -269,17 +269,13 @@ class TestLinkedProviderModel:
 
     def test_unique_constraint_provider_oauth_id(self):
         constraint_names = [
-            c.name
-            for c in LinkedProvider.__table__.constraints
-            if hasattr(c, "name") and c.name
+            c.name for c in LinkedProvider.__table__.constraints if hasattr(c, "name") and c.name
         ]
         assert "uq_linked_providers_provider_oauth_id" in constraint_names
 
     def test_unique_constraint_user_provider(self):
         constraint_names = [
-            c.name
-            for c in LinkedProvider.__table__.constraints
-            if hasattr(c, "name") and c.name
+            c.name for c in LinkedProvider.__table__.constraints if hasattr(c, "name") and c.name
         ]
         assert "uq_linked_providers_user_id_provider" in constraint_names
 

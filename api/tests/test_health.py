@@ -63,33 +63,45 @@ class TestProductionGuard:
         get_settings.cache_clear()
 
     def test_production_with_localhost_raises(self):
-        with patch.dict(os.environ, {
-            "MARGIN_ENVIRONMENT": "production",
-            "MARGIN_DATABASE_URL": "postgresql+asyncpg://margin:margin_dev@localhost:5432/margin_invest",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "MARGIN_ENVIRONMENT": "production",
+                "MARGIN_DATABASE_URL": "postgresql+asyncpg://margin:margin_dev@localhost:5432/margin_invest",
+            },
+        ):
             with pytest.raises(RuntimeError, match="local address"):
                 create_app()
 
     def test_development_with_localhost_ok(self):
-        with patch.dict(os.environ, {
-            "MARGIN_ENVIRONMENT": "development",
-            "MARGIN_DATABASE_URL": "postgresql+asyncpg://margin:margin_dev@localhost:5432/margin_invest",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "MARGIN_ENVIRONMENT": "development",
+                "MARGIN_DATABASE_URL": "postgresql+asyncpg://margin:margin_dev@localhost:5432/margin_invest",
+            },
+        ):
             app = create_app()
             assert app is not None
 
     def test_production_with_ip_localhost_raises(self):
-        with patch.dict(os.environ, {
-            "MARGIN_ENVIRONMENT": "production",
-            "MARGIN_DATABASE_URL": "postgresql+asyncpg://margin:pass@127.0.0.1:5432/db",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "MARGIN_ENVIRONMENT": "production",
+                "MARGIN_DATABASE_URL": "postgresql+asyncpg://margin:pass@127.0.0.1:5432/db",
+            },
+        ):
             with pytest.raises(RuntimeError, match="local address"):
                 create_app()
 
     def test_production_with_remote_url_ok(self):
-        with patch.dict(os.environ, {
-            "MARGIN_ENVIRONMENT": "production",
-            "MARGIN_DATABASE_URL": "postgresql+asyncpg://user:pass@remote.host:5432/db?sslmode=require",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "MARGIN_ENVIRONMENT": "production",
+                "MARGIN_DATABASE_URL": "postgresql+asyncpg://user:pass@remote.host:5432/db?sslmode=require",
+            },
+        ):
             app = create_app()
             assert app is not None

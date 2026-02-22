@@ -5,6 +5,10 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from margin_engine.models.financial import PriceBar
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -81,7 +85,7 @@ async def _cache_to_redis(response: CorrelationResponse) -> None:
         logger.debug("Failed to cache showcase correlations to Redis")
 
 
-def _parse_bar(raw: dict):
+def _parse_bar(raw: dict) -> PriceBar | None:
     """Parse a price bar from yfinance-formatted JSONB."""
     from margin_engine.models.financial import PriceBar
 
@@ -105,7 +109,6 @@ async def _compute_live_showcase(db: AsyncSession) -> CorrelationResponse | None
     Returns None if fewer than 5 qualifying tickers have price data.
     """
     from margin_engine.correlation import compute_return_correlations
-    from margin_engine.models.financial import PriceBar
 
     # Get top tickers by composite_raw_score >= 72.0 (High conviction)
     stmt = (

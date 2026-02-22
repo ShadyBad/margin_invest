@@ -135,9 +135,7 @@ def compute_allocation_weight(conviction: str, volatility: float | None) -> floa
     Base weights: exceptional=8%, high=5%, moderate=3%, medium=2%.
     Volatility scaling: >40% halves weight, 25-40% applies 0.75x.
     """
-    base = {"exceptional": 8.0, "high": 5.0, "moderate": 3.0, "medium": 2.0}.get(
-        conviction, 2.0
-    )
+    base = {"exceptional": 8.0, "high": 5.0, "moderate": 3.0, "medium": 2.0}.get(conviction, 2.0)
     if volatility is not None:
         if volatility > 40:
             base *= 0.5

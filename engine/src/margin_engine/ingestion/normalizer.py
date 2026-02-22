@@ -75,9 +75,7 @@ def normalize_income_statement(raw: dict) -> IncomeStatement:
     - etc.
     """
     return IncomeStatement(
-        revenue=_get_decimal(
-            raw, "revenue", "totalRevenue", "total_revenue", "Total Revenue"
-        ),
+        revenue=_get_decimal(raw, "revenue", "totalRevenue", "total_revenue", "Total Revenue"),
         cost_of_revenue=_get_decimal(
             raw,
             "costOfRevenue",
@@ -86,9 +84,7 @@ def normalize_income_statement(raw: dict) -> IncomeStatement:
             "costOfGoodsSold",
             "Cost Of Revenue",
         ),
-        gross_profit=_get_decimal(
-            raw, "grossProfit", "gross_profit", "Gross Profit"
-        ),
+        gross_profit=_get_decimal(raw, "grossProfit", "gross_profit", "Gross Profit"),
         sga_expense=_get_optional_decimal(
             raw,
             "sellingGeneralAndAdministrative",
@@ -111,9 +107,7 @@ def normalize_income_statement(raw: dict) -> IncomeStatement:
             "depreciationAmortization",
             "Depreciation Amortization Depletion",
         ),
-        ebit=_get_decimal(
-            raw, "ebit", "operatingIncome", "operating_income", "EBIT"
-        ),
+        ebit=_get_decimal(raw, "ebit", "operatingIncome", "operating_income", "EBIT"),
         interest_expense=_get_optional_decimal(
             raw, "interestExpense", "interest_expense", "Interest Expense"
         ),
@@ -124,9 +118,7 @@ def normalize_income_statement(raw: dict) -> IncomeStatement:
             "taxProvision",
             "Tax Provision",
         ),
-        net_income=_get_decimal(
-            raw, "netIncome", "net_income", "Net Income"
-        ),
+        net_income=_get_decimal(raw, "netIncome", "net_income", "Net Income"),
         shares_outstanding=_get_int(
             raw,
             "sharesOutstanding",
@@ -141,12 +133,8 @@ def normalize_income_statement(raw: dict) -> IncomeStatement:
 def normalize_balance_sheet(raw: dict) -> BalanceSheet:
     """Convert raw provider data to BalanceSheet model."""
     return BalanceSheet(
-        total_assets=_get_decimal(
-            raw, "totalAssets", "total_assets", "Total Assets"
-        ),
-        current_assets=_get_decimal(
-            raw, "totalCurrentAssets", "current_assets", "Current Assets"
-        ),
+        total_assets=_get_decimal(raw, "totalAssets", "total_assets", "Total Assets"),
+        current_assets=_get_decimal(raw, "totalCurrentAssets", "current_assets", "Current Assets"),
         cash_and_equivalents=_get_optional_decimal(
             raw,
             "cashAndCashEquivalents",
@@ -262,9 +250,7 @@ def normalize_price_bar(raw: dict) -> PriceBar:
         low=_get_decimal(raw, "low", "Low"),
         close=_get_decimal(raw, "close", "Close"),
         volume=_get_int(raw, "volume", "Volume"),
-        adj_close=_get_optional_decimal(
-            raw, "adjClose", "adj_close", "adjustedClose", "Adj Close"
-        ),
+        adj_close=_get_optional_decimal(raw, "adjClose", "adj_close", "adjustedClose", "Adj Close"),
     )
 
 
@@ -277,16 +263,8 @@ def normalize_fundamentals(
     'cash_flow' (or camelCase variants, or nested data under those keys).
     """
     # Try multiple key variants for each section
-    income_raw = (
-        raw.get("income_statement")
-        or raw.get("incomeStatement")
-        or {}
-    )
-    balance_raw = (
-        raw.get("balance_sheet")
-        or raw.get("balanceSheet")
-        or {}
-    )
+    income_raw = raw.get("income_statement") or raw.get("incomeStatement") or {}
+    balance_raw = raw.get("balance_sheet") or raw.get("balanceSheet") or {}
     cash_flow_raw = (
         raw.get("cash_flow")
         or raw.get("cashFlow")
@@ -311,12 +289,8 @@ def normalize_earnings_surprise(raw: dict) -> EarningsSurprise:
     - quarter: "quarter", "Quarter", "fiscalDateEnding", "period"
     """
     return EarningsSurprise(
-        quarter=_get_str(
-            raw, "quarter", "Quarter", "fiscalDateEnding", "period"
-        ),
-        actual_eps=_get_decimal(
-            raw, "actual_eps", "actualEps", "Reported EPS", "reportedEPS"
-        ),
+        quarter=_get_str(raw, "quarter", "Quarter", "fiscalDateEnding", "period"),
+        actual_eps=_get_decimal(raw, "actual_eps", "actualEps", "Reported EPS", "reportedEPS"),
         expected_eps=_get_decimal(
             raw, "expected_eps", "expectedEps", "EPS Estimate", "estimatedEPS"
         ),

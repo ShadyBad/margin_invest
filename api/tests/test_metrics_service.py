@@ -114,8 +114,16 @@ class TestAvgProfitMargin:
 class TestNaNHandling:
     def test_sharpe_ratio_with_nan_values(self):
         closes = [
-            100.0, float("nan"), 101.0, 102.0, float("nan"),
-            103.0, 104.0, 105.0, 106.0, 107.0,
+            100.0,
+            float("nan"),
+            101.0,
+            102.0,
+            float("nan"),
+            103.0,
+            104.0,
+            105.0,
+            106.0,
+            107.0,
         ]
         result = compute_sharpe_ratio(closes)
         # Should not crash — either returns a valid number or None (never NaN)

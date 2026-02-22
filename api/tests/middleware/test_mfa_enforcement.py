@@ -1,4 +1,5 @@
 """Tests for MFA enforcement middleware."""
+
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -10,6 +11,7 @@ class TestCheckMfaRequirement:
     @pytest.mark.asyncio
     async def test_oauth_only_user_passes(self):
         from margin_api.middleware.mfa_enforcement import check_mfa_requirement
+
         user = MagicMock()
         user.has_password = False
         user.mfa_enabled = False
@@ -19,6 +21,7 @@ class TestCheckMfaRequirement:
     @pytest.mark.asyncio
     async def test_credential_user_mfa_enabled_passes(self):
         from margin_api.middleware.mfa_enforcement import check_mfa_requirement
+
         user = MagicMock()
         user.has_password = True
         user.mfa_enabled = True
@@ -28,6 +31,7 @@ class TestCheckMfaRequirement:
     @pytest.mark.asyncio
     async def test_credential_user_within_grace_passes(self):
         from margin_api.middleware.mfa_enforcement import check_mfa_requirement
+
         user = MagicMock()
         user.has_password = True
         user.mfa_enabled = False
@@ -37,6 +41,7 @@ class TestCheckMfaRequirement:
     @pytest.mark.asyncio
     async def test_credential_user_past_grace_blocked(self):
         from margin_api.middleware.mfa_enforcement import check_mfa_requirement
+
         user = MagicMock()
         user.has_password = True
         user.mfa_enabled = False
@@ -49,6 +54,7 @@ class TestCheckMfaRequirement:
     @pytest.mark.asyncio
     async def test_credential_user_no_grace_deadline_blocked(self):
         from margin_api.middleware.mfa_enforcement import check_mfa_requirement
+
         user = MagicMock()
         user.has_password = True
         user.mfa_enabled = False
@@ -60,6 +66,7 @@ class TestCheckMfaRequirement:
     @pytest.mark.asyncio
     async def test_error_detail_has_correct_message(self):
         from margin_api.middleware.mfa_enforcement import check_mfa_requirement
+
         user = MagicMock()
         user.has_password = True
         user.mfa_enabled = False

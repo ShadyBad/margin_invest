@@ -19,6 +19,7 @@ class TestAltmanZScore:
     def test_apple_passes(self):
         """Apple FY2024 should PASS with Z'' ≈ 1.86."""
         from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
+
         result = altman_z_score(APPLE_PERIOD_2024, sector=GICSSector.TECHNOLOGY)
         assert result.passed is True
         assert result.value is not None
@@ -92,6 +93,7 @@ class TestAltmanZScore:
     def test_filter_name_and_threshold(self):
         """Filter result should have correct name and threshold."""
         from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
+
         result = altman_z_score(APPLE_PERIOD_2024)
         assert result.name == "altman_z_score"
         assert result.threshold == 1.1

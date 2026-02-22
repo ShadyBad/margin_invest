@@ -125,9 +125,7 @@ def create_app() -> FastAPI:
             status_code=exc.status_code,
             content=ErrorResponse(
                 error_code=(
-                    detail.upper().replace(" ", "_")
-                    if exc.status_code == 404
-                    else "HTTP_ERROR"
+                    detail.upper().replace(" ", "_") if exc.status_code == 404 else "HTTP_ERROR"
                 ),
                 message=detail,
                 request_id=request_id,

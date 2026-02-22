@@ -99,14 +99,16 @@ def _price_bars_raw(n_bars: int = 260) -> list[dict]:
     for i in range(n_bars):
         d = base_date - datetime.timedelta(days=n_bars - 1 - i)
         price = base_price + i * 0.1
-        bars.append({
-            "date": d.isoformat(),
-            "open": str(round(price - 0.5, 2)),
-            "high": str(round(price + 1.0, 2)),
-            "low": str(round(price - 1.0, 2)),
-            "close": str(round(price, 2)),
-            "volume": 50_000_000,
-        })
+        bars.append(
+            {
+                "date": d.isoformat(),
+                "open": str(round(price - 0.5, 2)),
+                "high": str(round(price + 1.0, 2)),
+                "low": str(round(price - 1.0, 2)),
+                "close": str(round(price, 2)),
+                "volume": 50_000_000,
+            }
+        )
     return bars
 
 

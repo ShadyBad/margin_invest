@@ -12,9 +12,7 @@ class TestFetchShillerCape:
     @pytest.mark.asyncio
     async def test_returns_float(self):
         """Should return a float CAPE value."""
-        with patch(
-            "margin_api.data.fred_client._fetch_from_fred", new_callable=AsyncMock
-        ) as mock:
+        with patch("margin_api.data.fred_client._fetch_from_fred", new_callable=AsyncMock) as mock:
             mock.return_value = 30.5
             result = await fetch_shiller_cape()
             assert isinstance(result, float)
@@ -23,9 +21,7 @@ class TestFetchShillerCape:
     @pytest.mark.asyncio
     async def test_fallback_on_error(self):
         """Returns default CAPE (25.0) if FRED API fails."""
-        with patch(
-            "margin_api.data.fred_client._fetch_from_fred", new_callable=AsyncMock
-        ) as mock:
+        with patch("margin_api.data.fred_client._fetch_from_fred", new_callable=AsyncMock) as mock:
             mock.side_effect = Exception("API down")
             result = await fetch_shiller_cape()
             assert result == _DEFAULT_CAPE
@@ -33,9 +29,7 @@ class TestFetchShillerCape:
     @pytest.mark.asyncio
     async def test_fallback_on_missing_api_key(self):
         """Returns default if no API key configured."""
-        with patch(
-            "margin_api.data.fred_client._fetch_from_fred", new_callable=AsyncMock
-        ) as mock:
+        with patch("margin_api.data.fred_client._fetch_from_fred", new_callable=AsyncMock) as mock:
             mock.side_effect = ValueError("No API key")
             result = await fetch_shiller_cape()
             assert result == _DEFAULT_CAPE
@@ -43,9 +37,7 @@ class TestFetchShillerCape:
     @pytest.mark.asyncio
     async def test_caches_result(self):
         """Second call should use cached value, not call FRED again."""
-        with patch(
-            "margin_api.data.fred_client._fetch_from_fred", new_callable=AsyncMock
-        ) as mock:
+        with patch("margin_api.data.fred_client._fetch_from_fred", new_callable=AsyncMock) as mock:
             mock.return_value = 32.0
             result1 = await fetch_shiller_cape()
             result2 = await fetch_shiller_cape()
@@ -59,9 +51,7 @@ class TestFetchShillerCape:
         """After cache expires, should fetch again."""
         import time
 
-        with patch(
-            "margin_api.data.fred_client._fetch_from_fred", new_callable=AsyncMock
-        ) as mock:
+        with patch("margin_api.data.fred_client._fetch_from_fred", new_callable=AsyncMock) as mock:
             mock.return_value = 28.0
             await fetch_shiller_cape()
 

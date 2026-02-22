@@ -29,23 +29,17 @@ describe("useNavigation", () => {
       expect(result.current.isAuthenticated).toBe(false)
     })
 
-    it("returns Guides as center link", () => {
+    it("returns Dashboard and Guides as center links", () => {
       const { result } = renderHook(() => useNavigation())
       expect(result.current.links).toEqual([
+        { href: "/login", label: "Dashboard", isActive: false },
         { href: "/guides", label: "Guides", isActive: false },
       ])
     })
 
-    it("returns Dashboard CTA linking to /login", () => {
+    it("returns cta as null", () => {
       const { result } = renderHook(() => useNavigation())
-      expect(result.current.cta).not.toBeNull()
-      expect(result.current.cta!.primary.label).toBe("Dashboard")
-      expect(result.current.cta!.primary.href).toBe("/login")
-    })
-
-    it("returns no secondary CTA", () => {
-      const { result } = renderHook(() => useNavigation())
-      expect(result.current.cta!.secondary).toBeUndefined()
+      expect(result.current.cta).toBeNull()
     })
 
     it("returns user as null", () => {

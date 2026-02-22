@@ -48,7 +48,8 @@ class TestShowcaseLiveComputation:
 
     @patch(
         "margin_api.routes.correlations._get_redis_cached",
-        new_callable=AsyncMock, return_value=None,
+        new_callable=AsyncMock,
+        return_value=None,
     )
     @patch("margin_api.routes.correlations._cache_to_redis", new_callable=AsyncMock)
     @patch("margin_api.routes.correlations._compute_live_showcase", new_callable=AsyncMock)
@@ -66,7 +67,8 @@ class TestShowcaseLiveComputation:
 
     @patch(
         "margin_api.routes.correlations._get_redis_cached",
-        new_callable=AsyncMock, return_value=None,
+        new_callable=AsyncMock,
+        return_value=None,
     )
     @patch("margin_api.routes.correlations._cache_to_redis", new_callable=AsyncMock)
     @patch("margin_api.routes.correlations._compute_live_showcase", new_callable=AsyncMock)
@@ -97,3 +99,28 @@ class TestShowcaseLiveComputation:
         data = resp.json()
         assert data["tickers"] == ["NVDA", "AVGO", "PLTR", "APP", "CRWD"]
         mock_cache.assert_called_once()
+
+    @patch("margin_api.routes.correlations._get_redis_cached", new_callable=AsyncMock)
+    @patch("margin_api.routes.correlations._cache_to_redis", new_callable=AsyncMock)
+    @patch("margin_api.routes.correlations._compute_live_showcase", new_callable=AsyncMock)
+    def test_returns_cached_data_without_computing(
+        self, mock_compute, mock_cache, mock_redis, client: TestClient
+    ):
+        """When Redis has cached data, return it without DB query."""
+        from margin_api.schemas.correlations import CorrelationResponse
+
+        cached = CorrelationResponse(
+            tickers=["A", "B", "C", "D", "E"],
+            method="returns",
+            matrix=[[1.0] * 5 for _ in range(5)],
+            sample_sizes=[[252] * 5 for _ in range(5)],
+            excluded=[],
+            window_days=252,
+            computed_at=datetime(2026, 2, 21, tzinfo=UTC),
+        )
+        mock_redis.return_value = cached
+        resp = client.get("/api/v1/correlations/showcase")
+        assert resp.status_code == 200
+        assert resp.json()["tickers"] == ["A", "B", "C", "D", "E"]
+        mock_compute.assert_not_called()
+        mock_cache.assert_not_called()

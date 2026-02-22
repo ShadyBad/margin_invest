@@ -1,6 +1,5 @@
 """Integration test: verify new factors are accessible and produce valid scores."""
 
-
 from margin_engine.models.scoring import ConvictionLevel, ScenarioIV
 from margin_engine.scoring.data_quality_gate import apply_data_quality_gate
 from margin_engine.scoring.drift_monitor import check_concentration
@@ -31,8 +30,12 @@ def test_all_new_factors_importable():
 def test_scenario_iv_model():
     """ScenarioIV model is available and validates correctly."""
     iv = ScenarioIV(
-        bear_iv=80.0, base_iv=100.0, bull_iv=130.0,
-        weighted_iv=102.5, confidence=0.50, range_pct=0.50,
+        bear_iv=80.0,
+        base_iv=100.0,
+        bull_iv=130.0,
+        weighted_iv=102.5,
+        confidence=0.50,
+        range_pct=0.50,
     )
     assert iv.weighted_iv == 102.5
     assert 0 <= iv.confidence <= 1.0

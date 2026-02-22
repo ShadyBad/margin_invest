@@ -59,8 +59,7 @@ async def list_v3_scores(
         .join(Asset, V3Score.asset_id == Asset.id)
         .join(
             latest,
-            (V3Score.asset_id == latest.c.asset_id)
-            & (V3Score.scored_at == latest.c.max_scored_at),
+            (V3Score.asset_id == latest.c.asset_id) & (V3Score.scored_at == latest.c.max_scored_at),
         )
     )
 
@@ -78,19 +77,21 @@ async def list_v3_scores(
         scored_at = v3score.scored_at
         if scored_at is not None and scored_at.tzinfo is None:
             scored_at = scored_at.replace(tzinfo=UTC)
-        scores.append(V3ScoreResponse(
-            ticker=row.ticker,
-            name=row.asset_name,
-            opportunity_type=v3score.opportunity_type,
-            conviction=v3score.conviction,
-            track_a=v3score.track_a,
-            track_b=v3score.track_b,
-            timing_signal=v3score.timing_signal,
-            max_position_pct=v3score.max_position_pct,
-            regime=v3score.regime,
-            composite_score=v3score.composite_score,
-            scored_at=scored_at.isoformat() if scored_at else "",
-        ))
+        scores.append(
+            V3ScoreResponse(
+                ticker=row.ticker,
+                name=row.asset_name,
+                opportunity_type=v3score.opportunity_type,
+                conviction=v3score.conviction,
+                track_a=v3score.track_a,
+                track_b=v3score.track_b,
+                timing_signal=v3score.timing_signal,
+                max_position_pct=v3score.max_position_pct,
+                regime=v3score.regime,
+                composite_score=v3score.composite_score,
+                scored_at=scored_at.isoformat() if scored_at else "",
+            )
+        )
 
     return V3ScoreListResponse(scores=scores, total=len(scores))
 

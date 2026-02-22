@@ -110,9 +110,7 @@ class TestApiKeyModel:
     def test_no_unique_constraint_allows_rotation_overlap(self):
         """UniqueConstraint was removed to allow multiple keys per provider during rotation."""
         constraints = [
-            c.name
-            for c in ApiKey.__table__.constraints
-            if hasattr(c, "name") and c.name
+            c.name for c in ApiKey.__table__.constraints if hasattr(c, "name") and c.name
         ]
         assert "uq_user_provider" not in constraints
 
@@ -190,9 +188,7 @@ class TestTableCreation:
     def test_insert_and_query_asset(self, sync_engine):
         Base.metadata.create_all(sync_engine)
         with Session(sync_engine) as session:
-            asset = Asset(
-                ticker="AAPL", name="Apple Inc", sector="Information Technology"
-            )
+            asset = Asset(ticker="AAPL", name="Apple Inc", sector="Information Technology")
             session.add(asset)
             session.commit()
             result = session.execute(select(Asset).where(Asset.ticker == "AAPL"))
@@ -202,9 +198,7 @@ class TestTableCreation:
     def test_insert_score_with_asset(self, sync_engine):
         Base.metadata.create_all(sync_engine)
         with Session(sync_engine) as session:
-            asset = Asset(
-                ticker="NVDA", name="NVIDIA", sector="Information Technology"
-            )
+            asset = Asset(ticker="NVDA", name="NVIDIA", sector="Information Technology")
             session.add(asset)
             session.flush()
             score = Score(
@@ -247,18 +241,29 @@ class TestMetricsDerivedModel:
     def test_columns(self):
         columns = {c.name for c in MetricsDerived.__table__.columns}
         expected = {
-            "id", "asset_id", "as_of_date",
-            "roe", "roic", "gross_margin", "debt_to_equity",
-            "pe_ratio", "pb_ratio", "ev_ebitda", "fcf_yield",
-            "return_1m", "return_3m", "return_6m", "return_12m",
-            "extra", "computed_at",
+            "id",
+            "asset_id",
+            "as_of_date",
+            "roe",
+            "roic",
+            "gross_margin",
+            "debt_to_equity",
+            "pe_ratio",
+            "pb_ratio",
+            "ev_ebitda",
+            "fcf_yield",
+            "return_1m",
+            "return_3m",
+            "return_6m",
+            "return_12m",
+            "extra",
+            "computed_at",
         }
         assert expected.issubset(columns)
 
     def test_unique_constraint(self):
         constraint_names = [
-            c.name for c in MetricsDerived.__table__.constraints
-            if hasattr(c, "name") and c.name
+            c.name for c in MetricsDerived.__table__.constraints if hasattr(c, "name") and c.name
         ]
         assert "uq_metrics_asset_date" in constraint_names
 
@@ -276,10 +281,23 @@ class TestBacktestRunModel:
     def test_columns(self):
         columns = {c.name for c in BacktestRun.__table__.columns}
         expected = {
-            "id", "name", "universe_snapshot_id", "start_date", "end_date",
-            "rebalance_frequency", "config", "config_hash", "status",
-            "total_return", "annualized_return", "sharpe_ratio", "max_drawdown",
-            "summary_stats", "started_at", "completed_at", "created_at",
+            "id",
+            "name",
+            "universe_snapshot_id",
+            "start_date",
+            "end_date",
+            "rebalance_frequency",
+            "config",
+            "config_hash",
+            "status",
+            "total_return",
+            "annualized_return",
+            "sharpe_ratio",
+            "max_drawdown",
+            "summary_stats",
+            "started_at",
+            "completed_at",
+            "created_at",
         }
         assert expected.issubset(columns)
 
@@ -305,9 +323,17 @@ class TestBacktestResultModel:
     def test_columns(self):
         columns = {c.name for c in BacktestResult.__table__.columns}
         expected = {
-            "id", "run_id", "asset_id", "as_of_date", "signal",
-            "conviction_level", "composite_percentile",
-            "entry_price", "exit_price", "position_return", "detail",
+            "id",
+            "run_id",
+            "asset_id",
+            "as_of_date",
+            "signal",
+            "conviction_level",
+            "composite_percentile",
+            "entry_price",
+            "exit_price",
+            "position_return",
+            "detail",
         }
         assert expected.issubset(columns)
 
@@ -326,8 +352,7 @@ class TestBacktestResultModel:
 
     def test_unique_constraint(self):
         constraint_names = [
-            c.name for c in BacktestResult.__table__.constraints
-            if hasattr(c, "name") and c.name
+            c.name for c in BacktestResult.__table__.constraints if hasattr(c, "name") and c.name
         ]
         assert "uq_backtest_result" in constraint_names
 

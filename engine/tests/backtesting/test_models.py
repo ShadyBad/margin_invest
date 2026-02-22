@@ -165,9 +165,7 @@ class TestMonthlySnapshot:
         snapshot = MonthlySnapshot(
             date=date(2023, 6, 30),
             holdings=[
-                HoldingRecord(
-                    ticker="AAPL", weight=0.05, entry_price=175.0, composite_score=95.0
-                ),
+                HoldingRecord(ticker="AAPL", weight=0.05, entry_price=175.0, composite_score=95.0),
             ],
             portfolio_value=1_050_000.0,
             benchmark_value=1_030_000.0,
@@ -215,12 +213,8 @@ class TestMonthlySnapshot:
         snapshot = MonthlySnapshot(
             date=date(2023, 6, 30),
             holdings=[
-                HoldingRecord(
-                    ticker="AAPL", weight=0.05, entry_price=175.0, composite_score=95.0
-                ),
-                HoldingRecord(
-                    ticker="MSFT", weight=0.04, entry_price=350.0, composite_score=97.0
-                ),
+                HoldingRecord(ticker="AAPL", weight=0.05, entry_price=175.0, composite_score=95.0),
+                HoldingRecord(ticker="MSFT", weight=0.04, entry_price=350.0, composite_score=97.0),
             ],
             portfolio_value=1_050_000.0,
             benchmark_value=1_030_000.0,

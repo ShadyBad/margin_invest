@@ -80,16 +80,14 @@ class TestRoicStability:
         # Volatile: EBIT varies widely
         ebits = [Decimal("50"), Decimal("150"), Decimal("30"), Decimal("200"), Decimal("70")]
         volatile_periods = [
-            _make_period(ebit=e, period_end=f"202{i}-09-28")
-            for i, e in enumerate(ebits)
+            _make_period(ebit=e, period_end=f"202{i}-09-28") for i, e in enumerate(ebits)
         ]
         volatile_history = FinancialHistory(ticker="VOL", periods=volatile_periods)
         volatile_score = roic_stability(volatile_history)
 
         # Stable: constant EBIT
         stable_periods = [
-            _make_period(ebit=Decimal("100"), period_end=f"202{i}-09-28")
-            for i in range(5)
+            _make_period(ebit=Decimal("100"), period_end=f"202{i}-09-28") for i in range(5)
         ]
         stable_history = FinancialHistory(ticker="STB", periods=stable_periods)
         stable_score = roic_stability(stable_history)

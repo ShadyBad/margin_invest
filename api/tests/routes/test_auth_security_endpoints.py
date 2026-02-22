@@ -55,9 +55,7 @@ async def credential_user(db_setup):
     """Create a credential user with password and MFA enabled."""
     engine, factory = db_setup
     async with factory() as session:
-        user = await _auth.register_user(
-            session, "alice", "alice@example.com", _VALID_PASSWORD
-        )
+        user = await _auth.register_user(session, "alice", "alice@example.com", _VALID_PASSWORD)
         # Enable MFA and set up TOTP
         user.mfa_enabled = True
         user.mfa_grace_deadline = None
@@ -136,9 +134,7 @@ class TestMfaEnforcementOnChangePassword:
         """User with password, no MFA, and expired grace is blocked."""
         engine, factory = db_setup
         async with factory() as session:
-            user = await _auth.register_user(
-                session, "bob", "bob@example.com", _VALID_PASSWORD
-            )
+            user = await _auth.register_user(session, "bob", "bob@example.com", _VALID_PASSWORD)
             user.mfa_grace_deadline = datetime.now(UTC) - timedelta(hours=1)
             await session.commit()
             user_id = user.id
@@ -166,9 +162,7 @@ class TestMfaEnforcementOnChangePassword:
         """User within grace period can change password."""
         engine, factory = db_setup
         async with factory() as session:
-            user = await _auth.register_user(
-                session, "carol", "carol@example.com", _VALID_PASSWORD
-            )
+            user = await _auth.register_user(session, "carol", "carol@example.com", _VALID_PASSWORD)
             user.mfa_grace_deadline = datetime.now(UTC) + timedelta(hours=24)
             await session.commit()
             user_id = user.id
@@ -343,17 +337,13 @@ class TestDisableMfa:
 
         # Set up a confirmed TOTP secret
         async with factory() as session:
-            user = (
-                await session.execute(select(User).where(User.id == user_id))
-            ).scalar_one()
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
             result = await totp_svc.setup_totp(session, user_id, user.email)
             secret_id = result["secret_id"]
 
             # Get the raw secret to generate a code
             secret_row = (
-                await session.execute(
-                    select(TotpSecret).where(TotpSecret.id == secret_id)
-                )
+                await session.execute(select(TotpSecret).where(TotpSecret.id == secret_id))
             ).scalar_one()
             raw_secret = totp_svc._decrypt(secret_row.encrypted_secret)
             code = pyotp.TOTP(raw_secret).now()
@@ -378,18 +368,16 @@ class TestDisableMfa:
 
         # Verify side effects
         async with factory() as session:
-            user = (
-                await session.execute(select(User).where(User.id == user_id))
-            ).scalar_one()
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
             assert user.mfa_enabled is False
             assert user.mfa_grace_deadline is not None
 
             # TOTP secrets should be deleted
             secrets = (
-                await session.execute(
-                    select(TotpSecret).where(TotpSecret.user_id == user_id)
-                )
-            ).scalars().all()
+                (await session.execute(select(TotpSecret).where(TotpSecret.user_id == user_id)))
+                .scalars()
+                .all()
+            )
             assert len(secrets) == 0
 
     @pytest.mark.asyncio
@@ -578,9 +566,7 @@ class TestSetPassword:
 
         # Verify user now has password and grace deadline
         async with factory() as session:
-            user = (
-                await session.execute(select(User).where(User.id == user_id))
-            ).scalar_one()
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
             assert user.has_password is True
             assert user.mfa_grace_deadline is not None
 
@@ -628,9 +614,7 @@ class TestRemovePassword:
 
         # Verify password removed
         async with factory() as session:
-            user = (
-                await session.execute(select(User).where(User.id == user_id))
-            ).scalar_one()
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
             assert user.has_password is False
             assert user.mfa_enabled is False
             assert user.mfa_grace_deadline is None
@@ -741,17 +725,13 @@ class TestConfirmTotpWithRecoveryCodes:
 
         # Set up an unconfirmed TOTP secret
         async with factory() as session:
-            user = (
-                await session.execute(select(User).where(User.id == user_id))
-            ).scalar_one()
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
             result = await totp_svc.setup_totp(session, user_id, user.email)
             secret_id = result["secret_id"]
 
             # Get the raw secret to generate a valid code
             secret_row = (
-                await session.execute(
-                    select(TotpSecret).where(TotpSecret.id == secret_id)
-                )
+                await session.execute(select(TotpSecret).where(TotpSecret.id == secret_id))
             ).scalar_one()
             raw_secret = totp_svc._decrypt(secret_row.encrypted_secret)
             code = pyotp.TOTP(raw_secret).now()
@@ -774,9 +754,7 @@ class TestConfirmTotpWithRecoveryCodes:
         totp_svc = TotpService(encryption_key=_TEST_FERNET_KEY.encode())
 
         async with factory() as session:
-            user = (
-                await session.execute(select(User).where(User.id == user_id))
-            ).scalar_one()
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
             result = await totp_svc.setup_totp(session, user_id, user.email)
             secret_id = result["secret_id"]
 

@@ -62,10 +62,7 @@ def incremental_roic(history: FinancialHistory) -> FactorScore:
             name="incremental_roic",
             raw_value=0.0,
             percentile_rank=0.0,
-            detail=(
-                f"delta_NOPAT={delta_nopat:,.2f}, delta_IC=0 "
-                f"(no change in invested capital)"
-            ),
+            detail=(f"delta_NOPAT={delta_nopat:,.2f}, delta_IC=0 (no change in invested capital)"),
         )
 
     raw_value = delta_nopat / delta_ic

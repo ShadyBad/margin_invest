@@ -10,9 +10,9 @@ from margin_engine.models.scoring import ConvictionLevel
 
 # Asymmetry tier -> max position %
 _ASYMMETRY_TIERS: list[tuple[float, float]] = [
-    (5.0, 20.0),   # > 5x -> 20%
-    (3.0, 10.0),   # 3-5x -> 10%
-    (1.5, 5.0),    # 1.5-3x -> 5%
+    (5.0, 20.0),  # > 5x -> 20%
+    (3.0, 10.0),  # 3-5x -> 10%
+    (1.5, 5.0),  # 1.5-3x -> 5%
 ]
 _DEFAULT_MAX = 3.0  # < 1.5x -> 3%
 

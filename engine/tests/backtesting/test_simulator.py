@@ -71,9 +71,8 @@ class StableUniverseProvider:
         self._start_date = start_date
 
     def get_scores(self, as_of_date: date) -> list[ScoredStock]:
-        months_elapsed = (
-            (as_of_date.year - self._start_date.year) * 12
-            + (as_of_date.month - self._start_date.month)
+        months_elapsed = (as_of_date.year - self._start_date.year) * 12 + (
+            as_of_date.month - self._start_date.month
         )
         price = self._base_price * (1 + self._monthly_return) ** months_elapsed
 
@@ -101,9 +100,8 @@ class GrowingBenchmarkProvider:
         self._start_date = start_date
 
     def get_price(self, ticker: str, as_of_date: date) -> float:
-        months_elapsed = (
-            (as_of_date.year - self._start_date.year) * 12
-            + (as_of_date.month - self._start_date.month)
+        months_elapsed = (as_of_date.year - self._start_date.year) * 12 + (
+            as_of_date.month - self._start_date.month
         )
         return self._base_price * (1 + self._monthly_return) ** months_elapsed
 
@@ -317,8 +315,7 @@ class TestStockSelection:
         )
 
         scores = [
-            ScoredStock(ticker=f"S{i}", composite_score=float(i), price=50.0)
-            for i in range(20)
+            ScoredStock(ticker=f"S{i}", composite_score=float(i), price=50.0) for i in range(20)
         ]
         holdings = sim._select_holdings(scores, [])
 
@@ -1032,7 +1029,7 @@ class TestPreciseCalculation:
         ]
         stocks_feb = [
             ScoredStock(ticker="A", composite_score=85.0, price=110.0),  # A went up 10%
-            ScoredStock(ticker="B", composite_score=95.0, price=45.0),   # B went down 10%
+            ScoredStock(ticker="B", composite_score=95.0, price=45.0),  # B went down 10%
         ]
 
         universe_data = {jan1: stocks_jan, feb3: stocks_feb}
@@ -1122,9 +1119,7 @@ class TestScoredStockModel:
 
     def test_scored_stock_with_mos(self):
         """ScoredStock should accept margin_of_safety."""
-        stock = ScoredStock(
-            ticker="AAPL", composite_score=85.0, price=150.0, margin_of_safety=0.35
-        )
+        stock = ScoredStock(ticker="AAPL", composite_score=85.0, price=150.0, margin_of_safety=0.35)
         assert stock.margin_of_safety == 0.35
 
     def test_scored_stock_with_negative_mos(self):
@@ -1163,7 +1158,8 @@ class TestBacktestConfigV2Fields:
 
     def test_custom_min_conviction_score_high(self):
         config = BacktestConfig(
-            start_date=date(2020, 1, 1), end_date=date(2020, 12, 31),
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 12, 31),
             min_conviction_score_high=75.0,
         )
         assert config.min_conviction_score_high == 75.0

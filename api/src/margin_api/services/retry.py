@@ -1,4 +1,5 @@
 """Exponential backoff retry wrapper for provider calls."""
+
 from __future__ import annotations
 
 import asyncio
@@ -31,14 +32,16 @@ async def with_retry[T](
             return fn(*args, **kwargs)
         except Exception as e:
             if attempt == retries:
-                logger.error(
-                    "Failed %s after %d attempts: %s", ticker, retries, e
-                )
+                logger.error("Failed %s after %d attempts: %s", ticker, retries, e)
                 raise
             delay = min(base_delay * (2 ** (attempt - 1)), max_delay)
             logger.warning(
                 "Attempt %d/%d failed for %s: %s — retrying in %.1fs",
-                attempt, retries, ticker, e, delay,
+                attempt,
+                retries,
+                ticker,
+                e,
+                delay,
             )
             await asyncio.sleep(delay)
     raise RuntimeError("unreachable")

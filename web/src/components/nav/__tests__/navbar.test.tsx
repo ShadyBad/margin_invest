@@ -40,8 +40,11 @@ vi.mock("@/hooks/use-navigation", () => ({
     }
     return {
       isAuthenticated: false,
-      links: [],
-      cta: { primary: { label: "Dashboard", href: "/login" } },
+      links: [
+        { href: "/login", label: "Dashboard", isActive: false },
+        { href: "/guides", label: "Guides", isActive: false },
+      ],
+      cta: null,
       user: null,
       logoHref: "/",
     }
@@ -65,11 +68,16 @@ describe("Navbar", () => {
   })
 
   describe("unauthenticated", () => {
-    it("renders Dashboard button linking to /login", () => {
+    it("renders Dashboard nav link pointing to /login", () => {
       render(<Navbar />)
       const dashboardLink = screen.getByText("Dashboard")
       expect(dashboardLink).toBeInTheDocument()
       expect(dashboardLink.closest("a")).toHaveAttribute("href", "/login")
+    })
+
+    it("renders Guides nav link", () => {
+      render(<Navbar />)
+      expect(screen.getByText("Guides")).toBeInTheDocument()
     })
 
     it("does not render user dropdown", () => {
@@ -120,11 +128,11 @@ describe("Navbar", () => {
       render(<Navbar />)
       const toggle = screen.getByLabelText("Toggle menu")
 
-      // Menu closed — only desktop CTA "Dashboard"
+      // Menu closed — only desktop nav link "Dashboard"
       expect(screen.getAllByText("Dashboard")).toHaveLength(1)
 
       await u.click(toggle)
-      // Menu open — desktop CTA + mobile CTA
+      // Menu open — desktop nav link + mobile nav link
       expect(screen.getAllByText("Dashboard")).toHaveLength(2)
 
       await u.click(toggle)

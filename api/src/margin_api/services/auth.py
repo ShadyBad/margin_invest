@@ -56,9 +56,7 @@ class AuthService:
 
         # Check email uniqueness
         existing = (
-            await session.execute(
-                select(User).where(User.email == email)
-            )
+            await session.execute(select(User).where(User.email == email))
         ).scalar_one_or_none()
         if existing is not None:
             raise ValueError(f"A user with this email already exists: {email}")

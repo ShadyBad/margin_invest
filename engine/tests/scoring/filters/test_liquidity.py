@@ -15,6 +15,7 @@ class TestLiquidity:
     def test_apple_passes(self):
         """Apple should pass all liquidity criteria."""
         from tests.fixtures.golden_apple_2024 import APPLE_PROFILE
+
         result = liquidity_check(APPLE_PROFILE)
         assert result.passed is True
         assert result.name == "liquidity"
@@ -254,9 +255,7 @@ class TestLiquidityWithConfig:
         from margin_engine.config.filter_config import LiquidityConfig, MarketCapMinimum
 
         # Config with higher default market cap minimum
-        config = LiquidityConfig(
-            market_cap_minimum=MarketCapMinimum(default=500_000_000)
-        )
+        config = LiquidityConfig(market_cap_minimum=MarketCapMinimum(default=500_000_000))
         profile = AssetProfile(
             ticker="SMAL",
             name="Smallish Corp",
@@ -289,6 +288,7 @@ class TestLiquidityWithConfig:
 # ---------------------------------------------------------------------------
 # Helpers for v2 tests
 # ---------------------------------------------------------------------------
+
 
 def _make_bars(
     n: int,

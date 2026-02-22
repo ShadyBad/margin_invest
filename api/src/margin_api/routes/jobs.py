@@ -1,4 +1,5 @@
 """Job status API endpoints."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -33,9 +34,7 @@ async def get_latest_jobs(
     session: AsyncSession = Depends(get_db),
 ):
     """Return the most recent job runs."""
-    result = await session.execute(
-        select(JobRun).order_by(JobRun.id.desc()).limit(limit)
-    )
+    result = await session.execute(select(JobRun).order_by(JobRun.id.desc()).limit(limit))
     jobs = result.scalars().all()
     return [
         JobRunResponse(

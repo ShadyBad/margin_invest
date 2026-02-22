@@ -60,11 +60,7 @@ def sentiment_score(
         contrarian_applied = True
 
     # 4. Build detail string.
-    detail = (
-        f"score={score:.1f}"
-        f" -> clamped={clamped:.1f}"
-        f" -> normalized={normalized:.1f}"
-    )
+    detail = f"score={score:.1f} -> clamped={clamped:.1f} -> normalized={normalized:.1f}"
     if contrarian_applied:
         detail += f" (includes contrarian bonus of +{_CONTRARIAN_BONUS:.1f})"
 

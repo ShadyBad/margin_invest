@@ -60,14 +60,15 @@ def _score_response_from_row(
             detail.setdefault("conviction_level", score.conviction_level)
             detail.setdefault("signal", score.signal)
             detail.setdefault("name", row.asset_name if hasattr(row, "asset_name") else "")
-            detail.setdefault(
-                "scored_at", scored_at.isoformat() if scored_at else None
-            )
+            detail.setdefault("scored_at", scored_at.isoformat() if scored_at else None)
             for f in detail.get("filters_passed", []):
                 f.setdefault("verdict", "pass" if f.get("passed") else "fail")
             for factor_key in (
-                "quality", "value", "momentum",
-                "capital_allocation", "catalyst",
+                "quality",
+                "value",
+                "momentum",
+                "capital_allocation",
+                "catalyst",
             ):
                 factor = detail.get(factor_key)
                 if (
@@ -77,9 +78,7 @@ def _score_response_from_row(
                 ):
                     subs = factor.get("sub_scores", [])
                     avg = (
-                        sum(s.get("percentile_rank", 0) for s in subs) / len(subs)
-                        if subs
-                        else 0.0
+                        sum(s.get("percentile_rank", 0) for s in subs) / len(subs) if subs else 0.0
                     )
                     factor["average_percentile"] = avg
             # Populate score and universe_percentile from raw score / percentile
@@ -219,8 +218,7 @@ async def list_scores(
         .join(Asset, Score.asset_id == Asset.id)
         .join(
             latest,
-            (Score.asset_id == latest.c.asset_id)
-            & (Score.scored_at == latest.c.max_scored_at),
+            (Score.asset_id == latest.c.asset_id) & (Score.scored_at == latest.c.max_scored_at),
         )
     )
 
@@ -285,25 +283,25 @@ async def get_score_history(
         if scored_at is not None and scored_at.tzinfo is None:
             scored_at = scored_at.replace(tzinfo=UTC)
 
-        points.append(ScoreHistoryPoint(
-            scored_at=scored_at,
-            composite_percentile=row.composite_percentile,
-            composite_raw_score=row.composite_raw_score,
-            quality_percentile=row.quality_percentile,
-            value_percentile=row.value_percentile,
-            momentum_percentile=row.momentum_percentile,
-            conviction_level=row.conviction_level,
-            signal=row.signal,
-            margin_invest_value=(
-                float(row.margin_invest_value)
-                if row.margin_invest_value is not None
-                else None
-            ),
-            buy_price=float(row.buy_price) if row.buy_price is not None else None,
-            sell_price=float(row.sell_price) if row.sell_price is not None else None,
-            actual_price=float(row.actual_price) if row.actual_price is not None else None,
-            delta=delta,
-        ))
+        points.append(
+            ScoreHistoryPoint(
+                scored_at=scored_at,
+                composite_percentile=row.composite_percentile,
+                composite_raw_score=row.composite_raw_score,
+                quality_percentile=row.quality_percentile,
+                value_percentile=row.value_percentile,
+                momentum_percentile=row.momentum_percentile,
+                conviction_level=row.conviction_level,
+                signal=row.signal,
+                margin_invest_value=(
+                    float(row.margin_invest_value) if row.margin_invest_value is not None else None
+                ),
+                buy_price=float(row.buy_price) if row.buy_price is not None else None,
+                sell_price=float(row.sell_price) if row.sell_price is not None else None,
+                actual_price=float(row.actual_price) if row.actual_price is not None else None,
+                delta=delta,
+            )
+        )
 
     return ScoreHistoryResponse(ticker=ticker, points=points, total_runs=total)
 
@@ -411,13 +409,12 @@ async def get_score(
                     PriceBarResponse(**_normalize_bar(bar)) for bar in fd_row["bars"]
                 ]
             elif fd_row and isinstance(fd_row, list):
-                response.price_history = [
-                    PriceBarResponse(**_normalize_bar(bar)) for bar in fd_row
-                ]
+                response.price_history = [PriceBarResponse(**_normalize_bar(bar)) for bar in fd_row]
             else:
                 response.price_history = []
         except Exception:
             import logging
+
             logging.getLogger(__name__).warning(
                 "Failed to parse price_history for %s", ticker, exc_info=True
             )

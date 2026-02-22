@@ -1,4 +1,5 @@
 """Batch price bar ingestion for prices_intraday."""
+
 from __future__ import annotations
 
 import logging

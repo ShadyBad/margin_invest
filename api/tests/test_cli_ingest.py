@@ -1,4 +1,5 @@
 """Tests for the ingest CLI command enforcement logic."""
+
 from __future__ import annotations
 
 import pytest

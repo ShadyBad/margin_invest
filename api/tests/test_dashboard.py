@@ -231,18 +231,18 @@ class TestDashboardPicks:
         aapl = next(p for p in data["picks"] if p["ticker"] == "AAPL")
 
         # These must exactly match the seeded values in the fixture
-        assert aapl["score"] == 82.0                          # composite_raw_score
-        assert aapl["composite_percentile"] == 99.5            # composite_percentile
-        assert aapl["universe_percentile"] == 99.5             # same as composite_percentile
-        assert aapl["conviction_level"] == "exceptional"       # conviction_level
-        assert aapl["signal"] == "buy"                         # signal
-        assert aapl["quality_percentile"] == 98.0              # quality_percentile
-        assert aapl["value_percentile"] == 95.0                # value_percentile
-        assert aapl["momentum_percentile"] == 97.0             # momentum_percentile
+        assert aapl["score"] == 82.0  # composite_raw_score
+        assert aapl["composite_percentile"] == 99.5  # composite_percentile
+        assert aapl["universe_percentile"] == 99.5  # same as composite_percentile
+        assert aapl["conviction_level"] == "exceptional"  # conviction_level
+        assert aapl["signal"] == "buy"  # signal
+        assert aapl["quality_percentile"] == 98.0  # quality_percentile
+        assert aapl["value_percentile"] == 95.0  # value_percentile
+        assert aapl["momentum_percentile"] == 97.0  # momentum_percentile
         assert aapl["name"] == "Apple Inc."
         assert aapl["sector"] == "Information Technology"
-        assert aapl["score_id"] > 0                            # traceability
-        assert aapl["scored_at"] is not None                   # timestamp
+        assert aapl["score_id"] > 0  # traceability
+        assert aapl["scored_at"] is not None  # timestamp
 
 
 @pytest.mark.asyncio
@@ -274,10 +274,9 @@ class TestDashboardMixed:
         assert len(data["watchlist"]) == 1
 
         # "none" conviction excluded from both
-        all_tickers = (
-            [p["ticker"] for p in data["picks"]]
-            + [w["ticker"] for w in data["watchlist"]]
-        )
+        all_tickers = [p["ticker"] for p in data["picks"]] + [
+            w["ticker"] for w in data["watchlist"]
+        ]
         assert "LOW" not in all_tickers
 
     async def test_total_scored_counts_all(self, client):
@@ -313,20 +312,28 @@ async def universe_seeded_session(async_engine):
 
         # Create 4 scored assets
         aapl = Asset(
-            ticker="AAPL", name="Apple Inc.",
-            sector="Information Technology", market_cap=Decimal("3500000000000"),
+            ticker="AAPL",
+            name="Apple Inc.",
+            sector="Information Technology",
+            market_cap=Decimal("3500000000000"),
         )
         nvda = Asset(
-            ticker="NVDA", name="NVIDIA Corp",
-            sector="Information Technology", market_cap=Decimal("1500000000000"),
+            ticker="NVDA",
+            name="NVIDIA Corp",
+            sector="Information Technology",
+            market_cap=Decimal("1500000000000"),
         )
         msft = Asset(
-            ticker="MSFT", name="Microsoft Corp",
-            sector="Information Technology", market_cap=Decimal("2800000000000"),
+            ticker="MSFT",
+            name="Microsoft Corp",
+            sector="Information Technology",
+            market_cap=Decimal("2800000000000"),
         )
         low = Asset(
-            ticker="LOW", name="Lowes Companies",
-            sector="Consumer Discretionary", market_cap=Decimal("50000000000"),
+            ticker="LOW",
+            name="Lowes Companies",
+            sector="Consumer Discretionary",
+            market_cap=Decimal("50000000000"),
         )
         session.add_all([aapl, nvda, msft, low])
         await session.flush()
@@ -334,32 +341,52 @@ async def universe_seeded_session(async_engine):
         now = datetime.now(UTC)
         scores = [
             Score(
-                asset_id=aapl.id, composite_percentile=99.5,
+                asset_id=aapl.id,
+                composite_percentile=99.5,
                 composite_raw_score=82.0,
-                conviction_level="exceptional", signal="buy",
-                quality_percentile=98.0, value_percentile=95.0,
-                momentum_percentile=97.0, data_coverage=1.0, scored_at=now,
+                conviction_level="exceptional",
+                signal="buy",
+                quality_percentile=98.0,
+                value_percentile=95.0,
+                momentum_percentile=97.0,
+                data_coverage=1.0,
+                scored_at=now,
             ),
             Score(
-                asset_id=nvda.id, composite_percentile=96.0,
+                asset_id=nvda.id,
+                composite_percentile=96.0,
                 composite_raw_score=75.0,
-                conviction_level="high", signal="buy",
-                quality_percentile=94.0, value_percentile=93.0,
-                momentum_percentile=95.0, data_coverage=1.0, scored_at=now,
+                conviction_level="high",
+                signal="buy",
+                quality_percentile=94.0,
+                value_percentile=93.0,
+                momentum_percentile=95.0,
+                data_coverage=1.0,
+                scored_at=now,
             ),
             Score(
-                asset_id=msft.id, composite_percentile=80.0,
+                asset_id=msft.id,
+                composite_percentile=80.0,
                 composite_raw_score=67.0,
-                conviction_level="medium", signal="hold",
-                quality_percentile=78.0, value_percentile=82.0,
-                momentum_percentile=75.0, data_coverage=1.0, scored_at=now,
+                conviction_level="medium",
+                signal="hold",
+                quality_percentile=78.0,
+                value_percentile=82.0,
+                momentum_percentile=75.0,
+                data_coverage=1.0,
+                scored_at=now,
             ),
             Score(
-                asset_id=low.id, composite_percentile=50.0,
+                asset_id=low.id,
+                composite_percentile=50.0,
                 composite_raw_score=50.0,
-                conviction_level="none", signal="no_action",
-                quality_percentile=45.0, value_percentile=50.0,
-                momentum_percentile=55.0, data_coverage=1.0, scored_at=now,
+                conviction_level="none",
+                signal="no_action",
+                quality_percentile=45.0,
+                value_percentile=50.0,
+                momentum_percentile=55.0,
+                data_coverage=1.0,
+                scored_at=now,
             ),
         ]
         session.add_all(scores)
@@ -440,8 +467,10 @@ class TestConvictionDerivation:
         factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             asset = Asset(
-                ticker="TEST", name="Test Corp",
-                sector="Information Technology", market_cap=Decimal("1000000000"),
+                ticker="TEST",
+                name="Test Corp",
+                sector="Information Technology",
+                market_cap=Decimal("1000000000"),
             )
             session.add(asset)
             await session.flush()
@@ -482,8 +511,10 @@ class TestConvictionDerivation:
         factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             asset = Asset(
-                ticker="EDGE", name="Edge Case Corp",
-                sector="Financials", market_cap=Decimal("500000000"),
+                ticker="EDGE",
+                name="Edge Case Corp",
+                sector="Financials",
+                market_cap=Decimal("500000000"),
             )
             session.add(asset)
             await session.flush()
@@ -493,8 +524,11 @@ class TestConvictionDerivation:
                 composite_raw_score=79.0,
                 conviction_level="exceptional",
                 signal="buy",
-                quality_percentile=80.0, value_percentile=80.0, momentum_percentile=80.0,
-                data_coverage=1.0, scored_at=datetime.now(UTC),
+                quality_percentile=80.0,
+                value_percentile=80.0,
+                momentum_percentile=80.0,
+                data_coverage=1.0,
+                scored_at=datetime.now(UTC),
             )
             session.add(score)
             await session.commit()
@@ -519,8 +553,10 @@ class TestConvictionDerivation:
         factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             asset = Asset(
-                ticker="NEAR", name="Near Miss Corp",
-                sector="Financials", market_cap=Decimal("500000000"),
+                ticker="NEAR",
+                name="Near Miss Corp",
+                sector="Financials",
+                market_cap=Decimal("500000000"),
             )
             session.add(asset)
             await session.flush()
@@ -530,8 +566,11 @@ class TestConvictionDerivation:
                 composite_raw_score=78.9,
                 conviction_level="high",
                 signal="buy",
-                quality_percentile=78.0, value_percentile=78.0, momentum_percentile=78.0,
-                data_coverage=1.0, scored_at=datetime.now(UTC),
+                quality_percentile=78.0,
+                value_percentile=78.0,
+                momentum_percentile=78.0,
+                data_coverage=1.0,
+                scored_at=datetime.now(UTC),
             )
             session.add(score)
             await session.commit()

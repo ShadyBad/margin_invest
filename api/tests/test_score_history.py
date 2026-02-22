@@ -33,7 +33,8 @@ async def history_client(history_engine):
     factory = async_sessionmaker(history_engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
         aapl = Asset(
-            ticker="AAPL", name="Apple Inc.",
+            ticker="AAPL",
+            name="Apple Inc.",
             sector="Information Technology",
             market_cap=Decimal("3500000000000"),
         )

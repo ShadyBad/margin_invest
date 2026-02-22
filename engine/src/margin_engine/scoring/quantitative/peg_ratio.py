@@ -40,8 +40,7 @@ def peg_ratio(pe_ratio: float, earnings_growth_rate: float) -> FactorScore:
             raw_value=0.0,
             percentile_rank=0.0,
             detail=(
-                f"earnings_growth_rate={earnings_growth_rate}; "
-                "negative/zero growth, PEG undefined"
+                f"earnings_growth_rate={earnings_growth_rate}; negative/zero growth, PEG undefined"
             ),
         )
 

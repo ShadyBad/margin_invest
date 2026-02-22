@@ -121,14 +121,14 @@ async def get_metrics(
 
     # Unavailable reasons from engine
     sharpe_reason = (
-        (risk_metrics.sharpe_unavailable_reason if risk_metrics else None) or no_price_reason
-    )
+        risk_metrics.sharpe_unavailable_reason if risk_metrics else None
+    ) or no_price_reason
     dd_reason = (
-        (risk_metrics.drawdown_unavailable_reason if risk_metrics else None) or no_price_reason
-    )
+        risk_metrics.drawdown_unavailable_reason if risk_metrics else None
+    ) or no_price_reason
     vol_reason = (
-        (risk_metrics.volatility_unavailable_reason if risk_metrics else None) or no_price_reason
-    )
+        risk_metrics.volatility_unavailable_reason if risk_metrics else None
+    ) or no_price_reason
 
     # 3Y unavailable reason: always needs ~757 bars
     reason_3y = "Insufficient data for 3-year metric"

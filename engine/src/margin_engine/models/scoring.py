@@ -15,9 +15,9 @@ class FilterVerdict(StrEnum):
 
 class ConvictionLevel(StrEnum):
     EXCEPTIONAL = "exceptional"  # composite_raw_score >= 79
-    HIGH = "high"               # composite_raw_score >= 72
-    MEDIUM = "medium"           # composite_raw_score >= 65
-    NONE = "none"               # < 65
+    HIGH = "high"  # composite_raw_score >= 72
+    MEDIUM = "medium"  # composite_raw_score >= 65
+    NONE = "none"  # < 65
 
 
 class Signal(StrEnum):
@@ -103,9 +103,7 @@ class FactorBreakdown(BaseModel):
         if weights and len(weights) == len(self.sub_scores):
             total_weight = sum(weights)
             if total_weight > 0:
-                return sum(
-                    s.percentile_rank * s.weight for s in self.sub_scores
-                ) / total_weight
+                return sum(s.percentile_rank * s.weight for s in self.sub_scores) / total_weight
         return sum(s.percentile_rank for s in self.sub_scores) / len(self.sub_scores)
 
 

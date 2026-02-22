@@ -1,4 +1,5 @@
 """Live price service -- Redis-backed real-time price cache."""
+
 from __future__ import annotations
 
 import json
@@ -25,11 +26,13 @@ class LivePriceService:
 
     async def set_price(self, ticker: str, price: float) -> None:
         """Cache a live price with TTL."""
-        data = json.dumps({
-            "price": price,
-            "updated_at": datetime.now(UTC).isoformat(),
-            "source": "live",
-        })
+        data = json.dumps(
+            {
+                "price": price,
+                "updated_at": datetime.now(UTC).isoformat(),
+                "source": "live",
+            }
+        )
         await self.redis.set(f"{self.KEY_PREFIX}{ticker}", data, ex=self.TTL_SECONDS)
 
     async def get_prices(self, tickers: list[str]) -> dict[str, dict | None]:

@@ -17,9 +17,9 @@ from margin_engine.models.financial import PriceBar
 from margin_engine.models.scoring import FactorScore
 
 _MIN_HISTORY_DAYS = 100
-_T1_DAYS = 30    # 1 month (excluded)
-_T3_DAYS = 91    # 3 months
-_T6_DAYS = 182   # 6 months
+_T1_DAYS = 30  # 1 month (excluded)
+_T3_DAYS = 91  # 3 months
+_T6_DAYS = 182  # 6 months
 _T12_DAYS = 365  # 12 months
 
 _W_SHORT = 0.30
@@ -64,7 +64,9 @@ def multi_horizon_momentum(price_bars: list[PriceBar]) -> FactorScore:
     """Compute blended 3/6/12-month momentum (excluding last month)."""
     if len(price_bars) < 2:
         return FactorScore(
-            name="multi_horizon_momentum", raw_value=0.0, percentile_rank=0.0,
+            name="multi_horizon_momentum",
+            raw_value=0.0,
+            percentile_rank=0.0,
             detail="Insufficient data",
         )
 
@@ -74,7 +76,9 @@ def multi_horizon_momentum(price_bars: list[PriceBar]) -> FactorScore:
 
     if span < _MIN_HISTORY_DAYS:
         return FactorScore(
-            name="multi_horizon_momentum", raw_value=0.0, percentile_rank=0.0,
+            name="multi_horizon_momentum",
+            raw_value=0.0,
+            percentile_rank=0.0,
             detail=f"Insufficient history: {span} days (need {_MIN_HISTORY_DAYS})",
         )
 
@@ -95,7 +99,9 @@ def multi_horizon_momentum(price_bars: list[PriceBar]) -> FactorScore:
 
     if not horizons:
         return FactorScore(
-            name="multi_horizon_momentum", raw_value=0.0, percentile_rank=0.0,
+            name="multi_horizon_momentum",
+            raw_value=0.0,
+            percentile_rank=0.0,
             detail="No valid horizons computable",
         )
 
@@ -104,6 +110,8 @@ def multi_horizon_momentum(price_bars: list[PriceBar]) -> FactorScore:
 
     detail_parts = [f"{name}={r:.4f}" for name, _, r in horizons]
     return FactorScore(
-        name="multi_horizon_momentum", raw_value=blended, percentile_rank=0.0,
+        name="multi_horizon_momentum",
+        raw_value=blended,
+        percentile_rank=0.0,
         detail=f"blended={blended:.4f} ({', '.join(detail_parts)})",
     )

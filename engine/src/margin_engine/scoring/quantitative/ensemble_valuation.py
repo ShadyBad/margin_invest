@@ -18,11 +18,13 @@ from pydantic import BaseModel
 
 from margin_engine.models.financial import GICSSector
 
-_ASSET_LIGHT_SECTORS = frozenset({
-    GICSSector.TECHNOLOGY,
-    GICSSector.COMMUNICATION_SERVICES,
-    GICSSector.HEALTHCARE,
-})
+_ASSET_LIGHT_SECTORS = frozenset(
+    {
+        GICSSector.TECHNOLOGY,
+        GICSSector.COMMUNICATION_SERVICES,
+        GICSSector.HEALTHCARE,
+    }
+)
 
 
 class EnsembleResult(BaseModel):
@@ -87,9 +89,7 @@ def compute_ensemble_valuation(
         if median_iv <= 0:
             break
 
-        converging = [
-            v for v in remaining if abs(v - median_iv) / median_iv <= convergence_pct
-        ]
+        converging = [v for v in remaining if abs(v - median_iv) / median_iv <= convergence_pct]
 
         if len(converging) >= len(best_converging):
             best_converging = converging
@@ -117,9 +117,7 @@ def compute_ensemble_valuation(
             vals = list(core_valid.values())
             median_iv = statistics.median(vals)
             if median_iv > 0:
-                within = [
-                    v for v in vals if abs(v - median_iv) / median_iv <= convergence_pct
-                ]
+                within = [v for v in vals if abs(v - median_iv) / median_iv <= convergence_pct]
                 if len(within) >= 2:
                     return EnsembleResult(
                         converged=True,

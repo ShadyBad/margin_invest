@@ -1,4 +1,5 @@
 """Universe status API endpoints."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -51,23 +52,19 @@ async def get_universe_status(db: AsyncSession = Depends(get_db)):
     assets_ingested = ingested_result.scalar() or 0
 
     # Count scored assets (those with at least one score)
-    scored_result = await db.execute(
-        select(func.count(func.distinct(Score.asset_id)))
-    )
+    scored_result = await db.execute(select(func.count(func.distinct(Score.asset_id))))
     assets_scored = scored_result.scalar() or 0
 
     # Freshness breakdown — count by latest score age
     # Fresh: scored_at > fresh_cutoff
     fresh_result = await db.execute(
-        select(func.count(func.distinct(Score.asset_id)))
-        .where(Score.scored_at > fresh_cutoff)
+        select(func.count(func.distinct(Score.asset_id))).where(Score.scored_at > fresh_cutoff)
     )
     assets_fresh = fresh_result.scalar() or 0
 
     # Expired: scored_at <= stale_cutoff
     expired_result = await db.execute(
-        select(func.count(func.distinct(Score.asset_id)))
-        .where(Score.scored_at <= stale_cutoff)
+        select(func.count(func.distinct(Score.asset_id))).where(Score.scored_at <= stale_cutoff)
     )
     assets_expired = expired_result.scalar() or 0
 
@@ -86,14 +83,10 @@ async def get_universe_status(db: AsyncSession = Depends(get_db)):
     assets_permanently_skipped = skipped_result.scalar() or 0
 
     # Last runs
-    last_ingest_result = await db.execute(
-        select(func.max(IngestionRun.started_at))
-    )
+    last_ingest_result = await db.execute(select(func.max(IngestionRun.started_at)))
     last_ingestion_run = last_ingest_result.scalar()
 
-    last_score_result = await db.execute(
-        select(func.max(Score.scored_at))
-    )
+    last_score_result = await db.execute(select(func.max(Score.scored_at)))
     last_scoring_run = last_score_result.scalar()
 
     # Coverage

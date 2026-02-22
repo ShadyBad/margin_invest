@@ -81,8 +81,13 @@ class TestScoreChangeMessage:
         msg = _make_message()
         data = msg.model_dump(mode="json")
         expected_keys = {
-            "ticker", "old_score", "new_score", "delta",
-            "severity", "timestamp", "event_id",
+            "ticker",
+            "old_score",
+            "new_score",
+            "delta",
+            "severity",
+            "timestamp",
+            "event_id",
         }
         assert set(data.keys()) == expected_keys
 

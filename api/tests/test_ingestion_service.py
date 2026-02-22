@@ -1,4 +1,5 @@
 """Tests for the ingestion service."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -64,6 +65,7 @@ class TestShouldIngestTicker:
 
     def test_quarantined_after_7_days_should_ingest(self):
         from datetime import timedelta
+
         old = datetime.now(UTC) - timedelta(days=8)
         assert should_ingest_ticker("quarantined", 3, old) is True
 
@@ -83,7 +85,9 @@ class TestUpdateFailureStatus:
     @pytest.mark.asyncio
     async def test_three_failures_quarantines(self, session):
         asset = Asset(
-            ticker="XYZW", name="XYZ Corp", sector="Technology",
+            ticker="XYZW",
+            name="XYZ Corp",
+            sector="Technology",
             consecutive_failures=2,
         )
         session.add(asset)
@@ -98,7 +102,9 @@ class TestUpdateFailureStatus:
     @pytest.mark.asyncio
     async def test_six_failures_permanently_skips(self, session):
         asset = Asset(
-            ticker="XYZW", name="XYZ Corp", sector="Technology",
+            ticker="XYZW",
+            name="XYZ Corp",
+            sector="Technology",
             ingestion_status="quarantined",
             consecutive_failures=5,
             quarantined_at=datetime.now(UTC),
@@ -135,7 +141,9 @@ class TestUpdateFailureStatus:
     @pytest.mark.asyncio
     async def test_success_resets_failures(self, session):
         asset = Asset(
-            ticker="XYZW", name="XYZ Corp", sector="Technology",
+            ticker="XYZW",
+            name="XYZ Corp",
+            sector="Technology",
             ingestion_status="quarantined",
             consecutive_failures=4,
             quarantined_at=datetime.now(UTC),

@@ -1,4 +1,5 @@
 """MFA enforcement for sensitive endpoints."""
+
 from datetime import UTC, datetime
 
 from fastapi import Depends, HTTPException

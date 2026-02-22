@@ -102,7 +102,9 @@ def run_elimination_filters(
     # --- Liquidity ---
     if price_bars is not None:
         liquidity_result = liquidity_check_v2(
-            profile, price_bars=price_bars, config=config.liquidity,
+            profile,
+            price_bars=price_bars,
+            config=config.liquidity,
         )
     else:
         liquidity_result = liquidity_check(profile, config=config.liquidity)
@@ -134,9 +136,7 @@ def run_elimination_filters(
 
     # --- Current Ratio ---
     if history is not None:
-        current_result = current_ratio_check_v2(
-            history, sector=sector, config=config.current_ratio
-        )
+        current_result = current_ratio_check_v2(history, sector=sector, config=config.current_ratio)
     else:
         current_result = current_ratio_check(period, sector=sector, config=config.current_ratio)
 

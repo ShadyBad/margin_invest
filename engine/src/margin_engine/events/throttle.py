@@ -22,9 +22,7 @@ class NotificationThrottle:
         self._cooldown = cooldown
         self._last_notified: dict[str, datetime] = {}
 
-    def should_notify(
-        self, ticker: str, severity: EventSeverity, now: datetime
-    ) -> bool:
+    def should_notify(self, ticker: str, severity: EventSeverity, now: datetime) -> bool:
         """Return True if a notification should be sent for this ticker.
 
         Rules:

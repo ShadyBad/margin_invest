@@ -115,9 +115,7 @@ def _make_profile(
     )
 
 
-def _make_strong_compounder_history(
-    ticker: str = "COMP", num_periods: int = 5
-) -> FinancialHistory:
+def _make_strong_compounder_history(ticker: str = "COMP", num_periods: int = 5) -> FinancialHistory:
     """Build a history where revenue/ROIC/margins all grow consistently.
 
     This is designed to trigger 3-4 moat durability signatures and produce
@@ -420,10 +418,10 @@ class TestBothTracksPromoteToExceptional:
         assert result.ticker == "BOTH"
         # If both tracks are at HIGH+, opportunity_type should be "both"
         # and conviction promoted to EXCEPTIONAL.
-        if (
-            track_a.conviction in (ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH)
-            and track_b.conviction in (ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH)
-        ):
+        if track_a.conviction in (
+            ConvictionLevel.EXCEPTIONAL,
+            ConvictionLevel.HIGH,
+        ) and track_b.conviction in (ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH):
             assert result.opportunity_type == "both"
             assert result.conviction == ConvictionLevel.EXCEPTIONAL
             assert result.max_position_pct == 20.0

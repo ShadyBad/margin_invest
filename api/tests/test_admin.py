@@ -1,4 +1,5 @@
 """Tests for admin pipeline trigger, universe activation, and quarantine endpoints."""
+
 from __future__ import annotations
 
 import os

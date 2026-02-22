@@ -55,7 +55,6 @@ def _make_bars(n: int, start_price: float = 100.0) -> list[PriceBar]:
     return _make_constant_return_bars(n, daily_return=0.0002, start_price=start_price)
 
 
-
 # ===================================================================
 # Sharpe Ratio
 # ===================================================================

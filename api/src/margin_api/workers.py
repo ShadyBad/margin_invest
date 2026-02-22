@@ -6,6 +6,7 @@ Also handles live price polling and quarantined ticker retries.
 Start the worker with:
     arq margin_api.workers.WorkerSettings
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,7 +38,11 @@ logger = logging.getLogger(__name__)
 
 
 def _log_run_alerts(
-    total: int, succeeded: int, failed: int, partial: int, cb_trips: int,
+    total: int,
+    succeeded: int,
+    failed: int,
+    partial: int,
+    cb_trips: int,
 ) -> None:
     """Log alerts based on run outcome thresholds."""
     if total == 0:
@@ -48,12 +53,16 @@ def _log_run_alerts(
     if fail_rate > 0.20:
         logger.error(
             "[ingest] ALERT: %.0f%% of tickers failed (%d/%d)",
-            fail_rate * 100, failed, total,
+            fail_rate * 100,
+            failed,
+            total,
         )
     if partial_rate > 0.10:
         logger.warning(
             "[ingest] ALERT: %.0f%% of tickers had partial data (%d/%d)",
-            partial_rate * 100, partial, total,
+            partial_rate * 100,
+            partial,
+            total,
         )
     if cb_trips > 0:
         logger.warning(
@@ -129,9 +138,7 @@ async def full_ingest(ctx: dict) -> dict:
         logger.info("[ingest] [%d/%d] Seeding %s", i, total, ticker)
 
         async with session_factory() as session:
-            result = await seed_ticker_data(
-                ticker=ticker, provider=provider, session=session
-            )
+            result = await seed_ticker_data(ticker=ticker, provider=provider, session=session)
 
         if result.status == "ok":
             successes += 1
@@ -147,9 +154,7 @@ async def full_ingest(ctx: dict) -> dict:
     # Update IngestionRun record
     completed_at = datetime.now(UTC)
     async with session_factory() as session:
-        result = await session.execute(
-            select(IngestionRun).where(IngestionRun.id == run_id)
-        )
+        result = await session.execute(select(IngestionRun).where(IngestionRun.id == run_id))
         run = result.scalar_one()
         run.tickers_succeeded = successes
         run.tickers_failed = failures
@@ -222,9 +227,7 @@ async def full_score(ctx: dict) -> dict:
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
-            result = await session.execute(
-                select(JobRun).where(JobRun.id == job_id)
-            )
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = result.scalar_one()
             job.status = "completed"
             job.progress = 1.0
@@ -239,9 +242,7 @@ async def full_score(ctx: dict) -> dict:
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
-            result = await session.execute(
-                select(JobRun).where(JobRun.id == job_id)
-            )
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = result.scalar_one()
             job.status = "failed"
             job.error_message = str(e)[:500]
@@ -290,9 +291,7 @@ async def full_score_v3(ctx: dict) -> dict:
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
-            result = await session.execute(
-                select(JobRun).where(JobRun.id == job_id)
-            )
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = result.scalar_one()
             job.status = "completed"
             job.progress = 1.0
@@ -307,9 +306,7 @@ async def full_score_v3(ctx: dict) -> dict:
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
-            result = await session.execute(
-                select(JobRun).where(JobRun.id == job_id)
-            )
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = result.scalar_one()
             job.status = "failed"
             job.error_message = str(e)[:500]
@@ -423,6 +420,7 @@ class WorkerSettings:
             "[worker] Registered functions: %s",
             [f.__name__ if callable(f) else str(f) for f in WorkerSettings.functions],
         )
+
     functions = [
         full_ingest,
         full_score,

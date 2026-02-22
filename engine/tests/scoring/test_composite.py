@@ -15,6 +15,7 @@ from margin_engine.scoring.composite import compute_composite_score
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_factor_score(
     name: str = "test_factor",
     raw_value: float = 1.0,
@@ -30,6 +31,7 @@ def _make_filter(name: str = "altman_z", passed: bool = True) -> FilterResult:
 # ---------------------------------------------------------------------------
 # Basic composite computation
 # ---------------------------------------------------------------------------
+
 
 class TestBasicComposite:
     """Core weighted-average computation with default weights."""
@@ -131,6 +133,7 @@ class TestBasicComposite:
 # Growth-stage-adjusted weights
 # ---------------------------------------------------------------------------
 
+
 class TestGrowthStageWeights:
     """Weights adjusted by growth stage via ScoringConfig.weights_for_stage."""
 
@@ -201,6 +204,7 @@ class TestGrowthStageWeights:
 # ---------------------------------------------------------------------------
 # Conviction level property
 # ---------------------------------------------------------------------------
+
 
 class TestConvictionLevel:
     """CompositeScore.conviction_level thresholds."""
@@ -278,6 +282,7 @@ class TestConvictionLevel:
 # Signal property
 # ---------------------------------------------------------------------------
 
+
 class TestSignal:
     """CompositeScore.signal derived from conviction_level."""
 
@@ -342,6 +347,7 @@ class TestSignal:
 # Data coverage computation
 # ---------------------------------------------------------------------------
 
+
 class TestDataCoverage:
     """data_coverage = fraction of sub-scores with non-zero percentile_rank."""
 
@@ -399,6 +405,7 @@ class TestDataCoverage:
 # Default config
 # ---------------------------------------------------------------------------
 
+
 class TestDefaultConfig:
     """ScoringConfig defaults are used when config=None."""
 
@@ -447,6 +454,7 @@ class TestDefaultConfig:
 # Empty sub-score lists (edge case)
 # ---------------------------------------------------------------------------
 
+
 class TestEmptySubScores:
     """Empty sub-score lists should still produce valid CompositeScore."""
 
@@ -486,6 +494,7 @@ class TestEmptySubScores:
 # ---------------------------------------------------------------------------
 # FactorBreakdown fields
 # ---------------------------------------------------------------------------
+
 
 class TestFactorBreakdownFields:
     """All FactorBreakdown fields populated correctly."""
@@ -596,6 +605,7 @@ class TestFactorBreakdownFields:
 # ---------------------------------------------------------------------------
 # Price targets integration
 # ---------------------------------------------------------------------------
+
 
 class TestPriceTargetsIntegration:
     """Price targets can be optionally passed into composite scorer."""

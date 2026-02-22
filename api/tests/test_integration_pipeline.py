@@ -3,6 +3,7 @@
 Verifies the full pipeline flow in-memory: universe config -> activate -> ingest ->
 score -> freshness. No real yfinance or Redis needed.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -45,13 +46,7 @@ class TestPipelineIntegration:
 
         # Step 1: Create a test universe config
         config_file = tmp_path / "universe.yaml"
-        config_file.write_text(
-            'version: "test-v1"\n'
-            "tickers:\n"
-            "  - AAPL\n"
-            "  - MSFT\n"
-            "  - NVDA\n"
-        )
+        config_file.write_text('version: "test-v1"\ntickers:\n  - AAPL\n  - MSFT\n  - NVDA\n')
 
         # Step 2: Activate the universe
         snapshot = await activate_universe(session, config_file)

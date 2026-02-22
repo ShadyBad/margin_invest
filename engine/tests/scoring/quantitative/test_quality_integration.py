@@ -82,6 +82,7 @@ class TestQualityFactorIntegration:
         from margin_engine.scoring.quantitative import (
             sloan_accrual_ratio as sar,
         )
+
         # Just verify they're callable
         assert callable(gp)
         assert callable(rws)

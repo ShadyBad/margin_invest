@@ -45,10 +45,7 @@ def reinvestment_engine(period: FinancialPeriod) -> FactorScore:
             name="reinvestment_engine",
             raw_value=0.0,
             percentile_rank=0.0,
-            detail=(
-                f"NOPAT={nopat:,.2f}, IC={invested_capital:,.2f} "
-                f"(non-positive NOPAT or IC)"
-            ),
+            detail=(f"NOPAT={nopat:,.2f}, IC={invested_capital:,.2f} (non-positive NOPAT or IC)"),
         )
 
     roic = nopat / invested_capital

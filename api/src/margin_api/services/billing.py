@@ -115,9 +115,7 @@ class BillingService:
         user.stripe_subscription_id = stripe_subscription_id
 
         if current_period_end:
-            user.current_period_end = datetime.fromtimestamp(
-                current_period_end, tz=UTC
-            )
+            user.current_period_end = datetime.fromtimestamp(current_period_end, tz=UTC)
 
         if status in _ACTIVE_STATUSES:
             plan = self._price_to_plan.get(price_id or "", "portfolio")

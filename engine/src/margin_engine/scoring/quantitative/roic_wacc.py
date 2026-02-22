@@ -43,9 +43,7 @@ def compute_roic(period: FinancialPeriod) -> float:
     return nopat / invested_capital
 
 
-def roic_wacc_spread(
-    period: FinancialPeriod, wacc: float | None = None
-) -> FactorScore:
+def roic_wacc_spread(period: FinancialPeriod, wacc: float | None = None) -> FactorScore:
     """Compute ROIC-WACC spread quality factor.
 
     If wacc is provided, raw_value = ROIC - WACC (the spread).
@@ -67,10 +65,7 @@ def roic_wacc_spread(
 
     if invested_capital <= 0:
         spread = 0.0 if wacc is None else 0.0
-        detail = (
-            f"NOPAT={nopat:,.2f}, IC={invested_capital:,.2f} "
-            f"(non-positive), ROIC=N/A"
-        )
+        detail = f"NOPAT={nopat:,.2f}, IC={invested_capital:,.2f} (non-positive), ROIC=N/A"
         if wacc is not None:
             detail += f", WACC={wacc:.4f}, Spread=N/A"
         return FactorScore(
@@ -87,10 +82,7 @@ def roic_wacc_spread(
     else:
         spread = roic
 
-    detail = (
-        f"NOPAT={nopat:,.2f}, IC={invested_capital:,.2f}, "
-        f"ROIC={roic:.4f}"
-    )
+    detail = f"NOPAT={nopat:,.2f}, IC={invested_capital:,.2f}, ROIC={roic:.4f}"
     if wacc is not None:
         detail += f", WACC={wacc:.4f}, Spread={spread:.4f}"
 

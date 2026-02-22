@@ -38,9 +38,7 @@ class TestNotificationThrottle:
     def test_major_severity_bypasses_throttle(self):
         self.throttle.record_notification("AAPL", self.now)
         one_second_later = self.now + timedelta(seconds=1)
-        assert (
-            self.throttle.should_notify("AAPL", EventSeverity.MAJOR, one_second_later) is True
-        )
+        assert self.throttle.should_notify("AAPL", EventSeverity.MAJOR, one_second_later) is True
 
     def test_major_bypasses_even_immediately_after(self):
         self.throttle.record_notification("AAPL", self.now)

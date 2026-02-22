@@ -45,8 +45,6 @@ def sloan_accrual_ratio(period: FinancialPeriod) -> FactorScore:
         raw_value=ratio,
         percentile_rank=0.0,
         detail=(
-            f"({net_income} - {cfo}) / {total_assets}"
-            f" = {accruals} / {total_assets}"
-            f" = {ratio:.4f}"
+            f"({net_income} - {cfo}) / {total_assets} = {accruals} / {total_assets} = {ratio:.4f}"
         ),
     )

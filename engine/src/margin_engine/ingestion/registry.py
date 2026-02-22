@@ -31,9 +31,7 @@ logger = logging.getLogger(__name__)
 
 # Categories whose fetch methods do not take a single ticker argument.
 # These are not yet supported by the registry's ``fetch()`` method.
-_NON_TICKER_CATEGORIES: frozenset[DataCategory] = frozenset(
-    {DataCategory.MACRO, DataCategory.NEWS}
-)
+_NON_TICKER_CATEGORIES: frozenset[DataCategory] = frozenset({DataCategory.MACRO, DataCategory.NEWS})
 
 # Maps a DataCategory to the DataProvider method name used for fetching.
 _CATEGORY_METHOD_MAP: dict[DataCategory, str] = {
@@ -111,9 +109,7 @@ class ProviderRegistry:
     # Fetch with fallback
     # ------------------------------------------------------------------
 
-    def fetch(
-        self, category: DataCategory, ticker: str, **kwargs: object
-    ) -> FetchResult:
+    def fetch(self, category: DataCategory, ticker: str, **kwargs: object) -> FetchResult:
         """Fetch data using the fallback chain for the given category.
 
         Tries each provider in order.  Returns the first successful
@@ -159,9 +155,7 @@ class ProviderRegistry:
             if self._rate_limiter_registry is not None:
                 try:
                     if not self._rate_limiter_registry.acquire(name):
-                        logger.info(
-                            "Provider %s rate-limited, trying next", name
-                        )
+                        logger.info("Provider %s rate-limited, trying next", name)
                         errors.append(f"{name}: rate limited")
                         continue
                 except KeyError:

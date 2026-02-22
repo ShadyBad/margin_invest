@@ -18,6 +18,7 @@ from margin_engine.ingestion.types import (
 # Fake / mock providers for testing
 # ---------------------------------------------------------------------------
 
+
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -70,9 +71,7 @@ class FakeProvider(DataProvider):
 
     def fetch_price_history(self, ticker: str, days: int = 365) -> FetchResult:
         self.calls.append(("fetch_price_history", ticker, {"days": days}))
-        return self._make_result(
-            DataCategory.PRICE, ticker, extra_data={"days": days}
-        )
+        return self._make_result(DataCategory.PRICE, ticker, extra_data={"days": days})
 
     def fetch_insider_transactions(self, ticker: str) -> FetchResult:
         self.calls.append(("fetch_insider_transactions", ticker, {}))
@@ -158,9 +157,7 @@ class TestFallbackChainOrdering:
     def test_chain_only_includes_providers_for_category(self):
         registry = ProviderRegistry()
         price_provider = FakeProvider("price_only", [DataCategory.PRICE], priority=10)
-        fund_provider = FakeProvider(
-            "fund_only", [DataCategory.FUNDAMENTALS], priority=5
-        )
+        fund_provider = FakeProvider("fund_only", [DataCategory.FUNDAMENTALS], priority=5)
         registry.register(price_provider)
         registry.register(fund_provider)
 
@@ -325,12 +322,8 @@ class TestFetchFallback:
 
     def test_falls_back_through_multiple_failures(self):
         registry = ProviderRegistry()
-        fail1 = FakeProvider(
-            "fail1", [DataCategory.INSIDER], priority=10, should_fail=True
-        )
-        fail2 = FakeProvider(
-            "fail2", [DataCategory.INSIDER], priority=5, should_fail=True
-        )
+        fail1 = FakeProvider("fail1", [DataCategory.INSIDER], priority=10, should_fail=True)
+        fail2 = FakeProvider("fail2", [DataCategory.INSIDER], priority=5, should_fail=True)
         success = FakeProvider("success", [DataCategory.INSIDER], priority=1)
         registry.register(fail1)
         registry.register(fail2)
@@ -394,9 +387,7 @@ class TestFetchAllFail:
 
     def test_all_fail_result_has_correct_metadata(self):
         registry = ProviderRegistry()
-        fail1 = FakeProvider(
-            "fail1", [DataCategory.PRICE], priority=10, should_fail=True
-        )
+        fail1 = FakeProvider("fail1", [DataCategory.PRICE], priority=10, should_fail=True)
         registry.register(fail1)
 
         result = registry.fetch(DataCategory.PRICE, "TSLA")
@@ -443,9 +434,7 @@ class TestRateLimiterIntegration:
         rate_registry.register("rate_limited", 1)
 
         registry = ProviderRegistry(rate_limiter_registry=rate_registry)
-        limited = FakeProvider(
-            "rate_limited", [DataCategory.FUNDAMENTALS], priority=10
-        )
+        limited = FakeProvider("rate_limited", [DataCategory.FUNDAMENTALS], priority=10)
         backup = FakeProvider("backup", [DataCategory.FUNDAMENTALS], priority=5)
         registry.register(limited)
         registry.register(backup)

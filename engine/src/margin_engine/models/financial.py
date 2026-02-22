@@ -157,8 +157,7 @@ class FinancialPeriod(BaseModel):
         if self.prior_income is None or self.prior_income.revenue == 0:
             return None
         return float(
-            (self.current_income.revenue - self.prior_income.revenue)
-            / self.prior_income.revenue
+            (self.current_income.revenue - self.prior_income.revenue) / self.prior_income.revenue
         )
 
 

@@ -230,6 +230,7 @@ class TestSectorNeutralRanks:
 # rerank_composites tests
 # ---------------------------------------------------------------------------
 
+
 def _make_composite(
     ticker: str,
     raw_score: float,

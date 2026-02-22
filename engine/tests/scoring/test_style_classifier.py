@@ -1,6 +1,5 @@
 """Tests for investment style classification (Value/Blend/Growth)."""
 
-
 from margin_engine.models.scoring import InvestmentStyle
 
 

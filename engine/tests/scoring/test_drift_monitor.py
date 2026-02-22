@@ -35,7 +35,9 @@ def test_custom_thresholds():
     sector_weights = {"Technology": 0.35}
     style_weights = {"growth": 0.45}
     alerts = check_concentration(
-        sector_weights, style_weights,
-        max_sector_pct=0.30, max_style_pct=0.40,
+        sector_weights,
+        style_weights,
+        max_sector_pct=0.30,
+        max_style_pct=0.40,
     )
     assert len(alerts) == 2

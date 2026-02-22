@@ -1,4 +1,5 @@
 """Tests for retry logic."""
+
 from __future__ import annotations
 
 import pytest

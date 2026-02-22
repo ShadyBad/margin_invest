@@ -13,25 +13,33 @@ from margin_engine.models.financial import (
 from margin_engine.scoring.filters.mediocrity_gate import mediocrity_gate
 
 
-def _make_period(year: int, ebit: Decimal = Decimal("200"),
-                 revenue: Decimal = Decimal("1000"),
-                 cfo: Decimal = Decimal("250"),
-                 gross_margin_pct: float = 0.40) -> FinancialPeriod:
+def _make_period(
+    year: int,
+    ebit: Decimal = Decimal("200"),
+    revenue: Decimal = Decimal("1000"),
+    cfo: Decimal = Decimal("250"),
+    gross_margin_pct: float = 0.40,
+) -> FinancialPeriod:
     cogs = revenue * Decimal(str(1 - gross_margin_pct))
     return FinancialPeriod(
         period_end=f"{year}-12-31",
         filing_date=f"{year + 1}-02-15",
         current_income=IncomeStatement(
-            revenue=revenue, cost_of_revenue=cogs,
-            gross_profit=revenue - cogs, ebit=ebit,
+            revenue=revenue,
+            cost_of_revenue=cogs,
+            gross_profit=revenue - cogs,
+            ebit=ebit,
             net_income=ebit * Decimal("0.79"),
         ),
         current_balance=BalanceSheet(
-            total_assets=Decimal("2000"), total_equity=Decimal("500"),
-            long_term_debt=Decimal("200"), cash_and_equivalents=Decimal("100"),
+            total_assets=Decimal("2000"),
+            total_equity=Decimal("500"),
+            long_term_debt=Decimal("200"),
+            cash_and_equivalents=Decimal("100"),
         ),
         current_cash_flow=CashFlowStatement(
-            operating_cash_flow=cfo, capital_expenditures=Decimal("-50"),
+            operating_cash_flow=cfo,
+            capital_expenditures=Decimal("-50"),
         ),
     )
 

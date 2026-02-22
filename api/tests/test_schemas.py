@@ -28,9 +28,7 @@ def _make_factor_breakdown(
     return FactorBreakdown(
         factor_name=name,
         weight=weight,
-        sub_scores=[
-            FactorScore(name=n, raw_value=r, percentile_rank=p) for n, r, p in scores
-        ],
+        sub_scores=[FactorScore(name=n, raw_value=r, percentile_rank=p) for n, r, p in scores],
     )
 
 
@@ -146,9 +144,7 @@ class TestScoreResponse:
                 factor_name="quality",
                 weight=0.35,
                 sub_scores=[
-                    FactorScoreResponse(
-                        name="gross_margin", raw_value=0.45, percentile_rank=85.0
-                    ),
+                    FactorScoreResponse(name="gross_margin", raw_value=0.45, percentile_rank=85.0),
                 ],
                 average_percentile=85.0,
             ),
@@ -256,13 +252,22 @@ class TestScoreResponse:
             conviction_level="exceptional",
             signal="buy",
             quality=FactorBreakdownResponse(
-                factor_name="quality", weight=0.35, sub_scores=[], average_percentile=90.0,
+                factor_name="quality",
+                weight=0.35,
+                sub_scores=[],
+                average_percentile=90.0,
             ),
             value=FactorBreakdownResponse(
-                factor_name="value", weight=0.30, sub_scores=[], average_percentile=85.0,
+                factor_name="value",
+                weight=0.30,
+                sub_scores=[],
+                average_percentile=85.0,
             ),
             momentum=FactorBreakdownResponse(
-                factor_name="momentum", weight=0.35, sub_scores=[], average_percentile=88.0,
+                factor_name="momentum",
+                weight=0.35,
+                sub_scores=[],
+                average_percentile=88.0,
             ),
             filters_passed=[],
             data_coverage=0.95,

@@ -32,8 +32,10 @@ async def audit_session(async_engine):
     factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
         aapl = Asset(
-            ticker="AAPL", name="Apple Inc.",
-            sector="Information Technology", market_cap=Decimal("3500000000000"),
+            ticker="AAPL",
+            name="Apple Inc.",
+            sector="Information Technology",
+            market_cap=Decimal("3500000000000"),
         )
         session.add(aapl)
         await session.flush()
@@ -65,8 +67,10 @@ async def mismatched_session(async_engine):
     factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
         aapl = Asset(
-            ticker="AAPL", name="Apple Inc.",
-            sector="Information Technology", market_cap=Decimal("3500000000000"),
+            ticker="AAPL",
+            name="Apple Inc.",
+            sector="Information Technology",
+            market_cap=Decimal("3500000000000"),
         )
         session.add(aapl)
         await session.flush()
@@ -76,7 +80,7 @@ async def mismatched_session(async_engine):
             composite_percentile=90.0,
             composite_raw_score=60.0,
             conviction_level="high",  # WRONG: 60.0 < 65 threshold -> should be "none"
-            signal="buy",             # WRONG: none conviction -> should be "no_action"
+            signal="buy",  # WRONG: none conviction -> should be "no_action"
             quality_percentile=80.0,
             value_percentile=85.0,
             momentum_percentile=75.0,

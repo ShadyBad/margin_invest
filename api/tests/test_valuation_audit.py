@@ -132,9 +132,7 @@ async def async_engine():
 
 @pytest_asyncio.fixture
 async def seeded_session(async_engine):
-    factory = async_sessionmaker(
-        async_engine, class_=AsyncSession, expire_on_commit=False
-    )
+    factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
         # Asset with valuation audit data
         asset_aapl = Asset(

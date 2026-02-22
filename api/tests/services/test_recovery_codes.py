@@ -110,9 +110,7 @@ class TestVerifyCode:
     @pytest.mark.asyncio
     async def test_invalid_code_returns_false(self, service, db_session, credential_user):
         await service.generate_codes(db_session, credential_user.id)
-        assert (
-            await service.verify_code(db_session, credential_user.id, "zzzz-zzzz") is False
-        )
+        assert await service.verify_code(db_session, credential_user.id, "zzzz-zzzz") is False
 
 
 class TestRemainingCount:

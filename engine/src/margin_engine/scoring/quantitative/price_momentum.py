@@ -57,10 +57,7 @@ def price_momentum(price_bars: list[PriceBar]) -> FactorScore:
             name="price_momentum",
             raw_value=0.0,
             percentile_rank=0.0,
-            detail=(
-                f"Insufficient history: span={span} days"
-                f" (need >= {_MIN_HISTORY_DAYS})"
-            ),
+            detail=(f"Insufficient history: span={span} days (need >= {_MIN_HISTORY_DAYS})"),
         )
 
     # 3. Find the bar closest to T-1 month (~30 calendar days ago).
@@ -79,10 +76,7 @@ def price_momentum(price_bars: list[PriceBar]) -> FactorScore:
             name="price_momentum",
             raw_value=0.0,
             percentile_rank=0.0,
-            detail=(
-                f"Zero price at T-12 ({sorted_bars[idx_t12].date}):"
-                f" price_t12={price_t12}"
-            ),
+            detail=(f"Zero price at T-12 ({sorted_bars[idx_t12].date}): price_t12={price_t12}"),
         )
 
     # 6. Compute momentum.

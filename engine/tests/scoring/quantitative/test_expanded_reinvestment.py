@@ -35,7 +35,9 @@ def _make_period(
         prior_income=IncomeStatement(
             revenue=Decimal("900"),
             rd_expense=Decimal(str(prior_rd)) if prior_rd is not None else None,
-        ) if prior_rd is not None else None,
+        )
+        if prior_rd is not None
+        else None,
         current_balance=BalanceSheet(
             total_assets=Decimal("5000"),
             total_equity=Decimal(str(equity)),
@@ -87,9 +89,7 @@ def test_rd_growth_zero_when_no_rd_data():
     h1 = FinancialHistory(ticker="A", periods=periods_no_rd)
     h2 = FinancialHistory(ticker="B", periods=periods_none_rd)
 
-    assert compute_compounding_power(h1) == pytest.approx(
-        compute_compounding_power(h2)
-    )
+    assert compute_compounding_power(h1) == pytest.approx(compute_compounding_power(h2))
 
 
 def test_declining_rd_adds_nothing():

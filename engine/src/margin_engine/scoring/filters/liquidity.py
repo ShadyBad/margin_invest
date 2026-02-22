@@ -50,10 +50,12 @@ _SECTOR_MARKET_CAP: dict[GICSSector, Decimal] = {
 }
 
 # Excluded sectors (v1)
-_EXCLUDED_SECTORS: frozenset[GICSSector] = frozenset({
-    GICSSector.FINANCIALS,
-    GICSSector.REAL_ESTATE,
-})
+_EXCLUDED_SECTORS: frozenset[GICSSector] = frozenset(
+    {
+        GICSSector.FINANCIALS,
+        GICSSector.REAL_ESTATE,
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -131,8 +133,7 @@ def liquidity_check(
     if profile.sector.value in excluded_sector_values:
         excluded_list = ", ".join(sorted(excluded_sector_values))
         detail = (
-            f"Sector '{profile.sector.value}' is excluded in v1. "
-            f"Excluded sectors: {excluded_list}"
+            f"Sector '{profile.sector.value}' is excluded in v1. Excluded sectors: {excluded_list}"
         )
         return FilterResult(
             name=name,
@@ -152,11 +153,7 @@ def liquidity_check(
 
     cap_passed = profile.market_cap >= cap_threshold
     cap_label = "PASS" if cap_passed else "FAIL"
-    override_note = (
-        f" [{profile.sector.value} override]"
-        if has_override
-        else ""
-    )
+    override_note = f" [{profile.sector.value} override]" if has_override else ""
     criteria.append(
         f"market_cap=${float(profile.market_cap):,.0f} {cap_label} "
         f"(threshold=${float(cap_threshold):,.0f}{override_note})"
@@ -185,8 +182,7 @@ def liquidity_check(
     hist_passed = profile.years_of_history >= min_years
     hist_label = "PASS" if hist_passed else "FAIL"
     criteria.append(
-        f"years_of_history={profile.years_of_history} {hist_label} "
-        f"(threshold={min_years})"
+        f"years_of_history={profile.years_of_history} {hist_label} (threshold={min_years})"
     )
     if not hist_passed:
         all_passed = False
@@ -244,10 +240,7 @@ def liquidity_check_v2(
     excluded_sector_values = set(config.excluded_sectors)
     if profile.sector.value in excluded_sector_values:
         excluded_list = ", ".join(sorted(excluded_sector_values))
-        detail = (
-            f"Sector '{profile.sector.value}' is excluded. "
-            f"Excluded sectors: {excluded_list}"
-        )
+        detail = f"Sector '{profile.sector.value}' is excluded. Excluded sectors: {excluded_list}"
         return FilterResult(
             name=name,
             passed=False,
@@ -276,8 +269,7 @@ def liquidity_check_v2(
     hist_passed = profile.years_of_history >= min_years
     hist_label = "PASS" if hist_passed else "FAIL"
     criteria.append(
-        f"years_of_history={profile.years_of_history} {hist_label} "
-        f"(threshold={min_years})"
+        f"years_of_history={profile.years_of_history} {hist_label} (threshold={min_years})"
     )
     metrics["years_of_history"] = float(profile.years_of_history)
     if not hist_passed:
@@ -322,10 +314,7 @@ def liquidity_check_v2(
 
         dtf_passed = dtf <= ps_config.max_days_to_fill
         dtf_label = "PASS" if dtf_passed else "FAIL"
-        criteria.append(
-            f"days_to_fill={dtf:.1f} {dtf_label} "
-            f"(max={ps_config.max_days_to_fill})"
-        )
+        criteria.append(f"days_to_fill={dtf:.1f} {dtf_label} (max={ps_config.max_days_to_fill})")
         metrics["days_to_fill"] = dtf
         metrics["market_impact_bps"] = impact_bps
         if not dtf_passed:

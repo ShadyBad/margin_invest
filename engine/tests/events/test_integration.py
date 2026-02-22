@@ -198,9 +198,7 @@ class TestPipelineWithThrottle:
         # Major event 5 minutes later — should bypass throttle
         soon_after = base_time + timedelta(minutes=5)
         major_events = [
-            _make_event(
-                event_type=EventType.EARNINGS_RELEASE, ticker="AAPL", timestamp=soon_after
-            ),
+            _make_event(event_type=EventType.EARNINGS_RELEASE, ticker="AAPL", timestamp=soon_after),
         ]
         major_results = pipeline.process(major_events)
         assert major_results[0].classified_severity == EventSeverity.MAJOR

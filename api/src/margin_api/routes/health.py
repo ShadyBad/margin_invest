@@ -42,10 +42,6 @@ async def health_check(session: AsyncSession = Depends(get_db)) -> dict:
         logger.warning("Health check: redis unreachable")
         checks["redis"] = "error"
 
-    status = (
-        "ok"
-        if checks.get("database") == "ok" and checks.get("redis") == "ok"
-        else "degraded"
-    )
+    status = "ok" if checks.get("database") == "ok" and checks.get("redis") == "ok" else "degraded"
     checks["status"] = status
     return checks

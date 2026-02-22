@@ -66,9 +66,7 @@ class TestApiKeyModel:
         db.add_all([key1, key2])
         await db.commit()
         result = await db.execute(
-            select(ApiKey).where(
-                ApiKey.user_id == user.id, ApiKey.provider_name == "fmp"
-            )
+            select(ApiKey).where(ApiKey.user_id == user.id, ApiKey.provider_name == "fmp")
         )
         keys = list(result.scalars().all())
         assert len(keys) == 2

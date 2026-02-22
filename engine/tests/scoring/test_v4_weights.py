@@ -59,7 +59,9 @@ class TestV4Weights:
         for style in InvestmentStyle:
             for stage in GrowthStage:
                 q, v, m, g = weights_for_style_stage(style, stage)
-                assert q + v + m + g == pytest.approx(1.0), f"{style}/{stage} sums to {q+v+m+g}"
+                assert q + v + m + g == pytest.approx(1.0), (
+                    f"{style}/{stage} sums to {q + v + m + g}"
+                )
 
     def test_no_cell_exceeds_045(self):
         """No single weight exceeds 0.45."""

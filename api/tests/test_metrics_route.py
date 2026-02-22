@@ -21,16 +21,22 @@ def _score_detail() -> dict:
         "conviction_level": "high",
         "signal": "buy",
         "quality": {
-            "factor_name": "quality", "weight": 0.35,
-            "sub_scores": [], "average_percentile": 90.0,
+            "factor_name": "quality",
+            "weight": 0.35,
+            "sub_scores": [],
+            "average_percentile": 90.0,
         },
         "value": {
-            "factor_name": "value", "weight": 0.30,
-            "sub_scores": [], "average_percentile": 85.0,
+            "factor_name": "value",
+            "weight": 0.30,
+            "sub_scores": [],
+            "average_percentile": 85.0,
         },
         "momentum": {
-            "factor_name": "momentum", "weight": 0.35,
-            "sub_scores": [], "average_percentile": 88.0,
+            "factor_name": "momentum",
+            "weight": 0.35,
+            "sub_scores": [],
+            "average_percentile": 88.0,
         },
         "filters_passed": [],
         "data_coverage": 1.0,
@@ -48,14 +54,16 @@ def _make_price_bars(closes: list[float]) -> dict:
     bars = []
     for i, close in enumerate(closes):
         d = start + timedelta(days=i)
-        bars.append({
-            "date": d.isoformat(),
-            "open": close,
-            "high": close * 1.01,
-            "low": close * 0.99,
-            "close": close,
-            "volume": 1000000,
-        })
+        bars.append(
+            {
+                "date": d.isoformat(),
+                "open": close,
+                "high": close * 1.01,
+                "low": close * 0.99,
+                "close": close,
+                "volume": 1000000,
+            }
+        )
     return {"bars": bars}
 
 
@@ -154,7 +162,10 @@ async def test_metrics_returns_all_fields(client):
     assert data["volatility"]["value"] is not None
     assert data["avg_profit_margin"]["value"] is not None
     assert data["risk_classification"] in (
-        "Conservative", "Moderate", "Moderate-High", "Aggressive",
+        "Conservative",
+        "Moderate",
+        "Moderate-High",
+        "Aggressive",
     )
     assert data["margin_of_safety"]["value"] is not None
 

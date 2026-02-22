@@ -1,4 +1,5 @@
 """Tests for universe config loading and validation."""
+
 from __future__ import annotations
 
 from textwrap import dedent
@@ -10,7 +11,8 @@ from margin_engine.universe.config import load_universe_config
 class TestLoadUniverseConfig:
     def test_load_valid_yaml(self, tmp_path):
         config_file = tmp_path / "universe.yaml"
-        config_file.write_text(dedent("""\
+        config_file.write_text(
+            dedent("""\
             version: "2026.02.15"
             description: "Test universe"
             source: "manual"
@@ -25,7 +27,8 @@ class TestLoadUniverseConfig:
               - AAPL
               - MSFT
               - NVDA
-        """))
+        """)
+        )
         config = load_universe_config(config_file)
         assert config.version == "2026.02.15"
         assert config.ticker_count == 3

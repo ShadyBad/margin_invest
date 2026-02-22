@@ -10,16 +10,22 @@ def test_score_response_has_price_fields():
         "conviction_level": "high",
         "signal": "buy",
         "quality": {
-            "factor_name": "quality", "weight": 0.35,
-            "sub_scores": [], "average_percentile": 80.0,
+            "factor_name": "quality",
+            "weight": 0.35,
+            "sub_scores": [],
+            "average_percentile": 80.0,
         },
         "value": {
-            "factor_name": "value", "weight": 0.30,
-            "sub_scores": [], "average_percentile": 75.0,
+            "factor_name": "value",
+            "weight": 0.30,
+            "sub_scores": [],
+            "average_percentile": 75.0,
         },
         "momentum": {
-            "factor_name": "momentum", "weight": 0.35,
-            "sub_scores": [], "average_percentile": 60.0,
+            "factor_name": "momentum",
+            "weight": 0.35,
+            "sub_scores": [],
+            "average_percentile": 60.0,
         },
         "filters_passed": [],
         "data_coverage": 1.0,
@@ -43,16 +49,22 @@ def test_score_response_price_fields_default_none():
         "conviction_level": "none",
         "signal": "no_action",
         "quality": {
-            "factor_name": "quality", "weight": 0.35,
-            "sub_scores": [], "average_percentile": 50.0,
+            "factor_name": "quality",
+            "weight": 0.35,
+            "sub_scores": [],
+            "average_percentile": 50.0,
         },
         "value": {
-            "factor_name": "value", "weight": 0.30,
-            "sub_scores": [], "average_percentile": 50.0,
+            "factor_name": "value",
+            "weight": 0.30,
+            "sub_scores": [],
+            "average_percentile": 50.0,
         },
         "momentum": {
-            "factor_name": "momentum", "weight": 0.35,
-            "sub_scores": [], "average_percentile": 50.0,
+            "factor_name": "momentum",
+            "weight": 0.35,
+            "sub_scores": [],
+            "average_percentile": 50.0,
         },
         "filters_passed": [],
         "data_coverage": 1.0,
@@ -65,8 +77,13 @@ def test_score_response_price_fields_default_none():
 
 def test_price_bar_response():
     bar = PriceBarResponse(
-        date="2025-09-28", open=195.0, high=198.0, low=194.0,
-        close=197.0, volume=50000000, adj_close=197.0,
+        date="2025-09-28",
+        open=195.0,
+        high=198.0,
+        low=194.0,
+        close=197.0,
+        volume=50000000,
+        adj_close=197.0,
     )
     assert bar.close == 197.0
 

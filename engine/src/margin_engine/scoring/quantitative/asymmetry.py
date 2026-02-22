@@ -37,8 +37,7 @@ def asymmetry_ratio(
             raw_value=0.0,
             percentile_rank=0.0,
             detail=(
-                f"IV={intrinsic_value:.2f}, Price={current_price:.2f}, "
-                f"overvalued (IV <= Price)"
+                f"IV={intrinsic_value:.2f}, Price={current_price:.2f}, overvalued (IV <= Price)"
             ),
         )
 

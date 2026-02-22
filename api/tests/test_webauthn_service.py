@@ -149,12 +149,8 @@ class TestGenerateAuthenticationOptions:
 class TestStoreCredential:
     @pytest.mark.asyncio
     async def test_store_credential(self, webauthn_service, session, user):
-        await webauthn_service.store_credential(
-            session, user.id, "new_cred_123", "public_key_data"
-        )
-        stmt = select(WebAuthnCredential).where(
-            WebAuthnCredential.credential_id == "new_cred_123"
-        )
+        await webauthn_service.store_credential(session, user.id, "new_cred_123", "public_key_data")
+        stmt = select(WebAuthnCredential).where(WebAuthnCredential.credential_id == "new_cred_123")
         cred = (await session.execute(stmt)).scalar_one()
         assert cred.user_id == user.id
         assert cred.public_key == "public_key_data"
@@ -162,9 +158,7 @@ class TestStoreCredential:
 
     @pytest.mark.asyncio
     async def test_store_credential_enables_mfa(self, webauthn_service, session, user):
-        await webauthn_service.store_credential(
-            session, user.id, "new_cred_456", "public_key_data"
-        )
+        await webauthn_service.store_credential(session, user.id, "new_cred_456", "public_key_data")
         stmt = select(User).where(User.id == user.id)
         updated_user = (await session.execute(stmt)).scalar_one()
         assert updated_user.mfa_enabled is True

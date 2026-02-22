@@ -200,6 +200,7 @@ class TestFilterPipelineWithConfig:
 # Helper factories for v2 pipeline tests
 # ---------------------------------------------------------------------------
 
+
 def _make_period(
     period_end: str,
     revenue: Decimal = Decimal("100000000000"),
@@ -436,9 +437,7 @@ class TestFilterPipelineV2:
         history = FinancialHistory(ticker="TEST", periods=[p1, p2, p3])
         price_bars = _make_price_bars(100)
 
-        result = run_elimination_filters(
-            p3, profile, history=history, price_bars=price_bars
-        )
+        result = run_elimination_filters(p3, profile, history=history, price_bars=price_bars)
 
         assert len(result.results) == 6
 

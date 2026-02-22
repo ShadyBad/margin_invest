@@ -151,6 +151,7 @@ class TestPositionSizing:
     def test_divergence_ratio_zero_20d(self):
         """Zero 20d volume returns None (avoid division by zero)."""
         result = liquidity_divergence_ratio(
-            vol_20d=Decimal("0"), vol_90d=Decimal("1_000_000"),
+            vol_20d=Decimal("0"),
+            vol_90d=Decimal("1_000_000"),
         )
         assert result is None

@@ -1,4 +1,5 @@
 """Tests for universe service functions."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -33,13 +34,15 @@ class TestActivateUniverse:
         from margin_api.services.universe import activate_universe
 
         config_file = tmp_path / "universe.yaml"
-        config_file.write_text(dedent("""\
+        config_file.write_text(
+            dedent("""\
             version: "2026.02.15"
             description: "Test"
             tickers:
               - AAPL
               - MSFT
-        """))
+        """)
+        )
         snapshot = await activate_universe(session, config_file)
         assert snapshot.version == "2026.02.15"
         assert snapshot.ticker_count == 2

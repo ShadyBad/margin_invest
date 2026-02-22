@@ -110,9 +110,7 @@ class TestReturnCorrelations:
         prices = [100.0, 102.0, 101.0, 105.0, 103.0] * 10  # 50 points
         bars_a = _daily_bars("2025-01-02", prices)
         bars_b = _daily_bars("2025-01-02", prices)
-        result = compute_return_correlations(
-            {"AAPL": bars_a, "COPY": bars_b}, window_days=252
-        )
+        result = compute_return_correlations({"AAPL": bars_a, "COPY": bars_b}, window_days=252)
         assert result.tickers == ["AAPL", "COPY"]
         assert result.matrix[0][0] == pytest.approx(1.0)
         assert result.matrix[1][1] == pytest.approx(1.0)
@@ -143,9 +141,7 @@ class TestReturnCorrelations:
         result = compute_return_correlations({"A": bars_a, "B": bars_b, "C": bars_c})
         for i in range(3):
             for j in range(3):
-                assert result.matrix[i][j] == pytest.approx(
-                    result.matrix[j][i], abs=1e-10
-                )
+                assert result.matrix[i][j] == pytest.approx(result.matrix[j][i], abs=1e-10)
 
     def test_sample_sizes_populated(self):
         bars_a = _daily_bars("2025-01-02", [100 + i for i in range(50)])
@@ -157,17 +153,13 @@ class TestReturnCorrelations:
     def test_insufficient_overlap_returns_none(self):
         bars_a = _daily_bars("2025-01-02", [100 + i for i in range(10)])
         bars_b = _daily_bars("2025-01-02", [50 + i for i in range(10)])
-        result = compute_return_correlations(
-            {"A": bars_a, "B": bars_b}, min_overlap=30
-        )
+        result = compute_return_correlations({"A": bars_a, "B": bars_b}, min_overlap=30)
         assert result.matrix[0][1] is None
 
     def test_ticker_with_too_few_bars_excluded(self):
         bars_good = _daily_bars("2025-01-02", [100 + i for i in range(50)])
         bars_short = _daily_bars("2025-01-02", [50.0, 51.0])
-        result = compute_return_correlations(
-            {"GOOD": bars_good, "SHORT": bars_short}, min_bars=10
-        )
+        result = compute_return_correlations({"GOOD": bars_good, "SHORT": bars_short}, min_bars=10)
         assert "SHORT" in [e.ticker for e in result.excluded]
         assert result.tickers == ["GOOD"]
 

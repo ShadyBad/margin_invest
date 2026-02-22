@@ -108,9 +108,17 @@ class TestRunAndGetMetrics:
         data = resp.json()
 
         expected_fields = {
-            "cagr", "excess_cagr", "sharpe_ratio", "sortino_ratio",
-            "max_drawdown", "win_rate", "information_ratio",
-            "total_return", "benchmark_total_return", "num_months", "avg_turnover",
+            "cagr",
+            "excess_cagr",
+            "sharpe_ratio",
+            "sortino_ratio",
+            "max_drawdown",
+            "win_rate",
+            "information_ratio",
+            "total_return",
+            "benchmark_total_return",
+            "num_months",
+            "avg_turnover",
         }
         assert set(data.keys()) == expected_fields
 
@@ -247,8 +255,12 @@ class TestValidationIncluded:
         data = _run_backtest(client)
         names = {c["name"] for c in data["validation"]["checks"]}
         expected = {
-            "excess_cagr", "sharpe_ratio", "sortino_ratio",
-            "max_drawdown", "win_rate", "information_ratio",
+            "excess_cagr",
+            "sharpe_ratio",
+            "sortino_ratio",
+            "max_drawdown",
+            "win_rate",
+            "information_ratio",
         }
         assert names == expected
 
@@ -270,15 +282,18 @@ class TestRouterExport:
 
     def test_backtest_router_importable(self):
         from margin_api.routes import backtest_router
+
         assert backtest_router is not None
 
     def test_backtest_router_is_api_router(self):
         from fastapi import APIRouter
         from margin_api.routes import backtest_router
+
         assert isinstance(backtest_router, APIRouter)
 
     def test_backtest_router_in_all(self):
         import margin_api.routes as routes_pkg
+
         assert "backtest_router" in routes_pkg.__all__
 
     def test_schemas_importable(self):
@@ -291,6 +306,7 @@ class TestRouterExport:
             ValidationCheckResponse,
             ValidationResponse,
         )
+
         assert BacktestConfigRequest is not None
         assert BacktestListResponse is not None
         assert BacktestResultResponse is not None
@@ -301,6 +317,7 @@ class TestRouterExport:
 
     def test_schemas_in_all(self):
         import margin_api.schemas as schemas_pkg
+
         expected = {
             "BacktestConfigRequest",
             "BacktestListResponse",

@@ -42,8 +42,6 @@ def gross_profitability(period: FinancialPeriod) -> FactorScore:
         raw_value=ratio,
         percentile_rank=0.0,
         detail=(
-            f"({revenue} - {cogs}) / {total_assets}"
-            f" = {gross_profit} / {total_assets}"
-            f" = {ratio:.4f}"
+            f"({revenue} - {cogs}) / {total_assets} = {gross_profit} / {total_assets} = {ratio:.4f}"
         ),
     )

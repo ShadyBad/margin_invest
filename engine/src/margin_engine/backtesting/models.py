@@ -160,14 +160,16 @@ class ValidationResult(BaseModel):
     @property
     def passed_count(self) -> int:
         """Number of individual checks that passed."""
-        return sum([
-            self.excess_cagr_pass,
-            self.sharpe_pass,
-            self.sortino_pass,
-            self.drawdown_pass,
-            self.win_rate_pass,
-            self.information_ratio_pass,
-        ])
+        return sum(
+            [
+                self.excess_cagr_pass,
+                self.sharpe_pass,
+                self.sortino_pass,
+                self.drawdown_pass,
+                self.win_rate_pass,
+                self.information_ratio_pass,
+            ]
+        )
 
     @property
     def total_checks(self) -> int:

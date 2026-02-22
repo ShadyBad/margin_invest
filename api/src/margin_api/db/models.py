@@ -179,9 +179,7 @@ class User(Base):
     )
 
     # Billing
-    stripe_customer_id: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, unique=True
-    )
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subscription_plan: Mapped[str] = mapped_column(String(20), default="analyst")
     subscription_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -269,9 +267,7 @@ class Score(Base):
 
     asset: Mapped[Asset] = relationship(back_populates="scores")
 
-    __table_args__ = (
-        Index("ix_scores_asset_scored", "asset_id", "scored_at"),
-    )
+    __table_args__ = (Index("ix_scores_asset_scored", "asset_id", "scored_at"),)
 
 
 class V3Score(Base):
@@ -293,9 +289,7 @@ class V3Score(Base):
 
     asset: Mapped[Asset] = relationship(back_populates="v3_scores")
 
-    __table_args__ = (
-        Index("ix_v3_scores_asset_scored", "asset_id", "scored_at"),
-    )
+    __table_args__ = (Index("ix_v3_scores_asset_scored", "asset_id", "scored_at"),)
 
 
 class Recommendation(Base):

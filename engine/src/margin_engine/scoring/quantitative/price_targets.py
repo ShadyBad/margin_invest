@@ -58,10 +58,10 @@ _BASE_MOS: dict[GrowthStage, float] = {
 _DEFAULT_BASE_MOS = 0.30  # When growth stage is unknown
 
 # Dispersion adjustment bounds
-_DISPERSION_TIGHTEN_MAX = 0.05   # Max reduction when methods agree closely
-_DISPERSION_WIDEN_MAX = 0.10     # Max increase when methods diverge
-_LOW_CV_THRESHOLD = 0.10         # CV below this = methods agree well
-_HIGH_CV_THRESHOLD = 0.50        # CV above this = max widening
+_DISPERSION_TIGHTEN_MAX = 0.05  # Max reduction when methods agree closely
+_DISPERSION_WIDEN_MAX = 0.10  # Max increase when methods diverge
+_LOW_CV_THRESHOLD = 0.10  # CV below this = methods agree well
+_HIGH_CV_THRESHOLD = 0.50  # CV above this = max widening
 
 # Hard floor/ceiling regardless of adjustments
 _MOS_FLOOR = 0.15
@@ -87,9 +87,9 @@ _OUTLIER_HIGH_RATIO = 10.0
 _CURRENCY_MISMATCH_RATIO = 10.0
 
 # Layer 4: Final output validation bounds — clamp instead of reject
-_MIN_PRICE_RATIO = 0.01       # Intrinsic value floor: 1% of actual_price
-_MAX_PRICE_RATIO = 10.0       # Intrinsic value ceiling: 10x actual_price
-_ABS_MIN_INTRINSIC = 0.10     # Absolute floor when no actual_price
+_MIN_PRICE_RATIO = 0.01  # Intrinsic value floor: 1% of actual_price
+_MAX_PRICE_RATIO = 10.0  # Intrinsic value ceiling: 10x actual_price
+_ABS_MIN_INTRINSIC = 0.10  # Absolute floor when no actual_price
 _ABS_MAX_INTRINSIC = 1_000_000.0  # Absolute ceiling when no actual_price
 
 
@@ -111,13 +111,13 @@ class PriceTargets(BaseModel):
         """If invalid_reason is set, all price fields must be None."""
         if self.invalid_reason is not None:
             price_fields = [
-                self.margin_invest_value, self.buy_price,
-                self.sell_price, self.price_upside,
+                self.margin_invest_value,
+                self.buy_price,
+                self.sell_price,
+                self.price_upside,
             ]
             if any(f is not None for f in price_fields):
-                raise ValueError(
-                    "Price fields must be None when invalid_reason is set"
-                )
+                raise ValueError("Price fields must be None when invalid_reason is set")
         return self
 
     @model_validator(mode="after")
@@ -164,7 +164,10 @@ def compute_price_targets(
     if shares < _MIN_SHARES or shares > _MAX_SHARES:
         logger.warning(
             "Layer 1 reject: %s shares_outstanding=%d outside [%d, %d]",
-            profile.ticker, shares, _MIN_SHARES, _MAX_SHARES,
+            profile.ticker,
+            shares,
+            _MIN_SHARES,
+            _MAX_SHARES,
         )
         return PriceTargets(
             actual_price=actual_price,
@@ -177,7 +180,10 @@ def compute_price_targets(
         if implied_mcap < _MIN_IMPLIED_MARKET_CAP or implied_mcap > _MAX_IMPLIED_MARKET_CAP:
             logger.warning(
                 "Layer 1 reject: %s implied_market_cap=%.2f outside [%d, %d]",
-                profile.ticker, implied_mcap, _MIN_IMPLIED_MARKET_CAP, _MAX_IMPLIED_MARKET_CAP,
+                profile.ticker,
+                implied_mcap,
+                _MIN_IMPLIED_MARKET_CAP,
+                _MAX_IMPLIED_MARKET_CAP,
             )
             return PriceTargets(
                 actual_price=actual_price,
@@ -242,9 +248,7 @@ def compute_price_targets(
         )
 
     # Filter to valid methods only
-    valid_methods: dict[str, float] = {
-        k: v for k, v in methods.items() if v is not None
-    }
+    valid_methods: dict[str, float] = {k: v for k, v in methods.items() if v is not None}
 
     if not valid_methods:
         return PriceTargets(
@@ -273,9 +277,7 @@ def compute_price_targets(
         if audit.included:
             audit.renormalized_weight = _METHOD_WEIGHTS[key] / total_weight
 
-    intrinsic_value = sum(
-        _METHOD_WEIGHTS[k] / total_weight * v for k, v in valid_methods.items()
-    )
+    intrinsic_value = sum(_METHOD_WEIGHTS[k] / total_weight * v for k, v in valid_methods.items())
 
     # Layer 4: Clamp intrinsic value to reasonable bounds instead of rejecting.
     # Deep-value stocks can genuinely trade at large discounts to intrinsic value.
@@ -284,7 +286,9 @@ def compute_price_targets(
     if was_clamped:
         logger.info(
             "Layer 4 clamp: %s intrinsic_value clamped to %.2f (actual_price=%s)",
-            profile.ticker, intrinsic_value, actual_price,
+            profile.ticker,
+            intrinsic_value,
+            actual_price,
         )
         if actual_price is not None and actual_price > 0:
             clamp_reason = "clamped_to_price_bounds"
@@ -295,7 +299,9 @@ def compute_price_targets(
     # Buy price is discounted below fair value (entry with safety margin).
     # Sell price is above fair value (exit when overvalued).
     mos, mos_base, mos_cv, mos_adjustment = _compute_margin_of_safety(
-        valid_methods, intrinsic_value, growth_stage,
+        valid_methods,
+        intrinsic_value,
+        growth_stage,
     )
     buy_price = intrinsic_value * (1 - mos)
     sell_price = intrinsic_value * (1 + mos)
@@ -391,7 +397,8 @@ def _filter_outlier_methods(methods: dict[str, float]) -> dict[str, float]:
         return methods
 
     return {
-        k: v for k, v in methods.items()
+        k: v
+        for k, v in methods.items()
         if _OUTLIER_LOW_RATIO * median <= v <= _OUTLIER_HIGH_RATIO * median
     }
 
@@ -499,9 +506,7 @@ def _dcf_intrinsic_per_share(
 
     # Stage 2: Terminal value
     final_fcf = fcf_float * (1 + growth_rate) ** projection_years
-    terminal_value = final_fcf * (1 + terminal_growth_rate) / (
-        discount_rate - terminal_growth_rate
-    )
+    terminal_value = final_fcf * (1 + terminal_growth_rate) / (discount_rate - terminal_growth_rate)
     pv_terminal = terminal_value / (1 + discount_rate) ** projection_years
 
     intrinsic_total = pv_sum + pv_terminal
@@ -516,7 +521,9 @@ def _dcf_intrinsic_per_share(
     if result < _MIN_PER_SHARE_PRICE:
         logger.debug(
             "Layer 2: %s result $%.4f < min $%.2f, excluding",
-            "DCF", result, _MIN_PER_SHARE_PRICE,
+            "DCF",
+            result,
+            _MIN_PER_SHARE_PRICE,
         )
         return None, inputs, intermediates, "below_min_per_share"
     if (
@@ -526,7 +533,10 @@ def _dcf_intrinsic_per_share(
     ):
         logger.debug(
             "Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding",
-            "DCF", result, _MAX_PRICE_MULTIPLE, actual_price,
+            "DCF",
+            result,
+            _MAX_PRICE_MULTIPLE,
+            actual_price,
         )
         return None, inputs, intermediates, "exceeds_20x_price"
     return result, inputs, intermediates, None
@@ -571,7 +581,9 @@ def _ev_fcf_implied_per_share(
     if result < _MIN_PER_SHARE_PRICE:
         logger.debug(
             "Layer 2: %s result $%.4f < min $%.2f, excluding",
-            "EV/FCF", result, _MIN_PER_SHARE_PRICE,
+            "EV/FCF",
+            result,
+            _MIN_PER_SHARE_PRICE,
         )
         return None, inputs, intermediates, "below_min_per_share"
     if (
@@ -581,7 +593,10 @@ def _ev_fcf_implied_per_share(
     ):
         logger.debug(
             "Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding",
-            "EV/FCF", result, _MAX_PRICE_MULTIPLE, actual_price,
+            "EV/FCF",
+            result,
+            _MAX_PRICE_MULTIPLE,
+            actual_price,
         )
         return None, inputs, intermediates, "exceeds_20x_price"
     return result, inputs, intermediates, None
@@ -626,7 +641,9 @@ def _acquirers_implied_per_share(
     if result < _MIN_PER_SHARE_PRICE:
         logger.debug(
             "Layer 2: %s result $%.4f < min $%.2f, excluding",
-            "Acquirer's Multiple", result, _MIN_PER_SHARE_PRICE,
+            "Acquirer's Multiple",
+            result,
+            _MIN_PER_SHARE_PRICE,
         )
         return None, inputs, intermediates, "below_min_per_share"
     if (
@@ -636,7 +653,10 @@ def _acquirers_implied_per_share(
     ):
         logger.debug(
             "Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding",
-            "Acquirer's Multiple", result, _MAX_PRICE_MULTIPLE, actual_price,
+            "Acquirer's Multiple",
+            result,
+            _MAX_PRICE_MULTIPLE,
+            actual_price,
         )
         return None, inputs, intermediates, "exceeds_20x_price"
     return result, inputs, intermediates, None
@@ -677,7 +697,9 @@ def _shareholder_yield_implied_per_share(
     if result < _MIN_PER_SHARE_PRICE:
         logger.debug(
             "Layer 2: %s result $%.4f < min $%.2f, excluding",
-            "Shareholder Yield", result, _MIN_PER_SHARE_PRICE,
+            "Shareholder Yield",
+            result,
+            _MIN_PER_SHARE_PRICE,
         )
         return None, inputs, intermediates, "below_min_per_share"
     if (
@@ -687,7 +709,10 @@ def _shareholder_yield_implied_per_share(
     ):
         logger.debug(
             "Layer 2: %s result $%.2f > %.0fx actual $%.2f, excluding",
-            "Shareholder Yield", result, _MAX_PRICE_MULTIPLE, actual_price,
+            "Shareholder Yield",
+            result,
+            _MAX_PRICE_MULTIPLE,
+            actual_price,
         )
         return None, inputs, intermediates, "exceeds_20x_price"
     return result, inputs, intermediates, None

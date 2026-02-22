@@ -16,10 +16,16 @@ def _make_bars(prices: list[float], start_date: str = "2023-01-01") -> list[Pric
     bars = []
     for i, p in enumerate(prices):
         d = start + datetime.timedelta(days=i)
-        bars.append(PriceBar(
-            date=d.isoformat(), open=Decimal(str(p)), high=Decimal(str(p)),
-            low=Decimal(str(p)), close=Decimal(str(p)), volume=1000,
-        ))
+        bars.append(
+            PriceBar(
+                date=d.isoformat(),
+                open=Decimal(str(p)),
+                high=Decimal(str(p)),
+                low=Decimal(str(p)),
+                close=Decimal(str(p)),
+                volume=1000,
+            )
+        )
     return bars
 
 

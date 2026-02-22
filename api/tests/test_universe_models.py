@@ -70,8 +70,14 @@ class TestUniverseSnapshot:
     async def test_snapshot_columns(self):
         columns = {c.name for c in UniverseSnapshot.__table__.columns}
         expected = {
-            "id", "version", "config_hash", "ticker_count",
-            "tickers", "exclusion_rules", "is_active", "activated_at",
+            "id",
+            "version",
+            "config_hash",
+            "ticker_count",
+            "tickers",
+            "exclusion_rules",
+            "is_active",
+            "activated_at",
         }
         assert expected.issubset(columns)
 
@@ -126,9 +132,17 @@ class TestIngestionRun:
     async def test_run_columns(self):
         columns = {c.name for c in IngestionRun.__table__.columns}
         expected = {
-            "id", "snapshot_id", "run_type", "tickers_requested",
-            "tickers_succeeded", "tickers_failed", "tickers_skipped",
-            "failed_tickers", "status", "started_at", "completed_at",
+            "id",
+            "snapshot_id",
+            "run_type",
+            "tickers_requested",
+            "tickers_succeeded",
+            "tickers_failed",
+            "tickers_skipped",
+            "failed_tickers",
+            "status",
+            "started_at",
+            "completed_at",
             "duration_seconds",
         }
         assert expected.issubset(columns)
@@ -254,9 +268,7 @@ class TestJobRun:
         session.add(job)
         await session.commit()
 
-        result = await session.execute(
-            select(JobRun).where(JobRun.job_type == "ingestion")
-        )
+        result = await session.execute(select(JobRun).where(JobRun.job_type == "ingestion"))
         found = result.scalar_one()
         assert found.status == "completed"
         assert found.progress == pytest.approx(100.0)
@@ -287,9 +299,7 @@ class TestJobRun:
         session.add(child_job)
         await session.commit()
 
-        result = await session.execute(
-            select(JobRun).where(JobRun.parent_job_id == parent_job.id)
-        )
+        result = await session.execute(select(JobRun).where(JobRun.parent_job_id == parent_job.id))
         found = result.scalar_one()
         assert found.job_type == "scoring"
         assert found.triggered_by == "chained"
@@ -303,9 +313,16 @@ class TestJobRun:
     async def test_job_run_columns(self):
         columns = {c.name for c in JobRun.__table__.columns}
         expected = {
-            "id", "job_type", "status", "progress", "progress_detail",
-            "triggered_by", "parent_job_id", "error_message",
-            "started_at", "completed_at",
+            "id",
+            "job_type",
+            "status",
+            "progress",
+            "progress_detail",
+            "triggered_by",
+            "parent_job_id",
+            "error_message",
+            "started_at",
+            "completed_at",
         }
         assert expected.issubset(columns)
 
@@ -328,9 +345,7 @@ class TestAssetFailureTracking:
         session.add(asset)
         await session.commit()
 
-        result = await session.execute(
-            select(Asset).where(Asset.ticker == "AAPL")
-        )
+        result = await session.execute(select(Asset).where(Asset.ticker == "AAPL"))
         found = result.scalar_one()
         assert found.ingestion_status == "active"
         assert found.consecutive_failures == 0
@@ -354,9 +369,7 @@ class TestAssetFailureTracking:
         session.add(asset)
         await session.commit()
 
-        result = await session.execute(
-            select(Asset).where(Asset.ticker == "BAD")
-        )
+        result = await session.execute(select(Asset).where(Asset.ticker == "BAD"))
         found = result.scalar_one()
         assert found.ingestion_status == "quarantined"
         assert found.consecutive_failures == 5
@@ -368,7 +381,10 @@ class TestAssetFailureTracking:
     async def test_asset_failure_columns_exist(self):
         columns = {c.name for c in Asset.__table__.columns}
         expected = {
-            "ingestion_status", "consecutive_failures",
-            "last_failure_reason", "quarantined_at", "last_retry_at",
+            "ingestion_status",
+            "consecutive_failures",
+            "last_failure_reason",
+            "quarantined_at",
+            "last_retry_at",
         }
         assert expected.issubset(columns)

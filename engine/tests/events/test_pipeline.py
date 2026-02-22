@@ -19,6 +19,7 @@ from margin_engine.events.pipeline import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_event(
     event_type: EventType = EventType.EARNINGS_RELEASE,
     ticker: str = "AAPL",

@@ -225,9 +225,7 @@ class PerformanceCalculator:
         return max_dd
 
     @staticmethod
-    def _information_ratio(
-        portfolio_returns: list[float], benchmark_returns: list[float]
-    ) -> float:
+    def _information_ratio(portfolio_returns: list[float], benchmark_returns: list[float]) -> float:
         """Annualized information ratio.
 
         Args:

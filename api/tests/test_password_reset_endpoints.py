@@ -24,9 +24,7 @@ async def setup():
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with factory() as session:
-        user = await _auth.register_user(
-            session, "testuser", "test@example.com", "OldPassword1!"
-        )
+        user = await _auth.register_user(session, "testuser", "test@example.com", "OldPassword1!")
         user_id = user.id
 
     app = create_app()
@@ -91,9 +89,7 @@ class TestResetPassword:
         app, user_id, factory = setup
         # Create a reset token directly
         async with factory() as session:
-            raw_token = await _auth.create_challenge_token(
-                session, user_id, ttl_minutes=60
-            )
+            raw_token = await _auth.create_challenge_token(session, user_id, ttl_minutes=60)
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -109,9 +105,7 @@ class TestResetPassword:
 
         # Verify new password works
         async with factory() as session:
-            result = await _auth.verify_credentials(
-                session, "test@example.com", "NewPassword2@"
-            )
+            result = await _auth.verify_credentials(session, "test@example.com", "NewPassword2@")
             assert result is not None
 
     @pytest.mark.asyncio
@@ -133,9 +127,7 @@ class TestResetPassword:
     async def test_weak_password(self, setup):
         app, user_id, factory = setup
         async with factory() as session:
-            raw_token = await _auth.create_challenge_token(
-                session, user_id, ttl_minutes=60
-            )
+            raw_token = await _auth.create_challenge_token(session, user_id, ttl_minutes=60)
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -153,9 +145,7 @@ class TestResetPassword:
     async def test_token_consumed_after_use(self, setup):
         app, user_id, factory = setup
         async with factory() as session:
-            raw_token = await _auth.create_challenge_token(
-                session, user_id, ttl_minutes=60
-            )
+            raw_token = await _auth.create_challenge_token(session, user_id, ttl_minutes=60)
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:

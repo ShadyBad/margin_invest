@@ -160,9 +160,7 @@ class TestMomentumFactorIntegration:
         sent = sentiment_score(_SENTIMENT_SCORE_INPUT)
 
         for score in [pm, sue, ic, ia, sent]:
-            assert score.percentile_rank == 0.0, (
-                f"{score.name} percentile should be 0.0"
-            )
+            assert score.percentile_rank == 0.0, f"{score.name} percentile should be 0.0"
 
     def test_all_have_detail(self):
         """All momentum factors should include non-empty detail strings."""

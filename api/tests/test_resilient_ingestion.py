@@ -3,6 +3,7 @@
 Tests the seed_ticker_data function with mocked providers and DB sessions.
 Verifies SeedResult statuses, per-category tracking, and error classification.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

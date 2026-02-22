@@ -238,9 +238,7 @@ def beneish_m_score_v2(
     trend_label = "deteriorating" if trend else "stable"
 
     # --- Build detail string ---
-    scores_str = ", ".join(
-        f"{pe}={ms:.4f}" for pe, ms in historical_m_scores
-    )
+    scores_str = ", ".join(f"{pe}={ms:.4f}" for pe, ms in historical_m_scores)
     status = "PASS" if passed else "FAIL"
     detail = (
         f"M-Score={current_m_score:.4f} ({status}, threshold={threshold}). "

@@ -85,11 +85,7 @@ def insider_cluster_score(transactions: list[InsiderTransaction]) -> FactorScore
     window_start = most_recent_date - datetime.timedelta(days=_CLUSTER_WINDOW_DAYS)
 
     # 4. Filter to transactions within the 90-day window.
-    in_window = [
-        t
-        for t, d in zip(significant, dates)
-        if d >= window_start
-    ]
+    in_window = [t for t, d in zip(significant, dates) if d >= window_start]
 
     # 5. Count distinct insiders and compute weighted score.
     #    For each distinct insider, use the highest-weight title they hold.

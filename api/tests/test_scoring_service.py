@@ -31,6 +31,7 @@ from margin_engine.models.scoring import CompositeScore, FactorScore
 # Test data helpers — Apple-like numbers (FY2024)
 # ---------------------------------------------------------------------------
 
+
 def _income_raw(
     revenue: str = "391035000000",
     cost_of_revenue: str = "214137000000",
@@ -140,14 +141,16 @@ def _price_bars_raw(n_bars: int = 260) -> list[dict]:
         d = base_date - datetime.timedelta(days=n_bars - 1 - i)
         # Small uptrend: +0.1 per day on average
         price = base_price + i * 0.1
-        bars.append({
-            "date": d.isoformat(),
-            "open": str(round(price - 0.5, 2)),
-            "high": str(round(price + 1.0, 2)),
-            "low": str(round(price - 1.0, 2)),
-            "close": str(round(price, 2)),
-            "volume": 50000000,
-        })
+        bars.append(
+            {
+                "date": d.isoformat(),
+                "open": str(round(price - 0.5, 2)),
+                "high": str(round(price + 1.0, 2)),
+                "low": str(round(price - 1.0, 2)),
+                "close": str(round(price, 2)),
+                "volume": 50000000,
+            }
+        )
     return bars
 
 
@@ -475,9 +478,7 @@ class TestRunScoringPipeline:
             earnings_raw=_earnings_raw(),
         )
         all_scores = (
-            result.quality.sub_scores
-            + result.value.sub_scores
-            + result.momentum.sub_scores
+            result.quality.sub_scores + result.value.sub_scores + result.momentum.sub_scores
         )
         for score in all_scores:
             assert isinstance(score, FactorScore)
@@ -515,13 +516,15 @@ class TestNewFactorWiring:
         """Build a 3-year FinancialHistory for multi-period factors."""
         rows = []
         for year in (2022, 2023, 2024):
-            rows.append({
-                "period_end": f"{year}-09-28",
-                "filing_date": f"{year}-11-01",
-                "income_statement": _income_raw(),
-                "balance_sheet": _balance_raw(),
-                "cash_flow": _cashflow_raw(),
-            })
+            rows.append(
+                {
+                    "period_end": f"{year}-09-28",
+                    "filing_date": f"{year}-11-01",
+                    "income_statement": _income_raw(),
+                    "balance_sheet": _balance_raw(),
+                    "cash_flow": _cashflow_raw(),
+                }
+            )
         return build_financial_history_from_rows("AAPL", rows)
 
     def test_quality_factors_with_history(self):

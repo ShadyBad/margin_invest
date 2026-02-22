@@ -57,12 +57,14 @@ from margin_engine.scoring.quantitative.sue import sue_score
 _SECTOR_MAP: dict[str, GICSSector] = {s.value: s for s in GICSSector}
 
 # Factors where lower raw_value = better (higher percentile)
-INVERTED_FACTORS: frozenset[str] = frozenset({
-    "accrual_ratio",
-    "ev_fcf",
-    "acquirers_multiple",
-    "gross_margin_stability",  # lower CoV = better
-})
+INVERTED_FACTORS: frozenset[str] = frozenset(
+    {
+        "accrual_ratio",
+        "ev_fcf",
+        "acquirers_multiple",
+        "gross_margin_stability",  # lower CoV = better
+    }
+)
 
 
 @dataclass
@@ -114,15 +116,9 @@ def build_financial_period(
     current_balance = normalize_balance_sheet(balance_raw)
     current_cash_flow = normalize_cash_flow(cashflow_raw)
 
-    prior_income = (
-        normalize_income_statement(prior_income_raw) if prior_income_raw else None
-    )
-    prior_balance = (
-        normalize_balance_sheet(prior_balance_raw) if prior_balance_raw else None
-    )
-    prior_cash_flow = (
-        normalize_cash_flow(prior_cashflow_raw) if prior_cashflow_raw else None
-    )
+    prior_income = normalize_income_statement(prior_income_raw) if prior_income_raw else None
+    prior_balance = normalize_balance_sheet(prior_balance_raw) if prior_balance_raw else None
+    prior_cash_flow = normalize_cash_flow(prior_cashflow_raw) if prior_cashflow_raw else None
 
     return FinancialPeriod(
         period_end=period_end,
@@ -165,9 +161,7 @@ def build_asset_profile(
     gics_sector = _SECTOR_MAP.get(sector)
     if gics_sector is None:
         valid = ", ".join(sorted(_SECTOR_MAP.keys()))
-        raise ValueError(
-            f"Unknown sector: '{sector}'. Valid sectors: {valid}"
-        )
+        raise ValueError(f"Unknown sector: '{sector}'. Valid sectors: {valid}")
 
     return AssetProfile(
         ticker=ticker,
@@ -246,16 +240,18 @@ def compute_raw_factor_scores(
                 terminal_growth=0.03,
                 shares_outstanding=profile.shares_outstanding,
             )
-            value_scores.append(FactorScore(
-                name="scenario_iv",
-                raw_value=scenario.weighted_iv,
-                percentile_rank=0.0,
-                detail=(
-                    f"bear={scenario.bear_iv:.2f} "
-                    f"base={scenario.base_iv:.2f} "
-                    f"bull={scenario.bull_iv:.2f}"
-                ),
-            ))
+            value_scores.append(
+                FactorScore(
+                    name="scenario_iv",
+                    raw_value=scenario.weighted_iv,
+                    percentile_rank=0.0,
+                    detail=(
+                        f"bear={scenario.bear_iv:.2f} "
+                        f"base={scenario.base_iv:.2f} "
+                        f"bull={scenario.bull_iv:.2f}"
+                    ),
+                )
+            )
 
     # --- Step 4: Momentum factors ---
     bars: list[PriceBar] = [normalize_price_bar(b) for b in price_bars_raw]
@@ -384,13 +380,13 @@ def rank_and_compute_composites(
             composite.conviction_level, composite.data_coverage
         )
         if gated_conviction != composite.conviction_level:
-            max_score = conviction_score_cap.get(
-                gated_conviction, composite.composite_raw_score
+            max_score = conviction_score_cap.get(gated_conviction, composite.composite_raw_score)
+            composite = composite.model_copy(
+                update={
+                    "composite_raw_score": min(composite.composite_raw_score, max_score),
+                    "composite_percentile": min(composite.composite_percentile, max_score),
+                }
             )
-            composite = composite.model_copy(update={
-                "composite_raw_score": min(composite.composite_raw_score, max_score),
-                "composite_percentile": min(composite.composite_percentile, max_score),
-            })
         gated.append(composite)
 
     return gated

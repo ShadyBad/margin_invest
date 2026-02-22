@@ -52,9 +52,7 @@ class ConnectionManager:
         for connection in disconnected:
             self.disconnect(connection)
 
-    async def send_personal(
-        self, message: ScoreChangeMessage, websocket: WebSocket
-    ) -> None:
+    async def send_personal(self, message: ScoreChangeMessage, websocket: WebSocket) -> None:
         """Send a score change message to a specific connection."""
         data = message.model_dump(mode="json")
         await websocket.send_json(data)

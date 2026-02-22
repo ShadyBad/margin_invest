@@ -83,9 +83,7 @@ class TestSaveKey:
     @pytest.mark.asyncio
     async def test_save_key_creates_event(self, db, user, service):
         key = await service.save_key(db, user.id, "polygon", "pk_123", False)
-        result = await db.execute(
-            select(ApiKeyEvent).where(ApiKeyEvent.api_key_id == key.id)
-        )
+        result = await db.execute(select(ApiKeyEvent).where(ApiKeyEvent.api_key_id == key.id))
         events = list(result.scalars().all())
         assert len(events) == 1
         assert events[0].event_type == "created"

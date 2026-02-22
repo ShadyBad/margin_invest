@@ -1,4 +1,5 @@
 """Universe configuration loading and validation."""
+
 from __future__ import annotations
 
 import hashlib

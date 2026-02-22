@@ -22,6 +22,7 @@ from margin_engine.backtesting.validation import ValidationGate
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_metrics(
     *,
     excess_cagr: float = 0.05,
@@ -81,6 +82,7 @@ def _make_backtest_result(metrics: PerformanceMetrics) -> BacktestResult:
 # Test 1: validate() delegates to calculator
 # ---------------------------------------------------------------------------
 
+
 class TestValidateDelegation:
     """validate() should delegate to PerformanceCalculator.validate()."""
 
@@ -104,6 +106,7 @@ class TestValidateDelegation:
 # ---------------------------------------------------------------------------
 # Test 2: validate_result() attaches validation to BacktestResult
 # ---------------------------------------------------------------------------
+
 
 class TestValidateResult:
     """validate_result() should return a new BacktestResult with validation attached."""
@@ -136,15 +139,15 @@ class TestValidateResult:
 # Test 3: All thresholds pass
 # ---------------------------------------------------------------------------
 
-class TestAllThresholdsPass:
 
+class TestAllThresholdsPass:
     def test_all_pass(self):
         metrics = _make_metrics(
-            excess_cagr=0.05,       # >= 0.03
-            sharpe_ratio=0.9,       # >= 0.7
-            sortino_ratio=1.3,      # >= 1.0
-            max_drawdown=0.20,      # <= 0.35
-            win_rate=0.62,          # >= 0.55
+            excess_cagr=0.05,  # >= 0.03
+            sharpe_ratio=0.9,  # >= 0.7
+            sortino_ratio=1.3,  # >= 1.0
+            max_drawdown=0.20,  # <= 0.35
+            win_rate=0.62,  # >= 0.55
             information_ratio=0.7,  # >= 0.5
         )
         gate = ValidationGate()
@@ -163,15 +166,15 @@ class TestAllThresholdsPass:
 # Test 4: All thresholds fail
 # ---------------------------------------------------------------------------
 
-class TestAllThresholdsFail:
 
+class TestAllThresholdsFail:
     def test_all_fail(self):
         metrics = _make_metrics(
-            excess_cagr=0.01,       # < 0.03
-            sharpe_ratio=0.4,       # < 0.7
-            sortino_ratio=0.6,      # < 1.0
-            max_drawdown=0.45,      # > 0.35
-            win_rate=0.45,          # < 0.55
+            excess_cagr=0.01,  # < 0.03
+            sharpe_ratio=0.4,  # < 0.7
+            sortino_ratio=0.6,  # < 1.0
+            max_drawdown=0.45,  # > 0.35
+            win_rate=0.45,  # < 0.55
             information_ratio=0.3,  # < 0.5
         )
         gate = ValidationGate()
@@ -190,15 +193,15 @@ class TestAllThresholdsFail:
 # Test 5: Mixed pass/fail
 # ---------------------------------------------------------------------------
 
-class TestMixedPassFail:
 
+class TestMixedPassFail:
     def test_three_pass_three_fail(self):
         metrics = _make_metrics(
-            excess_cagr=0.04,       # >= 0.03 PASS
-            sharpe_ratio=0.5,       # < 0.7 FAIL
-            sortino_ratio=1.2,      # >= 1.0 PASS
-            max_drawdown=0.40,      # > 0.35 FAIL
-            win_rate=0.60,          # >= 0.55 PASS
+            excess_cagr=0.04,  # >= 0.03 PASS
+            sharpe_ratio=0.5,  # < 0.7 FAIL
+            sortino_ratio=1.2,  # >= 1.0 PASS
+            max_drawdown=0.40,  # > 0.35 FAIL
+            win_rate=0.60,  # >= 0.55 PASS
             information_ratio=0.3,  # < 0.5 FAIL
         )
         gate = ValidationGate()
@@ -217,16 +220,16 @@ class TestMixedPassFail:
 # Test 6: Boundary values
 # ---------------------------------------------------------------------------
 
-class TestBoundaryValues:
 
+class TestBoundaryValues:
     def test_exactly_at_thresholds_pass(self):
         """Exactly at threshold values should pass (>= for mins, <= for max_drawdown)."""
         metrics = _make_metrics(
-            excess_cagr=0.03,       # == min_excess_cagr
-            sharpe_ratio=0.7,       # == min_sharpe
-            sortino_ratio=1.0,      # == min_sortino
-            max_drawdown=0.35,      # == max_drawdown
-            win_rate=0.55,          # == min_win_rate
+            excess_cagr=0.03,  # == min_excess_cagr
+            sharpe_ratio=0.7,  # == min_sharpe
+            sortino_ratio=1.0,  # == min_sortino
+            max_drawdown=0.35,  # == max_drawdown
+            win_rate=0.55,  # == min_win_rate
             information_ratio=0.5,  # == min_information_ratio
         )
         gate = ValidationGate()
@@ -254,16 +257,22 @@ class TestBoundaryValues:
 # Test 7: compare_methodologies — new wins all 5
 # ---------------------------------------------------------------------------
 
-class TestCompareNewWinsAll:
 
+class TestCompareNewWinsAll:
     def test_new_wins_all_five(self):
         old = _make_metrics(
-            excess_cagr=0.03, sharpe_ratio=0.7, sortino_ratio=1.0,
-            max_drawdown=0.30, win_rate=0.55,
+            excess_cagr=0.03,
+            sharpe_ratio=0.7,
+            sortino_ratio=1.0,
+            max_drawdown=0.30,
+            win_rate=0.55,
         )
         new = _make_metrics(
-            excess_cagr=0.06, sharpe_ratio=1.0, sortino_ratio=1.5,
-            max_drawdown=0.15, win_rate=0.65,
+            excess_cagr=0.06,
+            sharpe_ratio=1.0,
+            sortino_ratio=1.5,
+            max_drawdown=0.15,
+            win_rate=0.65,
         )
         gate = ValidationGate()
         comparison = gate.compare_methodologies(old, new)
@@ -273,7 +282,11 @@ class TestCompareNewWinsAll:
         assert len(comparison.old_wins) == 0
         assert len(comparison.ties) == 0
         assert set(comparison.metrics_compared) == {
-            "excess_cagr", "sharpe_ratio", "sortino_ratio", "max_drawdown", "win_rate",
+            "excess_cagr",
+            "sharpe_ratio",
+            "sortino_ratio",
+            "max_drawdown",
+            "win_rate",
         }
 
 
@@ -281,17 +294,23 @@ class TestCompareNewWinsAll:
 # Test 8: compare_methodologies — new wins 3 of 5 (minimum)
 # ---------------------------------------------------------------------------
 
-class TestCompareNewWinsThree:
 
+class TestCompareNewWinsThree:
     def test_new_wins_exactly_three(self):
         """Minimum to pass: new wins 3, old wins 2."""
         old = _make_metrics(
-            excess_cagr=0.03, sharpe_ratio=0.7, sortino_ratio=1.0,
-            max_drawdown=0.20, win_rate=0.60,
+            excess_cagr=0.03,
+            sharpe_ratio=0.7,
+            sortino_ratio=1.0,
+            max_drawdown=0.20,
+            win_rate=0.60,
         )
         new = _make_metrics(
-            excess_cagr=0.05, sharpe_ratio=0.9, sortino_ratio=1.2,
-            max_drawdown=0.25, win_rate=0.55,  # old wins drawdown and win_rate
+            excess_cagr=0.05,
+            sharpe_ratio=0.9,
+            sortino_ratio=1.2,
+            max_drawdown=0.25,
+            win_rate=0.55,  # old wins drawdown and win_rate
         )
         gate = ValidationGate()
         comparison = gate.compare_methodologies(old, new)
@@ -303,24 +322,30 @@ class TestCompareNewWinsThree:
         assert "sharpe_ratio" in comparison.new_wins
         assert "sortino_ratio" in comparison.new_wins
         assert "max_drawdown" in comparison.old_wins  # 0.25 > 0.20 => old is better
-        assert "win_rate" in comparison.old_wins       # 0.55 < 0.60 => old is better
+        assert "win_rate" in comparison.old_wins  # 0.55 < 0.60 => old is better
 
 
 # ---------------------------------------------------------------------------
 # Test 9: compare_methodologies — new wins 2 of 5 (not enough)
 # ---------------------------------------------------------------------------
 
-class TestCompareNewWinsTwo:
 
+class TestCompareNewWinsTwo:
     def test_new_wins_only_two(self):
         """Below minimum: new wins 2, old wins 3 => new_is_better = False."""
         old = _make_metrics(
-            excess_cagr=0.03, sharpe_ratio=0.8, sortino_ratio=1.2,
-            max_drawdown=0.20, win_rate=0.60,
+            excess_cagr=0.03,
+            sharpe_ratio=0.8,
+            sortino_ratio=1.2,
+            max_drawdown=0.20,
+            win_rate=0.60,
         )
         new = _make_metrics(
-            excess_cagr=0.05, sharpe_ratio=0.7, sortino_ratio=1.0,
-            max_drawdown=0.25, win_rate=0.65,  # new wins: excess_cagr, win_rate
+            excess_cagr=0.05,
+            sharpe_ratio=0.7,
+            sortino_ratio=1.0,
+            max_drawdown=0.25,
+            win_rate=0.65,  # new wins: excess_cagr, win_rate
         )
         gate = ValidationGate()
         comparison = gate.compare_methodologies(old, new)
@@ -336,16 +361,22 @@ class TestCompareNewWinsTwo:
 # Test 10: compare_methodologies — old wins all 5
 # ---------------------------------------------------------------------------
 
-class TestCompareOldWinsAll:
 
+class TestCompareOldWinsAll:
     def test_old_wins_all_five(self):
         old = _make_metrics(
-            excess_cagr=0.06, sharpe_ratio=1.0, sortino_ratio=1.5,
-            max_drawdown=0.15, win_rate=0.65,
+            excess_cagr=0.06,
+            sharpe_ratio=1.0,
+            sortino_ratio=1.5,
+            max_drawdown=0.15,
+            win_rate=0.65,
         )
         new = _make_metrics(
-            excess_cagr=0.03, sharpe_ratio=0.7, sortino_ratio=1.0,
-            max_drawdown=0.30, win_rate=0.55,
+            excess_cagr=0.03,
+            sharpe_ratio=0.7,
+            sortino_ratio=1.0,
+            max_drawdown=0.30,
+            win_rate=0.55,
         )
         gate = ValidationGate()
         comparison = gate.compare_methodologies(old, new)
@@ -360,16 +391,19 @@ class TestCompareOldWinsAll:
 # Test 11: compare_methodologies — ties counted
 # ---------------------------------------------------------------------------
 
-class TestCompareTies:
 
+class TestCompareTies:
     def test_ties_do_not_count_as_wins(self):
         """Ties don't count as wins for either side.
 
         If all 5 are tied, new_wins = 0 => new_is_better = False.
         """
         metrics = _make_metrics(
-            excess_cagr=0.04, sharpe_ratio=0.8, sortino_ratio=1.1,
-            max_drawdown=0.25, win_rate=0.58,
+            excess_cagr=0.04,
+            sharpe_ratio=0.8,
+            sortino_ratio=1.1,
+            max_drawdown=0.25,
+            win_rate=0.58,
         )
         gate = ValidationGate()
         comparison = gate.compare_methodologies(metrics, metrics)
@@ -382,12 +416,18 @@ class TestCompareTies:
     def test_two_wins_three_ties_not_enough(self):
         """2 wins + 3 ties => new_is_better = False (need >= 3 wins)."""
         old = _make_metrics(
-            excess_cagr=0.04, sharpe_ratio=0.8, sortino_ratio=1.1,
-            max_drawdown=0.25, win_rate=0.58,
+            excess_cagr=0.04,
+            sharpe_ratio=0.8,
+            sortino_ratio=1.1,
+            max_drawdown=0.25,
+            win_rate=0.58,
         )
         new = _make_metrics(
-            excess_cagr=0.05, sharpe_ratio=0.8, sortino_ratio=1.1,
-            max_drawdown=0.25, win_rate=0.60,
+            excess_cagr=0.05,
+            sharpe_ratio=0.8,
+            sortino_ratio=1.1,
+            max_drawdown=0.25,
+            win_rate=0.60,
         )
         gate = ValidationGate()
         comparison = gate.compare_methodologies(old, new)
@@ -400,12 +440,18 @@ class TestCompareTies:
     def test_three_wins_two_ties_enough(self):
         """3 wins + 2 ties => new_is_better = True."""
         old = _make_metrics(
-            excess_cagr=0.04, sharpe_ratio=0.8, sortino_ratio=1.1,
-            max_drawdown=0.25, win_rate=0.58,
+            excess_cagr=0.04,
+            sharpe_ratio=0.8,
+            sortino_ratio=1.1,
+            max_drawdown=0.25,
+            win_rate=0.58,
         )
         new = _make_metrics(
-            excess_cagr=0.05, sharpe_ratio=0.9, sortino_ratio=1.1,
-            max_drawdown=0.25, win_rate=0.60,
+            excess_cagr=0.05,
+            sharpe_ratio=0.9,
+            sortino_ratio=1.1,
+            max_drawdown=0.25,
+            win_rate=0.60,
         )
         gate = ValidationGate()
         comparison = gate.compare_methodologies(old, new)
@@ -420,8 +466,8 @@ class TestCompareTies:
 # Test 12: compare_methodologies — max_drawdown comparison inverted
 # ---------------------------------------------------------------------------
 
-class TestCompareMaxDrawdownInverted:
 
+class TestCompareMaxDrawdownInverted:
     def test_lower_drawdown_is_new_win(self):
         """Lower max_drawdown means better => new wins on drawdown."""
         old = _make_metrics(max_drawdown=0.30)
@@ -450,8 +496,8 @@ class TestCompareMaxDrawdownInverted:
 # Test 13: Custom thresholds
 # ---------------------------------------------------------------------------
 
-class TestCustomThresholds:
 
+class TestCustomThresholds:
     def test_stricter_thresholds_cause_failure(self):
         """Metrics that pass default thresholds fail stricter custom ones."""
         metrics = _make_metrics(
@@ -463,11 +509,11 @@ class TestCustomThresholds:
             information_ratio=0.7,
         )
         strict = PassThreshold(
-            min_excess_cagr=0.06,       # 0.05 < 0.06 FAIL
-            min_sharpe=1.0,             # 0.9 < 1.0 FAIL
-            min_sortino=1.5,            # 1.3 < 1.5 FAIL
-            max_drawdown=0.15,          # 0.20 > 0.15 FAIL
-            min_win_rate=0.65,          # 0.62 < 0.65 FAIL
+            min_excess_cagr=0.06,  # 0.05 < 0.06 FAIL
+            min_sharpe=1.0,  # 0.9 < 1.0 FAIL
+            min_sortino=1.5,  # 1.3 < 1.5 FAIL
+            max_drawdown=0.15,  # 0.20 > 0.15 FAIL
+            min_win_rate=0.65,  # 0.62 < 0.65 FAIL
             min_information_ratio=0.8,  # 0.7 < 0.8 FAIL
         )
         gate = ValidationGate(thresholds=strict)

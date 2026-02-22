@@ -38,9 +38,7 @@ def _make_factor_score(
     raw_value: float = 1.0,
     percentile_rank: float = 0.0,
 ) -> FactorScore:
-    return FactorScore(
-        name=name, raw_value=raw_value, percentile_rank=percentile_rank
-    )
+    return FactorScore(name=name, raw_value=raw_value, percentile_rank=percentile_rank)
 
 
 def _make_filter(name: str = "altman_z", passed: bool = True) -> FilterResult:
@@ -134,9 +132,7 @@ class TestFullScoringPipeline:
             capital_expenditures=Decimal("-100"),
         )
         profile = _make_profile(ticker="BEST")
-        stage = classify_growth_stage(
-            period=period, profile=profile, revenue_cagr_3yr=0.10
-        )
+        stage = classify_growth_stage(period=period, profile=profile, revenue_cagr_3yr=0.10)
         assert stage == GrowthStage.STEADY_GROWTH
 
         # Step 3: composite score for the best stock (index 4)
@@ -251,9 +247,7 @@ class TestGrowthStageAffectsWeights:
         assert mature.composite_percentile == pytest.approx(68.0)
 
         # They must differ
-        assert high_growth.composite_percentile != pytest.approx(
-            mature.composite_percentile
-        )
+        assert high_growth.composite_percentile != pytest.approx(mature.composite_percentile)
 
 
 # ---------------------------------------------------------------------------

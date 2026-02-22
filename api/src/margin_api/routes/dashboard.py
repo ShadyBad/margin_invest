@@ -103,18 +103,21 @@ def _latest_score_subquery():
 
 
 async def _fetch_picks_and_watchlist(
-    db: AsyncSession, base,
+    db: AsyncSession,
+    base,
 ) -> tuple[list[PickSummary], list[WatchlistItem]]:
     """Run picks + watchlist queries with a top-10 fallback."""
     picks_result = await db.execute(
-        base.where(Score.conviction_level.in_(["exceptional", "high"]))
-        .order_by(Score.composite_raw_score.desc())
+        base.where(Score.conviction_level.in_(["exceptional", "high"])).order_by(
+            Score.composite_raw_score.desc()
+        )
     )
     picks = [_pick_summary_from_row(row) for row in picks_result.all()]
 
     watchlist_result = await db.execute(
-        base.where(Score.conviction_level.in_(["medium", "watchlist"]))
-        .order_by(Score.composite_raw_score.desc())
+        base.where(Score.conviction_level.in_(["medium", "watchlist"])).order_by(
+            Score.composite_raw_score.desc()
+        )
     )
     watchlist = [
         WatchlistItem(
@@ -142,9 +145,7 @@ async def _fetch_picks_and_watchlist(
 
     # Fallback: when no conviction-based picks exist, show top-ranked tickers.
     if not picks and not watchlist:
-        top_result = await db.execute(
-            base.order_by(Score.composite_raw_score.desc()).limit(10)
-        )
+        top_result = await db.execute(base.order_by(Score.composite_raw_score.desc()).limit(10))
         picks = [_pick_summary_from_row(row) for row in top_result.all()]
 
     return picks, watchlist
@@ -191,13 +192,14 @@ async def audit_dashboard(
     latest = _latest_score_subquery()
     base = (
         select(
-            Score, Asset.ticker, Asset.name.label("asset_name"),
+            Score,
+            Asset.ticker,
+            Asset.name.label("asset_name"),
         )
         .join(Asset, Score.asset_id == Asset.id)
         .join(
             latest,
-            (Score.asset_id == latest.c.asset_id)
-            & (Score.scored_at == latest.c.max_scored_at),
+            (Score.asset_id == latest.c.asset_id) & (Score.scored_at == latest.c.max_scored_at),
         )
         .order_by(Score.composite_raw_score.desc())
     )
@@ -238,25 +240,31 @@ async def audit_dashboard(
 
         mismatches = []
         if s.conviction_level != derived_conviction:
-            mismatches.append({
-                "field": "conviction_level",
-                "db_value": s.conviction_level,
-                "derived_value": derived_conviction,
-            })
+            mismatches.append(
+                {
+                    "field": "conviction_level",
+                    "db_value": s.conviction_level,
+                    "derived_value": derived_conviction,
+                }
+            )
         if s.signal != derived_signal:
-            mismatches.append({
-                "field": "signal",
-                "db_value": s.signal,
-                "derived_value": derived_signal,
-            })
+            mismatches.append(
+                {
+                    "field": "signal",
+                    "db_value": s.signal,
+                    "derived_value": derived_signal,
+                }
+            )
 
-        entries.append({
-            "ticker": row.ticker,
-            "name": row.asset_name,
-            "db_values": db_values,
-            "derived_values": derived_values,
-            "mismatches": mismatches,
-        })
+        entries.append(
+            {
+                "ticker": row.ticker,
+                "name": row.asset_name,
+                "db_values": db_values,
+                "derived_values": derived_values,
+                "mismatches": mismatches,
+            }
+        )
 
     return {"entries": entries, "total": len(entries)}
 
@@ -286,8 +294,7 @@ async def get_dashboard(
         .join(Asset, Score.asset_id == Asset.id)
         .join(
             latest,
-            (Score.asset_id == latest.c.asset_id)
-            & (Score.scored_at == latest.c.max_scored_at),
+            (Score.asset_id == latest.c.asset_id) & (Score.scored_at == latest.c.max_scored_at),
         )
     )
 
@@ -298,10 +305,9 @@ async def get_dashboard(
             # Large universe: use a server-side subquery to avoid asyncpg
             # bind-parameter limits (~3000 tickers as individual $N::VARCHAR
             # params causes compilation/performance failures).
-            universe_ticker_subq = (
-                select(func.jsonb_array_elements_text(UniverseSnapshot.tickers))
-                .where(UniverseSnapshot.is_active.is_(True))
-            )
+            universe_ticker_subq = select(
+                func.jsonb_array_elements_text(UniverseSnapshot.tickers)
+            ).where(UniverseSnapshot.is_active.is_(True))
             base = base.where(Asset.ticker.in_(universe_ticker_subq))
         else:
             base = base.where(Asset.ticker.in_(active_tickers))
@@ -315,9 +321,8 @@ async def get_dashboard(
 
     # Total scored (universe-aware for accurate coverage calculation)
     if active_tickers is not None:
-        scored_count_q = (
-            select(func.count(func.distinct(Score.asset_id)))
-            .join(Asset, Score.asset_id == Asset.id)
+        scored_count_q = select(func.count(func.distinct(Score.asset_id))).join(
+            Asset, Score.asset_id == Asset.id
         )
         if len(active_tickers) > 500:
             scored_count_q = scored_count_q.where(Asset.ticker.in_(universe_ticker_subq))
@@ -325,18 +330,13 @@ async def get_dashboard(
             scored_count_q = scored_count_q.where(Asset.ticker.in_(active_tickers))
         total_result = await db.execute(scored_count_q)
     else:
-        total_result = await db.execute(
-            select(func.count(func.distinct(Score.asset_id)))
-        )
+        total_result = await db.execute(select(func.count(func.distinct(Score.asset_id))))
     total_scored = total_result.scalar() or 0
 
     # Last updated
     updated_result = await db.execute(select(func.max(Score.scored_at)))
     last_updated_dt = updated_result.scalar()
-    last_updated = (
-        last_updated_dt.isoformat() if last_updated_dt
-        else datetime.now(UTC).isoformat()
-    )
+    last_updated = last_updated_dt.isoformat() if last_updated_dt else datetime.now(UTC).isoformat()
 
     # Universe metadata (reuse snapshot fetched above)
     universe: UniverseSummary | None = None
@@ -352,9 +352,7 @@ async def get_dashboard(
         )
     else:
         scoring_coverage = (
-            total_scored / snapshot.ticker_count
-            if snapshot.ticker_count > 0
-            else 0.0
+            total_scored / snapshot.ticker_count if snapshot.ticker_count > 0 else 0.0
         )
         is_complete = scoring_coverage >= 0.95
         universe = UniverseSummary(
@@ -394,47 +392,43 @@ async def get_dashboard_status(
     """Diagnostic endpoint for debugging empty dashboard issues."""
     snapshot = await get_active_snapshot(db)
 
-    total_scores = (await db.execute(
-        select(func.count()).select_from(Score)
-    )).scalar() or 0
+    total_scores = (await db.execute(select(func.count()).select_from(Score))).scalar() or 0
 
-    total_assets_scored = (await db.execute(
-        select(func.count(func.distinct(Score.asset_id)))
-    )).scalar() or 0
+    total_assets_scored = (
+        await db.execute(select(func.count(func.distinct(Score.asset_id))))
+    ).scalar() or 0
 
-    total_assets = (await db.execute(
-        select(func.count()).select_from(Asset)
-    )).scalar() or 0
+    total_assets = (await db.execute(select(func.count()).select_from(Asset))).scalar() or 0
 
-    latest_scored_at = (await db.execute(
-        select(func.max(Score.scored_at))
-    )).scalar()
+    latest_scored_at = (await db.execute(select(func.max(Score.scored_at)))).scalar()
 
     # Count scores matching universe tickers
     universe_scored = 0
     if snapshot and snapshot.tickers and len(snapshot.tickers) > 0:
-        universe_ticker_subq = (
-            select(func.jsonb_array_elements_text(UniverseSnapshot.tickers))
-            .where(UniverseSnapshot.is_active.is_(True))
-        )
-        universe_scored = (await db.execute(
-            select(func.count(func.distinct(Score.asset_id)))
-            .join(Asset, Score.asset_id == Asset.id)
-            .where(Asset.ticker.in_(universe_ticker_subq))
-        )).scalar() or 0
+        universe_ticker_subq = select(
+            func.jsonb_array_elements_text(UniverseSnapshot.tickers)
+        ).where(UniverseSnapshot.is_active.is_(True))
+        universe_scored = (
+            await db.execute(
+                select(func.count(func.distinct(Score.asset_id)))
+                .join(Asset, Score.asset_id == Asset.id)
+                .where(Asset.ticker.in_(universe_ticker_subq))
+            )
+        ).scalar() or 0
 
     # Conviction level breakdown of latest scores
     latest = _latest_score_subquery()
     conviction_counts = {}
-    rows = (await db.execute(
-        select(Score.conviction_level, func.count())
-        .join(
-            latest,
-            (Score.asset_id == latest.c.asset_id)
-            & (Score.scored_at == latest.c.max_scored_at),
+    rows = (
+        await db.execute(
+            select(Score.conviction_level, func.count())
+            .join(
+                latest,
+                (Score.asset_id == latest.c.asset_id) & (Score.scored_at == latest.c.max_scored_at),
+            )
+            .group_by(Score.conviction_level)
         )
-        .group_by(Score.conviction_level)
-    )).all()
+    ).all()
     for row in rows:
         conviction_counts[row[0]] = row[1]
 

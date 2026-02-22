@@ -32,8 +32,9 @@ def _build_synthetic_metrics(config: BacktestConfigRequest) -> MetricsResponse:
     These mock values are calibrated to roughly pass the default validation thresholds.
     """
     end = config.end_date or date.today()
-    months = max(1, (end.year - config.start_date.year) * 12
-                 + (end.month - config.start_date.month))
+    months = max(
+        1, (end.year - config.start_date.year) * 12 + (end.month - config.start_date.month)
+    )
     years = months / 12.0
 
     cagr = 0.10
@@ -121,9 +122,7 @@ async def run_backtest(config: BacktestConfigRequest) -> BacktestResultResponse:
     duration = time.monotonic() - start_time
 
     # Resolve end_date for storage
-    resolved_config = config.model_copy(
-        update={"end_date": config.end_date or date.today()}
-    )
+    resolved_config = config.model_copy(update={"end_date": config.end_date or date.today()})
 
     result = BacktestResultResponse(
         config=resolved_config,
@@ -163,9 +162,7 @@ async def list_results() -> BacktestListResponse:
 async def get_result(backtest_id: str) -> BacktestResultResponse:
     """Get a specific backtest result by ID."""
     if backtest_id not in _backtest_store:
-        raise HTTPException(
-            status_code=404, detail=f"Backtest {backtest_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id} not found")
     return _backtest_store[backtest_id]
 
 
@@ -173,7 +170,5 @@ async def get_result(backtest_id: str) -> BacktestResultResponse:
 async def get_metrics(backtest_id: str) -> MetricsResponse:
     """Get just the performance metrics for a backtest."""
     if backtest_id not in _backtest_store:
-        raise HTTPException(
-            status_code=404, detail=f"Backtest {backtest_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id} not found")
     return _backtest_store[backtest_id].metrics

@@ -119,8 +119,7 @@ class FMPProvider(DataProvider):
         self._acquire_rate_limit()
         try:
             url = (
-                f"{_BASE_URL}/historical/earning_calendar/{ticker}"
-                f"?apikey={self._api_key}&limit=25"
+                f"{_BASE_URL}/historical/earning_calendar/{ticker}?apikey={self._api_key}&limit=25"
             )
             resp = httpx.get(url)
             resp.raise_for_status()

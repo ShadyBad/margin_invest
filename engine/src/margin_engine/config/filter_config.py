@@ -61,9 +61,7 @@ PositionImpact = PositionSizingConfig
 class LiquidityConfig(BaseModel):
     """Liquidity filter configuration."""
 
-    excluded_sectors: list[str] = Field(
-        default_factory=lambda: ["Financials", "Real Estate"]
-    )
+    excluded_sectors: list[str] = Field(default_factory=lambda: ["Financials", "Real Estate"])
     min_years_of_history: int = 5
     market_cap_minimum: MarketCapMinimum = Field(default_factory=MarketCapMinimum)
     dollar_volume: DollarVolumeTiers = Field(default_factory=DollarVolumeTiers)
@@ -170,9 +168,7 @@ class FilterConfig(BaseModel):
     beneish: BeneishConfig = Field(default_factory=BeneishConfig)
     altman: AltmanConfig = Field(default_factory=AltmanConfig)
     fcf_distress: FcfDistressConfig = Field(default_factory=FcfDistressConfig)
-    interest_coverage: InterestCoverageConfig = Field(
-        default_factory=InterestCoverageConfig
-    )
+    interest_coverage: InterestCoverageConfig = Field(default_factory=InterestCoverageConfig)
     current_ratio: CurrentRatioConfig = Field(default_factory=CurrentRatioConfig)
     mediocrity_gate: MediocGateConfig = Field(default_factory=MediocGateConfig)
 

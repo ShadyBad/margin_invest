@@ -20,6 +20,7 @@ from margin_engine.backtesting.models import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_snapshot(
     month: int,
     portfolio_value: float,
@@ -47,6 +48,7 @@ def _make_snapshot(
 # ---------------------------------------------------------------------------
 # CAGR
 # ---------------------------------------------------------------------------
+
 
 class TestCAGR:
     """Static _cagr helper — pure compound growth formula."""
@@ -86,6 +88,7 @@ class TestCAGR:
 # ---------------------------------------------------------------------------
 # Sharpe Ratio
 # ---------------------------------------------------------------------------
+
 
 class TestSharpe:
     """Static _sharpe helper — annualized Sharpe ratio."""
@@ -130,6 +133,7 @@ class TestSharpe:
 # Sortino Ratio
 # ---------------------------------------------------------------------------
 
+
 class TestSortino:
     """Static _sortino helper — downside-deviation-only Sharpe variant."""
 
@@ -173,6 +177,7 @@ class TestSortino:
 # ---------------------------------------------------------------------------
 # Max Drawdown
 # ---------------------------------------------------------------------------
+
 
 class TestMaxDrawdown:
     """Static _max_drawdown helper."""
@@ -225,6 +230,7 @@ class TestMaxDrawdown:
 # Win Rate (tested via calculate — no static helper)
 # ---------------------------------------------------------------------------
 
+
 class TestWinRate:
     """Win rate: fraction of months portfolio beats benchmark."""
 
@@ -247,6 +253,7 @@ class TestWinRate:
 # ---------------------------------------------------------------------------
 # Information Ratio
 # ---------------------------------------------------------------------------
+
 
 class TestInformationRatio:
     """Static _information_ratio helper — annualized active-return / tracking error."""
@@ -288,6 +295,7 @@ class TestInformationRatio:
 # Full calculate() Method
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateFull:
     """End-to-end test of calculate() with 6 months of synthetic data."""
 
@@ -307,9 +315,7 @@ class TestCalculateFull:
         pv = 1_000_000.0
         bv = 1_000_000.0
         result = []
-        for i, (pr, br, to) in enumerate(
-            zip(portfolio_returns, benchmark_returns, turnovers)
-        ):
+        for i, (pr, br, to) in enumerate(zip(portfolio_returns, benchmark_returns, turnovers)):
             pv *= 1.0 + pr
             bv *= 1.0 + br
             result.append(
@@ -390,6 +396,7 @@ class TestCalculateFull:
 # validate() Method
 # ---------------------------------------------------------------------------
 
+
 class TestValidate:
     """Test validation of metrics against pass thresholds."""
 
@@ -402,11 +409,11 @@ class TestValidate:
         """Metrics that pass all default thresholds."""
         return PerformanceMetrics(
             cagr=0.15,
-            excess_cagr=0.05,       # >= 0.03
-            sharpe_ratio=0.9,       # >= 0.7
-            sortino_ratio=1.3,      # >= 1.0
-            max_drawdown=0.20,      # <= 0.35
-            win_rate=0.62,          # >= 0.55
+            excess_cagr=0.05,  # >= 0.03
+            sharpe_ratio=0.9,  # >= 0.7
+            sortino_ratio=1.3,  # >= 1.0
+            max_drawdown=0.20,  # <= 0.35
+            win_rate=0.62,  # >= 0.55
             information_ratio=0.7,  # >= 0.5
             total_return=2.0,
             benchmark_total_return=1.5,
@@ -419,11 +426,11 @@ class TestValidate:
         """Metrics that fail all default thresholds."""
         return PerformanceMetrics(
             cagr=0.05,
-            excess_cagr=0.01,       # < 0.03
-            sharpe_ratio=0.4,       # < 0.7
-            sortino_ratio=0.6,      # < 1.0
-            max_drawdown=0.45,      # > 0.35
-            win_rate=0.45,          # < 0.55
+            excess_cagr=0.01,  # < 0.03
+            sharpe_ratio=0.4,  # < 0.7
+            sortino_ratio=0.6,  # < 1.0
+            max_drawdown=0.45,  # > 0.35
+            win_rate=0.45,  # < 0.55
             information_ratio=0.3,  # < 0.5
             total_return=0.5,
             benchmark_total_return=0.4,
@@ -431,9 +438,7 @@ class TestValidate:
             avg_turnover=0.25,
         )
 
-    def test_all_pass(
-        self, calculator: PerformanceCalculator, strong_metrics: PerformanceMetrics
-    ):
+    def test_all_pass(self, calculator: PerformanceCalculator, strong_metrics: PerformanceMetrics):
         result = calculator.validate(strong_metrics)
         assert result.overall_pass is True
         assert result.passed_count == 6
@@ -444,9 +449,7 @@ class TestValidate:
         assert result.win_rate_pass is True
         assert result.information_ratio_pass is True
 
-    def test_all_fail(
-        self, calculator: PerformanceCalculator, weak_metrics: PerformanceMetrics
-    ):
+    def test_all_fail(self, calculator: PerformanceCalculator, weak_metrics: PerformanceMetrics):
         result = calculator.validate(weak_metrics)
         assert result.overall_pass is False
         assert result.passed_count == 0
@@ -461,11 +464,11 @@ class TestValidate:
         """3 out of 6 pass."""
         metrics = PerformanceMetrics(
             cagr=0.10,
-            excess_cagr=0.04,       # >= 0.03 PASS
-            sharpe_ratio=0.5,       # < 0.7 FAIL
-            sortino_ratio=1.2,      # >= 1.0 PASS
-            max_drawdown=0.40,      # > 0.35 FAIL
-            win_rate=0.60,          # >= 0.55 PASS
+            excess_cagr=0.04,  # >= 0.03 PASS
+            sharpe_ratio=0.5,  # < 0.7 FAIL
+            sortino_ratio=1.2,  # >= 1.0 PASS
+            max_drawdown=0.40,  # > 0.35 FAIL
+            win_rate=0.60,  # >= 0.55 PASS
             information_ratio=0.3,  # < 0.5 FAIL
             total_return=1.0,
             benchmark_total_return=0.7,
@@ -486,11 +489,11 @@ class TestValidate:
         """Exactly at threshold values should pass (>= for mins, <= for max_drawdown)."""
         metrics = PerformanceMetrics(
             cagr=0.10,
-            excess_cagr=0.03,       # == min_excess_cagr
-            sharpe_ratio=0.7,       # == min_sharpe
-            sortino_ratio=1.0,      # == min_sortino
-            max_drawdown=0.35,      # == max_drawdown
-            win_rate=0.55,          # == min_win_rate
+            excess_cagr=0.03,  # == min_excess_cagr
+            sharpe_ratio=0.7,  # == min_sharpe
+            sortino_ratio=1.0,  # == min_sortino
+            max_drawdown=0.35,  # == max_drawdown
+            win_rate=0.55,  # == min_win_rate
             information_ratio=0.5,  # == min_information_ratio
             total_return=1.0,
             benchmark_total_return=0.7,
@@ -517,12 +520,12 @@ class TestValidate:
             avg_turnover=0.15,
         )
         strict = PassThreshold(
-            min_excess_cagr=0.06,      # 0.05 < 0.06 FAIL
-            min_sharpe=1.0,            # 0.9 < 1.0 FAIL
-            min_sortino=1.5,           # 1.3 < 1.5 FAIL
-            max_drawdown=0.15,         # 0.20 > 0.15 FAIL
-            min_win_rate=0.65,         # 0.62 < 0.65 FAIL
-            min_information_ratio=0.8, # 0.7 < 0.8 FAIL
+            min_excess_cagr=0.06,  # 0.05 < 0.06 FAIL
+            min_sharpe=1.0,  # 0.9 < 1.0 FAIL
+            min_sortino=1.5,  # 1.3 < 1.5 FAIL
+            max_drawdown=0.15,  # 0.20 > 0.15 FAIL
+            min_win_rate=0.65,  # 0.62 < 0.65 FAIL
+            min_information_ratio=0.8,  # 0.7 < 0.8 FAIL
         )
         result = calculator.validate(metrics, thresholds=strict)
         assert result.overall_pass is False
@@ -546,6 +549,7 @@ class TestValidate:
 # ---------------------------------------------------------------------------
 # Edge Cases
 # ---------------------------------------------------------------------------
+
 
 class TestEdgeCases:
     """Edge cases: empty data, single month, custom risk-free rate."""

@@ -48,6 +48,7 @@ beneish:
     def test_missing_yaml_returns_defaults(self):
         """When YAML file doesn't exist, return defaults."""
         from pathlib import Path
+
         config = load_filter_config(Path("/nonexistent/path/filters.yaml"))
         assert config.liquidity.min_years_of_history == 5
 

@@ -198,9 +198,7 @@ class TestRegistryFetchFundamentalsWithYFinance:
     """Register YFinanceProvider, mock yfinance, fetch fundamentals."""
 
     @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
-    def test_registry_fetch_fundamentals_with_yfinance(
-        self, mock_yf: MagicMock
-    ) -> None:
+    def test_registry_fetch_fundamentals_with_yfinance(self, mock_yf: MagicMock) -> None:
         mock_ticker = MagicMock()
         mock_ticker.financials = _sample_income_df()
         mock_ticker.balance_sheet = _sample_balance_df()
@@ -235,9 +233,7 @@ class TestNormalizerWithYFinanceFetchResult:
     """Fetch fundamentals via provider, then normalize the raw data."""
 
     @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
-    def test_normalizer_with_yfinance_fetch_result(
-        self, mock_yf: MagicMock
-    ) -> None:
+    def test_normalizer_with_yfinance_fetch_result(self, mock_yf: MagicMock) -> None:
         # Use normalizer-compatible key names (camelCase) so the
         # normalize_fundamentals function can map them to model fields.
         mock_ticker = MagicMock()
@@ -271,9 +267,7 @@ class TestRegistryFallbackOnProviderError:
     """MockFailProvider (priority=20) fails, YFinanceProvider (priority=10) succeeds."""
 
     @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
-    def test_registry_fallback_on_provider_error(
-        self, mock_yf: MagicMock
-    ) -> None:
+    def test_registry_fallback_on_provider_error(self, mock_yf: MagicMock) -> None:
         mock_ticker = MagicMock()
         mock_ticker.financials = _sample_income_df()
         mock_ticker.balance_sheet = _sample_balance_df()

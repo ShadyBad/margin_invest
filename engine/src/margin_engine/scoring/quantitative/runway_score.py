@@ -39,10 +39,7 @@ def runway_score(
             name="runway_score",
             raw_value=1.0,
             percentile_rank=0.0,
-            detail=(
-                f"company_rev={float(company_revenue):,.2f}, "
-                f"industry_rev=0 (saturated)"
-            ),
+            detail=(f"company_rev={float(company_revenue):,.2f}, industry_rev=0 (saturated)"),
         )
 
     penetration = float(company_revenue / sub_industry_revenue)

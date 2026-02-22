@@ -58,16 +58,20 @@ class ImpactClassifier:
     """
 
     _MAJOR_TYPES: frozenset[EventType] = frozenset({EventType.EARNINGS_RELEASE})
-    _MODERATE_TYPES: frozenset[EventType] = frozenset({
-        EventType.ANALYST_RATING_CHANGE,
-        EventType.INSIDER_TRANSACTION,
-        EventType.SEC_FILING,
-    })
-    _MINOR_TYPES: frozenset[EventType] = frozenset({
-        EventType.PRICE_ALERT,
-        EventType.MACRO_EVENT,
-        EventType.MATERIAL_NEWS,
-    })
+    _MODERATE_TYPES: frozenset[EventType] = frozenset(
+        {
+            EventType.ANALYST_RATING_CHANGE,
+            EventType.INSIDER_TRANSACTION,
+            EventType.SEC_FILING,
+        }
+    )
+    _MINOR_TYPES: frozenset[EventType] = frozenset(
+        {
+            EventType.PRICE_ALERT,
+            EventType.MACRO_EVENT,
+            EventType.MATERIAL_NEWS,
+        }
+    )
 
     def classify(self, event: EventRecord) -> EventSeverity:
         """Classify an event and return the appropriate severity."""

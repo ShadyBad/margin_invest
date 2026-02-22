@@ -17,6 +17,7 @@ from margin_engine.scoring.classifier import classify_growth_stage
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_period(
     revenue: Decimal = Decimal("10000"),
     cost_of_revenue: Decimal = Decimal("5000"),
@@ -63,6 +64,7 @@ def _make_profile(
 # ---------------------------------------------------------------------------
 # High Growth classification
 # ---------------------------------------------------------------------------
+
 
 class TestHighGrowth:
     """Revenue CAGR > 20%, Gross Margin > 40%, Market Cap > $2B."""
@@ -133,6 +135,7 @@ class TestHighGrowth:
 # Steady Growth classification
 # ---------------------------------------------------------------------------
 
+
 class TestSteadyGrowth:
     """Revenue CAGR 5-20%, positive FCF."""
 
@@ -171,6 +174,7 @@ class TestSteadyGrowth:
 # ---------------------------------------------------------------------------
 # Mature / Cash Cow classification
 # ---------------------------------------------------------------------------
+
 
 class TestMature:
     """Revenue CAGR < 5%, FCF Yield > 4%."""
@@ -220,6 +224,7 @@ class TestMature:
 # ---------------------------------------------------------------------------
 # Cyclical classification
 # ---------------------------------------------------------------------------
+
 
 class TestCyclical:
     """Revenue StdDev > 15% OR cyclical sector."""
@@ -293,6 +298,7 @@ class TestCyclical:
 # ---------------------------------------------------------------------------
 # Turnaround classification
 # ---------------------------------------------------------------------------
+
 
 class TestTurnaround:
     """2+ negative NI of 4 quarters, 2+ sequential margin improvement, positive CFO."""
@@ -376,6 +382,7 @@ class TestTurnaround:
 # Priority order
 # ---------------------------------------------------------------------------
 
+
 class TestPriorityOrder:
     """First match wins: Turnaround > High Growth > Cyclical > Mature > Steady."""
 
@@ -446,6 +453,7 @@ class TestPriorityOrder:
 # Default / edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestDefault:
     """Default to Steady Growth when no data or nothing matches."""
 
@@ -484,6 +492,7 @@ class TestDefault:
 # ---------------------------------------------------------------------------
 # Apple FY2024 golden fixture test
 # ---------------------------------------------------------------------------
+
 
 class TestAppleFY2024:
     """Apple FY2024 classification using the golden test fixture."""

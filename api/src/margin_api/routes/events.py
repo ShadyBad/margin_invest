@@ -148,9 +148,7 @@ async def list_notifications() -> NotificationListResponse:
 async def mark_notification_read(notification_id: str) -> NotificationResponse:
     """Mark a notification as read."""
     if notification_id not in _notification_store:
-        raise HTTPException(
-            status_code=404, detail=f"Notification {notification_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Notification {notification_id} not found")
     notification = _notification_store[notification_id]
     updated = notification.model_copy(update={"read": True})
     _notification_store[notification_id] = updated
@@ -161,7 +159,5 @@ async def mark_notification_read(notification_id: str) -> NotificationResponse:
 async def delete_notification(notification_id: str) -> None:
     """Delete a notification."""
     if notification_id not in _notification_store:
-        raise HTTPException(
-            status_code=404, detail=f"Notification {notification_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Notification {notification_id} not found")
     del _notification_store[notification_id]

@@ -1,4 +1,5 @@
 """Tests for price ingestion batch upserts."""
+
 from __future__ import annotations
 
 
@@ -7,10 +8,22 @@ class TestPreparePriceValues:
         from margin_api.services.price_ingestion import prepare_price_values
 
         bars = [
-            {"time": "2025-01-15T10:00:00+00:00", "open": 150.0, "high": 151.0,
-             "low": 149.5, "close": 150.5, "volume": 1000},
-            {"time": "2025-01-15T10:05:00+00:00", "open": 150.5, "high": 152.0,
-             "low": 150.0, "close": 151.5, "volume": 2000},
+            {
+                "time": "2025-01-15T10:00:00+00:00",
+                "open": 150.0,
+                "high": 151.0,
+                "low": 149.5,
+                "close": 150.5,
+                "volume": 1000,
+            },
+            {
+                "time": "2025-01-15T10:05:00+00:00",
+                "open": 150.5,
+                "high": 152.0,
+                "low": 150.0,
+                "close": 151.5,
+                "volume": 2000,
+            },
         ]
         values = prepare_price_values("AAPL", bars, "test")
         assert len(values) == 2
@@ -28,8 +41,13 @@ class TestPreparePriceValues:
         from margin_api.services.price_ingestion import prepare_price_values
 
         bars = [
-            {"time": "2025-01-15T10:00:00+00:00", "open": 150.0, "high": 151.0,
-             "low": 149.5, "close": 150.5},
+            {
+                "time": "2025-01-15T10:00:00+00:00",
+                "open": 150.0,
+                "high": 151.0,
+                "low": 149.5,
+                "close": 150.5,
+            },
         ]
         values = prepare_price_values("AAPL", bars, "test")
         assert values[0]["volume"] is None

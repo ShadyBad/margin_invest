@@ -100,7 +100,7 @@ def compute_sharpe_ratio(
         return None
 
     # Trim to window
-    tail = closes[-(window + 1):] if len(closes) > window + 1 else closes
+    tail = closes[-(window + 1) :] if len(closes) > window + 1 else closes
     returns = _daily_returns(tail)
 
     if len(returns) < 2:
@@ -184,7 +184,7 @@ def compute_volatility(
     if len(closes) < window + 1:
         return None
 
-    tail = closes[-(window + 1):]
+    tail = closes[-(window + 1) :]
     returns = _daily_returns(tail)
 
     if len(returns) < 2:

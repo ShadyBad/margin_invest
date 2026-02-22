@@ -20,9 +20,7 @@ _SOLVER_TOLERANCE = 0.0001
 _SOLVER_MAX_ITER = 100
 
 
-def _dcf_value(
-    fcf: float, growth: float, wacc: float, terminal_growth: float, years: int
-) -> float:
+def _dcf_value(fcf: float, growth: float, wacc: float, terminal_growth: float, years: int) -> float:
     """Compute DCF intrinsic value for a given growth rate."""
     pv_sum = 0.0
     for t in range(1, years + 1):
@@ -183,15 +181,25 @@ def reverse_dcf_combined_gap(
     margin expansion than achievable, the opportunity exists.
     """
     growth_gap_result = reverse_dcf_growth_gap(
-        current_price, current_fcf, wacc, terminal_growth,
-        shares_outstanding, sustainable_growth_rate, projection_years,
+        current_price,
+        current_fcf,
+        wacc,
+        terminal_growth,
+        shares_outstanding,
+        sustainable_growth_rate,
+        projection_years,
     )
     growth_gap = growth_gap_result.raw_value
 
     implied_margin = solve_implied_margin(
-        current_price, current_revenue, current_fcf_margin,
-        wacc, terminal_growth, revenue_growth_for_margin_solve,
-        shares_outstanding, projection_years,
+        current_price,
+        current_revenue,
+        current_fcf_margin,
+        wacc,
+        terminal_growth,
+        revenue_growth_for_margin_solve,
+        shares_outstanding,
+        projection_years,
     )
     margin_gap = (sustainable_fcf_margin - implied_margin) if implied_margin is not None else 0.0
 

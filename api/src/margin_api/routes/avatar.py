@@ -41,9 +41,7 @@ async def upload_avatar(
     processed = process_avatar(data)
     url = storage.upload(user_id, processed)
 
-    await db.execute(
-        update(User).where(User.id == user_id).values(avatar_url=url)
-    )
+    await db.execute(update(User).where(User.id == user_id).values(avatar_url=url))
     await db.commit()
     return AvatarResponse(avatar_url=url)
 
@@ -56,8 +54,6 @@ async def delete_avatar(
 ) -> AvatarResponse:
     """Remove a user's custom avatar."""
     storage.delete(user_id)
-    await db.execute(
-        update(User).where(User.id == user_id).values(avatar_url=None)
-    )
+    await db.execute(update(User).where(User.id == user_id).values(avatar_url=None))
     await db.commit()
     return AvatarResponse(avatar_url=None)

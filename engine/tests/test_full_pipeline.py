@@ -333,9 +333,7 @@ class TestScoringToCompositePipeline:
         profile = _make_profile(
             ticker="BEST", sector=GICSSector.TECHNOLOGY, market_cap=5_000_000_000
         )
-        stage = classify_growth_stage(
-            period=period, profile=profile, revenue_cagr_3yr=0.10
-        )
+        stage = classify_growth_stage(period=period, profile=profile, revenue_cagr_3yr=0.10)
 
         # Compute composite for the best stock (index 4) using its ranked scores
         composite = compute_composite_score(
@@ -590,19 +588,13 @@ class TestEventPipelineEndToEnd:
         throttle.record_notification("AAPL", now)
 
         # Second MINOR notification within cooldown should be suppressed
-        assert not throttle.should_notify(
-            "AAPL", EventSeverity.MINOR, now + timedelta(minutes=30)
-        )
+        assert not throttle.should_notify("AAPL", EventSeverity.MINOR, now + timedelta(minutes=30))
 
         # But MAJOR always gets through
-        assert throttle.should_notify(
-            "AAPL", EventSeverity.MAJOR, now + timedelta(minutes=30)
-        )
+        assert throttle.should_notify("AAPL", EventSeverity.MAJOR, now + timedelta(minutes=30))
 
         # After cooldown, MINOR is allowed again
-        assert throttle.should_notify(
-            "AAPL", EventSeverity.MINOR, now + timedelta(hours=2)
-        )
+        assert throttle.should_notify("AAPL", EventSeverity.MINOR, now + timedelta(hours=2))
 
     def test_score_delta_checker(self) -> None:
         from margin_engine.events import ScoreDeltaChecker
@@ -655,32 +647,29 @@ class TestDeterminismGuarantee:
             composite = compute_composite_score(
                 ticker="DET",
                 quality_scores=[ranked[1]],
-                value_scores=[
-                    FactorScore(name="ev_fcf", raw_value=10.0, percentile_rank=50.0)
-                ],
+                value_scores=[FactorScore(name="ev_fcf", raw_value=10.0, percentile_rank=50.0)],
                 momentum_scores=[
                     FactorScore(name="momentum", raw_value=0.15, percentile_rank=60.0)
                 ],
                 filters_passed=[
-                    FilterResult(name=r.name, passed=r.passed)
-                    for r in filter_result.results
+                    FilterResult(name=r.name, passed=r.passed) for r in filter_result.results
                 ],
                 growth_stage=GrowthStage.STEADY_GROWTH,
             )
 
-            results.append({
-                "filter_passed": filter_result.passed,
-                "gp_raw": gp_score.raw_value,
-                "ranked_percentiles": [r.percentile_rank for r in ranked],
-                "composite_percentile": composite.composite_percentile,
-                "data_coverage": composite.data_coverage,
-            })
+            results.append(
+                {
+                    "filter_passed": filter_result.passed,
+                    "gp_raw": gp_score.raw_value,
+                    "ranked_percentiles": [r.percentile_rank for r in ranked],
+                    "composite_percentile": composite.composite_percentile,
+                    "data_coverage": composite.data_coverage,
+                }
+            )
 
         # Both runs must produce identical results
         assert results[0] == results[1], (
-            f"Non-deterministic results detected:\n"
-            f"  Run 1: {results[0]}\n"
-            f"  Run 2: {results[1]}"
+            f"Non-deterministic results detected:\n  Run 1: {results[0]}\n  Run 2: {results[1]}"
         )
 
     def test_event_pipeline_is_deterministic(self) -> None:
@@ -719,10 +708,12 @@ class TestDeterminismGuarantee:
                 relevance_filter=RelevanceFilter(watched_tickers={"AAPL", "MSFT"})
             )
             processed = pipeline.process(events)
-            results.append([
-                (pe.event.event_id, pe.classified_severity, pe.rescore_trigger)
-                for pe in processed
-            ])
+            results.append(
+                [
+                    (pe.event.event_id, pe.classified_severity, pe.rescore_trigger)
+                    for pe in processed
+                ]
+            )
 
         assert results[0] == results[1]
 
@@ -747,8 +738,7 @@ class TestVersionAvailable:
 
         parts = margin_engine.__version__.split(".")
         assert len(parts) >= 2, (
-            f"Version should have at least major.minor:"
-            f" {margin_engine.__version__}"
+            f"Version should have at least major.minor: {margin_engine.__version__}"
         )
         # Major and minor should be numeric
         assert parts[0].isdigit()

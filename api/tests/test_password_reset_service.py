@@ -21,9 +21,7 @@ async def db():
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with factory() as session:
-        user = await _auth.register_user(
-            session, "testuser", "test@example.com", "OldPassword1!"
-        )
+        user = await _auth.register_user(session, "testuser", "test@example.com", "OldPassword1!")
 
     yield factory, user.id
     await engine.dispose()
@@ -39,12 +37,14 @@ class TestResetPassword:
 
             # Token should exist in DB
             tokens = (
-                await session.execute(
-                    select(MfaChallengeToken).where(
-                        MfaChallengeToken.user_id == user_id
+                (
+                    await session.execute(
+                        select(MfaChallengeToken).where(MfaChallengeToken.user_id == user_id)
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             assert len(tokens) >= 1
 
     @pytest.mark.asyncio
@@ -58,9 +58,7 @@ class TestResetPassword:
 
         # Verify new password works
         async with factory() as session:
-            result = await _auth.verify_credentials(
-                session, "test@example.com", "NewPassword2@"
-            )
+            result = await _auth.verify_credentials(session, "test@example.com", "NewPassword2@")
             assert result is not None
 
     @pytest.mark.asyncio
@@ -73,9 +71,7 @@ class TestResetPassword:
             await _auth.reset_password(session, user_id, raw_token, "NewPassword2@")
 
         async with factory() as session:
-            user = (
-                await session.execute(select(User).where(User.id == user_id))
-            ).scalar_one()
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
             assert user.password_changed_at is not None
 
     @pytest.mark.asyncio
@@ -83,9 +79,7 @@ class TestResetPassword:
         factory, user_id = db
         # Lock the account with failed attempts
         async with factory() as session:
-            user = (
-                await session.execute(select(User).where(User.id == user_id))
-            ).scalar_one()
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
             user.failed_login_attempts = 5
             await session.commit()
 
@@ -96,9 +90,7 @@ class TestResetPassword:
             await _auth.reset_password(session, user_id, raw_token, "NewPassword2@")
 
         async with factory() as session:
-            user = (
-                await session.execute(select(User).where(User.id == user_id))
-            ).scalar_one()
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
             assert user.failed_login_attempts == 0
             assert user.locked_until is None
 
