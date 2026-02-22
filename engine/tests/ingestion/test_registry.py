@@ -676,3 +676,71 @@ class TestFinnhubInFallbackChain:
 
         chain = registry.get_fallback_chain(DataCategory.PRICE)
         assert len(chain) == 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: per-category priority
+# ---------------------------------------------------------------------------
+
+
+class TestPerCategoryPriority:
+    def test_category_priorities_override_base_priority(self):
+        """Provider with category_priorities uses per-category values."""
+        registry = ProviderRegistry()
+        provider = FakeProvider(
+            "multi",
+            [DataCategory.FUNDAMENTALS, DataCategory.INSIDER],
+            priority=10,
+        )
+        # Override: fundamentals at priority 2, insider stays at base 10
+        provider._info = ProviderInfo(
+            name="multi",
+            supported_categories=[DataCategory.FUNDAMENTALS, DataCategory.INSIDER],
+            requests_per_minute=60,
+            requires_api_key=False,
+            priority=10,
+            category_priorities={DataCategory.FUNDAMENTALS: 2},
+        )
+        other = FakeProvider("other", [DataCategory.FUNDAMENTALS, DataCategory.INSIDER], priority=5)
+        registry.register(provider)
+        registry.register(other)
+
+        # For FUNDAMENTALS, "multi" has effective priority 2 (below "other" at 5)
+        fund_chain = registry.get_fallback_chain(DataCategory.FUNDAMENTALS)
+        assert [p.info.name for p in fund_chain] == ["other", "multi"]
+
+        # For INSIDER, "multi" has effective priority 10 (above "other" at 5)
+        insider_chain = registry.get_fallback_chain(DataCategory.INSIDER)
+        assert [p.info.name for p in insider_chain] == ["multi", "other"]
+
+    def test_category_priorities_none_uses_base(self):
+        """When category_priorities is None, base priority is used."""
+        registry = ProviderRegistry()
+        provider = FakeProvider("simple", [DataCategory.PRICE], priority=7)
+        registry.register(provider)
+
+        chain = registry.get_fallback_chain(DataCategory.PRICE)
+        assert len(chain) == 1
+        assert chain[0].info.priority == 7
+
+    def test_category_not_in_overrides_uses_base(self):
+        """Category not in category_priorities dict falls back to base."""
+        registry = ProviderRegistry()
+        provider = FakeProvider(
+            "partial", [DataCategory.INSIDER, DataCategory.INSTITUTIONAL], priority=10
+        )
+        provider._info = ProviderInfo(
+            name="partial",
+            supported_categories=[DataCategory.INSIDER, DataCategory.INSTITUTIONAL],
+            requests_per_minute=60,
+            requires_api_key=False,
+            priority=10,
+            category_priorities={DataCategory.INSIDER: 15},
+        )
+        other = FakeProvider("other", [DataCategory.INSTITUTIONAL], priority=12)
+        registry.register(provider)
+        registry.register(other)
+
+        # INSTITUTIONAL not in overrides -> uses base priority 10 (below other at 12)
+        chain = registry.get_fallback_chain(DataCategory.INSTITUTIONAL)
+        assert [p.info.name for p in chain] == ["other", "partial"]

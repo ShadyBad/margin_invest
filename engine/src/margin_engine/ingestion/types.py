@@ -52,6 +52,14 @@ class ProviderInfo(BaseModel):
     priority: int = 0
     """Higher values = preferred provider (used for fallback ordering)."""
 
+    category_priorities: dict[DataCategory, int] | None = None
+    """Optional per-category priority overrides.
+
+    When set, the registry uses ``category_priorities.get(category)``
+    for sorting. Falls back to the base ``priority`` when a category
+    is not present in the dict or when ``category_priorities`` is None.
+    """
+
 
 class FetchResult(BaseModel):
     """Result of a single data fetch operation from a provider."""

@@ -102,8 +102,14 @@ class ProviderRegistry:
                 continue
             eligible.append(provider)
 
+        def _effective_priority(p: DataProvider) -> int:
+            info = p.info
+            if info.category_priorities is not None:
+                return info.category_priorities.get(category, info.priority)
+            return info.priority
+
         # Sort by priority descending (highest first)
-        eligible.sort(key=lambda p: p.info.priority, reverse=True)
+        eligible.sort(key=_effective_priority, reverse=True)
         return eligible
 
     # ------------------------------------------------------------------
