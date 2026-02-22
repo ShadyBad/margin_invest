@@ -114,3 +114,49 @@ describe("Auth configuration", () => {
     expect(typeof callbacks.session).toBe("function")
   })
 })
+
+describe("JWT callback behavior", () => {
+  it("refreshes security status for OAuth users on token refresh", async () => {
+    const config = mockNextAuth.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    const callbacks = config!.callbacks as Record<string, (...args: unknown[]) => unknown>
+
+    // Mock fetch to return security status with updated linkedProviders
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        has_password: false,
+        mfa_enabled: false,
+        mfa_grace_deadline: null,
+        linked_providers: [{ provider: "google" }, { provider: "github" }],
+      }),
+    }) as unknown as typeof fetch
+
+    try {
+      // Simulate a token refresh (user is undefined, token has existing data)
+      const existingToken = {
+        authMethod: "oauth",
+        userId: "42",
+        oauthProvider: "google",
+        mfaVerified: true,
+        linkedProviders: [],
+        sessionCheckAt: 0, // Force refresh (timestamp in the past)
+      }
+
+      const result = (await callbacks.jwt({
+        token: existingToken,
+        user: undefined,
+        account: undefined,
+      })) as Record<string, unknown>
+
+      // Token should be returned (not empty — that would mean invalidation)
+      expect(result).toHaveProperty("authMethod", "oauth")
+      expect(result).toHaveProperty("userId", "42")
+
+      // linkedProviders should be refreshed from the API response
+      expect(result.linkedProviders).toEqual(["google", "github"])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+})
