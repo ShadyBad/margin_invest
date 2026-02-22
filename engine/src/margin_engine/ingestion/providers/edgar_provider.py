@@ -186,8 +186,59 @@ class EDGARProvider(DataProvider):
     # ------------------------------------------------------------------
 
     def fetch_fundamentals(self, ticker: str) -> FetchResult:
-        """Fetch fundamental financial data from XBRL company facts."""
-        raise NotImplementedError("fetch_fundamentals not yet implemented")
+        """Fetch fundamental financial data from XBRL company facts.
+
+        Hits the SEC EDGAR companyfacts endpoint and extracts the latest
+        10-K annual values for income statement, balance sheet, and cash
+        flow fields.
+        """
+        self._acquire_rate_limit()
+        try:
+            cik = self._get_cik(ticker)
+            url = f"{_SEC_DATA_BASE}/api/xbrl/companyfacts/CIK{cik}.json"
+            resp = httpx.get(url, headers={"User-Agent": self._user_agent})
+            resp.raise_for_status()
+            facts = resp.json()
+
+            income: dict[str, float] = {}
+            for field, tags in _INCOME_TAGS.items():
+                val = self._extract_latest_annual(facts, tags)
+                if val is not None:
+                    income[field] = val
+
+            balance: dict[str, float] = {}
+            for field, tags in _BALANCE_TAGS.items():
+                val = self._extract_latest_annual(facts, tags)
+                if val is not None:
+                    balance[field] = val
+
+            cash_flow: dict[str, float] = {}
+            for field, tags in _CASH_FLOW_TAGS.items():
+                val = self._extract_latest_annual(facts, tags)
+                if val is not None:
+                    cash_flow[field] = val
+
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.FUNDAMENTALS,
+                ticker=ticker,
+                raw_data={
+                    "income_statement": income,
+                    "balance_sheet": balance,
+                    "cash_flow": cash_flow,
+                },
+                fetched_at=_now_iso(),
+            )
+        except Exception as exc:
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.FUNDAMENTALS,
+                ticker=ticker,
+                raw_data={},
+                fetched_at=_now_iso(),
+                success=False,
+                error=str(exc),
+            )
 
     def fetch_insider_transactions(self, ticker: str) -> FetchResult:
         """Fetch insider transactions from Form 4 filings."""
