@@ -10,6 +10,7 @@ Start the worker with:
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import UTC, datetime
 
 import redis.asyncio as aioredis
@@ -76,18 +77,25 @@ def _log_run_alerts(
 # ---------------------------------------------------------------------------
 
 
-async def full_ingest(ctx: dict) -> dict:
+async def full_ingest(
+    ctx: dict,
+    pipeline_id: str | None = None,
+) -> dict:
     """Ingest full universe from active snapshot.
 
     Fetches financial data from yfinance for every ticker in the active
-    universe and upserts it into the database. Chains to full_score on success.
+    universe and upserts it into the database. Always chains to full_score.
     """
     from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
     from margin_engine.ingestion.rate_limiter import RateLimiter
 
     from margin_api.cli import _load_foreign_skips, seed_ticker_data
 
-    logger.info("[ingest] Starting full ingest...")
+    # Generate pipeline_id if not provided (top of the chain)
+    if pipeline_id is None:
+        pipeline_id = uuid.uuid4().hex[:16]
+
+    logger.info("[ingest] Starting full ingest (pipeline=%s)...", pipeline_id)
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
@@ -119,6 +127,7 @@ async def full_ingest(ctx: dict) -> dict:
             tickers_requested=len(tickers),
             status="running",
             started_at=datetime.now(UTC),
+            pipeline_id=pipeline_id,
         )
         session.add(run)
         await session.commit()
@@ -178,14 +187,17 @@ async def full_ingest(ctx: dict) -> dict:
     # Run threshold-based alerting
     _log_run_alerts(total, successes, failures, partial_count, 0)
 
-    # Chain to scoring
+    # Chain to scoring — always enqueue regardless of ingest outcome
     redis: ArqRedis | None = ctx.get("redis")
     if redis:
-        await redis.enqueue_job("full_score")
-        logger.info("[ingest] Enqueued full_score job")
+        await redis.enqueue_job("full_score", pipeline_id)
+        logger.info("[ingest] Enqueued full_score job (pipeline=%s)", pipeline_id)
+    else:
+        logger.warning("[ingest] No redis in worker context — cannot chain to full_score")
 
     return {
         "status": run.status,
+        "pipeline_id": pipeline_id,
         "succeeded": successes,
         "partial": partial_count,
         "failed": failures,
@@ -193,14 +205,18 @@ async def full_ingest(ctx: dict) -> dict:
     }
 
 
-async def full_score(ctx: dict) -> dict:
+async def full_score(
+    ctx: dict,
+    pipeline_id: str | None = None,
+) -> dict:
     """Score all ingested assets using the v2 two-pass pipeline.
 
-    Reuses run_scoring() from cli.py. Chains to full_score_v3 on success.
+    Reuses run_scoring() from cli.py. Always chains to full_score_v3,
+    even on failure, so the v3 pipeline can still run independently.
     """
     from margin_api.cli import run_scoring
 
-    logger.info("[score_v2] Starting v2 scoring...")
+    logger.info("[score_v2] Starting v2 scoring (pipeline=%s)...", pipeline_id)
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
@@ -211,19 +227,20 @@ async def full_score(ctx: dict) -> dict:
             job_type="score_v2",
             status="running",
             triggered_by="chained",
+            pipeline_id=pipeline_id,
             started_at=datetime.now(UTC),
         )
         session.add(job)
         await session.commit()
         job_id = job.id
 
+    status = "completed"
+    error: str | None = None
+
     try:
-        # run_scoring() disposes the engine internally
         await run_scoring()
-        # Reset cache so subsequent jobs can create a fresh engine
         reset_engine_cache()
 
-        # Update JobRun
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
@@ -238,6 +255,8 @@ async def full_score(ctx: dict) -> dict:
 
     except Exception as e:
         logger.exception("[score_v2] Scoring failed: %s", e)
+        status = "failed"
+        error = str(e)
         reset_engine_cache()
         engine = get_engine()
         session_factory = get_session_factory(engine)
@@ -248,25 +267,37 @@ async def full_score(ctx: dict) -> dict:
             job.error_message = str(e)[:500]
             job.completed_at = datetime.now(UTC)
             await session.commit()
-        return {"status": "failed", "error": str(e)}
 
-    # Chain to v3 scoring
+    # Always chain to v3 scoring — v3 is independent and should run
+    # regardless of v2 outcome
     redis: ArqRedis | None = ctx.get("redis")
     if redis:
-        await redis.enqueue_job("full_score_v3")
-        logger.info("[score_v2] Enqueued full_score_v3 job")
+        await redis.enqueue_job("full_score_v3", pipeline_id, job_id)
+        logger.info(
+            "[score_v2] Enqueued full_score_v3 job (pipeline=%s, parent=%s)",
+            pipeline_id,
+            job_id,
+        )
+    else:
+        logger.warning("[score_v2] No redis in worker context — cannot chain to full_score_v3")
 
-    return {"status": "completed"}
+    if error:
+        return {"status": status, "pipeline_id": pipeline_id, "error": error}
+    return {"status": status, "pipeline_id": pipeline_id}
 
 
-async def full_score_v3(ctx: dict) -> dict:
+async def full_score_v3(
+    ctx: dict,
+    pipeline_id: str | None = None,
+    parent_job_id: int | None = None,
+) -> dict:
     """Score all ingested assets using the v3 gate cascade pipeline.
 
     Reuses run_scoring_v3() from cli.py. Terminal job in the daily chain.
     """
     from margin_api.cli import run_scoring_v3
 
-    logger.info("[score_v3] Starting v3 scoring...")
+    logger.info("[score_v3] Starting v3 scoring (pipeline=%s, parent=%s)...", pipeline_id, parent_job_id)
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
@@ -277,6 +308,8 @@ async def full_score_v3(ctx: dict) -> dict:
             job_type="score_v3",
             status="running",
             triggered_by="chained",
+            parent_job_id=parent_job_id,
+            pipeline_id=pipeline_id,
             started_at=datetime.now(UTC),
         )
         session.add(job)
@@ -284,7 +317,6 @@ async def full_score_v3(ctx: dict) -> dict:
         job_id = job.id
 
     try:
-        # run_scoring_v3() disposes the engine internally
         await run_scoring_v3()
         reset_engine_cache()
 
@@ -312,9 +344,9 @@ async def full_score_v3(ctx: dict) -> dict:
             job.error_message = str(e)[:500]
             job.completed_at = datetime.now(UTC)
             await session.commit()
-        return {"status": "failed", "error": str(e)}
+        return {"status": "failed", "pipeline_id": pipeline_id, "error": str(e)}
 
-    return {"status": "completed"}
+    return {"status": "completed", "pipeline_id": pipeline_id}
 
 
 async def backtest_validate(ctx: dict) -> dict:

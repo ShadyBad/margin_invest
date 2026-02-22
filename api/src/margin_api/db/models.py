@@ -74,6 +74,7 @@ class IngestionRun(Base):
     tickers_partial: Mapped[int] = mapped_column(default=0)
     provider_stats: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     circuit_breaker_trips: Mapped[int] = mapped_column(default=0)
+    pipeline_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
 
     snapshot: Mapped[UniverseSnapshot] = relationship()
     ticker_statuses: Mapped[list[IngestionTickerStatus]] = relationship(back_populates="run")
@@ -90,6 +91,7 @@ class JobRun(Base):
     progress_detail: Mapped[str | None] = mapped_column(String(255), nullable=True)
     triggered_by: Mapped[str] = mapped_column(String(20))  # schedule | cli | chained
     parent_job_id: Mapped[int | None] = mapped_column(ForeignKey("job_runs.id"), nullable=True)
+    pipeline_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

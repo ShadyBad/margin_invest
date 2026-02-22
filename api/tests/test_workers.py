@@ -33,20 +33,41 @@ class TestWorkerSettings:
         assert WorkerSettings.job_timeout >= 3600
 
 
+def _mock_session_factory():
+    """Create a mock session factory used across pipeline tests."""
+    mock_session = AsyncMock()
+    mock_job = MagicMock()
+    mock_job.id = 1
+
+    def _set_id_on_add(obj):
+        """Simulate DB assigning an ID on add+commit."""
+        obj.id = 1
+
+    mock_session.add = MagicMock(side_effect=_set_id_on_add)
+    mock_session.commit = AsyncMock()
+    mock_session.execute = AsyncMock(
+        return_value=MagicMock(
+            scalar_one=MagicMock(return_value=mock_job),
+        ),
+    )
+
+    mock_factory = MagicMock()
+    mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+    return mock_factory, mock_session, mock_job
+
+
 class TestFullIngest:
     @pytest.mark.asyncio
     async def test_full_ingest_no_snapshot(self):
         """full_ingest returns error when no active universe snapshot."""
         from margin_api.workers import full_ingest
 
-        mock_session = AsyncMock()
-        mock_session_factory = MagicMock()
-        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_factory, mock_session, _ = _mock_session_factory()
 
         with (
             patch("margin_api.workers.get_engine"),
-            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
             patch("margin_api.workers.get_active_snapshot", return_value=None),
         ):
             result = await full_ingest({})
@@ -103,7 +124,130 @@ class TestFullIngest:
         assert result["status"] == "completed"
         assert result["succeeded"] == 2
         assert result["partial"] == 0
-        mock_redis.enqueue_job.assert_called_once_with("full_score")
+        assert result["pipeline_id"] is not None
+        # Chains to full_score with the pipeline_id
+        mock_redis.enqueue_job.assert_called_once()
+        call_args = mock_redis.enqueue_job.call_args
+        assert call_args[0][0] == "full_score"
+        assert call_args[0][1] == result["pipeline_id"]
+
+    @pytest.mark.asyncio
+    async def test_full_ingest_generates_pipeline_id(self):
+        """full_ingest generates a pipeline_id when none is provided."""
+        from margin_api.workers import full_ingest
+
+        mock_snapshot = MagicMock()
+        mock_snapshot.id = 1
+        mock_snapshot.version = "2026.02.19"
+        mock_snapshot.tickers = ["AAPL"]
+
+        mock_session = AsyncMock()
+        mock_run = MagicMock()
+        mock_run.id = 1
+        mock_run.started_at = datetime.now(UTC)
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one=MagicMock(return_value=mock_run)),
+        )
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        mock_redis = AsyncMock()
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.workers.get_active_snapshot", return_value=mock_snapshot),
+            patch("margin_api.cli._load_foreign_skips", return_value=set()),
+            patch("margin_api.cli.seed_ticker_data", return_value=SeedResult(status="ok")),
+            patch("margin_engine.ingestion.providers.yfinance_provider.YFinanceProvider"),
+            patch("margin_engine.ingestion.rate_limiter.RateLimiter"),
+        ):
+            result = await full_ingest({"redis": mock_redis})
+
+        assert result["pipeline_id"] is not None
+        assert len(result["pipeline_id"]) == 16
+
+    @pytest.mark.asyncio
+    async def test_full_ingest_passes_provided_pipeline_id(self):
+        """full_ingest uses the pipeline_id passed to it."""
+        from margin_api.workers import full_ingest
+
+        mock_snapshot = MagicMock()
+        mock_snapshot.id = 1
+        mock_snapshot.version = "2026.02.19"
+        mock_snapshot.tickers = ["AAPL"]
+
+        mock_session = AsyncMock()
+        mock_run = MagicMock()
+        mock_run.id = 1
+        mock_run.started_at = datetime.now(UTC)
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one=MagicMock(return_value=mock_run)),
+        )
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        mock_redis = AsyncMock()
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.workers.get_active_snapshot", return_value=mock_snapshot),
+            patch("margin_api.cli._load_foreign_skips", return_value=set()),
+            patch("margin_api.cli.seed_ticker_data", return_value=SeedResult(status="ok")),
+            patch("margin_engine.ingestion.providers.yfinance_provider.YFinanceProvider"),
+            patch("margin_engine.ingestion.rate_limiter.RateLimiter"),
+        ):
+            result = await full_ingest({"redis": mock_redis}, pipeline_id="custom-id-123")
+
+        assert result["pipeline_id"] == "custom-id-123"
+
+    @pytest.mark.asyncio
+    async def test_full_ingest_warns_when_no_redis(self, caplog):
+        """full_ingest logs a warning when redis is not in worker context."""
+        from margin_api.workers import full_ingest
+
+        mock_snapshot = MagicMock()
+        mock_snapshot.id = 1
+        mock_snapshot.version = "2026.02.19"
+        mock_snapshot.tickers = ["AAPL"]
+
+        mock_session = AsyncMock()
+        mock_run = MagicMock()
+        mock_run.id = 1
+        mock_run.started_at = datetime.now(UTC)
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one=MagicMock(return_value=mock_run)),
+        )
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.workers.get_active_snapshot", return_value=mock_snapshot),
+            patch("margin_api.cli._load_foreign_skips", return_value=set()),
+            patch("margin_api.cli.seed_ticker_data", return_value=SeedResult(status="ok")),
+            patch("margin_engine.ingestion.providers.yfinance_provider.YFinanceProvider"),
+            patch("margin_engine.ingestion.rate_limiter.RateLimiter"),
+        ):
+            # Pass empty dict — no redis key
+            result = await full_ingest({})
+
+        assert result["status"] == "completed"
+        assert "cannot chain to full_score" in caplog.text
 
 
 class TestFullScore:
@@ -112,58 +256,33 @@ class TestFullScore:
         """full_score calls run_scoring and enqueues full_score_v3."""
         from margin_api.workers import full_score
 
-        mock_session = AsyncMock()
-        mock_job = MagicMock()
-        mock_job.id = 1
-        mock_session.add = MagicMock()
-        mock_session.commit = AsyncMock()
-        mock_session.execute = AsyncMock(
-            return_value=MagicMock(
-                scalar_one=MagicMock(return_value=mock_job),
-            ),
-        )
-
-        mock_session_factory = MagicMock()
-        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
-
+        mock_factory, mock_session, mock_job = _mock_session_factory()
         mock_redis = AsyncMock()
         mock_redis.enqueue_job = AsyncMock()
 
         with (
             patch("margin_api.workers.get_engine"),
-            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
             patch("margin_api.cli.run_scoring", new_callable=AsyncMock),
             patch("margin_api.workers.reset_engine_cache"),
         ):
-            result = await full_score({"redis": mock_redis})
+            result = await full_score({"redis": mock_redis}, pipeline_id="pipe-123")
 
         assert result["status"] == "completed"
-        mock_redis.enqueue_job.assert_called_once_with("full_score_v3")
+        assert result["pipeline_id"] == "pipe-123"
+        # Chains with pipeline_id and parent job_id
+        mock_redis.enqueue_job.assert_called_once_with("full_score_v3", "pipe-123", mock_job.id)
 
     @pytest.mark.asyncio
     async def test_full_score_handles_failure(self):
         """full_score records failure in JobRun on exception."""
         from margin_api.workers import full_score
 
-        mock_session = AsyncMock()
-        mock_job = MagicMock()
-        mock_job.id = 1
-        mock_session.add = MagicMock()
-        mock_session.commit = AsyncMock()
-        mock_session.execute = AsyncMock(
-            return_value=MagicMock(
-                scalar_one=MagicMock(return_value=mock_job),
-            ),
-        )
-
-        mock_session_factory = MagicMock()
-        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_factory, _, _ = _mock_session_factory()
 
         with (
             patch("margin_api.workers.get_engine"),
-            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
             patch("margin_api.cli.run_scoring", side_effect=RuntimeError("Scoring failed")),
             patch("margin_api.workers.reset_engine_cache"),
         ):
@@ -172,6 +291,67 @@ class TestFullScore:
         assert result["status"] == "failed"
         assert "Scoring failed" in result["error"]
 
+    @pytest.mark.asyncio
+    async def test_full_score_chains_to_v3_even_on_failure(self):
+        """full_score enqueues full_score_v3 even when v2 scoring fails (gap #1)."""
+        from margin_api.workers import full_score
+
+        mock_factory, _, mock_job = _mock_session_factory()
+        mock_redis = AsyncMock()
+        mock_redis.enqueue_job = AsyncMock()
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.cli.run_scoring", side_effect=RuntimeError("V2 exploded")),
+            patch("margin_api.workers.reset_engine_cache"),
+        ):
+            result = await full_score({"redis": mock_redis}, pipeline_id="pipe-456")
+
+        # V2 failed but v3 was still enqueued
+        assert result["status"] == "failed"
+        assert "V2 exploded" in result["error"]
+        mock_redis.enqueue_job.assert_called_once_with("full_score_v3", "pipe-456", mock_job.id)
+
+    @pytest.mark.asyncio
+    async def test_full_score_warns_when_no_redis(self, caplog):
+        """full_score logs a warning when redis is not in worker context (gap #2)."""
+        from margin_api.workers import full_score
+
+        mock_factory, _, _ = _mock_session_factory()
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.cli.run_scoring", new_callable=AsyncMock),
+            patch("margin_api.workers.reset_engine_cache"),
+        ):
+            result = await full_score({})
+
+        assert result["status"] == "completed"
+        assert "cannot chain to full_score_v3" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_full_score_propagates_pipeline_id(self):
+        """full_score passes pipeline_id and parent_job_id to v3 (gap #3)."""
+        from margin_api.workers import full_score
+
+        mock_factory, _, mock_job = _mock_session_factory()
+        mock_redis = AsyncMock()
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.cli.run_scoring", new_callable=AsyncMock),
+            patch("margin_api.workers.reset_engine_cache"),
+        ):
+            await full_score({"redis": mock_redis}, pipeline_id="pipe-789")
+
+        call_args = mock_redis.enqueue_job.call_args[0]
+        assert call_args[0] == "full_score_v3"
+        assert call_args[1] == "pipe-789"       # pipeline_id
+        assert call_args[2] == mock_job.id       # parent_job_id
+
 
 class TestFullScoreV3:
     @pytest.mark.asyncio
@@ -179,30 +359,72 @@ class TestFullScoreV3:
         """full_score_v3 calls run_scoring_v3 and records completion."""
         from margin_api.workers import full_score_v3
 
-        mock_session = AsyncMock()
-        mock_job = MagicMock()
-        mock_job.id = 1
-        mock_session.add = MagicMock()
-        mock_session.commit = AsyncMock()
-        mock_session.execute = AsyncMock(
-            return_value=MagicMock(
-                scalar_one=MagicMock(return_value=mock_job),
-            ),
-        )
-
-        mock_session_factory = MagicMock()
-        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_factory, _, _ = _mock_session_factory()
 
         with (
             patch("margin_api.workers.get_engine"),
-            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
             patch("margin_api.cli.run_scoring_v3", new_callable=AsyncMock),
             patch("margin_api.workers.reset_engine_cache"),
         ):
             result = await full_score_v3({})
 
         assert result["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_full_score_v3_records_parent_job_id(self):
+        """full_score_v3 stores parent_job_id on its JobRun record (gap #3)."""
+        from margin_api.workers import full_score_v3
+
+        mock_session = AsyncMock()
+        mock_job = MagicMock()
+        mock_job.id = 10
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one=MagicMock(return_value=mock_job)),
+        )
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.cli.run_scoring_v3", new_callable=AsyncMock),
+            patch("margin_api.workers.reset_engine_cache"),
+        ):
+            result = await full_score_v3(
+                {}, pipeline_id="pipe-abc", parent_job_id=42
+            )
+
+        assert result["status"] == "completed"
+        assert result["pipeline_id"] == "pipe-abc"
+
+        # Verify the JobRun was created with parent_job_id and pipeline_id
+        add_call = mock_session.add.call_args[0][0]
+        assert add_call.parent_job_id == 42
+        assert add_call.pipeline_id == "pipe-abc"
+
+    @pytest.mark.asyncio
+    async def test_full_score_v3_handles_failure(self):
+        """full_score_v3 records failure and returns pipeline_id."""
+        from margin_api.workers import full_score_v3
+
+        mock_factory, _, _ = _mock_session_factory()
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.cli.run_scoring_v3", side_effect=RuntimeError("V3 boom")),
+            patch("margin_api.workers.reset_engine_cache"),
+        ):
+            result = await full_score_v3({}, pipeline_id="pipe-fail")
+
+        assert result["status"] == "failed"
+        assert result["pipeline_id"] == "pipe-fail"
+        assert "V3 boom" in result["error"]
 
 
 class TestLivePricePoll:
