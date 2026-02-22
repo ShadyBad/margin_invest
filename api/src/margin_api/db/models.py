@@ -60,6 +60,9 @@ class IngestionRun(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     data_types: Mapped[list | None] = mapped_column(JSONVariant, default=list)
+    tickers_partial: Mapped[int] = mapped_column(default=0)
+    provider_stats: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    circuit_breaker_trips: Mapped[int] = mapped_column(default=0)
 
     snapshot: Mapped[UniverseSnapshot] = relationship()
     ticker_statuses: Mapped[list[IngestionTickerStatus]] = relationship(back_populates="run")
@@ -125,6 +128,7 @@ class FinancialData(Base):
     cash_flow: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     price_history: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     earnings_data: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    data_categories_present: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     source: Mapped[str] = mapped_column(String(50), default="yfinance")
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)

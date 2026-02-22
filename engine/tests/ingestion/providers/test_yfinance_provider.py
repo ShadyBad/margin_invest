@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
+from margin_engine.ingestion.rate_limiter import RateLimiter
 from margin_engine.ingestion.types import DataCategory, FetchResult
 
 
@@ -88,9 +89,7 @@ class TestFetchFundamentals:
         mock_yf.Ticker.assert_called_once_with("AAPL")
 
     @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
-    def test_fetch_fundamentals_error(
-        self, mock_yf: MagicMock, provider: YFinanceProvider
-    ) -> None:
+    def test_fetch_fundamentals_error(self, mock_yf: MagicMock, provider: YFinanceProvider) -> None:
         """When yfinance raises, return FetchResult with success=False."""
         mock_yf.Ticker.side_effect = RuntimeError("API down")
 
@@ -209,9 +208,7 @@ class TestFetchPriceHistory:
 
 class TestFetchEarnings:
     @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
-    def test_fetch_earnings_success(
-        self, mock_yf: MagicMock, provider: YFinanceProvider
-    ) -> None:
+    def test_fetch_earnings_success(self, mock_yf: MagicMock, provider: YFinanceProvider) -> None:
         """Successful earnings fetch returns list of earnings dicts."""
         earnings_df = pd.DataFrame(
             {
@@ -238,9 +235,7 @@ class TestFetchEarnings:
         assert "quarter" in earnings[0]
 
     @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
-    def test_fetch_earnings_error(
-        self, mock_yf: MagicMock, provider: YFinanceProvider
-    ) -> None:
+    def test_fetch_earnings_error(self, mock_yf: MagicMock, provider: YFinanceProvider) -> None:
         """When yfinance raises, return FetchResult with success=False."""
         mock_ticker = MagicMock()
         type(mock_ticker).earnings_dates = property(
@@ -268,3 +263,183 @@ class TestUnsupportedCategories:
 
         with pytest.raises(NotImplementedError, match="yfinance"):
             provider.fetch_institutional_holdings("AAPL")
+
+
+# ---------------------------------------------------------------------------
+# fetch_info
+# ---------------------------------------------------------------------------
+
+
+class TestFetchInfo:
+    @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
+    def test_fetch_info_success(self, mock_yf: MagicMock, provider: YFinanceProvider) -> None:
+        """Successful info fetch returns metadata dict."""
+        info_dict = {
+            "shortName": "Apple Inc.",
+            "sector": "Technology",
+            "country": "United States",
+            "marketCap": 3_000_000_000_000,
+            "industry": "Consumer Electronics",
+        }
+
+        mock_ticker = MagicMock()
+        mock_ticker.info = info_dict
+        mock_yf.Ticker.return_value = mock_ticker
+
+        result = provider.fetch_info("AAPL")
+
+        assert isinstance(result, FetchResult)
+        assert result.success is True
+        assert result.provider_name == "yfinance"
+        assert result.category == DataCategory.FUNDAMENTALS
+        assert result.ticker == "AAPL"
+        assert result.error is None
+        assert result.raw_data == info_dict
+        mock_yf.Ticker.assert_called_once_with("AAPL")
+
+    @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
+    def test_fetch_info_empty(self, mock_yf: MagicMock, provider: YFinanceProvider) -> None:
+        """Empty info dict should still produce success=True with empty data."""
+        mock_ticker = MagicMock()
+        mock_ticker.info = {}
+        mock_yf.Ticker.return_value = mock_ticker
+
+        result = provider.fetch_info("EMPTY")
+
+        assert result.success is True
+        assert result.raw_data == {}
+
+
+# ---------------------------------------------------------------------------
+# fetch_all
+# ---------------------------------------------------------------------------
+
+
+class TestFetchAll:
+    @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
+    def test_fetch_all_returns_all_categories(
+        self, mock_yf: MagicMock, provider: YFinanceProvider
+    ) -> None:
+        """fetch_all returns 4 keys, all success=True, using one Ticker instance."""
+        # Set up mock ticker with all data
+        mock_ticker = MagicMock()
+        mock_ticker.financials = pd.DataFrame({"2024-01-01": [100_000]}, index=["Total Revenue"])
+        mock_ticker.balance_sheet = pd.DataFrame({"2024-01-01": [500_000]}, index=["Total Assets"])
+        mock_ticker.cashflow = pd.DataFrame({"2024-01-01": [40_000]}, index=["Operating Cash Flow"])
+        mock_ticker.history.return_value = pd.DataFrame(
+            {
+                "Open": [150.0],
+                "High": [155.0],
+                "Low": [149.0],
+                "Close": [154.0],
+                "Volume": [1_000_000],
+            },
+            index=pd.to_datetime(["2024-01-01"]),
+        )
+        mock_ticker.earnings_dates = pd.DataFrame(
+            {"Reported EPS": [1.52], "EPS Estimate": [1.50]},
+            index=pd.to_datetime(["2024-01-25"]),
+        )
+        mock_ticker.info = {
+            "shortName": "Apple Inc.",
+            "sector": "Technology",
+        }
+        mock_yf.Ticker.return_value = mock_ticker
+
+        results = provider.fetch_all("AAPL")
+
+        assert set(results.keys()) == {"fundamentals", "price", "earnings", "info"}
+        for key, result in results.items():
+            assert isinstance(result, FetchResult), f"{key} is not a FetchResult"
+            assert result.success is True, f"{key} not success"
+            assert result.ticker == "AAPL"
+
+        # Verify yf.Ticker called exactly ONCE
+        mock_yf.Ticker.assert_called_once_with("AAPL")
+
+    @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
+    def test_fetch_all_partial_failure(
+        self, mock_yf: MagicMock, provider: YFinanceProvider
+    ) -> None:
+        """A failure in earnings does not block fundamentals, price, or info."""
+        mock_ticker = MagicMock()
+        mock_ticker.financials = pd.DataFrame({"2024-01-01": [100_000]}, index=["Total Revenue"])
+        mock_ticker.balance_sheet = pd.DataFrame()
+        mock_ticker.cashflow = pd.DataFrame()
+        mock_ticker.history.return_value = pd.DataFrame(
+            {
+                "Open": [150.0],
+                "High": [155.0],
+                "Low": [149.0],
+                "Close": [154.0],
+                "Volume": [1_000_000],
+            },
+            index=pd.to_datetime(["2024-01-01"]),
+        )
+        # Make earnings_dates raise an exception
+        type(mock_ticker).earnings_dates = property(
+            lambda self: (_ for _ in ()).throw(RuntimeError("Earnings unavailable"))
+        )
+        mock_ticker.info = {"shortName": "Apple Inc."}
+        mock_yf.Ticker.return_value = mock_ticker
+
+        results = provider.fetch_all("AAPL")
+
+        assert results["fundamentals"].success is True
+        assert results["price"].success is True
+        assert results["info"].success is True
+        assert results["earnings"].success is False
+        assert "Earnings unavailable" in results["earnings"].error
+
+        # Still only one Ticker call
+        mock_yf.Ticker.assert_called_once_with("AAPL")
+
+
+# ---------------------------------------------------------------------------
+# rate limiting
+# ---------------------------------------------------------------------------
+
+
+class TestProviderRateLimiting:
+    @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
+    def test_rate_limiter_called_per_fetch(self, mock_yf: MagicMock) -> None:
+        """When a rate limiter is provided, wait_and_acquire is called for each fetch."""
+        mock_limiter = MagicMock(spec=RateLimiter)
+        provider = YFinanceProvider(rate_limiter=mock_limiter)
+
+        # Set up minimal mock ticker
+        mock_ticker = MagicMock()
+        mock_ticker.financials = pd.DataFrame()
+        mock_ticker.balance_sheet = pd.DataFrame()
+        mock_ticker.cashflow = pd.DataFrame()
+        mock_ticker.history.return_value = pd.DataFrame()
+        mock_ticker.earnings_dates = pd.DataFrame()
+        mock_ticker.info = {}
+        mock_yf.Ticker.return_value = mock_ticker
+
+        provider.fetch_fundamentals("AAPL")
+        assert mock_limiter.wait_and_acquire.call_count == 1
+
+        provider.fetch_price_history("AAPL")
+        assert mock_limiter.wait_and_acquire.call_count == 2
+
+        provider.fetch_earnings("AAPL")
+        assert mock_limiter.wait_and_acquire.call_count == 3
+
+        provider.fetch_info("AAPL")
+        assert mock_limiter.wait_and_acquire.call_count == 4
+
+    @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
+    def test_no_rate_limiter_by_default(self, mock_yf: MagicMock) -> None:
+        """When no rate limiter is provided, fetches work without rate limiting."""
+        provider = YFinanceProvider()
+
+        mock_ticker = MagicMock()
+        mock_ticker.financials = pd.DataFrame()
+        mock_ticker.balance_sheet = pd.DataFrame()
+        mock_ticker.cashflow = pd.DataFrame()
+        mock_yf.Ticker.return_value = mock_ticker
+
+        # Should not raise
+        result = provider.fetch_fundamentals("AAPL")
+        assert result.success is True

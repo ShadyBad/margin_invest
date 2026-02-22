@@ -9,9 +9,11 @@ import redis.asyncio as aioredis
 from arq.connections import ArqRedis, create_pool
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
+from margin_api.db.models import Asset
 from margin_api.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -239,3 +241,32 @@ async def flush_redis_jobs(x_admin_key: str = Header()) -> dict:
         "removed_jobs": job_ids,
         "removed_in_progress": in_progress,
     }
+
+
+@router.get("/ingestion/quarantined")
+async def get_quarantined_assets(
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Return all quarantined and permanently skipped assets for triage."""
+    _verify_admin_key(x_admin_key)
+
+    result = await session.execute(
+        select(Asset)
+        .where(Asset.ingestion_status.in_(["quarantined", "permanently_skipped"]))
+        .order_by(Asset.ticker)
+    )
+    assets = result.scalars().all()
+
+    return [
+        {
+            "ticker": a.ticker,
+            "name": a.name,
+            "ingestion_status": a.ingestion_status,
+            "consecutive_failures": a.consecutive_failures,
+            "last_failure_reason": a.last_failure_reason,
+            "quarantined_at": a.quarantined_at.isoformat() if a.quarantined_at else None,
+            "last_retry_at": a.last_retry_at.isoformat() if a.last_retry_at else None,
+        }
+        for a in assets
+    ]

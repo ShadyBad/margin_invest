@@ -16,14 +16,18 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-import yfinance
 from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
-from margin_engine.ingestion.rate_limiter import RateLimiterRegistry
+from margin_engine.ingestion.rate_limiter import RateLimiter
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from margin_api.db.models import Asset, FinancialData
 from margin_api.db.session import get_engine, get_session_factory
+from margin_api.services.ingestion import (
+    classify_error,
+    update_failure_status,
+)
+from margin_api.services.seed_result import SeedResult
 from margin_api.services.universe import activate_universe, get_active_snapshot
 
 logger = logging.getLogger(__name__)
@@ -133,21 +137,47 @@ async def seed_ticker_data(
     ticker: str,
     provider: YFinanceProvider,
     session,
-) -> str:
+) -> SeedResult:
     """Fetch data for a single ticker and upsert it into the database.
 
-    Returns "ok" on success, "foreign" if rejected by country guard,
-    or "error" on failure.
+    Returns a :class:`SeedResult` with status "ok", "partial", "foreign",
+    "skipped", or "failed".
     """
     try:
-        # Fetch data from yfinance provider
-        fundamentals = provider.fetch_fundamentals(ticker)
-        price_history = provider.fetch_price_history(ticker, days=365)
-        earnings = provider.fetch_earnings(ticker)
+        # Fetch all data categories via provider.fetch_all
+        results = provider.fetch_all(ticker)
 
-        # Get asset info from yfinance
-        yf_ticker = yfinance.Ticker(ticker)
-        info = yf_ticker.info or {}
+        # Track per-category success/failure
+        categories_succeeded: list[str] = []
+        categories_failed: list[str] = []
+
+        fundamentals = results["fundamentals"]
+        price_history = results["price"]
+        earnings = results["earnings"]
+        info_result = results["info"]
+
+        for name_key, result in [
+            ("fundamentals", fundamentals),
+            ("price", price_history),
+            ("earnings", earnings),
+            ("info", info_result),
+        ]:
+            if result.success:
+                categories_succeeded.append(name_key)
+            else:
+                categories_failed.append(name_key)
+
+        logger.info(
+            "  %s: fundamentals=%s price=%s earnings=%s info=%s",
+            ticker,
+            "ok" if fundamentals.success else "FAIL",
+            "ok" if price_history.success else "FAIL",
+            "ok" if earnings.success else "FAIL",
+            "ok" if info_result.success else "FAIL",
+        )
+
+        # Extract info from the info FetchResult
+        info = info_result.raw_data if info_result.success else {}
 
         name = info.get("shortName") or info.get("longName") or ticker
         raw_sector = info.get("sector", "")
@@ -160,7 +190,7 @@ async def seed_ticker_data(
         # Reject non-US assets (foreign or unknown country)
         if country != "United States":
             logger.info("  SKIP %s — non-US domicile (%s)", ticker, country or "unknown")
-            return "foreign"
+            return SeedResult(status="foreign", error_message=f"Non-US domicile: {country}")
 
         # Upsert Asset row — uses ON CONFLICT to avoid race conditions
         # between concurrent ingest workers.
@@ -237,12 +267,40 @@ async def seed_ticker_data(
         await session.execute(fd_stmt)
 
         await session.commit()
-        return "ok"
 
-    except Exception:
+        # Reset failure tracking on success
+        asset_row = await session.execute(select(Asset).where(Asset.id == asset_id))
+        asset_obj = asset_row.scalar_one()
+        await update_failure_status(session, asset_obj, "success", None)
+
+        # Determine status: "ok" if all succeeded, "partial" if some failed
+        status = "ok" if not categories_failed else "partial"
+        return SeedResult(
+            status=status,
+            categories_succeeded=categories_succeeded,
+            categories_failed=categories_failed,
+        )
+
+    except Exception as exc:
         logger.exception("Failed to seed data for %s", ticker)
         await session.rollback()
-        return "error"
+
+        # Classify error and update failure tracking
+        error_type = classify_error(exc)
+        try:
+            asset_row = await session.execute(
+                select(Asset).where(Asset.ticker == ticker)
+            )
+            asset_obj = asset_row.scalar_one_or_none()
+            if asset_obj is not None:
+                await update_failure_status(session, asset_obj, error_type, str(exc))
+        except Exception:
+            logger.warning("Could not update failure status for %s", ticker)
+
+        return SeedResult(
+            status="failed",
+            error_message=str(exc),
+        )
 
 
 async def _get_universe_tickers() -> list[str]:
@@ -262,7 +320,7 @@ async def _get_universe_tickers() -> list[str]:
 async def run_seed(tickers: list[str] | None = None) -> None:
     """Seed financial data for all (or specified) tickers.
 
-    Creates the provider, rate limiter, and DB session, then iterates
+    Creates the provider with built-in rate limiting, then iterates
     through tickers and calls :func:`seed_ticker_data` for each one.
 
     Loads and updates the foreign-ticker skip list so known foreign
@@ -280,10 +338,9 @@ async def run_seed(tickers: list[str] | None = None) -> None:
         if skipped:
             logger.info("Skipped %d known foreign tickers from skip list", skipped)
 
-    provider = YFinanceProvider()
-    registry = RateLimiterRegistry()
-    registry.register("yfinance", provider.info.requests_per_minute)
-    limiter = registry.get("yfinance")
+    # 12 tickers/min => ~60 actual API requests/min (fetch_all makes ~5 calls)
+    limiter = RateLimiter(requests_per_minute=12)
+    provider = YFinanceProvider(rate_limiter=limiter)
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
@@ -294,21 +351,31 @@ async def run_seed(tickers: list[str] | None = None) -> None:
     total = len(tickers)
 
     for i, ticker in enumerate(tickers, start=1):
-        limiter.wait_and_acquire()
         logger.info("[%d/%d] Seeding %s...", i, total, ticker)
 
         async with session_factory() as session:
-            result = await seed_ticker_data(ticker=ticker, provider=provider, session=session)
+            result = await seed_ticker_data(
+                ticker=ticker, provider=provider, session=session,
+            )
 
-        if result == "ok":
+        if result.status == "ok":
             successes += 1
             logger.info("  %s OK", ticker)
-        elif result == "foreign":
+        elif result.status == "partial":
+            successes += 1
+            logger.info(
+                "  %s PARTIAL (failed: %s)",
+                ticker,
+                ", ".join(result.categories_failed),
+            )
+        elif result.status == "foreign":
             foreign_count += 1
             foreign_skips.add(ticker)
+        elif result.status == "skipped":
+            logger.info("  %s SKIPPED", ticker)
         else:
             failures += 1
-            logger.error("  %s FAILED", ticker)
+            logger.error("  %s FAILED: %s", ticker, result.error_message)
 
     # Persist updated skip list if new foreign tickers were discovered
     if foreign_count > 0:
@@ -794,10 +861,8 @@ async def run_backfill_country() -> None:
     Fetches country from yfinance Ticker.info for all assets where
     country is NULL. Uses rate limiting to avoid API throttling.
     """
-    provider = YFinanceProvider()
-    registry = RateLimiterRegistry()
-    registry.register("yfinance", provider.info.requests_per_minute)
-    limiter = registry.get("yfinance")
+    limiter = RateLimiter(requests_per_minute=60)
+    provider = YFinanceProvider(rate_limiter=limiter)
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
@@ -814,9 +879,9 @@ async def run_backfill_country() -> None:
 
     updated = 0
     for i, asset in enumerate(assets, start=1):
-        limiter.wait_and_acquire()
         try:
-            info = yfinance.Ticker(asset.ticker).info or {}
+            info_result = provider.fetch_info(asset.ticker)
+            info = info_result.raw_data if info_result.success else {}
             country = info.get("country")
             if country:
                 async with session_factory() as session:
@@ -827,9 +892,9 @@ async def run_backfill_country() -> None:
                     db_asset.country = country
                     await session.commit()
                 updated += 1
-                logger.info("[%d/%d] %s → %s", i, total, asset.ticker, country)
+                logger.info("[%d/%d] %s -> %s", i, total, asset.ticker, country)
             else:
-                logger.info("[%d/%d] %s → no country info", i, total, asset.ticker)
+                logger.info("[%d/%d] %s -> no country info", i, total, asset.ticker)
         except Exception as e:
             logger.warning("[%d/%d] %s failed: %s", i, total, asset.ticker, e)
 

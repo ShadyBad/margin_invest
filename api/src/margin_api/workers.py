@@ -33,6 +33,37 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Alerting helpers
+# ---------------------------------------------------------------------------
+
+
+def _log_run_alerts(
+    total: int, succeeded: int, failed: int, partial: int, cb_trips: int,
+) -> None:
+    """Log alerts based on run outcome thresholds."""
+    if total == 0:
+        return
+    fail_rate = failed / total
+    partial_rate = partial / total
+
+    if fail_rate > 0.20:
+        logger.error(
+            "[ingest] ALERT: %.0f%% of tickers failed (%d/%d)",
+            fail_rate * 100, failed, total,
+        )
+    if partial_rate > 0.10:
+        logger.warning(
+            "[ingest] ALERT: %.0f%% of tickers had partial data (%d/%d)",
+            partial_rate * 100, partial, total,
+        )
+    if cb_trips > 0:
+        logger.warning(
+            "[ingest] ALERT: Circuit breaker tripped %d time(s) during run",
+            cb_trips,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Pipeline jobs
 # ---------------------------------------------------------------------------
 
@@ -44,7 +75,7 @@ async def full_ingest(ctx: dict) -> dict:
     universe and upserts it into the database. Chains to full_score on success.
     """
     from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
-    from margin_engine.ingestion.rate_limiter import RateLimiterRegistry
+    from margin_engine.ingestion.rate_limiter import RateLimiter
 
     from margin_api.cli import _load_foreign_skips, seed_ticker_data
 
@@ -85,19 +116,17 @@ async def full_ingest(ctx: dict) -> dict:
         await session.commit()
         run_id = run.id
 
-    # Seed each ticker
-    provider = YFinanceProvider()
-    registry = RateLimiterRegistry()
-    registry.register("yfinance", provider.info.requests_per_minute)
-    limiter = registry.get("yfinance")
+    # Seed each ticker — provider owns rate limiting internally
+    limiter = RateLimiter(requests_per_minute=12)
+    provider = YFinanceProvider(rate_limiter=limiter)
 
     successes = 0
     failures = 0
+    partial_count = 0
     failed_tickers: list[str] = []
     total = len(tickers)
 
     for i, ticker in enumerate(tickers, start=1):
-        limiter.wait_and_acquire()
         logger.info("[ingest] [%d/%d] Seeding %s", i, total, ticker)
 
         async with session_factory() as session:
@@ -105,13 +134,16 @@ async def full_ingest(ctx: dict) -> dict:
                 ticker=ticker, provider=provider, session=session
             )
 
-        if result == "ok":
+        if result.status == "ok":
             successes += 1
-        elif result == "error":
+        elif result.status == "partial":
+            successes += 1
+            partial_count += 1
+        elif result.status == "failed":
             failures += 1
             failed_tickers.append(ticker)
-            logger.warning("[ingest] %s FAILED", ticker)
-        # "foreign" results are skipped silently
+            logger.warning("[ingest] %s FAILED: %s", ticker, result.error_message)
+        # "foreign" and "skipped" results are handled silently
 
     # Update IngestionRun record
     completed_at = datetime.now(UTC)
@@ -123,6 +155,7 @@ async def full_ingest(ctx: dict) -> dict:
         run.tickers_succeeded = successes
         run.tickers_failed = failures
         run.tickers_skipped = total - successes - failures
+        run.tickers_partial = partial_count
         run.failed_tickers = failed_tickers
         run.status = "failed" if failures > total * 0.5 else "completed"
         run.completed_at = completed_at
@@ -130,12 +163,16 @@ async def full_ingest(ctx: dict) -> dict:
         await session.commit()
 
     logger.info(
-        "[ingest] Complete: %d succeeded, %d failed out of %d tickers (%.0fs)",
+        "[ingest] Complete: %d succeeded (%d partial), %d failed out of %d tickers (%.0fs)",
         successes,
+        partial_count,
         failures,
         total,
         run.duration_seconds or 0,
     )
+
+    # Run threshold-based alerting
+    _log_run_alerts(total, successes, failures, partial_count, 0)
 
     # Chain to scoring
     redis: ArqRedis | None = ctx.get("redis")
@@ -146,6 +183,7 @@ async def full_ingest(ctx: dict) -> dict:
     return {
         "status": run.status,
         "succeeded": successes,
+        "partial": partial_count,
         "failed": failures,
         "duration_seconds": run.duration_seconds,
     }
