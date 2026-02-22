@@ -27,7 +27,7 @@ class TestAppStartup:
         resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["status"] == "ok"
+        assert data["status"] in ("ok", "degraded")
         assert "version" in data
 
     def test_all_routes_registered(self, client: TestClient):

@@ -66,12 +66,12 @@ class TestTokenRefill:
             limiter.acquire()
         assert limiter.tokens_available == 0
 
-        # At 6000/min = 100/sec, sleeping 0.05s should refill ~5 tokens
-        time.sleep(0.05)
+        # At 6000/min = 100/sec, sleeping 0.15s should refill ~15 tokens
+        time.sleep(0.15)
         # Access triggers refill calculation
         available = limiter.tokens_available
-        assert available >= 3  # Allow some timing slack
-        assert available <= 10  # But not too many
+        assert available >= 5  # Allow slack for slow CI runners
+        assert available <= 25  # But not too many
 
     def test_tokens_refill_capped_at_max(self):
         """Tokens should never exceed requests_per_minute."""

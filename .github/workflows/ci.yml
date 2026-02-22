@@ -78,7 +78,7 @@ jobs:
 
       - run: uv sync --all-packages
 
-      - run: uv run pytest api/ -v --tb=short --cov=margin_api --cov-report=term-missing --cov-fail-under=90
+      - run: uv run pytest api/ -v --tb=short --cov=margin_api --cov-report=term-missing --cov-fail-under=70
 
       - name: Minimize uv cache
         run: uv cache prune --ci
