@@ -40,7 +40,7 @@ describe("HeroCandidateCard", () => {
 
   it("renders conviction score as largest visual element", () => {
     render(<HeroCandidateCard candidates={FALLBACK_CANDIDATES} />)
-    expect(screen.getByText("83")).toBeInTheDocument()
+    expect(screen.getByText("78")).toBeInTheDocument()
   })
 
   it("renders 5 factor bars", () => {

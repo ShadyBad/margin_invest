@@ -14,6 +14,8 @@ describe("FALLBACK_CANDIDATES", () => {
       expect(c.sector).toBeTruthy()
       expect(c.actual_price).toBeGreaterThan(0)
       expect(c.buy_price).toBeGreaterThan(0)
+      expect(c.score).toBeGreaterThanOrEqual(0)
+      expect(c.score).toBeLessThanOrEqual(100)
       expect(c.composite_percentile).toBeGreaterThanOrEqual(0)
       expect(c.composite_percentile).toBeLessThanOrEqual(100)
       expect(c.quality_percentile).toBeGreaterThanOrEqual(0)
