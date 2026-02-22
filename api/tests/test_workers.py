@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from margin_api.services.seed_result import SeedResult
 from margin_api.workers import WorkerSettings
 
 
@@ -86,17 +87,18 @@ class TestFullIngest:
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
             patch("margin_api.workers.get_active_snapshot", return_value=mock_snapshot),
             patch("margin_api.cli._load_foreign_skips", return_value=set()),
-            patch("margin_api.cli.seed_ticker_data", return_value="ok"),
+            patch(
+                "margin_api.cli.seed_ticker_data",
+                return_value=SeedResult(status="ok"),
+            ),
             patch("margin_engine.ingestion.providers.yfinance_provider.YFinanceProvider"),
-            patch("margin_engine.ingestion.rate_limiter.RateLimiterRegistry") as mock_registry,
+            patch("margin_engine.ingestion.rate_limiter.RateLimiter"),
         ):
-            mock_limiter = MagicMock()
-            mock_registry.return_value.get.return_value = mock_limiter
-
             result = await full_ingest({"redis": mock_redis})
 
         assert result["status"] == "completed"
         assert result["succeeded"] == 2
+        assert result["partial"] == 0
         mock_redis.enqueue_job.assert_called_once_with("full_score")
 
 
