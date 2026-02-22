@@ -9,7 +9,14 @@ from margin_engine.backtesting.models import (
     PassThreshold,
     PerformanceMetrics,
     RebalanceFrequency,
+    SelectionMode,
     ValidationResult,
+)
+from margin_engine.backtesting.publication_bias import haircut_returns, signal_significance
+from margin_engine.backtesting.rank_ic import (
+    RankICReport,
+    compute_rank_ic,
+    compute_rank_ic_report,
 )
 from margin_engine.backtesting.simulator import (
     BenchmarkProvider,
@@ -29,10 +36,16 @@ __all__ = [
     "PassThreshold",
     "PerformanceCalculator",
     "PerformanceMetrics",
+    "RankICReport",
     "RebalanceFrequency",
     "ScoredStock",
     "ScoredUniverseProvider",
+    "SelectionMode",
     "ValidationGate",
     "ValidationResult",
     "WalkForwardSimulator",
+    "compute_rank_ic",
+    "compute_rank_ic_report",
+    "haircut_returns",
+    "signal_significance",
 ]

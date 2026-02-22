@@ -506,12 +506,18 @@ class TestExportVerification:
             "PassThreshold",
             "PerformanceCalculator",
             "PerformanceMetrics",
+            "RankICReport",
             "RebalanceFrequency",
             "ScoredStock",
             "ScoredUniverseProvider",
+            "SelectionMode",
             "ValidationGate",
             "ValidationResult",
             "WalkForwardSimulator",
+            "compute_rank_ic",
+            "compute_rank_ic_report",
+            "haircut_returns",
+            "signal_significance",
         }
         assert set(bt.__all__) == expected
 

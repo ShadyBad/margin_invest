@@ -11,6 +11,9 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
+from margin_engine.backtesting.rank_ic import RankICReport
+from margin_engine.optimization.models import DROConfig, OptimizationConstraints
+
 
 class RebalanceFrequency(StrEnum):
     """Portfolio rebalance cadence."""
@@ -24,6 +27,7 @@ class SelectionMode(StrEnum):
 
     TOP_PERCENTILE = "top_percentile"
     CONVICTION_MOS = "conviction_mos"
+    OPTIMIZED = "optimized"
 
 
 class BacktestConfig(BaseModel):
@@ -53,6 +57,12 @@ class BacktestConfig(BaseModel):
     min_conviction_score_high: float = Field(
         default=72.0,
         description="Minimum composite_raw_score for High-conviction tier 2 backfill",
+    )
+    optimization_constraints: OptimizationConstraints | None = Field(
+        default=None, description="Optimization constraints for OPTIMIZED mode"
+    )
+    dro_config: DROConfig | None = Field(
+        default=None, description="DRO config for OPTIMIZED mode"
     )
 
     @model_validator(mode="after")
@@ -184,5 +194,7 @@ class BacktestResult(BaseModel):
     snapshots: list[MonthlySnapshot]
     metrics: PerformanceMetrics
     validation: ValidationResult | None = None
+    rank_ic_report: RankICReport | None = None
+    haircut_metrics: PerformanceMetrics | None = None
     run_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     duration_seconds: float
