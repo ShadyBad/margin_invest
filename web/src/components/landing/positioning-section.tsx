@@ -56,7 +56,7 @@ export function PositioningSection() {
           className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16"
         >
           {/* Not for column */}
-          <div className="md:border-r md:border-border-subtle md:pr-12">
+          <div className="text-center md:border-r md:border-border-subtle md:pr-12">
             <div className="text-xs uppercase tracking-[0.2em] text-text-tertiary mb-6">
               Not for
             </div>
@@ -69,7 +69,7 @@ export function PositioningSection() {
             </ul>
           </div>
           {/* For column */}
-          <div>
+          <div className="text-center">
             <div className="text-xs uppercase tracking-[0.2em] text-accent mb-6">
               For
             </div>
