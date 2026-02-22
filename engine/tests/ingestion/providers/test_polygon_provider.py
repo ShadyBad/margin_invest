@@ -6,7 +6,6 @@ from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from margin_engine.ingestion.providers.polygon_provider import PolygonProvider
 from margin_engine.ingestion.types import DataCategory
 
@@ -123,7 +122,7 @@ class TestFetchPriceHistory:
         mock_client.get_aggs.return_value = []
 
         provider = PolygonProvider(api_key="test_key")
-        result = provider.fetch_price_history("AAPL", days=1000)
+        provider.fetch_price_history("AAPL", days=1000)
 
         # Verify the from_ date is at most 730 days ago
         call_kwargs = mock_client.get_aggs.call_args
