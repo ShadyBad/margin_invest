@@ -613,3 +613,66 @@ class TestFetchNewsABC:
         provider = MinimalProvider()
         with pytest.raises(NotImplementedError, match="fetch_news"):
             provider.fetch_news("AAPL")
+
+
+# ---------------------------------------------------------------------------
+# Tests: real FinnhubProvider in fallback chain
+# ---------------------------------------------------------------------------
+
+
+class TestFinnhubInFallbackChain:
+    """Verify real FinnhubProvider integrates with registry correctly."""
+
+    def test_finnhub_is_earnings_provider(self):
+        from margin_engine.ingestion.providers.finnhub_provider import FinnhubProvider
+
+        registry = ProviderRegistry(api_keys={"finnhub": "test_key"})
+        registry.register(FinnhubProvider(api_key="test_key"))
+
+        chain = registry.get_fallback_chain(DataCategory.EARNINGS)
+        names = [p.info.name for p in chain]
+        assert names == ["finnhub"]
+
+    def test_finnhub_is_news_provider(self):
+        from margin_engine.ingestion.providers.finnhub_provider import FinnhubProvider
+
+        registry = ProviderRegistry(api_keys={"finnhub": "test_key"})
+        registry.register(FinnhubProvider(api_key="test_key"))
+
+        chain = registry.get_fallback_chain(DataCategory.NEWS)
+        names = [p.info.name for p in chain]
+        assert names == ["finnhub"]
+
+    def test_finnhub_in_insider_chain(self):
+        from margin_engine.ingestion.providers.finnhub_provider import FinnhubProvider
+
+        registry = ProviderRegistry(api_keys={"finnhub": "test_key"})
+        registry.register(FinnhubProvider(api_key="test_key"))
+
+        chain = registry.get_fallback_chain(DataCategory.INSIDER)
+        names = [p.info.name for p in chain]
+        assert names == ["finnhub"]
+
+    def test_finnhub_excluded_without_api_key(self):
+        from margin_engine.ingestion.providers.finnhub_provider import FinnhubProvider
+
+        registry = ProviderRegistry(api_keys={})
+        registry.register(FinnhubProvider(api_key="test_key"))
+
+        for cat in [
+            DataCategory.EARNINGS,
+            DataCategory.NEWS,
+            DataCategory.INSIDER,
+            DataCategory.INSTITUTIONAL,
+        ]:
+            chain = registry.get_fallback_chain(cat)
+            assert chain == [], f"Expected empty chain for {cat}"
+
+    def test_finnhub_not_in_price_chain(self):
+        from margin_engine.ingestion.providers.finnhub_provider import FinnhubProvider
+
+        registry = ProviderRegistry(api_keys={"finnhub": "test_key"})
+        registry.register(FinnhubProvider(api_key="test_key"))
+
+        chain = registry.get_fallback_chain(DataCategory.PRICE)
+        assert len(chain) == 0
