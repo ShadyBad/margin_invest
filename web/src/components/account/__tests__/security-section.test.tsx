@@ -223,4 +223,26 @@ describe("SecuritySection", () => {
       expect(screen.getByLabelText("GitHub \u2014 Not connected")).toBeInTheDocument()
     })
   })
+
+  it("calls session update on mount", () => {
+    const mockUpdate = vi.fn()
+    mockUseSession.mockReturnValue({
+      data: {
+        user: { name: "Jane", email: "jane@example.com", image: null },
+        authMethod: "oauth" as const,
+        oauthProvider: "google",
+        mfaVerified: true,
+        hasPassword: false,
+        mfaEnabled: false,
+        mfaGraceDeadline: null,
+        linkedProviders: ["google"],
+        expires: "2099-01-01",
+      },
+      status: "authenticated",
+      update: mockUpdate,
+    } as ReturnType<typeof useSession>)
+
+    render(<SecuritySection />)
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
+  })
 })

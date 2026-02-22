@@ -1,7 +1,7 @@
 "use client"
 
 import { signIn, useSession } from "next-auth/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { RecoveryCodesDisplay } from "../mfa/recovery-codes-display"
 import { ProviderIcons } from "./provider-icons"
 import { PasswordSection } from "./password-section"
@@ -20,6 +20,11 @@ export function SecuritySection() {
   const mfaEnabled = session?.mfaEnabled ?? false
   const mfaGraceDeadline = session?.mfaGraceDeadline ?? null
   const linkedProviders = session?.linkedProviders ?? []
+
+  // Refresh session on mount to get fresh security status from API
+  useEffect(() => {
+    update()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [connecting, setConnecting] = useState<string | null>(null)
   const [regenerating, setRegenerating] = useState(false)
