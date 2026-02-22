@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 # Categories whose fetch methods do not take a single ticker argument.
 # These are not yet supported by the registry's ``fetch()`` method.
-_NON_TICKER_CATEGORIES: frozenset[DataCategory] = frozenset({DataCategory.MACRO, DataCategory.NEWS})
+_NON_TICKER_CATEGORIES: frozenset[DataCategory] = frozenset({DataCategory.MACRO})
 
 # Maps a DataCategory to the DataProvider method name used for fetching.
 _CATEGORY_METHOD_MAP: dict[DataCategory, str] = {
@@ -40,6 +40,7 @@ _CATEGORY_METHOD_MAP: dict[DataCategory, str] = {
     DataCategory.INSIDER: "fetch_insider_transactions",
     DataCategory.INSTITUTIONAL: "fetch_institutional_holdings",
     DataCategory.EARNINGS: "fetch_earnings",
+    DataCategory.NEWS: "fetch_news",
 }
 
 
@@ -123,8 +124,8 @@ class ProviderRegistry:
                 underlying fetch method (e.g. ``days`` for price).
 
         Raises:
-            NotImplementedError: If *category* is MACRO or NEWS (these
-                do not use a ticker-based fetch and are not yet
+            NotImplementedError: If *category* is MACRO (this
+                does not use a ticker-based fetch and is not yet
                 supported).
         """
         if category in _NON_TICKER_CATEGORIES:

@@ -85,6 +85,10 @@ class FakeProvider(DataProvider):
         self.calls.append(("fetch_earnings", ticker, {}))
         return self._make_result(DataCategory.EARNINGS, ticker)
 
+    def fetch_news(self, ticker: str) -> FetchResult:
+        self.calls.append(("fetch_news", ticker, {}))
+        return self._make_result(DataCategory.NEWS, ticker)
+
 
 # ---------------------------------------------------------------------------
 # Tests: register and list providers
@@ -531,13 +535,16 @@ class TestUnsupportedCategoryFetch:
         with pytest.raises(NotImplementedError, match="MACRO"):
             registry.fetch(DataCategory.MACRO, "N/A")
 
-    def test_news_fetch_raises_not_implemented(self):
+    def test_news_fetch_dispatches_correctly(self):
         registry = ProviderRegistry()
         provider = FakeProvider("finnhub", [DataCategory.NEWS], priority=10)
         registry.register(provider)
 
-        with pytest.raises(NotImplementedError, match="NEWS"):
-            registry.fetch(DataCategory.NEWS, "N/A")
+        result = registry.fetch(DataCategory.NEWS, "AAPL")
+
+        assert result.success is True
+        assert result.provider_name == "finnhub"
+        assert provider.calls[0] == ("fetch_news", "AAPL", {})
 
 
 # ---------------------------------------------------------------------------
@@ -580,3 +587,29 @@ class TestPolygonInFallbackChain:
 
         chain = registry.get_fallback_chain(DataCategory.FUNDAMENTALS)
         assert len(chain) == 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: fetch_news ABC method
+# ---------------------------------------------------------------------------
+
+
+class TestFetchNewsABC:
+    """Verify fetch_news exists on the ABC and raises by default."""
+
+    def test_abc_fetch_news_raises_not_implemented(self):
+        from margin_engine.ingestion.types import DataProvider
+
+        class MinimalProvider(DataProvider):
+            @property
+            def info(self) -> ProviderInfo:
+                return ProviderInfo(
+                    name="minimal",
+                    supported_categories=[],
+                    requests_per_minute=1,
+                    requires_api_key=False,
+                )
+
+        provider = MinimalProvider()
+        with pytest.raises(NotImplementedError, match="fetch_news"):
+            provider.fetch_news("AAPL")

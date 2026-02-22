@@ -111,3 +111,7 @@ class DataProvider(ABC):
     def fetch_earnings(self, ticker: str) -> FetchResult:
         """Fetch earnings data for a ticker."""
         raise NotImplementedError(f"{self.info.name} does not support fetch_earnings")
+
+    def fetch_news(self, ticker: str) -> FetchResult:
+        """Fetch news articles for a ticker."""
+        raise NotImplementedError(f"{self.info.name} does not support fetch_news")
