@@ -12,6 +12,7 @@ function toCandidateCard(pick: DashboardResponse["picks"][0]): CandidateCard {
     actual_price: pick.actual_price ?? 0,
     buy_price: pick.buy_price ?? 0,
     margin_of_safety: pick.margin_of_safety ?? 0,
+    score: pick.score,
     composite_percentile: pick.composite_percentile,
     conviction_level: pick.conviction_level,
     quality_percentile: pick.quality_percentile,
