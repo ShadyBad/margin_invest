@@ -1,5 +1,6 @@
 """Data ingestion layer — provider abstraction, rate limiting, registry, and normalization."""
 
+from margin_engine.ingestion.circuit_breaker import CircuitBreaker, CircuitState
 from margin_engine.ingestion.normalizer import (
     normalize_balance_sheet,
     normalize_cash_flow,
@@ -12,6 +13,8 @@ from margin_engine.ingestion.normalizer import (
 from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
 from margin_engine.ingestion.rate_limiter import RateLimiter, RateLimiterRegistry
 from margin_engine.ingestion.registry import ProviderRegistry
+from margin_engine.ingestion.retry import retry_transient
+from margin_engine.ingestion.symbol_mapper import SymbolMapper
 from margin_engine.ingestion.types import (
     DataCategory,
     DataProvider,
@@ -20,6 +23,8 @@ from margin_engine.ingestion.types import (
 )
 
 __all__ = [
+    "CircuitBreaker",
+    "CircuitState",
     "DataCategory",
     "DataProvider",
     "FetchResult",
@@ -34,5 +39,7 @@ __all__ = [
     "ProviderRegistry",
     "RateLimiter",
     "RateLimiterRegistry",
+    "retry_transient",
+    "SymbolMapper",
     "YFinanceProvider",
 ]
