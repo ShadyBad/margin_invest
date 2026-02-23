@@ -92,6 +92,7 @@ async def full_ingest(
     from margin_engine.ingestion.rate_limiter import RateLimiter
 
     from margin_api.cli import _load_foreign_skips, seed_ticker_data
+    from margin_api.services.ingestion import should_ingest_ticker
 
     # Generate pipeline_id if not provided (top of the chain)
     if pipeline_id is None:
@@ -147,6 +148,20 @@ async def full_ingest(
 
     for i, ticker in enumerate(tickers, start=1):
         logger.info("[ingest] [%d/%d] Seeding %s", i, total, ticker)
+
+        # Check if ticker should be ingested (skip quarantined/permanently_skipped)
+        async with session_factory() as session:
+            asset_check = await session.execute(select(Asset).where(Asset.ticker == ticker))
+            existing_asset = asset_check.scalar_one_or_none()
+            if existing_asset and not should_ingest_ticker(
+                existing_asset.ingestion_status,
+                existing_asset.consecutive_failures,
+                existing_asset.last_retry_at,
+            ):
+                logger.info(
+                    "[ingest] %s SKIPPED (status=%s)", ticker, existing_asset.ingestion_status
+                )
+                continue
 
         async with session_factory() as session:
             result = await seed_ticker_data(ticker=ticker, provider=provider, session=session)

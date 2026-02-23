@@ -25,6 +25,7 @@ from margin_api.db.models import Asset, FinancialData
 from margin_api.db.session import get_engine, get_session_factory
 from margin_api.services.ingestion import (
     classify_error,
+    should_ingest_ticker,
     update_failure_status,
 )
 from margin_api.services.seed_result import SeedResult
@@ -384,6 +385,20 @@ async def run_seed(tickers: list[str] | None = None) -> None:
 
     for i, ticker in enumerate(tickers, start=1):
         logger.info("[%d/%d] Seeding %s...", i, total, ticker)
+
+        # Check if ticker should be ingested (skip quarantined/permanently_skipped)
+        async with session_factory() as session:
+            asset_check = await session.execute(select(Asset).where(Asset.ticker == ticker))
+            existing_asset = asset_check.scalar_one_or_none()
+            if existing_asset and not should_ingest_ticker(
+                existing_asset.ingestion_status,
+                existing_asset.consecutive_failures,
+                existing_asset.last_retry_at,
+            ):
+                logger.info(
+                    "  %s SKIPPED (status=%s)", ticker, existing_asset.ingestion_status
+                )
+                continue
 
         async with session_factory() as session:
             result = await seed_ticker_data(
