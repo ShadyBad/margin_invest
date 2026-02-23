@@ -47,6 +47,7 @@ class CircuitBreaker:
         self._consecutive_failures: int = 0
         self._opened_at: float = 0.0
         self._probe_sent: bool = False
+        self._trip_count: int = 0
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------
@@ -62,6 +63,18 @@ class CircuitBreaker:
         """
         with self._lock:
             return self._effective_state()
+
+    @property
+    def consecutive_failures(self) -> int:
+        """Number of consecutive failures recorded."""
+        with self._lock:
+            return self._consecutive_failures
+
+    @property
+    def trip_count(self) -> int:
+        """Number of times the breaker has tripped from CLOSED/HALF_OPEN to OPEN."""
+        with self._lock:
+            return self._trip_count
 
     def allow_request(self) -> bool:
         """Check whether a request should be allowed through the breaker.
@@ -107,12 +120,14 @@ class CircuitBreaker:
                 self._state = CircuitState.OPEN
                 self._opened_at = time.monotonic()
                 self._probe_sent = False
+                self._trip_count += 1
                 return
             self._consecutive_failures += 1
             if self._consecutive_failures >= self.failure_threshold:
                 self._state = CircuitState.OPEN
                 self._opened_at = time.monotonic()
                 self._probe_sent = False
+                self._trip_count += 1
 
     # ------------------------------------------------------------------
     # Internal helpers

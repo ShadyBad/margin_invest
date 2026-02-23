@@ -155,6 +155,50 @@ class TestHalfOpenMocked:
             assert cb.state == CircuitState.HALF_OPEN
 
 
+class TestConsecutiveFailures:
+    def test_consecutive_failures_property(self):
+        cb = CircuitBreaker(failure_threshold=3, cooldown_seconds=10)
+        assert cb.consecutive_failures == 0
+
+    def test_consecutive_failures_increments(self):
+        cb = CircuitBreaker(failure_threshold=3, cooldown_seconds=10)
+        cb.record_failure()
+        assert cb.consecutive_failures == 1
+        cb.record_failure()
+        assert cb.consecutive_failures == 2
+
+    def test_success_resets_consecutive_failures(self):
+        cb = CircuitBreaker(failure_threshold=3, cooldown_seconds=10)
+        cb.record_failure()
+        cb.record_failure()
+        cb.record_success()
+        assert cb.consecutive_failures == 0
+        assert cb.state == CircuitState.CLOSED
+
+
+class TestTripCount:
+    def test_trip_count_starts_at_zero(self):
+        cb = CircuitBreaker(failure_threshold=3, cooldown_seconds=10)
+        assert cb.trip_count == 0
+
+    def test_trip_count_increments_on_first_trip(self):
+        cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=10)
+        cb.record_failure()
+        cb.record_failure()
+        assert cb.trip_count == 1
+
+    def test_trip_count_increments_on_each_trip(self):
+        cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=0.1)
+        cb.record_failure()
+        cb.record_failure()
+        assert cb.trip_count == 1
+
+        time.sleep(0.15)
+        cb.allow_request()  # half_open
+        cb.record_failure()  # back to open
+        assert cb.trip_count == 2
+
+
 class TestThreadSafety:
     def test_concurrent_failures_trip_exactly_once(self):
         """Many threads recording failures should trip the breaker deterministically."""
