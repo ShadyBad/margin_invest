@@ -577,6 +577,10 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
 
 async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = None) -> None:
     """Score tickers using the v3 gate cascade pipeline."""
+    from margin_engine.ingestion.normalizer import normalize_earnings_list
+    from margin_engine.models.scoring import FactorScore
+    from margin_engine.scoring.normalizer import compute_percentile_ranks
+    from margin_engine.scoring.quantitative.sue import sue_score
     from margin_engine.scoring.v3_pipeline import TickerV3Data, score_universe_v3
 
     from margin_api.data.fred_client import fetch_shiller_cape
@@ -599,6 +603,7 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
 
     # Build TickerV3Data for each ticker
     ticker_data_list: list[TickerV3Data] = []
+    sue_raw_scores: dict[str, float] = {}
     total = len(tickers)
     asset_ids: dict[str, int] = {}
 
@@ -661,6 +666,16 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
                 shares = asset.shares_outstanding or 1
                 fcf_ps = fcf / shares
 
+                # Compute raw SUE score from earnings data
+                earnings_raw_data = latest_fd.earnings_data or {}
+                earnings_entries = earnings_raw_data.get("earnings", [])
+                if earnings_entries:
+                    surprises = normalize_earnings_list(earnings_entries)
+                    sue_factor = sue_score(surprises)
+                    sue_raw_scores[ticker] = sue_factor.raw_value
+                else:
+                    sue_raw_scores[ticker] = 0.0
+
                 # DCF IV: compute intrinsic value from DCF margin of safety
                 from margin_engine.scoring.quantitative.dcf_mos import dcf_margin_of_safety
 
@@ -701,6 +716,28 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
         logger.warning("No tickers could be prepared for v3 scoring.")
         await engine.dispose()
         return
+
+    # Compute SUE percentiles across the universe
+    if sue_raw_scores:
+        sue_tickers = list(sue_raw_scores.keys())
+        sue_factors = [
+            FactorScore(name="sue", raw_value=sue_raw_scores[t], percentile_rank=0.0)
+            for t in sue_tickers
+        ]
+        ranked = compute_percentile_ranks(sue_factors, invert=False)
+        sue_pctls = {t: ranked[i].percentile_rank for i, t in enumerate(sue_tickers)}
+
+        for idx, td in enumerate(ticker_data_list):
+            if td.ticker in sue_pctls:
+                ticker_data_list[idx] = td.model_copy(
+                    update={"sue_percentile": sue_pctls[td.ticker]}
+                )
+        logger.info(
+            "SUE percentiles computed for %d tickers (range: %.1f - %.1f)",
+            len(sue_pctls),
+            min(sue_pctls.values()),
+            max(sue_pctls.values()),
+        )
 
     # Run v3 pipeline
     results = score_universe_v3(ticker_data_list, shiller_cape=cape)

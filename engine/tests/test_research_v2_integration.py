@@ -11,6 +11,7 @@ Verifies that the 6 phases work together end-to-end:
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from margin_engine.backtesting.cost_model import compute_transaction_cost
 from margin_engine.backtesting.models import (
     BacktestConfig,
@@ -25,7 +26,6 @@ from margin_engine.backtesting.rank_ic import compute_rank_ic, compute_rank_ic_r
 from margin_engine.backtesting.turnover import enforce_turnover_limit
 from margin_engine.ml.blend import blend_alpha, blend_with_vae
 from margin_engine.ml.clustering import cluster_stocks
-from margin_engine.ml.factor_vae import FactorVAEConfig, predict_factor_vae, train_factor_vae
 from margin_engine.ml.signal_model import predict_alpha, train_cluster_models
 from margin_engine.optimization.alpha_mapper import calibrate_alpha, v4_to_candidates
 from margin_engine.optimization.cvar import optimize_cvar
@@ -262,6 +262,13 @@ class TestPhase5MLPipeline:
 
     def test_vae_uncertainty_feeds_optimizer(self):
         """VAE variance -> uncertainty -> optimizer can use it."""
+        pytest.importorskip("torch", reason="torch required for FactorVAE")
+        from margin_engine.ml.factor_vae import (
+            FactorVAEConfig,
+            predict_factor_vae,
+            train_factor_vae,
+        )
+
         rng = np.random.default_rng(42)
         features = rng.standard_normal((100, 10)).astype(np.float32)
         forward_returns = rng.standard_normal(100).astype(np.float32) * 0.02

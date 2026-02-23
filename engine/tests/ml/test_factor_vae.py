@@ -1,7 +1,11 @@
 """Tests for FactorVAE."""
 
-import numpy as np
-from margin_engine.ml.factor_vae import (
+import pytest
+
+torch = pytest.importorskip("torch", reason="torch required for FactorVAE tests")
+
+import numpy as np  # noqa: E402
+from margin_engine.ml.factor_vae import (  # noqa: E402
     FactorVAEConfig,
     FactorVAEMetrics,
     predict_factor_vae,
