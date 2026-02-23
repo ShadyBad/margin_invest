@@ -130,6 +130,7 @@ def _compute_asset_floor_per_share(td: TickerV3Data) -> float:
 def score_universe_v3(
     tickers_data: list[TickerV3Data],
     shiller_cape: float,
+    optimize: bool = False,
 ) -> list[V3Result]:
     """Score a universe of tickers through the full v3 pipeline.
 
@@ -230,7 +231,9 @@ def score_universe_v3(
     )
 
     # Step 9: Enforce portfolio cap — zero out positions beyond top MAX_POSITIONS
-    for i in range(MAX_POSITIONS, len(results)):
-        results[i] = results[i].model_copy(update={"max_position_pct": 0.0})
+    # When optimize=True, skip position zeroing so the optimizer can allocate freely.
+    if not optimize:
+        for i in range(MAX_POSITIONS, len(results)):
+            results[i] = results[i].model_copy(update={"max_position_pct": 0.0})
 
     return results

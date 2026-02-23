@@ -445,6 +445,24 @@ class BacktestResult(Base):
     )
 
 
+class MlModelRun(Base):
+    """Tracks ML model training runs (clustering + LightGBM)."""
+
+    __tablename__ = "ml_model_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    model_type: Mapped[str] = mapped_column(String(50), nullable=False)  # "lightgbm_cluster"
+    n_clusters: Mapped[int] = mapped_column(default=0)
+    n_features: Mapped[int] = mapped_column(default=0)
+    n_samples: Mapped[int] = mapped_column(default=0)
+    train_metrics: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    artifact_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="completed")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
 class ApiKey(Base):
     __tablename__ = "api_keys"
 

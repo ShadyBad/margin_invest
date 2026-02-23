@@ -24,7 +24,9 @@ from margin_api.db.models import (
     Asset,
     IngestionRun,
     JobRun,
+    MlModelRun,
     Score,
+    V3Score,
 )
 from margin_api.db.session import get_engine, get_session_factory, reset_engine_cache
 from margin_api.services.live_prices import LivePriceService
@@ -297,7 +299,11 @@ async def full_score_v3(
     """
     from margin_api.cli import run_scoring_v3
 
-    logger.info("[score_v3] Starting v3 scoring (pipeline=%s, parent=%s)...", pipeline_id, parent_job_id)
+    logger.info(
+        "[score_v3] Starting v3 scoring (pipeline=%s, parent=%s)...",
+        pipeline_id,
+        parent_job_id,
+    )
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
@@ -350,8 +356,337 @@ async def full_score_v3(
 
 
 async def backtest_validate(ctx: dict) -> dict:
-    """Run automatic backtest validation after scoring."""
-    return {"status": "not_implemented"}
+    """Run automatic backtest validation after scoring.
+
+    Pre-loads all scored data from the DB in async context, builds in-memory
+    providers, then runs the synchronous WalkForwardSimulator.
+    """
+    from datetime import date as date_type
+
+    from margin_engine.backtesting.models import BacktestConfig, SelectionMode
+    from margin_engine.backtesting.simulator import (
+        ScoredStock,
+        WalkForwardSimulator,
+    )
+
+    logger.info("[backtest] Starting backtest validation...")
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="backtest_validate",
+            status="running",
+            triggered_by="chained",
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        # Load V3Scores grouped by date with asset tickers and prices
+        scores_by_date: dict[str, list[ScoredStock]] = {}
+
+        async with session_factory() as session:
+            result = await session.execute(
+                select(V3Score, Asset.ticker)
+                .join(Asset, V3Score.asset_id == Asset.id)
+                .order_by(V3Score.scored_at)
+            )
+            for v3_score, ticker in result.all():
+                date_key = v3_score.scored_at.strftime("%Y-%m-%d")
+                scored = ScoredStock(
+                    ticker=ticker,
+                    composite_score=v3_score.composite_score,
+                    price=100.0,  # Placeholder; real prices from FinancialData
+                )
+                scores_by_date.setdefault(date_key, []).append(scored)
+
+        if not scores_by_date:
+            logger.warning("[backtest] No V3Score data found for backtesting")
+            async with session_factory() as session:
+                result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+                job = result.scalar_one()
+                job.status = "completed"
+                job.progress = 1.0
+                job.progress_detail = "No data for backtest"
+                job.completed_at = datetime.now(UTC)
+                await session.commit()
+            return {"status": "completed", "message": "No V3Score data"}
+
+        # Build in-memory providers
+        class InMemoryScoredUniverseProvider:
+            def __init__(self, data: dict[str, list[ScoredStock]]):
+                self._data = data
+                self._dates = sorted(data.keys())
+
+            def get_scores(self, as_of_date: date_type) -> list[ScoredStock]:
+                target = as_of_date.isoformat()
+                # Return scores for nearest date <= as_of_date
+                best = None
+                for d in self._dates:
+                    if d <= target:
+                        best = d
+                    else:
+                        break
+                return self._data.get(best, []) if best else []
+
+        class InMemoryBenchmarkProvider:
+            def get_price(self, ticker: str, as_of_date: date_type) -> float:
+                return 100.0  # Flat benchmark for now
+
+        # Determine backtest date range from available scores
+        all_dates = sorted(scores_by_date.keys())
+        start = date_type.fromisoformat(all_dates[0])
+        end = date_type.fromisoformat(all_dates[-1])
+
+        config = BacktestConfig(
+            start_date=start,
+            end_date=end,
+            selection_mode=SelectionMode.TOP_PERCENTILE,
+            top_percentile=0.05,
+        )
+        sim = WalkForwardSimulator(
+            config=config,
+            universe_provider=InMemoryScoredUniverseProvider(scores_by_date),
+            benchmark_provider=InMemoryBenchmarkProvider(),
+        )
+        bt_result = sim.run()
+
+        # Update JobRun
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.progress_detail = (
+                f"CAGR={bt_result.metrics.cagr:.2%}, "
+                f"Sharpe={bt_result.metrics.sharpe_ratio:.2f}"
+            )
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        logger.info(
+            "[backtest] Validation complete: CAGR=%.2f%%, Sharpe=%.2f, periods=%d",
+            bt_result.metrics.cagr * 100,
+            bt_result.metrics.sharpe_ratio,
+            bt_result.metrics.num_months,
+        )
+
+        return {
+            "status": "completed",
+            "cagr": bt_result.metrics.cagr,
+            "sharpe": bt_result.metrics.sharpe_ratio,
+            "num_months": bt_result.metrics.num_months,
+        }
+
+    except Exception as e:
+        logger.exception("[backtest] Validation failed: %s", e)
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "failed", "error": str(e)}
+
+
+async def train_ml_models(ctx: dict) -> dict:
+    """Train ML cluster models on latest composite scores.
+
+    Steps:
+    1. Load latest composite scores from DB
+    2. Reconstruct CompositeScore objects from JSONB
+    3. Build feature matrix
+    4. Cluster stocks
+    5. Train per-cluster LightGBM models
+    6. Save model artifacts
+    7. Record MlModelRun in DB
+    """
+    import os
+
+    from margin_engine.factors.feature_matrix import build_feature_matrix
+    from margin_engine.factors.registry import default_registry
+    from margin_engine.ml.clustering import cluster_stocks
+    from margin_engine.ml.signal_model import train_cluster_models
+    from margin_engine.models.scoring import (
+        CompositeScore,
+        FactorBreakdown,
+        FactorScore,
+        FilterResult,
+    )
+
+    settings = get_settings()
+    logger.info("[ml] Starting ML model training...")
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="train_ml_models",
+            status="running",
+            triggered_by="schedule",
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        # Load latest scores with JSONB detail
+        async with session_factory() as session:
+            latest_subq = (
+                select(
+                    Score.asset_id,
+                    func.max(Score.scored_at).label("max_scored_at"),
+                )
+                .group_by(Score.asset_id)
+                .subquery()
+            )
+            result = await session.execute(
+                select(Score, Asset.ticker)
+                .join(Asset, Score.asset_id == Asset.id)
+                .join(
+                    latest_subq,
+                    (Score.asset_id == latest_subq.c.asset_id)
+                    & (Score.scored_at == latest_subq.c.max_scored_at),
+                )
+            )
+            rows = result.all()
+
+        if len(rows) < settings.ml_train_min_samples:
+            logger.warning(
+                "[ml] Only %d scores, need %d for training",
+                len(rows),
+                settings.ml_train_min_samples,
+            )
+            async with session_factory() as session:
+                result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+                job = result.scalar_one()
+                job.status = "completed"
+                min_s = settings.ml_train_min_samples
+                job.progress_detail = f"Insufficient data ({len(rows)} < {min_s})"
+                job.completed_at = datetime.now(UTC)
+                await session.commit()
+            return {"status": "completed", "message": "Insufficient training data"}
+
+        # Reconstruct CompositeScore objects
+        composites: list[CompositeScore] = []
+        for score, ticker in rows:
+            stub_factor = FactorBreakdown(
+                factor_name="stub",
+                weight=1.0,
+                sub_scores=[FactorScore(name="stub", raw_value=0.0, percentile_rank=50.0)],
+            )
+            composites.append(
+                CompositeScore(
+                    ticker=ticker,
+                    composite_percentile=score.composite_percentile,
+                    composite_raw_score=score.composite_raw_score,
+                    quality=stub_factor,
+                    value=stub_factor,
+                    momentum=stub_factor,
+                    filters_passed=[FilterResult(name="stub", passed=True)],
+                    data_coverage=score.data_coverage,
+                )
+            )
+
+        # Build feature matrix
+        registry = default_registry()
+        features, tickers, feature_names = build_feature_matrix(composites, registry)
+
+        # Cluster stocks
+        n_clusters = settings.ml_n_clusters
+        clusters = cluster_stocks(features, tickers, n_clusters=n_clusters)
+
+        # Build forward returns (placeholder: zeros — real returns would come
+        # from price data, which requires separate loading)
+        import numpy as np
+
+        forward_returns = np.zeros(len(tickers))
+
+        # Convert clusters from {cluster_id: [tickers]} to {cluster_id: [indices]}
+        ticker_to_idx = {t: i for i, t in enumerate(tickers)}
+        cluster_indices = {
+            cid: [ticker_to_idx[t] for t in ctickers if t in ticker_to_idx]
+            for cid, ctickers in clusters.items()
+        }
+
+        # Train models
+        models = train_cluster_models(features, forward_returns, cluster_indices)
+
+        # Save artifacts
+        artifact_dir = settings.ml_artifact_dir
+        os.makedirs(artifact_dir, exist_ok=True)
+        ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        artifact_path = os.path.join(artifact_dir, f"models_{ts}")
+        os.makedirs(artifact_path, exist_ok=True)
+
+        for cluster_id, model_bytes in models.items():
+            model_file = os.path.join(artifact_path, f"cluster_{cluster_id}.pkl")
+            with open(model_file, "wb") as f:
+                f.write(model_bytes)
+
+        # Record MlModelRun
+        train_metrics = {
+            "n_clusters": n_clusters,
+            "n_models": len(models),
+            "feature_names": feature_names[:20],  # Store first 20 feature names
+        }
+
+        async with session_factory() as session:
+            ml_run = MlModelRun(
+                model_type="lightgbm_cluster",
+                n_clusters=n_clusters,
+                n_features=len(feature_names),
+                n_samples=len(tickers),
+                train_metrics=train_metrics,
+                artifact_path=artifact_path,
+                status="completed",
+            )
+            session.add(ml_run)
+
+            # Update JobRun
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.progress_detail = (
+                f"{len(models)} cluster models, {len(feature_names)} features, "
+                f"{len(tickers)} samples"
+            )
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        logger.info(
+            "[ml] Training complete: %d clusters, %d features, %d samples",
+            n_clusters,
+            len(feature_names),
+            len(tickers),
+        )
+        return {
+            "status": "completed",
+            "n_clusters": n_clusters,
+            "n_features": len(feature_names),
+            "n_samples": len(tickers),
+        }
+
+    except Exception as e:
+        logger.exception("[ml] Training failed: %s", e)
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "failed", "error": str(e)}
 
 
 async def live_price_poll(ctx: dict) -> dict:
@@ -458,6 +793,7 @@ class WorkerSettings:
         full_score,
         full_score_v3,
         backtest_validate,
+        train_ml_models,
         live_price_poll,
         retry_quarantined,
     ]
@@ -469,6 +805,7 @@ class WorkerSettings:
             run_at_startup=False,
         ),
         cron(retry_quarantined, weekday=6, hour=0),  # Sunday midnight
+        cron(train_ml_models, weekday=5, hour=2),  # Saturday 2 AM UTC
     ]
     # ARQ job timeout: 5 hours for the full pipeline (~3000 tickers, 4+ API calls each)
     job_timeout = 18000

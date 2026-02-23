@@ -537,8 +537,371 @@ class TestLivePricePoll:
 
 class TestBacktestValidate:
     @pytest.mark.asyncio
-    async def test_backtest_validate_not_implemented(self):
+    async def test_backtest_validate_no_data(self):
+        """backtest_validate completes with message when no V3Score data exists."""
         from margin_api.workers import backtest_validate
 
-        result = await backtest_validate({})
-        assert result["status"] == "not_implemented"
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = []  # No V3Scores
+        mock_session.add = MagicMock(side_effect=lambda obj: setattr(obj, "id", 1))
+        mock_session.commit = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+        ):
+            result = await backtest_validate({})
+
+        assert result["status"] == "completed"
+        assert "No V3Score data" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_backtest_validate_creates_job_run(self):
+        """backtest_validate creates a JobRun with job_type='backtest_validate'."""
+        from margin_api.workers import backtest_validate
+
+        added_objects = []
+
+        mock_session = AsyncMock()
+        mock_result_empty = MagicMock()
+        mock_result_empty.all.return_value = []
+
+        call_count = 0
+
+        async def _mock_execute(stmt):
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 1:
+                # First call: commit after adding JobRun
+                return mock_result_empty
+            # Second call: V3Score query returns empty
+            return mock_result_empty
+
+        def _add_obj(obj):
+            setattr(obj, "id", 1)
+            added_objects.append(obj)
+
+        mock_session.add = MagicMock(side_effect=_add_obj)
+        mock_session.commit = AsyncMock()
+        mock_session.execute = AsyncMock(side_effect=_mock_execute)
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+        ):
+            await backtest_validate({})
+
+        # Verify a JobRun was added
+        from margin_api.db.models import JobRun as JobRunModel
+
+        job_runs = [o for o in added_objects if isinstance(o, JobRunModel)]
+        assert len(job_runs) >= 1
+        assert job_runs[0].job_type == "backtest_validate"
+
+    @pytest.mark.asyncio
+    async def test_backtest_validate_handles_exception(self):
+        """backtest_validate records failure on exception."""
+        from margin_api.workers import backtest_validate
+
+        mock_job = MagicMock()
+        mock_job.id = 1
+
+        session_num = 0
+        raised = False
+
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock(side_effect=lambda obj: setattr(obj, "id", 1))
+        mock_session.commit = AsyncMock()
+
+        async def _mock_enter(*a):
+            nonlocal session_num
+            session_num += 1
+            return mock_session
+
+        async def _mock_execute(stmt):
+            nonlocal raised
+            # Session 2 is the V3Score query — blow up once
+            if session_num == 2 and not raised:
+                raised = True
+                raise RuntimeError("DB connection lost")
+            return MagicMock(
+                scalar_one=MagicMock(return_value=mock_job),
+                all=MagicMock(return_value=[]),
+            )
+
+        mock_session.execute = AsyncMock(side_effect=_mock_execute)
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(side_effect=_mock_enter)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+        ):
+            result = await backtest_validate({})
+
+        assert result["status"] == "failed"
+        assert "DB connection lost" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_backtest_validate_with_scores(self):
+        """backtest_validate runs simulator and returns metrics when data exists."""
+        from margin_api.workers import backtest_validate
+
+        # Build mock V3Score + Asset rows
+        mock_v3_1 = MagicMock()
+        mock_v3_1.scored_at = datetime(2024, 6, 1, tzinfo=UTC)
+        mock_v3_1.composite_score = 75.0
+
+        mock_v3_2 = MagicMock()
+        mock_v3_2.scored_at = datetime(2024, 7, 1, tzinfo=UTC)
+        mock_v3_2.composite_score = 80.0
+
+        mock_v3_3 = MagicMock()
+        mock_v3_3.scored_at = datetime(2024, 8, 1, tzinfo=UTC)
+        mock_v3_3.composite_score = 70.0
+
+        score_rows = [
+            (mock_v3_1, "AAPL"),
+            (mock_v3_2, "MSFT"),
+            (mock_v3_3, "GOOGL"),
+        ]
+
+        # Mock the simulator result
+        mock_bt_result = MagicMock()
+        mock_bt_result.metrics.cagr = 0.12
+        mock_bt_result.metrics.sharpe_ratio = 1.5
+        mock_bt_result.metrics.num_months = 3
+
+        mock_job = MagicMock()
+        mock_job.id = 1
+
+        session_num = 0
+        mock_session = AsyncMock()
+
+        async def _mock_enter(*a):
+            nonlocal session_num
+            session_num += 1
+            return mock_session
+
+        async def _mock_execute(stmt):
+            # Session 2 returns the V3Score data
+            if session_num == 2:
+                return MagicMock(all=MagicMock(return_value=score_rows))
+            # All others: return mock job for scalar_one
+            return MagicMock(scalar_one=MagicMock(return_value=mock_job))
+
+        mock_session.add = MagicMock(side_effect=lambda obj: setattr(obj, "id", 1))
+        mock_session.commit = AsyncMock()
+        mock_session.execute = AsyncMock(side_effect=_mock_execute)
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(side_effect=_mock_enter)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # Mock the simulator class at the source where it's imported from
+        mock_sim_cls = MagicMock()
+        mock_sim_instance = MagicMock()
+        mock_sim_instance.run.return_value = mock_bt_result
+        mock_sim_cls.return_value = mock_sim_instance
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch(
+                "margin_engine.backtesting.simulator.WalkForwardSimulator",
+                mock_sim_cls,
+            ),
+        ):
+            result = await backtest_validate({})
+
+        assert result["status"] == "completed"
+        assert result["cagr"] == 0.12
+        assert result["sharpe"] == 1.5
+        assert result["num_months"] == 3
+
+
+class TestTrainMlModels:
+    @pytest.mark.asyncio
+    async def test_train_ml_models_insufficient_data(self):
+        """train_ml_models completes with message when too few samples."""
+        from margin_api.workers import train_ml_models
+
+        mock_job = MagicMock()
+        mock_job.id = 1
+
+        session_num = 0
+        mock_session = AsyncMock()
+
+        async def _mock_enter(*a):
+            nonlocal session_num
+            session_num += 1
+            return mock_session
+
+        async def _mock_execute(stmt):
+            # Session 2 is the Score query — returns only 1 row (< min_samples)
+            if session_num == 2:
+                mock_score = MagicMock()
+                mock_score.composite_percentile = 75.0
+                mock_score.composite_raw_score = 70.0
+                mock_score.data_coverage = 0.9
+                return MagicMock(all=MagicMock(return_value=[(mock_score, "AAPL")]))
+            return MagicMock(scalar_one=MagicMock(return_value=mock_job))
+
+        mock_session.add = MagicMock(side_effect=lambda obj: setattr(obj, "id", 1))
+        mock_session.commit = AsyncMock()
+        mock_session.execute = AsyncMock(side_effect=_mock_execute)
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(side_effect=_mock_enter)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+        ):
+            settings = MagicMock()
+            settings.ml_train_min_samples = 100
+            settings.ml_n_clusters = 5
+            settings.ml_artifact_dir = "/tmp/test_ml"
+            mock_settings.return_value = settings
+            result = await train_ml_models({})
+
+        assert result["status"] == "completed"
+        assert "Insufficient" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_train_ml_models_creates_job_run(self):
+        """train_ml_models creates a JobRun with job_type='train_ml_models'."""
+        from margin_api.workers import train_ml_models
+
+        added_objects = []
+        mock_job = MagicMock()
+        mock_job.id = 1
+
+        session_num = 0
+        mock_session = AsyncMock()
+
+        async def _mock_enter(*a):
+            nonlocal session_num
+            session_num += 1
+            return mock_session
+
+        async def _mock_execute(stmt):
+            if session_num == 2:
+                return MagicMock(all=MagicMock(return_value=[]))  # Empty scores
+            return MagicMock(scalar_one=MagicMock(return_value=mock_job))
+
+        mock_session.add = MagicMock(
+            side_effect=lambda obj: (setattr(obj, "id", 1), added_objects.append(obj))
+        )
+        mock_session.commit = AsyncMock()
+        mock_session.execute = AsyncMock(side_effect=_mock_execute)
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(side_effect=_mock_enter)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+        ):
+            settings = MagicMock()
+            settings.ml_train_min_samples = 100
+            settings.ml_n_clusters = 5
+            settings.ml_artifact_dir = "/tmp/test_ml"
+            mock_settings.return_value = settings
+            await train_ml_models({})
+
+        from margin_api.db.models import JobRun as JobRunModel
+
+        job_runs = [o for o in added_objects if isinstance(o, JobRunModel)]
+        assert len(job_runs) >= 1
+        assert job_runs[0].job_type == "train_ml_models"
+
+    @pytest.mark.asyncio
+    async def test_train_ml_models_handles_exception(self):
+        """train_ml_models records failure on exception inside try block."""
+        from margin_api.workers import train_ml_models
+
+        mock_job = MagicMock()
+        mock_job.id = 1
+
+        session_num = 0
+        mock_session = AsyncMock()
+
+        async def _mock_enter(*a):
+            nonlocal session_num
+            session_num += 1
+            return mock_session
+
+        async def _mock_execute(stmt):
+            # Session 2 is Score query — blow up
+            if session_num == 2:
+                raise RuntimeError("Score query failed")
+            return MagicMock(scalar_one=MagicMock(return_value=mock_job))
+
+        mock_session.add = MagicMock(side_effect=lambda obj: setattr(obj, "id", 1))
+        mock_session.commit = AsyncMock()
+        mock_session.execute = AsyncMock(side_effect=_mock_execute)
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(side_effect=_mock_enter)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+        ):
+            settings = MagicMock()
+            settings.ml_train_min_samples = 100
+            settings.ml_n_clusters = 5
+            settings.ml_artifact_dir = "/tmp/test_ml"
+            mock_settings.return_value = settings
+            result = await train_ml_models({})
+
+        assert result["status"] == "failed"
+        assert "Score query failed" in result["error"]
+
+
+class TestWorkerRegistration:
+    """Verify new worker functions are registered properly."""
+
+    def test_train_ml_models_registered(self):
+        names = [f.__name__ for f in WorkerSettings.functions]
+        assert "train_ml_models" in names
+
+    def test_backtest_validate_registered(self):
+        names = [f.__name__ for f in WorkerSettings.functions]
+        assert "backtest_validate" in names
+
+    def test_cron_includes_train_ml_models(self):
+        """train_ml_models should have a weekly cron entry."""
+        cron_funcs = []
+        for job in WorkerSettings.cron_jobs:
+            # arq cron objects have a coroutine attribute
+            if hasattr(job, "coroutine"):
+                cron_funcs.append(job.coroutine.__name__)
+        assert "train_ml_models" in cron_funcs
+
+    def test_total_functions_count(self):
+        """All 7 worker functions should be registered."""
+        assert len(WorkerSettings.functions) == 7
+
+    def test_total_cron_jobs_count(self):
+        """Should have 4 cron jobs."""
+        assert len(WorkerSettings.cron_jobs) == 4

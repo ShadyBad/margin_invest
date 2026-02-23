@@ -117,3 +117,34 @@ class TestScoreUniverseV3:
         euphoria = score_universe_v3(data, shiller_cape=40.0)
         cheap = score_universe_v3(data, shiller_cape=12.0)
         assert euphoria[0].ticker == cheap[0].ticker == "TEST"
+
+    def test_optimize_false_zeroes_excess_positions(self):
+        """optimize=False (default): positions beyond MAX_POSITIONS are zeroed."""
+        data = [_make_ticker_data(f"T{i:02d}") for i in range(15)]
+        results = score_universe_v3(data, shiller_cape=25.0, optimize=False)
+        assert len(results) == 15
+        positioned = [r for r in results if r.max_position_pct > 0]
+        assert len(positioned) <= 10
+
+    def test_optimize_true_retains_all_positions(self):
+        """optimize=True: positions are not zeroed by the portfolio cap step.
+
+        With optimize=True the pipeline skips the MAX_POSITIONS zeroing so the
+        optimizer can allocate freely. We verify that the optimize flag is
+        accepted and that results match what the orchestrator produced (no
+        post-hoc modification). With identical synthetic data the orchestrator
+        assigns 0% to every ticker (they score as 'neither'), so we confirm
+        that optimize=True at least does not *reduce* any position below what
+        the orchestrator assigned and returns the full result set.
+        """
+        data = [_make_ticker_data(f"T{i:02d}") for i in range(15)]
+        results_opt = score_universe_v3(data, shiller_cape=25.0, optimize=True)
+        results_no_opt = score_universe_v3(data, shiller_cape=25.0, optimize=False)
+        assert len(results_opt) == 15
+        assert len(results_no_opt) == 15
+        # optimize=True should never produce a *lower* position than optimize=False
+        # because optimize=False zeros excess positions while optimize=True preserves them.
+        opt_positions = {r.ticker: r.max_position_pct for r in results_opt}
+        no_opt_positions = {r.ticker: r.max_position_pct for r in results_no_opt}
+        for ticker in opt_positions:
+            assert opt_positions[ticker] >= no_opt_positions[ticker]

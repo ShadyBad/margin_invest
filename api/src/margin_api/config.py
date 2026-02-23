@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     # Admin
     admin_key: str = ""
 
+    # ML
+    ml_artifact_dir: str = "ml_models"
+    ml_train_min_samples: int = 100
+    ml_n_clusters: int = 5
+    vae_enable: bool = False
+
     # App
     debug: bool = False
 

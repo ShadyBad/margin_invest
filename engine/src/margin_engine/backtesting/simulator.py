@@ -10,13 +10,16 @@ Runs a monthly (or quarterly) walk-forward simulation that:
 
 from __future__ import annotations
 
+import logging
 import math
 import time
 from datetime import date
 from typing import Protocol, runtime_checkable
 
+import numpy as np
 from pydantic import BaseModel
 
+from margin_engine.backtesting.cost_model import CostModelConfig, compute_transaction_cost
 from margin_engine.backtesting.metrics import PerformanceCalculator
 from margin_engine.backtesting.models import (
     BacktestConfig,
@@ -27,8 +30,27 @@ from margin_engine.backtesting.models import (
     RebalanceFrequency,
     SelectionMode,
 )
+from margin_engine.backtesting.rank_ic import compute_rank_ic, compute_rank_ic_report
+from margin_engine.backtesting.turnover import enforce_turnover_limit
+from margin_engine.models.financial import PriceBar
+from margin_engine.models.scoring import (
+    CompositeScore,
+    FactorBreakdown,
+    FactorScore,
+    FilterResult,
+)
+from margin_engine.optimization.alpha_mapper import calibrate_alpha, v4_to_candidates
+from margin_engine.optimization.dro_meanvar import optimize_dro_meanvar
+from margin_engine.risk.covariance import compute_covariance
+from margin_engine.risk.returns import returns_from_price_bars
+
+logger = logging.getLogger(__name__)
 
 STARTING_CAPITAL = 1_000_000.0
+
+# Conservative defaults for cost model when ADV/market_cap unavailable
+_DEFAULT_ADV = 50_000_000.0  # $50M average daily volume
+_DEFAULT_MARKET_CAP = 10_000_000_000.0  # $10B market cap
 
 
 class ScoredStock(BaseModel):
@@ -54,6 +76,28 @@ class BenchmarkProvider(Protocol):
     def get_price(self, ticker: str, as_of_date: date) -> float: ...
 
 
+@runtime_checkable
+class PriceHistoryProvider(Protocol):
+    """Provides historical price bars for a set of tickers."""
+
+    def get_price_bars(
+        self, tickers: list[str], as_of_date: date, window_days: int = 252
+    ) -> dict[str, list[PriceBar]]: ...
+
+
+def _stub_factor(name: str = "stub") -> FactorBreakdown:
+    """Build a minimal FactorBreakdown for CompositeScore construction.
+
+    Alpha calibration only uses composite_raw_score, not individual factors,
+    so we provide stub values.
+    """
+    return FactorBreakdown(
+        factor_name=name,
+        weight=1.0,
+        sub_scores=[FactorScore(name="stub", raw_value=0.0, percentile_rank=50.0)],
+    )
+
+
 class WalkForwardSimulator:
     """Runs a walk-forward monthly simulation.
 
@@ -71,10 +115,14 @@ class WalkForwardSimulator:
         config: BacktestConfig,
         universe_provider: ScoredUniverseProvider,
         benchmark_provider: BenchmarkProvider,
+        price_history_provider: PriceHistoryProvider | None = None,
+        cost_model_config: CostModelConfig | None = None,
     ) -> None:
         self._config = config
         self._universe_provider = universe_provider
         self._benchmark_provider = benchmark_provider
+        self._price_history_provider = price_history_provider
+        self._cost_model_config = cost_model_config
         self._metrics_calculator = PerformanceCalculator()
 
     def run(self) -> BacktestResult:
@@ -89,6 +137,7 @@ class WalkForwardSimulator:
         portfolio_value = STARTING_CAPITAL
         benchmark_value = STARTING_CAPITAL
         prev_holdings: list[HoldingRecord] = []
+        ic_series: list[float] = []
 
         # Get initial benchmark price for tracking
         initial_benchmark_price = self._benchmark_provider.get_price(
@@ -99,8 +148,10 @@ class WalkForwardSimulator:
             # 1. Get scored universe at this point in time
             scores = self._universe_provider.get_scores(rebal_date)
 
-            # 2. Select top N% by composite score, equal weight
-            new_holdings = self._select_holdings(scores, prev_holdings)
+            # 2. Select holdings based on configured selection mode
+            new_holdings = self._select_holdings(
+                scores, prev_holdings, rebal_date=rebal_date
+            )
 
             # Cache scores as a price lookup map to avoid redundant provider calls
             score_map = {s.ticker: s.price for s in scores}
@@ -114,8 +165,15 @@ class WalkForwardSimulator:
             # 4. Calculate turnover
             turnover = self._calculate_turnover(prev_holdings, new_holdings)
 
-            # 5. Calculate transaction costs
-            transaction_costs = portfolio_value * (turnover * self._config.total_cost_bps / 10_000)
+            # 5. Calculate transaction costs (non-linear if cost_model_config set)
+            if self._cost_model_config and new_holdings:
+                transaction_costs = self._compute_nonlinear_costs(
+                    prev_holdings, new_holdings, portfolio_value
+                )
+            else:
+                transaction_costs = portfolio_value * (
+                    turnover * self._config.total_cost_bps / 10_000
+                )
 
             # 6. Deduct transaction costs from portfolio value
             portfolio_value_after_costs = portfolio_value - transaction_costs
@@ -164,15 +222,32 @@ class WalkForwardSimulator:
                 transaction_costs=transaction_costs,
             )
             snapshots.append(snapshot)
+
+            # Rank IC tracking: compare previous scores to realized returns
+            if (
+                self._config.selection_mode == SelectionMode.OPTIMIZED
+                and i > 0
+                and prev_holdings
+            ):
+                ic = self._compute_period_ic(prev_holdings, score_map)
+                if ic is not None:
+                    ic_series.append(ic)
+
             prev_holdings = new_holdings
 
         metrics = self._metrics_calculator.calculate(snapshots)
         duration = time.monotonic() - start_time
 
+        # Build Rank IC report for OPTIMIZED mode
+        rank_ic_report = None
+        if self._config.selection_mode == SelectionMode.OPTIMIZED and ic_series:
+            rank_ic_report = compute_rank_ic_report(ic_series)
+
         return BacktestResult(
             config=self._config,
             snapshots=snapshots,
             metrics=metrics,
+            rank_ic_report=rank_ic_report,
             duration_seconds=duration,
         )
 
@@ -213,9 +288,14 @@ class WalkForwardSimulator:
         return d
 
     def _select_holdings(
-        self, scores: list[ScoredStock], prev_holdings: list[HoldingRecord]
+        self,
+        scores: list[ScoredStock],
+        prev_holdings: list[HoldingRecord],
+        rebal_date: date | None = None,
     ) -> list[HoldingRecord]:
         """Select portfolio holdings based on configured selection mode."""
+        if self._config.selection_mode == SelectionMode.OPTIMIZED:
+            return self._select_by_optimization(scores, prev_holdings, rebal_date)
         if self._config.selection_mode == SelectionMode.CONVICTION_MOS:
             return self._select_by_conviction_mos(scores, prev_holdings)
         return self._select_by_top_percentile(scores)
@@ -302,6 +382,190 @@ class WalkForwardSimulator:
             )
             for stock in selected_stocks
         ]
+
+    def _select_by_optimization(
+        self,
+        scores: list[ScoredStock],
+        prev_holdings: list[HoldingRecord],
+        rebal_date: date | None = None,
+    ) -> list[HoldingRecord]:
+        """Select holdings using DRO mean-variance optimization.
+
+        Steps:
+        1. Build CompositeScore objects from ScoredStock (for alpha calibration)
+        2. calibrate_alpha() -> expected alphas
+        3. Get price history -> return matrix -> covariance
+        4. v4_to_candidates() -> candidates for optimizer
+        5. optimize_dro_meanvar() -> optimal weights
+        6. enforce_turnover_limit() if previous holdings exist
+        7. Build HoldingRecord list with optimized (non-equal) weights
+
+        Falls back to _select_by_top_percentile() if:
+        - price_history_provider is None
+        - Not enough price data for covariance
+        - Optimizer returns infeasible solution
+        """
+        if not scores or self._price_history_provider is None or rebal_date is None:
+            return self._select_by_top_percentile(scores)
+
+        try:
+            # 1. Build stub CompositeScore objects for alpha calibration
+            composites = self._scores_to_composites(scores)
+            if len(composites) < 2:
+                return self._select_by_top_percentile(scores)
+
+            # 2. Calibrate expected alphas
+            calibrated_alphas = calibrate_alpha(composites)
+
+            # 3. Get price history and compute covariance
+            tickers = [s.ticker for s in scores]
+            price_data = self._price_history_provider.get_price_bars(
+                tickers, rebal_date, window_days=252
+            )
+            if not price_data or len(price_data) < 2:
+                return self._select_by_top_percentile(scores)
+
+            returns_matrix, valid_tickers = returns_from_price_bars(price_data, window_days=252)
+            if len(valid_tickers) < 2 or returns_matrix.shape[0] < 30:
+                return self._select_by_top_percentile(scores)
+
+            cov_result = compute_covariance(returns_matrix, valid_tickers)
+
+            # 4. Build candidates for the optimizer
+            v4_dicts = [
+                {"ticker": s.ticker, "opportunity_type": "unknown", "conviction": "medium"}
+                for s in scores
+                if s.ticker in set(valid_tickers)
+            ]
+            # Filter composites to valid tickers only
+            valid_set = set(valid_tickers)
+            filtered_composites = [c for c in composites if c.ticker in valid_set]
+            filtered_alphas = {t: a for t, a in calibrated_alphas.items() if t in valid_set}
+
+            candidates = v4_to_candidates(v4_dicts, filtered_composites, filtered_alphas)
+            if not candidates:
+                return self._select_by_top_percentile(scores)
+
+            # 5. Optimize
+            constraints = self._config.optimization_constraints
+            dro_config = self._config.dro_config
+            optimized = optimize_dro_meanvar(
+                candidates,
+                cov_result.matrix,
+                list(valid_tickers),
+                constraints=constraints,
+                dro_config=dro_config,
+            )
+
+            if optimized.solver_status != "optimal" or not optimized.weights:
+                logger.warning("Optimizer returned %s, falling back", optimized.solver_status)
+                return self._select_by_top_percentile(scores)
+
+            # 6. Enforce turnover constraint
+            new_weights = optimized.weights
+            if prev_holdings:
+                old_weights = {h.ticker: h.weight for h in prev_holdings}
+                max_turnover = 0.30
+                if constraints:
+                    max_turnover = constraints.max_turnover
+                new_weights = enforce_turnover_limit(old_weights, new_weights, max_turnover)
+
+            # 7. Build HoldingRecord list with optimized weights
+            price_map = {s.ticker: s.price for s in scores}
+            score_map = {s.ticker: s.composite_score for s in scores}
+            holdings = [
+                HoldingRecord(
+                    ticker=ticker,
+                    weight=weight,
+                    entry_price=price_map.get(ticker, 0.0),
+                    composite_score=score_map.get(ticker, 0.0),
+                )
+                for ticker, weight in new_weights.items()
+                if weight > 1e-6
+            ]
+
+            if not holdings:
+                return self._select_by_top_percentile(scores)
+
+            return holdings
+
+        except Exception:
+            logger.exception("Optimization failed, falling back to top percentile")
+            return self._select_by_top_percentile(scores)
+
+    @staticmethod
+    def _scores_to_composites(scores: list[ScoredStock]) -> list[CompositeScore]:
+        """Convert ScoredStock objects to minimal CompositeScore for alpha calibration."""
+        composites = []
+        for s in scores:
+            composites.append(
+                CompositeScore(
+                    ticker=s.ticker,
+                    composite_percentile=s.composite_score,
+                    composite_raw_score=s.composite_score,
+                    quality=_stub_factor("quality"),
+                    value=_stub_factor("value"),
+                    momentum=_stub_factor("momentum"),
+                    filters_passed=[
+                        FilterResult(name="stub", passed=True, value=1.0, threshold=0.0)
+                    ],
+                    data_coverage=1.0,
+                )
+            )
+        return composites
+
+    def _compute_nonlinear_costs(
+        self,
+        old_holdings: list[HoldingRecord],
+        new_holdings: list[HoldingRecord],
+        portfolio_value: float,
+    ) -> float:
+        """Compute non-linear transaction costs for a rebalance.
+
+        Iterates each holding, computes trade delta, and applies the non-linear
+        cost model per trade. Uses conservative defaults for ADV and market_cap
+        since those aren't available in ScoredStock.
+        """
+        old_map = {h.ticker: h.weight for h in old_holdings}
+        new_map = {h.ticker: h.weight for h in new_holdings}
+        all_tickers = set(old_map) | set(new_map)
+
+        total_cost = 0.0
+        for ticker in all_tickers:
+            old_w = old_map.get(ticker, 0.0)
+            new_w = new_map.get(ticker, 0.0)
+            delta = abs(new_w - old_w)
+            if delta < 1e-8:
+                continue
+
+            trade_value = portfolio_value * delta
+            cost = compute_transaction_cost(
+                trade_value=trade_value,
+                adv=_DEFAULT_ADV,
+                market_cap=_DEFAULT_MARKET_CAP,
+                config=self._cost_model_config,
+            )
+            total_cost += trade_value * cost.total_bps / 10_000
+
+        return total_cost
+
+    @staticmethod
+    def _compute_period_ic(
+        prev_holdings: list[HoldingRecord],
+        current_prices: dict[str, float],
+    ) -> float | None:
+        """Compute Rank IC for one period: prev composite_score vs realized return."""
+        predicted = []
+        realized = []
+        for h in prev_holdings:
+            if h.ticker in current_prices and h.entry_price > 0:
+                predicted.append(h.composite_score)
+                realized.append(current_prices[h.ticker] / h.entry_price - 1.0)
+
+        if len(predicted) < 3:
+            return None
+
+        return compute_rank_ic(np.array(predicted), np.array(realized))
 
     @staticmethod
     def _calculate_turnover(

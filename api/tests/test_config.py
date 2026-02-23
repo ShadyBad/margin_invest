@@ -91,3 +91,26 @@ class TestPoolSettings:
         monkeypatch.setenv("MARGIN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
         settings = Settings()
         assert settings.db_pool_size == 20
+
+
+class TestMlSettings:
+    def test_ml_settings_defaults(self):
+        """ML settings have expected default values."""
+        settings = Settings()
+        assert settings.ml_artifact_dir == "ml_models"
+        assert settings.ml_train_min_samples == 100
+        assert settings.ml_n_clusters == 5
+        assert settings.vae_enable is False
+
+    def test_ml_settings_from_env(self, monkeypatch):
+        """ML settings can be overridden via MARGIN_ env vars."""
+        monkeypatch.setenv("MARGIN_ML_ARTIFACT_DIR", "/data/models")
+        monkeypatch.setenv("MARGIN_ML_TRAIN_MIN_SAMPLES", "500")
+        monkeypatch.setenv("MARGIN_ML_N_CLUSTERS", "8")
+        monkeypatch.setenv("MARGIN_VAE_ENABLE", "true")
+        monkeypatch.setenv("MARGIN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+        settings = Settings()
+        assert settings.ml_artifact_dir == "/data/models"
+        assert settings.ml_train_min_samples == 500
+        assert settings.ml_n_clusters == 8
+        assert settings.vae_enable is True

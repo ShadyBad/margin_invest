@@ -6,10 +6,13 @@ import math
 from datetime import UTC, datetime
 from typing import Literal
 
+import numpy as np
 from pydantic import BaseModel
 
 from margin_engine.models.financial import PriceBar
 from margin_engine.models.scoring import FactorBreakdown
+from margin_engine.risk.covariance import compute_covariance
+from margin_engine.risk.returns import returns_from_price_bars
 
 
 class ExcludedTicker(BaseModel):
@@ -116,6 +119,77 @@ def compute_return_correlations(
 
     return CorrelationMatrix(
         tickers=valid_tickers,
+        method="returns",
+        matrix=matrix,
+        sample_sizes=sample_sizes,
+        excluded=excluded,
+        window_days=window_days,
+        computed_at=datetime.now(UTC),
+    )
+
+
+def compute_shrunk_return_correlations(
+    price_data: dict[str, list[PriceBar]],
+    window_days: int = 252,
+    min_bars: int = 10,
+    method: str = "auto",
+) -> CorrelationMatrix:
+    """Compute correlations using shrunk covariance estimation.
+
+    Uses the risk.covariance module for better-conditioned covariance
+    estimates, then converts to correlation form: D^{-1/2} @ Sigma @ D^{-1/2}.
+
+    Falls back to compute_return_correlations() if fewer than 2 tickers
+    have sufficient data.
+    """
+    # Identify tickers with sufficient bars
+    excluded: list[ExcludedTicker] = []
+    valid_price_data: dict[str, list[PriceBar]] = {}
+
+    for ticker in sorted(price_data.keys()):
+        bars = price_data[ticker][-window_days:]
+        if len(bars) < min_bars:
+            excluded.append(
+                ExcludedTicker(ticker=ticker, reason=f"only {len(bars)} bars (need {min_bars})")
+            )
+        else:
+            valid_price_data[ticker] = price_data[ticker]
+
+    if len(valid_price_data) < 2:
+        # Fall back to the simple correlation for 0 or 1 tickers
+        return compute_return_correlations(price_data, window_days, min_bars=min_bars)
+
+    # Build return matrix via risk.returns
+    returns_matrix, tickers = returns_from_price_bars(valid_price_data, window_days)
+
+    if len(tickers) < 2:
+        return compute_return_correlations(price_data, window_days, min_bars=min_bars)
+
+    # Compute shrunk covariance
+    cov_result = compute_covariance(returns_matrix, tickers, method=method)
+
+    # Convert covariance to correlation: corr = D^{-1/2} @ Sigma @ D^{-1/2}
+    sigma = cov_result.matrix
+    d = np.sqrt(np.diag(sigma))
+    # Guard against zero variance
+    d[d == 0] = 1.0
+    d_inv = 1.0 / d
+    corr = sigma * np.outer(d_inv, d_inv)
+
+    # Ensure diagonal is exactly 1.0 and clip to [-1, 1]
+    np.fill_diagonal(corr, 1.0)
+    corr = np.clip(corr, -1.0, 1.0)
+
+    # Build sample_sizes (uniform since return matrix is aligned)
+    n_obs = returns_matrix.shape[0]
+    n_tickers = len(tickers)
+    sample_sizes = [[n_obs] * n_tickers for _ in range(n_tickers)]
+
+    # Convert to list-of-lists
+    matrix = corr.tolist()
+
+    return CorrelationMatrix(
+        tickers=list(tickers),
         method="returns",
         matrix=matrix,
         sample_sizes=sample_sizes,

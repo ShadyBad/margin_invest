@@ -12,6 +12,7 @@ from margin_api.db.models import (
     FinancialData,
     IngestionRun,
     MetricsDerived,
+    MlModelRun,
     PriceIntraday,
     Recommendation,
     Score,
@@ -184,6 +185,7 @@ class TestTableCreation:
         assert "metrics_derived" in table_names
         assert "backtest_runs" in table_names
         assert "backtest_results" in table_names
+        assert "ml_model_runs" in table_names
 
     def test_insert_and_query_asset(self, sync_engine):
         Base.metadata.create_all(sync_engine)
@@ -210,6 +212,29 @@ class TestTableCreation:
             session.add(score)
             session.commit()
             assert score.asset_id == asset.id
+
+    def test_insert_ml_model_run_with_metrics(self, sync_engine):
+        """Train metrics dict round-trips through JSONB (JSON on SQLite)."""
+        Base.metadata.create_all(sync_engine)
+        with Session(sync_engine) as session:
+            metrics = {"rmse": 0.05, "r2": 0.85}
+            run = MlModelRun(
+                model_type="lightgbm_cluster",
+                n_clusters=5,
+                n_features=12,
+                n_samples=500,
+                train_metrics=metrics,
+                artifact_path="/tmp/model.pkl",
+                status="completed",
+            )
+            session.add(run)
+            session.commit()
+
+            result = session.execute(select(MlModelRun).where(MlModelRun.id == run.id))
+            found = result.scalar_one()
+            assert found.train_metrics == {"rmse": 0.05, "r2": 0.85}
+            assert found.model_type == "lightgbm_cluster"
+            assert found.n_clusters == 5
 
 
 class TestPriceIntradayModel:
@@ -380,3 +405,27 @@ class TestIngestionRunDataTypes:
     def test_ingestion_run_has_data_types(self):
         columns = {c.name for c in IngestionRun.__table__.columns}
         assert "data_types" in columns
+
+
+class TestMlModelRunModel:
+    def test_table_name(self):
+        assert MlModelRun.__tablename__ == "ml_model_runs"
+
+    def test_columns(self):
+        columns = {c.name for c in MlModelRun.__table__.columns}
+        expected = {
+            "id",
+            "model_type",
+            "n_clusters",
+            "n_features",
+            "n_samples",
+            "train_metrics",
+            "artifact_path",
+            "status",
+            "created_at",
+        }
+        assert expected.issubset(columns)
+
+    def test_model_type_not_nullable(self):
+        col = MlModelRun.__table__.columns["model_type"]
+        assert col.nullable is False
