@@ -61,37 +61,30 @@ def upgrade() -> None:
         "ix_v4_scores_scored_at", "v4_scores", ["scored_at"], unique=False
     )
 
-    # Add new columns to ml_model_runs
-    op.add_column(
+    # Create ml_model_runs table (with all columns including v4 additions)
+    op.create_table(
         "ml_model_runs",
-        sa.Column(
-            "model_qualifies",
-            sa.Boolean(),
-            nullable=False,
-            server_default=sa.text("false"),
-        ),
-    )
-    op.add_column(
-        "ml_model_runs",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("model_type", sa.String(length=50), nullable=False),
+        sa.Column("n_clusters", sa.Integer(), server_default=sa.text("0"), nullable=False),
+        sa.Column("n_features", sa.Integer(), server_default=sa.text("0"), nullable=False),
+        sa.Column("n_samples", sa.Integer(), server_default=sa.text("0"), nullable=False),
+        sa.Column("train_metrics", jsonb_variant, nullable=True),
+        sa.Column("artifact_path", sa.String(length=500), nullable=True),
+        sa.Column("status", sa.String(length=20), server_default=sa.text("'completed'"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("model_qualifies", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.Column("overall_rank_ic", sa.Float(), nullable=True),
-    )
-    op.add_column(
-        "ml_model_runs",
         sa.Column("vae_rank_ic", sa.Float(), nullable=True),
-    )
-    op.add_column(
-        "ml_model_runs",
         sa.Column("vae_artifact_path", sa.String(length=500), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
     )
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    # Remove columns from ml_model_runs
-    op.drop_column("ml_model_runs", "vae_artifact_path")
-    op.drop_column("ml_model_runs", "vae_rank_ic")
-    op.drop_column("ml_model_runs", "overall_rank_ic")
-    op.drop_column("ml_model_runs", "model_qualifies")
+    # Drop ml_model_runs table
+    op.drop_table("ml_model_runs")
 
     # Drop v4_scores table
     op.drop_index("ix_v4_scores_scored_at", table_name="v4_scores")
