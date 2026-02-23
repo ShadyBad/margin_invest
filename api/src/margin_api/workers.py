@@ -141,6 +141,17 @@ async def full_ingest(
     limiter = RateLimiter(requests_per_minute=12)
     provider = YFinanceProvider(rate_limiter=limiter)
 
+    # Construct FMP fallback provider if API key is available
+    import os
+
+    fmp_provider = None
+    fmp_key = os.environ.get("FMP_API_KEY")
+    if fmp_key:
+        from margin_engine.ingestion.providers.fmp_provider import FMPProvider
+
+        fmp_provider = FMPProvider(api_key=fmp_key)
+        logger.info("[ingest] FMP fallback provider enabled")
+
     successes = 0
     failures = 0
     partial_count = 0
@@ -178,7 +189,12 @@ async def full_ingest(
                 continue
 
         async with session_factory() as session:
-            result = await seed_ticker_data(ticker=ticker, provider=provider, session=session)
+            result = await seed_ticker_data(
+                ticker=ticker,
+                provider=provider,
+                session=session,
+                fallback_provider=fmp_provider,
+            )
 
         if result.status == "ok":
             successes += 1

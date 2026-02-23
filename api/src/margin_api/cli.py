@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import logging
 import math
+import os
 import sys
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -176,6 +177,7 @@ async def seed_ticker_data(
     ticker: str,
     provider: YFinanceProvider,
     session,
+    fallback_provider=None,
 ) -> SeedResult:
     """Fetch data for a single ticker and upsert it into the database.
 
@@ -185,6 +187,34 @@ async def seed_ticker_data(
     try:
         # Fetch all data categories via provider.fetch_all
         results = provider.fetch_all(ticker)
+
+        # Attempt fallback for failed categories
+        if fallback_provider is not None:
+            fallback_map = {
+                "fundamentals": "fetch_fundamentals",
+                "price": "fetch_price_history",
+                "earnings": "fetch_earnings",
+            }
+            for cat_name, method_name in fallback_map.items():
+                if cat_name in results and not results[cat_name].success:
+                    try:
+                        method = getattr(fallback_provider, method_name)
+                        fb_result = method(ticker)
+                        if fb_result.success:
+                            results[cat_name] = fb_result
+                            logger.info(
+                                "  %s: %s rescued by %s",
+                                ticker,
+                                cat_name,
+                                fb_result.provider_name,
+                            )
+                    except Exception as fb_exc:
+                        logger.warning(
+                            "  %s: fallback %s failed: %s",
+                            ticker,
+                            cat_name,
+                            fb_exc,
+                        )
 
         # Track per-category success/failure
         categories_succeeded: list[str] = []
@@ -375,6 +405,15 @@ async def run_seed(tickers: list[str] | None = None) -> None:
     limiter = RateLimiter(requests_per_minute=12)
     provider = YFinanceProvider(rate_limiter=limiter)
 
+    # Construct FMP fallback provider if API key is available
+    fmp_provider = None
+    fmp_key = os.environ.get("FMP_API_KEY")
+    if fmp_key:
+        from margin_engine.ingestion.providers.fmp_provider import FMPProvider
+
+        fmp_provider = FMPProvider(api_key=fmp_key)
+        logger.info("FMP fallback provider enabled")
+
     engine = get_engine()
     session_factory = get_session_factory(engine)
 
@@ -418,6 +457,7 @@ async def run_seed(tickers: list[str] | None = None) -> None:
                 ticker=ticker,
                 provider=provider,
                 session=session,
+                fallback_provider=fmp_provider,
             )
 
         if result.status == "ok":
