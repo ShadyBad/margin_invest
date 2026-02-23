@@ -67,12 +67,14 @@ class TestFetchFundamentals:
         assert result.ticker == "AAPL"
         assert result.raw_data["income_statement"]["revenue"] == 85777000000
 
-        # Verify correct URL was called
+        # Verify correct URL and params were used
         mock_httpx.get.assert_called_once()
         call_args = mock_httpx.get.call_args
         url = call_args[0][0]
         assert "/income-statement/AAPL" in url
-        assert "apikey=test-key" in url
+        assert "apikey" not in url  # key should be in params, not URL
+        assert call_args[1]["params"]["apikey"] == "test-key"
+        assert call_args[1]["params"]["limit"] == 1
 
     def test_api_error(self) -> None:
         provider = FMPProvider(api_key="test-key")
@@ -125,12 +127,37 @@ class TestFetchEarnings:
         assert earnings[0]["expected_eps"] == 2.10
         assert earnings[0]["quarter"] == "2024-01-25"
 
-        # Verify correct URL was called
+        # Verify correct URL and params were used
         mock_httpx.get.assert_called_once()
         call_args = mock_httpx.get.call_args
         url = call_args[0][0]
         assert "/historical/earning_calendar/AAPL" in url
-        assert "apikey=test-key" in url
+        assert "apikey" not in url
+        assert call_args[1]["params"]["apikey"] == "test-key"
+        assert call_args[1]["params"]["limit"] == 25
+
+    def test_missing_keys_safe(self) -> None:
+        """Rows with missing keys should use defaults instead of raising KeyError."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"date": "2024-01-25"},  # missing eps and epsEstimated
+            {},  # completely empty row
+        ]
+        mock_response.raise_for_status = MagicMock()
+
+        provider = FMPProvider(api_key="test-key")
+
+        with patch("margin_engine.ingestion.providers.fmp_provider.httpx") as mock_httpx:
+            mock_httpx.get.return_value = mock_response
+            result = provider.fetch_earnings("AAPL")
+
+        assert result.success is True
+        earnings = result.raw_data["earnings"]
+        assert len(earnings) == 2
+        assert earnings[0]["quarter"] == "2024-01-25"
+        assert earnings[0]["actual_eps"] is None
+        assert earnings[0]["expected_eps"] is None
+        assert earnings[1]["quarter"] == ""
 
     def test_empty_response(self) -> None:
         mock_response = MagicMock()
@@ -189,11 +216,14 @@ class TestFetchPriceHistory:
         assert bars[0]["close"] == 153.0
         assert bars[0]["volume"] == 5000000
 
-        # Verify correct URL was called
+        # Verify correct URL and params were used
         mock_httpx.get.assert_called_once()
         call_args = mock_httpx.get.call_args
         url = call_args[0][0]
         assert "/historical-price-full/AAPL" in url
+        assert "apikey" not in url
+        assert call_args[1]["params"]["apikey"] == "test-key"
+        assert call_args[1]["params"]["timeseries"] == 30
 
     def test_api_error(self) -> None:
         provider = FMPProvider(api_key="test-key")

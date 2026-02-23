@@ -10,6 +10,7 @@ Start the worker with:
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import UTC, datetime
 
@@ -90,6 +91,7 @@ async def full_ingest(
     Fetches financial data from yfinance for every ticker in the active
     universe and upserts it into the database. Always chains to full_score.
     """
+    from margin_engine.ingestion.circuit_breaker import CircuitBreaker
     from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
     from margin_engine.ingestion.rate_limiter import RateLimiter
 
@@ -143,8 +145,6 @@ async def full_ingest(
     provider = YFinanceProvider(rate_limiter=limiter)
 
     # Construct FMP fallback provider if API key is available
-    import os
-
     fmp_provider = None
     fmp_key = os.environ.get("FMP_API_KEY")
     if fmp_key:
@@ -152,6 +152,14 @@ async def full_ingest(
 
         fmp_provider = FMPProvider(api_key=fmp_key)
         logger.info("[ingest] FMP fallback provider enabled")
+
+    # Per-provider circuit breakers
+    yf_breaker = CircuitBreaker(failure_threshold=10, cooldown_seconds=900.0)
+    fmp_breaker = (
+        CircuitBreaker(failure_threshold=10, cooldown_seconds=900.0)
+        if fmp_provider
+        else None
+    )
 
     successes = 0
     failures = 0
@@ -189,16 +197,33 @@ async def full_ingest(
                 logger.info("[ingest] %s SKIPPED (already seeded today)", ticker)
                 continue
 
+        # Circuit breaker gate: skip if primary provider is tripped
+        if not yf_breaker.allow_request():
+            logger.warning("[ingest] %s SKIPPED (circuit breaker open for yfinance)", ticker)
+            failures += 1
+            failed_tickers.append(ticker)
+            continue
+
         tick_started = datetime.now(UTC)
         async with session_factory() as session:
             result = await seed_ticker_data(
                 ticker=ticker,
                 provider=provider,
                 session=session,
-                fallback_provider=fmp_provider,
+                fallback_provider=(
+                    fmp_provider
+                    if (fmp_breaker is None or fmp_breaker.allow_request())
+                    else None
+                ),
             )
         tick_ended = datetime.now(UTC)
         duration_ms = int((tick_ended - tick_started).total_seconds() * 1000)
+
+        # Update circuit breaker state based on result
+        if result.status == "failed":
+            yf_breaker.record_failure()
+        else:
+            yf_breaker.record_success()
 
         # Record per-ticker audit trail
         if result.status in ("ok", "partial"):
@@ -255,7 +280,8 @@ async def full_ingest(
     )
 
     # Run threshold-based alerting
-    _log_run_alerts(total, successes, failures, partial_count, 0)
+    cb_trips = yf_breaker.trip_count + (fmp_breaker.trip_count if fmp_breaker else 0)
+    _log_run_alerts(total, successes, failures, partial_count, cb_trips)
 
     # Chain to scoring — always enqueue regardless of ingest outcome
     redis: ArqRedis | None = ctx.get("redis")

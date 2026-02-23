@@ -75,8 +75,12 @@ class FMPProvider(DataProvider):
         """
         self._acquire_rate_limit()
         try:
-            url = f"{_BASE_URL}/income-statement/{ticker}?apikey={self._api_key}&limit=1"
-            resp = httpx.get(url, timeout=self._timeout)
+            url = f"{_BASE_URL}/income-statement/{ticker}"
+            resp = httpx.get(
+                url,
+                params={"apikey": self._api_key, "limit": 1},
+                timeout=self._timeout,
+            )
             resp.raise_for_status()
             rows = resp.json()
 
@@ -118,20 +122,21 @@ class FMPProvider(DataProvider):
         """
         self._acquire_rate_limit()
         try:
-            url = (
-                f"{_BASE_URL}/historical/earning_calendar/{ticker}"
-                f"?apikey={self._api_key}&limit=25"
+            url = f"{_BASE_URL}/historical/earning_calendar/{ticker}"
+            resp = httpx.get(
+                url,
+                params={"apikey": self._api_key, "limit": 25},
+                timeout=self._timeout,
             )
-            resp = httpx.get(url, timeout=self._timeout)
             resp.raise_for_status()
             rows = resp.json()
 
             earnings: list[dict] = []
             for row in rows:
                 entry: dict = {
-                    "quarter": row["date"],
-                    "actual_eps": row["eps"],
-                    "expected_eps": row["epsEstimated"],
+                    "quarter": row.get("date", ""),
+                    "actual_eps": row.get("eps"),
+                    "expected_eps": row.get("epsEstimated"),
                 }
                 earnings.append(entry)
 
@@ -165,11 +170,12 @@ class FMPProvider(DataProvider):
         """
         self._acquire_rate_limit()
         try:
-            url = (
-                f"{_BASE_URL}/historical-price-full/{ticker}"
-                f"?apikey={self._api_key}&timeseries={days}"
+            url = f"{_BASE_URL}/historical-price-full/{ticker}"
+            resp = httpx.get(
+                url,
+                params={"apikey": self._api_key, "timeseries": days},
+                timeout=self._timeout,
             )
-            resp = httpx.get(url, timeout=self._timeout)
             resp.raise_for_status()
             data = resp.json()
             raw_bars = data.get("historical", []) if isinstance(data, dict) else []
