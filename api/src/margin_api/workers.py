@@ -682,11 +682,47 @@ async def train_ml_models(ctx: dict) -> dict:
         n_clusters = settings.ml_n_clusters
         clusters = cluster_stocks(features, tickers, n_clusters=n_clusters)
 
-        # Build forward returns (placeholder: zeros — real returns would come
-        # from price data, which requires separate loading)
         import numpy as np
+        from margin_engine.ml.forward_returns import compute_forward_returns
 
-        forward_returns = np.zeros(len(tickers))
+        # Load price data for training tickers
+        async with session_factory() as session:
+            from margin_api.db.models import FinancialData as FD
+
+            price_result = await session.execute(
+                select(FD.price_history, Asset.ticker)
+                .join(Asset, FD.asset_id == Asset.id)
+                .where(Asset.ticker.in_(tickers))
+            )
+            price_rows = price_result.all()
+
+        # Build price_data dict: ticker -> bars
+        ticker_prices: dict[str, list[dict]] = {}
+        for ph, t in price_rows:
+            if t and ph and isinstance(ph, dict):
+                bars = ph.get("bars", [])
+                if bars:
+                    ticker_prices[t] = bars
+
+        scored_entries = [
+            {
+                "ticker": t,
+                "scored_at": (
+                    str(score.scored_at.date())
+                    if hasattr(score, "scored_at")
+                    else "2024-01-01"
+                ),
+            }
+            for score, t in rows
+            if t in ticker_prices
+        ]
+        fwd_returns = compute_forward_returns(scored_entries, ticker_prices)
+
+        forward_returns = np.array([fwd_returns.get(t, 0.0) for t in tickers])
+        n_with_returns = sum(1 for t in tickers if t in fwd_returns)
+        logger.info(
+            "[ml] Forward returns: %d/%d tickers have real data", n_with_returns, len(tickers)
+        )
 
         # Convert clusters from {cluster_id: [tickers]} to {cluster_id: [indices]}
         ticker_to_idx = {t: i for i, t in enumerate(tickers)}
@@ -697,6 +733,24 @@ async def train_ml_models(ctx: dict) -> dict:
 
         # Train models
         models = train_cluster_models(features, forward_returns, cluster_indices)
+
+        # Train FactorVAE
+        from margin_engine.ml.factor_vae import FactorVAEConfig, train_factor_vae
+
+        vae_bytes = None
+        vae_metrics = None
+        try:
+            vae_config = FactorVAEConfig(
+                enable=True, latent_dim=8, hidden_dim=64, epochs=100
+            )
+            vae_bytes, vae_metrics = train_factor_vae(features, forward_returns, vae_config)
+            logger.info(
+                "[ml] VAE trained: rank_ic=%.4f, recon_loss=%.4f",
+                vae_metrics.rank_ic,
+                vae_metrics.reconstruction_loss,
+            )
+        except Exception as e:
+            logger.warning("[ml] VAE training failed, continuing without: %s", e)
 
         # Save artifacts
         artifact_dir = settings.ml_artifact_dir
@@ -710,22 +764,60 @@ async def train_ml_models(ctx: dict) -> dict:
             with open(model_file, "wb") as f:
                 f.write(model_bytes)
 
-        # Record MlModelRun
-        train_metrics = {
-            "n_clusters": n_clusters,
-            "n_models": len(models),
-            "feature_names": feature_names[:20],  # Store first 20 feature names
-        }
+        # Save VAE artifact
+        vae_artifact_path = None
+        if vae_bytes:
+            vae_artifact_path = os.path.join(artifact_path, "factor_vae.pt")
+            with open(vae_artifact_path, "wb") as f:
+                f.write(vae_bytes)
 
+        # Compute rank IC and model qualification
+        from margin_engine.ml.signal_model import predict_alpha
+        from scipy.stats import spearmanr
+
+        all_preds = np.zeros(len(tickers))
+        for cluster_id_ic, model_bytes_ic in models.items():
+            c_indices = cluster_indices[cluster_id_ic]
+            if c_indices:
+                cluster_features = features[c_indices]
+                preds = predict_alpha(model_bytes_ic, cluster_features)
+                for j, idx in enumerate(c_indices):
+                    all_preds[idx] = preds[j]
+
+        mask = forward_returns != 0.0
+        if mask.sum() > 10:
+            overall_rank_ic, _ = spearmanr(all_preds[mask], forward_returns[mask])
+            if np.isnan(overall_rank_ic):
+                overall_rank_ic = 0.0
+        else:
+            overall_rank_ic = 0.0
+
+        model_qualifies = overall_rank_ic > 0.15
+        logger.info(
+            "[ml] Overall rank IC: %.4f (qualifies=%s)", overall_rank_ic, model_qualifies
+        )
+
+        # Record MlModelRun
         async with session_factory() as session:
             ml_run = MlModelRun(
                 model_type="lightgbm_cluster",
-                n_clusters=n_clusters,
-                n_features=len(feature_names),
-                n_samples=len(tickers),
-                train_metrics=train_metrics,
+                n_clusters=len(models),
+                n_features=features.shape[1],
+                n_samples=features.shape[0],
+                train_metrics={
+                    "feature_names": feature_names,
+                    "cluster_sizes": {
+                        str(k): len(v) for k, v in cluster_indices.items()
+                    },
+                    "vae_metrics": (
+                        vae_metrics.model_dump() if vae_metrics else None
+                    ),
+                },
                 artifact_path=artifact_path,
-                status="completed",
+                model_qualifies=model_qualifies,
+                overall_rank_ic=overall_rank_ic,
+                vae_rank_ic=vae_metrics.rank_ic if vae_metrics else None,
+                vae_artifact_path=vae_artifact_path,
             )
             session.add(ml_run)
 
