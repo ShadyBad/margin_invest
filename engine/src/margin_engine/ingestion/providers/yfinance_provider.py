@@ -257,11 +257,11 @@ class YFinanceProvider(DataProvider):
             Dict keyed by ``"fundamentals"``, ``"price"``, ``"earnings"``,
             ``"info"``, each mapping to a :class:`FetchResult`.
         """
-        self._acquire_rate_limit()
         t = yf.Ticker(ticker)
         results: dict[str, FetchResult] = {}
 
         # --- fundamentals ---
+        self._acquire_rate_limit()
         try:
             raw_fundamentals = {
                 "income_statement": _df_most_recent_column_to_dict(t.financials),
@@ -287,6 +287,7 @@ class YFinanceProvider(DataProvider):
             )
 
         # --- price ---
+        self._acquire_rate_limit()
         try:
             period = _days_to_period(price_days)
             hist = t.history(period=period)
@@ -321,6 +322,7 @@ class YFinanceProvider(DataProvider):
             )
 
         # --- earnings ---
+        self._acquire_rate_limit()
         try:
             df = t.earnings_dates
 
@@ -353,6 +355,7 @@ class YFinanceProvider(DataProvider):
             )
 
         # --- info ---
+        self._acquire_rate_limit()
         try:
             raw_info = t.info if t.info else {}
             results["info"] = FetchResult(
