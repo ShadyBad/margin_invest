@@ -63,13 +63,13 @@ def optimize_cvar(
     if n_assets == 1:
         candidate_map = {c.ticker: c for c in candidates}
         t = tickers[0]
-        alpha = candidate_map[t].expected_alpha if t in candidate_map else 0.0
+        exp_alpha = candidate_map[t].expected_alpha if t in candidate_map else 0.0
         port_returns = returns_scenarios[:, 0]
         risk = float(np.std(port_returns))
         sector = candidate_map[t].sector if t in candidate_map else "unknown"
         return OptimizedPortfolio(
             weights={t: 1.0},
-            expected_return=alpha,
+            expected_return=exp_alpha,
             portfolio_risk=risk,
             diversification_ratio=1.0,
             sector_exposures={sector: 1.0},

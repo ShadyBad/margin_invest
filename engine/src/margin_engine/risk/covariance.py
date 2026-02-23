@@ -241,6 +241,66 @@ def compute_linear_shrinkage(
     )
 
 
+def _compute_anls_partial(
+    returns: np.ndarray,
+    tickers: list[str],
+) -> CovarianceResult:
+    """ANLS on non-zero eigenvalues with null-space fallback.
+
+    When T < N but T >= N/2, the sample covariance has (N - T) zero
+    eigenvalues. Apply ANLS shrinkage to the T non-zero eigenvalues
+    and set the zero eigenvalues to the minimum shrunk eigenvalue.
+
+    Args:
+        returns: (t, n) matrix of returns where t < n.
+        tickers: List of ticker names.
+
+    Returns:
+        CovarianceResult with method="anls".
+    """
+    t_obs, n = returns.shape
+    s_cov = compute_sample_covariance(returns)
+
+    eigenvalues, eigenvectors = scipy.linalg.eigh(s_cov)
+
+    # Identify non-zero eigenvalues (those > small threshold)
+    threshold = 1e-12
+    nonzero_mask = eigenvalues > threshold
+    n_nonzero = int(np.sum(nonzero_mask))
+
+    if n_nonzero < 2:
+        # Too few non-zero eigenvalues; fall back to linear
+        return compute_linear_shrinkage(returns, tickers)
+
+    # Apply ANLS only to non-zero eigenvalues
+    nonzero_eigs = eigenvalues[nonzero_mask]
+    d_star_nonzero, shrinkage_intensity = _anls_shrink_eigenvalues(
+        nonzero_eigs, t_obs, n_nonzero
+    )
+
+    # Set null-space eigenvalues to minimum shrunk eigenvalue
+    min_shrunk = float(np.min(d_star_nonzero))
+    d_star = np.full(n, min_shrunk)
+    d_star[nonzero_mask] = d_star_nonzero
+
+    # Reconstruct
+    sigma = eigenvectors @ np.diag(d_star) @ eigenvectors.T
+    sigma = (sigma + sigma.T) / 2.0
+
+    cond = float(np.max(d_star) / np.min(d_star))
+
+    return CovarianceResult(
+        tickers=tickers,
+        matrix=sigma,
+        method="anls",
+        sample_size=t_obs,
+        condition_number=cond,
+        shrinkage_intensity=shrinkage_intensity,
+        n_assets=n,
+        n_observations=t_obs,
+    )
+
+
 def compute_covariance(
     returns: np.ndarray,
     tickers: list[str] | None = None,
@@ -249,9 +309,12 @@ def compute_covariance(
 ) -> CovarianceResult:
     """Dispatch covariance estimation by method.
 
-    Auto selection logic:
-    - "auto": ANLS when T >= N and T >= min_days; linear otherwise
-    - "anls"/"linear"/"sample" forces that method
+    Auto selection logic (three-tier):
+    - T >= N and T >= min_days: Full ANLS
+    - T < N but T >= N/2: ANLS on non-zero eigenvalues, null-space fallback
+    - T < N/4 or T < min_days: Linear shrinkage (Ledoit-Wolf 2004)
+
+    "anls"/"linear"/"sample" forces that method regardless of T/N ratio.
 
     Args:
         returns: (t, n) matrix of returns.
@@ -269,6 +332,8 @@ def compute_covariance(
     if method == "auto":
         if t_obs >= n and t_obs >= min_days:
             chosen = "anls"
+        elif t_obs >= n // 2 and t_obs >= min_days:
+            chosen = "anls_partial"
         else:
             chosen = "linear"
     else:
@@ -276,6 +341,8 @@ def compute_covariance(
 
     if chosen == "anls":
         return compute_anls_covariance(returns, tickers)
+    elif chosen == "anls_partial":
+        return _compute_anls_partial(returns, tickers)
     elif chosen == "linear":
         return compute_linear_shrinkage(returns, tickers)
     elif chosen == "sample":

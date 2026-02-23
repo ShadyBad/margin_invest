@@ -247,12 +247,19 @@ class TestAutoSelection:
         result = compute_covariance(x, method="auto", min_days=60)
         assert result.method == "linear"
 
-    def test_n_gt_t_produces_valid_psd(self) -> None:
-        """When N > T, auto-selected method still produces PSD matrix."""
-        x = _generate_returns(20, 40, seed=44)
+    def test_n_gt_t_intermediate_uses_anls_partial(self) -> None:
+        """When N/2 <= T < N, auto selects ANLS with null-space fallback."""
+        x = _generate_returns(20, 40, seed=44)  # T=20, N=40, T >= N/2
         result = compute_covariance(x, method="auto", min_days=10)
         assert _is_psd(result.matrix)
-        # Should have picked linear since t < n
+        # Should use partial ANLS (reported as "anls")
+        assert result.method == "anls"
+
+    def test_n_much_gt_t_uses_linear(self) -> None:
+        """When T < N/4, auto selects linear shrinkage."""
+        x = _generate_returns(10, 80, seed=44)  # T=10, N=80, T < N/4=20
+        result = compute_covariance(x, method="auto", min_days=5)
+        assert _is_psd(result.matrix)
         assert result.method == "linear"
 
     def test_forced_anls(self) -> None:
