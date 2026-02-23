@@ -24,6 +24,7 @@ from margin_api.db.models import (
     Asset,
     FinancialData,
     IngestionRun,
+    IngestionTickerStatus,
     JobRun,
     MlModelRun,
     Score,
@@ -188,6 +189,7 @@ async def full_ingest(
                 logger.info("[ingest] %s SKIPPED (already seeded today)", ticker)
                 continue
 
+        tick_started = datetime.now(UTC)
         async with session_factory() as session:
             result = await seed_ticker_data(
                 ticker=ticker,
@@ -195,6 +197,27 @@ async def full_ingest(
                 session=session,
                 fallback_provider=fmp_provider,
             )
+        tick_ended = datetime.now(UTC)
+        duration_ms = int((tick_ended - tick_started).total_seconds() * 1000)
+
+        # Record per-ticker audit trail
+        if result.status in ("ok", "partial"):
+            audit_status = "succeeded"
+        else:
+            audit_status = result.status
+        async with session_factory() as session:
+            ticker_status = IngestionTickerStatus(
+                run_id=run_id,
+                ticker=ticker,
+                status=audit_status,
+                error_message=result.error_message if result.status == "failed" else None,
+                data_fetched=result.data_categories_present if result.is_success else None,
+                duration_ms=duration_ms,
+                started_at=tick_started,
+                completed_at=tick_ended,
+            )
+            session.add(ticker_status)
+            await session.commit()
 
         if result.status == "ok":
             successes += 1
