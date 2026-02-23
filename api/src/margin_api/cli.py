@@ -826,6 +826,17 @@ def _compute_track_c_fields(history: Any, latest: Any, current_price: float, sha
     else:
         inc_roic = 0.0
 
+    # Revenue deceleration: compare recent growth to older growth
+    rev_decel = 0.0
+    if len(history.periods) >= 3:
+        rev_newest = float(history.periods[-1].current_income.revenue)
+        rev_mid = float(history.periods[-2].current_income.revenue)
+        rev_oldest = float(history.periods[-3].current_income.revenue)
+        if rev_mid > 0 and rev_oldest > 0:
+            growth_recent = (rev_newest / rev_mid) - 1.0
+            growth_older = (rev_mid / rev_oldest) - 1.0
+            rev_decel = growth_older - growth_recent  # positive = decelerating
+
     return {
         "revenue_growth_rate": rev_growth,
         "fcf_margin": fcf_margin,
@@ -834,7 +845,9 @@ def _compute_track_c_fields(history: Any, latest: Any, current_price: float, sha
         "opex_growth_rate": opex_growth,
         "revenue_growth_rate_for_leverage": rev_growth,
         "incremental_roic": inc_roic,
-        "revenue_deceleration": 0.0,
+        "revenue_deceleration": rev_decel,
+        # TAM headroom requires external industry data (not available from financials);
+        # default to neutral value — Track C uses this as a minor gate modifier
         "tam_headroom": 5.0,
     }
 
@@ -847,11 +860,7 @@ async def _load_and_predict_ml(
 
     Returns a dict with keys: model_qualifies, alphas, vae_means, vae_variances.
     """
-    import json
-    import pickle
-
     import numpy as np
-
     from margin_engine.ml.clustering import cluster_stocks
     from margin_engine.ml.signal_model import predict_alpha
 
@@ -921,7 +930,7 @@ async def _load_and_predict_ml(
         vae_file = Path(vae_artifact_path)
         if vae_file.exists():
             try:
-                from margin_engine.ml.factor_vae import FactorVAEConfig, predict_factor_vae
+                from margin_engine.ml.factor_vae import predict_factor_vae
 
                 vae_bytes = vae_file.read_bytes()
                 vae_means, vae_variances = predict_factor_vae(vae_bytes, feature_matrix)
@@ -942,7 +951,7 @@ async def _load_and_predict_ml(
 async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = None) -> None:
     """Score tickers using the v4 pipeline with Track C, style, momentum, and ML."""
     from margin_engine.ingestion.normalizer import normalize_earnings_list
-    from margin_engine.models.scoring import FactorScore, InvestmentStyle
+    from margin_engine.models.scoring import FactorScore
     from margin_engine.scoring.normalizer import compute_percentile_ranks
     from margin_engine.scoring.quantitative.sue import sue_score
     from margin_engine.scoring.style_classifier import classify_investment_style
@@ -970,6 +979,8 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
     ticker_data_list: list[TickerV4Data] = []
     sue_raw_scores: dict[str, float] = {}
     momentum_raw: dict[str, float] = {}
+    ev_fcf_raw_scores: dict[str, float] = {}
+    style_inputs: dict[str, dict] = {}
     total = len(tickers)
     asset_ids: dict[str, int] = {}
 
@@ -1063,11 +1074,49 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
 
                 # Style classification
                 rev_cagr = _compute_revenue_cagr(history)
+
+                # EV/FCF — compute raw value; percentile is ranked later
+                ev = float(profile.market_cap) + float(
+                    latest.current_balance.total_debt
+                ) - float(latest.current_balance.cash_and_equivalents)
+                ev_fcf_raw = ev / fcf if fcf > 0 else None
+
+                # Earnings acceleration: compare latest EPS growth to prior
+                earnings_accel = None
+                if len(history.periods) >= 3:
+                    eps_latest = float(latest.current_income.ebit)
+                    eps_prior = float(history.periods[-2].current_income.ebit)
+                    eps_oldest = float(history.periods[-3].current_income.ebit)
+                    if eps_oldest != 0 and eps_prior != 0:
+                        growth_recent = (eps_latest - eps_prior) / abs(eps_prior)
+                        growth_older = (eps_prior - eps_oldest) / abs(eps_oldest)
+                        earnings_accel = growth_recent > growth_older
+
+                # R&D + CapEx / Revenue
+                capex = abs(float(latest.current_cash_flow.capex))
+                rd = float(latest.current_income.research_and_development)
+                rev_for_ratio = float(latest.current_income.revenue)
+                rd_capex_ratio = (
+                    (rd + capex) / rev_for_ratio if rev_for_ratio > 0 else None
+                )
+
+                # Store EV/FCF raw for universe-level percentile ranking
+                if ev_fcf_raw is not None:
+                    ev_fcf_raw_scores[ticker] = ev_fcf_raw
+
+                # Store style inputs for re-classification after percentile ranking
+                style_inputs[ticker] = {
+                    "revenue_cagr_3yr": rev_cagr,
+                    "earnings_growth_accelerating": earnings_accel,
+                    "rd_capex_to_revenue": rd_capex_ratio,
+                }
+
+                # Preliminary style — will be re-classified with EV/FCF percentile
                 style = classify_investment_style(
-                    ev_fcf_sector_percentile=50.0,  # placeholder
+                    ev_fcf_sector_percentile=None,
                     revenue_cagr_3yr=rev_cagr,
-                    earnings_growth_accelerating=None,
-                    rd_capex_to_revenue=None,
+                    earnings_growth_accelerating=earnings_accel,
+                    rd_capex_to_revenue=rd_capex_ratio,
                 )
 
                 # Track C fields
@@ -1146,6 +1195,33 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
             len(mom_pctls),
             min(mom_pctls.values()),
             max(mom_pctls.values()),
+        )
+
+    # Compute EV/FCF percentiles and re-classify style with full data
+    if ev_fcf_raw_scores:
+        evfcf_tickers = list(ev_fcf_raw_scores.keys())
+        # Higher EV/FCF = more expensive = more growth-like, so no invert
+        evfcf_factors = [
+            FactorScore(name="ev_fcf", raw_value=ev_fcf_raw_scores[t], percentile_rank=0.0)
+            for t in evfcf_tickers
+        ]
+        ranked_evfcf = compute_percentile_ranks(evfcf_factors, invert=False)
+        evfcf_pctls = {t: ranked_evfcf[i].percentile_rank for i, t in enumerate(evfcf_tickers)}
+
+        for idx, td in enumerate(ticker_data_list):
+            if td.ticker in evfcf_pctls and td.ticker in style_inputs:
+                si = style_inputs[td.ticker]
+                new_style = classify_investment_style(
+                    ev_fcf_sector_percentile=evfcf_pctls[td.ticker],
+                    revenue_cagr_3yr=si["revenue_cagr_3yr"],
+                    earnings_growth_accelerating=si["earnings_growth_accelerating"],
+                    rd_capex_to_revenue=si["rd_capex_to_revenue"],
+                )
+                if new_style != td.style:
+                    ticker_data_list[idx] = td.model_copy(update={"style": new_style})
+        logger.info(
+            "EV/FCF percentiles computed for %d tickers — styles re-classified",
+            len(evfcf_pctls),
         )
 
     # Load ML models if available

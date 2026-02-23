@@ -32,6 +32,7 @@ def compute_forward_returns(
     scored_tickers: list[dict],
     price_data: dict[str, list[dict]],
     horizon_days: int = 252,
+    delisted_tickers: set[str] | None = None,
 ) -> dict[str, float]:
     """Compute forward returns for scored tickers.
 
@@ -45,16 +46,25 @@ def compute_forward_returns(
             Each bar must have 'close' (float) and 'date' (ISO string) keys.
         horizon_days: Number of trading days for the forward return window.
             Defaults to 252 (~12 months).
+        delisted_tickers: Optional set of tickers known to be delisted.
+            Delisted tickers receive a -100% return to prevent survivorship bias.
 
     Returns:
         Dict mapping ticker -> forward return as a decimal (e.g. 0.20 for 20%).
-        Tickers without sufficient future data or not in price_data are excluded.
+        Tickers without sufficient future data or not in price_data are excluded,
+        unless they are in delisted_tickers (assigned -1.0).
     """
     results: dict[str, float] = {}
+    _delisted = delisted_tickers or set()
 
     for entry in scored_tickers:
         ticker = entry["ticker"]
         scored_at = entry["scored_at"]
+
+        # Delisted tickers get -100% return (survivorship bias handling)
+        if ticker in _delisted:
+            results[ticker] = -1.0
+            continue
 
         # Skip tickers not in price data
         if ticker not in price_data:

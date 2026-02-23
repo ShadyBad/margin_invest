@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-import pytest
-
 from margin_engine.ml.forward_returns import compute_forward_returns
 
 
@@ -145,6 +143,64 @@ class TestMultipleTickers:
         assert len(result) == 2
         assert abs(result["AAA"] - 0.50) < 1e-10
         assert abs(result["BBB"] - (-0.10)) < 1e-10
+
+
+class TestDelistedTickers:
+    def test_delisted_ticker_gets_negative_100(self) -> None:
+        """Delisted tickers get -100% return (survivorship bias handling)."""
+        result = compute_forward_returns(
+            scored_tickers=[{"ticker": "DLST", "scored_at": "2024-01-12"}],
+            price_data={},
+            delisted_tickers={"DLST"},
+            horizon_days=252,
+        )
+
+        assert "DLST" in result
+        assert result["DLST"] == -1.0
+
+    def test_delisted_overrides_price_data(self) -> None:
+        """Even if price data exists, delisted flag takes precedence."""
+        scored_at_idx = 10
+        bars = _make_price_series(
+            start_price=100.0,
+            end_price=120.0,
+            n_bars=300,
+            scored_at_idx=scored_at_idx,
+        )
+        scored_at_date = bars[scored_at_idx]["date"]
+
+        result = compute_forward_returns(
+            scored_tickers=[{"ticker": "DLST", "scored_at": scored_at_date}],
+            price_data={"DLST": bars},
+            delisted_tickers={"DLST"},
+            horizon_days=252,
+        )
+
+        assert result["DLST"] == -1.0
+
+    def test_delisted_mixed_with_normal(self) -> None:
+        """Delisted and normal tickers coexist in the same call."""
+        scored_at_idx = 10
+        bars = _make_price_series(
+            start_price=100.0,
+            end_price=120.0,
+            n_bars=300,
+            scored_at_idx=scored_at_idx,
+        )
+        scored_at_date = bars[scored_at_idx]["date"]
+
+        result = compute_forward_returns(
+            scored_tickers=[
+                {"ticker": "AAPL", "scored_at": scored_at_date},
+                {"ticker": "DLST", "scored_at": scored_at_date},
+            ],
+            price_data={"AAPL": bars},
+            delisted_tickers={"DLST"},
+            horizon_days=252,
+        )
+
+        assert abs(result["AAPL"] - 0.20) < 1e-10
+        assert result["DLST"] == -1.0
 
 
 class TestMissingTickerExcluded:

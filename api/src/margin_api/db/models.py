@@ -126,7 +126,7 @@ class Asset(Base):
     recommendations: Mapped[list[Recommendation]] = relationship(back_populates="asset")
     financial_data: Mapped[list[FinancialData]] = relationship(back_populates="asset")
     v3_scores: Mapped[list[V3Score]] = relationship(back_populates="asset")
-    v4_scores: Mapped[list["V4Score"]] = relationship(back_populates="asset")
+    v4_scores: Mapped[list[V4Score]] = relationship(back_populates="asset")
 
 
 class FinancialData(Base):
@@ -319,7 +319,7 @@ class V4Score(Base):
     ml_override: Mapped[str] = mapped_column(String(20), default="none")
     detail: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
 
-    asset: Mapped["Asset"] = relationship(back_populates="v4_scores")
+    asset: Mapped[Asset] = relationship(back_populates="v4_scores")
 
     __table_args__ = (
         Index("ix_v4_scores_asset_scored", "asset_id", "scored_at"),

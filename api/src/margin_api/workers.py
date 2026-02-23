@@ -322,6 +322,9 @@ async def full_score_v3(
         await session.commit()
         job_id = job.id
 
+    status = "completed"
+    error: str | None = None
+
     try:
         await run_scoring_v3()
         reset_engine_cache()
@@ -338,18 +341,10 @@ async def full_score_v3(
 
         logger.info("[score_v3] V3 scoring complete")
 
-        # Chain to v4 scoring
-        pool = ctx.get("redis", ctx.get("pool"))
-        if pool:
-            await pool.enqueue_job(
-                "full_score_v4",
-                pipeline_id=pipeline_id,
-                parent_job_id=job_id,
-            )
-            logger.info("[score_v3] Chained -> full_score_v4")
-
     except Exception as e:
         logger.exception("[score_v3] V3 scoring failed: %s", e)
+        status = "failed"
+        error = str(e)
         reset_engine_cache()
         engine = get_engine()
         session_factory = get_session_factory(engine)
@@ -360,9 +355,23 @@ async def full_score_v3(
             job.error_message = str(e)[:500]
             job.completed_at = datetime.now(UTC)
             await session.commit()
-        return {"status": "failed", "pipeline_id": pipeline_id, "error": str(e)}
 
-    return {"status": "completed", "pipeline_id": pipeline_id}
+    # Always chain to v4 scoring — v4 is independent and should run
+    # regardless of v3 outcome
+    redis: ArqRedis | None = ctx.get("redis")
+    if redis:
+        await redis.enqueue_job(
+            "full_score_v4",
+            pipeline_id=pipeline_id,
+            parent_job_id=job_id,
+        )
+        logger.info("[score_v3] Chained -> full_score_v4")
+    else:
+        logger.warning("[score_v3] No redis in worker context — cannot chain to full_score_v4")
+
+    if error:
+        return {"status": status, "pipeline_id": pipeline_id, "error": error}
+    return {"status": status, "pipeline_id": pipeline_id}
 
 
 async def full_score_v4(
@@ -687,11 +696,11 @@ async def train_ml_models(ctx: dict) -> dict:
 
         # Load price data for training tickers
         async with session_factory() as session:
-            from margin_api.db.models import FinancialData as FD
+            from margin_api.db.models import FinancialData
 
             price_result = await session.execute(
-                select(FD.price_history, Asset.ticker)
-                .join(Asset, FD.asset_id == Asset.id)
+                select(FinancialData.price_history, Asset.ticker)
+                .join(Asset, FinancialData.asset_id == Asset.id)
                 .where(Asset.ticker.in_(tickers))
             )
             price_rows = price_result.all()
@@ -739,18 +748,23 @@ async def train_ml_models(ctx: dict) -> dict:
 
         vae_bytes = None
         vae_metrics = None
-        try:
-            vae_config = FactorVAEConfig(
-                enable=True, latent_dim=8, hidden_dim=64, epochs=100
-            )
-            vae_bytes, vae_metrics = train_factor_vae(features, forward_returns, vae_config)
-            logger.info(
-                "[ml] VAE trained: rank_ic=%.4f, recon_loss=%.4f",
-                vae_metrics.rank_ic,
-                vae_metrics.reconstruction_loss,
-            )
-        except Exception as e:
-            logger.warning("[ml] VAE training failed, continuing without: %s", e)
+        if settings.vae_enable:
+            try:
+                vae_config = FactorVAEConfig(
+                    enable=True, latent_dim=8, hidden_dim=64, epochs=100
+                )
+                vae_bytes, vae_metrics = train_factor_vae(
+                    features, forward_returns, vae_config
+                )
+                logger.info(
+                    "[ml] VAE trained: rank_ic=%.4f, recon_loss=%.4f",
+                    vae_metrics.rank_ic,
+                    vae_metrics.reconstruction_loss,
+                )
+            except Exception as e:
+                logger.warning("[ml] VAE training failed, continuing without: %s", e)
+        else:
+            logger.info("[ml] VAE training disabled via config")
 
         # Save artifacts
         artifact_dir = settings.ml_artifact_dir

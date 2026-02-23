@@ -3,7 +3,6 @@
 from margin_engine.ml.ensemble_override import apply_ml_override
 from margin_engine.models.scoring import ConvictionLevel
 
-
 # Helper: universe where the given value is at a known percentile.
 # 100 values from 0.01 to 1.0 make percentile calculation straightforward.
 _UNIVERSE = [i / 100.0 for i in range(1, 101)]  # 0.01 .. 1.00
