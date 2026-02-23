@@ -557,3 +557,115 @@ class TestAlertingHelper:
             _log_run_alerts(total=0, succeeded=0, failed=0, partial=0, cb_trips=0)
 
         assert "ALERT" not in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: verify components work together end-to-end
+# ---------------------------------------------------------------------------
+
+
+class TestCircuitBreakerIntegration:
+    """Verify CircuitBreaker state transitions across multiple operations."""
+
+    def test_circuit_breaker_trips_after_threshold(self):
+        from margin_engine.ingestion.circuit_breaker import CircuitBreaker
+
+        cb = CircuitBreaker(failure_threshold=3, cooldown_seconds=60)
+        for _ in range(3):
+            cb.record_failure()
+        assert cb.state == "open"
+        assert cb.trip_count == 1
+
+    def test_circuit_breaker_resets_on_success(self):
+        from margin_engine.ingestion.circuit_breaker import CircuitBreaker
+
+        cb = CircuitBreaker(failure_threshold=3, cooldown_seconds=60)
+        cb.record_failure()
+        cb.record_failure()
+        cb.record_success()
+        assert cb.state == "closed"
+        assert cb.consecutive_failures == 0
+
+
+class TestRetryIntegration:
+    """Verify retry_transient decorator retries on transient exceptions."""
+
+    def test_retry_decorator_retries_on_transient_exception(self):
+        from margin_engine.ingestion.retry import retry_transient
+        from margin_engine.ingestion.types import DataCategory, FetchResult
+
+        call_count = 0
+
+        @retry_transient(max_retries=2, base_delay=0.01)
+        def flaky(ticker: str) -> FetchResult:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise ConnectionError("reset")
+            return FetchResult(
+                provider_name="test",
+                category=DataCategory.FUNDAMENTALS,
+                ticker=ticker,
+                raw_data={"ok": True},
+                fetched_at="2026-01-01T00:00:00Z",
+                success=True,
+                error=None,
+            )
+
+        result = flaky("AAPL")
+        assert result.success is True
+        assert call_count == 2
+
+
+class TestSymbolMapperIntegration:
+    """Verify SymbolMapper loads YAML overrides and translates symbols."""
+
+    def test_yaml_loading(self):
+        from pathlib import Path
+
+        from margin_engine.ingestion.symbol_mapper import SymbolMapper
+
+        # Load from the actual YAML file
+        yaml_path = Path(__file__).resolve().parents[2] / "engine" / "symbol_overrides.yaml"
+        if yaml_path.exists():
+            mapper = SymbolMapper.from_yaml(yaml_path)
+            # The YAML uses "polygon" as the provider key
+            assert mapper.to_provider("BRK-B", "polygon") == "BRK.B"
+
+    def test_missing_yaml_returns_passthrough(self):
+        from margin_engine.ingestion.symbol_mapper import SymbolMapper
+
+        # No overrides means every lookup is a pass-through
+        mapper = SymbolMapper(overrides=None)
+        assert mapper.to_provider("AAPL", "fmp") == "AAPL"
+
+    def test_unknown_provider_passes_through(self):
+        from pathlib import Path
+
+        from margin_engine.ingestion.symbol_mapper import SymbolMapper
+
+        yaml_path = Path(__file__).resolve().parents[2] / "engine" / "symbol_overrides.yaml"
+        if yaml_path.exists():
+            mapper = SymbolMapper.from_yaml(yaml_path)
+            # BRK-B has a polygon override but not fmp, so fmp should pass through
+            assert mapper.to_provider("BRK-B", "fmp") == "BRK-B"
+
+
+class TestRunLevelResumeIntegration:
+    """Verify SeedResult tracks data category presence for run-level resume."""
+
+    def test_seed_result_data_categories_present(self):
+        from margin_api.services.seed_result import SeedResult
+
+        result = SeedResult(
+            status="partial",
+            categories_succeeded=["fundamentals", "price", "info"],
+            categories_failed=["earnings"],
+        )
+        cats = result.data_categories_present
+        assert cats == {
+            "fundamentals": True,
+            "price": True,
+            "info": True,
+            "earnings": False,
+        }
