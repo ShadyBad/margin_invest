@@ -10,8 +10,9 @@ COPY pyproject.toml uv.lock ./
 COPY engine/ engine/
 COPY api/ api/
 
-# Install dependencies
-RUN uv sync --frozen --no-dev --package margin-api
+# Install dependencies, then swap torch for CPU-only build (~200 MB vs ~3.7 GB CUDA)
+RUN uv sync --frozen --no-dev --package margin-api && \
+    uv pip install torch --index-url https://download.pytorch.org/whl/cpu --reinstall
 
 # Runtime stage
 FROM python:3.13-slim
