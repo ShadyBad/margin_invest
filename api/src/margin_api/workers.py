@@ -338,8 +338,85 @@ async def full_score_v3(
 
         logger.info("[score_v3] V3 scoring complete")
 
+        # Chain to v4 scoring
+        pool = ctx.get("redis", ctx.get("pool"))
+        if pool:
+            await pool.enqueue_job(
+                "full_score_v4",
+                pipeline_id=pipeline_id,
+                parent_job_id=job_id,
+            )
+            logger.info("[score_v3] Chained -> full_score_v4")
+
     except Exception as e:
         logger.exception("[score_v3] V3 scoring failed: %s", e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "failed", "pipeline_id": pipeline_id, "error": str(e)}
+
+    return {"status": "completed", "pipeline_id": pipeline_id}
+
+
+async def full_score_v4(
+    ctx: dict,
+    pipeline_id: str | None = None,
+    parent_job_id: int | None = None,
+) -> dict:
+    """Score all ingested assets using the v4 pipeline with ML override.
+
+    Terminal job in the daily chain. Extends v3 with Track C, style, and ML.
+    """
+    from margin_api.cli import run_scoring_v4
+
+    logger.info(
+        "[score_v4] Starting v4 scoring (pipeline=%s, parent=%s)...",
+        pipeline_id,
+        parent_job_id,
+    )
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="score_v4",
+            status="running",
+            triggered_by="chained",
+            parent_job_id=parent_job_id,
+            pipeline_id=pipeline_id,
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        await run_scoring_v4()
+        reset_engine_cache()
+
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        logger.info("[score_v4] V4 scoring complete")
+
+    except Exception as e:
+        logger.exception("[score_v4] V4 scoring failed: %s", e)
         reset_engine_cache()
         engine = get_engine()
         session_factory = get_session_factory(engine)
@@ -792,6 +869,7 @@ class WorkerSettings:
         full_ingest,
         full_score,
         full_score_v3,
+        full_score_v4,
         backtest_validate,
         train_ml_models,
         live_price_poll,

@@ -25,6 +25,7 @@ class TestWorkerSettings:
         assert "full_ingest" in names
         assert "full_score" in names
         assert "full_score_v3" in names
+        assert "full_score_v4" in names
         assert "backtest_validate" in names
         assert "live_price_poll" in names
         assert "retry_quarantined" in names
@@ -899,8 +900,8 @@ class TestWorkerRegistration:
         assert "train_ml_models" in cron_funcs
 
     def test_total_functions_count(self):
-        """All 7 worker functions should be registered."""
-        assert len(WorkerSettings.functions) == 7
+        """All 8 worker functions should be registered."""
+        assert len(WorkerSettings.functions) == 8
 
     def test_total_cron_jobs_count(self):
         """Should have 4 cron jobs."""
