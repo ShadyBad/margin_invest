@@ -687,8 +687,6 @@ async def train_ml_models(ctx: dict) -> dict:
     6. Save model artifacts
     7. Record MlModelRun in DB
     """
-    import os
-
     from margin_engine.factors.feature_matrix import build_feature_matrix
     from margin_engine.factors.registry import default_registry
     from margin_engine.ml.clustering import cluster_stocks
@@ -860,24 +858,11 @@ async def train_ml_models(ctx: dict) -> dict:
         else:
             logger.info("[ml] VAE training disabled via config")
 
-        # Save artifacts
-        artifact_dir = settings.ml_artifact_dir
-        os.makedirs(artifact_dir, exist_ok=True)
-        ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-        artifact_path = os.path.join(artifact_dir, f"models_{ts}")
-        os.makedirs(artifact_path, exist_ok=True)
+        # Serialize cluster models as pickled dict for DB storage
+        import pickle
 
-        for cluster_id, model_bytes in models.items():
-            model_file = os.path.join(artifact_path, f"cluster_{cluster_id}.pkl")
-            with open(model_file, "wb") as f:
-                f.write(model_bytes)
-
-        # Save VAE artifact
-        vae_artifact_path = None
-        if vae_bytes:
-            vae_artifact_path = os.path.join(artifact_path, "factor_vae.pt")
-            with open(vae_artifact_path, "wb") as f:
-                f.write(vae_bytes)
+        cluster_model_data = pickle.dumps(models)
+        vae_model_data = vae_bytes  # already bytes or None
 
         # Compute rank IC and model qualification
         from margin_engine.ml.signal_model import predict_alpha
@@ -921,11 +906,11 @@ async def train_ml_models(ctx: dict) -> dict:
                         vae_metrics.model_dump() if vae_metrics else None
                     ),
                 },
-                artifact_path=artifact_path,
+                cluster_model_data=cluster_model_data,
+                vae_model_data=vae_model_data,
                 model_qualifies=model_qualifies,
                 overall_rank_ic=overall_rank_ic,
                 vae_rank_ic=vae_metrics.rank_ic if vae_metrics else None,
-                vae_artifact_path=vae_artifact_path,
             )
             session.add(ml_run)
 

@@ -12,6 +12,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -498,6 +499,9 @@ class MlModelRun(Base):
     overall_rank_ic: Mapped[float | None] = mapped_column(Float, nullable=True)
     vae_rank_ic: Mapped[float | None] = mapped_column(Float, nullable=True)
     vae_artifact_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Model bytes stored in DB for persistence across container deploys
+    cluster_model_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    vae_model_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
 
 class ApiKey(Base):

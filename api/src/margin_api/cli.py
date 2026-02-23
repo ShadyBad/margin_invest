@@ -924,10 +924,12 @@ async def _load_and_predict_ml(
     ml_run: Any,
     ticker_data_list: list,
 ) -> dict:
-    """Load ML artifacts from a qualified MlModelRun and run predictions.
+    """Load ML model bytes from DB and run predictions.
 
     Returns a dict with keys: model_qualifies, alphas, vae_means, vae_variances.
     """
+    import pickle
+
     import numpy as np
     from margin_engine.ml.clustering import cluster_stocks
     from margin_engine.ml.signal_model import predict_alpha
@@ -939,16 +941,18 @@ async def _load_and_predict_ml(
         "vae_variances": {},
     }
 
-    artifact_path = ml_run.artifact_path
-    if not artifact_path:
+    if not ml_run.cluster_model_data:
+        logger.warning("ML model has no cluster_model_data stored")
         return result
 
-    artifact_dir = Path(artifact_path)
-    if not artifact_dir.exists():
-        logger.warning("ML artifact directory not found: %s", artifact_dir)
+    # Deserialize cluster models from DB
+    try:
+        models: dict[int, bytes] = pickle.loads(ml_run.cluster_model_data)
+    except Exception as e:
+        logger.warning("Failed to deserialize cluster models: %s", e)
         return result
 
-    # Build feature matrix from ticker data (simple features for clustering/prediction)
+    # Build feature matrix from ticker data
     tickers = [td.ticker for td in ticker_data_list]
     features = []
     for td in ticker_data_list:
@@ -975,13 +979,12 @@ async def _load_and_predict_ml(
     # Build ticker->index mapping
     ticker_idx = {t: i for i, t in enumerate(tickers)}
 
-    # Load per-cluster LightGBM models and predict
+    # Predict per-cluster using models from DB
     for cluster_id, cluster_tickers in clusters.items():
-        model_file = artifact_dir / f"cluster_{cluster_id}.pkl"
-        if not model_file.exists():
+        model_bytes = models.get(cluster_id)
+        if not model_bytes:
             continue
         try:
-            model_bytes = model_file.read_bytes()
             cluster_indices = [ticker_idx[t] for t in cluster_tickers if t in ticker_idx]
             if not cluster_indices:
                 continue
@@ -992,21 +995,19 @@ async def _load_and_predict_ml(
         except Exception as e:
             logger.warning("ML prediction failed for cluster %d: %s", cluster_id, e)
 
-    # Load VAE if available
-    vae_artifact_path = ml_run.vae_artifact_path
-    if vae_artifact_path:
-        vae_file = Path(vae_artifact_path)
-        if vae_file.exists():
-            try:
-                from margin_engine.ml.factor_vae import predict_factor_vae
+    # Load VAE from DB if available
+    if ml_run.vae_model_data:
+        try:
+            from margin_engine.ml.factor_vae import predict_factor_vae
 
-                vae_bytes = vae_file.read_bytes()
-                vae_means, vae_variances = predict_factor_vae(vae_bytes, feature_matrix)
-                for i, t in enumerate(tickers):
-                    result["vae_means"][t] = float(vae_means[i])
-                    result["vae_variances"][t] = float(vae_variances[i])
-            except Exception as e:
-                logger.warning("VAE prediction failed: %s", e)
+            vae_means, vae_variances = predict_factor_vae(
+                ml_run.vae_model_data, feature_matrix
+            )
+            for i, t in enumerate(tickers):
+                result["vae_means"][t] = float(vae_means[i])
+                result["vae_variances"][t] = float(vae_variances[i])
+        except Exception as e:
+            logger.warning("VAE prediction failed: %s", e)
 
     return result
 
