@@ -12,17 +12,19 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import redis.asyncio as aioredis
 import yfinance as yf
 from arq import cron
 from arq.connections import ArqRedis, RedisSettings
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
 from margin_api.db.models import (
     Asset,
+    Event,
     FinancialData,
     IngestionRun,
     IngestionTickerStatus,
@@ -32,8 +34,10 @@ from margin_api.db.models import (
     V3Score,
 )
 from margin_api.db.session import get_engine, get_session_factory, reset_engine_cache
+from margin_api.routes.events import add_event, add_notification
 from margin_api.services.live_prices import LivePriceService
 from margin_api.services.universe import get_active_snapshot
+from margin_api.ws.scores import ScoreChangeMessage, manager
 
 logger = logging.getLogger(__name__)
 
@@ -532,7 +536,121 @@ async def full_score_v4(
             await session.commit()
         return {"status": "failed", "pipeline_id": pipeline_id, "error": str(e)}
 
+    # Emit score change events and broadcast via WebSocket
+    try:
+        async with session_factory() as session:
+            n_events = await _emit_score_change_events(session)
+            if n_events:
+                logger.info("[score_v4] Emitted %d score change events", n_events)
+                await _broadcast_score_events(session)
+                logger.info("[score_v4] Broadcast score change events via WebSocket")
+    except Exception as e:
+        logger.warning("[score_v4] Score change event emission failed: %s", e)
+
     return {"status": "completed", "pipeline_id": pipeline_id}
+
+
+# ---------------------------------------------------------------------------
+# Score change event helpers
+# ---------------------------------------------------------------------------
+
+
+async def _emit_score_change_events(session: AsyncSession) -> int:
+    """Compare latest vs previous scores per asset and emit score_change events.
+
+    For each asset, fetch the two most recent scores. If the delta between
+    new and old composite_percentile exceeds 5.0 in absolute value, create
+    a score_change Event and a Notification.
+
+    Returns the count of events created.
+    """
+    # Get all distinct asset_ids that have scores
+    asset_ids_result = await session.execute(
+        select(Score.asset_id).distinct()
+    )
+    asset_ids = [row[0] for row in asset_ids_result.all()]
+
+    n_events = 0
+
+    for asset_id in asset_ids:
+        # Get the two most recent scores for this asset
+        result = await session.execute(
+            select(Score, Asset.ticker)
+            .join(Asset, Score.asset_id == Asset.id)
+            .where(Score.asset_id == asset_id)
+            .order_by(Score.scored_at.desc())
+            .limit(2)
+        )
+        rows = result.all()
+
+        if len(rows) < 2:
+            continue
+
+        new_score, ticker = rows[0]
+        old_score, _ = rows[1]
+
+        delta = new_score.composite_percentile - old_score.composite_percentile
+        if abs(delta) <= 5.0:
+            continue
+
+        payload = {
+            "old_score": old_score.composite_percentile,
+            "new_score": new_score.composite_percentile,
+            "delta": round(delta, 2),
+            "old_conviction": old_score.conviction_level,
+            "new_conviction": new_score.conviction_level,
+        }
+
+        event_db = await add_event(
+            session,
+            event_type="score_change",
+            ticker=ticker,
+            severity="minor",  # placeholder; ImpactClassifier overrides
+            source="scoring_pipeline",
+            payload=payload,
+        )
+        await add_notification(session, event_db)
+        n_events += 1
+
+    if n_events:
+        await session.commit()
+
+    return n_events
+
+
+async def _broadcast_score_events(session: AsyncSession) -> int:
+    """Broadcast recent score_change events via WebSocket.
+
+    Queries score_change events created in the last 5 minutes and sends
+    each one as a ScoreChangeMessage to all connected WebSocket clients.
+
+    Returns the count of events broadcast.
+    """
+    cutoff = datetime.now(UTC) - timedelta(minutes=5)
+    result = await session.execute(
+        select(Event)
+        .where(Event.event_type == "score_change")
+        .where(Event.created_at >= cutoff)
+        .order_by(Event.created_at.asc())
+    )
+    events = result.scalars().all()
+
+    n_broadcast = 0
+    for event_db in events:
+        payload = event_db.payload or {}
+        msg = ScoreChangeMessage(
+            ticker=event_db.ticker,
+            old_score=payload.get("old_score", 0.0),
+            new_score=payload.get("new_score", 0.0),
+            delta=payload.get("delta", 0.0),
+            severity=event_db.severity,
+            timestamp=event_db.timestamp,
+            event_id=event_db.event_id,
+        )
+        await manager.broadcast(msg)
+        n_broadcast += 1
+
+    return n_broadcast
 
 
 async def backtest_validate(ctx: dict) -> dict:
