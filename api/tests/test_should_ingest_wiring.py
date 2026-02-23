@@ -59,9 +59,15 @@ class TestRunSeedSkipsQuarantined:
         asset.consecutive_failures = 0
         asset.last_retry_at = None
 
+        # First execute: should_ingest check -> returns asset (active, passes through)
         asset_result = MagicMock()
         asset_result.scalar_one_or_none.return_value = asset
-        mock_session.execute.return_value = asset_result
+
+        # Second execute: resume check -> no FinancialData for today
+        no_fd_result = MagicMock()
+        no_fd_result.scalar_one_or_none.return_value = None
+
+        mock_session.execute.side_effect = [asset_result, no_fd_result]
 
         mock_session_ctx = AsyncMock()
         mock_session_ctx.__aenter__.return_value = mock_session

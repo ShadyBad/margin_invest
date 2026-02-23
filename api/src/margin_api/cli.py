@@ -400,6 +400,19 @@ async def run_seed(tickers: list[str] | None = None) -> None:
                 )
                 continue
 
+        # Resume check: skip if already seeded today
+        async with session_factory() as session:
+            today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
+            resume_check = await session.execute(
+                select(FinancialData)
+                .join(Asset, FinancialData.asset_id == Asset.id)
+                .where(Asset.ticker == ticker, FinancialData.period_end == today_iso)
+                .limit(1)
+            )
+            if resume_check.scalar_one_or_none() is not None:
+                logger.info("  %s SKIPPED (already seeded today)", ticker)
+                continue
+
         async with session_factory() as session:
             result = await seed_ticker_data(
                 ticker=ticker,

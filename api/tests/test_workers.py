@@ -87,17 +87,29 @@ class TestFullIngest:
         mock_snapshot.version = "2026.02.19"
         mock_snapshot.tickers = ["AAPL", "MSFT"]
 
-        # Mock session
+        # Mock session with sequential execute results:
+        # For each ticker: should_ingest check (no asset) + resume check (no data)
+        # Then final IngestionRun update
         mock_session = AsyncMock()
         mock_run = MagicMock()
         mock_run.id = 1
         mock_run.started_at = datetime.now(UTC)
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
+
+        # Execute calls: (should_ingest, resume) x 2 tickers + IngestionRun update
+        no_result = MagicMock()
+        no_result.scalar_one_or_none.return_value = None
+        run_result = MagicMock()
+        run_result.scalar_one.return_value = mock_run
         mock_session.execute = AsyncMock(
-            return_value=MagicMock(
-                scalar_one=MagicMock(return_value=mock_run),
-            ),
+            side_effect=[
+                no_result,  # AAPL should_ingest check (no asset)
+                no_result,  # AAPL resume check (not seeded today)
+                no_result,  # MSFT should_ingest check (no asset)
+                no_result,  # MSFT resume check (not seeded today)
+                run_result,  # IngestionRun update
+            ],
         )
 
         mock_session_factory = MagicMock()

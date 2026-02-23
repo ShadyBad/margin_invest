@@ -22,6 +22,7 @@ from sqlalchemy import func, select
 from margin_api.config import get_settings
 from margin_api.db.models import (
     Asset,
+    FinancialData,
     IngestionRun,
     JobRun,
     MlModelRun,
@@ -161,6 +162,19 @@ async def full_ingest(
                 logger.info(
                     "[ingest] %s SKIPPED (status=%s)", ticker, existing_asset.ingestion_status
                 )
+                continue
+
+        # Resume check: skip if already seeded today
+        async with session_factory() as session:
+            today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
+            resume_check = await session.execute(
+                select(FinancialData)
+                .join(Asset, FinancialData.asset_id == Asset.id)
+                .where(Asset.ticker == ticker, FinancialData.period_end == today_iso)
+                .limit(1)
+            )
+            if resume_check.scalar_one_or_none() is not None:
+                logger.info("[ingest] %s SKIPPED (already seeded today)", ticker)
                 continue
 
         async with session_factory() as session:
