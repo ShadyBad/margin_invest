@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     ml_artifact_dir: str = "ml_models"
     ml_train_min_samples: int = 100
     ml_n_clusters: int = 5
-    vae_enable: bool = False
+    vae_enable: bool = True
 
     # App
     debug: bool = False
