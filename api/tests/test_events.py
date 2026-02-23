@@ -1,41 +1,68 @@
-"""Tests for event and notification endpoints."""
+"""Tests for event and notification endpoints — DB-backed."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 from margin_api.app import create_app
-from margin_api.routes import events as events_module
+from margin_api.db.base import Base
+from margin_api.db.models import Event, Notification
+from margin_api.db.session import get_db
+from margin_api.routes.events import add_event, add_notification
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
-@pytest.fixture(autouse=True)
-def clean_event_stores():
-    """Clear the in-memory event and notification stores before each test."""
-    events_module._event_store.clear()
-    events_module._notification_store.clear()
-    yield
-    events_module._event_store.clear()
-    events_module._notification_store.clear()
+@pytest_asyncio.fixture
+async def async_engine():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield engine
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
 
 
-@pytest.fixture
-def client():
+@pytest_asyncio.fixture
+async def session_factory(async_engine):
+    return async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+
+
+@pytest_asyncio.fixture
+async def client(async_engine, session_factory):
     app = create_app()
-    return TestClient(app)
+
+    async def override_get_db():
+        async with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
 
 
-def _add_event(
+@pytest_asyncio.fixture
+async def db_session(session_factory):
+    async with session_factory() as session:
+        yield session
+
+
+async def _add_event_via_db(
+    session: AsyncSession,
     ticker: str = "AAPL",
     event_type: str = "earnings_release",
     severity: str = "major",
     source: str = "sec_api",
     payload: dict | None = None,
     timestamp: datetime | None = None,
-) -> dict:
-    """Add an event directly to the store and return its dict representation."""
-    event = events_module.add_event(
+) -> Event:
+    """Add an event directly via the add_event helper and commit."""
+    event_db = await add_event(
+        session,
         event_type=event_type,
         ticker=ticker,
         severity=severity,
@@ -43,19 +70,22 @@ def _add_event(
         payload=payload,
         timestamp=timestamp,
     )
-    return event.model_dump(mode="json")
+    await session.commit()
+    return event_db
 
 
-def _add_event_with_notification(
+async def _add_event_with_notification_via_db(
+    session: AsyncSession,
     ticker: str = "AAPL",
     event_type: str = "earnings_release",
     severity: str = "major",
     source: str = "sec_api",
     payload: dict | None = None,
     timestamp: datetime | None = None,
-) -> dict:
-    """Add an event and its notification, return notification dict."""
-    event = events_module.add_event(
+) -> Notification:
+    """Add an event + notification directly via helpers and commit."""
+    event_db = await add_event(
+        session,
         event_type=event_type,
         ticker=ticker,
         severity=severity,
@@ -63,13 +93,16 @@ def _add_event_with_notification(
         payload=payload,
         timestamp=timestamp,
     )
-    notification = events_module.add_notification(event)
-    return notification.model_dump(mode="json")
+    notif_db = await add_notification(session, event_db)
+    await session.commit()
+    await session.refresh(notif_db, ["event"])
+    return notif_db
 
 
 class TestCreateEvent:
-    def test_create_event_success(self, client):
-        response = client.post(
+    @pytest.mark.asyncio
+    async def test_create_event_success(self, client):
+        response = await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -82,13 +115,14 @@ class TestCreateEvent:
         data = response.json()
         assert data["ticker"] == "AAPL"
         assert data["event_type"] == "earnings_release"
-        assert data["severity"] == "major"
+        assert data["severity"] == "major"  # earnings_release -> MAJOR
         assert data["source"] == "sec_api"
         assert "event_id" in data
         assert "timestamp" in data
 
-    def test_create_event_normalizes_ticker(self, client):
-        response = client.post(
+    @pytest.mark.asyncio
+    async def test_create_event_normalizes_ticker(self, client):
+        response = await client.post(
             "/api/v1/events",
             json={
                 "event_type": "price_alert",
@@ -100,8 +134,9 @@ class TestCreateEvent:
         assert response.status_code == 201
         assert response.json()["ticker"] == "AAPL"
 
-    def test_create_event_also_creates_notification(self, client):
-        client.post(
+    @pytest.mark.asyncio
+    async def test_create_event_also_creates_notification(self, client):
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -110,7 +145,7 @@ class TestCreateEvent:
                 "source": "sec_api",
             },
         )
-        response = client.get("/api/v1/notifications")
+        response = await client.get("/api/v1/notifications")
         assert response.status_code == 200
         data = response.json()
         assert len(data["notifications"]) == 1
@@ -118,58 +153,65 @@ class TestCreateEvent:
 
 
 class TestListEvents:
-    def test_list_events_empty(self, client):
-        response = client.get("/api/v1/events?ticker=AAPL")
+    @pytest.mark.asyncio
+    async def test_list_events_empty(self, client):
+        response = await client.get("/api/v1/events?ticker=AAPL")
         assert response.status_code == 200
         data = response.json()
         assert data["events"] == []
         assert data["total"] == 0
 
-    def test_list_events_by_ticker(self, client):
-        _add_event(ticker="AAPL")
-        _add_event(ticker="NVDA")
-        response = client.get("/api/v1/events?ticker=AAPL")
+    @pytest.mark.asyncio
+    async def test_list_events_by_ticker(self, client, db_session):
+        await _add_event_via_db(db_session, ticker="AAPL")
+        await _add_event_via_db(db_session, ticker="NVDA")
+        response = await client.get("/api/v1/events?ticker=AAPL")
         data = response.json()
         assert data["total"] == 1
         assert data["events"][0]["ticker"] == "AAPL"
 
-    def test_list_events_case_insensitive(self, client):
-        _add_event(ticker="AAPL")
-        response = client.get("/api/v1/events?ticker=aapl")
+    @pytest.mark.asyncio
+    async def test_list_events_case_insensitive(self, client, db_session):
+        await _add_event_via_db(db_session, ticker="AAPL")
+        response = await client.get("/api/v1/events?ticker=aapl")
         data = response.json()
         assert data["total"] == 1
 
-    def test_list_events_sorted_by_timestamp_desc(self, client):
+    @pytest.mark.asyncio
+    async def test_list_events_sorted_by_timestamp_desc(self, client, db_session):
         now = datetime.now(UTC)
-        _add_event(ticker="AAPL", timestamp=now - timedelta(hours=2))
-        _add_event(ticker="AAPL", timestamp=now)
-        _add_event(ticker="AAPL", timestamp=now - timedelta(hours=1))
-        response = client.get("/api/v1/events?ticker=AAPL")
+        await _add_event_via_db(db_session, ticker="AAPL", timestamp=now - timedelta(hours=2))
+        await _add_event_via_db(db_session, ticker="AAPL", timestamp=now)
+        await _add_event_via_db(db_session, ticker="AAPL", timestamp=now - timedelta(hours=1))
+        response = await client.get("/api/v1/events?ticker=AAPL")
         data = response.json()
         assert data["total"] == 3
         timestamps = [e["timestamp"] for e in data["events"]]
         assert timestamps == sorted(timestamps, reverse=True)
 
-    def test_list_events_requires_ticker(self, client):
-        response = client.get("/api/v1/events")
+    @pytest.mark.asyncio
+    async def test_list_events_requires_ticker(self, client):
+        response = await client.get("/api/v1/events")
         assert response.status_code == 422
 
 
 class TestRecentEvents:
-    def test_recent_events_empty(self, client):
-        response = client.get("/api/v1/events/recent")
+    @pytest.mark.asyncio
+    async def test_recent_events_empty(self, client):
+        response = await client.get("/api/v1/events/recent")
         assert response.status_code == 200
         data = response.json()
         assert data["events"] == []
         assert data["total"] == 0
 
-    def test_recent_events_default_24h(self, client):
+    @pytest.mark.asyncio
+    async def test_recent_events_default_24h(self, client, db_session):
         now = datetime.now(UTC)
-        _add_event(ticker="AAPL", timestamp=now - timedelta(hours=1))
-        _add_event(ticker="NVDA", timestamp=now - timedelta(hours=2))
-        # This one is older than 24h
-        _add_event(ticker="GOOG", timestamp=now - timedelta(hours=25))
-        response = client.get("/api/v1/events/recent")
+        await _add_event_via_db(db_session, ticker="AAPL", timestamp=now - timedelta(hours=1))
+        await _add_event_via_db(db_session, ticker="NVDA", timestamp=now - timedelta(hours=2))
+        # Older than 24h
+        await _add_event_via_db(db_session, ticker="GOOG", timestamp=now - timedelta(hours=25))
+        response = await client.get("/api/v1/events/recent")
         data = response.json()
         assert data["total"] == 2
         tickers = [e["ticker"] for e in data["events"]]
@@ -177,120 +219,232 @@ class TestRecentEvents:
         assert "NVDA" in tickers
         assert "GOOG" not in tickers
 
-    def test_recent_events_custom_hours(self, client):
+    @pytest.mark.asyncio
+    async def test_recent_events_custom_hours(self, client, db_session):
         now = datetime.now(UTC)
-        _add_event(ticker="AAPL", timestamp=now - timedelta(hours=1))
-        _add_event(ticker="NVDA", timestamp=now - timedelta(hours=3))
-        response = client.get("/api/v1/events/recent?hours=2")
+        await _add_event_via_db(db_session, ticker="AAPL", timestamp=now - timedelta(hours=1))
+        await _add_event_via_db(db_session, ticker="NVDA", timestamp=now - timedelta(hours=3))
+        response = await client.get("/api/v1/events/recent?hours=2")
         data = response.json()
         assert data["total"] == 1
         assert data["events"][0]["ticker"] == "AAPL"
 
-    def test_recent_events_across_tickers(self, client):
+    @pytest.mark.asyncio
+    async def test_recent_events_across_tickers(self, client, db_session):
         now = datetime.now(UTC)
-        _add_event(ticker="AAPL", timestamp=now)
-        _add_event(ticker="NVDA", timestamp=now - timedelta(minutes=30))
-        _add_event(ticker="GOOG", timestamp=now - timedelta(minutes=15))
-        response = client.get("/api/v1/events/recent")
+        await _add_event_via_db(db_session, ticker="AAPL", timestamp=now)
+        await _add_event_via_db(
+            db_session, ticker="NVDA", timestamp=now - timedelta(minutes=30)
+        )
+        await _add_event_via_db(
+            db_session, ticker="GOOG", timestamp=now - timedelta(minutes=15)
+        )
+        response = await client.get("/api/v1/events/recent")
         data = response.json()
         assert data["total"] == 3
         # Should be sorted by timestamp descending
         tickers = [e["ticker"] for e in data["events"]]
         assert tickers == ["AAPL", "GOOG", "NVDA"]
 
-    def test_recent_events_sorted_desc(self, client):
+    @pytest.mark.asyncio
+    async def test_recent_events_sorted_desc(self, client, db_session):
         now = datetime.now(UTC)
-        _add_event(ticker="AAPL", timestamp=now - timedelta(hours=5))
-        _add_event(ticker="NVDA", timestamp=now - timedelta(hours=1))
-        _add_event(ticker="GOOG", timestamp=now - timedelta(hours=3))
-        response = client.get("/api/v1/events/recent")
+        await _add_event_via_db(db_session, ticker="AAPL", timestamp=now - timedelta(hours=5))
+        await _add_event_via_db(db_session, ticker="NVDA", timestamp=now - timedelta(hours=1))
+        await _add_event_via_db(db_session, ticker="GOOG", timestamp=now - timedelta(hours=3))
+        response = await client.get("/api/v1/events/recent")
         data = response.json()
         timestamps = [e["timestamp"] for e in data["events"]]
         assert timestamps == sorted(timestamps, reverse=True)
 
 
 class TestListNotifications:
-    def test_list_notifications_empty(self, client):
-        response = client.get("/api/v1/notifications")
+    @pytest.mark.asyncio
+    async def test_list_notifications_empty(self, client):
+        response = await client.get("/api/v1/notifications")
         assert response.status_code == 200
         data = response.json()
         assert data["notifications"] == []
         assert data["unread_count"] == 0
 
-    def test_list_notifications_with_data(self, client):
-        _add_event_with_notification(ticker="AAPL")
-        _add_event_with_notification(ticker="NVDA")
-        response = client.get("/api/v1/notifications")
+    @pytest.mark.asyncio
+    async def test_list_notifications_with_data(self, client, db_session):
+        await _add_event_with_notification_via_db(db_session, ticker="AAPL")
+        await _add_event_with_notification_via_db(db_session, ticker="NVDA")
+        response = await client.get("/api/v1/notifications")
         data = response.json()
         assert len(data["notifications"]) == 2
         assert data["unread_count"] == 2
 
-    def test_list_notifications_sorted_by_created_at_desc(self, client):
-        _add_event_with_notification(ticker="AAPL")
-        _add_event_with_notification(ticker="NVDA")
-        _add_event_with_notification(ticker="GOOG")
-        response = client.get("/api/v1/notifications")
+    @pytest.mark.asyncio
+    async def test_list_notifications_sorted_by_created_at_desc(self, client, db_session):
+        await _add_event_with_notification_via_db(db_session, ticker="AAPL")
+        await _add_event_with_notification_via_db(db_session, ticker="NVDA")
+        await _add_event_with_notification_via_db(db_session, ticker="GOOG")
+        response = await client.get("/api/v1/notifications")
         data = response.json()
         created_ats = [n["created_at"] for n in data["notifications"]]
         assert created_ats == sorted(created_ats, reverse=True)
 
-    def test_list_notifications_unread_count(self, client):
-        n1 = _add_event_with_notification(ticker="AAPL")
-        _add_event_with_notification(ticker="NVDA")
-        # Mark one as read
-        nid = n1["notification_id"]
-        events_module._notification_store[nid] = events_module._notification_store[nid].model_copy(
-            update={"read": True}
-        )
-        response = client.get("/api/v1/notifications")
+    @pytest.mark.asyncio
+    async def test_list_notifications_unread_count(self, client, db_session):
+        n1 = await _add_event_with_notification_via_db(db_session, ticker="AAPL")
+        await _add_event_with_notification_via_db(db_session, ticker="NVDA")
+        # Mark one as read directly in DB
+        n1.read = True
+        await db_session.commit()
+
+        response = await client.get("/api/v1/notifications")
         data = response.json()
         assert len(data["notifications"]) == 2
         assert data["unread_count"] == 1
 
 
 class TestMarkNotificationRead:
-    def test_mark_notification_read(self, client):
-        n = _add_event_with_notification(ticker="AAPL")
-        nid = n["notification_id"]
-        response = client.put(f"/api/v1/notifications/{nid}/read")
+    @pytest.mark.asyncio
+    async def test_mark_notification_read(self, client, db_session):
+        n = await _add_event_with_notification_via_db(db_session, ticker="AAPL")
+        nid = n.notification_id
+        response = await client.put(f"/api/v1/notifications/{nid}/read")
         assert response.status_code == 200
         data = response.json()
         assert data["read"] is True
         assert data["notification_id"] == nid
 
-    def test_mark_notification_read_not_found(self, client):
-        response = client.put("/api/v1/notifications/nonexistent-id/read")
+    @pytest.mark.asyncio
+    async def test_mark_notification_read_not_found(self, client):
+        response = await client.put("/api/v1/notifications/nonexistent-id/read")
         assert response.status_code == 404
 
-    def test_mark_notification_read_idempotent(self, client):
-        n = _add_event_with_notification(ticker="AAPL")
-        nid = n["notification_id"]
-        client.put(f"/api/v1/notifications/{nid}/read")
-        response = client.put(f"/api/v1/notifications/{nid}/read")
+    @pytest.mark.asyncio
+    async def test_mark_notification_read_idempotent(self, client, db_session):
+        n = await _add_event_with_notification_via_db(db_session, ticker="AAPL")
+        nid = n.notification_id
+        await client.put(f"/api/v1/notifications/{nid}/read")
+        response = await client.put(f"/api/v1/notifications/{nid}/read")
         assert response.status_code == 200
         assert response.json()["read"] is True
 
 
 class TestDeleteNotification:
-    def test_delete_notification(self, client):
-        n = _add_event_with_notification(ticker="AAPL")
-        nid = n["notification_id"]
-        response = client.delete(f"/api/v1/notifications/{nid}")
+    @pytest.mark.asyncio
+    async def test_delete_notification(self, client, db_session):
+        n = await _add_event_with_notification_via_db(db_session, ticker="AAPL")
+        nid = n.notification_id
+        response = await client.delete(f"/api/v1/notifications/{nid}")
         assert response.status_code == 204
         # Verify it's gone
-        response = client.get("/api/v1/notifications")
+        response = await client.get("/api/v1/notifications")
         assert response.json()["notifications"] == []
 
-    def test_delete_notification_not_found(self, client):
-        response = client.delete("/api/v1/notifications/nonexistent-id")
+    @pytest.mark.asyncio
+    async def test_delete_notification_not_found(self, client):
+        response = await client.delete("/api/v1/notifications/nonexistent-id")
         assert response.status_code == 404
 
-    def test_delete_notification_reduces_count(self, client):
-        n1 = _add_event_with_notification(ticker="AAPL")
-        _add_event_with_notification(ticker="NVDA")
-        nid = n1["notification_id"]
-        client.delete(f"/api/v1/notifications/{nid}")
-        response = client.get("/api/v1/notifications")
+    @pytest.mark.asyncio
+    async def test_delete_notification_reduces_count(self, client, db_session):
+        n1 = await _add_event_with_notification_via_db(db_session, ticker="AAPL")
+        await _add_event_with_notification_via_db(db_session, ticker="NVDA")
+        nid = n1.notification_id
+        await client.delete(f"/api/v1/notifications/{nid}")
+        response = await client.get("/api/v1/notifications")
         data = response.json()
         assert len(data["notifications"]) == 1
         assert data["unread_count"] == 1
+
+
+class TestAutoClassification:
+    @pytest.mark.asyncio
+    async def test_score_change_event_auto_classified_major(self, client):
+        """Score change events get severity auto-classified by ImpactClassifier."""
+        resp = await client.post(
+            "/api/v1/events",
+            json={
+                "event_type": "score_change",
+                "ticker": "AAPL",
+                "severity": "minor",  # will be overridden by classifier
+                "source": "test",
+                "payload": {"delta": 15.0},
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["severity"] == "major"  # delta > 10 -> MAJOR
+
+    @pytest.mark.asyncio
+    async def test_score_change_event_auto_classified_moderate(self, client):
+        """Score change with 5 <= delta <= 10 classified as moderate."""
+        resp = await client.post(
+            "/api/v1/events",
+            json={
+                "event_type": "score_change",
+                "ticker": "AAPL",
+                "severity": "minor",
+                "source": "test",
+                "payload": {"delta": 7.0},
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["severity"] == "moderate"
+
+    @pytest.mark.asyncio
+    async def test_score_change_event_auto_classified_minor(self, client):
+        """Score change with delta < 5 classified as minor."""
+        resp = await client.post(
+            "/api/v1/events",
+            json={
+                "event_type": "score_change",
+                "ticker": "AAPL",
+                "severity": "major",  # will be overridden
+                "source": "test",
+                "payload": {"delta": 2.0},
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["severity"] == "minor"
+
+    @pytest.mark.asyncio
+    async def test_earnings_release_always_major(self, client):
+        """earnings_release is always classified as major regardless of input."""
+        resp = await client.post(
+            "/api/v1/events",
+            json={
+                "event_type": "earnings_release",
+                "ticker": "AAPL",
+                "severity": "minor",  # will be overridden
+                "source": "test",
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["severity"] == "major"
+
+    @pytest.mark.asyncio
+    async def test_analyst_rating_change_moderate(self, client):
+        """analyst_rating_change is always classified as moderate."""
+        resp = await client.post(
+            "/api/v1/events",
+            json={
+                "event_type": "analyst_rating_change",
+                "ticker": "AAPL",
+                "severity": "major",  # will be overridden
+                "source": "test",
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["severity"] == "moderate"
+
+    @pytest.mark.asyncio
+    async def test_price_alert_minor(self, client):
+        """price_alert is always classified as minor."""
+        resp = await client.post(
+            "/api/v1/events",
+            json={
+                "event_type": "price_alert",
+                "ticker": "AAPL",
+                "severity": "major",  # will be overridden
+                "source": "test",
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["severity"] == "minor"

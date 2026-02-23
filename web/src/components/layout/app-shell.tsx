@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/nav/navbar"
 import { MfaEnforcementBanner } from "@/components/banners/mfa-enforcement-banner"
+import { ScoreNotificationStack } from "@/components/ScoreNotificationStack"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <MfaEnforcementBanner />
         {children}
       </main>
+      <ScoreNotificationStack />
     </div>
   )
 }

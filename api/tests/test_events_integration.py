@@ -1,4 +1,4 @@
-"""Integration tests for event and notification API endpoints.
+"""Integration tests for event and notification API endpoints — DB-backed.
 
 Tests verify end-to-end flows: creating events, fetching them,
 filtering by ticker, notification lifecycle (create -> mark read -> delete).
@@ -7,25 +7,38 @@ filtering by ticker, notification lifecycle (create -> mark read -> delete).
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 from margin_api.app import create_app
-from margin_api.routes import events as events_module
+from margin_api.db.base import Base
+from margin_api.db.session import get_db
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
-@pytest.fixture(autouse=True)
-def clean_event_stores():
-    """Clear the in-memory event and notification stores before each test."""
-    events_module._event_store.clear()
-    events_module._notification_store.clear()
-    yield
-    events_module._event_store.clear()
-    events_module._notification_store.clear()
+@pytest_asyncio.fixture
+async def async_engine():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield engine
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
 
 
-@pytest.fixture
-def client():
+@pytest_asyncio.fixture
+async def client(async_engine):
     app = create_app()
-    return TestClient(app)
+    factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+
+    async def override_get_db():
+        async with factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
 
 
 # ---------------------------------------------------------------------------
@@ -36,10 +49,11 @@ def client():
 class TestCreateAndFetchEvent:
     """Create an event via POST, then verify it appears in GET responses."""
 
-    def test_create_event_then_fetch_by_ticker(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_create_event_then_fetch_by_ticker(self, client: AsyncClient):
         """POST /events creates an event, GET /events?ticker= returns it."""
         # Create
-        resp = client.post(
+        resp = await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -53,7 +67,7 @@ class TestCreateAndFetchEvent:
         event_id = created["event_id"]
 
         # Fetch
-        resp = client.get("/api/v1/events?ticker=AAPL")
+        resp = await client.get("/api/v1/events?ticker=AAPL")
         assert resp.status_code == 200
         data = resp.json()
         assert data["total"] == 1
@@ -62,9 +76,10 @@ class TestCreateAndFetchEvent:
         assert data["events"][0]["event_type"] == "earnings_release"
         assert data["events"][0]["severity"] == "major"
 
-    def test_create_event_appears_in_recent(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_create_event_appears_in_recent(self, client: AsyncClient):
         """A newly created event should appear in the recent events endpoint."""
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "sec_filing",
@@ -73,16 +88,17 @@ class TestCreateAndFetchEvent:
                 "source": "edgar",
             },
         )
-        resp = client.get("/api/v1/events/recent")
+        resp = await client.get("/api/v1/events/recent")
         assert resp.status_code == 200
         data = resp.json()
         assert data["total"] == 1
         assert data["events"][0]["ticker"] == "GOOG"
 
-    def test_create_multiple_events_correct_count(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_create_multiple_events_correct_count(self, client: AsyncClient):
         """Creating multiple events for a ticker returns the correct total count."""
         for i in range(3):
-            client.post(
+            await client.post(
                 "/api/v1/events",
                 json={
                     "event_type": "price_alert",
@@ -91,7 +107,7 @@ class TestCreateAndFetchEvent:
                     "source": "internal",
                 },
             )
-        resp = client.get("/api/v1/events?ticker=MSFT")
+        resp = await client.get("/api/v1/events?ticker=MSFT")
         data = resp.json()
         assert data["total"] == 3
 
@@ -104,9 +120,10 @@ class TestCreateAndFetchEvent:
 class TestFilterByTicker:
     """Create events for multiple tickers and verify filtering works."""
 
-    def test_filter_returns_only_matching_ticker(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_filter_returns_only_matching_ticker(self, client: AsyncClient):
         """GET /events?ticker=X only returns events for ticker X."""
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -115,7 +132,7 @@ class TestFilterByTicker:
                 "source": "sec_api",
             },
         )
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "sec_filing",
@@ -124,7 +141,7 @@ class TestFilterByTicker:
                 "source": "edgar",
             },
         )
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "price_alert",
@@ -135,26 +152,27 @@ class TestFilterByTicker:
         )
 
         # Only AAPL
-        resp = client.get("/api/v1/events?ticker=AAPL")
+        resp = await client.get("/api/v1/events?ticker=AAPL")
         data = resp.json()
         assert data["total"] == 1
         assert all(e["ticker"] == "AAPL" for e in data["events"])
 
         # Only GOOG
-        resp = client.get("/api/v1/events?ticker=GOOG")
+        resp = await client.get("/api/v1/events?ticker=GOOG")
         data = resp.json()
         assert data["total"] == 1
         assert all(e["ticker"] == "GOOG" for e in data["events"])
 
         # Only NVDA
-        resp = client.get("/api/v1/events?ticker=NVDA")
+        resp = await client.get("/api/v1/events?ticker=NVDA")
         data = resp.json()
         assert data["total"] == 1
         assert all(e["ticker"] == "NVDA" for e in data["events"])
 
-    def test_filter_case_insensitive(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_filter_case_insensitive(self, client: AsyncClient):
         """Ticker filtering is case-insensitive."""
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -163,15 +181,16 @@ class TestFilterByTicker:
                 "source": "sec_api",
             },
         )
-        resp = client.get("/api/v1/events?ticker=AAPL")
+        resp = await client.get("/api/v1/events?ticker=AAPL")
         assert resp.json()["total"] == 1
 
-        resp = client.get("/api/v1/events?ticker=aapl")
+        resp = await client.get("/api/v1/events?ticker=aapl")
         assert resp.json()["total"] == 1
 
-    def test_filter_nonexistent_ticker_returns_empty(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_filter_nonexistent_ticker_returns_empty(self, client: AsyncClient):
         """Filtering by a ticker that has no events returns an empty list."""
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -180,14 +199,15 @@ class TestFilterByTicker:
                 "source": "sec_api",
             },
         )
-        resp = client.get("/api/v1/events?ticker=TSLA")
+        resp = await client.get("/api/v1/events?ticker=TSLA")
         data = resp.json()
         assert data["total"] == 0
         assert data["events"] == []
 
-    def test_recent_returns_events_across_all_tickers(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_recent_returns_events_across_all_tickers(self, client: AsyncClient):
         """The recent endpoint returns events across all tickers."""
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -196,7 +216,7 @@ class TestFilterByTicker:
                 "source": "sec_api",
             },
         )
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "sec_filing",
@@ -205,7 +225,7 @@ class TestFilterByTicker:
                 "source": "edgar",
             },
         )
-        resp = client.get("/api/v1/events/recent")
+        resp = await client.get("/api/v1/events/recent")
         data = resp.json()
         assert data["total"] == 2
         tickers = {e["ticker"] for e in data["events"]}
@@ -220,9 +240,10 @@ class TestFilterByTicker:
 class TestNotificationLifecycle:
     """Create event -> auto-notification -> mark read -> delete."""
 
-    def test_event_creation_auto_creates_notification(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_event_creation_auto_creates_notification(self, client: AsyncClient):
         """Creating an event also creates a corresponding notification."""
-        resp = client.post(
+        resp = await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -234,7 +255,7 @@ class TestNotificationLifecycle:
         assert resp.status_code == 201
         event_data = resp.json()
 
-        resp = client.get("/api/v1/notifications")
+        resp = await client.get("/api/v1/notifications")
         data = resp.json()
         assert len(data["notifications"]) == 1
         assert data["unread_count"] == 1
@@ -242,9 +263,10 @@ class TestNotificationLifecycle:
         assert notification["read"] is False
         assert notification["event"]["event_id"] == event_data["event_id"]
 
-    def test_mark_notification_read(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_mark_notification_read(self, client: AsyncClient):
         """Mark a notification as read and verify the unread count decreases."""
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -254,23 +276,24 @@ class TestNotificationLifecycle:
             },
         )
         # Get the notification ID
-        resp = client.get("/api/v1/notifications")
+        resp = await client.get("/api/v1/notifications")
         nid = resp.json()["notifications"][0]["notification_id"]
 
         # Mark as read
-        resp = client.put(f"/api/v1/notifications/{nid}/read")
+        resp = await client.put(f"/api/v1/notifications/{nid}/read")
         assert resp.status_code == 200
         assert resp.json()["read"] is True
 
         # Verify unread count
-        resp = client.get("/api/v1/notifications")
+        resp = await client.get("/api/v1/notifications")
         data = resp.json()
         assert data["unread_count"] == 0
         assert data["notifications"][0]["read"] is True
 
-    def test_delete_notification(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_delete_notification(self, client: AsyncClient):
         """Delete a notification and verify it's gone."""
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -279,24 +302,25 @@ class TestNotificationLifecycle:
                 "source": "sec_api",
             },
         )
-        resp = client.get("/api/v1/notifications")
+        resp = await client.get("/api/v1/notifications")
         nid = resp.json()["notifications"][0]["notification_id"]
 
         # Delete
-        resp = client.delete(f"/api/v1/notifications/{nid}")
+        resp = await client.delete(f"/api/v1/notifications/{nid}")
         assert resp.status_code == 204
 
         # Verify it's gone
-        resp = client.get("/api/v1/notifications")
+        resp = await client.get("/api/v1/notifications")
         data = resp.json()
         assert len(data["notifications"]) == 0
         assert data["unread_count"] == 0
 
-    def test_full_notification_lifecycle(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_full_notification_lifecycle(self, client: AsyncClient):
         """End-to-end: create event -> notification auto-created ->
         mark notification read -> delete notification."""
         # Step 1: Create event
-        resp = client.post(
+        resp = await client.post(
             "/api/v1/events",
             json={
                 "event_type": "sec_filing",
@@ -309,7 +333,7 @@ class TestNotificationLifecycle:
         event_id = resp.json()["event_id"]
 
         # Step 2: Verify notification was auto-created (unread)
-        resp = client.get("/api/v1/notifications")
+        resp = await client.get("/api/v1/notifications")
         data = resp.json()
         assert len(data["notifications"]) == 1
         assert data["unread_count"] == 1
@@ -320,32 +344,33 @@ class TestNotificationLifecycle:
         assert notification["event"]["ticker"] == "NVDA"
 
         # Step 3: Mark as read
-        resp = client.put(f"/api/v1/notifications/{nid}/read")
+        resp = await client.put(f"/api/v1/notifications/{nid}/read")
         assert resp.status_code == 200
         assert resp.json()["read"] is True
 
         # Verify unread count decreased
-        resp = client.get("/api/v1/notifications")
+        resp = await client.get("/api/v1/notifications")
         assert resp.json()["unread_count"] == 0
 
         # Step 4: Delete notification
-        resp = client.delete(f"/api/v1/notifications/{nid}")
+        resp = await client.delete(f"/api/v1/notifications/{nid}")
         assert resp.status_code == 204
 
         # Verify notification is gone
-        resp = client.get("/api/v1/notifications")
+        resp = await client.get("/api/v1/notifications")
         data = resp.json()
         assert len(data["notifications"]) == 0
 
         # Step 5: Original event still exists
-        resp = client.get("/api/v1/events?ticker=NVDA")
+        resp = await client.get("/api/v1/events?ticker=NVDA")
         data = resp.json()
         assert data["total"] == 1
         assert data["events"][0]["event_id"] == event_id
 
-    def test_multiple_events_create_multiple_notifications(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_multiple_events_create_multiple_notifications(self, client: AsyncClient):
         """Multiple events create independent notifications."""
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "earnings_release",
@@ -354,7 +379,7 @@ class TestNotificationLifecycle:
                 "source": "sec_api",
             },
         )
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "sec_filing",
@@ -363,7 +388,7 @@ class TestNotificationLifecycle:
                 "source": "edgar",
             },
         )
-        client.post(
+        await client.post(
             "/api/v1/events",
             json={
                 "event_type": "price_alert",
@@ -373,29 +398,31 @@ class TestNotificationLifecycle:
             },
         )
 
-        resp = client.get("/api/v1/notifications")
+        resp = await client.get("/api/v1/notifications")
         data = resp.json()
         assert len(data["notifications"]) == 3
         assert data["unread_count"] == 3
 
         # Mark one as read, delete another
         nids = [n["notification_id"] for n in data["notifications"]]
-        client.put(f"/api/v1/notifications/{nids[0]}/read")
-        client.delete(f"/api/v1/notifications/{nids[1]}")
+        await client.put(f"/api/v1/notifications/{nids[0]}/read")
+        await client.delete(f"/api/v1/notifications/{nids[1]}")
 
-        resp = client.get("/api/v1/notifications")
+        resp = await client.get("/api/v1/notifications")
         data = resp.json()
         assert len(data["notifications"]) == 2
         assert data["unread_count"] == 1
 
-    def test_delete_nonexistent_notification_returns_404(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent_notification_returns_404(self, client: AsyncClient):
         """Attempting to delete a non-existent notification returns 404."""
-        resp = client.delete("/api/v1/notifications/does-not-exist")
+        resp = await client.delete("/api/v1/notifications/does-not-exist")
         assert resp.status_code == 404
 
-    def test_mark_read_nonexistent_notification_returns_404(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_mark_read_nonexistent_notification_returns_404(self, client: AsyncClient):
         """Attempting to mark a non-existent notification as read returns 404."""
-        resp = client.put("/api/v1/notifications/does-not-exist/read")
+        resp = await client.put("/api/v1/notifications/does-not-exist/read")
         assert resp.status_code == 404
 
 
