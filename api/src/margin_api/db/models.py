@@ -535,6 +535,49 @@ class ApiKeyEvent(Base):
 
 
 # ---------------------------------------------------------------------------
+# Event / Notification models
+# ---------------------------------------------------------------------------
+
+
+class Event(Base):
+    """Persisted event (score changes, earnings, etc.)."""
+
+    __tablename__ = "events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(30))
+    ticker: Mapped[str] = mapped_column(String(10), index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    severity: Mapped[str] = mapped_column(String(10))
+    source: Mapped[str] = mapped_column(String(50))
+    payload: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    notifications: Mapped[list[Notification]] = relationship(back_populates="event")
+
+    __table_args__ = (Index("ix_events_ticker_timestamp", "ticker", "timestamp"),)
+
+
+class Notification(Base):
+    """User-facing notification derived from an event."""
+
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    notification_id: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), index=True)
+    read: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    event: Mapped[Event] = relationship(back_populates="notifications")
+
+
+# ---------------------------------------------------------------------------
 # Authentication models
 # ---------------------------------------------------------------------------
 
