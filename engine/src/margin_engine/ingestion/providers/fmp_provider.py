@@ -1,9 +1,7 @@
 """Financial Modeling Prep (FMP) data provider.
 
-Fallback provider for fundamentals and earnings data when yfinance fails.
-Uses httpx for synchronous HTTP requests against the FMP REST API.
-
-FMP API docs: https://financialmodelingprep.com/developer/docs
+Paid/free-tier provider used as fallback for failed yfinance categories.
+Requires FMP_API_KEY environment variable.
 """
 
 from __future__ import annotations
@@ -28,22 +26,23 @@ def _now_iso() -> str:
 
 
 class FMPProvider(DataProvider):
-    """Concrete data provider backed by Financial Modeling Prep.
+    """FMP data provider for fundamentals, earnings, and price history.
 
-    Requires an API key (free tier available).  Supports fundamentals
-    (income statement only) and earnings.  Priority is lower than
-    yfinance so it acts as a fallback.
+    Requires an API key (free tier available).  Priority is higher than
+    yfinance so it acts as a preferred fallback.
     """
 
     def __init__(
         self,
         api_key: str,
         rate_limiter: RateLimiter | None = None,
+        timeout: float = 30.0,
     ) -> None:
         if not api_key:
-            raise ValueError("FMP api_key must not be empty")
+            raise ValueError("FMP_API_KEY is required for FMPProvider")
         self._api_key = api_key
         self._rate_limiter = rate_limiter
+        self._timeout = timeout
 
     def _acquire_rate_limit(self) -> None:
         """Block until a rate-limit token is available (if limiter configured)."""
@@ -56,15 +55,16 @@ class FMPProvider(DataProvider):
             name="fmp",
             supported_categories=[
                 DataCategory.FUNDAMENTALS,
+                DataCategory.PRICE,
                 DataCategory.EARNINGS,
             ],
             requests_per_minute=300,
             requires_api_key=True,
-            priority=5,
+            priority=20,
         )
 
     # ------------------------------------------------------------------
-    # Fundamentals (income statement only)
+    # Fundamentals (income statement)
     # ------------------------------------------------------------------
 
     def fetch_fundamentals(self, ticker: str) -> FetchResult:
@@ -76,7 +76,7 @@ class FMPProvider(DataProvider):
         self._acquire_rate_limit()
         try:
             url = f"{_BASE_URL}/income-statement/{ticker}?apikey={self._api_key}&limit=1"
-            resp = httpx.get(url)
+            resp = httpx.get(url, timeout=self._timeout)
             resp.raise_for_status()
             rows = resp.json()
 
@@ -119,9 +119,10 @@ class FMPProvider(DataProvider):
         self._acquire_rate_limit()
         try:
             url = (
-                f"{_BASE_URL}/historical/earning_calendar/{ticker}?apikey={self._api_key}&limit=25"
+                f"{_BASE_URL}/historical/earning_calendar/{ticker}"
+                f"?apikey={self._api_key}&limit=25"
             )
-            resp = httpx.get(url)
+            resp = httpx.get(url, timeout=self._timeout)
             resp.raise_for_status()
             rows = resp.json()
 
@@ -145,6 +146,56 @@ class FMPProvider(DataProvider):
             return FetchResult(
                 provider_name=self.info.name,
                 category=DataCategory.EARNINGS,
+                ticker=ticker,
+                raw_data={},
+                fetched_at=_now_iso(),
+                success=False,
+                error=str(exc),
+            )
+
+    # ------------------------------------------------------------------
+    # Price history
+    # ------------------------------------------------------------------
+
+    def fetch_price_history(self, ticker: str, days: int = 365) -> FetchResult:
+        """Fetch historical daily OHLCV bars from FMP.
+
+        Uses the ``historical-price-full`` endpoint with a ``timeseries``
+        parameter to limit results to the requested number of days.
+        """
+        self._acquire_rate_limit()
+        try:
+            url = (
+                f"{_BASE_URL}/historical-price-full/{ticker}"
+                f"?apikey={self._api_key}&timeseries={days}"
+            )
+            resp = httpx.get(url, timeout=self._timeout)
+            resp.raise_for_status()
+            data = resp.json()
+            raw_bars = data.get("historical", []) if isinstance(data, dict) else []
+
+            bars = []
+            for bar in raw_bars:
+                bars.append({
+                    "date": bar.get("date", ""),
+                    "open": bar.get("open"),
+                    "high": bar.get("high"),
+                    "low": bar.get("low"),
+                    "close": bar.get("close"),
+                    "volume": bar.get("volume"),
+                })
+
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.PRICE,
+                ticker=ticker,
+                raw_data={"bars": bars},
+                fetched_at=_now_iso(),
+            )
+        except Exception as exc:
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.PRICE,
                 ticker=ticker,
                 raw_data={},
                 fetched_at=_now_iso(),
