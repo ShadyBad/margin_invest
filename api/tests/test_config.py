@@ -100,7 +100,7 @@ class TestMlSettings:
         assert settings.ml_artifact_dir == "ml_models"
         assert settings.ml_train_min_samples == 100
         assert settings.ml_n_clusters == 5
-        assert settings.vae_enable is False
+        assert settings.vae_enable is True
 
     def test_ml_settings_from_env(self, monkeypatch):
         """ML settings can be overridden via MARGIN_ env vars."""

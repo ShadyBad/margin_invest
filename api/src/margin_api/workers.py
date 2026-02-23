@@ -10,6 +10,7 @@ Start the worker with:
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import UTC, datetime
 
@@ -22,7 +23,9 @@ from sqlalchemy import func, select
 from margin_api.config import get_settings
 from margin_api.db.models import (
     Asset,
+    FinancialData,
     IngestionRun,
+    IngestionTickerStatus,
     JobRun,
     MlModelRun,
     Score,
@@ -88,10 +91,12 @@ async def full_ingest(
     Fetches financial data from yfinance for every ticker in the active
     universe and upserts it into the database. Always chains to full_score.
     """
+    from margin_engine.ingestion.circuit_breaker import CircuitBreaker
     from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
     from margin_engine.ingestion.rate_limiter import RateLimiter
 
     from margin_api.cli import _load_foreign_skips, seed_ticker_data
+    from margin_api.services.ingestion import should_ingest_ticker
 
     # Generate pipeline_id if not provided (top of the chain)
     if pipeline_id is None:
@@ -139,6 +144,23 @@ async def full_ingest(
     limiter = RateLimiter(requests_per_minute=12)
     provider = YFinanceProvider(rate_limiter=limiter)
 
+    # Construct FMP fallback provider if API key is available
+    fmp_provider = None
+    fmp_key = os.environ.get("FMP_API_KEY")
+    if fmp_key:
+        from margin_engine.ingestion.providers.fmp_provider import FMPProvider
+
+        fmp_provider = FMPProvider(api_key=fmp_key)
+        logger.info("[ingest] FMP fallback provider enabled")
+
+    # Per-provider circuit breakers
+    yf_breaker = CircuitBreaker(failure_threshold=10, cooldown_seconds=900.0)
+    fmp_breaker = (
+        CircuitBreaker(failure_threshold=10, cooldown_seconds=900.0)
+        if fmp_provider
+        else None
+    )
+
     successes = 0
     failures = 0
     partial_count = 0
@@ -148,8 +170,79 @@ async def full_ingest(
     for i, ticker in enumerate(tickers, start=1):
         logger.info("[ingest] [%d/%d] Seeding %s", i, total, ticker)
 
+        # Check if ticker should be ingested (skip quarantined/permanently_skipped)
         async with session_factory() as session:
-            result = await seed_ticker_data(ticker=ticker, provider=provider, session=session)
+            asset_check = await session.execute(select(Asset).where(Asset.ticker == ticker))
+            existing_asset = asset_check.scalar_one_or_none()
+            if existing_asset and not should_ingest_ticker(
+                existing_asset.ingestion_status,
+                existing_asset.consecutive_failures,
+                existing_asset.last_retry_at,
+            ):
+                logger.info(
+                    "[ingest] %s SKIPPED (status=%s)", ticker, existing_asset.ingestion_status
+                )
+                continue
+
+        # Resume check: skip if already seeded today
+        async with session_factory() as session:
+            today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
+            resume_check = await session.execute(
+                select(FinancialData)
+                .join(Asset, FinancialData.asset_id == Asset.id)
+                .where(Asset.ticker == ticker, FinancialData.period_end == today_iso)
+                .limit(1)
+            )
+            if resume_check.scalar_one_or_none() is not None:
+                logger.info("[ingest] %s SKIPPED (already seeded today)", ticker)
+                continue
+
+        # Circuit breaker gate: skip if primary provider is tripped
+        if not yf_breaker.allow_request():
+            logger.warning("[ingest] %s SKIPPED (circuit breaker open for yfinance)", ticker)
+            failures += 1
+            failed_tickers.append(ticker)
+            continue
+
+        tick_started = datetime.now(UTC)
+        async with session_factory() as session:
+            result = await seed_ticker_data(
+                ticker=ticker,
+                provider=provider,
+                session=session,
+                fallback_provider=(
+                    fmp_provider
+                    if (fmp_breaker is None or fmp_breaker.allow_request())
+                    else None
+                ),
+            )
+        tick_ended = datetime.now(UTC)
+        duration_ms = int((tick_ended - tick_started).total_seconds() * 1000)
+
+        # Update circuit breaker state based on result
+        if result.status == "failed":
+            yf_breaker.record_failure()
+        else:
+            yf_breaker.record_success()
+
+        # Record per-ticker audit trail
+        if result.status in ("ok", "partial"):
+            audit_status = "succeeded"
+        else:
+            audit_status = result.status
+        async with session_factory() as session:
+            ticker_status = IngestionTickerStatus(
+                run_id=run_id,
+                ticker=ticker,
+                status=audit_status,
+                error_message=result.error_message if result.status == "failed" else None,
+                data_fetched=result.data_categories_present if result.is_success else None,
+                duration_ms=duration_ms,
+                started_at=tick_started,
+                completed_at=tick_ended,
+            )
+            session.add(ticker_status)
+            await session.commit()
 
         if result.status == "ok":
             successes += 1
@@ -187,7 +280,8 @@ async def full_ingest(
     )
 
     # Run threshold-based alerting
-    _log_run_alerts(total, successes, failures, partial_count, 0)
+    cb_trips = yf_breaker.trip_count + (fmp_breaker.trip_count if fmp_breaker else 0)
+    _log_run_alerts(total, successes, failures, partial_count, cb_trips)
 
     # Chain to scoring — always enqueue regardless of ingest outcome
     redis: ArqRedis | None = ctx.get("redis")
@@ -322,6 +416,9 @@ async def full_score_v3(
         await session.commit()
         job_id = job.id
 
+    status = "completed"
+    error: str | None = None
+
     try:
         await run_scoring_v3()
         reset_engine_cache()
@@ -340,6 +437,89 @@ async def full_score_v3(
 
     except Exception as e:
         logger.exception("[score_v3] V3 scoring failed: %s", e)
+        status = "failed"
+        error = str(e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+    # Always chain to v4 scoring — v4 is independent and should run
+    # regardless of v3 outcome
+    redis: ArqRedis | None = ctx.get("redis")
+    if redis:
+        await redis.enqueue_job(
+            "full_score_v4",
+            pipeline_id=pipeline_id,
+            parent_job_id=job_id,
+        )
+        logger.info("[score_v3] Chained -> full_score_v4")
+    else:
+        logger.warning("[score_v3] No redis in worker context — cannot chain to full_score_v4")
+
+    if error:
+        return {"status": status, "pipeline_id": pipeline_id, "error": error}
+    return {"status": status, "pipeline_id": pipeline_id}
+
+
+async def full_score_v4(
+    ctx: dict,
+    pipeline_id: str | None = None,
+    parent_job_id: int | None = None,
+) -> dict:
+    """Score all ingested assets using the v4 pipeline with ML override.
+
+    Terminal job in the daily chain. Extends v3 with Track C, style, and ML.
+    """
+    from margin_api.cli import run_scoring_v4
+
+    logger.info(
+        "[score_v4] Starting v4 scoring (pipeline=%s, parent=%s)...",
+        pipeline_id,
+        parent_job_id,
+    )
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="score_v4",
+            status="running",
+            triggered_by="chained",
+            parent_job_id=parent_job_id,
+            pipeline_id=pipeline_id,
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        await run_scoring_v4()
+        reset_engine_cache()
+
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        logger.info("[score_v4] V4 scoring complete")
+
+    except Exception as e:
+        logger.exception("[score_v4] V4 scoring failed: %s", e)
         reset_engine_cache()
         engine = get_engine()
         session_factory = get_session_factory(engine)
@@ -605,11 +785,47 @@ async def train_ml_models(ctx: dict) -> dict:
         n_clusters = settings.ml_n_clusters
         clusters = cluster_stocks(features, tickers, n_clusters=n_clusters)
 
-        # Build forward returns (placeholder: zeros — real returns would come
-        # from price data, which requires separate loading)
         import numpy as np
+        from margin_engine.ml.forward_returns import compute_forward_returns
 
-        forward_returns = np.zeros(len(tickers))
+        # Load price data for training tickers
+        async with session_factory() as session:
+            from margin_api.db.models import FinancialData
+
+            price_result = await session.execute(
+                select(FinancialData.price_history, Asset.ticker)
+                .join(Asset, FinancialData.asset_id == Asset.id)
+                .where(Asset.ticker.in_(tickers))
+            )
+            price_rows = price_result.all()
+
+        # Build price_data dict: ticker -> bars
+        ticker_prices: dict[str, list[dict]] = {}
+        for ph, t in price_rows:
+            if t and ph and isinstance(ph, dict):
+                bars = ph.get("bars", [])
+                if bars:
+                    ticker_prices[t] = bars
+
+        scored_entries = [
+            {
+                "ticker": t,
+                "scored_at": (
+                    str(score.scored_at.date())
+                    if hasattr(score, "scored_at")
+                    else "2024-01-01"
+                ),
+            }
+            for score, t in rows
+            if t in ticker_prices
+        ]
+        fwd_returns = compute_forward_returns(scored_entries, ticker_prices)
+
+        forward_returns = np.array([fwd_returns.get(t, 0.0) for t in tickers])
+        n_with_returns = sum(1 for t in tickers if t in fwd_returns)
+        logger.info(
+            "[ml] Forward returns: %d/%d tickers have real data", n_with_returns, len(tickers)
+        )
 
         # Convert clusters from {cluster_id: [tickers]} to {cluster_id: [indices]}
         ticker_to_idx = {t: i for i, t in enumerate(tickers)}
@@ -620,6 +836,29 @@ async def train_ml_models(ctx: dict) -> dict:
 
         # Train models
         models = train_cluster_models(features, forward_returns, cluster_indices)
+
+        # Train FactorVAE
+        from margin_engine.ml.factor_vae import FactorVAEConfig, train_factor_vae
+
+        vae_bytes = None
+        vae_metrics = None
+        if settings.vae_enable:
+            try:
+                vae_config = FactorVAEConfig(
+                    enable=True, latent_dim=8, hidden_dim=64, epochs=100
+                )
+                vae_bytes, vae_metrics = train_factor_vae(
+                    features, forward_returns, vae_config
+                )
+                logger.info(
+                    "[ml] VAE trained: rank_ic=%.4f, recon_loss=%.4f",
+                    vae_metrics.rank_ic,
+                    vae_metrics.reconstruction_loss,
+                )
+            except Exception as e:
+                logger.warning("[ml] VAE training failed, continuing without: %s", e)
+        else:
+            logger.info("[ml] VAE training disabled via config")
 
         # Save artifacts
         artifact_dir = settings.ml_artifact_dir
@@ -633,22 +872,60 @@ async def train_ml_models(ctx: dict) -> dict:
             with open(model_file, "wb") as f:
                 f.write(model_bytes)
 
-        # Record MlModelRun
-        train_metrics = {
-            "n_clusters": n_clusters,
-            "n_models": len(models),
-            "feature_names": feature_names[:20],  # Store first 20 feature names
-        }
+        # Save VAE artifact
+        vae_artifact_path = None
+        if vae_bytes:
+            vae_artifact_path = os.path.join(artifact_path, "factor_vae.pt")
+            with open(vae_artifact_path, "wb") as f:
+                f.write(vae_bytes)
 
+        # Compute rank IC and model qualification
+        from margin_engine.ml.signal_model import predict_alpha
+        from scipy.stats import spearmanr
+
+        all_preds = np.zeros(len(tickers))
+        for cluster_id_ic, model_bytes_ic in models.items():
+            c_indices = cluster_indices[cluster_id_ic]
+            if c_indices:
+                cluster_features = features[c_indices]
+                preds = predict_alpha(model_bytes_ic, cluster_features)
+                for j, idx in enumerate(c_indices):
+                    all_preds[idx] = preds[j]
+
+        mask = forward_returns != 0.0
+        if mask.sum() > 10:
+            overall_rank_ic, _ = spearmanr(all_preds[mask], forward_returns[mask])
+            if np.isnan(overall_rank_ic):
+                overall_rank_ic = 0.0
+        else:
+            overall_rank_ic = 0.0
+
+        model_qualifies = overall_rank_ic > 0.15
+        logger.info(
+            "[ml] Overall rank IC: %.4f (qualifies=%s)", overall_rank_ic, model_qualifies
+        )
+
+        # Record MlModelRun
         async with session_factory() as session:
             ml_run = MlModelRun(
                 model_type="lightgbm_cluster",
-                n_clusters=n_clusters,
-                n_features=len(feature_names),
-                n_samples=len(tickers),
-                train_metrics=train_metrics,
+                n_clusters=len(models),
+                n_features=features.shape[1],
+                n_samples=features.shape[0],
+                train_metrics={
+                    "feature_names": feature_names,
+                    "cluster_sizes": {
+                        str(k): len(v) for k, v in cluster_indices.items()
+                    },
+                    "vae_metrics": (
+                        vae_metrics.model_dump() if vae_metrics else None
+                    ),
+                },
                 artifact_path=artifact_path,
-                status="completed",
+                model_qualifies=model_qualifies,
+                overall_rank_ic=overall_rank_ic,
+                vae_rank_ic=vae_metrics.rank_ic if vae_metrics else None,
+                vae_artifact_path=vae_artifact_path,
             )
             session.add(ml_run)
 
@@ -792,6 +1069,7 @@ class WorkerSettings:
         full_ingest,
         full_score,
         full_score_v3,
+        full_score_v4,
         backtest_validate,
         train_ml_models,
         live_price_poll,

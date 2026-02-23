@@ -126,6 +126,7 @@ class Asset(Base):
     recommendations: Mapped[list[Recommendation]] = relationship(back_populates="asset")
     financial_data: Mapped[list[FinancialData]] = relationship(back_populates="asset")
     v3_scores: Mapped[list[V3Score]] = relationship(back_populates="asset")
+    v4_scores: Mapped[list[V4Score]] = relationship(back_populates="asset")
 
 
 class FinancialData(Base):
@@ -292,6 +293,38 @@ class V3Score(Base):
     asset: Mapped[Asset] = relationship(back_populates="v3_scores")
 
     __table_args__ = (Index("ix_v3_scores_asset_scored", "asset_id", "scored_at"),)
+
+
+class V4Score(Base):
+    __tablename__ = "v4_scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
+    scored_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    opportunity_type: Mapped[str] = mapped_column(String(30))
+    conviction: Mapped[str] = mapped_column(String(20))
+    rules_conviction: Mapped[str] = mapped_column(String(20))
+    track_a: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    track_b: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    track_c: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    style: Mapped[str] = mapped_column(String(10))
+    timing_signal: Mapped[str] = mapped_column(String(30))
+    max_position_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    regime: Mapped[str] = mapped_column(String(20))
+    composite_score: Mapped[float] = mapped_column(Float, default=0.0)
+    ml_alpha: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ml_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ml_override: Mapped[str] = mapped_column(String(20), default="none")
+    detail: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+
+    asset: Mapped[Asset] = relationship(back_populates="v4_scores")
+
+    __table_args__ = (
+        Index("ix_v4_scores_asset_scored", "asset_id", "scored_at"),
+        Index("ix_v4_scores_scored_at", "scored_at"),
+    )
 
 
 class Recommendation(Base):
@@ -461,6 +494,10 @@ class MlModelRun(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+    model_qualifies: Mapped[bool] = mapped_column(default=False)
+    overall_rank_ic: Mapped[float | None] = mapped_column(Float, nullable=True)
+    vae_rank_ic: Mapped[float | None] = mapped_column(Float, nullable=True)
+    vae_artifact_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
 class ApiKey(Base):

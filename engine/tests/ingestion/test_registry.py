@@ -811,4 +811,4 @@ class TestEdgarInFallbackChain:
 
         chain = registry.get_fallback_chain(DataCategory.FUNDAMENTALS)
         names = [p.info.name for p in chain]
-        assert names == ["yfinance", "fmp", "edgar"]
+        assert names == ["fmp", "yfinance", "edgar"]

@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import logging
 import math
+import os
 import sys
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -25,6 +26,7 @@ from margin_api.db.models import Asset, FinancialData
 from margin_api.db.session import get_engine, get_session_factory
 from margin_api.services.ingestion import (
     classify_error,
+    should_ingest_ticker,
     update_failure_status,
 )
 from margin_api.services.seed_result import SeedResult
@@ -175,6 +177,7 @@ async def seed_ticker_data(
     ticker: str,
     provider: YFinanceProvider,
     session,
+    fallback_provider=None,
 ) -> SeedResult:
     """Fetch data for a single ticker and upsert it into the database.
 
@@ -184,6 +187,34 @@ async def seed_ticker_data(
     try:
         # Fetch all data categories via provider.fetch_all
         results = provider.fetch_all(ticker)
+
+        # Attempt fallback for failed categories
+        if fallback_provider is not None:
+            fallback_map = {
+                "fundamentals": "fetch_fundamentals",
+                "price": "fetch_price_history",
+                "earnings": "fetch_earnings",
+            }
+            for cat_name, method_name in fallback_map.items():
+                if cat_name in results and not results[cat_name].success:
+                    try:
+                        method = getattr(fallback_provider, method_name)
+                        fb_result = method(ticker)
+                        if fb_result.success:
+                            results[cat_name] = fb_result
+                            logger.info(
+                                "  %s: %s rescued by %s",
+                                ticker,
+                                cat_name,
+                                fb_result.provider_name,
+                            )
+                    except Exception as fb_exc:
+                        logger.warning(
+                            "  %s: fallback %s failed: %s",
+                            ticker,
+                            cat_name,
+                            fb_exc,
+                        )
 
         # Track per-category success/failure
         categories_succeeded: list[str] = []
@@ -374,6 +405,15 @@ async def run_seed(tickers: list[str] | None = None) -> None:
     limiter = RateLimiter(requests_per_minute=12)
     provider = YFinanceProvider(rate_limiter=limiter)
 
+    # Construct FMP fallback provider if API key is available
+    fmp_provider = None
+    fmp_key = os.environ.get("FMP_API_KEY")
+    if fmp_key:
+        from margin_engine.ingestion.providers.fmp_provider import FMPProvider
+
+        fmp_provider = FMPProvider(api_key=fmp_key)
+        logger.info("FMP fallback provider enabled")
+
     engine = get_engine()
     session_factory = get_session_factory(engine)
 
@@ -385,11 +425,39 @@ async def run_seed(tickers: list[str] | None = None) -> None:
     for i, ticker in enumerate(tickers, start=1):
         logger.info("[%d/%d] Seeding %s...", i, total, ticker)
 
+        # Check if ticker should be ingested (skip quarantined/permanently_skipped)
+        async with session_factory() as session:
+            asset_check = await session.execute(select(Asset).where(Asset.ticker == ticker))
+            existing_asset = asset_check.scalar_one_or_none()
+            if existing_asset and not should_ingest_ticker(
+                existing_asset.ingestion_status,
+                existing_asset.consecutive_failures,
+                existing_asset.last_retry_at,
+            ):
+                logger.info(
+                    "  %s SKIPPED (status=%s)", ticker, existing_asset.ingestion_status
+                )
+                continue
+
+        # Resume check: skip if already seeded today
+        async with session_factory() as session:
+            today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
+            resume_check = await session.execute(
+                select(FinancialData)
+                .join(Asset, FinancialData.asset_id == Asset.id)
+                .where(Asset.ticker == ticker, FinancialData.period_end == today_iso)
+                .limit(1)
+            )
+            if resume_check.scalar_one_or_none() is not None:
+                logger.info("  %s SKIPPED (already seeded today)", ticker)
+                continue
+
         async with session_factory() as session:
             result = await seed_ticker_data(
                 ticker=ticker,
                 provider=provider,
                 session=session,
+                fallback_provider=fmp_provider,
             )
 
         if result.status == "ok":
@@ -771,6 +839,536 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
 
 
 # ---------------------------------------------------------------------------
+# V4 Scoring helpers
+# ---------------------------------------------------------------------------
+
+
+def _compute_revenue_cagr(history: Any) -> float:
+    """Compute revenue CAGR from a FinancialHistory's periods."""
+    if len(history.periods) < 2:
+        return 0.0
+    oldest_rev = float(history.periods[0].current_income.revenue)
+    newest_rev = float(history.periods[-1].current_income.revenue)
+    if oldest_rev <= 0:
+        return 0.0
+    years = max(len(history.periods) - 1, 1)
+    return (newest_rev / oldest_rev) ** (1.0 / years) - 1.0
+
+
+def _compute_track_c_fields(history: Any, latest: Any, current_price: float, shares: int) -> dict:
+    """Compute Track C (Efficient Growth) input fields from financial data.
+
+    Returns a dict of Track C field names to values.
+    """
+    rev_growth = _compute_revenue_cagr(history)
+    rev_latest = float(latest.current_income.revenue)
+    fcf_latest = float(latest.current_cash_flow.free_cash_flow)
+    fcf_margin = fcf_latest / rev_latest if rev_latest > 0 else 0.0
+
+    # Gross margin (current)
+    gm_current = float(latest.current_income.gross_profit) / rev_latest if rev_latest > 0 else 0.0
+
+    # Gross margin (3yr ago) — use oldest period if we have >= 3 periods
+    gm_3yr = gm_current
+    if len(history.periods) >= 3:
+        old_rev = float(history.periods[0].current_income.revenue)
+        old_gp = float(history.periods[0].current_income.gross_profit)
+        gm_3yr = old_gp / old_rev if old_rev > 0 else gm_current
+
+    # Operating leverage: opex growth rate
+    opex_current = rev_latest - float(latest.current_income.gross_profit)
+    opex_old = opex_current
+    if len(history.periods) >= 2:
+        old_rev2 = float(history.periods[0].current_income.revenue)
+        old_gp2 = float(history.periods[0].current_income.gross_profit)
+        opex_old = old_rev2 - old_gp2
+    opex_growth = (opex_current / opex_old - 1.0) if opex_old > 0 else 0.0
+
+    # Incremental ROIC
+    if len(history.periods) >= 2:
+        delta_nopat = float(latest.current_income.ebit) - float(
+            history.periods[-2].current_income.ebit
+        )
+        old_eq = float(history.periods[-2].current_balance.total_equity)
+        inc_roic = delta_nopat / old_eq if old_eq > 0 else 0.0
+    else:
+        inc_roic = 0.0
+
+    # Revenue deceleration: compare recent growth to older growth
+    rev_decel = 0.0
+    if len(history.periods) >= 3:
+        rev_newest = float(history.periods[-1].current_income.revenue)
+        rev_mid = float(history.periods[-2].current_income.revenue)
+        rev_oldest = float(history.periods[-3].current_income.revenue)
+        if rev_mid > 0 and rev_oldest > 0:
+            growth_recent = (rev_newest / rev_mid) - 1.0
+            growth_older = (rev_mid / rev_oldest) - 1.0
+            rev_decel = growth_older - growth_recent  # positive = decelerating
+
+    return {
+        "revenue_growth_rate": rev_growth,
+        "fcf_margin": fcf_margin,
+        "gross_margin_current": gm_current,
+        "gross_margin_3yr_ago": gm_3yr,
+        "opex_growth_rate": opex_growth,
+        "revenue_growth_rate_for_leverage": rev_growth,
+        "incremental_roic": inc_roic,
+        "revenue_deceleration": rev_decel,
+        # TAM headroom requires external industry data (not available from financials);
+        # default to neutral value — Track C uses this as a minor gate modifier
+        "tam_headroom": 5.0,
+    }
+
+
+async def _load_and_predict_ml(
+    ml_run: Any,
+    ticker_data_list: list,
+) -> dict:
+    """Load ML artifacts from a qualified MlModelRun and run predictions.
+
+    Returns a dict with keys: model_qualifies, alphas, vae_means, vae_variances.
+    """
+    import numpy as np
+    from margin_engine.ml.clustering import cluster_stocks
+    from margin_engine.ml.signal_model import predict_alpha
+
+    result: dict = {
+        "model_qualifies": ml_run.model_qualifies,
+        "alphas": {},
+        "vae_means": {},
+        "vae_variances": {},
+    }
+
+    artifact_path = ml_run.artifact_path
+    if not artifact_path:
+        return result
+
+    artifact_dir = Path(artifact_path)
+    if not artifact_dir.exists():
+        logger.warning("ML artifact directory not found: %s", artifact_dir)
+        return result
+
+    # Build feature matrix from ticker data (simple features for clustering/prediction)
+    tickers = [td.ticker for td in ticker_data_list]
+    features = []
+    for td in ticker_data_list:
+        row = [
+            td.current_price,
+            td.current_fcf_per_share,
+            td.momentum_percentile,
+            td.sue_percentile,
+            td.revenue_growth_rate,
+            td.fcf_margin,
+            td.gross_margin_current,
+            td.incremental_roic,
+        ]
+        features.append(row)
+    feature_matrix = np.array(features, dtype=np.float64)
+
+    # Cluster stocks
+    try:
+        clusters = cluster_stocks(feature_matrix, tickers, n_clusters=ml_run.n_clusters or 5)
+    except Exception as e:
+        logger.warning("ML clustering failed: %s", e)
+        return result
+
+    # Build ticker->index mapping
+    ticker_idx = {t: i for i, t in enumerate(tickers)}
+
+    # Load per-cluster LightGBM models and predict
+    for cluster_id, cluster_tickers in clusters.items():
+        model_file = artifact_dir / f"cluster_{cluster_id}.pkl"
+        if not model_file.exists():
+            continue
+        try:
+            model_bytes = model_file.read_bytes()
+            cluster_indices = [ticker_idx[t] for t in cluster_tickers if t in ticker_idx]
+            if not cluster_indices:
+                continue
+            cluster_features = feature_matrix[cluster_indices]
+            preds = predict_alpha(model_bytes, cluster_features)
+            for j, idx in enumerate(cluster_indices):
+                result["alphas"][tickers[idx]] = float(preds[j])
+        except Exception as e:
+            logger.warning("ML prediction failed for cluster %d: %s", cluster_id, e)
+
+    # Load VAE if available
+    vae_artifact_path = ml_run.vae_artifact_path
+    if vae_artifact_path:
+        vae_file = Path(vae_artifact_path)
+        if vae_file.exists():
+            try:
+                from margin_engine.ml.factor_vae import predict_factor_vae
+
+                vae_bytes = vae_file.read_bytes()
+                vae_means, vae_variances = predict_factor_vae(vae_bytes, feature_matrix)
+                for i, t in enumerate(tickers):
+                    result["vae_means"][t] = float(vae_means[i])
+                    result["vae_variances"][t] = float(vae_variances[i])
+            except Exception as e:
+                logger.warning("VAE prediction failed: %s", e)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# V4 Scoring logic
+# ---------------------------------------------------------------------------
+
+
+async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = None) -> None:
+    """Score tickers using the v4 pipeline with Track C, style, momentum, and ML."""
+    from margin_engine.ingestion.normalizer import normalize_earnings_list
+    from margin_engine.models.scoring import FactorScore
+    from margin_engine.scoring.normalizer import compute_percentile_ranks
+    from margin_engine.scoring.quantitative.sue import sue_score
+    from margin_engine.scoring.style_classifier import classify_investment_style
+    from margin_engine.scoring.v4_pipeline import TickerV4Data, score_universe_v4
+
+    from margin_api.data.fred_client import fetch_shiller_cape
+    from margin_api.db.models import MlModelRun, V4Score
+    from margin_api.services.scoring import build_asset_profile, build_financial_history_from_rows
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    if tickers is None:
+        tickers = await _get_universe_tickers()
+    if not tickers:
+        logger.warning("No tickers found. Run 'seed' first.")
+        return
+
+    # Fetch CAPE
+    if cape is None:
+        cape = await fetch_shiller_cape()
+    logger.info("V4 scoring — Using Shiller CAPE: %.1f", cape)
+
+    # Build TickerV4Data for each ticker
+    ticker_data_list: list[TickerV4Data] = []
+    sue_raw_scores: dict[str, float] = {}
+    momentum_raw: dict[str, float] = {}
+    ev_fcf_raw_scores: dict[str, float] = {}
+    style_inputs: dict[str, dict] = {}
+    total = len(tickers)
+    asset_ids: dict[str, int] = {}
+
+    for i, ticker in enumerate(tickers, start=1):
+        async with session_factory() as session:
+            # Fetch asset
+            result = await session.execute(select(Asset).where(Asset.ticker == ticker))
+            asset = result.scalar_one_or_none()
+            if not asset:
+                logger.warning("[%d/%d] SKIP %s — no asset", i, total, ticker)
+                continue
+
+            # Fetch last 5 years of financial data
+            result = await session.execute(
+                select(FinancialData)
+                .where(FinancialData.asset_id == asset.id)
+                .order_by(FinancialData.period_end.desc())
+                .limit(5)
+            )
+            fin_rows = result.scalars().all()
+            if not fin_rows:
+                logger.warning("[%d/%d] SKIP %s — no financial data", i, total, ticker)
+                continue
+
+            try:
+                rows = [
+                    {
+                        "period_end": fd.period_end,
+                        "filing_date": fd.filing_date,
+                        "income_statement": fd.income_statement or {},
+                        "balance_sheet": fd.balance_sheet or {},
+                        "cash_flow": fd.cash_flow or {},
+                    }
+                    for fd in fin_rows
+                ]
+                history = build_financial_history_from_rows(ticker, rows)
+                profile = build_asset_profile(
+                    ticker=asset.ticker,
+                    name=asset.name,
+                    sector=asset.sector,
+                    market_cap=asset.market_cap,
+                    shares_outstanding=asset.shares_outstanding,
+                )
+                latest = history.periods[-1]
+
+                # Get current price from most recent price bar
+                latest_fd = max(fin_rows, key=lambda fd: fd.period_end)
+                price_data = latest_fd.price_history or {}
+                bars = price_data.get("bars", []) if isinstance(price_data, dict) else []
+                last_bar = bars[-1] if bars else {}
+                close_val = last_bar.get("close") or last_bar.get("Close")
+                current_price = (
+                    float(close_val)
+                    if close_val is not None
+                    else float(profile.market_cap) / max(asset.shares_outstanding or 1, 1)
+                )
+
+                # FCF per share
+                fcf = float(latest.current_cash_flow.free_cash_flow)
+                shares = asset.shares_outstanding or 1
+                fcf_ps = fcf / shares
+
+                # Compute raw SUE score from earnings data
+                earnings_raw_data = latest_fd.earnings_data or {}
+                earnings_entries = earnings_raw_data.get("earnings", [])
+                if earnings_entries:
+                    surprises = normalize_earnings_list(earnings_entries)
+                    sue_factor = sue_score(surprises)
+                    sue_raw_scores[ticker] = sue_factor.raw_value
+                else:
+                    sue_raw_scores[ticker] = 0.0
+
+                # DCF IV
+                from margin_engine.scoring.quantitative.dcf_mos import dcf_margin_of_safety
+
+                dcf_result = dcf_margin_of_safety(
+                    latest, profile.market_cap, growth_rate=0.05, discount_rate=0.10
+                )
+                if dcf_result.raw_value < 1.0 and dcf_result.raw_value != 0.0:
+                    dcf_iv = float(profile.market_cap) / (1.0 - dcf_result.raw_value) / shares
+                else:
+                    dcf_iv = current_price
+
+                # Momentum: 12-1 month return (skip most recent month)
+                if len(bars) >= 252:
+                    p_12 = bars[-252].get("close") or bars[-252].get("Close") or current_price
+                    p_1 = bars[-21].get("close") or bars[-21].get("Close") or current_price
+                    momentum_raw[ticker] = (float(p_1) / float(p_12)) - 1.0
+                else:
+                    momentum_raw[ticker] = 0.0
+
+                # Style classification
+                rev_cagr = _compute_revenue_cagr(history)
+
+                # EV/FCF — compute raw value; percentile is ranked later
+                ev = float(profile.market_cap) + float(
+                    latest.current_balance.total_debt
+                ) - float(latest.current_balance.cash_and_equivalents)
+                ev_fcf_raw = ev / fcf if fcf > 0 else None
+
+                # Earnings acceleration: compare latest EPS growth to prior
+                earnings_accel = None
+                if len(history.periods) >= 3:
+                    eps_latest = float(latest.current_income.ebit)
+                    eps_prior = float(history.periods[-2].current_income.ebit)
+                    eps_oldest = float(history.periods[-3].current_income.ebit)
+                    if eps_oldest != 0 and eps_prior != 0:
+                        growth_recent = (eps_latest - eps_prior) / abs(eps_prior)
+                        growth_older = (eps_prior - eps_oldest) / abs(eps_oldest)
+                        earnings_accel = growth_recent > growth_older
+
+                # R&D + CapEx / Revenue
+                capex = abs(float(latest.current_cash_flow.capex))
+                rd = float(latest.current_income.research_and_development)
+                rev_for_ratio = float(latest.current_income.revenue)
+                rd_capex_ratio = (
+                    (rd + capex) / rev_for_ratio if rev_for_ratio > 0 else None
+                )
+
+                # Store EV/FCF raw for universe-level percentile ranking
+                if ev_fcf_raw is not None:
+                    ev_fcf_raw_scores[ticker] = ev_fcf_raw
+
+                # Store style inputs for re-classification after percentile ranking
+                style_inputs[ticker] = {
+                    "revenue_cagr_3yr": rev_cagr,
+                    "earnings_growth_accelerating": earnings_accel,
+                    "rd_capex_to_revenue": rd_capex_ratio,
+                }
+
+                # Preliminary style — will be re-classified with EV/FCF percentile
+                style = classify_investment_style(
+                    ev_fcf_sector_percentile=None,
+                    revenue_cagr_3yr=rev_cagr,
+                    earnings_growth_accelerating=earnings_accel,
+                    rd_capex_to_revenue=rd_capex_ratio,
+                )
+
+                # Track C fields
+                track_c_fields = _compute_track_c_fields(history, latest, current_price, shares)
+
+                td = TickerV4Data(
+                    ticker=ticker,
+                    history=history,
+                    latest_period=latest,
+                    profile=profile,
+                    current_price=current_price,
+                    current_fcf_per_share=fcf_ps,
+                    sustainable_growth_rate=0.08,  # default
+                    buyback_yield=None,
+                    insider_ownership_pct=None,
+                    sbc_pct=None,
+                    recent_acquisition_count=0,
+                    insider_percentile=50.0,
+                    institutional_percentile=50.0,
+                    sue_percentile=50.0,
+                    momentum_percentile=50.0,
+                    dcf_iv=dcf_iv,
+                    style=style,
+                    **track_c_fields,
+                )
+                ticker_data_list.append(td)
+                asset_ids[ticker] = asset.id
+                logger.info("[%d/%d] Prepared: %s (style=%s)", i, total, ticker, style.value)
+            except Exception as e:
+                logger.error("[%d/%d] FAILED %s: %s", i, total, ticker, e)
+
+    if not ticker_data_list:
+        logger.warning("No tickers could be prepared for v4 scoring.")
+        await engine.dispose()
+        return
+
+    # Compute SUE percentiles across the universe
+    if sue_raw_scores:
+        sue_tickers = list(sue_raw_scores.keys())
+        sue_factors = [
+            FactorScore(name="sue", raw_value=sue_raw_scores[t], percentile_rank=0.0)
+            for t in sue_tickers
+        ]
+        ranked = compute_percentile_ranks(sue_factors, invert=False)
+        sue_pctls = {t: ranked[i].percentile_rank for i, t in enumerate(sue_tickers)}
+
+        for idx, td in enumerate(ticker_data_list):
+            if td.ticker in sue_pctls:
+                ticker_data_list[idx] = td.model_copy(
+                    update={"sue_percentile": sue_pctls[td.ticker]}
+                )
+        logger.info(
+            "SUE percentiles computed for %d tickers (range: %.1f - %.1f)",
+            len(sue_pctls),
+            min(sue_pctls.values()),
+            max(sue_pctls.values()),
+        )
+
+    # Compute momentum percentiles across the universe
+    if momentum_raw:
+        mom_tickers = list(momentum_raw.keys())
+        mom_factors = [
+            FactorScore(name="momentum", raw_value=momentum_raw[t], percentile_rank=0.0)
+            for t in mom_tickers
+        ]
+        ranked_mom = compute_percentile_ranks(mom_factors, invert=False)
+        mom_pctls = {t: ranked_mom[i].percentile_rank for i, t in enumerate(mom_tickers)}
+
+        for idx, td in enumerate(ticker_data_list):
+            if td.ticker in mom_pctls:
+                ticker_data_list[idx] = td.model_copy(
+                    update={"momentum_percentile": mom_pctls[td.ticker]}
+                )
+        logger.info(
+            "Momentum percentiles computed for %d tickers (range: %.1f - %.1f)",
+            len(mom_pctls),
+            min(mom_pctls.values()),
+            max(mom_pctls.values()),
+        )
+
+    # Compute EV/FCF percentiles and re-classify style with full data
+    if ev_fcf_raw_scores:
+        evfcf_tickers = list(ev_fcf_raw_scores.keys())
+        # Higher EV/FCF = more expensive = more growth-like, so no invert
+        evfcf_factors = [
+            FactorScore(name="ev_fcf", raw_value=ev_fcf_raw_scores[t], percentile_rank=0.0)
+            for t in evfcf_tickers
+        ]
+        ranked_evfcf = compute_percentile_ranks(evfcf_factors, invert=False)
+        evfcf_pctls = {t: ranked_evfcf[i].percentile_rank for i, t in enumerate(evfcf_tickers)}
+
+        for idx, td in enumerate(ticker_data_list):
+            if td.ticker in evfcf_pctls and td.ticker in style_inputs:
+                si = style_inputs[td.ticker]
+                new_style = classify_investment_style(
+                    ev_fcf_sector_percentile=evfcf_pctls[td.ticker],
+                    revenue_cagr_3yr=si["revenue_cagr_3yr"],
+                    earnings_growth_accelerating=si["earnings_growth_accelerating"],
+                    rd_capex_to_revenue=si["rd_capex_to_revenue"],
+                )
+                if new_style != td.style:
+                    ticker_data_list[idx] = td.model_copy(update={"style": new_style})
+        logger.info(
+            "EV/FCF percentiles computed for %d tickers — styles re-classified",
+            len(evfcf_pctls),
+        )
+
+    # Load ML models if available
+    ml_predictions: dict | None = None
+    async with session_factory() as session:
+        result = await session.execute(
+            select(MlModelRun)
+            .where(MlModelRun.model_qualifies == True)  # noqa: E712
+            .order_by(MlModelRun.created_at.desc())
+            .limit(1)
+        )
+        ml_run = result.scalar_one_or_none()
+        if ml_run:
+            logger.info(
+                "Found qualified ML model: id=%d, type=%s, rank_ic=%.3f",
+                ml_run.id,
+                ml_run.model_type,
+                ml_run.overall_rank_ic or 0.0,
+            )
+            ml_predictions = await _load_and_predict_ml(ml_run, ticker_data_list)
+            if ml_predictions["alphas"]:
+                logger.info(
+                    "ML predictions: %d alphas, %d VAE means",
+                    len(ml_predictions["alphas"]),
+                    len(ml_predictions["vae_means"]),
+                )
+        else:
+            logger.info("No qualified ML model found — running rules-only v4 scoring")
+
+    # Run v4 pipeline
+    results = score_universe_v4(ticker_data_list, shiller_cape=cape, ml_predictions=ml_predictions)
+
+    # Persist results
+    from margin_engine.scoring.market_regime import detect_regime
+
+    regime = detect_regime(cape)
+    successes = 0
+    async with session_factory() as session:
+        for v4r in results:
+            if v4r.ticker not in asset_ids:
+                continue
+            score = V4Score(
+                asset_id=asset_ids[v4r.ticker],
+                opportunity_type=v4r.opportunity_type,
+                conviction=v4r.conviction.value,
+                rules_conviction=v4r.rules_conviction.value,
+                track_a=(
+                    v4r.track_a.model_dump(mode="json")
+                    if hasattr(v4r.track_a, "model_dump")
+                    else v4r.track_a
+                ),
+                track_b=(
+                    v4r.track_b.model_dump(mode="json")
+                    if hasattr(v4r.track_b, "model_dump")
+                    else v4r.track_b
+                ),
+                track_c=(
+                    v4r.track_c.model_dump(mode="json")
+                    if hasattr(v4r.track_c, "model_dump")
+                    else v4r.track_c
+                ),
+                style=v4r.style.value,
+                timing_signal=v4r.timing_signal,
+                max_position_pct=v4r.max_position_pct,
+                regime=regime.value,
+                composite_score=v4r.composite_score,
+                ml_alpha=v4r.ml_alpha,
+                ml_confidence=v4r.ml_confidence,
+                ml_override=v4r.ml_override,
+            )
+            session.add(score)
+            successes += 1
+        await session.commit()
+
+    logger.info("V4 scoring complete: %d scored out of %d tickers", successes, total)
+    await engine.dispose()
+
+
+# ---------------------------------------------------------------------------
 # Score-universe logic
 # ---------------------------------------------------------------------------
 
@@ -1111,6 +1709,23 @@ def main() -> None:
         help="Shiller CAPE override (fetches from FRED if omitted)",
     )
 
+    # score-v4
+    score_v4_parser = subparsers.add_parser(
+        "score-v4", help="Score tickers using v4 pipeline (Track C, style, ML)"
+    )
+    score_v4_parser.add_argument(
+        "--tickers",
+        nargs="+",
+        default=None,
+        help="Specific tickers to score (defaults to active universe)",
+    )
+    score_v4_parser.add_argument(
+        "--cape",
+        type=float,
+        default=None,
+        help="Shiller CAPE override (fetches from FRED if omitted)",
+    )
+
     # score-universe
     score_universe_parser = subparsers.add_parser(
         "score-universe", help="Score all eligible assets in one batch"
@@ -1164,6 +1779,8 @@ def main() -> None:
         asyncio.run(run_scoring(tickers=args.tickers))
     elif args.command == "score-v3":
         asyncio.run(run_scoring_v3(tickers=args.tickers, cape=args.cape))
+    elif args.command == "score-v4":
+        asyncio.run(run_scoring_v4(tickers=args.tickers, cape=args.cape))
     elif args.command == "score-universe":
         asyncio.run(run_score_universe(limit=args.limit))
     elif args.command == "pipeline":
