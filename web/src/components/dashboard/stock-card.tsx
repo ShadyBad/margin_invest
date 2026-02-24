@@ -8,6 +8,7 @@ import { PanelErrorBoundary } from "./panel/panel-error-boundary"
 import { getScore, getMetrics } from "@/lib/api/scores"
 import { ApiError } from "@/lib/api/client"
 import { getSectorColor } from "@/lib/sector-colors"
+import Link from "next/link"
 import type { PickSummary, ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/types"
 
 const INTERACTION_EASE = "cubic-bezier(0.19, 1, 0.22, 1)"
@@ -136,6 +137,13 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-bold text-text-primary">{pick.ticker}</h3>
+          <Link
+            href={`/asset/${pick.ticker}`}
+            className="text-xs text-text-tertiary hover:text-accent transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Full report &rarr;
+          </Link>
           {pick.data_freshness && pick.data_freshness !== "fresh" && (
             <span
               className={`text-xs px-1.5 py-0.5 rounded ${

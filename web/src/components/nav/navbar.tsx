@@ -8,6 +8,7 @@ import { NavCTA } from "./nav-cta"
 import { UserDropdown } from "./user-dropdown"
 import { ThemeToggle } from "./theme-toggle"
 import { MobileMenu } from "./mobile-menu"
+import { TickerSearch } from "./ticker-search"
 
 export function Navbar() {
   const nav = useNavigation()
@@ -24,6 +25,7 @@ export function Navbar() {
         <NavLinks links={nav.links} />
 
         <div className="hidden md:flex items-center gap-3">
+          <TickerSearch />
           {nav.cta && <NavCTA cta={nav.cta} />}
           {nav.user && (
             <UserDropdown user={nav.user} />

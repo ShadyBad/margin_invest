@@ -7,6 +7,10 @@ import { Navbar } from "../navbar"
 let mockIsAuthenticated = false
 const mockSignOut = vi.fn()
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
+
 vi.mock("next-themes", () => ({
   useTheme: () => ({
     resolvedTheme: "dark",
