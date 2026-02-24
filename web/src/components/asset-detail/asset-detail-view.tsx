@@ -6,6 +6,7 @@ import { EliminationGauntlet } from "./elimination-gauntlet"
 import { ScoringPillars } from "./scoring-pillars"
 import { ConvictionEngine } from "./conviction-engine"
 import { ValuationSection } from "./valuation-section"
+import { HypotheticalScores } from "./hypothetical-scores"
 
 interface AssetDetailViewProps {
   ticker: string
@@ -112,6 +113,19 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError }: As
           marginOfSafety={scoreData.margin_of_safety ?? null}
           valuationMethods={scoreData.valuation_methods ?? null}
           invalidReason={scoreData.price_target_invalid_reason ?? null}
+        />
+      )}
+
+      {!allFiltersPassed && (
+        <HypotheticalScores
+          ticker={scoreData.ticker}
+          compositeScore={scoreData.score}
+          compositePercentile={scoreData.universe_percentile}
+          convictionLevel={scoreData.conviction_level}
+          quality={scoreData.quality}
+          value={scoreData.value}
+          momentum={scoreData.momentum}
+          growthStage={scoreData.growth_stage}
         />
       )}
     </div>
