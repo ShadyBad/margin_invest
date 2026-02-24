@@ -13,6 +13,7 @@ from margin_api.db.base import Base
 from margin_api.db.models import User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 _TEST_FERNET_KEY = Fernet.generate_key().decode()
@@ -96,3 +97,68 @@ class TestBillingStatus:
         data = resp.json()
         assert data["plan"] == "analyst"
         assert data["is_active"] is False
+
+    @pytest.mark.asyncio
+    async def test_canceled_portfolio_user_is_not_active(self, setup):
+        """A user with plan=portfolio but status=canceled should NOT be active."""
+        app, user_id = setup
+        # Update user to canceled portfolio
+        async for session in app.dependency_overrides[get_db]():
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
+            user.subscription_plan = "portfolio"
+            user.subscription_status = "canceled"
+            await session.commit()
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/api/v1/billing/status")
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is False
+
+    @pytest.mark.asyncio
+    async def test_active_portfolio_user_is_active(self, setup):
+        """A user with plan=portfolio and status=active SHOULD be active."""
+        app, user_id = setup
+        async for session in app.dependency_overrides[get_db]():
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
+            user.subscription_plan = "portfolio"
+            user.subscription_status = "active"
+            await session.commit()
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/api/v1/billing/status")
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is True
+
+    @pytest.mark.asyncio
+    async def test_past_due_portfolio_user_is_not_active(self, setup):
+        """A user with plan=portfolio but status=past_due should NOT be active."""
+        app, user_id = setup
+        async for session in app.dependency_overrides[get_db]():
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
+            user.subscription_plan = "portfolio"
+            user.subscription_status = "past_due"
+            await session.commit()
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/api/v1/billing/status")
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is False
+
+    @pytest.mark.asyncio
+    async def test_analyst_user_is_not_active(self, setup):
+        """A free analyst user should NOT be active."""
+        app, user_id = setup
+        async for session in app.dependency_overrides[get_db]():
+            user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
+            user.subscription_plan = "analyst"
+            user.subscription_status = None
+            await session.commit()
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/api/v1/billing/status")
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is False

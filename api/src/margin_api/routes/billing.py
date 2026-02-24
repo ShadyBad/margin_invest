@@ -129,7 +129,10 @@ async def billing_status(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    is_active = user.subscription_plan in ("portfolio", "institutional", "operator")
+    is_active = (
+        user.subscription_plan in ("portfolio", "institutional", "operator")
+        and user.subscription_status in ("active", "trialing")
+    )
     billing_configured = bool(settings.stripe_secret_key and settings.stripe_portfolio_price_id)
     return BillingStatusResponse(
         plan=user.subscription_plan,
