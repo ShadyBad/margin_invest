@@ -12,7 +12,7 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
-from margin_engine.models.financial import AssetProfile, FinancialPeriod, PriceBar
+from margin_engine.models.financial import AssetProfile, FinancialPeriod
 
 
 class DelistingType(StrEnum):
@@ -109,7 +109,7 @@ class InMemoryPITProvider:
         self._delistings[ticker] = event
 
     def get_universe(self, as_of_date: date) -> list[PITSnapshot]:
-        """Return most recent snapshot per ticker at or before the given date, excluding delisted."""
+        """Return most recent snapshot per ticker at or before date, excluding delisted."""
         # Collect the most recent snapshot for each ticker at or before as_of_date
         latest: dict[str, PITSnapshot] = {}
         for (snap_date, ticker), snapshot in self._snapshots.items():

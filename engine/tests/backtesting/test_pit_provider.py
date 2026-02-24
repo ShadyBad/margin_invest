@@ -2,13 +2,10 @@
 
 from datetime import date
 
-import pytest
-
 from margin_engine.backtesting.pit_provider import (
     DelistingEvent,
     DelistingType,
     InMemoryPITProvider,
-    PITSnapshot,
     PointInTimeProvider,
 )
 from margin_engine.models.financial import (
@@ -18,7 +15,6 @@ from margin_engine.models.financial import (
     FinancialPeriod,
     GICSSector,
     IncomeStatement,
-    PriceBar,
 )
 
 
@@ -78,8 +74,12 @@ def _make_period() -> FinancialPeriod:
 class TestInMemoryPITProvider:
     def test_get_universe_returns_known_tickers(self):
         provider = InMemoryPITProvider()
-        provider.add_snapshot(date(2008, 3, 1), "AAPL", _make_profile("AAPL"), _make_period(), 150.0)
-        provider.add_snapshot(date(2008, 3, 1), "MSFT", _make_profile("MSFT"), _make_period(), 28.0)
+        provider.add_snapshot(
+            date(2008, 3, 1), "AAPL", _make_profile("AAPL"), _make_period(), 150.0
+        )
+        provider.add_snapshot(
+            date(2008, 3, 1), "MSFT", _make_profile("MSFT"), _make_period(), 28.0
+        )
 
         universe = provider.get_universe(date(2008, 3, 1))
         assert len(universe) == 2
@@ -88,8 +88,12 @@ class TestInMemoryPITProvider:
 
     def test_get_universe_excludes_delisted(self):
         provider = InMemoryPITProvider()
-        provider.add_snapshot(date(2008, 3, 1), "AAPL", _make_profile("AAPL"), _make_period(), 150.0)
-        provider.add_snapshot(date(2008, 3, 1), "LEH", _make_profile("LEH"), _make_period(), 40.0)
+        provider.add_snapshot(
+            date(2008, 3, 1), "AAPL", _make_profile("AAPL"), _make_period(), 150.0
+        )
+        provider.add_snapshot(
+            date(2008, 3, 1), "LEH", _make_profile("LEH"), _make_period(), 40.0
+        )
         provider.add_delisting("LEH", DelistingEvent(
             ticker="LEH", delist_date=date(2008, 9, 15),
             delist_type=DelistingType.BANKRUPTCY, last_price=0.20,
