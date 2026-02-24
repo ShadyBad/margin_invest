@@ -81,6 +81,13 @@ export default async function DashboardPage() {
         <h2 className="text-lg font-semibold text-text-primary mb-4">
           Top Picks
         </h2>
+        {(data?.picks?.length ?? 0) > 0 && (data?.picks?.length ?? 0) <= 5 && data?.total_scored && (
+          <p className="text-xs text-text-tertiary mb-4">
+            Only {data.picks.length} stock{data.picks.length !== 1 ? "s" : ""} survived
+            all filters and scored above the conviction threshold.{" "}
+            {data.total_scored} stocks were evaluated.
+          </p>
+        )}
         <PicksGrid
           picks={data?.picks ?? []}
           totalScored={data?.total_scored}
