@@ -4,14 +4,20 @@ import BacktestingPage from "../page"
 import type {
   BacktestResult,
   BacktestListResponse,
+  FullBacktestResponse,
+  ShadowPortfolioResponse,
 } from "@/lib/api/types"
 
 const mockGetBacktestResults = vi.fn()
 const mockGetBacktestResult = vi.fn()
+const mockGetDefaultBacktest = vi.fn()
+const mockGetShadowPortfolio = vi.fn()
 
 vi.mock("@/lib/api/backtest", () => ({
   getBacktestResults: (...args: unknown[]) => mockGetBacktestResults(...args),
   getBacktestResult: (...args: unknown[]) => mockGetBacktestResult(...args),
+  getDefaultBacktest: (...args: unknown[]) => mockGetDefaultBacktest(...args),
+  getShadowPortfolio: (...args: unknown[]) => mockGetShadowPortfolio(...args),
 }))
 
 vi.mock("next-auth/react", () => ({
@@ -113,10 +119,52 @@ const mockEmptyListResponse: BacktestListResponse = {
   total: 0,
 }
 
+const mockReplayData: FullBacktestResponse = {
+  config: {
+    start_date: "2006-01-01",
+    end_date: "2025-12-31",
+    rebalance_frequency: "monthly",
+    conviction_threshold: 0.10,
+    weighting: "equal",
+    sector_exclusions: [],
+    transaction_cost_bps: 20,
+  },
+  metrics: mockBacktestResult.metrics,
+  regime_segments: [
+    { regime: "bull", num_months: 156, total_return: 2.34, benchmark_return: 1.87, max_drawdown: 0.12 },
+    { regime: "bear", num_months: 36, total_return: -0.72, benchmark_return: -1.08, max_drawdown: 0.28 },
+    { regime: "sideways", num_months: 30, total_return: 0.09, benchmark_return: 0.06, max_drawdown: 0.08 },
+    { regime: "crisis", num_months: 18, total_return: -0.72, benchmark_return: -0.9, max_drawdown: 0.35 },
+  ],
+  audit_log: [
+    { rebalance_date: "2025-12-31", universe_size: 502, eliminated_count: 350, survivor_count: 152, selected_count: 5, top_holdings: [], notable_events: [], factor_coverage: 0.95, regime: "bull" },
+  ],
+  factor_timeline: [
+    { as_of_date: "2006-01-01", available: ["PE", "PB", "ROE"], missing: ["FCF"], coverage_ratio: 0.75 },
+  ],
+  failure_audit: [],
+  equity_curve: [],
+  walk_forward_note: "Walk-forward test note",
+  honesty_disclosure: "Test disclosure",
+}
+
+const mockShadowData: ShadowPortfolioResponse = {
+  start_date: "2026-02-24",
+  snapshots: [],
+  total_return: 0.0,
+  max_drawdown: 0.0,
+  num_days: 0,
+  cannot_be_backdated: true,
+}
+
 describe("Backtesting Page (read-only)", () => {
   beforeEach(() => {
     mockGetBacktestResults.mockReset()
     mockGetBacktestResult.mockReset()
+    mockGetDefaultBacktest.mockReset()
+    mockGetShadowPortfolio.mockReset()
+    mockGetDefaultBacktest.mockResolvedValue(mockReplayData)
+    mockGetShadowPortfolio.mockResolvedValue(mockShadowData)
   })
 
   it("renders loading skeleton while fetching", () => {
@@ -318,5 +366,61 @@ describe("Backtesting Page (read-only)", () => {
     })
 
     expect(screen.getByText("Methodology Validation")).toBeInTheDocument()
+  })
+
+  it("renders shadow portfolio section when shadow data is available", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    mockGetShadowPortfolio.mockResolvedValue(mockShadowData)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("shadow-portfolio-section")).toBeInTheDocument()
+    })
+
+    expect(screen.getByText("Shadow Portfolio")).toBeInTheDocument()
+    expect(screen.getByText("2026-02-24")).toBeInTheDocument()
+    expect(screen.getByTestId("shadow-no-backdate")).toBeInTheDocument()
+  })
+
+  it("renders honesty disclosure when replay data has one", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    mockGetDefaultBacktest.mockResolvedValue(mockReplayData)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("honesty-disclosure")).toBeInTheDocument()
+    })
+
+    expect(screen.getByText("Test disclosure")).toBeInTheDocument()
+  })
+
+  it("does not render shadow or disclosure when APIs fail", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    mockGetDefaultBacktest.mockRejectedValue(new Error("fail"))
+    mockGetShadowPortfolio.mockRejectedValue(new Error("fail"))
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("metrics-summary")).toBeInTheDocument()
+    })
+
+    expect(screen.queryByTestId("shadow-portfolio-section")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("honesty-disclosure")).not.toBeInTheDocument()
+  })
+
+  it("calls getDefaultBacktest and getShadowPortfolio on mount", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("metrics-summary")).toBeInTheDocument()
+    })
+
+    expect(mockGetDefaultBacktest).toHaveBeenCalledTimes(1)
+    expect(mockGetShadowPortfolio).toHaveBeenCalledTimes(1)
   })
 })

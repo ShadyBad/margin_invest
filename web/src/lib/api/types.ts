@@ -329,3 +329,79 @@ export interface CorrelationResponse {
   window_days: number
   computed_at: string
 }
+
+export interface RegimeSegmentResponse {
+  regime: string
+  num_months: number
+  total_return: number
+  benchmark_return: number
+  max_drawdown: number
+}
+
+export interface AuditRecordResponse {
+  rebalance_date: string
+  universe_size: number
+  eliminated_count: number
+  survivor_count: number
+  selected_count: number
+  top_holdings: Record<string, unknown>[]
+  notable_events: string[]
+  factor_coverage: number
+  regime: string
+}
+
+export interface FactorTimelineResponse {
+  as_of_date: string
+  available: string[]
+  missing: string[]
+  coverage_ratio: number
+}
+
+export interface FailurePeriodResponse {
+  rebalance_date: string
+  portfolio_return: number
+  benchmark_return: number
+  relative_underperformance: number
+  holdings: Record<string, unknown>[]
+  regime: string
+  regime_context: string
+}
+
+export interface ReplayConfigResponse {
+  start_date: string
+  end_date: string | null
+  rebalance_frequency: string
+  conviction_threshold: number
+  weighting: string
+  sector_exclusions: string[]
+  transaction_cost_bps: number
+}
+
+export interface FullBacktestResponse {
+  config: ReplayConfigResponse
+  metrics: BacktestMetrics
+  regime_segments: RegimeSegmentResponse[]
+  audit_log: AuditRecordResponse[]
+  factor_timeline: FactorTimelineResponse[]
+  failure_audit: FailurePeriodResponse[]
+  equity_curve: { date: string; portfolio_value: number; benchmark_value: number }[]
+  walk_forward_note: string
+  honesty_disclosure: string
+}
+
+export interface ShadowSnapshotResponse {
+  as_of_date: string
+  portfolio_value: number
+  total_return: number | null
+  num_positions: number
+  positions: Record<string, unknown>[] | null
+}
+
+export interface ShadowPortfolioResponse {
+  start_date: string
+  snapshots: ShadowSnapshotResponse[]
+  total_return: number
+  max_drawdown: number
+  num_days: number
+  cannot_be_backdated: boolean
+}

@@ -8,12 +8,16 @@ import { SkeletonCard, EmptyState } from "@/components/ui"
 import {
   getBacktestResults,
   getBacktestResult,
+  getDefaultBacktest,
+  getShadowPortfolio,
 } from "@/lib/api/backtest"
-import type { BacktestResult, BacktestSummary } from "@/lib/api/types"
+import type { BacktestResult, BacktestSummary, FullBacktestResponse, ShadowPortfolioResponse } from "@/lib/api/types"
 
 export default function BacktestingPage() {
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [history, setHistory] = useState<BacktestSummary[]>([])
+  const [replayData, setReplayData] = useState<FullBacktestResponse | null>(null)
+  const [shadowData, setShadowData] = useState<ShadowPortfolioResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,6 +38,15 @@ export default function BacktestingPage() {
         } else {
           setResult(null)
         }
+
+        // Fetch replay and shadow portfolio data
+        const [replay, shadow] = await Promise.all([
+          getDefaultBacktest().catch(() => null),
+          getShadowPortfolio().catch(() => null),
+        ])
+        if (cancelled) return
+        setReplayData(replay)
+        setShadowData(shadow)
       } catch (err) {
         if (cancelled) return
         setError(
@@ -114,7 +127,7 @@ export default function BacktestingPage() {
               <h2 className="text-lg font-semibold text-text-primary mb-4">
                 Latest Performance Metrics
               </h2>
-              <MetricsSummary metrics={result.metrics} />
+              <MetricsSummary metrics={replayData?.metrics ?? result.metrics} />
             </section>
 
             <section>
@@ -192,6 +205,49 @@ export default function BacktestingPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {!loading && !error && shadowData && (
+          <section className="mt-8" data-testid="shadow-portfolio-section">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
+              Shadow Portfolio
+            </h2>
+            <div className="bg-bg-elevated border border-border-primary rounded-sm p-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-text-secondary">Start Date</p>
+                  <p className="text-sm font-mono text-text-primary">{shadowData.start_date}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-text-secondary">Total Return</p>
+                  <p className="text-sm font-mono text-text-primary">{(shadowData.total_return * 100).toFixed(2)}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-text-secondary">Max Drawdown</p>
+                  <p className="text-sm font-mono text-text-primary">{(shadowData.max_drawdown * 100).toFixed(2)}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-text-secondary">Days Tracked</p>
+                  <p className="text-sm font-mono text-text-primary">{shadowData.num_days}</p>
+                </div>
+              </div>
+              {shadowData.cannot_be_backdated && (
+                <p className="text-xs text-text-secondary mt-3" data-testid="shadow-no-backdate">
+                  Shadow portfolio tracks forward only and cannot be backdated.
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {!loading && !error && replayData?.honesty_disclosure && (
+          <section className="mt-8" data-testid="honesty-disclosure">
+            <div className="bg-bg-elevated border border-border-primary rounded-sm p-4">
+              <p className="text-xs text-text-secondary italic">
+                {replayData.honesty_disclosure}
+              </p>
             </div>
           </section>
         )}
