@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.db.models import Asset, Score
+from margin_api.db.models import Asset, MlModelRun, Score, V4Score
 from margin_api.db.session import get_db
 from margin_api.schemas.score_history import ScoreHistoryPoint, ScoreHistoryResponse
 from margin_api.schemas.scores import (
@@ -190,6 +190,96 @@ def _score_response_from_row(
     )
 
 
+def _v4_score_response_from_row(
+    row,
+    ml_model: MlModelRun | None = None,
+    live_price_data: dict | None = None,
+) -> ScoreResponse:
+    """Build a ScoreResponse from a V4Score DB query row.
+
+    Args:
+        row: DB query row (V4Score, ticker, asset_name, asset_sector).
+        ml_model: Optional latest MlModelRun for model metadata.
+        live_price_data: Optional dict from LivePriceService.get_price().
+    """
+    v4 = row[0] if hasattr(row[0], "conviction") else row.V4Score
+    ticker = row.ticker if hasattr(row, "ticker") else row[1]
+    asset_name = row.asset_name if hasattr(row, "asset_name") else row[2]
+
+    # Ensure scored_at is tz-aware (SQLite returns naive datetimes)
+    scored_at: datetime | None = v4.scored_at
+    if scored_at is not None and scored_at.tzinfo is None:
+        scored_at = scored_at.replace(tzinfo=UTC)
+    freshness = compute_freshness(scored_at)
+
+    if live_price_data:
+        price_source = "live"
+        price_updated_at = live_price_data.get("updated_at")
+    else:
+        price_source = "daily_close"
+        price_updated_at = scored_at.isoformat() if scored_at else None
+
+    detail = v4.detail or {}
+
+    # Populate computed properties that @property methods would provide
+    detail.setdefault("conviction_level", v4.conviction)
+    detail.setdefault("signal", detail.get("signal", "no_action"))
+    detail.setdefault("name", asset_name or "")
+    detail.setdefault("ticker", ticker)
+    detail.setdefault("scored_at", scored_at.isoformat() if scored_at else None)
+
+    for f in detail.get("filters_passed", []):
+        f.setdefault("verdict", "pass" if f.get("passed") else "fail")
+
+    for factor_key in ("quality", "value", "momentum", "capital_allocation", "catalyst"):
+        factor = detail.get(factor_key)
+        if factor is not None and isinstance(factor, dict) and "average_percentile" not in factor:
+            subs = factor.get("sub_scores", [])
+            avg = sum(s.get("percentile_rank", 0) for s in subs) / len(subs) if subs else 0.0
+            factor["average_percentile"] = avg
+
+    detail.setdefault("score", detail.get("composite_raw_score", v4.composite_score))
+    detail.setdefault("universe_percentile", detail.get("composite_percentile", 0.0))
+    detail.setdefault("composite_percentile", v4.composite_score)
+    detail.setdefault("data_coverage", detail.get("data_coverage", 1.0))
+
+    # V4-specific fields
+    detail["opportunity_type"] = v4.opportunity_type
+    detail["timing_signal"] = v4.timing_signal
+    detail["max_position_pct"] = v4.max_position_pct
+
+    # ML fields
+    detail["ml_alpha"] = v4.ml_alpha
+    detail["ml_confidence"] = v4.ml_confidence
+    detail["ml_override"] = v4.ml_override
+    detail["rules_conviction"] = v4.rules_conviction
+    detail["style"] = v4.style
+    detail["regime"] = v4.regime
+    detail["track_a"] = v4.track_a
+    detail["track_b"] = v4.track_b
+    detail["track_c"] = v4.track_c
+
+    # ML model metadata
+    if ml_model is not None:
+        detail["ml_model_qualified"] = ml_model.model_qualifies
+        detail["ml_model_rank_ic"] = ml_model.overall_rank_ic
+        ml_trained_at = ml_model.created_at
+        if ml_trained_at is not None and ml_trained_at.tzinfo is None:
+            ml_trained_at = ml_trained_at.replace(tzinfo=UTC)
+        detail["ml_model_trained_at"] = ml_trained_at.isoformat() if ml_trained_at else None
+
+    # Override actual_price with live price if available
+    if live_price_data:
+        detail["actual_price"] = live_price_data["price"]
+
+    # Freshness fields
+    detail["data_freshness"] = freshness
+    detail["price_source"] = price_source
+    detail["price_updated_at"] = price_updated_at
+
+    return ScoreResponse(**detail)
+
+
 def _latest_score_subquery():
     """Subquery for the most recent score per asset."""
     return (
@@ -359,23 +449,51 @@ async def get_score(
 ) -> ScoreResponse:
     """Get the latest scoring result for a specific ticker."""
     ticker = ticker.upper()
-    query = (
-        select(Score, Asset.ticker, Asset.name.label("asset_name"), Asset.sector.label("asset_sector"))
-        .join(Asset, Score.asset_id == Asset.id)
+
+    # Try V4Score first (ML-enhanced scoring)
+    v4_query = (
+        select(
+            V4Score,
+            Asset.ticker,
+            Asset.name.label("asset_name"),
+            Asset.sector.label("asset_sector"),
+        )
+        .join(Asset, V4Score.asset_id == Asset.id)
         .where(Asset.ticker == ticker)
-        .order_by(Score.scored_at.desc())
+        .order_by(V4Score.scored_at.desc())
         .limit(1)
     )
-    result = await db.execute(query)
-    row = result.first()
-
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"No score found for {ticker}")
+    v4_result = await db.execute(v4_query)
+    v4_row = v4_result.first()
 
     # Try to get live price from Redis (graceful fallback)
     live_price_data = await _try_get_live_price(ticker)
 
-    response = _score_response_from_row(row, live_price_data=live_price_data)
+    if v4_row is not None:
+        # Fetch latest ML model run for metadata
+        ml_model_query = select(MlModelRun).order_by(MlModelRun.created_at.desc()).limit(1)
+        ml_result = await db.execute(ml_model_query)
+        ml_model = ml_result.scalar_one_or_none()
+
+        response = _v4_score_response_from_row(v4_row, ml_model=ml_model, live_price_data=live_price_data)
+        # Use v4_row for asset_id reference in include queries below
+        row = v4_row
+    else:
+        # Fallback to Score table (v2)
+        query = (
+            select(Score, Asset.ticker, Asset.name.label("asset_name"), Asset.sector.label("asset_sector"))
+            .join(Asset, Score.asset_id == Asset.id)
+            .where(Asset.ticker == ticker)
+            .order_by(Score.scored_at.desc())
+            .limit(1)
+        )
+        result = await db.execute(query)
+        row = result.first()
+
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"No score found for {ticker}")
+
+        response = _score_response_from_row(row, live_price_data=live_price_data)
 
     # Populate asset context: sector, universe stats, sector survivors
     sector = row.asset_sector if hasattr(row, "asset_sector") else None
