@@ -243,6 +243,42 @@ async def flush_redis_jobs(x_admin_key: str = Header()) -> dict:
     }
 
 
+@router.post("/ml/train")
+async def trigger_ml_training(x_admin_key: str = Header()) -> JSONResponse:
+    """Enqueue ML model training (clustering + LightGBM).
+
+    Requires the X-Admin-Key header matching the MARGIN_ADMIN_KEY env var.
+    """
+    _verify_admin_key(x_admin_key)
+
+    settings = get_settings()
+    from arq.connections import RedisSettings
+
+    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+
+    try:
+        redis: ArqRedis = await create_pool(redis_settings)
+        job = await redis.enqueue_job(
+            "train_ml_models", _job_id=f"train_ml:{uuid.uuid4().hex[:8]}"
+        )
+        await redis.aclose()
+    except Exception as e:
+        logger.exception("Failed to enqueue ML training job")
+        raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
+
+    logger.info("[admin] Enqueued train_ml_models job: %s", job.job_id)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "enqueued",
+            "job": "train_ml_models",
+            "job_id": job.job_id,
+            "message": "ML training enqueued: clustering + LightGBM models",
+        },
+    )
+
+
 @router.get("/ingestion/quarantined")
 async def get_quarantined_assets(
     x_admin_key: str = Header(),
