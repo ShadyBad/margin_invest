@@ -1032,9 +1032,11 @@ async def train_ml_models(ctx: dict) -> dict:
             )
             session.add(ml_run)
 
-            # Update JobRun
-            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
-            job = result.scalar_one()
+            # Update JobRun — use no_autoflush to prevent premature flush
+            # of the ml_run INSERT when querying JobRun
+            async with session.no_autoflush:
+                result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+                job = result.scalar_one()
             job.status = "completed"
             job.progress = 1.0
             job.progress_detail = (
