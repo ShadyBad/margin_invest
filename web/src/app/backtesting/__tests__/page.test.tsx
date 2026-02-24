@@ -452,10 +452,10 @@ describe("Backtesting Page (read-only)", () => {
     render(<BacktestingPage />)
 
     await waitFor(() => {
-      expect(screen.getByTestId("shadow-section")).toBeInTheDocument()
+      expect(screen.getByTestId("shadow-portfolio-section")).toBeInTheDocument()
     })
 
-    expect(screen.getByText(/cannot be backdated/i)).toBeInTheDocument()
+    expect(screen.getByTestId("shadow-no-backdate")).toBeInTheDocument()
   })
 
   it("renders backtest disclosure footer when data loads", async () => {

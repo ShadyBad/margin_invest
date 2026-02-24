@@ -12,7 +12,6 @@ import {
   MetricsSummary,
   PerformanceChart,
   RegimeCards,
-  ShadowSection,
   StatsSummary,
   ValidationBadges,
 } from "@/components/backtesting"
@@ -108,14 +107,6 @@ const MOCK_FAILURE_PERIODS = [
   { startDate: "2020-02-01", endDate: "2020-04-01", returnPct: -0.22, benchmarkReturnPct: -0.34, regime: "crisis", maxDrawdown: 0.25, recoveryMonths: 5 },
   { startDate: "2022-01-01", endDate: "2022-10-01", returnPct: -0.15, benchmarkReturnPct: -0.25, regime: "bear", maxDrawdown: 0.18, recoveryMonths: 8 },
 ]
-
-const MOCK_SHADOW = {
-  startDate: "2026-02-24",
-  totalReturn: 0.0,
-  maxDrawdown: 0.0,
-  numDays: 1,
-  positions: [] as { ticker: string; weight: number }[],
-}
 
 // ---------------------------------------------------------------------------
 // Page component
@@ -348,19 +339,6 @@ export default function BacktestingPage() {
                 Worst Periods
               </h2>
               <FailureAudit periods={MOCK_FAILURE_PERIODS} />
-            </section>
-
-            {/* -------------------------------------------------------------- */}
-            {/* Section 5 — Shadow Portfolio                                   */}
-            {/* -------------------------------------------------------------- */}
-            <section>
-              <ShadowSection
-                startDate={MOCK_SHADOW.startDate}
-                totalReturn={MOCK_SHADOW.totalReturn}
-                maxDrawdown={MOCK_SHADOW.maxDrawdown}
-                numDays={MOCK_SHADOW.numDays}
-                positions={MOCK_SHADOW.positions}
-              />
             </section>
 
             {/* -------------------------------------------------------------- */}

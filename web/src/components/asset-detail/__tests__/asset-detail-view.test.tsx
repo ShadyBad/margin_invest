@@ -73,11 +73,10 @@ describe("AssetDetailView", () => {
     expect(screen.getByTestId("scoring-pillars")).toBeInTheDocument()
     expect(screen.getByTestId("conviction-engine")).toBeInTheDocument()
     expect(screen.getByTestId("valuation-section")).toBeInTheDocument()
-    expect(screen.getByTestId("backtest-teaser")).toBeInTheDocument()
     // Eliminated-only sections should NOT be present
     expect(screen.queryByTestId("eliminated-hero")).not.toBeInTheDocument()
     expect(screen.queryByTestId("hypothetical-scores")).not.toBeInTheDocument()
-    // Backtest teaser appears after async fetch
+    // Backtest teaser appears after async fetch resolves
     await waitFor(() => {
       expect(screen.getByTestId("backtest-teaser")).toBeInTheDocument()
     })
@@ -105,7 +104,8 @@ describe("AssetDetailView", () => {
     expect(screen.getByTestId("eliminated-hero")).toBeInTheDocument()
     expect(screen.getByTestId("elimination-gauntlet")).toBeInTheDocument()
     expect(screen.getByTestId("hypothetical-scores")).toBeInTheDocument()
-    expect(screen.getByTestId("backtest-teaser")).toBeInTheDocument()
+    // Backtest teaser only shows for passing stocks
+    expect(screen.queryByTestId("backtest-teaser")).not.toBeInTheDocument()
     // Passing-only sections should NOT be present
     expect(screen.queryByTestId("scoring-pillars")).not.toBeInTheDocument()
     expect(screen.queryByTestId("conviction-engine")).not.toBeInTheDocument()
