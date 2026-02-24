@@ -27,8 +27,8 @@ export function PicksGrid({ picks, className = "" }: PicksGridProps) {
   if (sorted.length === 0) {
     return (
       <EmptyState
-        title="No picks yet"
-        description="Scored stocks with exceptional or high conviction will appear here."
+        title="The system is working"
+        description="It found nothing worth your capital right now. When high-conviction opportunities emerge, they'll appear here."
         className={className}
       />
     )
