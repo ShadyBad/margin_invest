@@ -3,6 +3,7 @@ import type { ScoreResponse, ScoreHistoryResponse } from "@/lib/api/types"
 import { HeroHeader } from "./hero-header"
 import { EliminatedHero } from "./eliminated-hero"
 import { EliminationGauntlet } from "./elimination-gauntlet"
+import { ScoringPillars } from "./scoring-pillars"
 
 interface AssetDetailViewProps {
   ticker: string
@@ -77,7 +78,15 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError }: As
         eliminated={!allFiltersPassed}
       />
 
-      {/* Task 4: Scoring Pillars (Quality, Value, Momentum) */}
+      {allFiltersPassed && (
+        <ScoringPillars
+          quality={scoreData.quality}
+          value={scoreData.value}
+          momentum={scoreData.momentum}
+          growthStage={scoreData.growth_stage}
+        />
+      )}
+
       {/* Task 5: Conviction Engine */}
       {/* Task 6: Valuation Section */}
     </div>
