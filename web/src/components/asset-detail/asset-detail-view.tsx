@@ -1,5 +1,9 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import type { ScoreResponse, ScoreHistoryResponse } from "@/lib/api/types"
+import type { ScoreResponse, ScoreHistoryResponse, BacktestTeaserResponse } from "@/lib/api/types"
+import { getBacktestTeaser } from "@/lib/api/backtest"
 import { HeroHeader } from "./hero-header"
 import { EliminatedHero } from "./eliminated-hero"
 import { EliminationGauntlet } from "./elimination-gauntlet"
@@ -8,6 +12,7 @@ import { ConvictionEngine } from "./conviction-engine"
 import { ValuationSection } from "./valuation-section"
 import { HypotheticalScores } from "./hypothetical-scores"
 import { MLAuditPanel } from "./ml-audit-panel"
+import { BacktestTeaser } from "./backtest-teaser"
 
 interface AssetDetailViewProps {
   ticker: string
@@ -21,6 +26,12 @@ interface AssetDetailViewProps {
 }
 
 export function AssetDetailView({ ticker, scoreData, historyData, apiError, totalScored, filtersSurvivedCount, sectorSurvivorCount, sectorName }: AssetDetailViewProps) {
+  const [teaserData, setTeaserData] = useState<BacktestTeaserResponse | null>(null)
+
+  useEffect(() => {
+    getBacktestTeaser(ticker).then(setTeaserData).catch(() => {})
+  }, [ticker])
+
   if (apiError || !scoreData) {
     return (
       <div className="space-y-4">
@@ -136,6 +147,16 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           marginOfSafety={scoreData.margin_of_safety ?? null}
           valuationMethods={scoreData.valuation_methods ?? null}
           invalidReason={scoreData.price_target_invalid_reason ?? null}
+        />
+      )}
+
+      {allFiltersPassed && teaserData && (
+        <BacktestTeaser
+          modelReturn={teaserData.model_return}
+          benchmarkReturn={teaserData.benchmark_return}
+          maxDrawdown={teaserData.max_drawdown}
+          benchmarkMaxDrawdown={teaserData.benchmark_max_drawdown}
+          startDate={teaserData.start_date}
         />
       )}
 

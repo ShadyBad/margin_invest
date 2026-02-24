@@ -329,3 +329,13 @@ export interface CorrelationResponse {
   window_days: number
   computed_at: string
 }
+
+export interface BacktestTeaserResponse {
+  ticker: string | null
+  model_return: number
+  benchmark_return: number
+  max_drawdown: number
+  benchmark_max_drawdown: number
+  start_date: string
+  end_date: string
+}
