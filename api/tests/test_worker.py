@@ -284,6 +284,9 @@ class TestScoreTickerSuccess:
             name="Apple Inc.",
             sector="Information Technology",
             market_cap=Decimal("3000000000000"),
+            avg_daily_volume=Decimal("0"),
+            years_of_history=0,
+            shares_outstanding=asset.shares_outstanding,
         )
 
 

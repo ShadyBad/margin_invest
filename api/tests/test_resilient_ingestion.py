@@ -196,7 +196,7 @@ class TestSeedTickerDataIntegration:
         assert "earnings" in result.categories_succeeded
         assert "info" in result.categories_succeeded
         assert len(result.categories_failed) == 0
-        mock_provider.fetch_all.assert_called_once_with("AAPL")
+        mock_provider.fetch_all.assert_called_once_with("AAPL", price_days=1825)
 
     @pytest.mark.asyncio
     async def test_partial_seed_returns_partial(self):
