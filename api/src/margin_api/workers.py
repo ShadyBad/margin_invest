@@ -794,6 +794,130 @@ async def backtest_validate(ctx: dict) -> dict:
         return {"status": "failed", "error": str(e)}
 
 
+def _parse_factor_breakdown(
+    data: dict,
+) -> "FactorBreakdown | None":
+    """Parse a FactorBreakdown from a score_detail JSONB sub-dict.
+
+    Returns None if the data is malformed or has no sub_scores.
+    """
+    from margin_engine.models.scoring import FactorBreakdown, FactorScore
+
+    if not isinstance(data, dict):
+        return None
+    sub_scores_raw = data.get("sub_scores")
+    if not sub_scores_raw or not isinstance(sub_scores_raw, list):
+        return None
+    if len(sub_scores_raw) == 0:
+        return None
+
+    sub_scores: list[FactorScore] = []
+    for ss in sub_scores_raw:
+        if not isinstance(ss, dict):
+            return None
+        name = ss.get("name")
+        raw_value = ss.get("raw_value")
+        percentile_rank = ss.get("percentile_rank")
+        if name is None or raw_value is None or percentile_rank is None:
+            return None
+        try:
+            sub_scores.append(
+                FactorScore(
+                    name=str(name),
+                    raw_value=float(raw_value),
+                    percentile_rank=float(percentile_rank),
+                    weight=float(ss["weight"]) if ss.get("weight") is not None else None,
+                )
+            )
+        except (ValueError, TypeError):
+            return None
+
+    try:
+        return FactorBreakdown(
+            factor_name=str(data.get("factor_name", "")),
+            weight=float(data.get("weight", 1.0)),
+            sub_scores=sub_scores,
+        )
+    except (ValueError, TypeError):
+        return None
+
+
+def _composite_from_score_detail(
+    ticker: str,
+    detail: dict,
+) -> "CompositeScore | None":
+    """Build a CompositeScore from the score_detail JSONB dict.
+
+    Returns None if required pillars (quality, value, momentum) are missing
+    or malformed, so that malformed rows are skipped rather than injecting stubs.
+    """
+    from margin_engine.models.scoring import CompositeScore, FilterResult
+
+    # Parse required pillars
+    quality_raw = detail.get("quality")
+    value_raw = detail.get("value")
+    momentum_raw = detail.get("momentum")
+
+    if quality_raw is None or value_raw is None or momentum_raw is None:
+        return None
+
+    quality = _parse_factor_breakdown(quality_raw)
+    value = _parse_factor_breakdown(value_raw)
+    momentum = _parse_factor_breakdown(momentum_raw)
+
+    if quality is None or value is None or momentum is None:
+        return None
+
+    # Parse optional pillars (None if malformed or absent)
+    growth = None
+    growth_raw = detail.get("growth")
+    if growth_raw is not None:
+        growth = _parse_factor_breakdown(growth_raw)
+
+    capital_allocation = None
+    cap_alloc_raw = detail.get("capital_allocation")
+    if cap_alloc_raw is not None:
+        capital_allocation = _parse_factor_breakdown(cap_alloc_raw)
+
+    catalyst = None
+    catalyst_raw = detail.get("catalyst")
+    if catalyst_raw is not None:
+        catalyst = _parse_factor_breakdown(catalyst_raw)
+
+    # Parse filters
+    filters_passed_raw = detail.get("filters_passed", [])
+    filters_passed = []
+    if isinstance(filters_passed_raw, list):
+        for f in filters_passed_raw:
+            if isinstance(f, dict) and "name" in f:
+                filters_passed.append(
+                    FilterResult(
+                        name=str(f["name"]),
+                        passed=bool(f.get("passed", True)),
+                        value=f.get("value"),
+                        threshold=f.get("threshold"),
+                        detail=str(f.get("detail", "")),
+                    )
+                )
+
+    try:
+        return CompositeScore(
+            ticker=ticker,
+            composite_percentile=float(detail.get("composite_percentile", 0.0)),
+            composite_raw_score=float(detail.get("composite_raw_score", 0.0)),
+            quality=quality,
+            value=value,
+            momentum=momentum,
+            growth=growth,
+            capital_allocation=capital_allocation,
+            catalyst=catalyst,
+            filters_passed=filters_passed,
+            data_coverage=float(detail.get("data_coverage", 1.0)),
+        )
+    except (ValueError, TypeError):
+        return None
+
+
 async def train_ml_models(ctx: dict) -> dict:
     """Train ML cluster models on latest composite scores.
 
@@ -810,12 +934,7 @@ async def train_ml_models(ctx: dict) -> dict:
     from margin_engine.factors.registry import default_registry
     from margin_engine.ml.clustering import cluster_stocks
     from margin_engine.ml.signal_model import train_cluster_models
-    from margin_engine.models.scoring import (
-        CompositeScore,
-        FactorBreakdown,
-        FactorScore,
-        FilterResult,
-    )
+    from margin_engine.models.scoring import CompositeScore
 
     settings = get_settings()
     logger.info("[ml] Starting ML model training...")
@@ -873,25 +992,21 @@ async def train_ml_models(ctx: dict) -> dict:
                 await session.commit()
             return {"status": "completed", "message": "Insufficient training data"}
 
-        # Reconstruct CompositeScore objects
+        # Reconstruct CompositeScore objects from real JSONB data
         composites: list[CompositeScore] = []
+        skipped = 0
         for score, ticker in rows:
-            stub_factor = FactorBreakdown(
-                factor_name="stub",
-                weight=1.0,
-                sub_scores=[FactorScore(name="stub", raw_value=0.0, percentile_rank=50.0)],
-            )
-            composites.append(
-                CompositeScore(
-                    ticker=ticker,
-                    composite_percentile=score.composite_percentile,
-                    composite_raw_score=score.composite_raw_score,
-                    quality=stub_factor,
-                    value=stub_factor,
-                    momentum=stub_factor,
-                    filters_passed=[FilterResult(name="stub", passed=True)],
-                    data_coverage=score.data_coverage,
-                )
+            composite = _composite_from_score_detail(ticker, score.score_detail or {})
+            if composite is None:
+                skipped += 1
+                continue
+            composites.append(composite)
+
+        if skipped:
+            logger.info(
+                "[ml] Skipped %d/%d scores with malformed or missing score_detail",
+                skipped,
+                len(rows),
             )
 
         # Build feature matrix
