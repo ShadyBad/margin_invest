@@ -60,9 +60,12 @@ describe("ProofSection", () => {
 
   it("renders backtesting performance summary", () => {
     render(<ProofSection candidates={[]} />)
-    expect(screen.getByText(/since 2015/i)).toBeInTheDocument()
-    expect(
-      screen.getByText(/past performance does not guarantee/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/every signal recorded/i)).toBeInTheDocument()
+    expect(screen.getByText(/past performance does not guarantee/i)).toBeInTheDocument()
+  })
+
+  it("renders live tracking framing instead of backtest numbers", () => {
+    render(<ProofSection candidates={[]} />)
+    expect(screen.getByText(/live tracking/i)).toBeInTheDocument()
   })
 })
