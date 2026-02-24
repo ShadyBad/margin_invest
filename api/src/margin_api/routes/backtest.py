@@ -6,16 +6,24 @@ import time
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Path
 
 from margin_api.schemas.backtest import (
     BacktestConfigRequest,
     BacktestListResponse,
     BacktestResultResponse,
     BacktestSummaryResponse,
+    BacktestTeaserResponse,
+    FullBacktestResponse,
     MetricsResponse,
+    ReplayConfigRequest,
     ValidationCheckResponse,
     ValidationResponse,
+)
+from margin_api.services.backtest import (
+    build_full_response,
+    build_teaser_from_result,
+    get_default_replay_result,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["backtest"])
@@ -170,5 +178,65 @@ async def get_result(backtest_id: str) -> BacktestResultResponse:
 async def get_metrics(backtest_id: str) -> MetricsResponse:
     """Get just the performance metrics for a backtest."""
     if backtest_id not in _backtest_store:
-        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id} not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Backtest {backtest_id} not found",
+        )
     return _backtest_store[backtest_id].metrics
+
+
+# -------------------------------------------------------------------
+# New replay-based endpoints (Task 8)
+# -------------------------------------------------------------------
+
+
+@router.get(
+    "/backtest/teaser/{ticker}",
+    response_model=BacktestTeaserResponse,
+)
+async def get_backtest_teaser(
+    ticker: str = Path(pattern=r"^[A-Z0-9.]{1,10}$"),
+) -> BacktestTeaserResponse:
+    """Teaser metrics for free users -- 3 numbers + CTA."""
+    result = get_default_replay_result()
+    return build_teaser_from_result(result, ticker=ticker)
+
+
+@router.get(
+    "/backtest/default",
+    response_model=FullBacktestResponse,
+)
+async def get_default_backtest() -> FullBacktestResponse:
+    """Pre-computed default backtest for pro users."""
+    result = get_default_replay_result()
+    return build_full_response(result, failure_periods=[])
+
+
+@router.post(
+    "/backtest/replay",
+    response_model=FullBacktestResponse,
+    status_code=202,
+)
+async def run_replay(
+    config: ReplayConfigRequest,
+) -> FullBacktestResponse:
+    """On-demand custom replay backtest.
+
+    Validates constrained knobs (<50 parameter combos) and
+    returns a full backtest result. Currently uses the same
+    synthetic default result; will wire to real ReplayOrchestrator
+    when PIT data providers are available.
+    """
+    # For now, return synthetic result with the user's config echoed
+    result = get_default_replay_result()
+    # Override config fields from the request
+    result.config.rebalance_frequency = config.rebalance_frequency
+    result.config.conviction_threshold = config.conviction_threshold
+    result.config.weighting = config.weighting
+    result.config.sector_exclusions = config.sector_exclusions
+    result.config.transaction_cost_bps = config.transaction_cost_bps
+    if config.start_date:
+        result.config.start_date = config.start_date
+    if config.end_date:
+        result.config.end_date = config.end_date
+    return build_full_response(result, failure_periods=[])
