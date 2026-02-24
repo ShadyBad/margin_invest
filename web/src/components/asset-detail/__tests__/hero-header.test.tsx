@@ -73,6 +73,11 @@ describe("HeroHeader", () => {
     expect(ribbon.querySelector("[data-freshness]")).toHaveClass("text-warning")
   })
 
+  it("shows style tag in metadata area", () => {
+    render(<HeroHeader {...baseProps} style="growth" />)
+    expect(screen.getByText("Growth")).toBeInTheDocument()
+  })
+
   it("handles missing optional props gracefully", () => {
     render(
       <HeroHeader

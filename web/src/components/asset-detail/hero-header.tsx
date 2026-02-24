@@ -18,6 +18,7 @@ interface HeroHeaderProps {
   dataFreshness?: string | null
   priceSource?: string | null
   scoreHistory?: number[]
+  style?: string | null
 }
 
 function formatGrowthStage(stage: string): string {
@@ -84,6 +85,7 @@ export function HeroHeader({
   dataFreshness,
   priceSource,
   scoreHistory,
+  style,
 }: HeroHeaderProps) {
   const topPercent = Math.max(1, Math.round(100 - universePercentile))
   const coveragePct = Math.round(dataCoverage * 100)
@@ -113,8 +115,10 @@ export function HeroHeader({
           <h1 className="text-3xl font-display font-bold text-text-primary">{ticker}</h1>
           <span className="text-lg text-text-secondary">{name}</span>
         </div>
-        {(sector || growthStage) && (
+        {(style || sector || growthStage) && (
           <div className="flex items-center gap-2 text-sm text-text-tertiary">
+            {style && <span>{style.charAt(0).toUpperCase() + style.slice(1)}</span>}
+            {style && (sector || growthStage) && <span>·</span>}
             {sector && <span>{sector}</span>}
             {sector && growthStage && <span>·</span>}
             {growthStage && <span>{formatGrowthStage(growthStage)}</span>}
