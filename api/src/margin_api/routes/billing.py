@@ -96,10 +96,12 @@ async def stripe_webhook(
 
         # Extract price_id from subscription items
         price_id = None
-        if hasattr(subscription, "items") and subscription.items:
-            items_data = subscription.items.get("data", [])
+        try:
+            items_data = subscription["items"]["data"]
             if items_data:
-                price_id = items_data[0].get("price", {}).get("id")
+                price_id = items_data[0]["price"]["id"]
+        except (KeyError, IndexError, TypeError):
+            pass
 
         # Extract current_period_end
         current_period_end = getattr(subscription, "current_period_end", None)
