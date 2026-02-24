@@ -13,6 +13,12 @@ def _bar_val(bar: dict, key: str) -> object:
         return bar[key.title()]
 
 
+def _to_date(val: object) -> date:
+    """Parse a date from an ISO date string or full ISO timestamp."""
+    s = str(val)[:10]  # Take YYYY-MM-DD prefix
+    return date.fromisoformat(s)
+
+
 def _find_scored_at_index(bars: list[dict], scored_at: str) -> int:
     """Find the bar index closest to the scored_at date.
 
@@ -23,12 +29,12 @@ def _find_scored_at_index(bars: list[dict], scored_at: str) -> int:
     Returns:
         Index of the bar whose date is closest to scored_at.
     """
-    target = date.fromisoformat(scored_at)
+    target = _to_date(scored_at)
     best_idx = 0
-    best_delta = abs((date.fromisoformat(str(_bar_val(bars[0], "date"))) - target).days)
+    best_delta = abs((_to_date(_bar_val(bars[0], "date")) - target).days)
 
     for i in range(1, len(bars)):
-        delta = abs((date.fromisoformat(str(_bar_val(bars[i], "date"))) - target).days)
+        delta = abs((_to_date(_bar_val(bars[i], "date")) - target).days)
         if delta < best_delta:
             best_delta = delta
             best_idx = i
