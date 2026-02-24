@@ -11,22 +11,22 @@ vi.mock("gsap/ScrollTrigger", () => ({
 import { PositioningSection } from "../positioning-section"
 
 describe("PositioningSection", () => {
-  it("renders headline", () => {
+  it("renders updated positioning headline", () => {
     render(<PositioningSection />)
-    expect(screen.getByText(/disciplined capital allocators/)).toBeInTheDocument()
+    expect(screen.getByText(/discipline isn.t enough/i)).toBeInTheDocument()
   })
 
   it("renders Not for items", () => {
     render(<PositioningSection />)
-    expect(screen.getByText("Narrative traders")).toBeInTheDocument()
+    expect(screen.getByText("Narrative-driven conviction")).toBeInTheDocument()
     expect(screen.getByText("Signal chasers")).toBeInTheDocument()
-    expect(screen.getByText("Emotion-driven decisions")).toBeInTheDocument()
+    expect(screen.getByText("Discretionary overrides")).toBeInTheDocument()
   })
 
   it("renders For items", () => {
     render(<PositioningSection />)
-    expect(screen.getByText("Long-horizon allocators")).toBeInTheDocument()
-    expect(screen.getByText("Portfolio operators")).toBeInTheDocument()
-    expect(screen.getByText("Structured decision-makers")).toBeInTheDocument()
+    expect(screen.getByText("Systematic decision-making")).toBeInTheDocument()
+    expect(screen.getByText("Factor-based allocation")).toBeInTheDocument()
+    expect(screen.getByText("Structured risk management")).toBeInTheDocument()
   })
 })
