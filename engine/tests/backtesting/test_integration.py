@@ -1,30 +1,46 @@
 """Integration tests for the backtesting engine.
 
 Verifies end-to-end flows: config -> simulator -> metrics -> validation,
-methodology comparison, metrics agreement, config serialization, and exports.
+methodology comparison, metrics agreement, config serialization, exports,
+and the full replay pipeline with PIT data.
 """
 
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from margin_engine.backtesting import (
     BacktestConfig,
     BacktestResult,
     BenchmarkProvider,
+    FactorRegistry,
     HoldingRecord,
+    InMemoryPITProvider,
     MethodologyComparison,
     MonthlySnapshot,
     PassThreshold,
     PerformanceCalculator,
     PerformanceMetrics,
     RebalanceFrequency,
+    ReplayConfig,
+    ReplayOrchestrator,
     ScoredStock,
     ScoredUniverseProvider,
     ValidationGate,
     ValidationResult,
     WalkForwardSimulator,
+    compute_failure_audit,
+    generate_walk_forward_partitions,
+)
+from margin_engine.models.financial import (
+    AssetProfile,
+    BalanceSheet,
+    CashFlowStatement,
+    FinancialPeriod,
+    GICSSector,
+    IncomeStatement,
 )
 
 # ---------------------------------------------------------------------------
@@ -500,27 +516,45 @@ class TestExportVerification:
             "BacktestConfig",
             "BacktestResult",
             "BenchmarkProvider",
+            "DelistingEvent",
+            "DelistingType",
+            "FactorAvailability",
+            "FactorRegistry",
+            "FailurePeriod",
             "HoldingRecord",
+            "InMemoryPITProvider",
+            "MarketRegimeHistorical",
             "MethodologyComparison",
             "MonthlySnapshot",
+            "PITSnapshot",
             "PassThreshold",
             "PerformanceCalculator",
             "PerformanceMetrics",
+            "PointInTimeProvider",
             "RankICReport",
             "RebalanceAuditRecord",
             "RebalanceFrequency",
+            "RegimeSegment",
             "ReplayConfig",
             "ReplayOrchestrator",
             "ReplayResult",
             "ScoredStock",
             "ScoredUniverseProvider",
             "SelectionMode",
+            "ShadowPortfolio",
+            "ShadowPosition",
+            "ShadowSnapshot",
             "ValidationGate",
             "ValidationResult",
+            "WalkForwardPartition",
             "WalkForwardSimulator",
+            "classify_regime",
+            "compute_failure_audit",
             "compute_rank_ic",
             "compute_rank_ic_report",
+            "generate_walk_forward_partitions",
             "haircut_returns",
+            "segment_by_regime",
             "signal_significance",
         }
         assert set(bt.__all__) == expected
@@ -546,3 +580,241 @@ class TestTopLevelAccess:
         import margin_engine
 
         assert "backtesting" in margin_engine.__all__
+
+    def test_new_modules_accessible_from_engine(self):
+        from margin_engine import backtesting
+
+        assert hasattr(backtesting, "FactorRegistry")
+        assert hasattr(backtesting, "InMemoryPITProvider")
+        assert hasattr(backtesting, "ReplayOrchestrator")
+        assert hasattr(backtesting, "ShadowPortfolio")
+        assert hasattr(backtesting, "compute_failure_audit")
+        assert hasattr(backtesting, "classify_regime")
+        assert hasattr(backtesting, "generate_walk_forward_partitions")
+
+
+# ---------------------------------------------------------------------------
+# 8. Full replay pipeline with PIT data
+# ---------------------------------------------------------------------------
+
+
+def _make_pit_period(month: int, ticker_idx: int) -> FinancialPeriod:
+    """Build a FinancialPeriod with deterministic data varying by month and ticker."""
+    revenue = Decimal(10000 + ticker_idx * 500 + month * 100)
+    cost = Decimal(int(float(revenue) * 0.4))
+    gross = revenue - cost
+    net = Decimal(int(float(gross) * 0.55))
+    return FinancialPeriod(
+        period_end=f"2020-{month:02d}-01",
+        filing_date=f"2020-{month:02d}-15",
+        current_income=IncomeStatement(
+            revenue=revenue,
+            cost_of_revenue=cost,
+            gross_profit=gross,
+            sga_expense=Decimal(1000),
+            depreciation=Decimal(500),
+            ebit=gross - Decimal(1500),
+            interest_expense=Decimal(200),
+            tax_provision=Decimal(1000),
+            net_income=net,
+            shares_outstanding=1_000_000_000,
+        ),
+        current_balance=BalanceSheet(
+            total_assets=Decimal(50000),
+            current_assets=Decimal(20000),
+            cash_and_equivalents=Decimal(10000),
+            receivables=Decimal(5000),
+            total_liabilities=Decimal(20000),
+            current_liabilities=Decimal(8000),
+            long_term_debt=Decimal(10000),
+            total_equity=Decimal(30000),
+            retained_earnings=Decimal(15000),
+            shares_outstanding=1_000_000_000,
+        ),
+        current_cash_flow=CashFlowStatement(
+            operating_cash_flow=Decimal(5000),
+            capital_expenditures=Decimal(-1000),
+        ),
+        prior_income=IncomeStatement(
+            revenue=Decimal(9000),
+            cost_of_revenue=Decimal(3600),
+            gross_profit=Decimal(5400),
+            sga_expense=Decimal(900),
+            depreciation=Decimal(450),
+            ebit=Decimal(4050),
+            interest_expense=Decimal(200),
+            tax_provision=Decimal(900),
+            net_income=Decimal(2950),
+            shares_outstanding=1_000_000_000,
+        ),
+        prior_balance=BalanceSheet(
+            total_assets=Decimal(45000),
+            current_assets=Decimal(18000),
+            cash_and_equivalents=Decimal(9000),
+            receivables=Decimal(4500),
+            total_liabilities=Decimal(18000),
+            current_liabilities=Decimal(7000),
+            long_term_debt=Decimal(9000),
+            total_equity=Decimal(27000),
+            retained_earnings=Decimal(13000),
+            shares_outstanding=1_000_000_000,
+        ),
+        prior_cash_flow=CashFlowStatement(
+            operating_cash_flow=Decimal(4500),
+            capital_expenditures=Decimal(-900),
+        ),
+    )
+
+
+def _build_pit_provider(
+    tickers: list[str], months: range
+) -> InMemoryPITProvider:
+    """Build an InMemoryPITProvider with deterministic data for given tickers and months."""
+    provider = InMemoryPITProvider()
+    for month in months:
+        for j, ticker in enumerate(tickers):
+            price = 100.0 + j * 10 + month * 2
+            provider.add_snapshot(
+                as_of_date=date(2020, month, 1),
+                ticker=ticker,
+                profile=AssetProfile(
+                    ticker=ticker,
+                    name=f"{ticker} Inc",
+                    sector=GICSSector.TECHNOLOGY,
+                    sub_industry="Software",
+                    market_cap=Decimal("50000000000"),
+                    avg_daily_volume=Decimal("10000000"),
+                    shares_outstanding=1_000_000_000,
+                ),
+                period=_make_pit_period(month, j),
+                price=price,
+            )
+    return provider
+
+
+class TestReplayPipeline:
+    """End-to-end replay pipeline: PIT data -> elimination -> scoring -> metrics."""
+
+    def test_end_to_end_replay(self):
+        """Run a 12-month replay and verify all outputs are populated."""
+        tickers = ["AAPL", "MSFT", "GOOG", "AMZN", "META"]
+        provider = _build_pit_provider(tickers, range(1, 13))
+
+        config = ReplayConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 12, 1),
+            rebalance_frequency="monthly",
+        )
+        orchestrator = ReplayOrchestrator(
+            config=config,
+            pit_provider=provider,
+            factor_registry=FactorRegistry.default(),
+        )
+
+        result = orchestrator.run()
+
+        # Verify core result structure
+        assert result.metrics.num_months > 0
+        assert len(result.audit_log) > 0
+        assert len(result.factor_timeline) > 0
+        assert len(result.regime_segments) > 0
+        assert result.duration_seconds > 0
+
+        # Verify audit log contents
+        first_audit = result.audit_log[0]
+        assert first_audit.universe_size == 5
+        assert first_audit.factor_coverage > 0
+
+        # Verify snapshots track portfolio value
+        assert len(result.snapshots) > 0
+        for snap in result.snapshots:
+            assert snap.portfolio_value > 0
+
+    def test_failure_audit_on_replay_output(self):
+        """Failure audit runs on replay snapshots without error."""
+        tickers = ["AAPL", "MSFT", "GOOG"]
+        provider = _build_pit_provider(tickers, range(1, 7))
+
+        config = ReplayConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 6, 1),
+            rebalance_frequency="monthly",
+        )
+        orchestrator = ReplayOrchestrator(
+            config=config,
+            pit_provider=provider,
+            factor_registry=FactorRegistry.default(),
+        )
+        result = orchestrator.run()
+
+        regimes = [a.regime for a in result.audit_log]
+        failures = compute_failure_audit(result.snapshots, regimes)
+        assert isinstance(failures, list)
+        # Each failure period has correct structure
+        for f in failures:
+            assert f.relative_underperformance > 0
+            assert isinstance(f.holdings, list)
+            assert f.regime_context  # non-empty string
+
+    def test_walk_forward_partitions_cover_historical_range(self):
+        """Walk-forward partitions can be generated for a long historical range."""
+        partitions = generate_walk_forward_partitions(
+            start_date=date(2006, 1, 1),
+            end_date=date(2024, 12, 31),
+            train_years=5,
+            test_years=1,
+        )
+        assert len(partitions) > 0
+        # Each partition has non-overlapping train/test
+        for p in partitions:
+            assert p.train_end < p.test_start
+            assert p.test_end <= date(2024, 12, 31)
+
+    def test_barrel_exports_all_new_symbols(self):
+        """All new public symbols are importable from the barrel module."""
+        from margin_engine.backtesting import (
+            DelistingEvent,
+            DelistingType,
+            FactorAvailability,
+            FactorRegistry,
+            FailurePeriod,
+            InMemoryPITProvider,
+            MarketRegimeHistorical,
+            PITSnapshot,
+            PointInTimeProvider,
+            RegimeSegment,
+            ShadowPortfolio,
+            ShadowPosition,
+            ShadowSnapshot,
+            WalkForwardPartition,
+            classify_regime,
+            compute_failure_audit,
+            generate_walk_forward_partitions,
+            segment_by_regime,
+        )
+
+        # Verify key classes are the right type
+        assert callable(FactorRegistry.default)
+        assert callable(compute_failure_audit)
+        assert callable(generate_walk_forward_partitions)
+        assert callable(classify_regime)
+        assert callable(segment_by_regime)
+
+    def test_replay_empty_provider_returns_empty_result(self):
+        """An empty PIT provider produces an empty but valid result."""
+        provider = InMemoryPITProvider()
+        config = ReplayConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 6, 1),
+            rebalance_frequency="monthly",
+        )
+        orchestrator = ReplayOrchestrator(
+            config=config,
+            pit_provider=provider,
+            factor_registry=FactorRegistry.default(),
+        )
+        result = orchestrator.run()
+
+        assert result.metrics.num_months == 0
+        assert len(result.snapshots) == 0
+        assert result.duration_seconds >= 0

@@ -3,7 +3,7 @@ export { serverFetch } from './server'
 export { getScore, getMetrics, getScoreHistory, listScores, deleteScore } from './scores'
 export { getDashboard } from './dashboard'
 export { getHealth } from './health'
-export { runBacktest, getBacktestResults, getBacktestResult } from './backtest'
+export { runBacktest, getBacktestResults, getBacktestResult, getBacktestTeaser } from './backtest'
 export { getShowcaseCorrelations } from './correlations'
 export type {
   ScoreResponse,
@@ -22,6 +22,7 @@ export type {
   BacktestResult,
   BacktestSummary,
   BacktestListResponse,
+  BacktestTeaserResponse,
   InstitutionalMetricsResponse,
   MetricStatus,
   ScoreHistoryPoint,
