@@ -36,7 +36,7 @@ async function getHomepageData(): Promise<HomepageData | null> {
       allPicks: allCards,
       last_updated: data.last_updated,
       universe_size: data.universe?.size ?? 0,
-      eligible_count: data.total_scored,
+      eligible_count: data.picks.length,
       total_scored: data.total_scored,
     }
   } catch {
