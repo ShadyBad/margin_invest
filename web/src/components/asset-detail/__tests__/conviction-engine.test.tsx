@@ -50,4 +50,86 @@ describe("ConvictionEngine", () => {
     )
     expect(container.firstChild).toBeNull()
   })
+
+  it("renders smart money alignment when institutional accumulation data present", () => {
+    render(
+      <ConvictionEngine
+        opportunityType="compounder"
+        winningTrack="compounder"
+        asymmetryRatio={4.2}
+        maxPositionPct={5.0}
+        timingSignal="buy_now"
+        capitalAllocation={null}
+        catalyst={null}
+        institutionalAccumulation={{
+          percentile: 82,
+          newPositions: 3,
+          topFunds: ["Berkshire Hathaway", "Baupost Group"],
+        }}
+      />
+    )
+    expect(screen.getByText(/smart money/i)).toBeInTheDocument()
+    expect(screen.getByText(/Berkshire Hathaway/)).toBeInTheDocument()
+    expect(screen.getByText(/Baupost Group/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/3 curated institutional investors independently initiated/)
+    ).toBeInTheDocument()
+  })
+
+  it("does not render smart money section when no data", () => {
+    render(
+      <ConvictionEngine
+        opportunityType="compounder"
+        winningTrack="compounder"
+        asymmetryRatio={4.2}
+        maxPositionPct={5.0}
+        timingSignal="buy_now"
+        capitalAllocation={null}
+        catalyst={null}
+      />
+    )
+    expect(screen.queryByText(/smart money/i)).not.toBeInTheDocument()
+  })
+
+  it("does not render smart money section when topFunds is empty", () => {
+    render(
+      <ConvictionEngine
+        opportunityType="compounder"
+        winningTrack="compounder"
+        asymmetryRatio={4.2}
+        maxPositionPct={5.0}
+        timingSignal="buy_now"
+        capitalAllocation={null}
+        catalyst={null}
+        institutionalAccumulation={{
+          percentile: 50,
+          newPositions: 0,
+          topFunds: [],
+        }}
+      />
+    )
+    expect(screen.queryByText(/smart money/i)).not.toBeInTheDocument()
+  })
+
+  it("uses singular 'investor' when newPositions is 1", () => {
+    render(
+      <ConvictionEngine
+        opportunityType="compounder"
+        winningTrack="compounder"
+        asymmetryRatio={4.2}
+        maxPositionPct={5.0}
+        timingSignal="buy_now"
+        capitalAllocation={null}
+        catalyst={null}
+        institutionalAccumulation={{
+          percentile: 70,
+          newPositions: 1,
+          topFunds: ["Bridgewater Associates"],
+        }}
+      />
+    )
+    expect(
+      screen.getByText(/1 curated institutional investor independently initiated/)
+    ).toBeInTheDocument()
+  })
 })

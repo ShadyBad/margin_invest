@@ -1,6 +1,12 @@
 import { formatAttributeLabel } from "@/lib/format"
 import type { FactorBreakdownResponse } from "@/lib/api/types"
 
+interface InstitutionalAccumulation {
+  percentile: number
+  newPositions: number
+  topFunds: string[]
+}
+
 interface ConvictionEngineProps {
   opportunityType: string | null
   winningTrack: string | null
@@ -9,6 +15,7 @@ interface ConvictionEngineProps {
   timingSignal: string | null
   capitalAllocation: FactorBreakdownResponse | null
   catalyst: FactorBreakdownResponse | null
+  institutionalAccumulation?: InstitutionalAccumulation | null
 }
 
 const OPPORTUNITY_DESCRIPTIONS: Record<string, string> = {
@@ -56,6 +63,7 @@ export function ConvictionEngine({
   timingSignal,
   capitalAllocation,
   catalyst,
+  institutionalAccumulation,
 }: ConvictionEngineProps) {
   if (!opportunityType) return null
 
@@ -174,6 +182,30 @@ export function ConvictionEngine({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Smart Money Alignment */}
+      {institutionalAccumulation && institutionalAccumulation.topFunds.length > 0 && (
+        <div className="terminal-card p-4 space-y-2" data-testid="smart-money-alignment">
+          <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+            Smart Money Alignment
+          </h3>
+          <p className="text-xs text-text-tertiary">
+            {institutionalAccumulation.newPositions} curated institutional investor
+            {institutionalAccumulation.newPositions !== 1 ? "s" : ""}{" "}
+            independently initiated or increased positions in the most recent 13F filing period.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {institutionalAccumulation.topFunds.map((fund) => (
+              <span
+                key={fund}
+                className="text-[10px] font-mono px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/20"
+              >
+                {fund}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </section>

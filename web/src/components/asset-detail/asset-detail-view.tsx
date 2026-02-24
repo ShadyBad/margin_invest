@@ -99,6 +99,7 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError }: As
           timingSignal={scoreData.timing_signal ?? null}
           capitalAllocation={scoreData.capital_allocation ?? null}
           catalyst={scoreData.catalyst ?? null}
+          /* institutionalAccumulation — wired when API provides institutional_accumulation */
         />
       )}
 
