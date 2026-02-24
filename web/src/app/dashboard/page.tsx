@@ -81,7 +81,11 @@ export default async function DashboardPage() {
         <h2 className="text-lg font-semibold text-text-primary mb-4">
           Top Picks
         </h2>
-        <PicksGrid picks={data?.picks ?? []} />
+        <PicksGrid
+          picks={data?.picks ?? []}
+          totalScored={data?.total_scored}
+          universeSize={data?.universe?.size}
+        />
       </section>
 
       {(data?.watchlist?.length ?? 0) > 0 && (

@@ -23,4 +23,11 @@ describe("PicksGrid", () => {
     expect(screen.getByText(/system is working/i)).toBeInTheDocument()
     expect(screen.getByText(/nothing worth your capital/i)).toBeInTheDocument()
   })
+
+  it("shows elimination stats when universe data provided and no picks", () => {
+    render(<PicksGrid picks={[]} totalScored={847} universeSize={2847} />)
+    expect(screen.getByText(/system is working/i)).toBeInTheDocument()
+    expect(screen.getByText(/847/)).toBeInTheDocument()
+    expect(screen.getByText(/2,847/)).toBeInTheDocument()
+  })
 })

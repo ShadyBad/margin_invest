@@ -17,18 +17,25 @@ const cardVariants = {
 interface PicksGridProps {
   picks: PickSummary[]
   className?: string
+  totalScored?: number
+  universeSize?: number
 }
 
-export function PicksGrid({ picks, className = "" }: PicksGridProps) {
+export function PicksGrid({ picks, className = "", totalScored, universeSize }: PicksGridProps) {
   const sorted = [...picks].sort(
     (a, b) => b.composite_percentile - a.composite_percentile,
   )
 
   if (sorted.length === 0) {
+    const hasStats = totalScored != null && universeSize != null && universeSize > 0
     return (
       <EmptyState
         title="The system is working"
-        description="It found nothing worth your capital right now. When high-conviction opportunities emerge, they'll appear here."
+        description={
+          hasStats
+            ? `${totalScored.toLocaleString()} of ${universeSize.toLocaleString()} equities were scored. None met the conviction threshold. When high-conviction opportunities emerge, they'll appear here.`
+            : "It found nothing worth your capital right now. When high-conviction opportunities emerge, they'll appear here."
+        }
         className={className}
       />
     )
