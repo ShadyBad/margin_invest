@@ -5,6 +5,14 @@ from __future__ import annotations
 from datetime import date
 
 
+def _bar_val(bar: dict, key: str) -> object:
+    """Get a value from a price bar dict, trying lowercase then titlecase keys."""
+    try:
+        return bar[key]
+    except KeyError:
+        return bar[key.title()]
+
+
 def _find_scored_at_index(bars: list[dict], scored_at: str) -> int:
     """Find the bar index closest to the scored_at date.
 
@@ -17,10 +25,10 @@ def _find_scored_at_index(bars: list[dict], scored_at: str) -> int:
     """
     target = date.fromisoformat(scored_at)
     best_idx = 0
-    best_delta = abs((date.fromisoformat(bars[0]["date"]) - target).days)
+    best_delta = abs((date.fromisoformat(str(_bar_val(bars[0], "date"))) - target).days)
 
     for i in range(1, len(bars)):
-        delta = abs((date.fromisoformat(bars[i]["date"]) - target).days)
+        delta = abs((date.fromisoformat(str(_bar_val(bars[i], "date"))) - target).days)
         if delta < best_delta:
             best_delta = delta
             best_idx = i
@@ -82,8 +90,8 @@ def compute_forward_returns(
         if future_idx >= len(bars):
             continue
 
-        score_date_price = bars[scored_idx]["close"]
-        future_price = bars[future_idx]["close"]
+        score_date_price = _bar_val(bars[scored_idx], "close")
+        future_price = _bar_val(bars[future_idx], "close")
 
         # Avoid division by zero
         if score_date_price == 0:
