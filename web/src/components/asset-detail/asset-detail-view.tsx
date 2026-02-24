@@ -13,13 +13,13 @@ interface AssetDetailViewProps {
   scoreData: ScoreResponse | null
   historyData: ScoreHistoryResponse | null
   apiError: string | null
-  universeSize?: number
   totalScored?: number
+  filtersSurvivedCount?: number
   sectorSurvivorCount?: number
   sectorName?: string
 }
 
-export function AssetDetailView({ ticker, scoreData, historyData, apiError, universeSize, totalScored, sectorSurvivorCount, sectorName }: AssetDetailViewProps) {
+export function AssetDetailView({ ticker, scoreData, historyData, apiError, totalScored, filtersSurvivedCount, sectorSurvivorCount, sectorName }: AssetDetailViewProps) {
   if (apiError || !scoreData) {
     return (
       <div className="space-y-4">
@@ -83,8 +83,8 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, univ
       <EliminationGauntlet
         filters={scoreData.filters_passed}
         eliminated={!allFiltersPassed}
-        universeSize={universeSize}
-        scoredCount={totalScored}
+        totalScored={totalScored}
+        filtersSurvivedCount={filtersSurvivedCount}
       />
 
       {allFiltersPassed && (

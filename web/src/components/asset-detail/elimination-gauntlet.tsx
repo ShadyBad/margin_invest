@@ -4,14 +4,14 @@ import type { FilterResultResponse } from "@/lib/api/types"
 interface EliminationGauntletProps {
   filters: FilterResultResponse[]
   eliminated: boolean
-  universeSize?: number
-  scoredCount?: number
+  totalScored?: number
+  filtersSurvivedCount?: number
 }
 
-export function EliminationGauntlet({ filters, eliminated, universeSize, scoredCount }: EliminationGauntletProps) {
+export function EliminationGauntlet({ filters, eliminated, totalScored, filtersSurvivedCount }: EliminationGauntletProps) {
   const passCount = filters.filter((f) => f.passed).length
-  const eliminatedPct = universeSize && scoredCount && universeSize > scoredCount
-    ? Math.round(((universeSize - scoredCount) / universeSize) * 100)
+  const eliminatedPct = totalScored != null && filtersSurvivedCount != null && totalScored > 0
+    ? Math.round(((totalScored - filtersSurvivedCount) / totalScored) * 100)
     : null
 
   // When eliminated, sort failed filters to top

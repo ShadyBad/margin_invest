@@ -360,7 +360,7 @@ async def get_score(
     """Get the latest scoring result for a specific ticker."""
     ticker = ticker.upper()
     query = (
-        select(Score, Asset.ticker, Asset.name.label("asset_name"))
+        select(Score, Asset.ticker, Asset.name.label("asset_name"), Asset.sector.label("asset_sector"))
         .join(Asset, Score.asset_id == Asset.id)
         .where(Asset.ticker == ticker)
         .order_by(Score.scored_at.desc())
@@ -376,6 +376,60 @@ async def get_score(
     live_price_data = await _try_get_live_price(ticker)
 
     response = _score_response_from_row(row, live_price_data=live_price_data)
+
+    # Populate asset context: sector, universe stats, sector survivors
+    sector = row.asset_sector if hasattr(row, "asset_sector") else None
+    response.sector = sector
+
+    # Universe size from active snapshot
+    from margin_api.db.models import UniverseSnapshot
+
+    snap_result = await db.execute(
+        select(UniverseSnapshot.ticker_count)
+        .where(UniverseSnapshot.is_active.is_(True))
+        .limit(1)
+    )
+    universe_size = snap_result.scalar()
+    response.universe_size = universe_size
+
+    # Total scored (distinct assets with at least one score)
+    total_result = await db.execute(select(func.count(func.distinct(Score.asset_id))))
+    response.total_scored = total_result.scalar() or 0
+
+    # Count filter survivors across all scored stocks, and sector-specific survivors
+    latest = _latest_score_subquery()
+    all_details_q = (
+        select(
+            Score.score_detail,
+            Asset.sector.label("asset_sector_col"),
+            Asset.ticker.label("asset_ticker_col"),
+        )
+        .join(Asset, Score.asset_id == Asset.id)
+        .join(
+            latest,
+            (Score.asset_id == latest.c.asset_id)
+            & (Score.scored_at == latest.c.max_scored_at),
+        )
+    )
+    all_details_result = await db.execute(all_details_q)
+    all_detail_rows = all_details_result.all()
+
+    filters_survived_count = 0
+    sector_survivor_count = 0
+    for detail_row in all_detail_rows:
+        d = detail_row[0]  # score_detail
+        row_sector = detail_row[1]
+        row_ticker = detail_row[2]
+        if d and isinstance(d, dict):
+            filters = d.get("filters_passed", [])
+            if filters and all(f.get("passed") for f in filters):
+                filters_survived_count += 1
+                if sector and row_sector == sector and row_ticker != ticker:
+                    sector_survivor_count += 1
+
+    response.filters_survived_count = filters_survived_count
+    if sector:
+        response.sector_survivor_count = sector_survivor_count
 
     includes = set((include or "").split(",")) if include else set()
 

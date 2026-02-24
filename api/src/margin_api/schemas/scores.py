@@ -104,6 +104,12 @@ class ScoreResponse(BaseModel):
     data_freshness: str = "expired"  # "fresh", "stale", "expired"
     price_source: str = "daily_close"  # "live" or "daily_close"
     price_updated_at: str | None = None
+    # Asset context fields (populated by GET /scores/{ticker})
+    sector: str | None = None
+    universe_size: int | None = None
+    total_scored: int | None = None
+    filters_survived_count: int | None = None
+    sector_survivor_count: int | None = None
     # Conditionally included via ?include=
     price_history: list[PriceBarResponse] | None = None
     signal_history: list[SignalTransitionResponse] | None = None

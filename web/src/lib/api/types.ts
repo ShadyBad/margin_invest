@@ -79,6 +79,12 @@ export interface ScoreResponse {
   capital_allocation?: FactorBreakdownResponse | null
   catalyst?: FactorBreakdownResponse | null
   price_target_invalid_reason?: string | null
+  // Asset context fields
+  sector?: string | null
+  universe_size?: number | null
+  total_scored?: number | null
+  filters_survived_count?: number | null
+  sector_survivor_count?: number | null
 }
 
 export interface ScoreListResponse {

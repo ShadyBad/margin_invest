@@ -46,6 +46,10 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
           scoreData={scoreData}
           historyData={historyData}
           apiError={apiError}
+          totalScored={scoreData?.total_scored ?? undefined}
+          filtersSurvivedCount={scoreData?.filters_survived_count ?? undefined}
+          sectorSurvivorCount={scoreData?.sector_survivor_count ?? undefined}
+          sectorName={scoreData?.sector ?? undefined}
         />
       </div>
     </AppShell>

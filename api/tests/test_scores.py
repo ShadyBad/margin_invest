@@ -325,3 +325,107 @@ class TestMalformedScoreDetail:
         body = resp.json()
         assert body["ticker"] == "BROKEN"
         assert body["conviction_level"] == "high"
+
+
+@pytest.mark.asyncio
+class TestScoreAssetContext:
+    """Tests for sector, universe_size, total_scored, sector_survivor_count."""
+
+    async def test_score_includes_sector(self, client):
+        """Score response includes the asset's sector."""
+        response = await client.get("/api/v1/scores/AAPL")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sector"] == "Information Technology"
+
+    async def test_score_includes_total_scored(self, client):
+        """Score response includes total scored count across all assets."""
+        response = await client.get("/api/v1/scores/AAPL")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_scored"] == 3  # AAPL, NVDA, LOW
+
+    async def test_score_universe_size_null_without_snapshot(self, client):
+        """universe_size is null when no active universe snapshot exists."""
+        response = await client.get("/api/v1/scores/AAPL")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["universe_size"] is None
+
+    async def test_score_includes_filters_survived_count(self, client):
+        """filters_survived_count counts stocks that passed all filters."""
+        response = await client.get("/api/v1/scores/AAPL")
+        assert response.status_code == 200
+        data = response.json()
+        # All seeded stocks have empty filters_passed, so none survive
+        assert data["filters_survived_count"] == 0
+
+    async def test_score_sector_survivor_count(self, client):
+        """sector_survivor_count counts same-sector stocks that passed all filters."""
+        response = await client.get("/api/v1/scores/AAPL")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sector_survivor_count"] == 0
+
+    async def test_score_sector_survivor_excludes_self(self, async_engine):
+        """Sector survivor count excludes the ticker itself."""
+        factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+
+        async with factory() as session:
+            a1 = Asset(ticker="TST1", name="Test 1", sector="Tech", market_cap=Decimal("1000000"))
+            a2 = Asset(ticker="TST2", name="Test 2", sector="Tech", market_cap=Decimal("1000000"))
+            session.add_all([a1, a2])
+            await session.flush()
+            # Both pass all filters
+            passing_filters = [{"name": "f1", "passed": True, "verdict": "pass"}]
+            session.add_all([
+                Score(
+                    asset_id=a1.id,
+                    composite_percentile=80.0,
+                    conviction_level="high",
+                    signal="buy",
+                    quality_percentile=80.0,
+                    value_percentile=80.0,
+                    momentum_percentile=80.0,
+                    data_coverage=1.0,
+                    score_detail={
+                        **_score_detail("TST1", 80.0, "high", "buy"),
+                        "filters_passed": passing_filters,
+                    },
+                    scored_at=datetime.now(UTC),
+                ),
+                Score(
+                    asset_id=a2.id,
+                    composite_percentile=75.0,
+                    conviction_level="high",
+                    signal="buy",
+                    quality_percentile=75.0,
+                    value_percentile=75.0,
+                    momentum_percentile=75.0,
+                    data_coverage=1.0,
+                    score_detail={
+                        **_score_detail("TST2", 75.0, "high", "buy"),
+                        "filters_passed": passing_filters,
+                    },
+                    scored_at=datetime.now(UTC),
+                ),
+            ])
+            await session.commit()
+
+        app = create_app()
+
+        async def override_get_db():
+            async with factory() as session:
+                yield session
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.get("/api/v1/scores/TST1")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["sector"] == "Tech"
+        assert body["filters_survived_count"] == 2  # Both pass all filters
+        assert body["sector_survivor_count"] == 1  # TST2, not self
+        assert body["total_scored"] == 2

@@ -45,8 +45,8 @@ describe("EliminationGauntlet", () => {
     expect(screen.getByText(/predicts bankruptcy probability/)).toBeInTheDocument()
   })
 
-  it("shows universe context when universeSize provided", () => {
-    render(<EliminationGauntlet filters={allPassing} eliminated={false} universeSize={2847} scoredCount={847} />)
+  it("shows elimination rate when context provided", () => {
+    render(<EliminationGauntlet filters={allPassing} eliminated={false} totalScored={2847} filtersSurvivedCount={847} />)
     expect(screen.getByText(/70% of the universe/i)).toBeInTheDocument()
   })
 
