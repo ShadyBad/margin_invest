@@ -309,7 +309,7 @@ describe("Backtesting Page (read-only)", () => {
     expect(screen.getByTestId("performance-chart-empty")).toBeInTheDocument()
   })
 
-  it("shows page title as Validation instead of Backtesting", async () => {
+  it("shows page title as Replay Backtesting", async () => {
     mockGetBacktestResults.mockResolvedValue(mockEmptyListResponse)
     render(<BacktestingPage />)
 
@@ -317,6 +317,120 @@ describe("Backtesting Page (read-only)", () => {
       expect(screen.queryByTestId("loading-skeleton")).not.toBeInTheDocument()
     })
 
-    expect(screen.getByText("Methodology Validation")).toBeInTheDocument()
+    expect(screen.getByText("Replay Backtesting")).toBeInTheDocument()
+  })
+
+  it("shows walk-forward subtitle", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockEmptyListResponse)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("loading-skeleton")).not.toBeInTheDocument()
+    })
+
+    expect(
+      screen.getByText(/Walk-forward simulation of the scoring model/i),
+    ).toBeInTheDocument()
+  })
+
+  it("renders regime cards when data loads", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("regime-cards")).toBeInTheDocument()
+    })
+
+    expect(screen.getByTestId("regime-card-bull")).toBeInTheDocument()
+    expect(screen.getByTestId("regime-card-bear")).toBeInTheDocument()
+    expect(screen.getByTestId("regime-card-sideways")).toBeInTheDocument()
+    expect(screen.getByTestId("regime-card-crisis")).toBeInTheDocument()
+  })
+
+  it("renders equity curve when data loads", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("equity-curve-chart")).toBeInTheDocument()
+    })
+  })
+
+  it("renders knobs panel when data loads", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("knobs-panel")).toBeInTheDocument()
+    })
+  })
+
+  it("renders stats summary when data loads", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("stats-summary")).toBeInTheDocument()
+    })
+  })
+
+  it("renders audit log when data loads", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("audit-log")).toBeInTheDocument()
+    })
+  })
+
+  it("renders failure audit when data loads", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("failure-audit")).toBeInTheDocument()
+    })
+  })
+
+  it("renders shadow portfolio section when data loads", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("shadow-section")).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/cannot be backdated/i)).toBeInTheDocument()
+  })
+
+  it("renders backtest disclosure footer when data loads", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("backtest-disclosure")).toBeInTheDocument()
+    })
+
+    expect(
+      screen.getByText(/do not guarantee future performance/i),
+    ).toBeInTheDocument()
+  })
+
+  it("renders factor timeline when data loads", async () => {
+    mockGetBacktestResults.mockResolvedValue(mockListResponse)
+    mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
+    render(<BacktestingPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("factor-timeline")).toBeInTheDocument()
+    })
   })
 })
