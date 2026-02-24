@@ -100,3 +100,90 @@ def test_signal_transition_response():
         transitioned_at="2026-02-14T00:00:00+00:00",
     )
     assert t.new_signal == "buy"
+
+
+def test_score_response_includes_ml_fields():
+    """ScoreResponse should accept and serialize ML fields."""
+    from margin_api.schemas.scores import FactorBreakdownResponse, ScoreResponse
+
+    resp = ScoreResponse(
+        ticker="AAPL",
+        composite_percentile=85.0,
+        conviction_level="high",
+        signal="buy",
+        quality=FactorBreakdownResponse(
+            factor_name="quality", weight=0.35, sub_scores=[], average_percentile=80.0
+        ),
+        value=FactorBreakdownResponse(
+            factor_name="value", weight=0.30, sub_scores=[], average_percentile=70.0
+        ),
+        momentum=FactorBreakdownResponse(
+            factor_name="momentum", weight=0.35, sub_scores=[], average_percentile=75.0
+        ),
+        filters_passed=[],
+        data_coverage=0.95,
+        ml_alpha=0.034,
+        ml_confidence=0.81,
+        ml_override="promoted",
+        rules_conviction="medium",
+        style="growth",
+        regime="normal",
+        ml_model_qualified=True,
+        ml_model_rank_ic=0.19,
+        ml_model_trained_at="2026-02-22T02:00:00Z",
+    )
+    data = resp.model_dump()
+    assert data["ml_alpha"] == 0.034
+    assert data["ml_override"] == "promoted"
+    assert data["rules_conviction"] == "medium"
+    assert data["style"] == "growth"
+    assert data["ml_model_qualified"] is True
+
+
+def test_score_response_ml_fields_default_none():
+    """ML fields should default to None."""
+    from margin_api.schemas.scores import FactorBreakdownResponse, ScoreResponse
+
+    resp = ScoreResponse(
+        ticker="MSFT",
+        composite_percentile=70.0,
+        conviction_level="medium",
+        signal="watch",
+        quality=FactorBreakdownResponse(
+            factor_name="quality", weight=0.35, sub_scores=[], average_percentile=60.0
+        ),
+        value=FactorBreakdownResponse(
+            factor_name="value", weight=0.30, sub_scores=[], average_percentile=50.0
+        ),
+        momentum=FactorBreakdownResponse(
+            factor_name="momentum", weight=0.35, sub_scores=[], average_percentile=55.0
+        ),
+        filters_passed=[],
+        data_coverage=0.90,
+    )
+    data = resp.model_dump()
+    assert data["ml_alpha"] is None
+    assert data["ml_override"] is None
+    assert data["ml_model_qualified"] is None
+
+
+def test_pick_summary_includes_ml_fields():
+    """PickSummary should accept and serialize ML fields."""
+    from margin_api.schemas.dashboard import PickSummary
+
+    pick = PickSummary(
+        score_id=1,
+        ticker="AAPL",
+        name="Apple",
+        composite_percentile=85.0,
+        conviction_level="high",
+        signal="buy",
+        quality_percentile=80.0,
+        value_percentile=70.0,
+        momentum_percentile=75.0,
+        ml_override="promoted",
+        style="growth",
+    )
+    data = pick.model_dump()
+    assert data["ml_override"] == "promoted"
+    assert data["style"] == "growth"

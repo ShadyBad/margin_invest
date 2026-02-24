@@ -110,6 +110,19 @@ class ScoreResponse(BaseModel):
     total_scored: int | None = None
     filters_survived_count: int | None = None
     sector_survivor_count: int | None = None
+    # V4 / ML fields
+    ml_alpha: float | None = None
+    ml_confidence: float | None = None
+    ml_override: str | None = None
+    rules_conviction: str | None = None
+    style: str | None = None
+    regime: str | None = None
+    track_a: dict | None = None
+    track_b: dict | None = None
+    track_c: dict | None = None
+    ml_model_qualified: bool | None = None
+    ml_model_rank_ic: float | None = None
+    ml_model_trained_at: str | None = None
     # Conditionally included via ?include=
     price_history: list[PriceBarResponse] | None = None
     signal_history: list[SignalTransitionResponse] | None = None

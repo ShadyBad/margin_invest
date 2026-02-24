@@ -85,6 +85,19 @@ export interface ScoreResponse {
   total_scored?: number | null
   filters_survived_count?: number | null
   sector_survivor_count?: number | null
+  // V4 / ML fields
+  ml_alpha?: number | null
+  ml_confidence?: number | null
+  ml_override?: string | null
+  rules_conviction?: string | null
+  style?: string | null
+  regime?: string | null
+  track_a?: Record<string, unknown> | null
+  track_b?: Record<string, unknown> | null
+  track_c?: Record<string, unknown> | null
+  ml_model_qualified?: boolean | null
+  ml_model_rank_ic?: number | null
+  ml_model_trained_at?: string | null
 }
 
 export interface ScoreListResponse {
@@ -143,6 +156,9 @@ export interface PickSummary {
   timing_signal?: string | null
   sector?: string | null
   price_target_invalid_reason?: string | null
+  // V4 / ML fields
+  ml_override?: string | null
+  style?: string | null
 }
 
 export interface WatchlistItem {

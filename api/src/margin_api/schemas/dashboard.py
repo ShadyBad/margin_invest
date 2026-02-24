@@ -39,6 +39,9 @@ class PickSummary(BaseModel):
     timing_signal: str | None = None
     sector: str | None = None
     price_target_invalid_reason: str | None = None
+    # V4 / ML fields
+    ml_override: str | None = None
+    style: str | None = None
 
 
 class WatchlistItem(BaseModel):
