@@ -4,6 +4,7 @@ import { HeroHeader } from "./hero-header"
 import { EliminatedHero } from "./eliminated-hero"
 import { EliminationGauntlet } from "./elimination-gauntlet"
 import { ScoringPillars } from "./scoring-pillars"
+import { ConvictionEngine } from "./conviction-engine"
 
 interface AssetDetailViewProps {
   ticker: string
@@ -87,7 +88,18 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError }: As
         />
       )}
 
-      {/* Task 5: Conviction Engine */}
+      {allFiltersPassed && (
+        <ConvictionEngine
+          opportunityType={scoreData.opportunity_type ?? null}
+          winningTrack={scoreData.winning_track ?? null}
+          asymmetryRatio={scoreData.asymmetry_ratio ?? null}
+          maxPositionPct={scoreData.max_position_pct ?? null}
+          timingSignal={scoreData.timing_signal ?? null}
+          capitalAllocation={scoreData.capital_allocation ?? null}
+          catalyst={scoreData.catalyst ?? null}
+        />
+      )}
+
       {/* Task 6: Valuation Section */}
     </div>
   )
