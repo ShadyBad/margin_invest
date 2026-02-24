@@ -202,10 +202,17 @@ export function ValuationSection({
 
           {/* Overvalued warning */}
           {isOvervalued && (
-            <div className="flex items-center gap-2 mt-3 px-3 py-2 rounded bg-warning/10 border border-warning/20">
-              <span className="text-warning text-sm">
-                Currently trading ABOVE intrinsic value
-              </span>
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2 px-3 py-2 rounded bg-warning/10 border border-warning/20">
+                <span className="text-warning text-sm">
+                  Currently trading ABOVE intrinsic value
+                </span>
+              </div>
+              <p className="text-xs text-text-tertiary px-1">
+                The composite score ranks quality, value, and momentum factors relative to the full
+                universe. A stock can rank highly on these dimensions while trading above its
+                intrinsic value estimate.
+              </p>
             </div>
           )}
         </div>

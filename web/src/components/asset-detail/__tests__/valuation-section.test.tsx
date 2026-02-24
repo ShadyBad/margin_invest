@@ -55,6 +55,22 @@ describe("ValuationSection", () => {
     expect(screen.getByText(/Negative trailing earnings/)).toBeInTheDocument()
   })
 
+  it("shows explanation when overvalued", () => {
+    render(
+      <ValuationSection
+        ticker="AAPL"
+        buyPrice={142}
+        sellPrice={214}
+        intrinsicValue={165}
+        currentPrice={187.42}
+        priceUpside={-0.119}
+        marginOfSafety={-0.136}
+        valuationMethods={{}}
+      />
+    )
+    expect(screen.getByText(/composite score ranks/i)).toBeInTheDocument()
+  })
+
   it("renders valuation methods table", () => {
     render(
       <ValuationSection
