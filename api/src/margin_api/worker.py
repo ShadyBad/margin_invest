@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from arq.connections import RedisSettings
 from sqlalchemy import select
@@ -67,18 +68,42 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
             filing_date=fin_data.filing_date,
         )
 
-        profile = build_asset_profile(
-            ticker=asset.ticker,
-            name=asset.name,
-            sector=asset.sector,
-            market_cap=asset.market_cap,
-        )
-
         # 4. Extract price bars and earnings from JSONB
         # price_history is stored as {"bars": [...]}
         price_data = fin_data.price_history or {}
         price_bars_raw: list[dict] = (
             price_data.get("bars", []) if isinstance(price_data, dict) else []
+        )
+
+        # Compute volume and history from price bars for liquidity filter
+        avg_daily_volume = Decimal("0")
+        years_of_history = 0
+        if price_bars_raw:
+            volumes = [
+                float(b.get("volume") or b.get("Volume") or 0)
+                * float(b.get("close") or b.get("Close") or b.get("adj_close") or b.get("Adj Close") or 0)
+                for b in price_bars_raw
+            ]
+            if volumes:
+                avg_daily_volume = Decimal(str(sum(volumes) / len(volumes)))
+            dates = [b.get("date") or b.get("Date") for b in price_bars_raw]
+            valid_dates = [d for d in dates if d]
+            if len(valid_dates) >= 2:
+                try:
+                    first = datetime.fromisoformat(str(valid_dates[0]))
+                    last = datetime.fromisoformat(str(valid_dates[-1]))
+                    years_of_history = max(1, int(abs((last - first).days) / 365))
+                except (ValueError, TypeError):
+                    pass
+
+        profile = build_asset_profile(
+            ticker=asset.ticker,
+            name=asset.name,
+            sector=asset.sector,
+            market_cap=asset.market_cap,
+            avg_daily_volume=avg_daily_volume,
+            years_of_history=years_of_history,
+            shares_outstanding=asset.shares_outstanding,
         )
         earnings_raw: list[dict] = fin_data.earnings_data or []
 
