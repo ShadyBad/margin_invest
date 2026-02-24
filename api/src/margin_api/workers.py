@@ -10,6 +10,7 @@ Start the worker with:
 from __future__ import annotations
 
 import logging
+import math
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -1008,27 +1009,46 @@ async def train_ml_models(ctx: dict) -> dict:
             "[ml] Overall rank IC: %.4f (qualifies=%s)", overall_rank_ic, model_qualifies
         )
 
+        # Sanitize values for JSONB — numpy types are not JSON-serializable
+        def _sanitize(obj: object) -> object:
+            if isinstance(obj, (np.integer,)):
+                return int(obj)
+            if isinstance(obj, (np.floating,)):
+                v = float(obj)
+                return None if (math.isnan(v) or math.isinf(v)) else v
+            if isinstance(obj, np.ndarray):
+                return _sanitize(obj.tolist())
+            if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+                return None
+            if isinstance(obj, dict):
+                return {k: _sanitize(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [_sanitize(v) for v in obj]
+            return obj
+
+        raw_metrics = {
+            "feature_names": feature_names,
+            "cluster_sizes": {
+                str(k): len(v) for k, v in cluster_indices.items()
+            },
+            "vae_metrics": (
+                vae_metrics.model_dump() if vae_metrics else None
+            ),
+        }
+
         # Record MlModelRun
         async with session_factory() as session:
             ml_run = MlModelRun(
                 model_type="lightgbm_cluster",
-                n_clusters=len(models),
-                n_features=features.shape[1],
-                n_samples=features.shape[0],
-                train_metrics={
-                    "feature_names": feature_names,
-                    "cluster_sizes": {
-                        str(k): len(v) for k, v in cluster_indices.items()
-                    },
-                    "vae_metrics": (
-                        vae_metrics.model_dump() if vae_metrics else None
-                    ),
-                },
+                n_clusters=int(len(models)),
+                n_features=int(features.shape[1]),
+                n_samples=int(features.shape[0]),
+                train_metrics=_sanitize(raw_metrics),
                 cluster_model_data=cluster_model_data,
                 vae_model_data=vae_model_data,
-                model_qualifies=model_qualifies,
-                overall_rank_ic=overall_rank_ic,
-                vae_rank_ic=vae_metrics.rank_ic if vae_metrics else None,
+                model_qualifies=bool(model_qualifies),
+                overall_rank_ic=float(overall_rank_ic),
+                vae_rank_ic=float(vae_metrics.rank_ic) if vae_metrics else None,
             )
             session.add(ml_run)
 
