@@ -306,6 +306,14 @@ def score_universe_v4(
         v4_result = orchestrate_v4(td.ticker, track_a, track_b, track_c, timing_signal)
         rules_conviction = v4_result.conviction
 
+        # Compute composite_score from winning track's score
+        track_scores = {
+            "compounder": track_a.score if track_a.qualifies else 0.0,
+            "mispricing": track_b.score if track_b.qualifies else 0.0,
+            "efficient_growth": track_c.score if track_c.qualifies else 0.0,
+        }
+        composite_score = max(track_scores.values())
+
         # Step 3g: Apply ML ensemble override
         ml_alpha_val: float | None = None
         ml_confidence_val: float | None = None
@@ -356,6 +364,7 @@ def score_universe_v4(
                 ml_alpha=ml_alpha_val,
                 ml_confidence=ml_confidence_val,
                 ml_override=ml_override_type,
+                composite_score=composite_score,
             )
         )
 

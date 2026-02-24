@@ -198,6 +198,43 @@ class TestScoreUniverseV4:
         assert styles["BLN"] == InvestmentStyle.BLEND
         assert styles["VAL"] == InvestmentStyle.VALUE
 
+    def test_composite_score_equals_max_qualifying_track_score(self):
+        """composite_score equals the max score among qualifying tracks."""
+        data = [_make_ticker_data("AAPL")]
+        results = score_universe_v4(data, shiller_cape=25.0)
+        assert len(results) == 1
+        r = results[0]
+        # composite_score should always equal the max of the qualifying track scores
+        expected_scores = []
+        if r.track_a.qualifies:
+            expected_scores.append(r.track_a.score)
+        if r.track_b.qualifies:
+            expected_scores.append(r.track_b.score)
+        if r.track_c.qualifies:
+            expected_scores.append(r.track_c.score)
+        expected = max(expected_scores) if expected_scores else 0.0
+        assert r.composite_score == expected
+
+    def test_composite_score_reflects_qualifying_track(self):
+        """composite_score is set from the winning qualifying track score, not left at 0."""
+        data = [_make_ticker_data("TEST")]
+        results = score_universe_v4(data, shiller_cape=25.0)
+        r = results[0]
+        # Directly verify the relationship: composite_score = max of qualifying track scores
+        qualifying_scores = [
+            t.score for t in [r.track_a, r.track_b, r.track_c] if t.qualifies
+        ]
+        if qualifying_scores:
+            assert r.composite_score == max(qualifying_scores)
+            assert r.composite_score > 0.0
+        else:
+            # No track qualifies => composite is 0.0 (which is correct)
+            assert r.composite_score == 0.0
+
+        # Also verify the V4ResultWithML model accepts composite_score properly
+        patched = r.model_copy(update={"composite_score": 75.5})
+        assert patched.composite_score == 75.5
+
     def test_optimize_true_retains_all_positions(self):
         """optimize=True: positions are not zeroed by the portfolio cap step."""
         data = [_make_ticker_data(f"T{i:03d}") for i in range(55)]

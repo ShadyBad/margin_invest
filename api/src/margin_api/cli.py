@@ -805,6 +805,18 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
                 else:
                     dcf_iv = current_price
 
+                # Compute sustainable growth rate = retention_ratio * ROE
+                net_income = float(latest.current_income.net_income or 0)
+                total_equity = float(latest.current_balance.total_equity or 0)
+                dividends = float(latest.current_cash_flow.dividends_paid or 0)
+                if net_income > 0 and total_equity > 0:
+                    roe = net_income / total_equity
+                    retention = 1.0 - (abs(dividends) / net_income) if net_income > 0 else 1.0
+                    retention = max(0.0, min(1.0, retention))
+                    sustainable_growth = retention * roe
+                else:
+                    sustainable_growth = 0.08
+
                 td = TickerV3Data(
                     ticker=ticker,
                     history=history,
@@ -812,7 +824,7 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
                     profile=profile,
                     current_price=current_price,
                     current_fcf_per_share=fcf_ps,
-                    sustainable_growth_rate=0.08,  # default
+                    sustainable_growth_rate=sustainable_growth,
                     buyback_yield=None,
                     insider_ownership_pct=None,
                     sbc_pct=None,
@@ -1263,6 +1275,18 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 # Track C fields
                 track_c_fields = _compute_track_c_fields(history, latest, current_price, shares)
 
+                # Compute sustainable growth rate = retention_ratio * ROE
+                net_income = float(latest.current_income.net_income or 0)
+                total_equity = float(latest.current_balance.total_equity or 0)
+                dividends = float(latest.current_cash_flow.dividends_paid or 0)
+                if net_income > 0 and total_equity > 0:
+                    roe = net_income / total_equity
+                    retention = 1.0 - (abs(dividends) / net_income) if net_income > 0 else 1.0
+                    retention = max(0.0, min(1.0, retention))
+                    sustainable_growth = retention * roe
+                else:
+                    sustainable_growth = 0.08
+
                 td = TickerV4Data(
                     ticker=ticker,
                     history=history,
@@ -1270,7 +1294,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                     profile=profile,
                     current_price=current_price,
                     current_fcf_per_share=fcf_ps,
-                    sustainable_growth_rate=0.08,  # default
+                    sustainable_growth_rate=sustainable_growth,
                     buyback_yield=None,
                     insider_ownership_pct=None,
                     sbc_pct=None,
