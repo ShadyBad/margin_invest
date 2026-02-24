@@ -55,8 +55,6 @@ class TickerV4Data(BaseModel):
     insider_ownership_pct: float | None = None
     sbc_pct: float | None = None
     recent_acquisition_count: int = 0
-    insider_percentile: float = 0.0
-    institutional_percentile: float = 0.0
     sue_percentile: float = 0.0
     momentum_percentile: float = 50.0
     dcf_iv: float = 0.0
@@ -276,8 +274,6 @@ def score_universe_v4(
             owner_earnings_iv=owner_earnings_iv,
             asset_floor_iv=asset_floor_iv,
             peer_comparison_iv=peer_comparison_iv,
-            insider_percentile=td.insider_percentile,
-            institutional_percentile=td.institutional_percentile,
             sue_percentile=td.sue_percentile,
             wacc=wacc,
             regime_adjustments=adj,

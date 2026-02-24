@@ -190,8 +190,6 @@ class TrackBInputs(BaseModel):
     owner_earnings_iv: float
     asset_floor_iv: float
     peer_comparison_iv: float
-    insider_percentile: float
-    institutional_percentile: float
     sue_percentile: float
     wacc: float
     regime_adjustments: RegimeAdjustments | None = None
@@ -282,8 +280,6 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
 
     # --- Gate 3: Catalyst ---
     catalyst = compute_catalyst_strength(
-        insider_percentile=inputs.insider_percentile,
-        institutional_percentile=inputs.institutional_percentile,
         sue_percentile=inputs.sue_percentile,
     )
     catalyst_threshold = 40.0

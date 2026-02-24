@@ -179,8 +179,6 @@ def _make_ticker_data(
     shares: int = 100_000_000,
     strong_compounder: bool = False,
     dcf_iv: float = 0.0,
-    insider_pctl: float = 50.0,
-    institutional_pctl: float = 50.0,
     sue_pctl: float = 50.0,
     momentum_pctl: float = 50.0,
 ) -> TickerV3Data:
@@ -205,8 +203,6 @@ def _make_ticker_data(
         insider_ownership_pct=5.0,
         sbc_pct=0.01,
         recent_acquisition_count=0,
-        insider_percentile=insider_pctl,
-        institutional_percentile=institutional_pctl,
         sue_percentile=sue_pctl,
         momentum_percentile=momentum_pctl,
         dcf_iv=dcf_iv,
@@ -338,9 +334,7 @@ class TestMispricingQualifiesEndToEnd:
             owner_earnings_iv=iv_cluster * 1.05,
             asset_floor_iv=iv_cluster * 0.95,
             peer_comparison_iv=iv_cluster * 1.02,
-            insider_percentile=85.0,  # Strong catalyst -> Gate 3 passes
-            institutional_percentile=75.0,
-            sue_percentile=80.0,
+            sue_percentile=80.0,  # Strong catalyst -> Gate 3 passes
             wacc=0.10,
         )
 
@@ -400,8 +394,6 @@ class TestBothTracksPromoteToExceptional:
             owner_earnings_iv=105.0,
             asset_floor_iv=95.0,
             peer_comparison_iv=102.0,
-            insider_percentile=90.0,
-            institutional_percentile=85.0,
             sue_percentile=88.0,
             wacc=0.10,
         )
@@ -453,8 +445,6 @@ class TestPortfolioCapAcrossUniverse:
                 current_price=50.0,
                 strong_compounder=True,
                 dcf_iv=120.0,
-                insider_pctl=85.0,
-                institutional_pctl=75.0,
                 sue_pctl=80.0,
             )
             tickers_data.append(td)
@@ -488,8 +478,6 @@ class TestRegimeModifiesOutcomes:
                 current_price=50.0,
                 strong_compounder=True,
                 dcf_iv=120.0,
-                insider_pctl=70.0,
-                institutional_pctl=65.0,
                 sue_pctl=62.0,
                 momentum_pctl=55.0,
             ),
@@ -553,8 +541,6 @@ class TestCascadeDeterministic:
                 current_price=40.0 + i * 5,
                 strong_compounder=(i % 2 == 0),
                 dcf_iv=100.0 + i * 10,
-                insider_pctl=60.0 + i * 3,
-                institutional_pctl=55.0 + i * 2,
                 sue_pctl=50.0 + i * 4,
                 momentum_pctl=40.0 + i * 5,
             )

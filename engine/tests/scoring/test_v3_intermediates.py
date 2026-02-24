@@ -502,32 +502,21 @@ class TestComputeCapitalAllocationComposite:
 
 
 class TestComputeCatalystStrength:
-    def test_weighted_blend_mixed(self):
-        """30, 70, 50 sorted = [70, 50, 30]: 0.50*70 + 0.30*50 + 0.20*30 = 56.0."""
-        assert compute_catalyst_strength(30.0, 70.0, 50.0) == pytest.approx(56.0)
+    def test_compute_catalyst_strength_sue_only(self):
+        """Catalyst strength is now SUE percentile passthrough."""
+        assert compute_catalyst_strength(75.0) == pytest.approx(75.0)
 
     def test_all_zero(self):
-        """All zero signals: result = 0.0."""
-        assert compute_catalyst_strength(0.0, 0.0, 0.0) == pytest.approx(0.0)
+        """Zero SUE percentile returns 0.0."""
+        assert compute_catalyst_strength(0.0) == pytest.approx(0.0)
 
-    def test_single_strong_signal(self):
-        """Single signal at 90 with others low: 0.50*90 + 0.30*20 + 0.20*10 = 53.0."""
-        assert compute_catalyst_strength(90.0, 10.0, 20.0) == pytest.approx(53.0)
+    def test_high_sue(self):
+        """High SUE percentile passes through directly."""
+        assert compute_catalyst_strength(90.0) == pytest.approx(90.0)
 
-    def test_catalyst_all_three_at_70(self):
-        """Uniform signals: 0.50*70 + 0.30*70 + 0.20*70 = 70.0."""
-        result = compute_catalyst_strength(70.0, 70.0, 70.0)
-        assert result == pytest.approx(70.0)
-
-    def test_catalyst_single_strong_signal_others_zero(self):
-        """Single signal at 90 with others at 0: 0.50*90 = 45.0 (was 90.0)."""
-        result = compute_catalyst_strength(0.0, 0.0, 90.0)
-        assert result == pytest.approx(45.0)
-
-    def test_catalyst_mixed_signals(self):
-        """80, 50, 20: 0.50*80 + 0.30*50 + 0.20*20 = 59.0."""
-        result = compute_catalyst_strength(80.0, 50.0, 20.0)
-        assert result == pytest.approx(59.0)
+    def test_boundary_value(self):
+        """Boundary value at 100 passes through."""
+        assert compute_catalyst_strength(100.0) == pytest.approx(100.0)
 
 
 class TestComputeQualityFloorFactor:

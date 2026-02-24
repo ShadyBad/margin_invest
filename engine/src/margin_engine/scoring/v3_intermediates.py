@@ -185,20 +185,15 @@ def compute_capital_allocation_composite(
 
 
 def compute_catalyst_strength(
-    insider_percentile: float,
-    institutional_percentile: float,
     sue_percentile: float,
 ) -> float:
-    """Catalyst strength = weighted blend favoring corroboration.
+    """Catalyst strength = SUE percentile (passthrough).
 
-    50% weight on strongest signal, 30% on second, 20% on third.
-    This rewards multiple confirming catalysts over a single outlier.
+    Insider and institutional percentiles were removed because they had no
+    real data source (hardcoded at 50.0). They will return when a 13F
+    filing pipeline is available.
     """
-    sorted_signals = sorted(
-        [insider_percentile, institutional_percentile, sue_percentile],
-        reverse=True,
-    )
-    return 0.50 * sorted_signals[0] + 0.30 * sorted_signals[1] + 0.20 * sorted_signals[2]
+    return sue_percentile
 
 
 def compute_quality_floor_factor(roic: float, roic_improving: bool) -> float:

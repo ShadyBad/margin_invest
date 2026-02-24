@@ -85,8 +85,6 @@ def _make_ticker_data(
         current_price=100.0,
         current_fcf_per_share=5.0,
         sustainable_growth_rate=0.08,
-        insider_percentile=50.0,
-        institutional_percentile=50.0,
         sue_percentile=50.0,
         momentum_percentile=50.0,
         dcf_iv=120.0,
