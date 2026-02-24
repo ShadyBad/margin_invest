@@ -150,7 +150,7 @@ describe("AssetDetailView", () => {
 })
 
 describe("barrel exports", () => {
-  it("exports all 10 components from index", async () => {
+  it("exports all 11 components from index", async () => {
     const barrel = await import("../index")
     expect(barrel.AssetDetailView).toBeDefined()
     expect(barrel.HeroHeader).toBeDefined()
@@ -162,5 +162,6 @@ describe("barrel exports", () => {
     expect(barrel.ConvictionEngine).toBeDefined()
     expect(barrel.ValuationSection).toBeDefined()
     expect(barrel.HypotheticalScores).toBeDefined()
+    expect(barrel.MLAuditPanel).toBeDefined()
   })
 })

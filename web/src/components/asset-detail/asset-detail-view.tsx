@@ -7,6 +7,7 @@ import { ScoringPillars } from "./scoring-pillars"
 import { ConvictionEngine } from "./conviction-engine"
 import { ValuationSection } from "./valuation-section"
 import { HypotheticalScores } from "./hypothetical-scores"
+import { MLAuditPanel } from "./ml-audit-panel"
 
 interface AssetDetailViewProps {
   ticker: string
@@ -106,6 +107,19 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           capitalAllocation={scoreData.capital_allocation ?? null}
           catalyst={scoreData.catalyst ?? null}
           /* institutionalAccumulation — wired when API provides institutional_accumulation */
+        />
+      )}
+
+      {allFiltersPassed && (
+        <MLAuditPanel
+          mlModelQualified={scoreData.ml_model_qualified ?? null}
+          mlModelRankIc={scoreData.ml_model_rank_ic ?? null}
+          mlModelTrainedAt={scoreData.ml_model_trained_at ?? null}
+          mlAlpha={scoreData.ml_alpha ?? null}
+          mlConfidence={scoreData.ml_confidence ?? null}
+          mlOverride={scoreData.ml_override ?? null}
+          rulesConviction={scoreData.rules_conviction ?? null}
+          conviction={scoreData.conviction_level ?? null}
         />
       )}
 
