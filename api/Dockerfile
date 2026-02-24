@@ -19,6 +19,9 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+# LightGBM requires libgomp (OpenMP runtime)
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+
 # Copy installed packages and source
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/engine/src /app/engine/src
