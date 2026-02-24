@@ -168,6 +168,24 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
         >
           <ConvictionBadge level={pick.conviction_level} />
         </motion.div>
+          {pick.ml_override === "promoted" && (
+            <span
+              className="text-xs text-bullish font-semibold"
+              data-testid={`ml-override-${pick.ticker}`}
+              title="ML-promoted"
+            >
+              ▲
+            </span>
+          )}
+          {pick.ml_override === "demoted" && (
+            <span
+              className="text-xs text-bearish font-semibold"
+              data-testid={`ml-override-${pick.ticker}`}
+              title="ML-demoted"
+            >
+              ▼
+            </span>
+          )}
           {pick.opportunity_type && pick.opportunity_type !== "neither" && (
             <span
               className={`text-xs px-1.5 py-0.5 rounded font-medium ${

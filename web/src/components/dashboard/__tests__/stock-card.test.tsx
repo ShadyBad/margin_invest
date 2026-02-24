@@ -136,3 +136,15 @@ describe("StockCard sector left bar", () => {
     expect(card.style.borderLeftColor).toBe("var(--color-border-primary)")
   })
 })
+
+describe("StockCard ML override indicator", () => {
+  it("shows ML promoted indicator", () => {
+    render(<StockCard pick={{ ...basePick, ml_override: "promoted" }} />)
+    expect(screen.getByTestId(`ml-override-${basePick.ticker}`)).toBeInTheDocument()
+  })
+
+  it("does not show ML indicator when override is none", () => {
+    render(<StockCard pick={{ ...basePick, ml_override: "none" }} />)
+    expect(screen.queryByTestId(`ml-override-${basePick.ticker}`)).not.toBeInTheDocument()
+  })
+})
