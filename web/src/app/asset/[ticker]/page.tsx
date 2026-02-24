@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { serverFetch } from "@/lib/api/server"
 import { AppShell } from "@/components/layout/app-shell"
+import { AssetDetailView } from "@/components/asset-detail"
 import type { ScoreResponse, ScoreHistoryResponse } from "@/lib/api/types"
 
 interface AssetDetailPageProps {
@@ -39,15 +40,13 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
 
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto py-8">
-        <h1 className="text-2xl font-semibold text-text-primary">{upperTicker}</h1>
-        {apiError && <p className="text-bearish text-sm mt-2">{apiError}</p>}
-        {scoreData && (
-          <p className="text-text-secondary text-sm mt-2">
-            Score: {scoreData.composite_raw_score} | Signal: {scoreData.signal}
-          </p>
-        )}
-        {/* AssetDetailView will replace this in Task 2 */}
+      <div className="max-w-4xl mx-auto py-8 px-4">
+        <AssetDetailView
+          ticker={upperTicker}
+          scoreData={scoreData}
+          historyData={historyData}
+          apiError={apiError}
+        />
       </div>
     </AppShell>
   )
