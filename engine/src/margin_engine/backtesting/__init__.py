@@ -24,6 +24,12 @@ from margin_engine.backtesting.simulator import (
     ScoredUniverseProvider,
     WalkForwardSimulator,
 )
+from margin_engine.backtesting.replay_orchestrator import (
+    RebalanceAuditRecord,
+    ReplayConfig,
+    ReplayOrchestrator,
+    ReplayResult,
+)
 from margin_engine.backtesting.validation import MethodologyComparison, ValidationGate
 
 __all__ = [
@@ -37,7 +43,11 @@ __all__ = [
     "PerformanceCalculator",
     "PerformanceMetrics",
     "RankICReport",
+    "RebalanceAuditRecord",
     "RebalanceFrequency",
+    "ReplayConfig",
+    "ReplayOrchestrator",
+    "ReplayResult",
     "ScoredStock",
     "ScoredUniverseProvider",
     "SelectionMode",
