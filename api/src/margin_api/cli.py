@@ -558,17 +558,40 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                     period_end=fin_data.period_end,
                     filing_date=fin_data.filing_date,
                 )
+                # price_history is stored as {"bars": [...]}
+                price_data = fin_data.price_history or {}
+                price_bars = price_data.get("bars", []) if isinstance(price_data, dict) else []
+
+                # Compute volume and history from price bars for liquidity filter
+                avg_vol = Decimal("0")
+                yrs_hist = 0
+                if price_bars:
+                    vols = [
+                        float(b.get("volume") or b.get("Volume") or 0)
+                        * float(b.get("close") or b.get("Close") or b.get("adj_close") or b.get("Adj Close") or 0)
+                        for b in price_bars
+                    ]
+                    if vols:
+                        avg_vol = Decimal(str(sum(vols) / len(vols)))
+                    bar_dates = [b.get("date") or b.get("Date") for b in price_bars]
+                    valid_dates = [d for d in bar_dates if d]
+                    if len(valid_dates) >= 2:
+                        try:
+                            first = datetime.fromisoformat(str(valid_dates[0]))
+                            last = datetime.fromisoformat(str(valid_dates[-1]))
+                            yrs_hist = max(1, int(abs((last - first).days) / 365))
+                        except (ValueError, TypeError):
+                            pass
+
                 profile = build_asset_profile(
                     ticker=asset.ticker,
                     name=asset.name,
                     sector=asset.sector,
                     market_cap=asset.market_cap,
+                    avg_daily_volume=avg_vol,
+                    years_of_history=yrs_hist,
                     shares_outstanding=asset.shares_outstanding,
                 )
-
-                # price_history is stored as {"bars": [...]}
-                price_data = fin_data.price_history or {}
-                price_bars = price_data.get("bars", []) if isinstance(price_data, dict) else []
 
                 raw = compute_raw_factor_scores(
                     ticker=ticker,
@@ -708,19 +731,44 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
                     for fd in fin_rows
                 ]
                 history = build_financial_history_from_rows(ticker, rows)
+
+                # Extract price bars for volume/history computation
+                latest_fd = max(fin_rows, key=lambda fd: fd.period_end)
+                price_data = latest_fd.price_history or {}
+                bars = price_data.get("bars", []) if isinstance(price_data, dict) else []
+
+                avg_vol = Decimal("0")
+                yrs_hist = 0
+                if bars:
+                    vols = [
+                        float(b.get("volume") or b.get("Volume") or 0)
+                        * float(b.get("close") or b.get("Close") or b.get("adj_close") or b.get("Adj Close") or 0)
+                        for b in bars
+                    ]
+                    if vols:
+                        avg_vol = Decimal(str(sum(vols) / len(vols)))
+                    bar_dates = [b.get("date") or b.get("Date") for b in bars]
+                    valid_dates = [d for d in bar_dates if d]
+                    if len(valid_dates) >= 2:
+                        try:
+                            first = datetime.fromisoformat(str(valid_dates[0]))
+                            last = datetime.fromisoformat(str(valid_dates[-1]))
+                            yrs_hist = max(1, int(abs((last - first).days) / 365))
+                        except (ValueError, TypeError):
+                            pass
+
                 profile = build_asset_profile(
                     ticker=asset.ticker,
                     name=asset.name,
                     sector=asset.sector,
                     market_cap=asset.market_cap,
+                    avg_daily_volume=avg_vol,
+                    years_of_history=yrs_hist,
                     shares_outstanding=asset.shares_outstanding,
                 )
                 latest = history.periods[-1]
 
                 # Get current price from most recent price bar
-                latest_fd = max(fin_rows, key=lambda fd: fd.period_end)
-                price_data = latest_fd.price_history or {}
-                bars = price_data.get("bars", []) if isinstance(price_data, dict) else []
                 last_bar = bars[-1] if bars else {}
                 close_val = last_bar.get("close") or last_bar.get("Close")
                 current_price = (
@@ -1086,19 +1134,44 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                     for fd in fin_rows
                 ]
                 history = build_financial_history_from_rows(ticker, rows)
+
+                # Extract price bars for volume/history computation
+                latest_fd = max(fin_rows, key=lambda fd: fd.period_end)
+                price_data = latest_fd.price_history or {}
+                bars = price_data.get("bars", []) if isinstance(price_data, dict) else []
+
+                avg_vol = Decimal("0")
+                yrs_hist = 0
+                if bars:
+                    vols = [
+                        float(b.get("volume") or b.get("Volume") or 0)
+                        * float(b.get("close") or b.get("Close") or b.get("adj_close") or b.get("Adj Close") or 0)
+                        for b in bars
+                    ]
+                    if vols:
+                        avg_vol = Decimal(str(sum(vols) / len(vols)))
+                    bar_dates = [b.get("date") or b.get("Date") for b in bars]
+                    valid_dates = [d for d in bar_dates if d]
+                    if len(valid_dates) >= 2:
+                        try:
+                            first = datetime.fromisoformat(str(valid_dates[0]))
+                            last = datetime.fromisoformat(str(valid_dates[-1]))
+                            yrs_hist = max(1, int(abs((last - first).days) / 365))
+                        except (ValueError, TypeError):
+                            pass
+
                 profile = build_asset_profile(
                     ticker=asset.ticker,
                     name=asset.name,
                     sector=asset.sector,
                     market_cap=asset.market_cap,
+                    avg_daily_volume=avg_vol,
+                    years_of_history=yrs_hist,
                     shares_outstanding=asset.shares_outstanding,
                 )
                 latest = history.periods[-1]
 
                 # Get current price from most recent price bar
-                latest_fd = max(fin_rows, key=lambda fd: fd.period_end)
-                price_data = latest_fd.price_history or {}
-                bars = price_data.get("bars", []) if isinstance(price_data, dict) else []
                 last_bar = bars[-1] if bars else {}
                 close_val = last_bar.get("close") or last_bar.get("Close")
                 current_price = (
