@@ -4,7 +4,6 @@ from datetime import date
 
 from margin_engine.backtesting.regime_classifier import (
     MarketRegimeHistorical,
-    RegimePeriod,
     classify_regime,
     get_nber_recessions,
     segment_by_regime,
