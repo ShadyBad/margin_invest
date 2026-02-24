@@ -75,6 +75,7 @@ export function HeroSection({ data }: HeroSectionProps) {
 
           <p data-hero-subtext className="text-lg md:text-xl text-text-secondary max-w-lg mb-10 leading-relaxed">
             A deterministic capital allocation system that replaces narrative with structure.
+            Search any ticker — we&apos;ll show you exactly what the math says.
           </p>
 
           <div data-hero-ctas className="flex flex-wrap items-center gap-6">

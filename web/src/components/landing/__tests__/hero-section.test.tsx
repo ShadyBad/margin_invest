@@ -50,4 +50,9 @@ describe("HeroSection", () => {
     render(<HeroSection data={null} />)
     expect(screen.getByText("AAPL")).toBeInTheDocument()
   })
+
+  it("renders search-any-ticker call to action in subtext", () => {
+    render(<HeroSection data={null} />)
+    expect(screen.getByText(/search any ticker/i)).toBeInTheDocument()
+  })
 })
