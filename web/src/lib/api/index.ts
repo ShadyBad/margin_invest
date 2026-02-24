@@ -3,7 +3,7 @@ export { serverFetch } from './server'
 export { getScore, getMetrics, getScoreHistory, listScores, deleteScore } from './scores'
 export { getDashboard } from './dashboard'
 export { getHealth } from './health'
-export { runBacktest, getBacktestResults, getBacktestResult, getBacktestTeaser } from './backtest'
+export { runBacktest, getBacktestResults, getBacktestResult, getBacktestTeaser, getDefaultBacktest, runReplay, getShadowPortfolio } from './backtest'
 export { getShowcaseCorrelations } from './correlations'
 export type {
   ScoreResponse,
@@ -29,4 +29,12 @@ export type {
   ScoreHistoryResponse,
   CorrelationResponse,
   ExcludedTickerResponse,
+  RegimeSegmentResponse,
+  AuditRecordResponse,
+  FactorTimelineResponse,
+  FailurePeriodResponse,
+  ReplayConfigResponse,
+  FullBacktestResponse,
+  ShadowSnapshotResponse,
+  ShadowPortfolioResponse,
 } from './types'
