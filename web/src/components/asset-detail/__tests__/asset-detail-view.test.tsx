@@ -61,6 +61,7 @@ describe("AssetDetailView", () => {
     expect(screen.getByTestId("scoring-pillars")).toBeInTheDocument()
     expect(screen.getByTestId("conviction-engine")).toBeInTheDocument()
     expect(screen.getByTestId("valuation-section")).toBeInTheDocument()
+    expect(screen.getByTestId("backtest-teaser")).toBeInTheDocument()
     // Eliminated-only sections should NOT be present
     expect(screen.queryByTestId("eliminated-hero")).not.toBeInTheDocument()
     expect(screen.queryByTestId("hypothetical-scores")).not.toBeInTheDocument()
@@ -88,6 +89,7 @@ describe("AssetDetailView", () => {
     expect(screen.getByTestId("eliminated-hero")).toBeInTheDocument()
     expect(screen.getByTestId("elimination-gauntlet")).toBeInTheDocument()
     expect(screen.getByTestId("hypothetical-scores")).toBeInTheDocument()
+    expect(screen.getByTestId("backtest-teaser")).toBeInTheDocument()
     // Passing-only sections should NOT be present
     expect(screen.queryByTestId("scoring-pillars")).not.toBeInTheDocument()
     expect(screen.queryByTestId("conviction-engine")).not.toBeInTheDocument()
@@ -150,7 +152,7 @@ describe("AssetDetailView", () => {
 })
 
 describe("barrel exports", () => {
-  it("exports all 11 components from index", async () => {
+  it("exports all 12 components from index", async () => {
     const barrel = await import("../index")
     expect(barrel.AssetDetailView).toBeDefined()
     expect(barrel.HeroHeader).toBeDefined()
@@ -163,5 +165,6 @@ describe("barrel exports", () => {
     expect(barrel.ValuationSection).toBeDefined()
     expect(barrel.HypotheticalScores).toBeDefined()
     expect(barrel.MLAuditPanel).toBeDefined()
+    expect(barrel.BacktestTeaser).toBeDefined()
   })
 })

@@ -315,6 +315,14 @@ export interface ValuationAuditResponse {
   clamp_reason: string | null
 }
 
+export interface BacktestTeaserResponse {
+  model_return: number
+  benchmark_return: number
+  max_drawdown: number
+  benchmark_max_drawdown: number
+  start_year: number
+}
+
 export interface ExcludedTickerResponse {
   ticker: string
   reason: string

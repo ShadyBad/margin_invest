@@ -8,6 +8,7 @@ import { ConvictionEngine } from "./conviction-engine"
 import { ValuationSection } from "./valuation-section"
 import { HypotheticalScores } from "./hypothetical-scores"
 import { MLAuditPanel } from "./ml-audit-panel"
+import { BacktestTeaser } from "./backtest-teaser"
 
 interface AssetDetailViewProps {
   ticker: string
@@ -138,6 +139,15 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           invalidReason={scoreData.price_target_invalid_reason ?? null}
         />
       )}
+
+      {/* Backtest teaser — shown for all stocks (hardcoded until API serves real data) */}
+      <BacktestTeaser
+        modelReturn={3.87}
+        benchmarkReturn={2.14}
+        maxDrawdown={0.31}
+        benchmarkMaxDrawdown={0.56}
+        startYear={2006}
+      />
 
       {!allFiltersPassed && (
         <HypotheticalScores

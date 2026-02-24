@@ -1,5 +1,5 @@
 import { apiFetch } from "./client"
-import type { BacktestResult, BacktestListResponse } from "./types"
+import type { BacktestResult, BacktestListResponse, BacktestTeaserResponse } from "./types"
 
 export async function runBacktest(): Promise<BacktestResult> {
   return apiFetch<BacktestResult>("/api/v1/backtest/run", {
@@ -14,4 +14,8 @@ export async function getBacktestResults(): Promise<BacktestListResponse> {
 
 export async function getBacktestResult(id: string): Promise<BacktestResult> {
   return apiFetch<BacktestResult>(`/api/v1/backtest/results/${id}`)
+}
+
+export async function getBacktestTeaser(ticker: string): Promise<BacktestTeaserResponse> {
+  return apiFetch<BacktestTeaserResponse>(`/api/v1/backtest/teaser/${ticker}`)
 }
