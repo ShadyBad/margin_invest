@@ -1,3 +1,5 @@
 export { AssetDetailView } from "./asset-detail-view"
 export { HeroHeader } from "./hero-header"
 export { EliminatedHero } from "./eliminated-hero"
+export { EliminationGauntlet } from "./elimination-gauntlet"
+export { FilterCard } from "./filter-card"

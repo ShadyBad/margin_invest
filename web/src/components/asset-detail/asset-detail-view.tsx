@@ -2,6 +2,7 @@ import Link from "next/link"
 import type { ScoreResponse, ScoreHistoryResponse } from "@/lib/api/types"
 import { HeroHeader } from "./hero-header"
 import { EliminatedHero } from "./eliminated-hero"
+import { EliminationGauntlet } from "./elimination-gauntlet"
 
 interface AssetDetailViewProps {
   ticker: string
@@ -71,7 +72,11 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError }: As
         />
       )}
 
-      {/* Task 3: Elimination Gauntlet */}
+      <EliminationGauntlet
+        filters={scoreData.filters_passed}
+        eliminated={!allFiltersPassed}
+      />
+
       {/* Task 4: Scoring Pillars (Quality, Value, Momentum) */}
       {/* Task 5: Conviction Engine */}
       {/* Task 6: Valuation Section */}
