@@ -97,6 +97,13 @@ export function FilterCard({ filter, expanded }: FilterCardProps) {
         </div>
       )}
 
+      {/* Academic citation */}
+      {meta?.citation && expanded && (
+        <p className="text-[10px] text-text-tertiary italic">
+          Source: {meta.citation}
+        </p>
+      )}
+
       {/* Detail from API */}
       {filter.detail && (
         <p className="text-xs text-text-secondary">{filter.detail}</p>
