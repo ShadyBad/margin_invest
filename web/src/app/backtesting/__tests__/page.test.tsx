@@ -142,8 +142,13 @@ const mockReplayData: FullBacktestResponse = {
   factor_timeline: [
     { as_of_date: "2006-01-01", available: ["PE", "PB", "ROE"], missing: ["FCF"], coverage_ratio: 0.75 },
   ],
-  failure_audit: [],
-  equity_curve: [],
+  failure_audit: [
+    { rebalance_date: "2008-10-01", portfolio_return: -0.38, benchmark_return: -0.52, relative_underperformance: 0.14, holdings: [], regime: "crisis", regime_context: "GFC" },
+  ],
+  equity_curve: [
+    { date: "2006-01-31", portfolio_value: 1.01, benchmark_value: 1.005 },
+    { date: "2006-02-28", portfolio_value: 1.02, benchmark_value: 1.01 },
+  ],
   walk_forward_note: "Walk-forward test note",
   honesty_disclosure: "Test disclosure",
 }
@@ -467,9 +472,8 @@ describe("Backtesting Page (read-only)", () => {
       expect(screen.getByTestId("backtest-disclosure")).toBeInTheDocument()
     })
 
-    expect(
-      screen.getByText(/do not guarantee future performance/i),
-    ).toBeInTheDocument()
+    // Uses honesty_disclosure from API when available
+    expect(screen.getByTestId("backtest-disclosure")).toHaveTextContent("Test disclosure")
   })
 
   it("renders factor timeline when data loads", async () => {
@@ -497,17 +501,17 @@ describe("Backtesting Page (read-only)", () => {
     expect(screen.getByTestId("shadow-no-backdate")).toBeInTheDocument()
   })
 
-  it("renders honesty disclosure when replay data has one", async () => {
+  it("renders honesty disclosure in footer when replay data has one", async () => {
     mockGetBacktestResults.mockResolvedValue(mockListResponse)
     mockGetBacktestResult.mockResolvedValue(mockBacktestResult)
     mockGetDefaultBacktest.mockResolvedValue(mockReplayData)
     render(<BacktestingPage />)
 
     await waitFor(() => {
-      expect(screen.getByTestId("honesty-disclosure")).toBeInTheDocument()
+      expect(screen.getByTestId("backtest-disclosure")).toBeInTheDocument()
     })
 
-    expect(screen.getByText("Test disclosure")).toBeInTheDocument()
+    expect(screen.getByTestId("backtest-disclosure")).toHaveTextContent("Test disclosure")
   })
 
   it("does not render shadow or disclosure when APIs fail", async () => {
@@ -522,7 +526,6 @@ describe("Backtesting Page (read-only)", () => {
     })
 
     expect(screen.queryByTestId("shadow-portfolio-section")).not.toBeInTheDocument()
-    expect(screen.queryByTestId("honesty-disclosure")).not.toBeInTheDocument()
   })
 
   it("calls getDefaultBacktest and getShadowPortfolio on mount", async () => {

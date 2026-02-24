@@ -25,88 +25,120 @@ import {
   getDefaultBacktest,
   getShadowPortfolio,
 } from "@/lib/api/backtest"
-import type { BacktestResult, BacktestSummary, FullBacktestResponse, ShadowPortfolioResponse } from "@/lib/api/types"
+import type {
+  BacktestResult,
+  BacktestMetrics,
+  BacktestSummary,
+  FullBacktestResponse,
+  ShadowPortfolioResponse,
+  RegimeSegmentResponse,
+  AuditRecordResponse,
+  FactorTimelineResponse,
+  FailurePeriodResponse,
+} from "@/lib/api/types"
 
 // ---------------------------------------------------------------------------
-// Mock data for new components (will be replaced with live API data)
+// Transform functions: API response shapes → component prop shapes
 // ---------------------------------------------------------------------------
 
-const MOCK_REGIMES: RegimePerformance[] = [
-  { regime: "bull", label: "Bull Market", modelReturn: 0.22, benchmarkReturn: 0.18, months: 96, excessReturn: 0.04 },
-  { regime: "bear", label: "Bear Market", modelReturn: -0.08, benchmarkReturn: -0.15, months: 24, excessReturn: 0.07 },
-  { regime: "sideways", label: "Sideways", modelReturn: 0.06, benchmarkReturn: 0.04, months: 48, excessReturn: 0.02 },
-  { regime: "crisis", label: "Crisis", modelReturn: -0.18, benchmarkReturn: -0.35, months: 12, excessReturn: 0.17 },
-]
+const REGIME_LABELS: Record<string, string> = {
+  bull: "Bull Market",
+  bear: "Bear Market",
+  sideways: "Sideways",
+  crisis: "Crisis",
+}
 
-function generateEquityCurvePoints(): EquityCurvePoint[] {
-  const points: EquityCurvePoint[] = []
-  let portfolio = 1.0
-  let benchmark = 1.0
-  let peak = 1.0
-  const startYear = 2005
-  for (let m = 0; m < 240; m++) {
-    const year = startYear + Math.floor(m / 12)
-    const month = (m % 12) + 1
-    const date = `${year}-${String(month).padStart(2, "0")}-28`
-    // Simple deterministic growth with cycles
-    const cycle = Math.sin(m / 24) * 0.02
-    portfolio *= 1 + 0.008 + cycle + (m > 36 && m < 60 ? -0.025 : 0)
-    benchmark *= 1 + 0.006 + cycle * 0.5 + (m > 36 && m < 60 ? -0.02 : 0)
-    peak = Math.max(peak, portfolio)
-    const drawdown = (portfolio - peak) / peak
-    points.push({ date, portfolioValue: portfolio, benchmarkValue: benchmark, drawdown })
+function toRegimePerformance(segments: RegimeSegmentResponse[]): RegimePerformance[] {
+  return segments.map((s) => ({
+    regime: s.regime as "bull" | "bear" | "sideways" | "crisis",
+    label: REGIME_LABELS[s.regime] ?? s.regime,
+    modelReturn: s.num_months > 0 ? (s.total_return / s.num_months) * 12 : 0,
+    benchmarkReturn: s.num_months > 0 ? (s.benchmark_return / s.num_months) * 12 : 0,
+    months: s.num_months,
+    excessReturn: s.num_months > 0 ? ((s.total_return - s.benchmark_return) / s.num_months) * 12 : 0,
+  }))
+}
+
+function toEquityCurvePoints(
+  curve: { date: string; portfolio_value: number; benchmark_value: number }[],
+): EquityCurvePoint[] {
+  let peak = 0
+  return curve.map((p) => {
+    peak = Math.max(peak, p.portfolio_value)
+    const drawdown = peak > 0 ? (p.portfolio_value - peak) / peak : 0
+    return {
+      date: p.date,
+      portfolioValue: p.portfolio_value,
+      benchmarkValue: p.benchmark_value,
+      drawdown,
+    }
+  })
+}
+
+function toRegimeBands(
+  segments: RegimeSegmentResponse[],
+  curveLength: number,
+): RegimeBand[] {
+  if (curveLength === 0 || segments.length === 0) return []
+  const bands: RegimeBand[] = []
+  let idx = 0
+  for (const s of segments) {
+    const end = Math.min(idx + s.num_months, curveLength)
+    if (idx < curveLength) {
+      bands.push({
+        startIndex: idx,
+        endIndex: end,
+        regime: s.regime as "bull" | "bear" | "sideways" | "crisis",
+      })
+    }
+    idx = end
   }
-  return points
+  return bands
 }
 
-const MOCK_EQUITY_POINTS: EquityCurvePoint[] = generateEquityCurvePoints()
-
-const MOCK_REGIME_BANDS: RegimeBand[] = [
-  { startIndex: 0, endIndex: 36, regime: "bull" },
-  { startIndex: 36, endIndex: 60, regime: "bear" },
-  { startIndex: 60, endIndex: 108, regime: "bull" },
-  { startIndex: 108, endIndex: 120, regime: "crisis" },
-  { startIndex: 120, endIndex: 168, regime: "sideways" },
-  { startIndex: 168, endIndex: 240, regime: "bull" },
-]
-
-const MOCK_FACTOR_ENTRIES: FactorAvailabilityEntry[] = [
-  { date: "2005-01-01", factors: ["PE", "PB", "ROE", "Revenue Growth"] },
-  { date: "2008-01-01", factors: ["PE", "PB", "ROE", "Revenue Growth", "FCF Yield"] },
-  { date: "2012-01-01", factors: ["PE", "PB", "ROE", "Revenue Growth", "FCF Yield", "Debt/Equity"] },
-  { date: "2015-01-01", factors: ["PE", "PB", "ROE", "Revenue Growth", "FCF Yield", "Debt/Equity", "Insider Activity"] },
-  { date: "2018-01-01", factors: ["PE", "PB", "ROE", "Revenue Growth", "FCF Yield", "Debt/Equity", "Insider Activity", "Institutional Flow"] },
-  { date: "2022-01-01", factors: ["PE", "PB", "ROE", "Revenue Growth", "FCF Yield", "Debt/Equity", "Insider Activity", "Institutional Flow"] },
-]
-
-const MOCK_AUDIT_ENTRIES = [
-  { date: "2025-12-31", action: "rebalance", universeSize: 502, selectedCount: 5, factorCoverage: 0.95, regime: "bull", turnover: 0.40 },
-  { date: "2025-11-30", action: "rebalance", universeSize: 500, selectedCount: 5, factorCoverage: 0.94, regime: "bull", turnover: 0.20 },
-  { date: "2025-10-31", action: "rebalance", universeSize: 498, selectedCount: 5, factorCoverage: 0.93, regime: "sideways", turnover: 0.60 },
-  { date: "2025-09-30", action: "rebalance", universeSize: 501, selectedCount: 5, factorCoverage: 0.95, regime: "sideways", turnover: 0.20 },
-  { date: "2025-08-31", action: "rebalance", universeSize: 499, selectedCount: 5, factorCoverage: 0.92, regime: "bull", turnover: 0.40 },
-]
-
-const MOCK_STATS = {
-  cagr: 0.1234,
-  excessCagr: 0.0456,
-  sharpe: 1.52,
-  sortino: 2.13,
-  maxDrawdown: 0.2145,
-  winRate: 0.5832,
-  informationRatio: 0.87,
-  totalReturn: 0.7523,
-  benchmarkReturn: 0.5012,
-  numMonths: 240,
-  avgTurnover: 0.15,
-  calmarRatio: 0.575,
+function toFactorEntries(timeline: FactorTimelineResponse[]): FactorAvailabilityEntry[] {
+  return timeline.map((t) => ({ date: t.as_of_date, factors: t.available }))
 }
 
-const MOCK_FAILURE_PERIODS = [
-  { startDate: "2008-09-01", endDate: "2009-03-01", returnPct: -0.38, benchmarkReturnPct: -0.52, regime: "crisis", maxDrawdown: 0.42, recoveryMonths: 18 },
-  { startDate: "2020-02-01", endDate: "2020-04-01", returnPct: -0.22, benchmarkReturnPct: -0.34, regime: "crisis", maxDrawdown: 0.25, recoveryMonths: 5 },
-  { startDate: "2022-01-01", endDate: "2022-10-01", returnPct: -0.15, benchmarkReturnPct: -0.25, regime: "bear", maxDrawdown: 0.18, recoveryMonths: 8 },
-]
+function toAuditEntries(log: AuditRecordResponse[]) {
+  return log.map((a) => ({
+    date: a.rebalance_date,
+    action: "rebalance",
+    universeSize: a.universe_size,
+    selectedCount: a.selected_count,
+    factorCoverage: a.factor_coverage,
+    regime: a.regime,
+    turnover: 0,
+  }))
+}
+
+function toStats(m: BacktestMetrics) {
+  return {
+    cagr: m.cagr,
+    excessCagr: m.excess_cagr,
+    sharpe: m.sharpe_ratio,
+    sortino: m.sortino_ratio,
+    maxDrawdown: m.max_drawdown,
+    winRate: m.win_rate,
+    informationRatio: m.information_ratio,
+    totalReturn: m.total_return,
+    benchmarkReturn: m.benchmark_total_return,
+    numMonths: m.num_months,
+    avgTurnover: m.avg_turnover,
+  }
+}
+
+function toFailurePeriods(failures: FailurePeriodResponse[]) {
+  return failures.map((f) => ({
+    startDate: f.rebalance_date,
+    endDate: f.rebalance_date,
+    returnPct: f.portfolio_return,
+    benchmarkReturnPct: f.benchmark_return,
+    regime: f.regime,
+    maxDrawdown: Math.abs(f.portfolio_return),
+    recoveryMonths: null as number | null,
+  }))
+}
 
 // ---------------------------------------------------------------------------
 // Page component
@@ -120,7 +152,7 @@ export default function BacktestingPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Knobs state (mock — parameters are display-only for now)
+  // Knobs state — seeded from API config when available
   const [rebalanceFrequency, setRebalanceFrequency] = useState("monthly")
   const [topPercentile, setTopPercentile] = useState(10)
   const [transactionCostBps, setTransactionCostBps] = useState(10)
@@ -152,6 +184,12 @@ export default function BacktestingPage() {
         if (cancelled) return
         setReplayData(replay)
         setShadowData(shadow)
+
+        // Seed knobs from API config
+        if (replay?.config) {
+          setRebalanceFrequency(replay.config.rebalance_frequency)
+          setTransactionCostBps(replay.config.transaction_cost_bps)
+        }
       } catch (err) {
         if (cancelled) return
         setError(
@@ -171,6 +209,16 @@ export default function BacktestingPage() {
       cancelled = true
     }
   }, [])
+
+  // Derive component data from API response
+  const metrics = replayData?.metrics ?? result?.metrics ?? null
+  const regimes = replayData ? toRegimePerformance(replayData.regime_segments) : []
+  const equityPoints = replayData ? toEquityCurvePoints(replayData.equity_curve) : []
+  const regimeBands = replayData ? toRegimeBands(replayData.regime_segments, equityPoints.length) : []
+  const factorEntries = replayData ? toFactorEntries(replayData.factor_timeline) : []
+  const auditEntries = replayData ? toAuditEntries(replayData.audit_log) : []
+  const failurePeriods = replayData ? toFailurePeriods(replayData.failure_audit) : []
+  const stats = metrics ? toStats(metrics) : null
 
   return (
     <AppShell>
@@ -247,7 +295,7 @@ export default function BacktestingPage() {
               <h2 className="text-lg font-semibold text-text-primary mb-4">
                 Regime Performance
               </h2>
-              <RegimeCards regimes={MOCK_REGIMES} />
+              <RegimeCards regimes={regimes} />
             </section>
 
             {/* -------------------------------------------------------------- */}
@@ -261,14 +309,14 @@ export default function BacktestingPage() {
                     Equity Curve
                   </h2>
                   <EquityCurve
-                    points={MOCK_EQUITY_POINTS}
-                    regimeBands={MOCK_REGIME_BANDS}
+                    points={equityPoints}
+                    regimeBands={regimeBands}
                   />
                 </section>
 
                 {/* Factor Availability Timeline */}
                 <section>
-                  <FactorTimeline entries={MOCK_FACTOR_ENTRIES} />
+                  <FactorTimeline entries={factorEntries} />
                 </section>
               </div>
 
@@ -288,19 +336,21 @@ export default function BacktestingPage() {
                 />
 
                 {/* Stats Summary */}
-                <StatsSummary stats={MOCK_STATS} />
+                {stats && <StatsSummary stats={stats} />}
               </div>
             </div>
 
             {/* -------------------------------------------------------------- */}
             {/* Section 3 — Existing metrics from API                         */}
             {/* -------------------------------------------------------------- */}
-            <section>
-              <h2 className="text-lg font-semibold text-text-primary mb-4">
-                Latest Performance Metrics
-              </h2>
-              <MetricsSummary metrics={replayData?.metrics ?? result.metrics} />
-            </section>
+            {metrics && (
+              <section>
+                <h2 className="text-lg font-semibold text-text-primary mb-4">
+                  Latest Performance Metrics
+                </h2>
+                <MetricsSummary metrics={metrics} />
+              </section>
+            )}
 
             <section>
               <h2 className="text-lg font-semibold text-text-primary mb-4">
@@ -327,19 +377,23 @@ export default function BacktestingPage() {
             {/* -------------------------------------------------------------- */}
             {/* Section 4 — Detail views                                      */}
             {/* -------------------------------------------------------------- */}
-            <section>
-              <h2 className="text-lg font-semibold text-text-primary mb-4">
-                Rebalance Audit Log
-              </h2>
-              <AuditLog entries={MOCK_AUDIT_ENTRIES} />
-            </section>
+            {auditEntries.length > 0 && (
+              <section>
+                <h2 className="text-lg font-semibold text-text-primary mb-4">
+                  Rebalance Audit Log
+                </h2>
+                <AuditLog entries={auditEntries} />
+              </section>
+            )}
 
-            <section>
-              <h2 className="text-lg font-semibold text-text-primary mb-4">
-                Worst Periods
-              </h2>
-              <FailureAudit periods={MOCK_FAILURE_PERIODS} />
-            </section>
+            {failurePeriods.length > 0 && (
+              <section>
+                <h2 className="text-lg font-semibold text-text-primary mb-4">
+                  Worst Periods
+                </h2>
+                <FailureAudit periods={failurePeriods} />
+              </section>
+            )}
 
             {/* -------------------------------------------------------------- */}
             {/* Honesty Footer                                                 */}
@@ -349,9 +403,8 @@ export default function BacktestingPage() {
               data-testid="backtest-disclosure"
             >
               <p className="text-xs text-text-tertiary">
-                Backtest results are simulated and do not guarantee future
-                performance. Past performance is not indicative of future
-                results.
+                {replayData?.honesty_disclosure ??
+                  "Backtest results are simulated and do not guarantee future performance. Past performance is not indicative of future results."}
               </p>
             </div>
           </div>
@@ -448,15 +501,7 @@ export default function BacktestingPage() {
           </section>
         )}
 
-        {!loading && !error && replayData?.honesty_disclosure && (
-          <section className="mt-8" data-testid="honesty-disclosure">
-            <div className="bg-bg-elevated border border-border-primary rounded-sm p-4">
-              <p className="text-xs text-text-secondary italic">
-                {replayData.honesty_disclosure}
-              </p>
-            </div>
-          </section>
-        )}
+
       </div>
     </AppShell>
   )
