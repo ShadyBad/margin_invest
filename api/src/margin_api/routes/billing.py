@@ -104,13 +104,16 @@ async def stripe_webhook(
             pass
 
         # Extract current_period_end
-        current_period_end = getattr(subscription, "current_period_end", None)
+        try:
+            current_period_end = subscription["current_period_end"]
+        except (KeyError, TypeError):
+            current_period_end = None
 
         await billing.handle_subscription_change(
             db,
-            stripe_customer_id=subscription.customer,
-            stripe_subscription_id=subscription.id,
-            status=subscription.status,
+            stripe_customer_id=subscription["customer"],
+            stripe_subscription_id=subscription["id"],
+            status=subscription["status"],
             price_id=price_id,
             current_period_end=current_period_end,
         )
