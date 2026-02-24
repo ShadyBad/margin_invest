@@ -1,3 +1,5 @@
+export { EquityCurve } from "./equity-curve"
+export type { EquityCurvePoint, EquityCurveProps, RegimeBand } from "./equity-curve"
 export { MetricsSummary } from "./metrics-summary"
 export { PerformanceChart } from "./performance-chart"
 export { ReturnsHeatmap } from "./returns-heatmap"
