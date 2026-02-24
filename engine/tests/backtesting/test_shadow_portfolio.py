@@ -1,13 +1,12 @@
 """Tests for shadow portfolio tracker."""
 
-from datetime import UTC, date, datetime
+from datetime import date
 
 import pytest
 
 from margin_engine.backtesting.shadow_portfolio import (
     ShadowPortfolio,
     ShadowPosition,
-    ShadowSnapshot,
 )
 
 
