@@ -186,7 +186,8 @@ async def seed_ticker_data(
     """
     try:
         # Fetch all data categories via provider.fetch_all
-        results = provider.fetch_all(ticker)
+        # Use 5 years of price data so years_of_history passes liquidity filter (threshold=5)
+        results = provider.fetch_all(ticker, price_days=1825)
 
         # Attempt fallback for failed categories
         if fallback_provider is not None:
