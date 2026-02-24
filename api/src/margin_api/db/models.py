@@ -672,3 +672,29 @@ class MfaChallengeToken(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="challenge_tokens")
+
+
+# ---------------------------------------------------------------------------
+# Shadow Portfolio models
+# ---------------------------------------------------------------------------
+
+
+class ShadowPortfolioSnapshot(Base):
+    """Daily shadow portfolio state -- append-only, never backdated."""
+
+    __tablename__ = "shadow_portfolio_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    as_of_date: Mapped[str] = mapped_column(String(10), nullable=False)
+    portfolio_value: Mapped[float] = mapped_column(Float, nullable=False)
+    total_return: Mapped[float | None] = mapped_column(Float, nullable=True)
+    num_positions: Mapped[int] = mapped_column(default=0)
+    positions_json: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        UniqueConstraint("as_of_date", name="uq_shadow_snapshot_date"),
+        Index("ix_shadow_snapshot_date", "as_of_date"),
+    )

@@ -186,3 +186,29 @@ class FullBacktestResponse(BaseModel):
     equity_curve: list[dict]
     walk_forward_note: str
     honesty_disclosure: str
+
+
+# ---------------------------------------------------------------------------
+# Shadow portfolio schemas (Task 9)
+# ---------------------------------------------------------------------------
+
+
+class ShadowSnapshotResponse(BaseModel):
+    """A single shadow portfolio snapshot."""
+
+    as_of_date: date
+    portfolio_value: float
+    total_return: float | None
+    num_positions: int
+    positions: list[dict] | None = None
+
+
+class ShadowPortfolioResponse(BaseModel):
+    """Shadow portfolio summary for the API."""
+
+    start_date: date
+    snapshots: list[ShadowSnapshotResponse]
+    total_return: float
+    max_drawdown: float
+    num_days: int
+    cannot_be_backdated: bool = True

@@ -17,6 +17,7 @@ from margin_api.schemas.backtest import (
     FullBacktestResponse,
     MetricsResponse,
     ReplayConfigRequest,
+    ShadowPortfolioResponse,
     ValidationCheckResponse,
     ValidationResponse,
 )
@@ -240,3 +241,27 @@ async def run_replay(
     if config.end_date:
         result.config.end_date = config.end_date
     return build_full_response(result, failure_periods=[])
+
+
+# -------------------------------------------------------------------
+# Shadow portfolio endpoint (Task 9)
+# -------------------------------------------------------------------
+
+
+@router.get(
+    "/backtest/shadow-portfolio",
+    response_model=ShadowPortfolioResponse,
+)
+async def get_shadow_portfolio() -> ShadowPortfolioResponse:
+    """Get the live shadow portfolio -- provably forward-looking."""
+    # For now, return an empty/placeholder response since
+    # the daily worker job hasn't run yet. When real data
+    # accumulates, this will query ShadowPortfolioSnapshot rows.
+    return ShadowPortfolioResponse(
+        start_date=date(2026, 2, 24),
+        snapshots=[],
+        total_return=0.0,
+        max_drawdown=0.0,
+        num_days=0,
+        cannot_be_backdated=True,
+    )
