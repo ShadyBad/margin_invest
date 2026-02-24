@@ -27,9 +27,9 @@ export function HomepageClient({ data }: HomepageClientProps) {
       <HeroSection data={data} />
       <ProblemSection />
       <EliminationVignette />
+      <ProofSection candidates={data?.allPicks ?? []} />
       <PipelineChips activeStage={activeStage} />
       <EngineSection onStageChange={handleStageChange} />
-      <ProofSection candidates={data?.allPicks ?? []} />
       <PositioningSection />
       <PricingSection />
       <InfrastructureSection />

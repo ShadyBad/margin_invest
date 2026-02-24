@@ -1,0 +1,66 @@
+import { describe, it, expect, vi } from "vitest"
+import { render } from "@testing-library/react"
+
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: null, status: "unauthenticated" }),
+  signOut: vi.fn(),
+}))
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => ({ push: vi.fn() }),
+}))
+vi.mock("gsap", () => ({
+  default: {
+    registerPlugin: vi.fn(),
+    to: vi.fn(),
+    fromTo: vi.fn(),
+    set: vi.fn(),
+    timeline: vi.fn(() => ({
+      to: vi.fn().mockReturnThis(),
+      fromTo: vi.fn().mockReturnThis(),
+      play: vi.fn(),
+      pause: vi.fn(),
+      kill: vi.fn(),
+    })),
+  },
+}))
+vi.mock("gsap/ScrollTrigger", () => ({
+  default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
+}))
+vi.mock("recharts", () => ({
+  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
+  LineChart: ({ children }: any) => <div>{children}</div>,
+  BarChart: ({ children }: any) => <div>{children}</div>,
+  Line: () => null,
+  Bar: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  CartesianGrid: () => null,
+  Tooltip: () => null,
+  Legend: () => null,
+  ReferenceLine: () => null,
+  Cell: () => null,
+}))
+
+import { HomepageClient } from "../homepage-client"
+
+describe("HomepageClient section order", () => {
+  it("renders proof section before pipeline section", () => {
+    const { container } = render(<HomepageClient data={null} />)
+    const sections = container.querySelectorAll("section[id]")
+    const ids = Array.from(sections).map((s) => s.id)
+
+    const proofIdx = ids.indexOf("proof")
+    const pipelineIdx = ids.indexOf("pipeline")
+    const engineIdx = ids.indexOf("engine")
+
+    // All sections must exist
+    expect(proofIdx).toBeGreaterThan(-1)
+    expect(pipelineIdx).toBeGreaterThan(-1)
+    expect(engineIdx).toBeGreaterThan(-1)
+
+    // Proof should come before Pipeline and Engine in the DOM
+    expect(proofIdx).toBeLessThan(pipelineIdx)
+    expect(proofIdx).toBeLessThan(engineIdx)
+  })
+})
