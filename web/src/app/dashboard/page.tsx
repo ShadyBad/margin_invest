@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { AppShell } from "@/components/layout"
-import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction } from "@/components/dashboard"
+import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction, MarketRegimeLabel } from "@/components/dashboard"
 import { serverFetch } from "@/lib/api/server"
 import type { DashboardResponse, PickSummary } from "@/lib/api/types"
 
@@ -49,6 +49,9 @@ export default async function DashboardPage() {
             <p className="text-sm text-text-secondary mt-1">
               Last updated: {formatLastUpdated(data.last_updated)}
             </p>
+          )}
+          {data?.picks != null && (
+            <MarketRegimeLabel pickCount={data.picks.length} />
           )}
         </div>
         {data?.picks && (() => {
