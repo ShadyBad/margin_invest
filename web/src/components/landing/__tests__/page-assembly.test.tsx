@@ -74,7 +74,7 @@ describe("Landing page assembly", () => {
     expect(screen.getByText(/structure creates measurable advantage/i)).toBeInTheDocument()
 
     // Positioning
-    expect(screen.getByText(/disciplined capital allocators/i)).toBeInTheDocument()
+    expect(screen.getByText(/discipline isn.t enough/i)).toBeInTheDocument()
 
     // Pricing
     expect(screen.getByText("Analyst")).toBeInTheDocument()

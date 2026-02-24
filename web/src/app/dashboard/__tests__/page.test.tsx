@@ -181,7 +181,7 @@ describe("Dashboard Page (Server Component)", () => {
     const jsx = await DashboardPage()
     render(jsx)
 
-    expect(screen.getByText("No picks yet")).toBeInTheDocument()
+    expect(screen.getByText(/system is working/i)).toBeInTheDocument()
   })
 
   it("calls serverFetch with /api/v1/dashboard", async () => {
