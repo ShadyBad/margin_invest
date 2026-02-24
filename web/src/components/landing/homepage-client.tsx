@@ -26,7 +26,13 @@ export function HomepageClient({ data }: HomepageClientProps) {
     <div className="relative z-10">
       <HeroSection data={data} />
       <ProblemSection />
-      <EliminationVignette />
+      <EliminationVignette
+        eliminatedPct={
+          data && data.total_scored > 0
+            ? Math.round(((data.total_scored - data.eligible_count) / data.total_scored) * 100)
+            : undefined
+        }
+      />
       <ProofSection candidates={data?.allPicks ?? []} />
       <PipelineChips activeStage={activeStage} />
       <EngineSection onStageChange={handleStageChange} />
