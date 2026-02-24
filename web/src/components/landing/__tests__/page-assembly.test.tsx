@@ -13,6 +13,7 @@ vi.mock("next-auth/react", () => ({
 }))
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
+  useRouter: () => ({ push: vi.fn() }),
 }))
 vi.mock("gsap", () => ({
   default: {

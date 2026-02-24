@@ -30,6 +30,7 @@ vi.mock("next-auth/react", () => ({
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/backtesting",
+  useRouter: () => ({ push: vi.fn() }),
 }))
 
 const mockBacktestResult: BacktestResult = {

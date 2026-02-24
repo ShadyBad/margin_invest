@@ -7,6 +7,7 @@ import { render, screen } from "@testing-library/react"
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
   usePathname: () => "/settings",
+  useRouter: () => ({ push: vi.fn() }),
 }))
 
 vi.mock("@/lib/auth", () => ({

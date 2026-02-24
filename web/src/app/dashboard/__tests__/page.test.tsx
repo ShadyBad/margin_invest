@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({
     throw new Error(`NEXT_REDIRECT: ${path}`)
   },
   usePathname: () => "/dashboard",
+  useRouter: () => ({ push: vi.fn() }),
 }))
 
 // Mock serverFetch
