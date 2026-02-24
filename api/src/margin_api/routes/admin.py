@@ -62,7 +62,7 @@ async def trigger_pipeline(x_admin_key: str = Header()) -> JSONResponse:
             "status": "enqueued",
             "job": "full_ingest",
             "job_id": job.job_id,
-            "message": "Pipeline enqueued: ingest → v2 score → v3 score",
+            "message": "Pipeline enqueued: ingest → v2 score → v3 score → v4 score",
         },
     )
 
@@ -98,7 +98,7 @@ async def trigger_scoring(x_admin_key: str = Header()) -> JSONResponse:
             "status": "enqueued",
             "job": "full_score",
             "job_id": job.job_id,
-            "message": "Scoring enqueued: v2 score → v3 score (skipping ingest)",
+            "message": "Scoring enqueued: v2 score → v3 score → v4 score (skipping ingest)",
         },
     )
 
