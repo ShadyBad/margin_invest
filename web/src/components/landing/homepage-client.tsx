@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react"
 import { HeroSection } from "./hero-section"
 import { ProblemSection } from "./problem-section"
+import { EliminationVignette } from "./elimination-vignette"
 import { PipelineChips } from "./pipeline-chips"
 import { EngineSection } from "./engine-section"
 import { ProofSection } from "./proof-section"
@@ -25,6 +26,7 @@ export function HomepageClient({ data }: HomepageClientProps) {
     <div className="relative z-10">
       <HeroSection data={data} />
       <ProblemSection />
+      <EliminationVignette />
       <PipelineChips activeStage={activeStage} />
       <EngineSection onStageChange={handleStageChange} />
       <ProofSection candidates={data?.allPicks ?? []} />
