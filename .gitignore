@@ -33,3 +33,6 @@ coverage.xml
 # Node
 node_modules/
 .next/
+
+# MCP
+.playwright-mcp/
