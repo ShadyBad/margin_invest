@@ -5,6 +5,7 @@ import { EliminatedHero } from "./eliminated-hero"
 import { EliminationGauntlet } from "./elimination-gauntlet"
 import { ScoringPillars } from "./scoring-pillars"
 import { ConvictionEngine } from "./conviction-engine"
+import { ValuationSection } from "./valuation-section"
 
 interface AssetDetailViewProps {
   ticker: string
@@ -100,7 +101,19 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError }: As
         />
       )}
 
-      {/* Task 6: Valuation Section */}
+      {allFiltersPassed && (
+        <ValuationSection
+          ticker={scoreData.ticker}
+          buyPrice={scoreData.buy_price}
+          sellPrice={scoreData.sell_price}
+          intrinsicValue={scoreData.margin_invest_value}
+          currentPrice={scoreData.actual_price}
+          priceUpside={scoreData.price_upside ?? null}
+          marginOfSafety={scoreData.margin_of_safety ?? null}
+          valuationMethods={scoreData.valuation_methods ?? null}
+          invalidReason={scoreData.price_target_invalid_reason ?? null}
+        />
+      )}
     </div>
   )
 }
