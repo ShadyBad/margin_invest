@@ -1,5 +1,9 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import type { ScoreResponse, ScoreHistoryResponse } from "@/lib/api/types"
+import type { ScoreResponse, ScoreHistoryResponse, BacktestTeaserResponse } from "@/lib/api/types"
+import { getBacktestTeaser } from "@/lib/api/backtest"
 import { HeroHeader } from "./hero-header"
 import { EliminatedHero } from "./eliminated-hero"
 import { EliminationGauntlet } from "./elimination-gauntlet"
@@ -22,6 +26,12 @@ interface AssetDetailViewProps {
 }
 
 export function AssetDetailView({ ticker, scoreData, historyData, apiError, totalScored, filtersSurvivedCount, sectorSurvivorCount, sectorName }: AssetDetailViewProps) {
+  const [teaserData, setTeaserData] = useState<BacktestTeaserResponse | null>(null)
+
+  useEffect(() => {
+    getBacktestTeaser(ticker).then(setTeaserData).catch(() => {})
+  }, [ticker])
+
   if (apiError || !scoreData) {
     return (
       <div className="space-y-4">
@@ -140,14 +150,15 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
         />
       )}
 
-      {/* Backtest teaser — shown for all stocks (hardcoded until API serves real data) */}
-      <BacktestTeaser
-        modelReturn={3.87}
-        benchmarkReturn={2.14}
-        maxDrawdown={0.31}
-        benchmarkMaxDrawdown={0.56}
-        startYear={2006}
-      />
+      {allFiltersPassed && teaserData && (
+        <BacktestTeaser
+          modelReturn={teaserData.model_return}
+          benchmarkReturn={teaserData.benchmark_return}
+          maxDrawdown={teaserData.max_drawdown}
+          benchmarkMaxDrawdown={teaserData.benchmark_max_drawdown}
+          startDate={teaserData.start_date}
+        />
+      )}
 
       {!allFiltersPassed && (
         <HypotheticalScores

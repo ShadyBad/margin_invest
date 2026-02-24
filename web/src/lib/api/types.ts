@@ -316,11 +316,13 @@ export interface ValuationAuditResponse {
 }
 
 export interface BacktestTeaserResponse {
+  ticker: string | null
   model_return: number
   benchmark_return: number
   max_drawdown: number
   benchmark_max_drawdown: number
-  start_year: number
+  start_date: string
+  end_date: string
 }
 
 export interface ExcludedTickerResponse {

@@ -1,7 +1,19 @@
-import { describe, it, expect } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { describe, it, expect, vi } from "vitest"
+import { render, screen, waitFor } from "@testing-library/react"
 import { AssetDetailView } from "../asset-detail-view"
 import type { ScoreResponse } from "@/lib/api/types"
+
+vi.mock("@/lib/api/backtest", () => ({
+  getBacktestTeaser: vi.fn().mockResolvedValue({
+    ticker: "AAPL",
+    model_return: 3.87,
+    benchmark_return: 2.14,
+    max_drawdown: 0.31,
+    benchmark_max_drawdown: 0.56,
+    start_date: "2006-01-01",
+    end_date: "2025-12-31",
+  }),
+}))
 
 function makeScoreResponse(overrides: Partial<ScoreResponse> = {}): ScoreResponse {
   return {
@@ -47,7 +59,7 @@ function makeScoreResponse(overrides: Partial<ScoreResponse> = {}): ScoreRespons
 }
 
 describe("AssetDetailView", () => {
-  it("renders all sections for a passing ticker", () => {
+  it("renders all sections for a passing ticker", async () => {
     render(
       <AssetDetailView
         ticker="AAPL"
@@ -65,6 +77,10 @@ describe("AssetDetailView", () => {
     // Eliminated-only sections should NOT be present
     expect(screen.queryByTestId("eliminated-hero")).not.toBeInTheDocument()
     expect(screen.queryByTestId("hypothetical-scores")).not.toBeInTheDocument()
+    // Backtest teaser appears after async fetch
+    await waitFor(() => {
+      expect(screen.getByTestId("backtest-teaser")).toBeInTheDocument()
+    })
   })
 
   it("renders eliminated view for a failing ticker", () => {

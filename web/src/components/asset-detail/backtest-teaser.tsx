@@ -1,13 +1,11 @@
-"use client"
-
 import Link from "next/link"
 
 interface BacktestTeaserProps {
-  modelReturn: number // e.g. 3.87 for 387%
-  benchmarkReturn: number // e.g. 2.14 for 214%
-  maxDrawdown: number // e.g. 0.31 for 31%
+  modelReturn: number
+  benchmarkReturn: number
+  maxDrawdown: number
   benchmarkMaxDrawdown: number
-  startYear: number
+  startDate: string
 }
 
 export function BacktestTeaser({
@@ -15,60 +13,89 @@ export function BacktestTeaser({
   benchmarkReturn,
   maxDrawdown,
   benchmarkMaxDrawdown,
-  startYear,
+  startDate,
 }: BacktestTeaserProps) {
-  const modelPct = `+${Math.round(modelReturn * 100)}%`
-  const benchPct = `+${Math.round(benchmarkReturn * 100)}%`
-  const drawdownPct = `-${Math.round(maxDrawdown * 100)}%`
-  const benchDrawdownPct = `-${Math.round(benchmarkMaxDrawdown * 100)}%`
+  const startYear = parseInt(startDate.slice(0, 4), 10)
+  const excessReturn = modelReturn - benchmarkReturn
+  const drawdownImprovement = benchmarkMaxDrawdown - maxDrawdown
 
   return (
-    <div className="terminal-card p-6 mt-6" data-testid="backtest-teaser">
-      <h3 className="text-sm font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider mb-4">
-        Historical Performance
-      </h3>
+    <div data-testid="backtest-teaser" className="terminal-card p-6">
+      <h3 className="font-display text-lg mb-4">Backtest Preview</h3>
+      <p className="text-sm text-text-secondary mb-4">
+        Simulated performance since {startYear} using the scoring model.
+      </p>
 
-      <div className="space-y-3">
-        {/* Headline return */}
-        <div className="flex items-baseline justify-between">
-          <span className="text-sm text-[var(--color-text-secondary)]">
-            Model cumulative return since {startYear}
-          </span>
-          <span className="font-[family-name:var(--font-display)] text-2xl text-[var(--color-bullish)]">
-            {modelPct}
-          </span>
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="text-center">
+          <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">
+            Model Return
+          </p>
+          <p
+            className={`font-mono text-xl font-bold ${
+              modelReturn >= 0 ? "text-[var(--color-bullish)]" : "text-[var(--color-bearish)]"
+            }`}
+          >
+            {modelReturn >= 0 ? "+" : ""}
+            {(modelReturn * 100).toFixed(0)}%
+          </p>
         </div>
 
-        {/* Benchmark comparison */}
-        <div className="flex items-baseline justify-between">
-          <span className="text-sm text-[var(--color-text-secondary)]">
-            S&amp;P 500 over same period
-          </span>
-          <span className="font-[family-name:var(--font-mono)] text-lg text-[var(--color-text-tertiary)]">
-            {benchPct}
-          </span>
+        <div className="text-center">
+          <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">
+            Benchmark Return
+          </p>
+          <p
+            className={`font-mono text-xl font-bold ${
+              benchmarkReturn >= 0 ? "text-[var(--color-bullish)]" : "text-[var(--color-bearish)]"
+            }`}
+          >
+            {benchmarkReturn >= 0 ? "+" : ""}
+            {(benchmarkReturn * 100).toFixed(0)}%
+          </p>
         </div>
 
-        {/* Drawdown comparison */}
-        <div className="flex items-baseline justify-between">
-          <span className="text-sm text-[var(--color-text-secondary)]">
-            Max drawdown during 2008 crisis
-          </span>
-          <span className="font-[family-name:var(--font-mono)] text-lg">
-            <span className="text-[var(--color-bearish)]">{drawdownPct}</span>
-            <span className="text-[var(--color-text-tertiary)] mx-1">vs</span>
-            <span className="text-[var(--color-text-tertiary)]">{benchDrawdownPct}</span>
-          </span>
+        <div className="text-center">
+          <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">
+            Max Drawdown
+          </p>
+          <p className="font-mono text-xl font-bold text-[var(--color-bearish)]">
+            -{(maxDrawdown * 100).toFixed(0)}%
+          </p>
         </div>
       </div>
 
-      {/* CTA */}
-      <Link
-        href="/backtest"
-        className="mt-5 block w-full text-center py-3 px-4 rounded-lg bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors"
-      >
-        See every decision the model made &rarr;
-      </Link>
+      <div className="flex items-center justify-between text-sm border-t border-border pt-3">
+        <div className="space-x-4 text-text-secondary">
+          <span>
+            Excess return:{" "}
+            <span
+              className={`font-mono ${
+                excessReturn >= 0 ? "text-[var(--color-bullish)]" : "text-[var(--color-bearish)]"
+              }`}
+            >
+              {excessReturn >= 0 ? "+" : ""}
+              {(excessReturn * 100).toFixed(0)}%
+            </span>
+          </span>
+          <span>
+            Drawdown improvement:{" "}
+            <span
+              className={`font-mono ${
+                drawdownImprovement >= 0
+                  ? "text-[var(--color-bullish)]"
+                  : "text-[var(--color-bearish)]"
+              }`}
+            >
+              {drawdownImprovement >= 0 ? "+" : ""}
+              {(drawdownImprovement * 100).toFixed(0)}%
+            </span>
+          </span>
+        </div>
+        <Link href="/backtest" className="text-accent hover:text-accent-hover">
+          Full backtest &rarr;
+        </Link>
+      </div>
     </div>
   )
 }
