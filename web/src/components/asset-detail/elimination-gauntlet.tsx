@@ -4,10 +4,15 @@ import type { FilterResultResponse } from "@/lib/api/types"
 interface EliminationGauntletProps {
   filters: FilterResultResponse[]
   eliminated: boolean
+  universeSize?: number
+  scoredCount?: number
 }
 
-export function EliminationGauntlet({ filters, eliminated }: EliminationGauntletProps) {
+export function EliminationGauntlet({ filters, eliminated, universeSize, scoredCount }: EliminationGauntletProps) {
   const passCount = filters.filter((f) => f.passed).length
+  const eliminatedPct = universeSize && scoredCount && universeSize > scoredCount
+    ? Math.round(((universeSize - scoredCount) / universeSize) * 100)
+    : null
 
   // When eliminated, sort failed filters to top
   const sortedFilters = eliminated
@@ -25,6 +30,11 @@ export function EliminationGauntlet({ filters, eliminated }: EliminationGauntlet
           <p className="text-xs text-text-tertiary mt-0.5">
             Every scored stock must survive all six filters.
           </p>
+          {eliminatedPct != null && (
+            <p className="text-xs text-text-tertiary mt-0.5">
+              {eliminatedPct}% of the universe was eliminated before scoring.
+            </p>
+          )}
         </div>
         <span
           className={`text-sm font-mono px-2 py-1 rounded ${

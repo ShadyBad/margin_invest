@@ -44,4 +44,14 @@ describe("EliminationGauntlet", () => {
     render(<EliminationGauntlet filters={withFailures} eliminated={true} />)
     expect(screen.getByText(/predicts bankruptcy probability/)).toBeInTheDocument()
   })
+
+  it("shows universe context when universeSize provided", () => {
+    render(<EliminationGauntlet filters={allPassing} eliminated={false} universeSize={2847} scoredCount={847} />)
+    expect(screen.getByText(/70% of the universe/i)).toBeInTheDocument()
+  })
+
+  it("does not show universe context when props are missing", () => {
+    render(<EliminationGauntlet filters={allPassing} eliminated={false} />)
+    expect(screen.queryByText(/of the universe/i)).not.toBeInTheDocument()
+  })
 })
