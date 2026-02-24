@@ -15,9 +15,11 @@ interface AssetDetailViewProps {
   apiError: string | null
   universeSize?: number
   totalScored?: number
+  sectorSurvivorCount?: number
+  sectorName?: string
 }
 
-export function AssetDetailView({ ticker, scoreData, historyData, apiError, universeSize, totalScored }: AssetDetailViewProps) {
+export function AssetDetailView({ ticker, scoreData, historyData, apiError, universeSize, totalScored, sectorSurvivorCount, sectorName }: AssetDetailViewProps) {
   if (apiError || !scoreData) {
     return (
       <div className="space-y-4">
@@ -132,6 +134,20 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, univ
           momentum={scoreData.momentum}
           growthStage={scoreData.growth_stage}
         />
+      )}
+
+      {!allFiltersPassed && sectorSurvivorCount != null && sectorSurvivorCount > 0 && sectorName && (
+        <div className="terminal-card p-4 text-center">
+          <p className="text-sm text-text-secondary">
+            {sectorSurvivorCount} stock{sectorSurvivorCount !== 1 ? "s" : ""} in {sectorName} survived the gauntlet.
+          </p>
+          <Link
+            href={`/dashboard?sector=${encodeURIComponent(sectorName)}`}
+            className="text-sm text-accent hover:text-accent-hover mt-2 inline-block"
+          >
+            View survivors &rarr;
+          </Link>
+        </div>
       )}
     </div>
   )

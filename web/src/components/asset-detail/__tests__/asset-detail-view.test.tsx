@@ -122,6 +122,31 @@ describe("AssetDetailView", () => {
     )
     expect(screen.getByText("No data available for XYZA.")).toBeInTheDocument()
   })
+
+  it("renders sector survivor CTA when eliminated and sector provided", () => {
+    const data = makeScoreResponse({
+      filters_passed: [
+        { name: "liquidity", passed: true, value: 8e11, threshold: 2e8, detail: "", verdict: "pass", missing_fields: null },
+        { name: "altman_z_score", passed: false, value: 1.6, threshold: 1.1, detail: "", verdict: "fail", missing_fields: null },
+        { name: "beneish_m_score", passed: true, value: -2.5, threshold: -1.78, detail: "", verdict: "pass", missing_fields: null },
+        { name: "current_ratio", passed: true, value: 1.5, threshold: 0.8, detail: "", verdict: "pass", missing_fields: null },
+        { name: "fcf_distress", passed: false, value: -2.1e9, threshold: 0, detail: "", verdict: "fail", missing_fields: null },
+        { name: "interest_coverage", passed: true, value: 15, threshold: 3, detail: "", verdict: "pass", missing_fields: null },
+      ],
+    })
+    render(
+      <AssetDetailView
+        ticker="TSLA"
+        scoreData={data}
+        historyData={null}
+        apiError={null}
+        sectorSurvivorCount={5}
+        sectorName="Consumer Discretionary"
+      />
+    )
+    expect(screen.getByText(/5 stocks in Consumer Discretionary/i)).toBeInTheDocument()
+    expect(screen.getByText(/survived the gauntlet/i)).toBeInTheDocument()
+  })
 })
 
 describe("barrel exports", () => {
