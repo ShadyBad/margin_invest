@@ -7,6 +7,9 @@ vi.mock("gsap", () => ({
 vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
+vi.mock("@/components/ui/correlation-grid", () => ({
+  CorrelationGrid: () => <div data-testid="correlation-grid" />,
+}))
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
   LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
@@ -53,5 +56,13 @@ describe("ProofSection", () => {
     expect(screen.getByText("Momentum")).toBeInTheDocument()
     expect(screen.getByText("Sentiment")).toBeInTheDocument()
     expect(screen.getByText("Growth")).toBeInTheDocument()
+  })
+
+  it("renders backtesting performance summary", () => {
+    render(<ProofSection candidates={[]} />)
+    expect(screen.getByText(/since 2015/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/past performance does not guarantee/i)
+    ).toBeInTheDocument()
   })
 })

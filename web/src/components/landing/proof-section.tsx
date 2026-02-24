@@ -77,6 +77,15 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
         <div className="text-center mb-16">
           <MicroMetadata text="Sector-neutral by design" />
         </div>
+        <div className="text-center mb-8 space-y-2">
+          <p className="text-sm font-mono text-text-primary">
+            Walk-forward backtest since 2015 · Sector-neutral · Monthly rebalance
+          </p>
+          <p className="text-[10px] text-text-tertiary max-w-md mx-auto">
+            Past performance does not guarantee future results. Backtest uses point-in-time data
+            with transaction costs. Full methodology on the backtesting page.
+          </p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <ProofCard title="Factor Transparency">
             <ProofFactorBars />
