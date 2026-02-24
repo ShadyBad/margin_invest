@@ -56,6 +56,16 @@ function MiniSparkline({ values }: { values: number[] }) {
   )
 }
 
+function getFreshnessColor(scoredAt: string | null | undefined): string {
+  if (!scoredAt) return "text-text-tertiary"
+  const ageMs = Date.now() - new Date(scoredAt).getTime()
+  const oneHour = 60 * 60 * 1000
+  const oneDay = 24 * oneHour
+  if (ageMs < oneHour) return "text-bullish"
+  if (ageMs < oneDay) return "text-text-tertiary"
+  return "text-warning"
+}
+
 export function HeroHeader({
   ticker,
   name,
@@ -176,7 +186,9 @@ export function HeroHeader({
       >
         <span>Data coverage: {coveragePct}%</span>
         <span>·</span>
-        <span>Scored: {scoredAt ? formatScoredAt(scoredAt) : "N/A"}</span>
+        <span data-freshness className={getFreshnessColor(scoredAt)}>
+          Scored: {scoredAt ? formatScoredAt(scoredAt) : "N/A"}
+        </span>
         <span>·</span>
         <span>
           Price: {priceSource === "live" ? "Live" : priceSource === "daily_close" ? "Daily close" : dataFreshness ?? "N/A"}

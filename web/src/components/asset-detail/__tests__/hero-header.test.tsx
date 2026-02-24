@@ -59,6 +59,20 @@ describe("HeroHeader", () => {
     expect(screen.getByTestId("metric-percentile")).toHaveTextContent("of 2847 stocks")
   })
 
+  it("applies freshness color class to scored-at metadata", () => {
+    const recentDate = new Date(Date.now() - 30 * 60 * 1000).toISOString() // 30 min ago
+    render(<HeroHeader {...baseProps} scoredAt={recentDate} />)
+    const ribbon = screen.getByTestId("metadata-ribbon")
+    expect(ribbon.querySelector("[data-freshness]")).toHaveClass("text-bullish")
+  })
+
+  it("applies stale color when scored more than 24h ago", () => {
+    const oldDate = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString() // 25h ago
+    render(<HeroHeader {...baseProps} scoredAt={oldDate} />)
+    const ribbon = screen.getByTestId("metadata-ribbon")
+    expect(ribbon.querySelector("[data-freshness]")).toHaveClass("text-warning")
+  })
+
   it("handles missing optional props gracefully", () => {
     render(
       <HeroHeader
