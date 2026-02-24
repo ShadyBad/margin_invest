@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { formatAttributeLabel } from "@/lib/format"
+import { SUB_FACTOR_FORMULAS } from "@/lib/sub-factor-formulas"
 import type { FactorBreakdownResponse } from "@/lib/api/types"
 
 interface PillarCardProps {
@@ -19,6 +20,7 @@ function getPercentileDetail(p: number): string {
 
 export function PillarCard({ pillar }: PillarCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [expandedSub, setExpandedSub] = useState<string | null>(null)
   const name = pillar.factor_name.charAt(0).toUpperCase() + pillar.factor_name.slice(1)
   const weightPct = Math.round(pillar.weight * 100)
   const testId = `pillar-${pillar.factor_name}`
@@ -77,29 +79,48 @@ export function PillarCard({ pillar }: PillarCardProps) {
                 <span className="text-right">Pctile</span>
                 <span className="text-right">Rating</span>
               </div>
-              {pillar.sub_scores.map((sub) => (
-                <div
-                  key={sub.name}
-                  className="grid grid-cols-[1fr_80px_60px_60px] gap-2 text-xs items-center"
-                >
-                  <span className="text-text-primary truncate">
-                    {formatAttributeLabel(sub.name)}
-                  </span>
-                  <span className="text-right font-mono text-text-secondary">
-                    {typeof sub.raw_value === "number"
-                      ? sub.raw_value % 1 === 0
-                        ? sub.raw_value
-                        : sub.raw_value.toFixed(2)
-                      : sub.raw_value}
-                  </span>
-                  <span className="text-right font-mono text-text-primary">
-                    {Math.round(sub.percentile_rank)}th
-                  </span>
-                  <span className="text-right text-text-tertiary">
-                    {sub.detail || getPercentileDetail(sub.percentile_rank)}
-                  </span>
-                </div>
-              ))}
+              {pillar.sub_scores.map((sub) => {
+                const formulaData = SUB_FACTOR_FORMULAS[sub.name]
+                const isSubExpanded = expandedSub === sub.name
+                return (
+                  <div key={sub.name}>
+                    <div
+                      className={`grid grid-cols-[1fr_80px_60px_60px] gap-2 text-xs items-center ${formulaData ? "cursor-pointer hover:bg-white/[0.02] -mx-1 px-1 rounded" : ""}`}
+                      onClick={() =>
+                        formulaData && setExpandedSub(isSubExpanded ? null : sub.name)
+                      }
+                    >
+                      <span className="text-text-primary truncate">
+                        {formatAttributeLabel(sub.name)}
+                        {formulaData && (
+                          <span className="text-[9px] text-text-tertiary ml-1">
+                            {isSubExpanded ? "\u25B2" : "fx"}
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-right font-mono text-text-secondary">
+                        {typeof sub.raw_value === "number"
+                          ? sub.raw_value % 1 === 0
+                            ? sub.raw_value
+                            : sub.raw_value.toFixed(2)
+                          : sub.raw_value}
+                      </span>
+                      <span className="text-right font-mono text-text-primary">
+                        {Math.round(sub.percentile_rank)}th
+                      </span>
+                      <span className="text-right text-text-tertiary">
+                        {sub.detail || getPercentileDetail(sub.percentile_rank)}
+                      </span>
+                    </div>
+                    {isSubExpanded && formulaData && (
+                      <div className="text-[10px] text-text-tertiary pl-2 py-1 border-l-2 border-accent/30 ml-1 mb-1">
+                        <span className="font-mono">{formulaData.formula}</span>
+                        <span className="italic ml-2">&mdash; {formulaData.source}</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
               <p className="text-[10px] text-text-tertiary pt-2 border-t border-white/[0.04]">
                 Each sub-factor is ranked within the stock&apos;s GICS sector first (sector-neutral),
                 then combined.

@@ -72,4 +72,57 @@ describe("ScoringPillars", () => {
     expect(screen.getByText("Piotroski F-Score")).toBeInTheDocument()
     expect(screen.getByText("85th")).toBeInTheDocument()
   })
+
+  it("shows formula when sub-factor row is clicked", () => {
+    render(
+      <ScoringPillars
+        quality={quality}
+        value={value}
+        momentum={momentum}
+        growthStage="mature"
+      />
+    )
+    // Expand the quality pillar
+    fireEvent.click(screen.getByTestId("pillar-quality-toggle"))
+    // Click on the Gross Profitability sub-factor row
+    fireEvent.click(screen.getByText("Gross Profitability"))
+    // Expect to see the formula and source
+    expect(screen.getByText(/Revenue - COGS/)).toBeInTheDocument()
+    expect(screen.getByText(/Novy-Marx/)).toBeInTheDocument()
+  })
+
+  it("hides formula when sub-factor row is clicked again", () => {
+    render(
+      <ScoringPillars
+        quality={quality}
+        value={value}
+        momentum={momentum}
+        growthStage="mature"
+      />
+    )
+    // Expand the quality pillar
+    fireEvent.click(screen.getByTestId("pillar-quality-toggle"))
+    // Click to expand formula
+    fireEvent.click(screen.getByText("Gross Profitability"))
+    expect(screen.getByText(/Revenue - COGS/)).toBeInTheDocument()
+    // Click again to collapse formula
+    fireEvent.click(screen.getByText("Gross Profitability"))
+    expect(screen.queryByText(/Revenue - COGS/)).not.toBeInTheDocument()
+  })
+
+  it("shows fx indicator on sub-factors with formulas", () => {
+    render(
+      <ScoringPillars
+        quality={quality}
+        value={value}
+        momentum={momentum}
+        growthStage="mature"
+      />
+    )
+    // Expand the quality pillar
+    fireEvent.click(screen.getByTestId("pillar-quality-toggle"))
+    // Both sub-factors have formulas, so "fx" indicators should be visible
+    const fxIndicators = screen.getAllByText("fx")
+    expect(fxIndicators.length).toBeGreaterThanOrEqual(2)
+  })
 })
