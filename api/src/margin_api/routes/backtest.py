@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Path
+from margin_engine.backtesting.replay_orchestrator import ReplayConfig
 
 from margin_api.schemas.backtest import (
     BacktestConfigRequest,
@@ -25,6 +26,7 @@ from margin_api.services.backtest import (
     build_full_response,
     build_teaser_from_result,
     get_default_replay_result,
+    run_custom_backtest,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["backtest"])
@@ -228,18 +230,16 @@ async def run_replay(
     synthetic default result; will wire to real ReplayOrchestrator
     when PIT data providers are available.
     """
-    # For now, return synthetic result with the user's config echoed
-    result = get_default_replay_result()
-    # Override config fields from the request
-    result.config.rebalance_frequency = config.rebalance_frequency
-    result.config.conviction_threshold = config.conviction_threshold
-    result.config.weighting = config.weighting
-    result.config.sector_exclusions = config.sector_exclusions
-    result.config.transaction_cost_bps = config.transaction_cost_bps
-    if config.start_date:
-        result.config.start_date = config.start_date
-    if config.end_date:
-        result.config.end_date = config.end_date
+    engine_config = ReplayConfig(
+        start_date=config.start_date,
+        end_date=config.end_date or date.today(),
+        rebalance_frequency=config.rebalance_frequency,
+        conviction_threshold=config.conviction_threshold,
+        weighting=config.weighting,
+        sector_exclusions=config.sector_exclusions,
+        transaction_cost_bps=config.transaction_cost_bps,
+    )
+    result = run_custom_backtest(engine_config)
     return build_full_response(result, failure_periods=[])
 
 

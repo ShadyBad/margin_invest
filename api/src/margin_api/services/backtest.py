@@ -267,3 +267,33 @@ def get_default_replay_result() -> ReplayResult:
         factor_timeline=[],
         duration_seconds=0.0,
     )
+
+
+def precompute_default_backtest() -> ReplayResult:
+    """Pre-compute the default backtest result.
+
+    Called by the ARQ worker on a schedule. The result is stored
+    in the database and served by GET /backtest/default.
+
+    Currently returns the same synthetic result as
+    get_default_replay_result(). When real PIT data providers are
+    available, this will run the actual ReplayOrchestrator.
+    """
+    return get_default_replay_result()
+
+
+def run_custom_backtest(config: ReplayConfig) -> ReplayResult:
+    """Run a custom backtest with the given config.
+
+    Called by the ARQ worker for on-demand runs. The result is
+    cached by config hash in the database.
+
+    Currently returns a synthetic result with the provided config.
+    When real PIT data providers are available, this will
+    instantiate ReplayOrchestrator with InMemoryPITProvider
+    (or the real provider) and run the actual backtest.
+    """
+    result = get_default_replay_result()
+    # Apply the custom config
+    result = result.model_copy(update={"config": config})
+    return result
