@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.db.models import Asset, Score, UniverseSnapshot
+from margin_api.db.models import Asset, Score, UniverseSnapshot, V4Score
 from margin_api.db.session import get_db
 from margin_api.schemas.dashboard import (
     DashboardResponse,
@@ -147,6 +147,37 @@ async def _fetch_picks_and_watchlist(
     if not picks and not watchlist:
         top_result = await db.execute(base.order_by(Score.composite_raw_score.desc()).limit(10))
         picks = [_pick_summary_from_row(row) for row in top_result.all()]
+
+    # Enrich picks with V4 ML fields (ml_override, style)
+    if picks:
+        pick_tickers = [p.ticker for p in picks]
+        v4_latest_subq = (
+            select(
+                V4Score.asset_id,
+                func.max(V4Score.scored_at).label("max_scored_at"),
+            )
+            .group_by(V4Score.asset_id)
+            .subquery()
+        )
+        v4_result = await db.execute(
+            select(V4Score, Asset.ticker)
+            .join(Asset, V4Score.asset_id == Asset.id)
+            .join(
+                v4_latest_subq,
+                (V4Score.asset_id == v4_latest_subq.c.asset_id)
+                & (V4Score.scored_at == v4_latest_subq.c.max_scored_at),
+            )
+            .where(Asset.ticker.in_(pick_tickers))
+        )
+        v4_map: dict[str, V4Score] = {}
+        for row in v4_result.all():
+            v4_map[row.ticker] = row[0]  # V4Score object
+
+        for pick in picks:
+            v4 = v4_map.get(pick.ticker)
+            if v4:
+                pick.ml_override = v4.ml_override
+                pick.style = v4.style
 
     return picks, watchlist
 
