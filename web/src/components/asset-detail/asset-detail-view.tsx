@@ -67,6 +67,7 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           dataCoverage={scoreData.data_coverage}
           scoredAt={scoreData.scored_at}
           scoreHistory={scoreHistoryValues}
+          style={scoreData.style}
         />
       ) : (
         <EliminatedHero
@@ -106,6 +107,7 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           timingSignal={scoreData.timing_signal ?? null}
           capitalAllocation={scoreData.capital_allocation ?? null}
           catalyst={scoreData.catalyst ?? null}
+          mlOverride={scoreData.ml_override ?? null}
           /* institutionalAccumulation — wired when API provides institutional_accumulation */
         />
       )}

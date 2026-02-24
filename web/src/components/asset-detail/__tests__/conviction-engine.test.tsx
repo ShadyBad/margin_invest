@@ -132,4 +132,36 @@ describe("ConvictionEngine", () => {
       screen.getByText(/1 curated institutional investor independently initiated/)
     ).toBeInTheDocument()
   })
+
+  it("shows ML-promoted badge when mlOverride is promoted", () => {
+    render(
+      <ConvictionEngine
+        opportunityType="compounder"
+        winningTrack="compounder"
+        asymmetryRatio={2.5}
+        maxPositionPct={5.0}
+        timingSignal="buy_now"
+        capitalAllocation={null}
+        catalyst={null}
+        mlOverride="promoted"
+      />
+    )
+    expect(screen.getByText(/ml-promoted/i)).toBeInTheDocument()
+  })
+
+  it("does not show ML badge when mlOverride is none", () => {
+    render(
+      <ConvictionEngine
+        opportunityType="compounder"
+        winningTrack="compounder"
+        asymmetryRatio={2.5}
+        maxPositionPct={5.0}
+        timingSignal="buy_now"
+        capitalAllocation={null}
+        catalyst={null}
+        mlOverride="none"
+      />
+    )
+    expect(screen.queryByText(/ml-promoted|ml-demoted/i)).not.toBeInTheDocument()
+  })
 })

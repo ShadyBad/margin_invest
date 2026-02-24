@@ -16,6 +16,7 @@ interface ConvictionEngineProps {
   capitalAllocation: FactorBreakdownResponse | null
   catalyst: FactorBreakdownResponse | null
   institutionalAccumulation?: InstitutionalAccumulation | null
+  mlOverride?: string | null
 }
 
 const OPPORTUNITY_DESCRIPTIONS: Record<string, string> = {
@@ -64,6 +65,7 @@ export function ConvictionEngine({
   capitalAllocation,
   catalyst,
   institutionalAccumulation,
+  mlOverride,
 }: ConvictionEngineProps) {
   if (!opportunityType) return null
 
@@ -71,7 +73,19 @@ export function ConvictionEngine({
 
   return (
     <section data-testid="conviction-engine" className="space-y-4">
-      <h2 className="text-lg font-semibold text-text-primary">Conviction Engine</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-text-primary">Conviction Engine</h2>
+        {mlOverride === "promoted" && (
+          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-bullish/10 text-bullish">
+            ML-promoted
+          </span>
+        )}
+        {mlOverride === "demoted" && (
+          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-bearish/10 text-bearish">
+            ML-demoted
+          </span>
+        )}
+      </div>
 
       {/* Opportunity type banner */}
       <div className="terminal-card p-4 space-y-1">
