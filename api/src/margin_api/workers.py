@@ -26,10 +26,12 @@ from margin_api.config import get_settings
 from margin_api.db.models import (
     Asset,
     Event,
+    FilingMetadata,
     FinancialData,
     IngestionRun,
     IngestionTickerStatus,
     JobRun,
+    Manager,
     MlModelRun,
     Score,
     V3Score,
@@ -1270,6 +1272,156 @@ async def retry_quarantined(ctx: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# 13F Institutional holdings ingestion
+# ---------------------------------------------------------------------------
+
+
+async def full_13f_ingest(ctx: dict, pipeline_id: str | None = None) -> dict:
+    """Ingest 13F institutional holdings from SEC EDGAR.
+
+    Fetches recent 13F-HR filings for a curated set of institutional managers,
+    parses all holdings from each filing, and stores them in the database.
+    Chains to ``compute_accumulation_signals`` on success.
+    """
+    from margin_engine.ingestion.providers.edgar_provider import EDGARProvider
+
+    from margin_api.services.thirteenf_ingest import ThirteenFIngestService
+
+    if pipeline_id is None:
+        pipeline_id = uuid.uuid4().hex[:16]
+
+    logger.info("[13f_ingest] Starting (pipeline=%s)...", pipeline_id)
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun
+    async with session_factory() as session:
+        job_run = JobRun(
+            job_type="13f_ingest",
+            status="running",
+            triggered_by="schedule",
+            started_at=datetime.now(UTC),
+            pipeline_id=pipeline_id,
+        )
+        session.add(job_run)
+        await session.commit()
+        job_run_id = job_run.id
+
+    # Curated fund list -- expand over time
+    curated_funds = [
+        {
+            "cik": "0001067983",
+            "name": "BERKSHIRE HATHAWAY INC",
+            "short_name": "Berkshire Hathaway",
+            "tier": "curated",
+        },
+        {
+            "cik": "0001336528",
+            "name": "BRIDGEWATER ASSOCIATES LP",
+            "short_name": "Bridgewater",
+            "tier": "curated",
+        },
+        {
+            "cik": "0001061768",
+            "name": "BAUPOST GROUP LLC",
+            "short_name": "Baupost Group",
+            "tier": "curated",
+        },
+    ]
+
+    try:
+        edgar = EDGARProvider(user_agent="MarginInvest/1.0 support@margininvest.com")
+        async with session_factory() as session:
+            service = ThirteenFIngestService(session)
+            managers = await service.upsert_managers(curated_funds)
+
+            total_filings = 0
+            total_holdings = 0
+            for mgr in managers:
+                try:
+                    submissions = edgar.get_13f_submissions(mgr.cik)
+                    filings = edgar.extract_13f_filings(submissions)
+                    for f in filings:
+                        if not await service.is_filing_new(f["accession_number"]):
+                            continue
+                        # Fetch and parse infotable
+                        xml_text = edgar.fetch_infotable_xml(
+                            mgr.cik, f["accession_number"]
+                        )
+                        if xml_text is None:
+                            continue
+                        parsed = edgar.parse_full_infotable(
+                            xml_text,
+                            mgr.name,
+                            mgr.cik,
+                            f["filed_date"],
+                            f["period_of_report"],
+                        )
+                        from datetime import date as date_cls
+
+                        filing_meta = FilingMetadata(
+                            manager_id=mgr.id,
+                            accession_number=f["accession_number"],
+                            filing_type=f["filing_type"],
+                            period_of_report=date_cls.fromisoformat(f["period_of_report"]),
+                            filed_date=date_cls.fromisoformat(f["filed_date"]),
+                            total_value=sum(h["value_thousands"] for h in parsed),
+                            total_holdings=len(parsed),
+                            is_amendment=f["is_amendment"],
+                        )
+                        session.add(filing_meta)
+                        await session.flush()
+                        count = await service.store_holdings(filing_meta, mgr, parsed)
+                        total_filings += 1
+                        total_holdings += count
+                        logger.info(
+                            "[13f_ingest] %s: filed %s -- %d holdings",
+                            mgr.short_name,
+                            f["accession_number"],
+                            count,
+                        )
+                except Exception:
+                    logger.exception("[13f_ingest] Error processing %s", mgr.name)
+
+        # Update job run
+        async with session_factory() as session:
+            job = await session.get(JobRun, job_run_id)
+            if job:
+                job.status = "completed"
+                job.completed_at = datetime.now(UTC)
+                job.progress = 100.0
+                job.progress_detail = (
+                    f"Ingested {total_filings} filings, {total_holdings} holdings"
+                )
+                await session.commit()
+
+        logger.info(
+            "[13f_ingest] Complete: %d filings, %d holdings",
+            total_filings,
+            total_holdings,
+        )
+
+        # Chain to accumulation computation
+        redis: ArqRedis = ctx.get("redis")
+        if redis:
+            await redis.enqueue_job("compute_accumulation_signals", pipeline_id=pipeline_id)
+
+        return {"status": "ok", "filings": total_filings, "holdings": total_holdings}
+
+    except Exception as exc:
+        logger.exception("[13f_ingest] Fatal error")
+        async with session_factory() as session:
+            job = await session.get(JobRun, job_run_id)
+            if job:
+                job.status = "failed"
+                job.completed_at = datetime.now(UTC)
+                job.error_message = str(exc)
+                await session.commit()
+        return {"status": "error", "message": str(exc)}
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -1314,6 +1466,7 @@ class WorkerSettings:
         train_ml_models,
         live_price_poll,
         retry_quarantined,
+        full_13f_ingest,
     ]
     cron_jobs = [
         cron(full_ingest, hour=21, minute=30),  # 4:30 PM ET (21:30 UTC) — after market close
@@ -1324,6 +1477,7 @@ class WorkerSettings:
         ),
         cron(retry_quarantined, weekday=6, hour=0),  # Sunday midnight
         cron(train_ml_models, weekday=5, hour=2),  # Saturday 2 AM UTC
+        cron(full_13f_ingest, hour=22, minute=0),  # 5 PM ET (22:00 UTC) — after daily ingest
     ]
     # ARQ job timeout: 5 hours for the full pipeline (~3000 tickers, 4+ API calls each)
     job_timeout = 18000

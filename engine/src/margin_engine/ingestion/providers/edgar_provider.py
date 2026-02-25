@@ -485,6 +485,39 @@ class EDGARProvider(DataProvider):
         return None
 
     # ------------------------------------------------------------------
+    # Public 13F helpers for worker-driven ingestion
+    # ------------------------------------------------------------------
+
+    def get_13f_submissions(self, cik: str) -> dict:
+        """Fetch the full EDGAR submissions JSON for a CIK.
+
+        Returns the raw JSON dict from ``data.sec.gov/submissions/CIK{cik}.json``.
+        """
+        self._acquire_rate_limit()
+        url = f"{_SEC_DATA_BASE}/submissions/CIK{cik}.json"
+        resp = httpx.get(url, headers={"User-Agent": self._user_agent})
+        resp.raise_for_status()
+        return resp.json()
+
+    def fetch_infotable_xml(self, cik: str, accession_number: str) -> str | None:
+        """Fetch the infotable XML text for a 13F filing.
+
+        Locates the infotable document via the filing index page, then
+        fetches its contents.  Returns ``None`` if the infotable cannot
+        be found or fetched.
+        """
+        cik_int = str(int(cik))
+        accession_no_dashes = accession_number.replace("-", "")
+        infotable_url = self._find_13f_infotable(cik_int, accession_no_dashes)
+        if infotable_url is None:
+            return None
+        self._acquire_rate_limit()
+        resp = httpx.get(infotable_url, headers={"User-Agent": self._user_agent})
+        if not resp.is_success:
+            return None
+        return resp.text
+
+    # ------------------------------------------------------------------
     # Fund-centric 13F methods (parse ALL holdings, not filtered)
     # ------------------------------------------------------------------
 
