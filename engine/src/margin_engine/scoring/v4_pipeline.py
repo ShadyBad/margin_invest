@@ -56,6 +56,7 @@ class TickerV4Data(BaseModel):
     sbc_pct: float | None = None
     recent_acquisition_count: int = 0
     sue_percentile: float = 0.0
+    accumulation_percentile: float = 0.0
     momentum_percentile: float = 50.0
     dcf_iv: float = 0.0
 
@@ -275,6 +276,7 @@ def score_universe_v4(
             asset_floor_iv=asset_floor_iv,
             peer_comparison_iv=peer_comparison_iv,
             sue_percentile=td.sue_percentile,
+            accumulation_percentile=td.accumulation_percentile,
             wacc=wacc,
             regime_adjustments=adj,
         )

@@ -518,6 +518,26 @@ class TestComputeCatalystStrength:
         """Boundary value at 100 passes through."""
         assert compute_catalyst_strength(100.0) == pytest.approx(100.0)
 
+    def test_both_sue_and_accumulation(self):
+        """When both SUE and accumulation are present, average them."""
+        result = compute_catalyst_strength(80.0, accumulation_percentile=60.0)
+        assert result == pytest.approx(70.0)  # (80 + 60) / 2
+
+    def test_only_sue_present_accumulation_zero(self):
+        """When accumulation is 0.0 (absent), return sue_percentile only."""
+        result = compute_catalyst_strength(80.0, accumulation_percentile=0.0)
+        assert result == pytest.approx(80.0)
+
+    def test_only_accumulation_present_sue_zero(self):
+        """When sue is 0.0 (absent), return accumulation_percentile only."""
+        result = compute_catalyst_strength(0.0, accumulation_percentile=70.0)
+        assert result == pytest.approx(70.0)
+
+    def test_neither_present(self):
+        """When both are 0.0 (absent), return 0.0."""
+        result = compute_catalyst_strength(0.0, accumulation_percentile=0.0)
+        assert result == pytest.approx(0.0)
+
 
 class TestComputeQualityFloorFactor:
     def test_above_threshold(self):

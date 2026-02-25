@@ -191,6 +191,7 @@ class TrackBInputs(BaseModel):
     asset_floor_iv: float
     peer_comparison_iv: float
     sue_percentile: float
+    accumulation_percentile: float = 0.0
     wacc: float
     regime_adjustments: RegimeAdjustments | None = None
 
@@ -281,6 +282,7 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
     # --- Gate 3: Catalyst ---
     catalyst = compute_catalyst_strength(
         sue_percentile=inputs.sue_percentile,
+        accumulation_percentile=inputs.accumulation_percentile,
     )
     catalyst_threshold = 40.0
     if inputs.regime_adjustments and inputs.regime_adjustments.track_b_catalyst_percentile_override:

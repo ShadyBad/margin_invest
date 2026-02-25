@@ -1086,7 +1086,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
     from margin_engine.scoring.v4_pipeline import TickerV4Data, score_universe_v4
 
     from margin_api.data.fred_client import fetch_shiller_cape
-    from margin_api.db.models import MlModelRun, V4Score
+    from margin_api.db.models import AccumulationSignal, MlModelRun, V4Score
     from margin_api.services.scoring import build_asset_profile, build_financial_history_from_rows
 
     engine = get_engine()
@@ -1386,6 +1386,62 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
             "EV/FCF percentiles computed for %d tickers — styles re-classified",
             len(evfcf_pctls),
         )
+
+    # Compute accumulation percentiles from 13F AccumulationSignal data
+    accum_raw_scores: dict[str, float] = {}
+    async with session_factory() as session:
+        # Get the latest AccumulationSignal per asset_id for tickers in the universe
+        from sqlalchemy import func as sa_func
+
+        # Subquery: max period_of_report per asset
+        latest_period_sq = (
+            select(
+                AccumulationSignal.asset_id,
+                sa_func.max(AccumulationSignal.period_of_report).label("max_period"),
+            )
+            .where(AccumulationSignal.asset_id.in_(list(asset_ids.values())))
+            .group_by(AccumulationSignal.asset_id)
+            .subquery()
+        )
+        # Join to get the full signal row for the latest period
+        result = await session.execute(
+            select(AccumulationSignal)
+            .join(
+                latest_period_sq,
+                (AccumulationSignal.asset_id == latest_period_sq.c.asset_id)
+                & (AccumulationSignal.period_of_report == latest_period_sq.c.max_period),
+            )
+        )
+        signals = result.scalars().all()
+        # Build ticker -> signal_score mapping
+        asset_id_to_ticker = {v: k for k, v in asset_ids.items()}
+        for sig in signals:
+            ticker_name = asset_id_to_ticker.get(sig.asset_id)
+            if ticker_name is not None:
+                accum_raw_scores[ticker_name] = sig.signal_score
+
+    if accum_raw_scores:
+        accum_tickers = list(accum_raw_scores.keys())
+        accum_factors = [
+            FactorScore(name="accumulation", raw_value=accum_raw_scores[t], percentile_rank=0.0)
+            for t in accum_tickers
+        ]
+        ranked_accum = compute_percentile_ranks(accum_factors, invert=False)
+        accum_pctls = {t: ranked_accum[i].percentile_rank for i, t in enumerate(accum_tickers)}
+
+        for idx, td in enumerate(ticker_data_list):
+            if td.ticker in accum_pctls:
+                ticker_data_list[idx] = td.model_copy(
+                    update={"accumulation_percentile": accum_pctls[td.ticker]}
+                )
+        logger.info(
+            "Accumulation percentiles computed for %d tickers (range: %.1f - %.1f)",
+            len(accum_pctls),
+            min(accum_pctls.values()),
+            max(accum_pctls.values()),
+        )
+    else:
+        logger.info("No AccumulationSignal data found — accumulation_percentile stays at 0.0")
 
     # Load ML models if available
     ml_predictions: dict | None = None

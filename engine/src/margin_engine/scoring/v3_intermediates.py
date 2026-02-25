@@ -186,14 +186,26 @@ def compute_capital_allocation_composite(
 
 def compute_catalyst_strength(
     sue_percentile: float,
+    accumulation_percentile: float = 0.0,
 ) -> float:
-    """Catalyst strength = SUE percentile (passthrough).
+    """Catalyst strength = blend of SUE and institutional accumulation percentiles.
 
-    Insider and institutional percentiles were removed because they had no
-    real data source (hardcoded at 50.0). They will return when a 13F
-    filing pipeline is available.
+    Uses equal weighting when both signals are present. Falls back to whichever
+    signal is available if only one is non-zero, or 0.0 if neither is present.
+
+    accumulation_percentile comes from 13F filing data (AccumulationSignal).
+    A value of 0.0 means no data is available (excluded from the blend).
     """
-    return sue_percentile
+    has_sue = sue_percentile > 0.0
+    has_acc = accumulation_percentile > 0.0
+
+    if has_sue and has_acc:
+        return (sue_percentile + accumulation_percentile) / 2.0
+    if has_sue:
+        return sue_percentile
+    if has_acc:
+        return accumulation_percentile
+    return 0.0
 
 
 def compute_quality_floor_factor(roic: float, roic_improving: bool) -> float:
