@@ -484,6 +484,94 @@ class EDGARProvider(DataProvider):
                 )
         return None
 
+    # ------------------------------------------------------------------
+    # Fund-centric 13F methods (parse ALL holdings, not filtered)
+    # ------------------------------------------------------------------
+
+    def parse_full_infotable(
+        self,
+        xml_text: str,
+        fund_name: str,
+        fund_cik: str,
+        filing_date: str,
+        report_date: str,
+    ) -> list[dict]:
+        """Parse ALL holdings from a 13F infotable XML.
+
+        Unlike ``_parse_13f_infotable`` which filters by a target company,
+        this returns every holding in the filing — suitable for fund-centric
+        ingestion where we want the complete portfolio snapshot.
+        """
+        cleaned = re.sub(r'\s+xmlns="[^"]+"', "", xml_text, count=1)
+        root = ET.fromstring(cleaned)
+
+        holdings: list[dict] = []
+        for entry in root.findall(".//infoTable"):
+            put_call_text = entry.findtext("putCall") or ""
+            put_call_text = put_call_text.strip()
+            if put_call_text not in ("PUT", "CALL"):
+                put_call_text = "NONE"
+
+            shares_el = entry.find("shrsOrPrnAmt/sshPrnamt")
+            share_type_el = entry.find("shrsOrPrnAmt/sshPrnamtType")
+
+            holdings.append(
+                {
+                    "fund_name": fund_name,
+                    "fund_cik": fund_cik,
+                    "issuer_name": entry.findtext("nameOfIssuer") or "",
+                    "title_of_class": entry.findtext("titleOfClass") or "",
+                    "cusip": entry.findtext("cusip") or "",
+                    "value_thousands": int(entry.findtext("value") or "0"),
+                    "shares": (
+                        int(shares_el.text) if shares_el is not None and shares_el.text else 0
+                    ),
+                    "share_type": (
+                        share_type_el.text
+                        if share_type_el is not None and share_type_el.text
+                        else "SH"
+                    ),
+                    "put_call": put_call_text,
+                    "investment_discretion": entry.findtext("investmentDiscretion") or "",
+                    "voting_sole": int(entry.findtext("votingAuthority/Sole") or "0"),
+                    "voting_shared": int(entry.findtext("votingAuthority/Shared") or "0"),
+                    "voting_none": int(entry.findtext("votingAuthority/None") or "0"),
+                    "filing_date": filing_date,
+                    "report_date": report_date,
+                }
+            )
+
+        return holdings
+
+    def extract_13f_filings(self, submissions: dict) -> list[dict]:
+        """Extract 13F filing entries from an EDGAR submissions JSON response.
+
+        The ``submissions`` dict is the format returned by
+        ``data.sec.gov/submissions/CIK{cik}.json``.  Returns a list of dicts
+        with accession number, filing type, dates, and amendment flag.
+        """
+        recent = submissions.get("filings", {}).get("recent", {})
+        forms = recent.get("form", [])
+        accessions = recent.get("accessionNumber", [])
+        filing_dates = recent.get("filingDate", [])
+        report_dates = recent.get("reportDate", [])
+
+        filings: list[dict] = []
+        for i, form in enumerate(forms):
+            if form not in ("13F-HR", "13F-HR/A"):
+                continue
+            filings.append(
+                {
+                    "accession_number": accessions[i],
+                    "filing_type": form,
+                    "filed_date": filing_dates[i] if i < len(filing_dates) else "",
+                    "period_of_report": report_dates[i] if i < len(report_dates) else "",
+                    "is_amendment": form == "13F-HR/A",
+                }
+            )
+
+        return filings
+
     @staticmethod
     def _parse_13f_infotable(
         xml_text: str,
