@@ -18,6 +18,9 @@ from margin_api.db.models import (
 from margin_api.db.session import get_db
 from margin_api.schemas.thirteenf import (
     ChangesSummary,
+    ClonePosition,
+    CloneResponse,
+    CrowdedTrade,
     HolderResponse,
     HoldingsHistoryQuarter,
     HoldingsHistoryResponse,
@@ -25,6 +28,9 @@ from margin_api.schemas.thirteenf import (
     HoldingsSummary,
     ManagerPortfolioResponse,
     ManagerResponse,
+    NewPositionResponse,
+    OverlapEntry,
+    OverlapResponse,
     PortfolioHolding,
 )
 
@@ -317,4 +323,150 @@ async def get_manager_portfolio(
             decreased=0,
             unchanged=len(holdings),
         ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Analytics endpoints (Task 13)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/analytics/overlap", response_model=OverlapResponse)
+async def get_overlap(
+    db: AsyncSession = Depends(get_db),
+) -> OverlapResponse:
+    """Get most commonly held tickers and crowded trades across all tracked managers."""
+    # Find the latest period
+    latest_q = select(func.max(InstitutionalHolding.period_of_report))
+    result = await db.execute(latest_q)
+    latest_period = result.scalar_one_or_none()
+    if latest_period is None:
+        return OverlapResponse(period_of_report=date.today(), most_held=[], crowded_trades=[])
+
+    # Most held: count distinct managers per ticker
+    overlap_q = (
+        select(
+            SecurityMaster.ticker,
+            func.count(func.distinct(InstitutionalHolding.manager_id)).label("holder_count"),
+        )
+        .join(SecurityMaster, InstitutionalHolding.security_master_id == SecurityMaster.id)
+        .where(InstitutionalHolding.period_of_report == latest_period)
+        .group_by(SecurityMaster.ticker)
+        .order_by(func.count(func.distinct(InstitutionalHolding.manager_id)).desc())
+        .limit(50)
+    )
+    overlap_result = await db.execute(overlap_q)
+    most_held = []
+    for row in overlap_result.all():
+        if row.ticker is None:
+            continue
+        # Count curated holders
+        curated_q = (
+            select(func.count(func.distinct(InstitutionalHolding.manager_id)))
+            .join(Manager, InstitutionalHolding.manager_id == Manager.id)
+            .join(SecurityMaster, InstitutionalHolding.security_master_id == SecurityMaster.id)
+            .where(
+                SecurityMaster.ticker == row.ticker,
+                InstitutionalHolding.period_of_report == latest_period,
+                Manager.tier == "curated",
+            )
+        )
+        curated_result = await db.execute(curated_q)
+        curated_count = curated_result.scalar() or 0
+        most_held.append(
+            OverlapEntry(
+                ticker=row.ticker,
+                holder_count=row.holder_count,
+                curated_count=curated_count,
+            )
+        )
+
+    # Crowded trades: tickers with most new positions (holders not present in previous quarter)
+    # For now, return empty -- requires prev quarter comparison
+    crowded_trades: list[CrowdedTrade] = []
+
+    return OverlapResponse(
+        period_of_report=latest_period,
+        most_held=most_held,
+        crowded_trades=crowded_trades,
+    )
+
+
+@router.get("/analytics/new-positions", response_model=NewPositionResponse)
+async def get_new_positions(
+    db: AsyncSession = Depends(get_db),
+) -> NewPositionResponse:
+    """Get tickers with the most new institutional positions this quarter."""
+    latest_q = select(func.max(InstitutionalHolding.period_of_report))
+    result = await db.execute(latest_q)
+    latest_period = result.scalar_one_or_none()
+    if latest_period is None:
+        return NewPositionResponse(period_of_report=date.today(), new_positions=[])
+
+    # For now return empty list -- proper new position detection requires
+    # comparing current quarter holdings to previous quarter
+    return NewPositionResponse(
+        period_of_report=latest_period,
+        new_positions=[],
+    )
+
+
+@router.get("/analytics/clone/{manager_id}", response_model=CloneResponse)
+async def get_clone_portfolio(
+    manager_id: int,
+    strategy: str = Query(default="equal_weight_top_20"),
+    db: AsyncSession = Depends(get_db),
+) -> CloneResponse:
+    """Generate a clone portfolio from a manager's latest holdings."""
+    mgr = await db.get(Manager, manager_id)
+    if mgr is None:
+        raise HTTPException(status_code=404, detail="Manager not found")
+
+    # Get latest filing
+    filing_q = (
+        select(FilingMetadata)
+        .where(FilingMetadata.manager_id == manager_id)
+        .order_by(FilingMetadata.period_of_report.desc())
+        .limit(1)
+    )
+    filing_result = await db.execute(filing_q)
+    filing = filing_result.scalar_one_or_none()
+    if filing is None:
+        raise HTTPException(status_code=404, detail="No filing found")
+
+    # Get top N holdings by value
+    n = 20 if "20" in strategy else 10
+    holdings_q = (
+        select(SecurityMaster.ticker, InstitutionalHolding.value_thousands)
+        .join(SecurityMaster, InstitutionalHolding.security_master_id == SecurityMaster.id)
+        .where(InstitutionalHolding.filing_id == filing.id)
+        .order_by(InstitutionalHolding.value_thousands.desc())
+        .limit(n)
+    )
+    holdings_result = await db.execute(holdings_q)
+    rows = holdings_result.all()
+
+    if "equal_weight" in strategy:
+        weight = round(100.0 / len(rows), 2) if rows else 0
+        positions = [
+            ClonePosition(ticker=row.ticker or "UNKNOWN", target_weight=weight)
+            for row in rows
+        ]
+    else:
+        # Value-weighted
+        total = sum(r.value_thousands for r in rows) or 1
+        positions = [
+            ClonePosition(
+                ticker=row.ticker or "UNKNOWN",
+                target_weight=round((row.value_thousands / total) * 100, 2),
+            )
+            for row in rows
+        ]
+
+    return CloneResponse(
+        manager=mgr.short_name or mgr.name,
+        strategy=strategy,
+        period_of_report=filing.period_of_report,
+        positions=positions,
+        historical_performance=None,  # requires price data computation
     )
