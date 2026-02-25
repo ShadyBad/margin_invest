@@ -1422,6 +1422,79 @@ async def full_13f_ingest(ctx: dict, pipeline_id: str | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Accumulation signal computation
+# ---------------------------------------------------------------------------
+
+
+async def compute_accumulation_signals(ctx: dict, pipeline_id: str | None = None) -> dict:
+    """Compute accumulation signals from ingested 13F holdings."""
+    from margin_api.services.accumulation_service import AccumulationService
+
+    if pipeline_id is None:
+        pipeline_id = uuid.uuid4().hex[:16]
+
+    logger.info("[accumulation] Starting (pipeline=%s)...", pipeline_id)
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    async with session_factory() as session:
+        job_run = JobRun(
+            job_type="compute_accumulation",
+            status="running",
+            triggered_by="chain",
+            started_at=datetime.now(UTC),
+            pipeline_id=pipeline_id,
+        )
+        session.add(job_run)
+        await session.commit()
+        job_run_id = job_run.id
+
+    try:
+        async with session_factory() as session:
+            service = AccumulationService(session)
+            # Find all distinct periods that have holdings
+            from margin_api.db.models import InstitutionalHolding
+
+            periods_q = (
+                select(func.distinct(InstitutionalHolding.period_of_report))
+                .order_by(InstitutionalHolding.period_of_report)
+            )
+            result = await session.execute(periods_q)
+            periods = [row[0] for row in result.all()]
+
+            total_signals = 0
+            for period in periods:
+                count = await service.compute_signals(period_of_report=period)
+                total_signals += count
+                logger.info("[accumulation] %s: %d signals", period, count)
+
+        async with session_factory() as session:
+            job = await session.get(JobRun, job_run_id)
+            if job:
+                job.status = "completed"
+                job.completed_at = datetime.now(UTC)
+                job.progress = 100.0
+                job.progress_detail = (
+                    f"Computed {total_signals} signals across {len(periods)} quarters"
+                )
+                await session.commit()
+
+        return {"status": "ok", "signals": total_signals, "quarters": len(periods)}
+
+    except Exception as exc:
+        logger.exception("[accumulation] Fatal error")
+        async with session_factory() as session:
+            job = await session.get(JobRun, job_run_id)
+            if job:
+                job.status = "failed"
+                job.completed_at = datetime.now(UTC)
+                job.error_message = str(exc)
+                await session.commit()
+        return {"status": "error", "message": str(exc)}
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -1467,6 +1540,7 @@ class WorkerSettings:
         live_price_poll,
         retry_quarantined,
         full_13f_ingest,
+        compute_accumulation_signals,
     ]
     cron_jobs = [
         cron(full_ingest, hour=21, minute=30),  # 4:30 PM ET (21:30 UTC) — after market close
