@@ -114,6 +114,7 @@ def create_app() -> FastAPI:
     app.include_router(ingestion_router)
     app.include_router(jobs_router)
     app.include_router(backtest_router)
+    app.include_router(thirteenf_router)
     app.include_router(universe_router)
     app.include_router(correlations_router)
     app.include_router(thirteenf_router)
