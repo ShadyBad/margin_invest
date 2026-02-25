@@ -16,6 +16,7 @@ import type {
   HoldingsHistoryResponse,
   HolderResponse,
 } from "@/lib/api/thirteenf"
+import { ProGate } from "@/components/dashboard/pro-gate"
 
 interface InstitutionalPositioningProps {
   ticker: string
@@ -251,137 +252,140 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
             </div>
           </div>
 
-          {/* Holder count trend chart */}
-          {chartData.length > 1 && (
-            <div className="terminal-card p-4 space-y-2">
-              <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
-                Holder Trend
-              </span>
-              <div className="h-32">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-grid-line)" />
-                    <XAxis
-                      dataKey="period"
-                      tick={{ fontSize: 10 }}
-                      stroke="var(--color-text-tertiary)"
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10 }}
-                      stroke="var(--color-text-tertiary)"
-                      allowDecimals={false}
-                    />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="curated"
-                      stackId="1"
-                      stroke="var(--color-accent)"
-                      fill="var(--color-accent)"
-                      fillOpacity={0.3}
-                      name="Curated"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="total"
-                      stackId="2"
-                      stroke="var(--color-text-tertiary)"
-                      fill="var(--color-text-tertiary)"
-                      fillOpacity={0.1}
-                      name="Total"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
-          {/* Curated holders table */}
-          {holdings.curated_holders.length > 0 && (
-            <div className="terminal-card p-4 space-y-2">
-              <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
-                Curated Holders
-              </span>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-border-subtle">
-                      <th className="pb-2 pr-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
-                        Fund
-                      </th>
-                      <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
-                        Shares
-                      </th>
-                      <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
-                        Change
-                      </th>
-                      <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
-                        % Portfolio
-                      </th>
-                      <th className="pb-2 pl-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
-                        Qtrs Held
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {holdings.curated_holders.map((holder) => (
-                      <HolderRow key={holder.manager_name} holder={holder} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Expandable other holders */}
-          {holdings.other_holders.length > 0 && (
-            <div className="terminal-card overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowOtherHolders((prev) => !prev)}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.02] transition-colors"
-              >
-                <span className="text-[11px] uppercase tracking-wider text-text-tertiary font-medium">
-                  All Tracked Holders ({holdings.other_holders.length})
+          {/* Gated detailed content: trend chart, holders table, other holders */}
+          <ProGate>
+            {/* Holder count trend chart */}
+            {chartData.length > 1 && (
+              <div className="terminal-card p-4 space-y-2">
+                <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+                  Holder Trend
                 </span>
-                <span className="text-text-tertiary text-sm">
-                  {showOtherHolders ? "\u25B2" : "\u25BC"}
-                </span>
-              </button>
-              {showOtherHolders && (
-                <div className="px-4 pb-4">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="border-b border-border-subtle">
-                          <th className="pb-2 pr-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
-                            Fund
-                          </th>
-                          <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
-                            Shares
-                          </th>
-                          <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
-                            Change
-                          </th>
-                          <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
-                            % Portfolio
-                          </th>
-                          <th className="pb-2 pl-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
-                            Qtrs Held
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {holdings.other_holders.map((holder) => (
-                          <HolderRow key={holder.manager_name} holder={holder} />
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-grid-line)" />
+                      <XAxis
+                        dataKey="period"
+                        tick={{ fontSize: 10 }}
+                        stroke="var(--color-text-tertiary)"
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10 }}
+                        stroke="var(--color-text-tertiary)"
+                        allowDecimals={false}
+                      />
+                      <Tooltip />
+                      <Area
+                        type="monotone"
+                        dataKey="curated"
+                        stackId="1"
+                        stroke="var(--color-accent)"
+                        fill="var(--color-accent)"
+                        fillOpacity={0.3}
+                        name="Curated"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="total"
+                        stackId="2"
+                        stroke="var(--color-text-tertiary)"
+                        fill="var(--color-text-tertiary)"
+                        fillOpacity={0.1}
+                        name="Total"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+
+            {/* Curated holders table */}
+            {holdings.curated_holders.length > 0 && (
+              <div className="terminal-card p-4 space-y-2">
+                <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+                  Curated Holders
+                </span>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-border-subtle">
+                        <th className="pb-2 pr-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
+                          Fund
+                        </th>
+                        <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                          Shares
+                        </th>
+                        <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                          Change
+                        </th>
+                        <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                          % Portfolio
+                        </th>
+                        <th className="pb-2 pl-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                          Qtrs Held
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {holdings.curated_holders.map((holder) => (
+                        <HolderRow key={holder.manager_name} holder={holder} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Expandable other holders */}
+            {holdings.other_holders.length > 0 && (
+              <div className="terminal-card overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowOtherHolders((prev) => !prev)}
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.02] transition-colors"
+                >
+                  <span className="text-[11px] uppercase tracking-wider text-text-tertiary font-medium">
+                    All Tracked Holders ({holdings.other_holders.length})
+                  </span>
+                  <span className="text-text-tertiary text-sm">
+                    {showOtherHolders ? "\u25B2" : "\u25BC"}
+                  </span>
+                </button>
+                {showOtherHolders && (
+                  <div className="px-4 pb-4">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-border-subtle">
+                            <th className="pb-2 pr-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
+                              Fund
+                            </th>
+                            <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                              Shares
+                            </th>
+                            <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                              Change
+                            </th>
+                            <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                              % Portfolio
+                            </th>
+                            <th className="pb-2 pl-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                              Qtrs Held
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {holdings.other_holders.map((holder) => (
+                            <HolderRow key={holder.manager_name} holder={holder} />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </ProGate>
         </>
       )}
     </section>

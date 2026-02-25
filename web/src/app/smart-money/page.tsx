@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { AppShell } from "@/components/layout"
+import { ProGate } from "@/components/dashboard/pro-gate"
 import { TabNav } from "@/components/smart-money/tab-nav"
 import { FundTracker } from "@/components/smart-money/fund-tracker"
 import { MarketSignals } from "@/components/smart-money/market-signals"
@@ -23,10 +24,12 @@ export default function SmartMoneyPage() {
         <p className="text-sm text-text-tertiary mb-6">
           Track institutional 13F filings and fund positioning
         </p>
-        <TabNav tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
-        {activeTab === "fund-tracker" && <FundTracker />}
-        {activeTab === "market-signals" && <MarketSignals />}
-        {activeTab === "clone-lab" && <CloneLab />}
+        <ProGate>
+          <TabNav tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+          {activeTab === "fund-tracker" && <FundTracker />}
+          {activeTab === "market-signals" && <MarketSignals />}
+          {activeTab === "clone-lab" && <CloneLab />}
+        </ProGate>
       </div>
     </AppShell>
   )

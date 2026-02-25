@@ -3,6 +3,13 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { InstitutionalPositioning } from "../institutional-positioning"
 
+// Mock ProGate to passthrough for existing tests (gating tests are below)
+vi.mock("@/components/dashboard/pro-gate", () => ({
+  ProGate: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="pro-gate">{children}</div>
+  ),
+}))
+
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: any) => (
     <div data-testid="responsive-container">{children}</div>
@@ -265,5 +272,19 @@ describe("InstitutionalPositioning", () => {
 
     // Zero change should render as "0"
     expect(screen.getByText("0")).toBeInTheDocument()
+  })
+
+  it("wraps detailed content in ProGate", async () => {
+    mockGetHoldings.mockResolvedValue(MOCK_HOLDINGS)
+    mockGetHoldingsHistory.mockResolvedValue(MOCK_HISTORY)
+
+    render(<InstitutionalPositioning ticker="AAPL" />)
+
+    await waitFor(() => {
+      expect(screen.getByText("Berkshire Hathaway")).toBeInTheDocument()
+    })
+
+    // ProGate mock is present wrapping the detailed content
+    expect(screen.getByTestId("pro-gate")).toBeInTheDocument()
   })
 })
