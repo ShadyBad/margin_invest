@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -109,6 +109,7 @@ class Asset(Base):
     country: Mapped[str | None] = mapped_column(String(100), nullable=True)
     market_cap: Mapped[Decimal] = mapped_column(default=Decimal("0"))
     shares_outstanding: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    cusip: Mapped[str | None] = mapped_column(String(9), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -697,4 +698,163 @@ class ShadowPortfolioSnapshot(Base):
     __table_args__ = (
         UniqueConstraint("as_of_date", name="uq_shadow_snapshot_date"),
         Index("ix_shadow_snapshot_date", "as_of_date"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# 13F / Institutional Holdings models
+# ---------------------------------------------------------------------------
+
+
+class Manager(Base):
+    """SEC-registered institutional investment manager (13F filer)."""
+
+    __tablename__ = "managers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cik: Mapped[str] = mapped_column(String(10), unique=True, index=True)
+    name: Mapped[str] = mapped_column(Text)
+    short_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tier: Mapped[str] = mapped_column(String(20), default="top_aum")
+    aum_latest: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    first_filing_date: Mapped[date | None] = mapped_column(nullable=True)
+    last_filing_date: Mapped[date | None] = mapped_column(nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(
+        "metadata", JSONVariant, nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    filings: Mapped[list[FilingMetadata]] = relationship(back_populates="manager")
+
+
+class SecurityMaster(Base):
+    """CUSIP-keyed security reference table for 13F cross-referencing."""
+
+    __tablename__ = "security_master"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cusip: Mapped[str] = mapped_column(String(9), unique=True, index=True)
+    ticker: Mapped[str | None] = mapped_column(String(10), nullable=True, index=True)
+    figi: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    issuer_name: Mapped[str] = mapped_column(Text)
+    security_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    asset_id: Mapped[int | None] = mapped_column(
+        ForeignKey("assets.id"), nullable=True, index=True
+    )
+    resolution_method: Mapped[str] = mapped_column(String(20), default="unresolved")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    asset: Mapped[Asset | None] = relationship()
+
+
+class FilingMetadata(Base):
+    """Metadata for a single 13F-HR filing."""
+
+    __tablename__ = "filing_metadata"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    manager_id: Mapped[int] = mapped_column(ForeignKey("managers.id"), index=True)
+    accession_number: Mapped[str] = mapped_column(String(25), unique=True)
+    filing_type: Mapped[str] = mapped_column(String(15))
+    period_of_report: Mapped[date] = mapped_column(index=True)
+    filed_date: Mapped[date]
+    total_value: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    total_holdings: Mapped[int | None] = mapped_column(nullable=True)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_amendment: Mapped[bool] = mapped_column(default=False)
+    supersedes_id: Mapped[int | None] = mapped_column(
+        ForeignKey("filing_metadata.id"), nullable=True
+    )
+    ingestion_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("job_runs.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    manager: Mapped[Manager] = relationship(back_populates="filings")
+    holdings: Mapped[list[InstitutionalHolding]] = relationship(back_populates="filing")
+
+    __table_args__ = (
+        Index("ix_filing_manager_period", "manager_id", "period_of_report"),
+    )
+
+
+class InstitutionalHolding(Base):
+    """Individual holding line from a 13F filing."""
+
+    __tablename__ = "institutional_holdings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    filing_id: Mapped[int] = mapped_column(ForeignKey("filing_metadata.id"), index=True)
+    manager_id: Mapped[int] = mapped_column(ForeignKey("managers.id"), index=True)
+    security_master_id: Mapped[int] = mapped_column(
+        ForeignKey("security_master.id"), index=True
+    )
+    cusip: Mapped[str] = mapped_column(String(9))
+    period_of_report: Mapped[date]
+    shares_held: Mapped[int] = mapped_column(BigInteger)
+    value_thousands: Mapped[int] = mapped_column(BigInteger)
+    put_call: Mapped[str] = mapped_column(String(10), default="NONE")
+    investment_discretion: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    voting_authority_sole: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    voting_authority_shared: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    voting_authority_none: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    filing: Mapped[FilingMetadata] = relationship(back_populates="holdings")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "filing_id", "cusip", "put_call", name="uq_holding_filing_cusip_putcall"
+        ),
+        Index("ix_holding_cusip_period", "cusip", "period_of_report"),
+        Index("ix_holding_manager_period", "manager_id", "period_of_report"),
+        Index("ix_holding_secmaster_period", "security_master_id", "period_of_report"),
+    )
+
+
+class AccumulationSignal(Base):
+    """Aggregated institutional accumulation signal per asset per quarter."""
+
+    __tablename__ = "accumulation_signals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
+    period_of_report: Mapped[date]
+    curated_holders: Mapped[int] = mapped_column(default=0)
+    total_holders: Mapped[int] = mapped_column(default=0)
+    curated_new_positions: Mapped[int] = mapped_column(default=0)
+    total_new_positions: Mapped[int] = mapped_column(default=0)
+    curated_net_shares: Mapped[int] = mapped_column(BigInteger, default=0)
+    total_net_shares: Mapped[int] = mapped_column(BigInteger, default=0)
+    signal_score: Mapped[float] = mapped_column(Float, default=0.0)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    asset: Mapped[Asset] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint(
+            "asset_id", "period_of_report", name="uq_accumulation_asset_period"
+        ),
     )
