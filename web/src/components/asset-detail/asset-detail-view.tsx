@@ -120,7 +120,15 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           capitalAllocation={scoreData.capital_allocation ?? null}
           catalyst={scoreData.catalyst ?? null}
           mlOverride={scoreData.ml_override ?? null}
-          /* institutionalAccumulation — wired when API provides institutional_accumulation */
+          institutionalAccumulation={
+            scoreData.institutional_accumulation
+              ? {
+                  percentile: scoreData.institutional_accumulation.percentile,
+                  newPositions: scoreData.institutional_accumulation.new_positions,
+                  topFunds: scoreData.institutional_accumulation.top_funds,
+                }
+              : undefined
+          }
         />
       )}
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -10,7 +10,17 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from margin_api.app import create_app
 from margin_api.db.base import Base
-from margin_api.db.models import Asset, MlModelRun, Score, V4Score
+from margin_api.db.models import (
+    AccumulationSignal,
+    Asset,
+    FilingMetadata,
+    InstitutionalHolding,
+    Manager,
+    MlModelRun,
+    Score,
+    SecurityMaster,
+    V4Score,
+)
 from margin_api.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -301,3 +311,183 @@ class TestV4ScoreEndpoint:
             # Should use V4 score, not V2
             assert data["conviction_level"] == "exceptional"
             assert data["ml_alpha"] == 0.1
+
+    async def test_score_includes_institutional_accumulation(self, session_factory):
+        """When AccumulationSignal and curated holdings exist, response includes
+        institutional_accumulation with percentile, new_positions, and top_funds."""
+        async with session_factory() as session:
+            asset = Asset(
+                ticker="INST",
+                name="Institutional Corp",
+                sector="Technology",
+                market_cap=Decimal("100000000000"),
+            )
+            session.add(asset)
+            await session.flush()
+
+            # Create V4Score
+            v4 = V4Score(
+                asset_id=asset.id,
+                scored_at=datetime.now(UTC),
+                opportunity_type="compounder",
+                conviction="high",
+                rules_conviction="medium",
+                style="growth",
+                timing_signal="buy_now",
+                max_position_pct=5.0,
+                regime="normal",
+                composite_score=75.0,
+                ml_alpha=0.05,
+                ml_confidence=0.82,
+                ml_override="none",
+                detail=_v4_detail(),
+            )
+            session.add(v4)
+
+            # Create curated managers
+            mgr1 = Manager(
+                cik="0001234567",
+                name="Berkshire Hathaway Inc",
+                short_name="Berkshire Hathaway",
+                tier="curated",
+            )
+            mgr2 = Manager(
+                cik="0009876543",
+                name="Baupost Group LLC",
+                short_name="Baupost Group",
+                tier="curated",
+            )
+            mgr3 = Manager(
+                cik="0001111111",
+                name="Some AUM Fund",
+                tier="top_aum",
+            )
+            session.add_all([mgr1, mgr2, mgr3])
+            await session.flush()
+
+            # Create SecurityMaster entry
+            sec = SecurityMaster(
+                cusip="123456789",
+                ticker="INST",
+                issuer_name="Institutional Corp",
+                asset_id=asset.id,
+                resolution_method="exact",
+            )
+            session.add(sec)
+            await session.flush()
+
+            # Create filings
+            filing1 = FilingMetadata(
+                manager_id=mgr1.id,
+                accession_number="0001234567-26-000001",
+                filing_type="13F-HR",
+                period_of_report=date(2025, 12, 31),
+                filed_date=date(2026, 2, 14),
+            )
+            filing2 = FilingMetadata(
+                manager_id=mgr2.id,
+                accession_number="0009876543-26-000001",
+                filing_type="13F-HR",
+                period_of_report=date(2025, 12, 31),
+                filed_date=date(2026, 2, 14),
+            )
+            filing3 = FilingMetadata(
+                manager_id=mgr3.id,
+                accession_number="0001111111-26-000001",
+                filing_type="13F-HR",
+                period_of_report=date(2025, 12, 31),
+                filed_date=date(2026, 2, 14),
+            )
+            session.add_all([filing1, filing2, filing3])
+            await session.flush()
+
+            # Create holdings (curated managers hold this stock)
+            h1 = InstitutionalHolding(
+                filing_id=filing1.id,
+                manager_id=mgr1.id,
+                security_master_id=sec.id,
+                cusip="123456789",
+                period_of_report=date(2025, 12, 31),
+                shares_held=1000000,
+                value_thousands=50000,
+            )
+            h2 = InstitutionalHolding(
+                filing_id=filing2.id,
+                manager_id=mgr2.id,
+                security_master_id=sec.id,
+                cusip="123456789",
+                period_of_report=date(2025, 12, 31),
+                shares_held=500000,
+                value_thousands=25000,
+            )
+            h3 = InstitutionalHolding(
+                filing_id=filing3.id,
+                manager_id=mgr3.id,
+                security_master_id=sec.id,
+                cusip="123456789",
+                period_of_report=date(2025, 12, 31),
+                shares_held=200000,
+                value_thousands=10000,
+            )
+            session.add_all([h1, h2, h3])
+
+            # Create AccumulationSignal
+            signal = AccumulationSignal(
+                asset_id=asset.id,
+                period_of_report=date(2025, 12, 31),
+                curated_holders=2,
+                total_holders=3,
+                curated_new_positions=2,
+                total_new_positions=3,
+                signal_score=78.5,
+                computed_at=datetime.now(UTC),
+            )
+            session.add(signal)
+            await session.commit()
+
+        async with _make_client(session_factory) as client:
+            resp = await client.get("/api/v1/scores/INST")
+            assert resp.status_code == 200
+            data = resp.json()
+            ia = data.get("institutional_accumulation")
+            assert ia is not None
+            assert ia["percentile"] == 78.5
+            assert ia["new_positions"] == 2
+            assert set(ia["top_funds"]) == {"Berkshire Hathaway", "Baupost Group"}
+
+    async def test_score_no_institutional_accumulation_when_no_signal(self, session_factory):
+        """When no AccumulationSignal exists, institutional_accumulation is null."""
+        async with session_factory() as session:
+            asset = Asset(
+                ticker="NOINST",
+                name="No Inst Corp",
+                sector="Technology",
+                market_cap=Decimal("100000000000"),
+            )
+            session.add(asset)
+            await session.flush()
+
+            v4 = V4Score(
+                asset_id=asset.id,
+                scored_at=datetime.now(UTC),
+                opportunity_type="compounder",
+                conviction="medium",
+                rules_conviction="medium",
+                style="growth",
+                timing_signal="buy_now",
+                max_position_pct=5.0,
+                regime="normal",
+                composite_score=60.0,
+                ml_alpha=0.02,
+                ml_confidence=0.5,
+                ml_override="none",
+                detail=_v4_detail(),
+            )
+            session.add(v4)
+            await session.commit()
+
+        async with _make_client(session_factory) as client:
+            resp = await client.get("/api/v1/scores/NOINST")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data.get("institutional_accumulation") is None

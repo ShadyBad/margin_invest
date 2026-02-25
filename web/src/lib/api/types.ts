@@ -98,6 +98,12 @@ export interface ScoreResponse {
   ml_model_qualified?: boolean | null
   ml_model_rank_ic?: number | null
   ml_model_trained_at?: string | null
+  // Institutional accumulation data (from 13F pipeline)
+  institutional_accumulation?: {
+    percentile: number
+    new_positions: number
+    top_funds: string[]
+  } | null
 }
 
 export interface ScoreListResponse {

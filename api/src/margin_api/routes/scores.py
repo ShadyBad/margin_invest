@@ -549,6 +549,52 @@ async def get_score(
     if sector:
         response.sector_survivor_count = sector_survivor_count
 
+    # Populate institutional_accumulation from 13F pipeline
+    from margin_api.db.models import (
+        AccumulationSignal,
+        InstitutionalHolding,
+        Manager,
+        SecurityMaster,
+    )
+    from margin_api.schemas.scores import InstitutionalAccumulationData
+
+    asset_id = row[0].asset_id
+    accum_q = (
+        select(AccumulationSignal)
+        .where(AccumulationSignal.asset_id == asset_id)
+        .order_by(AccumulationSignal.period_of_report.desc())
+        .limit(1)
+    )
+    accum_result = await db.execute(accum_q)
+    accum_signal = accum_result.scalar_one_or_none()
+
+    if accum_signal is not None:
+        # Get curated manager names who hold this stock in the same period
+        top_funds_q = (
+            select(Manager.short_name, Manager.name)
+            .join(InstitutionalHolding, InstitutionalHolding.manager_id == Manager.id)
+            .join(
+                SecurityMaster,
+                InstitutionalHolding.security_master_id == SecurityMaster.id,
+            )
+            .where(
+                SecurityMaster.asset_id == asset_id,
+                InstitutionalHolding.period_of_report == accum_signal.period_of_report,
+                Manager.tier == "curated",
+            )
+            .order_by(InstitutionalHolding.value_thousands.desc())
+            .limit(10)
+        )
+        top_funds_result = await db.execute(top_funds_q)
+        top_fund_rows = top_funds_result.all()
+        top_funds = [r[0] or r[1] for r in top_fund_rows]
+
+        response.institutional_accumulation = InstitutionalAccumulationData(
+            percentile=accum_signal.signal_score,
+            new_positions=accum_signal.curated_new_positions,
+            top_funds=top_funds,
+        )
+
     includes = set((include or "").split(",")) if include else set()
 
     if "price_history" in includes:

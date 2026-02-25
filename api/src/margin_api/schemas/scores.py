@@ -65,6 +65,14 @@ class SignalTransitionResponse(BaseModel):
     transitioned_at: str
 
 
+class InstitutionalAccumulationData(BaseModel):
+    """Institutional accumulation data for the score response."""
+
+    percentile: float
+    new_positions: int
+    top_funds: list[str]
+
+
 class ScoreResponse(BaseModel):
     """Full scoring result for a single ticker."""
 
@@ -123,6 +131,8 @@ class ScoreResponse(BaseModel):
     ml_model_qualified: bool | None = None
     ml_model_rank_ic: float | None = None
     ml_model_trained_at: str | None = None
+    # Institutional accumulation data (from 13F pipeline)
+    institutional_accumulation: InstitutionalAccumulationData | None = None
     # Conditionally included via ?include=
     price_history: list[PriceBarResponse] | None = None
     signal_history: list[SignalTransitionResponse] | None = None
