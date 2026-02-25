@@ -15,6 +15,27 @@ vi.mock("@/lib/api/backtest", () => ({
   }),
 }))
 
+vi.mock("@/lib/api/thirteenf", () => ({
+  getHoldings: vi.fn().mockResolvedValue({
+    ticker: "AAPL",
+    period_of_report: "2025-12-31",
+    curated_holders: [],
+    other_holders: [],
+    summary: { total_holders: 0, curated_holders: 0, net_shares_changed: 0, signal_score: 0 },
+  }),
+  getHoldingsHistory: vi.fn().mockResolvedValue({ ticker: "AAPL", quarters: [] }),
+}))
+
+vi.mock("recharts", () => ({
+  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
+  AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
+  Area: () => <div data-testid="area" />,
+  XAxis: () => <div data-testid="x-axis" />,
+  YAxis: () => <div data-testid="y-axis" />,
+  Tooltip: () => <div data-testid="tooltip" />,
+  CartesianGrid: () => <div data-testid="cartesian-grid" />,
+}))
+
 function makeScoreResponse(overrides: Partial<ScoreResponse> = {}): ScoreResponse {
   return {
     ticker: "AAPL",
@@ -168,7 +189,7 @@ describe("AssetDetailView", () => {
 })
 
 describe("barrel exports", () => {
-  it("exports all 12 components from index", async () => {
+  it("exports all 13 components from index", async () => {
     const barrel = await import("../index")
     expect(barrel.AssetDetailView).toBeDefined()
     expect(barrel.HeroHeader).toBeDefined()
@@ -181,6 +202,7 @@ describe("barrel exports", () => {
     expect(barrel.ValuationSection).toBeDefined()
     expect(barrel.HypotheticalScores).toBeDefined()
     expect(barrel.MLAuditPanel).toBeDefined()
+    expect(barrel.InstitutionalPositioning).toBeDefined()
     expect(barrel.BacktestTeaser).toBeDefined()
   })
 })

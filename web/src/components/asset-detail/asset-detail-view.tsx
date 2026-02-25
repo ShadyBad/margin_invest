@@ -12,6 +12,7 @@ import { ConvictionEngine } from "./conviction-engine"
 import { ValuationSection } from "./valuation-section"
 import { HypotheticalScores } from "./hypothetical-scores"
 import { MLAuditPanel } from "./ml-audit-panel"
+import { InstitutionalPositioning } from "./institutional-positioning"
 import { BacktestTeaser } from "./backtest-teaser"
 
 interface AssetDetailViewProps {
@@ -134,6 +135,10 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           rulesConviction={scoreData.rules_conviction ?? null}
           conviction={scoreData.conviction_level ?? null}
         />
+      )}
+
+      {allFiltersPassed && (
+        <InstitutionalPositioning ticker={ticker} />
       )}
 
       {allFiltersPassed && (
