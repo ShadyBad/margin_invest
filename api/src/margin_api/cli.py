@@ -1732,6 +1732,169 @@ async def run_correlations_showcase(tickers: list[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 13F Backfill
+# ---------------------------------------------------------------------------
+
+# Curated list of funds for 13F backfill ingestion.
+CURATED_FUNDS: list[dict[str, str]] = [
+    {
+        "cik": "0001067983",
+        "name": "BERKSHIRE HATHAWAY INC",
+        "short_name": "Berkshire Hathaway",
+        "tier": "curated",
+    },
+    {
+        "cik": "0001336528",
+        "name": "BRIDGEWATER ASSOCIATES LP",
+        "short_name": "Bridgewater",
+        "tier": "curated",
+    },
+    {
+        "cik": "0001061768",
+        "name": "BAUPOST GROUP LLC",
+        "short_name": "Baupost Group",
+        "tier": "curated",
+    },
+    {
+        "cik": "0001649339",
+        "name": "APPALOOSA MANAGEMENT LP",
+        "short_name": "Appaloosa",
+        "tier": "curated",
+    },
+    {
+        "cik": "0001037389",
+        "name": "RENAISSANCE TECHNOLOGIES LLC",
+        "short_name": "Renaissance",
+        "tier": "curated",
+    },
+]
+
+
+async def run_backfill_13f(start_year: int = 2013, max_managers: int = 300) -> None:
+    """Backfill historical 13F institutional holdings from SEC EDGAR."""
+    from datetime import date
+
+    from margin_engine.ingestion.providers.edgar_provider import EDGARProvider
+    from sqlalchemy import select as sa_select
+
+    from margin_api.db.models import FilingMetadata, Manager
+    from margin_api.services.thirteenf_ingest import ThirteenFIngestService
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    funds_to_process = CURATED_FUNDS[:max_managers]
+    total_funds = len(funds_to_process)
+
+    # Upsert manager records
+    async with session_factory() as session:
+        service = ThirteenFIngestService(session)
+        await service.upsert_managers(funds_to_process)
+
+    edgar = EDGARProvider()
+    total_filings = 0
+
+    for i, mgr_data in enumerate(funds_to_process, 1):
+        logger.info(
+            "[backfill-13f] [%d/%d] Processing %s...",
+            i,
+            total_funds,
+            mgr_data["short_name"],
+        )
+
+        try:
+            submissions = edgar.get_13f_submissions(mgr_data["cik"])
+            filings = edgar.extract_13f_filings(submissions)
+
+            async with session_factory() as session:
+                service = ThirteenFIngestService(session)
+                # Get the manager record
+                result = await session.execute(
+                    sa_select(Manager).where(Manager.cik == mgr_data["cik"])
+                )
+                mgr = result.scalar_one()
+
+                quarter_count = 0
+                for f in filings:
+                    # Filter by start year
+                    period = f.get("period_of_report", "")
+                    if period and int(period[:4]) < start_year:
+                        continue
+
+                    if not await service.is_filing_new(f["accession_number"]):
+                        continue
+
+                    xml_text = edgar.fetch_infotable_xml(
+                        mgr_data["cik"], f["accession_number"]
+                    )
+                    if xml_text is None:
+                        continue
+
+                    parsed = edgar.parse_full_infotable(
+                        xml_text,
+                        mgr_data["name"],
+                        mgr_data["cik"],
+                        f["filed_date"],
+                        f["period_of_report"],
+                    )
+
+                    filing_meta = FilingMetadata(
+                        manager_id=mgr.id,
+                        accession_number=f["accession_number"],
+                        filing_type=f["filing_type"],
+                        period_of_report=date.fromisoformat(f["period_of_report"]),
+                        filed_date=date.fromisoformat(f["filed_date"]),
+                        total_value=sum(h["value_thousands"] for h in parsed),
+                        total_holdings=len(parsed),
+                        is_amendment=f["is_amendment"],
+                    )
+                    session.add(filing_meta)
+                    await session.flush()
+
+                    await service.store_holdings(filing_meta, mgr, parsed)
+                    quarter_count += 1
+                    total_filings += 1
+
+                logger.info(
+                    "[backfill-13f] [%d/%d] %s: %d quarters ingested",
+                    i,
+                    total_funds,
+                    mgr_data["short_name"],
+                    quarter_count,
+                )
+        except Exception:
+            logger.exception("[backfill-13f] Error processing %s", mgr_data["name"])
+
+    # Run accumulation signals
+    logger.info("[backfill-13f] Computing accumulation signals...")
+    try:
+        from margin_api.services.accumulation_service import AccumulationService
+
+        async with session_factory() as session:
+            acc_service = AccumulationService(session)
+            from sqlalchemy import func as sa_func
+
+            periods_q = sa_select(
+                sa_func.distinct(FilingMetadata.period_of_report)
+            ).order_by(FilingMetadata.period_of_report)
+            result = await session.execute(periods_q)
+            periods = [row[0] for row in result.all()]
+            for period in periods:
+                await acc_service.compute_signals(period_of_report=period)
+        logger.info(
+            "[backfill-13f] Accumulation signals computed for %d quarters", len(periods)
+        )
+    except ImportError:
+        logger.warning(
+            "[backfill-13f] AccumulationService not available, skipping signal computation"
+        )
+
+    logger.info("[backfill-13f] Done. Total filings ingested: %d", total_filings)
+    await engine.dispose()
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 
@@ -1856,6 +2019,23 @@ def main() -> None:
         help="Tickers for showcase",
     )
 
+    # backfill-13f
+    backfill_13f_parser = subparsers.add_parser(
+        "backfill-13f", help="Backfill historical 13F institutional holdings from SEC EDGAR"
+    )
+    backfill_13f_parser.add_argument(
+        "--start-year",
+        type=int,
+        default=2013,
+        help="Earliest year to backfill from (default: 2013)",
+    )
+    backfill_13f_parser.add_argument(
+        "--max-managers",
+        type=int,
+        default=300,
+        help="Maximum number of managers to process (default: 300)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "universe":
@@ -1886,6 +2066,13 @@ def main() -> None:
         else:
             corr_parser.print_help()
             sys.exit(1)
+    elif args.command == "backfill-13f":
+        asyncio.run(
+            run_backfill_13f(
+                start_year=args.start_year,
+                max_managers=args.max_managers,
+            )
+        )
     else:
         parser.print_help()
         sys.exit(1)
