@@ -35,5 +35,6 @@ packages = ["src/margin_engine"]
 
 [dependency-groups]
 dev = [
+    "pytest-asyncio>=1.3.0",
     "ruff>=0.15.1",
 ]
