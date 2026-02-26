@@ -308,6 +308,99 @@ async def full_ingest(
     }
 
 
+async def orchestrate_ingest(ctx: dict) -> dict:
+    """Orchestrate batched ingestion of the full universe.
+
+    Loads the active universe snapshot, chunks tickers into batches,
+    sets Redis coordination keys, and enqueues ingest_batch jobs.
+    """
+    from margin_api.cli import _load_foreign_skips
+
+    pipeline_id = uuid.uuid4().hex[:16]
+    logger.info("[orchestrate] Starting batched ingest (pipeline=%s)", pipeline_id)
+
+    settings = get_settings()
+    batch_size = settings.ingest_batch_size
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Load active universe
+    async with session_factory() as session:
+        snapshot = await get_active_snapshot(session)
+        if snapshot is None:
+            logger.error("[orchestrate] No active universe snapshot")
+            return {"status": "error", "message": "No active universe snapshot"}
+
+    tickers = list(snapshot.tickers)
+    logger.info("[orchestrate] Universe v%s: %d tickers", snapshot.version, len(tickers))
+
+    # Filter out known foreign tickers
+    foreign_skips = _load_foreign_skips()
+    if foreign_skips:
+        before = len(tickers)
+        tickers = [t for t in tickers if t not in foreign_skips]
+        skipped = before - len(tickers)
+        if skipped:
+            logger.info("[orchestrate] Skipped %d known foreign tickers", skipped)
+
+    # Create IngestionRun record
+    async with session_factory() as session:
+        run = IngestionRun(
+            snapshot_id=snapshot.id,
+            run_type="full",
+            tickers_requested=len(tickers),
+            status="running",
+            started_at=datetime.now(UTC),
+            pipeline_id=pipeline_id,
+        )
+        session.add(run)
+        await session.commit()
+        run_id = run.id
+
+    # Chunk tickers into batches
+    batches = [tickers[i : i + batch_size] for i in range(0, len(tickers), batch_size)]
+    total_batches = len(batches)
+
+    logger.info(
+        "[orchestrate] Dispatching %d batches of ~%d tickers (pipeline=%s)",
+        total_batches,
+        batch_size,
+        pipeline_id,
+    )
+
+    # Set Redis coordination keys
+    redis: ArqRedis | None = ctx.get("redis")
+    if not redis:
+        logger.error("[orchestrate] No redis in worker context")
+        return {"status": "error", "message": "No redis in worker context"}
+
+    coord_prefix = f"ingest:{run_id}"
+    await redis.set(f"{coord_prefix}:total", total_batches, ex=86400)
+    await redis.set(f"{coord_prefix}:completed", 0, ex=86400)
+
+    # Enqueue batch jobs
+    for batch_num, batch_tickers in enumerate(batches, start=1):
+        await redis.enqueue_job(
+            "ingest_batch",
+            str(run_id),
+            pipeline_id,
+            batch_tickers,
+            batch_num,
+            _job_id=f"ingest-batch-{run_id}-{batch_num}",
+        )
+
+    logger.info("[orchestrate] All %d batches enqueued (pipeline=%s)", total_batches, pipeline_id)
+
+    return {
+        "status": "dispatched",
+        "pipeline_id": pipeline_id,
+        "run_id": run_id,
+        "total_batches": total_batches,
+        "total_tickers": len(tickers),
+    }
+
+
 async def full_score(
     ctx: dict,
     pipeline_id: str | None = None,
