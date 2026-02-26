@@ -8,7 +8,7 @@ from pathlib import Path
 
 import redis.asyncio as aioredis
 from arq.connections import ArqRedis, create_pool
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from margin_api.config import get_settings
 from margin_api.db.models import Asset
 from margin_api.db.session import get_db
+from margin_api.middleware.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,8 @@ def _verify_admin_key(x_admin_key: str = Header()) -> None:
 
 
 @router.post("/pipeline/trigger")
-async def trigger_pipeline(x_admin_key: str = Header()) -> JSONResponse:
+@limiter.limit("3/minute")
+async def trigger_pipeline(request: Request, x_admin_key: str = Header()) -> JSONResponse:
     """Enqueue a full pipeline run (ingest → v2 score → v3 score).
 
     Requires the X-Admin-Key header matching the MARGIN_ADMIN_KEY env var.
@@ -70,7 +72,8 @@ async def trigger_pipeline(x_admin_key: str = Header()) -> JSONResponse:
 
 
 @router.post("/scoring/trigger")
-async def trigger_scoring(x_admin_key: str = Header()) -> JSONResponse:
+@limiter.limit("3/minute")
+async def trigger_scoring(request: Request, x_admin_key: str = Header()) -> JSONResponse:
     """Enqueue just the scoring pipeline (v2 score → v3 score).
 
     Skips ingestion — useful when data is already seeded but scoring
@@ -106,7 +109,9 @@ async def trigger_scoring(x_admin_key: str = Header()) -> JSONResponse:
 
 
 @router.post("/universe/activate")
+@limiter.limit("3/minute")
 async def activate_universe_endpoint(
+    request: Request,
     x_admin_key: str = Header(),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -158,7 +163,8 @@ async def activate_universe_endpoint(
 
 
 @router.get("/redis/health")
-async def redis_health(x_admin_key: str = Header()) -> dict:
+@limiter.limit("3/minute")
+async def redis_health(request: Request, x_admin_key: str = Header()) -> dict:
     """Check Redis connectivity and inspect ARQ queue state.
 
     Returns connection info, pending job count, and any queued job IDs
@@ -205,7 +211,8 @@ async def redis_health(x_admin_key: str = Header()) -> dict:
 
 
 @router.post("/redis/flush-jobs")
-async def flush_redis_jobs(x_admin_key: str = Header()) -> dict:
+@limiter.limit("3/minute")
+async def flush_redis_jobs(request: Request, x_admin_key: str = Header()) -> dict:
     """Remove all pending jobs from the ARQ queue and their associated keys.
 
     Use this to clear stale/stuck jobs before re-triggering the pipeline.
@@ -246,7 +253,8 @@ async def flush_redis_jobs(x_admin_key: str = Header()) -> dict:
 
 
 @router.post("/ml/train")
-async def trigger_ml_training(x_admin_key: str = Header()) -> JSONResponse:
+@limiter.limit("3/minute")
+async def trigger_ml_training(request: Request, x_admin_key: str = Header()) -> JSONResponse:
     """Enqueue ML model training (clustering + LightGBM).
 
     Requires the X-Admin-Key header matching the MARGIN_ADMIN_KEY env var.
@@ -282,7 +290,9 @@ async def trigger_ml_training(x_admin_key: str = Header()) -> JSONResponse:
 
 
 @router.get("/ingestion/quarantined")
+@limiter.limit("3/minute")
 async def get_quarantined_assets(
+    request: Request,
     x_admin_key: str = Header(),
     session: AsyncSession = Depends(get_db),
 ) -> list[dict]:

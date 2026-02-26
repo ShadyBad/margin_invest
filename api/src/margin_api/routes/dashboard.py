@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from margin_api.schemas.dashboard import (
     PickSummary,
     WatchlistItem,
 )
+from margin_api.middleware.rate_limit import limiter
 from margin_api.schemas.universe import UniverseSummary, Warning
 from margin_api.services.freshness import compute_freshness
 from margin_api.services.universe import get_active_snapshot
@@ -216,7 +217,9 @@ def _derive_signal(
 
 
 @router.get("/dashboard/audit")
+@limiter.limit("20/minute")
 async def audit_dashboard(
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Audit dashboard card values against DB and engine-derived values."""
@@ -301,7 +304,9 @@ async def audit_dashboard(
 
 
 @router.get("/dashboard", response_model=DashboardResponse)
+@limiter.limit("20/minute")
 async def get_dashboard(
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> DashboardResponse:
     """Get dashboard with high-conviction picks and watchlist."""
@@ -417,7 +422,9 @@ async def get_dashboard(
 
 
 @router.get("/dashboard/status")
+@limiter.limit("20/minute")
 async def get_dashboard_status(
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Diagnostic endpoint for debugging empty dashboard issues."""

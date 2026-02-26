@@ -108,9 +108,12 @@ def create_app() -> FastAPI:
     from slowapi.errors import RateLimitExceeded
     from slowapi.middleware import SlowAPIMiddleware
 
-    from margin_api.middleware.rate_limit import get_limiter
+    from margin_api.middleware.rate_limit import configure_limiter, limiter
 
-    limiter = get_limiter()
+    configure_limiter(
+        redis_url=settings.redis_url,
+        enabled=settings.rate_limit_enabled,
+    )
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.add_middleware(SlowAPIMiddleware)

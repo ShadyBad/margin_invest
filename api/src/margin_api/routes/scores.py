@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,7 @@ from margin_api.schemas.scores import (
     ScoreResponse,
 )
 from margin_api.schemas.valuation_audit import ValuationAuditResponse
+from margin_api.middleware.rate_limit import limiter
 from margin_api.services.freshness import compute_freshness
 
 router = APIRouter(prefix="/api/v1/scores", tags=["scores"])
@@ -293,7 +294,9 @@ def _latest_score_subquery():
 
 
 @router.get("", response_model=ScoreListResponse)
+@limiter.limit("20/minute")
 async def list_scores(
+    request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     min_percentile: float = Query(0.0, ge=0.0, le=100.0),
@@ -337,7 +340,9 @@ async def list_scores(
 
 
 @router.get("/{ticker}/history", response_model=ScoreHistoryResponse)
+@limiter.limit("20/minute")
 async def get_score_history(
+    request: Request,
     ticker: str,
     limit: int = Query(default=100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
@@ -397,7 +402,9 @@ async def get_score_history(
 
 
 @router.get("/{ticker}/valuation-audit", response_model=ValuationAuditResponse)
+@limiter.limit("20/minute")
 async def get_valuation_audit(
+    request: Request,
     ticker: str,
     db: AsyncSession = Depends(get_db),
 ) -> ValuationAuditResponse:
@@ -442,7 +449,9 @@ async def _try_get_live_price(ticker: str) -> dict | None:
 
 
 @router.get("/{ticker}", response_model=ScoreResponse)
+@limiter.limit("20/minute")
 async def get_score(
+    request: Request,
     ticker: str,
     include: str | None = Query(None, description="Comma-separated: price_history,signal_history"),
     db: AsyncSession = Depends(get_db),

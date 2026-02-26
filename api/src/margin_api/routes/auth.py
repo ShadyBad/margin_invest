@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import Settings, get_settings
 from margin_api.db.models import LinkedProvider, RecoveryCode, TotpSecret, User
+from margin_api.middleware.rate_limit import limiter
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
 from margin_api.middleware.mfa_enforcement import _ensure_utc, require_mfa_dep
@@ -109,7 +110,9 @@ def _get_email_service() -> EmailService:
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=201)
+@limiter.limit("5/minute")
 async def register(
+    request: Request,
     body: RegisterRequest,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
@@ -130,7 +133,9 @@ async def register(
 
 
 @router.post("/verify-credentials", response_model=VerifyCredentialsResponse)
+@limiter.limit("5/minute")
 async def verify_credentials(
+    request: Request,
     body: VerifyCredentialsRequest,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
@@ -198,7 +203,9 @@ async def confirm_totp(
 
 
 @router.post("/mfa/verify-totp", response_model=MfaVerifyResponse)
+@limiter.limit("5/minute")
 async def verify_totp(
+    request: Request,
     body: VerifyTotpRequest,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
@@ -258,7 +265,9 @@ async def authenticate_webauthn(
 
 
 @router.post("/oauth-sync", response_model=OAuthSyncResponse)
+@limiter.limit("10/minute")
 async def oauth_sync(
+    request: Request,
     body: OAuthSyncRequest,
     db: AsyncSession = Depends(get_db),
 ) -> OAuthSyncResponse:
@@ -341,7 +350,9 @@ async def change_password(
 
 
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
+@limiter.limit("5/minute")
 async def forgot_password(
+    request: Request,
     body: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
@@ -366,7 +377,9 @@ async def forgot_password(
 
 
 @router.post("/reset-password", response_model=ResetPasswordResponse)
+@limiter.limit("5/minute")
 async def reset_password(
+    request: Request,
     body: ResetPasswordRequest,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
@@ -387,7 +400,9 @@ async def reset_password(
 
 
 @router.post("/mfa/verify-recovery", response_model=MfaVerifyResponse)
+@limiter.limit("5/minute")
 async def verify_recovery_code(
+    request: Request,
     body: VerifyRecoveryCodeRequest,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
