@@ -1,18 +1,15 @@
 "use client"
 
-import { Suspense, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
 import { signIn } from "next-auth/react"
 import { startAuthentication } from "@simplewebauthn/browser"
-
-// Use relative URL — proxied to backend via Vercel/Next.js rewrites
 
 type Method = "totp" | "webauthn"
 
 function MfaVerifyContent() {
-  const searchParams = useSearchParams()
-  const userId = searchParams.get("userId")
-  const challengeToken = searchParams.get("challengeToken")
+  const [userId, setUserId] = useState<string | null>(null)
+  const [challengeToken, setChallengeToken] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   const [method, setMethod] = useState<Method>("totp")
   const [verificationCode, setVerificationCode] = useState("")
@@ -20,19 +17,41 @@ function MfaVerifyContent() {
   const [recoveryCode, setRecoveryCode] = useState("")
   const [error, setError] = useState("")
 
+  // Fetch challenge data from httpOnly cookie via server route
+  useEffect(() => {
+    async function fetchChallenge() {
+      try {
+        const res = await fetch("/api/mfa-challenge")
+        if (!res.ok) {
+          setError("MFA session expired. Please sign in again.")
+          setLoading(false)
+          return
+        }
+        const data = await res.json()
+        setUserId(data.userId)
+        setChallengeToken(data.challengeToken)
+      } catch {
+        setError("Unable to load MFA session.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchChallenge()
+  }, [])
+
   const handleVerifyTotp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
     try {
-      const res = await fetch(`/api/v1/auth/mfa/verify-totp`, {
+      // Call mfa/complete which reads the httpOnly cookie
+      const res = await fetch("/api/v1/auth/mfa/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id: Number(userId),
-          code: verificationCode,
-          challenge_token: challengeToken,
+          totp_code: verificationCode,
         }),
+        credentials: "include",
       })
 
       if (!res.ok) {
@@ -43,14 +62,9 @@ function MfaVerifyContent() {
 
       const data = await res.json()
 
-      // Retrieve credentials from session storage for second-pass auth
-      const username = sessionStorage.getItem("mfa_username") || ""
-      const password = sessionStorage.getItem("mfa_password") || ""
-
+      // Use the MFA completion token to sign in without re-sending password
       await signIn("credentials", {
-        username,
-        password,
-        mfaToken: data.mfa_token,
+        mfaCompletionToken: data.mfa_completion_token,
         callbackUrl: "/dashboard",
       })
     } catch (err) {
@@ -97,14 +111,14 @@ function MfaVerifyContent() {
     setError("")
 
     try {
-      const res = await fetch(`/api/v1/auth/mfa/verify-recovery`, {
+      // Call mfa/complete which reads the httpOnly cookie
+      const res = await fetch("/api/v1/auth/mfa/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id: Number(userId),
-          code: recoveryCode,
-          challenge_token: challengeToken,
+          recovery_code: recoveryCode,
         }),
+        credentials: "include",
       })
 
       if (!res.ok) {
@@ -115,20 +129,23 @@ function MfaVerifyContent() {
 
       const data = await res.json()
 
-      // Retrieve credentials from session storage for second-pass auth
-      const username = sessionStorage.getItem("mfa_username") || ""
-      const password = sessionStorage.getItem("mfa_password") || ""
-
+      // Use the MFA completion token to sign in without re-sending password
       await signIn("credentials", {
-        username,
-        password,
-        mfaToken: data.mfa_token,
+        mfaCompletionToken: data.mfa_completion_token,
         callbackUrl: "/dashboard",
       })
     } catch (err) {
       console.error("Recovery code verification error:", err)
       setError("Unable to reach the server. Please try again.")
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
+        <p className="text-[#8A8473]">Loading...</p>
+      </div>
+    )
   }
 
   return (
@@ -281,9 +298,5 @@ function MfaVerifyContent() {
 }
 
 export default function MfaVerifyPage() {
-  return (
-    <Suspense>
-      <MfaVerifyContent />
-    </Suspense>
-  )
+  return <MfaVerifyContent />
 }

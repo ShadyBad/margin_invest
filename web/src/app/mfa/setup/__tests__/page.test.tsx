@@ -9,7 +9,6 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
   }),
-  useSearchParams: () => new URLSearchParams("userId=1&challengeToken=test-token"),
 }))
 
 vi.mock("qrcode.react", () => ({
@@ -36,6 +35,12 @@ const mockRecoveryCodes = [
 function mockFetchForSetup() {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
     const urlStr = typeof url === "string" ? url : url.toString()
+    if (urlStr.includes("/api/mfa-challenge")) {
+      return new Response(
+        JSON.stringify({ userId: "1", challengeToken: "test-token" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    }
     if (urlStr.includes("setup-totp")) {
       return new Response(
         JSON.stringify({
@@ -58,24 +63,43 @@ function mockFetchForSetup() {
   })
 }
 
+function mockFetchForChallengeOnly() {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+    const urlStr = typeof url === "string" ? url : url.toString()
+    if (urlStr.includes("/api/mfa-challenge")) {
+      return new Response(
+        JSON.stringify({ userId: "1", challengeToken: "test-token" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    }
+    return new Response("{}", { status: 404 })
+  })
+}
+
 describe("MFA Setup Page", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.restoreAllMocks()
   })
 
-  it("renders 'Set Up MFA' heading", () => {
+  it("renders 'Set Up MFA' heading", async () => {
+    mockFetchForChallengeOnly()
     render(<MfaSetupPage />)
-    expect(
-      screen.getByRole("heading", { name: /set up mfa/i })
-    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /set up mfa/i })
+      ).toBeInTheDocument()
+    })
   })
 
-  it("renders 'Authenticator App' and 'Security Key' options", () => {
+  it("renders 'Authenticator App' and 'Security Key' options", async () => {
+    mockFetchForChallengeOnly()
     render(<MfaSetupPage />)
-    expect(
-      screen.getByRole("button", { name: /authenticator app/i })
-    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /authenticator app/i })
+      ).toBeInTheDocument()
+    })
     expect(
       screen.getByRole("button", { name: /security key/i })
     ).toBeInTheDocument()
@@ -86,6 +110,12 @@ describe("MFA Setup Page", () => {
     mockFetchForSetup()
 
     render(<MfaSetupPage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /authenticator app/i })
+      ).toBeInTheDocument()
+    })
 
     await user.click(
       screen.getByRole("button", { name: /authenticator app/i })
@@ -101,6 +131,12 @@ describe("MFA Setup Page", () => {
     mockFetchForSetup()
 
     render(<MfaSetupPage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /authenticator app/i })
+      ).toBeInTheDocument()
+    })
 
     // Choose authenticator
     await user.click(screen.getByRole("button", { name: /authenticator app/i }))
@@ -126,6 +162,12 @@ describe("MFA Setup Page", () => {
     mockFetchForSetup()
 
     render(<MfaSetupPage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /authenticator app/i })
+      ).toBeInTheDocument()
+    })
 
     // Go through full setup flow
     await user.click(screen.getByRole("button", { name: /authenticator app/i }))

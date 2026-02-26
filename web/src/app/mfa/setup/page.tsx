@@ -1,20 +1,18 @@
 "use client"
 
-import { Suspense, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
 import { startRegistration } from "@simplewebauthn/browser"
 import { RecoveryCodesDisplay } from "@/components/mfa/recovery-codes-display"
-
-// Use relative URL — proxied to backend via Vercel/Next.js rewrites
 
 type Step = "choose" | "totp" | "webauthn" | "recovery"
 
 function MfaSetupContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const userId = searchParams.get("userId")
-  const challengeToken = searchParams.get("challengeToken")
+  const [userId, setUserId] = useState<string | null>(null)
+  const [challengeToken, setChallengeToken] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   const [step, setStep] = useState<Step>("choose")
   const [provisioningUri, setProvisioningUri] = useState("")
@@ -22,6 +20,28 @@ function MfaSetupContent() {
   const [verificationCode, setVerificationCode] = useState("")
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [error, setError] = useState("")
+
+  // Fetch challenge data from httpOnly cookie via server route
+  useEffect(() => {
+    async function fetchChallenge() {
+      try {
+        const res = await fetch("/api/mfa-challenge")
+        if (!res.ok) {
+          setError("MFA session expired. Please sign in again.")
+          setLoading(false)
+          return
+        }
+        const data = await res.json()
+        setUserId(data.userId)
+        setChallengeToken(data.challengeToken)
+      } catch {
+        setError("Unable to load MFA session.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchChallenge()
+  }, [])
 
   const handleChooseAuthenticator = async () => {
     setError("")
@@ -106,6 +126,14 @@ function MfaSetupContent() {
       console.error("WebAuthn registration error:", err)
       setError("Unable to reach the server. Please try again.")
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
+        <p className="text-[#8A8473]">Loading...</p>
+      </div>
+    )
   }
 
   return (
@@ -213,9 +241,5 @@ function MfaSetupContent() {
 }
 
 export default function MfaSetupPage() {
-  return (
-    <Suspense>
-      <MfaSetupContent />
-    </Suspense>
-  )
+  return <MfaSetupContent />
 }

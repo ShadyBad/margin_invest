@@ -13,11 +13,21 @@ const API_URL = process.env.API_URL || "http://localhost:8000"
  */
 async function proxy(request: Request, path: string) {
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    }
+
+    // Forward the __mfa_challenge cookie for mfa/complete endpoint
+    if (path === "mfa/complete") {
+      const cookieHeader = request.headers.get("cookie")
+      if (cookieHeader) {
+        headers["Cookie"] = cookieHeader
+      }
+    }
+
     const response = await fetch(`${API_URL}/api/v1/auth/${path}`, {
       method: request.method,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: request.method !== "GET" ? await request.text() : undefined,
     })
 
