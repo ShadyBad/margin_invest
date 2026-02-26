@@ -61,6 +61,7 @@ from margin_api.schemas.auth import (
     WebAuthnOptionsRequest,
     WebAuthnOptionsResponse,
 )
+from margin_api.services.audit import audit_log
 from margin_api.services.auth import AuthService, _hasher
 from margin_api.services.email import EmailService
 from margin_api.services.recovery_codes import RecoveryCodeService
@@ -114,6 +115,7 @@ def _get_email_service() -> EmailService:
 async def register(
     request: Request,
     body: RegisterRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
 ) -> RegisterResponse:
@@ -129,6 +131,9 @@ async def register(
             status_code=409,
             detail="A user with this username or email already exists",
         ) from exc
+
+    await audit_log(db, "register", request, user_id=user.id)
+    await db.commit()
     return RegisterResponse(id=user.id, username=user.name, email=user.email)
 
 
@@ -137,6 +142,7 @@ async def register(
 async def verify_credentials(
     request: Request,
     body: VerifyCredentialsRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
 ) -> VerifyCredentialsResponse:
@@ -147,6 +153,9 @@ async def verify_credentials(
 
     challenge_token = await auth.create_challenge_token(db, result["id"])
     mfa_status = "enabled" if result["mfa_enabled"] else "disabled"
+
+    await audit_log(db, "login_success", request, user_id=result["id"])
+    await db.commit()
 
     return VerifyCredentialsResponse(
         id=result["id"],
@@ -336,6 +345,7 @@ async def check_session(
 @router.post("/change-password", response_model=ChangePasswordResponse)
 async def change_password(
     body: ChangePasswordRequest,
+    request: Request,
     user: User = Depends(require_mfa_dep),
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
@@ -349,6 +359,9 @@ async def change_password(
         raise HTTPException(status_code=401, detail="Invalid current password")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    await audit_log(db, "password_change", request, user_id=user.id)
+    await db.commit()
     return ChangePasswordResponse(message="Password changed successfully")
 
 
