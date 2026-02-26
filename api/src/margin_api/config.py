@@ -71,6 +71,11 @@ class Settings(BaseSettings):
     ml_n_clusters: int = 5
     vae_enable: bool = True
 
+    # Batched ingest
+    ingest_batch_size: int = 50
+    ingest_rate_limit: int = 36
+    ingest_concurrency: int = 3
+
     # App
     debug: bool = False
 
