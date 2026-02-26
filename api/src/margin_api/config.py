@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     # Admin
     admin_key: str = ""
 
+    # Rate limiting
+    rate_limit_enabled: bool = True
+
     # Service-to-service auth
     service_auth_secret: str = ""
     require_signed_auth: bool = False

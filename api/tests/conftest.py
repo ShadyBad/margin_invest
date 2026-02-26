@@ -10,10 +10,14 @@ from margin_api.config import get_settings
 
 @pytest.fixture(autouse=True)
 def _clear_settings_cache():
-    """Clear the settings cache before each test for isolation."""
+    """Clear the settings cache and rate limiter before each test for isolation."""
+    from margin_api.middleware.rate_limit import reset_limiter
+
     get_settings.cache_clear()
+    reset_limiter()
     yield
     get_settings.cache_clear()
+    reset_limiter()
 
 
 @pytest.fixture(autouse=True)
