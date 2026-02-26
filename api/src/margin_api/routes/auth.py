@@ -115,7 +115,6 @@ def _get_email_service() -> EmailService:
 async def register(
     request: Request,
     body: RegisterRequest,
-    request: Request,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
 ) -> RegisterResponse:
@@ -142,7 +141,6 @@ async def register(
 async def verify_credentials(
     request: Request,
     body: VerifyCredentialsRequest,
-    request: Request,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
 ) -> VerifyCredentialsResponse:
