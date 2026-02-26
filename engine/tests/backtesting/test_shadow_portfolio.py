@@ -3,7 +3,6 @@
 from datetime import date
 
 import pytest
-
 from margin_engine.backtesting.shadow_portfolio import (
     ShadowPortfolio,
     ShadowPosition,

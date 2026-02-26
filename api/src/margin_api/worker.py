@@ -81,7 +81,10 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
         if price_bars_raw:
             volumes = [
                 float(b.get("volume") or b.get("Volume") or 0)
-                * float(b.get("close") or b.get("Close") or b.get("adj_close") or b.get("Adj Close") or 0)
+                * float(
+                    b.get("close") or b.get("Close")
+                    or b.get("adj_close") or b.get("Adj Close") or 0
+                )
                 for b in price_bars_raw
             ]
             if volumes:

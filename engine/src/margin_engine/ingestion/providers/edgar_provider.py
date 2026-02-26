@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import logging
 import re
-import defusedxml.ElementTree as ET
 from datetime import UTC, datetime
 
+import defusedxml.ElementTree as ET  # noqa: N817
 import httpx
 
 from margin_engine.ingestion.rate_limiter import RateLimiter

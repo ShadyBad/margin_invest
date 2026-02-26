@@ -2,8 +2,6 @@
 
 from datetime import date
 
-import pytest
-
 from margin_engine.backtesting.factor_registry import (
     FactorAvailability,
     FactorRegistry,
@@ -45,8 +43,12 @@ class TestFactorRegistry:
 
     def test_custom_registry(self):
         entries = [
-            FactorAvailability(name="test_factor", available_from=date(2010, 1, 1), category="quality"),
-            FactorAvailability(name="old_factor", available_from=date(2005, 1, 1), category="value"),
+            FactorAvailability(
+                name="test_factor", available_from=date(2010, 1, 1), category="quality",
+            ),
+            FactorAvailability(
+                name="old_factor", available_from=date(2005, 1, 1), category="value",
+            ),
         ]
         registry = FactorRegistry(entries)
         assert len(registry.available_factors(date(2008, 1, 1))) == 1

@@ -31,7 +31,6 @@ from margin_api.db.models import (
     IngestionRun,
     IngestionTickerStatus,
     JobRun,
-    Manager,
     MlModelRun,
     Score,
     UniverseSnapshot,
@@ -992,7 +991,7 @@ async def backtest_validate(ctx: dict) -> dict:
 
 def _parse_factor_breakdown(
     data: dict,
-) -> "FactorBreakdown | None":
+) -> FactorBreakdown | None:  # noqa: F821
     """Parse a FactorBreakdown from a score_detail JSONB sub-dict.
 
     Returns None if the data is malformed or has no sub_scores.
@@ -1041,7 +1040,7 @@ def _parse_factor_breakdown(
 def _composite_from_score_detail(
     ticker: str,
     detail: dict,
-) -> "CompositeScore | None":
+) -> CompositeScore | None:  # noqa: F821
     """Build a CompositeScore from the score_detail JSONB dict.
 
     Returns None if required pillars (quality, value, momentum) are missing

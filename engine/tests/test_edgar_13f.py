@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from margin_engine.ingestion.providers.edgar_provider import EDGARProvider
 
 SAMPLE_INFOTABLE_XML = """<?xml version="1.0" encoding="UTF-8"?>

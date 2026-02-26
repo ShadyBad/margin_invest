@@ -86,7 +86,9 @@ class Settings(BaseSettings):
     # App
     debug: bool = False
 
-    model_config = SettingsConfigDict(env_prefix="MARGIN_", env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_prefix="MARGIN_", env_file=".env", env_file_encoding="utf-8",
+    )
 
 
 @lru_cache

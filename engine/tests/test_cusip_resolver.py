@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-
 from margin_engine.services.cusip_resolver import (
     CUSIPResolver,
     Holding,

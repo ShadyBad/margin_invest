@@ -81,7 +81,7 @@ class TestOrchestrateIngest:
                 ctx = {"redis": mock_redis}
                 with patch("margin_api.workers.get_settings") as mock_settings:
                     mock_settings.return_value.ingest_batch_size = 50
-                    result = await orchestrate_ingest(ctx)
+                    await orchestrate_ingest(ctx)
 
         set_calls = [c for c in mock_redis.method_calls if c[0] == "set"]
         assert len(set_calls) >= 2

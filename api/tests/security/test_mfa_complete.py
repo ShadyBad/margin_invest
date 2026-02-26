@@ -9,12 +9,11 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.config import Settings
 from margin_api.db.models import Base, User
 from margin_api.db.session import get_db
 from margin_api.routes.auth import router as auth_router
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 _TEST_JWT_SECRET = "test-jwt-secret-for-mfa"
 

@@ -4,10 +4,6 @@ from __future__ import annotations
 import argparse
 import inspect
 
-import pytest
-
-from margin_api.cli import main
-
 
 def test_backfill_13f_parser_registers():
     """Verify the backfill-13f subcommand registers with argparse."""

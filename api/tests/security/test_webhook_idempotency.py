@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import pytest
 import pytest_asyncio
+from margin_api.db.models import Base, ProcessedWebhookEvent
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-from margin_api.db.models import Base, ProcessedWebhookEvent
 
 
 @pytest_asyncio.fixture

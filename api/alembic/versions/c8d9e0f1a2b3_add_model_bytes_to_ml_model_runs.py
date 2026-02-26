@@ -5,18 +5,17 @@ Revises: b7c3d4e5f6a7
 Create Date: 2026-02-23 14:30:00.000000
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
-
 
 # revision identifiers, used by Alembic.
 revision: str = 'c8d9e0f1a2b3'
-down_revision: Union[str, Sequence[str], None] = 'b7c3d4e5f6a7'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'b7c3d4e5f6a7'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -81,7 +80,9 @@ def upgrade() -> None:
             sa.Column("artifact_path", sa.String(length=500), nullable=True),
             sa.Column("status", sa.String(length=20), nullable=False, server_default="completed"),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-            sa.Column("model_qualifies", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+            sa.Column(
+                "model_qualifies", sa.Boolean(), nullable=False, server_default=sa.text("false"),
+            ),
             sa.Column("overall_rank_ic", sa.Float(), nullable=True),
             sa.Column("vae_rank_ic", sa.Float(), nullable=True),
             sa.Column("vae_artifact_path", sa.String(length=500), nullable=True),
@@ -97,20 +98,34 @@ def upgrade() -> None:
         if "model_qualifies" not in existing_cols:
             op.add_column(
                 "ml_model_runs",
-                sa.Column("model_qualifies", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+                sa.Column(
+                    "model_qualifies",
+                    sa.Boolean(),
+                    nullable=False,
+                    server_default=sa.text("false"),
+                ),
             )
         if "overall_rank_ic" not in existing_cols:
             op.add_column("ml_model_runs", sa.Column("overall_rank_ic", sa.Float(), nullable=True))
         if "vae_rank_ic" not in existing_cols:
             op.add_column("ml_model_runs", sa.Column("vae_rank_ic", sa.Float(), nullable=True))
         if "vae_artifact_path" not in existing_cols:
-            op.add_column("ml_model_runs", sa.Column("vae_artifact_path", sa.String(length=500), nullable=True))
+            op.add_column(
+                "ml_model_runs",
+                sa.Column("vae_artifact_path", sa.String(length=500), nullable=True),
+            )
 
         # New columns from this migration
         if "cluster_model_data" not in existing_cols:
-            op.add_column("ml_model_runs", sa.Column("cluster_model_data", sa.LargeBinary(), nullable=True))
+            op.add_column(
+                "ml_model_runs",
+                sa.Column("cluster_model_data", sa.LargeBinary(), nullable=True),
+            )
         if "vae_model_data" not in existing_cols:
-            op.add_column("ml_model_runs", sa.Column("vae_model_data", sa.LargeBinary(), nullable=True))
+            op.add_column(
+                "ml_model_runs",
+                sa.Column("vae_model_data", sa.LargeBinary(), nullable=True),
+            )
 
 
 def downgrade() -> None:

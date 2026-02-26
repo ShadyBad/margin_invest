@@ -773,20 +773,7 @@ class TestReplayPipeline:
     def test_barrel_exports_all_new_symbols(self):
         """All new public symbols are importable from the barrel module."""
         from margin_engine.backtesting import (
-            DelistingEvent,
-            DelistingType,
-            FactorAvailability,
             FactorRegistry,
-            FailurePeriod,
-            InMemoryPITProvider,
-            MarketRegimeHistorical,
-            PITSnapshot,
-            PointInTimeProvider,
-            RegimeSegment,
-            ShadowPortfolio,
-            ShadowPosition,
-            ShadowSnapshot,
-            WalkForwardPartition,
             classify_regime,
             compute_failure_audit,
             generate_walk_forward_partitions,

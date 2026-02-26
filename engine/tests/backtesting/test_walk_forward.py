@@ -3,7 +3,6 @@
 from datetime import date
 
 from margin_engine.backtesting.walk_forward import (
-    WalkForwardPartition,
     generate_walk_forward_partitions,
 )
 

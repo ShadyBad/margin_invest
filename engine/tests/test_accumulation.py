@@ -3,7 +3,6 @@ from datetime import date
 
 from margin_engine.services.accumulation import (
     HoldingSummary,
-    QuarterSignal,
     compute_quarter_signals,
 )
 

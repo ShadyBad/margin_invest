@@ -4,7 +4,6 @@ from datetime import date
 
 from margin_engine.backtesting.factor_registry import FactorRegistry
 from margin_engine.backtesting.pit_provider import InMemoryPITProvider
-from margin_engine.backtesting.regime_classifier import MarketRegimeHistorical
 from margin_engine.backtesting.replay_orchestrator import (
     RebalanceAuditRecord,
     ReplayConfig,

@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import time
 
+import fakeredis.aioredis
 import pytest
 import pytest_asyncio
-import fakeredis.aioredis
-
 from margin_api.services.redis_rate_limiter import RedisRateLimiter
 
 

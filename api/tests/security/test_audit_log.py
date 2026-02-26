@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.db.models import AuditLog, Base
 from margin_api.services.audit import audit_log
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
 @pytest_asyncio.fixture

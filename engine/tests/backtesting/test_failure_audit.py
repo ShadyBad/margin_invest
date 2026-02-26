@@ -3,7 +3,6 @@
 from datetime import date
 
 from margin_engine.backtesting.failure_audit import (
-    FailurePeriod,
     compute_failure_audit,
 )
 from margin_engine.backtesting.models import HoldingRecord, MonthlySnapshot

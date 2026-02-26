@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from margin_api.workers import _composite_from_score_detail
 
 

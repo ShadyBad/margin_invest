@@ -569,7 +569,10 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                 if price_bars:
                     vols = [
                         float(b.get("volume") or b.get("Volume") or 0)
-                        * float(b.get("close") or b.get("Close") or b.get("adj_close") or b.get("Adj Close") or 0)
+                        * float(
+                            b.get("close") or b.get("Close")
+                            or b.get("adj_close") or b.get("Adj Close") or 0
+                        )
                         for b in price_bars
                     ]
                     if vols:
@@ -743,7 +746,10 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
                 if bars:
                     vols = [
                         float(b.get("volume") or b.get("Volume") or 0)
-                        * float(b.get("close") or b.get("Close") or b.get("adj_close") or b.get("Adj Close") or 0)
+                        * float(
+                            b.get("close") or b.get("Close")
+                            or b.get("adj_close") or b.get("Adj Close") or 0
+                        )
                         for b in bars
                     ]
                     if vols:
@@ -1156,7 +1162,10 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 if bars:
                     vols = [
                         float(b.get("volume") or b.get("Volume") or 0)
-                        * float(b.get("close") or b.get("Close") or b.get("adj_close") or b.get("Adj Close") or 0)
+                        * float(
+                            b.get("close") or b.get("Close")
+                            or b.get("adj_close") or b.get("Adj Close") or 0
+                        )
                         for b in bars
                     ]
                     if vols:

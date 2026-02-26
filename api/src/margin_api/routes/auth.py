@@ -5,10 +5,9 @@ from __future__ import annotations
 import json
 import logging
 import time
-
-import jwt as pyjwt
 from datetime import UTC, datetime, timedelta
 
+import jwt as pyjwt
 from argon2.exceptions import VerifyMismatchError
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import delete, select
@@ -17,10 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import Settings, get_settings
 from margin_api.db.models import LinkedProvider, RecoveryCode, TotpSecret, User
-from margin_api.middleware.rate_limit import limiter
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
 from margin_api.middleware.mfa_enforcement import _ensure_utc, require_mfa_dep
+from margin_api.middleware.rate_limit import limiter
 from margin_api.schemas.auth import (
     ChangePasswordRequest,
     ChangePasswordResponse,

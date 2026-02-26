@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import Asset, MlModelRun, Score, V4Score
 from margin_api.db.session import get_db
+from margin_api.middleware.rate_limit import limiter
 from margin_api.schemas.score_history import ScoreHistoryPoint, ScoreHistoryResponse
 from margin_api.schemas.scores import (
     FactorBreakdownResponse,
@@ -17,7 +18,6 @@ from margin_api.schemas.scores import (
     ScoreResponse,
 )
 from margin_api.schemas.valuation_audit import ValuationAuditResponse
-from margin_api.middleware.rate_limit import limiter
 from margin_api.services.freshness import compute_freshness
 
 router = APIRouter(prefix="/api/v1/scores", tags=["scores"])
@@ -484,13 +484,18 @@ async def get_score(
         ml_result = await db.execute(ml_model_query)
         ml_model = ml_result.scalar_one_or_none()
 
-        response = _v4_score_response_from_row(v4_row, ml_model=ml_model, live_price_data=live_price_data)
+        response = _v4_score_response_from_row(
+            v4_row, ml_model=ml_model, live_price_data=live_price_data,
+        )
         # Use v4_row for asset_id reference in include queries below
         row = v4_row
     else:
         # Fallback to Score table (v2)
         query = (
-            select(Score, Asset.ticker, Asset.name.label("asset_name"), Asset.sector.label("asset_sector"))
+            select(
+                Score, Asset.ticker,
+                Asset.name.label("asset_name"), Asset.sector.label("asset_sector"),
+            )
             .join(Asset, Score.asset_id == Asset.id)
             .where(Asset.ticker == ticker)
             .order_by(Score.scored_at.desc())

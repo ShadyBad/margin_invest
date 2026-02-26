@@ -71,7 +71,9 @@ def upgrade() -> None:
         sa.Column("n_samples", sa.Integer(), server_default=sa.text("0"), nullable=False),
         sa.Column("train_metrics", jsonb_variant, nullable=True),
         sa.Column("artifact_path", sa.String(length=500), nullable=True),
-        sa.Column("status", sa.String(length=20), server_default=sa.text("'completed'"), nullable=False),
+        sa.Column(
+            "status", sa.String(length=20), server_default=sa.text("'completed'"), nullable=False,
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("model_qualifies", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.Column("overall_rank_ic", sa.Float(), nullable=True),

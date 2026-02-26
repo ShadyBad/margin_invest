@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
-
 from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
 from margin_engine.ingestion.rate_limiter import RateLimiter
 

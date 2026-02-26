@@ -9,12 +9,11 @@ import pytest
 import pytest_asyncio
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.config import Settings, get_settings
 from margin_api.db.base import Base
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 _TEST_SECRET = "jwt-test-secret-64-bytes-" + "x" * 39
 

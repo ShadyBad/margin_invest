@@ -4,6 +4,10 @@ from __future__ import annotations
 import logging
 from datetime import UTC, date, datetime
 
+from margin_engine.services.accumulation import (
+    HoldingSummary,
+    compute_quarter_signals,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,10 +17,6 @@ from margin_api.db.models import (
     InstitutionalHolding,
     Manager,
     SecurityMaster,
-)
-from margin_engine.services.accumulation import (
-    HoldingSummary,
-    compute_quarter_signals,
 )
 
 logger = logging.getLogger(__name__)

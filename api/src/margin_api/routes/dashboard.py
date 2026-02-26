@@ -10,12 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import Asset, Score, UniverseSnapshot, V4Score
 from margin_api.db.session import get_db
+from margin_api.middleware.rate_limit import limiter
 from margin_api.schemas.dashboard import (
     DashboardResponse,
     PickSummary,
     WatchlistItem,
 )
-from margin_api.middleware.rate_limit import limiter
 from margin_api.schemas.universe import UniverseSummary, Warning
 from margin_api.services.freshness import compute_freshness
 from margin_api.services.universe import get_active_snapshot
