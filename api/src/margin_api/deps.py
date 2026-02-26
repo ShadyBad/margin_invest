@@ -8,6 +8,7 @@ import logging
 import time
 from collections.abc import Callable
 
+import jwt as pyjwt
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,7 +39,7 @@ async def get_current_user_id(
     3. Unsigned X-User-Id (only when require_signed_auth=False, logs warning)
     """
 
-    # --- Path 1: JWT Bearer token (added in Task 7) ---
+    # --- Path 1: JWT Bearer token ---
     if authorization and authorization.startswith("Bearer "):
         return await _verify_jwt_token(authorization[7:], settings)
 
@@ -108,9 +109,31 @@ def _verify_hmac(
 
 
 async def _verify_jwt_token(token: str, settings: Settings) -> int:
-    """Verify a JWT service token. Implemented in Task 7."""
-    # Placeholder — will be implemented in Task 7
-    raise HTTPException(status_code=401, detail="JWT auth not yet implemented")
+    """Verify a JWT service token signed by the Next.js server."""
+    if not settings.service_auth_secret:
+        raise HTTPException(status_code=500, detail="Service auth not configured")
+
+    try:
+        payload = pyjwt.decode(
+            token,
+            settings.service_auth_secret,
+            algorithms=["HS256"],
+            options={"require": ["sub", "exp", "iat"]},
+            leeway=30,
+        )
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except pyjwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    sub = payload.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Missing sub claim")
+
+    try:
+        return int(sub)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid user ID in token")
 
 
 PLAN_TIERS = {"analyst": 0, "portfolio": 1, "institutional": 2, "operator": 3}
