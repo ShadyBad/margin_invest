@@ -7,6 +7,7 @@ paid providers.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 import yfinance as yf
@@ -77,6 +78,13 @@ class YFinanceProvider(DataProvider):
         """Block until a rate-limit token is available (if limiter configured)."""
         if self._rate_limiter is not None:
             self._rate_limiter.wait_and_acquire()
+
+    async def _acquire_rate_limit_async(self) -> None:
+        """Async version -- awaits if the limiter's wait_and_acquire is a coroutine."""
+        if self._rate_limiter is not None:
+            result = self._rate_limiter.wait_and_acquire()
+            if asyncio.iscoroutine(result):
+                await result
 
     @property
     def info(self) -> ProviderInfo:
