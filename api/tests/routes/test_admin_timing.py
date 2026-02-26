@@ -1,6 +1,5 @@
 """Test that admin key comparison uses constant-time comparison."""
 
-
 from margin_api.routes.admin import _verify_admin_key
 
 

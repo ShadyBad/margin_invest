@@ -20,9 +20,7 @@ from margin_engine.models.financial import (
 )
 
 
-def _make_profile(
-    ticker: str, sector: GICSSector = GICSSector.TECHNOLOGY
-) -> AssetProfile:
+def _make_profile(ticker: str, sector: GICSSector = GICSSector.TECHNOLOGY) -> AssetProfile:
     return AssetProfile(
         ticker=ticker,
         name=f"{ticker} Inc",

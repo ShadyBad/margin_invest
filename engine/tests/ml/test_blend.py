@@ -30,9 +30,7 @@ class TestBlendWithVAE:
         assert unc == 0.5
 
     def test_vae_enabled(self) -> None:
-        blended, unc = blend_with_vae(
-            0.02, 0.04, 0.03, 0.5, gbm_weight=0.30, vae_weight=0.15
-        )
+        blended, unc = blend_with_vae(0.02, 0.04, 0.03, 0.5, gbm_weight=0.30, vae_weight=0.15)
         # 0.55 * 0.02 + 0.30 * 0.04 + 0.15 * 0.03 = 0.011 + 0.012 + 0.0045 = 0.0275
         assert abs(blended - 0.0275) < 1e-10
 

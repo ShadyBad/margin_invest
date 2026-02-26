@@ -64,9 +64,7 @@ _DEFAULT_ENTRIES = [
         name="gross_profitability", available_from=date(2005, 1, 1), category="quality"
     ),
     FactorAvailability(name="f_score", available_from=date(2005, 1, 1), category="quality"),
-    FactorAvailability(
-        name="accrual_ratio", available_from=date(2005, 1, 1), category="quality"
-    ),
+    FactorAvailability(name="accrual_ratio", available_from=date(2005, 1, 1), category="quality"),
     FactorAvailability(name="roic_wacc", available_from=date(2006, 1, 1), category="quality"),
     FactorAvailability(name="roic_trend", available_from=date(2006, 1, 1), category="quality"),
     FactorAvailability(
@@ -75,17 +73,13 @@ _DEFAULT_ENTRIES = [
         category="quality",
         notes="Needs 3yr history",
     ),
-    FactorAvailability(
-        name="fcf_conversion", available_from=date(2005, 1, 1), category="quality"
-    ),
+    FactorAvailability(name="fcf_conversion", available_from=date(2005, 1, 1), category="quality"),
     FactorAvailability(
         name="capital_allocation", available_from=date(2006, 1, 1), category="quality"
     ),
     # Value factors
     FactorAvailability(name="ev_fcf", available_from=date(2005, 1, 1), category="value"),
-    FactorAvailability(
-        name="ev_gross_profit", available_from=date(2005, 1, 1), category="value"
-    ),
+    FactorAvailability(name="ev_gross_profit", available_from=date(2005, 1, 1), category="value"),
     FactorAvailability(
         name="acquirers_multiple", available_from=date(2005, 1, 1), category="value"
     ),
@@ -93,9 +87,7 @@ _DEFAULT_ENTRIES = [
     FactorAvailability(name="owner_earnings", available_from=date(2006, 1, 1), category="value"),
     FactorAvailability(name="peg_ratio", available_from=date(2006, 1, 1), category="value"),
     # Momentum factors
-    FactorAvailability(
-        name="price_momentum", available_from=date(2005, 1, 1), category="momentum"
-    ),
+    FactorAvailability(name="price_momentum", available_from=date(2005, 1, 1), category="momentum"),
     FactorAvailability(
         name="multi_horizon_momentum", available_from=date(2005, 1, 1), category="momentum"
     ),

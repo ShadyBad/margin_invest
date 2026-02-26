@@ -656,41 +656,31 @@ class TestSchemaConstraints:
     @pytest.mark.asyncio
     async def test_managers_table_exists(self, async_engine):
         async with async_engine.connect() as conn:
-            tables = await conn.run_sync(
-                lambda sync_conn: inspect(sync_conn).get_table_names()
-            )
+            tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "managers" in tables
 
     @pytest.mark.asyncio
     async def test_security_master_table_exists(self, async_engine):
         async with async_engine.connect() as conn:
-            tables = await conn.run_sync(
-                lambda sync_conn: inspect(sync_conn).get_table_names()
-            )
+            tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "security_master" in tables
 
     @pytest.mark.asyncio
     async def test_filing_metadata_table_exists(self, async_engine):
         async with async_engine.connect() as conn:
-            tables = await conn.run_sync(
-                lambda sync_conn: inspect(sync_conn).get_table_names()
-            )
+            tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "filing_metadata" in tables
 
     @pytest.mark.asyncio
     async def test_institutional_holdings_table_exists(self, async_engine):
         async with async_engine.connect() as conn:
-            tables = await conn.run_sync(
-                lambda sync_conn: inspect(sync_conn).get_table_names()
-            )
+            tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "institutional_holdings" in tables
 
     @pytest.mark.asyncio
     async def test_accumulation_signals_table_exists(self, async_engine):
         async with async_engine.connect() as conn:
-            tables = await conn.run_sync(
-                lambda sync_conn: inspect(sync_conn).get_table_names()
-            )
+            tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "accumulation_signals" in tables
 
     @pytest.mark.asyncio

@@ -485,7 +485,9 @@ async def get_score(
         ml_model = ml_result.scalar_one_or_none()
 
         response = _v4_score_response_from_row(
-            v4_row, ml_model=ml_model, live_price_data=live_price_data,
+            v4_row,
+            ml_model=ml_model,
+            live_price_data=live_price_data,
         )
         # Use v4_row for asset_id reference in include queries below
         row = v4_row
@@ -493,8 +495,10 @@ async def get_score(
         # Fallback to Score table (v2)
         query = (
             select(
-                Score, Asset.ticker,
-                Asset.name.label("asset_name"), Asset.sector.label("asset_sector"),
+                Score,
+                Asset.ticker,
+                Asset.name.label("asset_name"),
+                Asset.sector.label("asset_sector"),
             )
             .join(Asset, Score.asset_id == Asset.id)
             .where(Asset.ticker == ticker)
@@ -517,9 +521,7 @@ async def get_score(
     from margin_api.db.models import UniverseSnapshot
 
     snap_result = await db.execute(
-        select(UniverseSnapshot.ticker_count)
-        .where(UniverseSnapshot.is_active.is_(True))
-        .limit(1)
+        select(UniverseSnapshot.ticker_count).where(UniverseSnapshot.is_active.is_(True)).limit(1)
     )
     universe_size = snap_result.scalar()
     response.universe_size = universe_size
@@ -539,8 +541,7 @@ async def get_score(
         .join(Asset, Score.asset_id == Asset.id)
         .join(
             latest,
-            (Score.asset_id == latest.c.asset_id)
-            & (Score.scored_at == latest.c.max_scored_at),
+            (Score.asset_id == latest.c.asset_id) & (Score.scored_at == latest.c.max_scored_at),
         )
     )
     all_details_result = await db.execute(all_details_q)

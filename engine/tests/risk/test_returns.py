@@ -34,16 +34,38 @@ class TestReturnsFromPriceBars:
 
     def test_two_tickers_correct_shape_and_values(self) -> None:
         """Two tickers produce correct shape and log return values."""
-        bars_a = [_make_bar(f"2025-01-{d:02d}", p) for d, p in [
-            (1, 100.0), (2, 105.0), (3, 110.0), (6, 108.0), (7, 112.0),
-            (8, 115.0), (9, 118.0), (10, 120.0), (13, 122.0), (14, 125.0),
-            (15, 128.0),
-        ]]
-        bars_b = [_make_bar(f"2025-01-{d:02d}", p) for d, p in [
-            (1, 50.0), (2, 52.0), (3, 54.0), (6, 53.0), (7, 55.0),
-            (8, 56.0), (9, 57.0), (10, 58.0), (13, 59.0), (14, 60.0),
-            (15, 61.0),
-        ]]
+        bars_a = [
+            _make_bar(f"2025-01-{d:02d}", p)
+            for d, p in [
+                (1, 100.0),
+                (2, 105.0),
+                (3, 110.0),
+                (6, 108.0),
+                (7, 112.0),
+                (8, 115.0),
+                (9, 118.0),
+                (10, 120.0),
+                (13, 122.0),
+                (14, 125.0),
+                (15, 128.0),
+            ]
+        ]
+        bars_b = [
+            _make_bar(f"2025-01-{d:02d}", p)
+            for d, p in [
+                (1, 50.0),
+                (2, 52.0),
+                (3, 54.0),
+                (6, 53.0),
+                (7, 55.0),
+                (8, 56.0),
+                (9, 57.0),
+                (10, 58.0),
+                (13, 59.0),
+                (14, 60.0),
+                (15, 61.0),
+            ]
+        ]
         matrix, tickers = returns_from_price_bars({"AAPL": bars_a, "MSFT": bars_b})
         assert tickers == ["AAPL", "MSFT"]
         assert matrix.shape == (10, 2)  # 11 bars -> 10 returns, 2 tickers
@@ -82,11 +104,12 @@ class TestReturnsFromPriceBars:
 
     def test_window_days_limits_trailing_bars(self) -> None:
         """window_days limits the number of trailing bars used."""
-        bars = [_make_bar(f"2025-{m:02d}-{d:02d}", 100.0 + i)
-                for i, (m, d) in enumerate(
-                    [(1, j) for j in range(1, 32)]
-                    + [(2, j) for j in range(1, 29)]
-                )]
+        bars = [
+            _make_bar(f"2025-{m:02d}-{d:02d}", 100.0 + i)
+            for i, (m, d) in enumerate(
+                [(1, j) for j in range(1, 32)] + [(2, j) for j in range(1, 29)]
+            )
+        ]
         # With window_days=15, only last 15 bars used -> 14 returns
         matrix, tickers = returns_from_price_bars({"AAPL": bars}, window_days=15)
         assert tickers == ["AAPL"]
@@ -117,21 +140,30 @@ class TestReturnsFromPriceBars:
     def test_adj_close_preferred_over_close(self) -> None:
         """adj_close is used when available; close is fallback."""
         bars = []
-        for d, c, ac in [(1, 100.0, 95.0), (2, 105.0, 100.0),
-                         (3, 110.0, 105.0), (4, 108.0, 103.0),
-                         (5, 112.0, 107.0), (6, 115.0, 110.0),
-                         (7, 118.0, 113.0), (8, 120.0, 115.0),
-                         (9, 122.0, 117.0), (10, 125.0, 120.0),
-                         (11, 128.0, 123.0)]:
-            bars.append(PriceBar(
-                date=f"2025-01-{d:02d}",
-                open=Decimal(str(c)),
-                high=Decimal(str(c)),
-                low=Decimal(str(c)),
-                close=Decimal(str(c)),
-                volume=1000,
-                adj_close=Decimal(str(ac)),
-            ))
+        for d, c, ac in [
+            (1, 100.0, 95.0),
+            (2, 105.0, 100.0),
+            (3, 110.0, 105.0),
+            (4, 108.0, 103.0),
+            (5, 112.0, 107.0),
+            (6, 115.0, 110.0),
+            (7, 118.0, 113.0),
+            (8, 120.0, 115.0),
+            (9, 122.0, 117.0),
+            (10, 125.0, 120.0),
+            (11, 128.0, 123.0),
+        ]:
+            bars.append(
+                PriceBar(
+                    date=f"2025-01-{d:02d}",
+                    open=Decimal(str(c)),
+                    high=Decimal(str(c)),
+                    low=Decimal(str(c)),
+                    close=Decimal(str(c)),
+                    volume=1000,
+                    adj_close=Decimal(str(ac)),
+                )
+            )
         matrix, tickers = returns_from_price_bars({"X": bars})
         # First return should use adj_close: log(100/95)
         expected = math.log(100.0 / 95.0)

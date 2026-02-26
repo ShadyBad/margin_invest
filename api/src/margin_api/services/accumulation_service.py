@@ -1,4 +1,5 @@
 """DB-layer service for computing accumulation signals from holdings data."""
+
 from __future__ import annotations
 
 import logging
@@ -52,14 +53,11 @@ class AccumulationService:
 
         # Get previous quarter's holdings for delta computation
         prev_period = _previous_quarter(period_of_report)
-        prev_q = (
-            select(
-                InstitutionalHolding.cusip,
-                InstitutionalHolding.shares_held,
-                InstitutionalHolding.manager_id,
-            )
-            .where(InstitutionalHolding.period_of_report == prev_period)
-        )
+        prev_q = select(
+            InstitutionalHolding.cusip,
+            InstitutionalHolding.shares_held,
+            InstitutionalHolding.manager_id,
+        ).where(InstitutionalHolding.period_of_report == prev_period)
         prev_result = await self._session.execute(prev_q)
         prev_holdings = prev_result.all()
 

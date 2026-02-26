@@ -21,9 +21,7 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Create events and notifications tables."""
-    jsonb_variant = sa.JSON().with_variant(
-        postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-    )
+    jsonb_variant = sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")
 
     # -- events ---------------------------------------------------------------
     op.create_table(
@@ -32,24 +30,16 @@ def upgrade() -> None:
         sa.Column("event_id", sa.String(length=36), nullable=False),
         sa.Column("event_type", sa.String(length=30), nullable=False),
         sa.Column("ticker", sa.String(length=10), nullable=False),
-        sa.Column(
-            "timestamp", sa.DateTime(timezone=True), nullable=False
-        ),
+        sa.Column("timestamp", sa.DateTime(timezone=True), nullable=False),
         sa.Column("severity", sa.String(length=10), nullable=False),
         sa.Column("source", sa.String(length=50), nullable=False),
         sa.Column("payload", jsonb_variant, nullable=True),
-        sa.Column(
-            "created_at", sa.DateTime(timezone=True), nullable=False
-        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("event_id"),
     )
-    op.create_index(
-        op.f("ix_events_event_id"), "events", ["event_id"], unique=True
-    )
-    op.create_index(
-        op.f("ix_events_ticker"), "events", ["ticker"], unique=False
-    )
+    op.create_index(op.f("ix_events_event_id"), "events", ["event_id"], unique=True)
+    op.create_index(op.f("ix_events_ticker"), "events", ["ticker"], unique=False)
     op.create_index(
         "ix_events_ticker_timestamp",
         "events",
@@ -61,14 +51,10 @@ def upgrade() -> None:
     op.create_table(
         "notifications",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column(
-            "notification_id", sa.String(length=36), nullable=False
-        ),
+        sa.Column("notification_id", sa.String(length=36), nullable=False),
         sa.Column("event_id", sa.Integer(), nullable=False),
         sa.Column("read", sa.Boolean(), nullable=False),
-        sa.Column(
-            "created_at", sa.DateTime(timezone=True), nullable=False
-        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["event_id"], ["events.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("notification_id"),
@@ -99,9 +85,7 @@ def downgrade() -> None:
     )
     op.drop_table("notifications")
 
-    op.drop_index(
-        "ix_events_ticker_timestamp", table_name="events"
-    )
+    op.drop_index("ix_events_ticker_timestamp", table_name="events")
     op.drop_index(op.f("ix_events_ticker"), table_name="events")
     op.drop_index(op.f("ix_events_event_id"), table_name="events")
     op.drop_table("events")

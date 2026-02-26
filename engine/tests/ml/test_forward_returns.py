@@ -36,10 +36,12 @@ def _make_price_series(
             frac = (i - scored_at_idx) / horizon
             close = start_price + frac * (end_price - start_price)
 
-        bars.append({
-            "date": (base_date + timedelta(days=i)).isoformat(),
-            "close": close,
-        })
+        bars.append(
+            {
+                "date": (base_date + timedelta(days=i)).isoformat(),
+                "close": close,
+            }
+        )
 
     return bars
 

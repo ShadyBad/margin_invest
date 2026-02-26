@@ -121,9 +121,7 @@ def predict_alpha(
     return model.predict(features)
 
 
-def compute_feature_importance(
-    model_bytes: bytes, checksum: str | None = None
-) -> dict[str, float]:
+def compute_feature_importance(model_bytes: bytes, checksum: str | None = None) -> dict[str, float]:
     """Get feature importance from serialized model.
 
     Args:

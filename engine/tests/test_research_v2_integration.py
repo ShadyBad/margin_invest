@@ -133,11 +133,17 @@ class TestPhase3ToPhase2:
 
         # Run optimizer with regime string
         normal_result = optimize_dro_meanvar(
-            candidates, cov, tickers, constraints=constraints,
+            candidates,
+            cov,
+            tickers,
+            constraints=constraints,
             regime=normal_regime.overall.value,
         )
         stressed_result = optimize_dro_meanvar(
-            candidates, cov, tickers, constraints=constraints,
+            candidates,
+            cov,
+            tickers,
+            constraints=constraints,
             regime=stressed_regime.overall.value,
         )
 
@@ -159,8 +165,10 @@ class TestPhase4PostOptimization:
 
         candidates = [
             PortfolioCandidate(
-                ticker=t, expected_alpha=0.03 - 0.005 * i,
-                track="compounder", conviction="high",
+                ticker=t,
+                expected_alpha=0.03 - 0.005 * i,
+                track="compounder",
+                conviction="high",
                 sector=["Tech", "HC", "Fin", "Eng", "Ind"][i],
             )
             for i, t in enumerate(tickers)
@@ -171,7 +179,9 @@ class TestPhase4PostOptimization:
 
         # Phase 2: Optimize
         result = optimize_dro_meanvar(
-            candidates, cov, tickers,
+            candidates,
+            cov,
+            tickers,
             constraints=OptimizationConstraints(max_position=0.40),
         )
         new_weights = result.weights
@@ -218,10 +228,7 @@ class TestPhase5MLPipeline:
 
         # Convert clusters to index-based for training
         ticker_to_idx = {t: i for i, t in enumerate(tickers)}
-        idx_clusters = {
-            cid: [ticker_to_idx[t] for t in ts]
-            for cid, ts in clusters.items()
-        }
+        idx_clusters = {cid: [ticker_to_idx[t] for t in ts] for cid, ts in clusters.items()}
 
         # Train GBM models
         models = train_cluster_models(features, forward_returns, idx_clusters, seed=42)
@@ -237,8 +244,7 @@ class TestPhase5MLPipeline:
         # Blend with composite alphas
         composite_alphas = [0.03, 0.02, 0.015, 0.01, 0.005]
         blended = [
-            blend_alpha(c, float(p), ml_weight=0.30)
-            for c, p in zip(composite_alphas, predictions)
+            blend_alpha(c, float(p), ml_weight=0.30) for c, p in zip(composite_alphas, predictions)
         ]
         assert len(blended) == n_assets
 
@@ -246,15 +252,20 @@ class TestPhase5MLPipeline:
         opt_tickers = [f"OPT{i}" for i in range(n_assets)]
         candidates = [
             PortfolioCandidate(
-                ticker=t, expected_alpha=a, track="compounder",
-                conviction="high", sector="Tech",
+                ticker=t,
+                expected_alpha=a,
+                track="compounder",
+                conviction="high",
+                sector="Tech",
             )
             for t, a in zip(opt_tickers, blended)
         ]
         cov = np.eye(n_assets) * 0.01
 
         result = optimize_dro_meanvar(
-            candidates, cov, opt_tickers,
+            candidates,
+            cov,
+            opt_tickers,
             constraints=OptimizationConstraints(max_position=0.40, max_sector=1.0),
         )
         assert result.solver_status in ("optimal", "optimal_inaccurate")
@@ -287,9 +298,12 @@ class TestPhase5MLPipeline:
         composite_alpha = 0.025
         gbm_alpha = 0.020
         blended, uncertainty = blend_with_vae(
-            composite_alpha, gbm_alpha,
-            vae_mean=float(means[0]), vae_var=float(variances[0]),
-            gbm_weight=0.30, vae_weight=0.15,
+            composite_alpha,
+            gbm_alpha,
+            vae_mean=float(means[0]),
+            vae_var=float(variances[0]),
+            gbm_weight=0.30,
+            vae_weight=0.15,
         )
         assert uncertainty > 0
         # remaining=0.55, gbm=0.30, vae=0.15
@@ -298,9 +312,12 @@ class TestPhase5MLPipeline:
 
         # The uncertainty can be attached to PortfolioCandidate
         candidate = PortfolioCandidate(
-            ticker="TEST", expected_alpha=blended,
-            uncertainty=uncertainty, track="compounder",
-            conviction="high", sector="Tech",
+            ticker="TEST",
+            expected_alpha=blended,
+            uncertainty=uncertainty,
+            track="compounder",
+            conviction="high",
+            sector="Tech",
         )
         assert candidate.uncertainty is not None
         assert candidate.uncertainty > 0
@@ -363,8 +380,7 @@ class TestPhase6BacktestValidation:
 
     def test_signal_significance_on_rank_ic(self):
         """Combine Rank IC report with significance testing."""
-        ic_series = [0.05, 0.08, 0.03, 0.06, 0.09, 0.04, 0.07, 0.05, 0.06, 0.08,
-                     0.04, 0.07]
+        ic_series = [0.05, 0.08, 0.03, 0.06, 0.09, 0.04, 0.07, 0.05, 0.06, 0.08, 0.04, 0.07]
         report = compute_rank_ic_report(ic_series)
 
         t_stat, passes = signal_significance(report.ic_mean, report.n_periods)
@@ -379,9 +395,7 @@ class TestPhase6BacktestValidation:
         """BacktestConfig supports OPTIMIZED mode with DRO params."""
         config = BacktestConfig(
             selection_mode=SelectionMode.OPTIMIZED,
-            optimization_constraints=OptimizationConstraints(
-                max_position=0.15, max_holdings=20
-            ),
+            optimization_constraints=OptimizationConstraints(max_position=0.15, max_holdings=20),
             dro_config=DROConfig(epsilon_base=0.08, gamma_base=1.5),
         )
         assert config.selection_mode == SelectionMode.OPTIMIZED
@@ -395,15 +409,26 @@ class TestPhase6BacktestValidation:
         from margin_engine.backtesting.rank_ic import RankICReport
 
         metrics = PerformanceMetrics(
-            cagr=0.12, excess_cagr=0.05, sharpe_ratio=1.0,
-            sortino_ratio=1.2, max_drawdown=0.20, win_rate=0.58,
-            information_ratio=0.6, total_return=1.5,
-            benchmark_total_return=0.8, num_months=48, avg_turnover=0.25,
+            cagr=0.12,
+            excess_cagr=0.05,
+            sharpe_ratio=1.0,
+            sortino_ratio=1.2,
+            max_drawdown=0.20,
+            win_rate=0.58,
+            information_ratio=0.6,
+            total_return=1.5,
+            benchmark_total_return=0.8,
+            num_months=48,
+            avg_turnover=0.25,
         )
         haircut = haircut_returns(metrics)
         ic_report = RankICReport(
-            ic_mean=0.06, ic_std=0.03, ic_ir=2.0,
-            hit_rate=0.75, n_periods=48, ic_series=[0.06] * 48,
+            ic_mean=0.06,
+            ic_std=0.03,
+            ic_ir=2.0,
+            hit_rate=0.75,
+            n_periods=48,
+            ic_series=[0.06] * 48,
         )
 
         result = BacktestResult(
@@ -446,10 +471,7 @@ class TestFullPipelineEndToEnd:
         clusters = cluster_stocks(features, tickers, n_clusters=2, seed=42)
 
         ticker_to_idx = {t: i for i, t in enumerate(tickers)}
-        idx_clusters = {
-            cid: [ticker_to_idx[t] for t in ts]
-            for cid, ts in clusters.items()
-        }
+        idx_clusters = {cid: [ticker_to_idx[t] for t in ts] for cid, ts in clusters.items()}
         models = train_cluster_models(features, forward_rets, idx_clusters, seed=42)
 
         # Get predictions from first cluster model (simplified)
@@ -467,19 +489,28 @@ class TestFullPipelineEndToEnd:
         sectors = ["Tech", "HC", "Fin", "Eng", "Ind"] * 2
         candidates = [
             PortfolioCandidate(
-                ticker=t, expected_alpha=a, track="compounder",
-                conviction="high", sector=sectors[i],
+                ticker=t,
+                expected_alpha=a,
+                track="compounder",
+                conviction="high",
+                sector=sectors[i],
             )
             for i, (t, a) in enumerate(zip(tickers, blended_alphas))
         ]
         constraints = OptimizationConstraints(
-            max_position=0.25, max_sector=0.50, max_holdings=8,
+            max_position=0.25,
+            max_sector=0.50,
+            max_holdings=8,
         )
         dro_config = DROConfig(epsilon_base=0.05, gamma_base=1.0)
 
         portfolio = optimize_dro_meanvar(
-            candidates, cov_result.matrix, tickers,
-            constraints=constraints, dro_config=dro_config, regime=regime_str,
+            candidates,
+            cov_result.matrix,
+            tickers,
+            constraints=constraints,
+            dro_config=dro_config,
+            regime=regime_str,
         )
         assert portfolio.solver_status in ("optimal", "optimal_inaccurate")
         assert abs(sum(portfolio.weights.values()) - 1.0) < 1e-3
@@ -507,10 +538,17 @@ class TestFullPipelineEndToEnd:
 
         # Publication bias
         metrics = PerformanceMetrics(
-            cagr=0.15, excess_cagr=0.08, sharpe_ratio=1.2,
-            sortino_ratio=1.5, max_drawdown=0.22, win_rate=0.60,
-            information_ratio=0.7, total_return=2.0,
-            benchmark_total_return=0.9, num_months=60, avg_turnover=0.28,
+            cagr=0.15,
+            excess_cagr=0.08,
+            sharpe_ratio=1.2,
+            sortino_ratio=1.5,
+            max_drawdown=0.22,
+            win_rate=0.60,
+            information_ratio=0.7,
+            total_return=2.0,
+            benchmark_total_return=0.9,
+            num_months=60,
+            avg_turnover=0.28,
         )
         haircut = haircut_returns(metrics)
         assert haircut.cagr < metrics.cagr
@@ -530,17 +568,22 @@ class TestFullPipelineEndToEnd:
         tickers = [f"T{i}" for i in range(n_assets)]
         candidates = [
             PortfolioCandidate(
-                ticker=t, expected_alpha=0.03 - 0.005 * i,
-                track="compounder", conviction="high",
+                ticker=t,
+                expected_alpha=0.03 - 0.005 * i,
+                track="compounder",
+                conviction="high",
                 sector=["Tech", "HC", "Fin", "Eng", "Ind"][i],
             )
             for i, t in enumerate(tickers)
         ]
 
         result = optimize_cvar(
-            candidates, scenarios, tickers,
+            candidates,
+            scenarios,
+            tickers,
             constraints=OptimizationConstraints(max_position=0.40),
-            alpha=0.05, risk_aversion=1.0,
+            alpha=0.05,
+            risk_aversion=1.0,
         )
         assert result.solver_status in ("optimal", "optimal_inaccurate")
         assert abs(sum(result.weights.values()) - 1.0) < 1e-3
@@ -561,15 +604,22 @@ class TestAlphaMapperIntegration:
                 factor_name="quality",
                 weight=0.40,
                 sub_scores=[
-                    FactorScore(name="gross_profitability", raw_value=0.3 + i * 0.05,
-                                percentile_rank=50.0 + i * 10),
+                    FactorScore(
+                        name="gross_profitability",
+                        raw_value=0.3 + i * 0.05,
+                        percentile_rank=50.0 + i * 10,
+                    ),
                 ],
             )
             empty_breakdown = FactorBreakdown(
-                factor_name="value", weight=0.30, sub_scores=[],
+                factor_name="value",
+                weight=0.30,
+                sub_scores=[],
             )
             mom_breakdown = FactorBreakdown(
-                factor_name="momentum", weight=0.30, sub_scores=[],
+                factor_name="momentum",
+                weight=0.30,
+                sub_scores=[],
             )
             cs = CompositeScore(
                 ticker=f"T{i}",
@@ -593,8 +643,12 @@ class TestAlphaMapperIntegration:
 
         # Convert to candidates
         v4_results = [
-            {"ticker": f"T{i}", "opportunity_type": "compounder",
-             "conviction": "high", "sector": "Tech"}
+            {
+                "ticker": f"T{i}",
+                "opportunity_type": "compounder",
+                "conviction": "high",
+                "sector": "Tech",
+            }
             for i in range(5)
         ]
         candidates = v4_to_candidates(v4_results, composites, alphas)
@@ -605,7 +659,9 @@ class TestAlphaMapperIntegration:
         cov = np.eye(5) * 0.01
         tickers = [f"T{i}" for i in range(5)]
         result = optimize_dro_meanvar(
-            candidates, cov, tickers,
+            candidates,
+            cov,
+            tickers,
             constraints=OptimizationConstraints(max_position=0.40, max_sector=1.0),
         )
         assert result.solver_status in ("optimal", "optimal_inaccurate")

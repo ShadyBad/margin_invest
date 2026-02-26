@@ -57,6 +57,7 @@ async def setup():
 
     app.dependency_overrides[get_db] = override_db
     from margin_api.config import get_settings
+
     app.dependency_overrides[get_settings] = override_settings
 
     @app.get("/test")
@@ -135,6 +136,7 @@ class TestHmacAuthFlagOff:
 
         app.dependency_overrides[get_db] = override_db
         from margin_api.config import get_settings
+
         app.dependency_overrides[get_settings] = override_settings
 
         @app.get("/test")

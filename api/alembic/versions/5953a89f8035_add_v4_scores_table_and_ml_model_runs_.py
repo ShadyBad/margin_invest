@@ -22,9 +22,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     """Upgrade schema."""
     # Create v4_scores table
-    jsonb_variant = sa.JSON().with_variant(
-        postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-    )
+    jsonb_variant = sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")
     op.create_table(
         "v4_scores",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -48,18 +46,14 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["asset_id"], ["assets.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_v4_scores_asset_id"), "v4_scores", ["asset_id"], unique=False
-    )
+    op.create_index(op.f("ix_v4_scores_asset_id"), "v4_scores", ["asset_id"], unique=False)
     op.create_index(
         "ix_v4_scores_asset_scored",
         "v4_scores",
         ["asset_id", "scored_at"],
         unique=False,
     )
-    op.create_index(
-        "ix_v4_scores_scored_at", "v4_scores", ["scored_at"], unique=False
-    )
+    op.create_index("ix_v4_scores_scored_at", "v4_scores", ["scored_at"], unique=False)
 
     # Create ml_model_runs table (with all columns including v4 additions)
     op.create_table(
@@ -72,7 +66,10 @@ def upgrade() -> None:
         sa.Column("train_metrics", jsonb_variant, nullable=True),
         sa.Column("artifact_path", sa.String(length=500), nullable=True),
         sa.Column(
-            "status", sa.String(length=20), server_default=sa.text("'completed'"), nullable=False,
+            "status",
+            sa.String(length=20),
+            server_default=sa.text("'completed'"),
+            nullable=False,
         ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("model_qualifies", sa.Boolean(), server_default=sa.text("false"), nullable=False),

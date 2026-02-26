@@ -217,26 +217,20 @@ class TestEmitScoreChangeEvents:
         await _create_score(
             db_session, asset1, composite_percentile=30.0, scored_at=now - timedelta(days=1)
         )
-        await _create_score(
-            db_session, asset1, composite_percentile=50.0, scored_at=now
-        )
+        await _create_score(db_session, asset1, composite_percentile=50.0, scored_at=now)
 
         asset2 = await _create_asset(db_session, "GOOG")
         await _create_score(
             db_session, asset2, composite_percentile=70.0, scored_at=now - timedelta(days=1)
         )
-        await _create_score(
-            db_session, asset2, composite_percentile=40.0, scored_at=now
-        )
+        await _create_score(db_session, asset2, composite_percentile=40.0, scored_at=now)
 
         # Small delta -- should NOT produce event
         asset3 = await _create_asset(db_session, "MSFT")
         await _create_score(
             db_session, asset3, composite_percentile=50.0, scored_at=now - timedelta(days=1)
         )
-        await _create_score(
-            db_session, asset3, composite_percentile=52.0, scored_at=now
-        )
+        await _create_score(db_session, asset3, composite_percentile=52.0, scored_at=now)
 
         await db_session.commit()
 

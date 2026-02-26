@@ -104,7 +104,11 @@ class TestIngestBatch:
             from margin_api.workers import ingest_batch
 
             result = await ingest_batch(
-                ctx, "1", "abc123", ["AAPL", "MSFT", "GOOG"], 1,
+                ctx,
+                "1",
+                "abc123",
+                ["AAPL", "MSFT", "GOOG"],
+                1,
             )
 
         assert result["status"] == "completed"
@@ -141,7 +145,11 @@ class TestIngestBatch:
             from margin_api.workers import ingest_batch
 
             result = await ingest_batch(
-                ctx, "1", "abc123", ["AAPL", "FAIL", "GOOG"], 1,
+                ctx,
+                "1",
+                "abc123",
+                ["AAPL", "FAIL", "GOOG"],
+                1,
             )
 
         assert result["succeeded"] == 2
@@ -171,9 +179,7 @@ class TestIngestBatch:
 
         assert result["is_last_batch"] is True
         sweep_calls = [
-            c
-            for c in mock_redis.enqueue_job.call_args_list
-            if c[0][0] == "ingest_sweep"
+            c for c in mock_redis.enqueue_job.call_args_list if c[0][0] == "ingest_sweep"
         ]
         assert len(sweep_calls) == 1
 
@@ -199,13 +205,16 @@ class TestIngestBatchSweep:
             from margin_api.workers import ingest_batch
 
             await ingest_batch(
-                ctx, "1", "abc123", ["AAPL"], 0, is_sweep=True,
+                ctx,
+                "1",
+                "abc123",
+                ["AAPL"],
+                0,
+                is_sweep=True,
             )
 
         complete_calls = [
-            c
-            for c in mock_redis.enqueue_job.call_args_list
-            if c[0][0] == "ingest_sweep_complete"
+            c for c in mock_redis.enqueue_job.call_args_list if c[0][0] == "ingest_sweep_complete"
         ]
         assert len(complete_calls) == 1
 
@@ -235,7 +244,11 @@ class TestIngestBatchRateLimiting:
             from margin_api.workers import ingest_batch
 
             await ingest_batch(
-                ctx, "1", "abc123", ["AAPL", "MSFT", "GOOG"], 1,
+                ctx,
+                "1",
+                "abc123",
+                ["AAPL", "MSFT", "GOOG"],
+                1,
             )
 
         assert mock_limiter_instance.wait_and_acquire.call_count == 3

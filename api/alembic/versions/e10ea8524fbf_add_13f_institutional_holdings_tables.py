@@ -24,9 +24,7 @@ def upgrade() -> None:
     conn = op.get_bind()
     inspector = sa.inspect(conn)
 
-    jsonb_variant = sa.JSON().with_variant(
-        postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-    )
+    jsonb_variant = sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")
 
     # -- managers -------------------------------------------------------------
     if not inspector.has_table("managers"):
@@ -255,9 +253,7 @@ def downgrade() -> None:
     op.drop_table("institutional_holdings")
 
     # -- filing_metadata (depends on managers, job_runs) ----------------------
-    op.drop_index(
-        op.f("ix_filing_metadata_period_of_report"), table_name="filing_metadata"
-    )
+    op.drop_index(op.f("ix_filing_metadata_period_of_report"), table_name="filing_metadata")
     op.drop_index(op.f("ix_filing_metadata_manager_id"), table_name="filing_metadata")
     op.drop_index("ix_filing_manager_period", table_name="filing_metadata")
     op.drop_table("filing_metadata")
@@ -269,9 +265,7 @@ def downgrade() -> None:
     op.drop_table("security_master")
 
     # -- accumulation_signals (depends on assets) -----------------------------
-    op.drop_index(
-        op.f("ix_accumulation_signals_asset_id"), table_name="accumulation_signals"
-    )
+    op.drop_index(op.f("ix_accumulation_signals_asset_id"), table_name="accumulation_signals")
     op.drop_table("accumulation_signals")
 
     # -- managers (no dependencies) -------------------------------------------

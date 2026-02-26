@@ -70,9 +70,7 @@ class TestCVaRBasic:
         tickers = ["T0", "T1", "T2"]
         constraints = OptimizationConstraints(max_position=0.50)
 
-        result = optimize_cvar(
-            candidates, scenarios, tickers, alpha=0.05, constraints=constraints
-        )
+        result = optimize_cvar(candidates, scenarios, tickers, alpha=0.05, constraints=constraints)
         assert result.solver_status in ("optimal", "optimal_inaccurate")
         assert len(result.weights) > 0
 
@@ -108,9 +106,7 @@ class TestCVaRTailProtection:
         tickers = ["T0", "T1", "T2"]
         constraints = OptimizationConstraints(max_position=0.50)
 
-        result = optimize_cvar(
-            candidates, scenarios, tickers, alpha=0.05, constraints=constraints
-        )
+        result = optimize_cvar(candidates, scenarios, tickers, alpha=0.05, constraints=constraints)
         assert result.solver_status in ("optimal", "optimal_inaccurate")
         # T2 should get less weight due to tail risk
         assert result.weights.get("T2", 1.0) < result.weights.get("T0", 0.0) + 0.1
@@ -137,12 +133,8 @@ class TestCVaREdgeCases:
         scenarios = _make_scenarios(200, 5)
         tickers = [f"T{i}" for i in range(5)]
 
-        low_aversion = optimize_cvar(
-            candidates, scenarios, tickers, risk_aversion=0.1
-        )
-        high_aversion = optimize_cvar(
-            candidates, scenarios, tickers, risk_aversion=5.0
-        )
+        low_aversion = optimize_cvar(candidates, scenarios, tickers, risk_aversion=0.1)
+        high_aversion = optimize_cvar(candidates, scenarios, tickers, risk_aversion=5.0)
 
         # Low aversion should put more in T0 (highest alpha)
         assert low_aversion.weights.get("T0", 0) >= high_aversion.weights.get("T0", 0) - 0.05

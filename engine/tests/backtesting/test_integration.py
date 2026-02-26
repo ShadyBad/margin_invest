@@ -666,9 +666,7 @@ def _make_pit_period(month: int, ticker_idx: int) -> FinancialPeriod:
     )
 
 
-def _build_pit_provider(
-    tickers: list[str], months: range
-) -> InMemoryPITProvider:
+def _build_pit_provider(tickers: list[str], months: range) -> InMemoryPITProvider:
     """Build an InMemoryPITProvider with deterministic data for given tickers and months."""
     provider = InMemoryPITProvider()
     for month in months:

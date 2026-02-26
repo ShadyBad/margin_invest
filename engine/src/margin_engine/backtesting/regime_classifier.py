@@ -114,9 +114,7 @@ def segment_by_regime(
     """Group returns by regime for segmented analysis."""
     buckets: dict[MarketRegimeHistorical, dict] = {}
 
-    for _d, regime, pr, br in zip(
-        dates, regimes, portfolio_returns, benchmark_returns
-    ):
+    for _d, regime, pr, br in zip(dates, regimes, portfolio_returns, benchmark_returns):
         if regime not in buckets:
             buckets[regime] = {
                 "portfolio_returns": [],

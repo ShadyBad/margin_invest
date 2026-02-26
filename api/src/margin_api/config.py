@@ -87,7 +87,9 @@ class Settings(BaseSettings):
     debug: bool = False
 
     model_config = SettingsConfigDict(
-        env_prefix="MARGIN_", env_file=".env", env_file_encoding="utf-8",
+        env_prefix="MARGIN_",
+        env_file=".env",
+        env_file_encoding="utf-8",
     )
 
 

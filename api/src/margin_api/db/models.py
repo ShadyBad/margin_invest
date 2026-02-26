@@ -724,9 +724,7 @@ class Manager(Base):
     active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     first_filing_date: Mapped[date | None] = mapped_column(nullable=True)
     last_filing_date: Mapped[date | None] = mapped_column(nullable=True)
-    metadata_json: Mapped[dict | None] = mapped_column(
-        "metadata", JSONVariant, nullable=True
-    )
+    metadata_json: Mapped[dict | None] = mapped_column("metadata", JSONVariant, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -750,9 +748,7 @@ class SecurityMaster(Base):
     figi: Mapped[str | None] = mapped_column(String(12), nullable=True)
     issuer_name: Mapped[str] = mapped_column(Text)
     security_name: Mapped[str | None] = mapped_column(Text, nullable=True)
-    asset_id: Mapped[int | None] = mapped_column(
-        ForeignKey("assets.id"), nullable=True, index=True
-    )
+    asset_id: Mapped[int | None] = mapped_column(ForeignKey("assets.id"), nullable=True, index=True)
     resolution_method: Mapped[str] = mapped_column(String(20), default="unresolved")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
@@ -784,9 +780,7 @@ class FilingMetadata(Base):
     supersedes_id: Mapped[int | None] = mapped_column(
         ForeignKey("filing_metadata.id"), nullable=True
     )
-    ingestion_run_id: Mapped[int | None] = mapped_column(
-        ForeignKey("job_runs.id"), nullable=True
-    )
+    ingestion_run_id: Mapped[int | None] = mapped_column(ForeignKey("job_runs.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -794,9 +788,7 @@ class FilingMetadata(Base):
     manager: Mapped[Manager] = relationship(back_populates="filings")
     holdings: Mapped[list[InstitutionalHolding]] = relationship(back_populates="filing")
 
-    __table_args__ = (
-        Index("ix_filing_manager_period", "manager_id", "period_of_report"),
-    )
+    __table_args__ = (Index("ix_filing_manager_period", "manager_id", "period_of_report"),)
 
 
 class InstitutionalHolding(Base):
@@ -807,9 +799,7 @@ class InstitutionalHolding(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     filing_id: Mapped[int] = mapped_column(ForeignKey("filing_metadata.id"), index=True)
     manager_id: Mapped[int] = mapped_column(ForeignKey("managers.id"), index=True)
-    security_master_id: Mapped[int] = mapped_column(
-        ForeignKey("security_master.id"), index=True
-    )
+    security_master_id: Mapped[int] = mapped_column(ForeignKey("security_master.id"), index=True)
     cusip: Mapped[str] = mapped_column(String(9))
     period_of_report: Mapped[date]
     shares_held: Mapped[int] = mapped_column(BigInteger)
@@ -826,9 +816,7 @@ class InstitutionalHolding(Base):
     filing: Mapped[FilingMetadata] = relationship(back_populates="holdings")
 
     __table_args__ = (
-        UniqueConstraint(
-            "filing_id", "cusip", "put_call", name="uq_holding_filing_cusip_putcall"
-        ),
+        UniqueConstraint("filing_id", "cusip", "put_call", name="uq_holding_filing_cusip_putcall"),
         Index("ix_holding_cusip_period", "cusip", "period_of_report"),
         Index("ix_holding_manager_period", "manager_id", "period_of_report"),
         Index("ix_holding_secmaster_period", "security_master_id", "period_of_report"),
@@ -858,9 +846,7 @@ class AccumulationSignal(Base):
     asset: Mapped[Asset] = relationship()
 
     __table_args__ = (
-        UniqueConstraint(
-            "asset_id", "period_of_report", name="uq_accumulation_asset_period"
-        ),
+        UniqueConstraint("asset_id", "period_of_report", name="uq_accumulation_asset_period"),
     )
 
 

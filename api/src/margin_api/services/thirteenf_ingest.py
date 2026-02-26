@@ -36,9 +36,7 @@ class ThirteenFIngestService:
         """
         managers: list[Manager] = []
         for f in funds:
-            result = await self._session.execute(
-                select(Manager).where(Manager.cik == f["cik"])
-            )
+            result = await self._session.execute(select(Manager).where(Manager.cik == f["cik"]))
             existing = result.scalar_one_or_none()
             if existing:
                 existing.name = f["name"]
@@ -60,15 +58,11 @@ class ThirteenFIngestService:
     async def is_filing_new(self, accession_number: str) -> bool:
         """Check whether a filing with the given accession number already exists."""
         result = await self._session.execute(
-            select(FilingMetadata.id).where(
-                FilingMetadata.accession_number == accession_number
-            )
+            select(FilingMetadata.id).where(FilingMetadata.accession_number == accession_number)
         )
         return result.scalar_one_or_none() is None
 
-    async def get_or_create_security(
-        self, cusip: str, issuer_name: str
-    ) -> SecurityMaster:
+    async def get_or_create_security(self, cusip: str, issuer_name: str) -> SecurityMaster:
         """Return existing SecurityMaster by CUSIP, or create a new unresolved entry."""
         result = await self._session.execute(
             select(SecurityMaster).where(SecurityMaster.cusip == cusip)

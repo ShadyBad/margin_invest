@@ -136,9 +136,7 @@ class CUSIPResolver:
 
         return results
 
-    async def _call_openfigi(
-        self, holdings: list[Holding]
-    ) -> dict[str, ResolvedSecurity]:
+    async def _call_openfigi(self, holdings: list[Holding]) -> dict[str, ResolvedSecurity]:
         """Call the OpenFIGI batch API to resolve CUSIPs.
 
         Sends requests in batches of OPENFIGI_BATCH_SIZE (100).
@@ -148,9 +146,7 @@ class CUSIPResolver:
 
         for i in range(0, len(holdings), OPENFIGI_BATCH_SIZE):
             batch = holdings[i : i + OPENFIGI_BATCH_SIZE]
-            payload = [
-                {"idType": "ID_CUSIP", "idValue": h.cusip} for h in batch
-            ]
+            payload = [{"idType": "ID_CUSIP", "idValue": h.cusip} for h in batch]
 
             headers: dict[str, str] = {"Content-Type": "application/json"}
             if self._api_key:

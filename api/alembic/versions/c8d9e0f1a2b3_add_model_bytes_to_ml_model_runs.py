@@ -5,6 +5,7 @@ Revises: b7c3d4e5f6a7
 Create Date: 2026-02-23 14:30:00.000000
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -12,8 +13,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'c8d9e0f1a2b3'
-down_revision: str | Sequence[str] | None = 'b7c3d4e5f6a7'
+revision: str = "c8d9e0f1a2b3"
+down_revision: str | Sequence[str] | None = "b7c3d4e5f6a7"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -28,9 +29,7 @@ def upgrade() -> None:
     inspector = sa.inspect(conn)
     existing_tables = set(inspector.get_table_names())
 
-    jsonb_variant = sa.JSON().with_variant(
-        postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-    )
+    jsonb_variant = sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")
 
     # --- v4_scores table (from skipped 5953a89f8035) ---
     if "v4_scores" not in existing_tables:
@@ -57,15 +56,11 @@ def upgrade() -> None:
             sa.ForeignKeyConstraint(["asset_id"], ["assets.id"]),
             sa.PrimaryKeyConstraint("id"),
         )
-        op.create_index(
-            op.f("ix_v4_scores_asset_id"), "v4_scores", ["asset_id"], unique=False
-        )
+        op.create_index(op.f("ix_v4_scores_asset_id"), "v4_scores", ["asset_id"], unique=False)
         op.create_index(
             "ix_v4_scores_asset_scored", "v4_scores", ["asset_id", "scored_at"], unique=False
         )
-        op.create_index(
-            "ix_v4_scores_scored_at", "v4_scores", ["scored_at"], unique=False
-        )
+        op.create_index("ix_v4_scores_scored_at", "v4_scores", ["scored_at"], unique=False)
 
     # --- ml_model_runs table (never had a CREATE TABLE migration) ---
     if "ml_model_runs" not in existing_tables:
@@ -81,7 +76,10 @@ def upgrade() -> None:
             sa.Column("status", sa.String(length=20), nullable=False, server_default="completed"),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
             sa.Column(
-                "model_qualifies", sa.Boolean(), nullable=False, server_default=sa.text("false"),
+                "model_qualifies",
+                sa.Boolean(),
+                nullable=False,
+                server_default=sa.text("false"),
             ),
             sa.Column("overall_rank_ic", sa.Float(), nullable=True),
             sa.Column("vae_rank_ic", sa.Float(), nullable=True),

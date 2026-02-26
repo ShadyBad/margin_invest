@@ -34,8 +34,8 @@ def client():
             user_id = user.id
         return engine, factory, user_id
 
-    engine, factory, user_id = asyncio.get_event_loop_policy().new_event_loop().run_until_complete(
-        _setup()
+    engine, factory, user_id = (
+        asyncio.get_event_loop_policy().new_event_loop().run_until_complete(_setup())
     )
 
     app = create_app()

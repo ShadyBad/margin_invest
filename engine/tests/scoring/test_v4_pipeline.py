@@ -221,9 +221,7 @@ class TestScoreUniverseV4:
         results = score_universe_v4(data, shiller_cape=25.0)
         r = results[0]
         # Directly verify the relationship: composite_score = max of qualifying track scores
-        qualifying_scores = [
-            t.score for t in [r.track_a, r.track_b, r.track_c] if t.qualifies
-        ]
+        qualifying_scores = [t.score for t in [r.track_a, r.track_b, r.track_c] if t.qualifies]
         if qualifying_scores:
             assert r.composite_score == max(qualifying_scores)
             assert r.composite_score > 0.0

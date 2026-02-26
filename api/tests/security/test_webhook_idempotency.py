@@ -30,9 +30,7 @@ class TestProcessedWebhookEvent:
         await db_session.commit()
 
         result = await db_session.execute(
-            select(ProcessedWebhookEvent).where(
-                ProcessedWebhookEvent.event_id == "evt_test_123"
-            )
+            select(ProcessedWebhookEvent).where(ProcessedWebhookEvent.event_id == "evt_test_123")
         )
         found = result.scalar_one_or_none()
         assert found is not None
@@ -48,9 +46,7 @@ class TestProcessedWebhookEvent:
         await db_session.commit()
 
         result = await db_session.execute(
-            select(ProcessedWebhookEvent).where(
-                ProcessedWebhookEvent.event_id == "evt_dup_456"
-            )
+            select(ProcessedWebhookEvent).where(ProcessedWebhookEvent.event_id == "evt_dup_456")
         )
         assert result.scalar_one_or_none() is not None
 
@@ -60,9 +56,7 @@ class TestProcessedWebhookEvent:
         db_session.add(ProcessedWebhookEvent(event_id="evt_b", event_type="type_b"))
         await db_session.commit()
 
-        result = await db_session.execute(
-            select(func.count()).select_from(ProcessedWebhookEvent)
-        )
+        result = await db_session.execute(select(func.count()).select_from(ProcessedWebhookEvent))
         assert result.scalar() == 2
 
     @pytest.mark.asyncio
@@ -75,9 +69,7 @@ class TestProcessedWebhookEvent:
         await db_session.commit()
 
         result = await db_session.execute(
-            select(ProcessedWebhookEvent).where(
-                ProcessedWebhookEvent.event_id == "evt_auto_ts"
-            )
+            select(ProcessedWebhookEvent).where(ProcessedWebhookEvent.event_id == "evt_auto_ts")
         )
         found = result.scalar_one()
         assert found.processed_at is not None

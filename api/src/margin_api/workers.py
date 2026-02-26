@@ -232,9 +232,7 @@ async def ingest_batch(
 
     yf_breaker = CircuitBreaker(failure_threshold=10, cooldown_seconds=900.0)
     fmp_breaker = (
-        CircuitBreaker(failure_threshold=10, cooldown_seconds=900.0)
-        if fmp_provider
-        else None
+        CircuitBreaker(failure_threshold=10, cooldown_seconds=900.0) if fmp_provider else None
     )
 
     successes = 0
@@ -293,9 +291,7 @@ async def ingest_batch(
                 provider=provider,
                 session=session,
                 fallback_provider=(
-                    fmp_provider
-                    if (fmp_breaker is None or fmp_breaker.allow_request())
-                    else None
+                    fmp_provider if (fmp_breaker is None or fmp_breaker.allow_request()) else None
                 ),
             )
         tick_ended = datetime.now(UTC)
@@ -765,9 +761,7 @@ async def _emit_score_change_events(session: AsyncSession) -> int:
     Returns the count of events created.
     """
     # Get all distinct asset_ids that have scores
-    asset_ids_result = await session.execute(
-        select(Score.asset_id).distinct()
-    )
+    asset_ids_result = await session.execute(select(Score.asset_id).distinct())
     asset_ids = [row[0] for row in asset_ids_result.all()]
 
     n_events = 0
@@ -961,8 +955,7 @@ async def backtest_validate(ctx: dict) -> dict:
             job.status = "completed"
             job.progress = 1.0
             job.progress_detail = (
-                f"CAGR={bt_result.metrics.cagr:.2%}, "
-                f"Sharpe={bt_result.metrics.sharpe_ratio:.2f}"
+                f"CAGR={bt_result.metrics.cagr:.2%}, Sharpe={bt_result.metrics.sharpe_ratio:.2f}"
             )
             job.completed_at = datetime.now(UTC)
             await session.commit()
@@ -1241,9 +1234,7 @@ async def train_ml_models(ctx: dict) -> dict:
             {
                 "ticker": t,
                 "scored_at": (
-                    str(score.scored_at.date())
-                    if hasattr(score, "scored_at")
-                    else "2024-01-01"
+                    str(score.scored_at.date()) if hasattr(score, "scored_at") else "2024-01-01"
                 ),
             }
             for score, t in rows
@@ -1274,12 +1265,8 @@ async def train_ml_models(ctx: dict) -> dict:
         vae_metrics = None
         if settings.vae_enable:
             try:
-                vae_config = FactorVAEConfig(
-                    enable=True, latent_dim=8, hidden_dim=64, epochs=100
-                )
-                vae_bytes, vae_metrics = train_factor_vae(
-                    features, forward_returns, vae_config
-                )
+                vae_config = FactorVAEConfig(enable=True, latent_dim=8, hidden_dim=64, epochs=100)
+                vae_bytes, vae_metrics = train_factor_vae(features, forward_returns, vae_config)
                 logger.info(
                     "[ml] VAE trained: rank_ic=%.4f, recon_loss=%.4f",
                     vae_metrics.rank_ic,
@@ -1318,9 +1305,7 @@ async def train_ml_models(ctx: dict) -> dict:
             overall_rank_ic = 0.0
 
         model_qualifies = overall_rank_ic > 0.15
-        logger.info(
-            "[ml] Overall rank IC: %.4f (qualifies=%s)", overall_rank_ic, model_qualifies
-        )
+        logger.info("[ml] Overall rank IC: %.4f (qualifies=%s)", overall_rank_ic, model_qualifies)
 
         # Sanitize values for JSONB — numpy types are not JSON-serializable
         def _sanitize(obj: object) -> object:
@@ -1341,12 +1326,8 @@ async def train_ml_models(ctx: dict) -> dict:
 
         raw_metrics = {
             "feature_names": feature_names,
-            "cluster_sizes": {
-                str(k): len(v) for k, v in cluster_indices.items()
-            },
-            "vae_metrics": (
-                vae_metrics.model_dump() if vae_metrics else None
-            ),
+            "cluster_sizes": {str(k): len(v) for k, v in cluster_indices.items()},
+            "vae_metrics": (vae_metrics.model_dump() if vae_metrics else None),
         }
 
         # Record MlModelRun
@@ -1542,9 +1523,7 @@ async def full_13f_ingest(ctx: dict, pipeline_id: str | None = None) -> dict:
                         if not await service.is_filing_new(f["accession_number"]):
                             continue
                         # Fetch and parse infotable
-                        xml_text = edgar.fetch_infotable_xml(
-                            mgr.cik, f["accession_number"]
-                        )
+                        xml_text = edgar.fetch_infotable_xml(mgr.cik, f["accession_number"])
                         if xml_text is None:
                             continue
                         parsed = edgar.parse_full_infotable(
@@ -1587,9 +1566,7 @@ async def full_13f_ingest(ctx: dict, pipeline_id: str | None = None) -> dict:
                 job.status = "completed"
                 job.completed_at = datetime.now(UTC)
                 job.progress = 100.0
-                job.progress_detail = (
-                    f"Ingested {total_filings} filings, {total_holdings} holdings"
-                )
+                job.progress_detail = f"Ingested {total_filings} filings, {total_holdings} holdings"
                 await session.commit()
 
         logger.info(
@@ -1652,9 +1629,8 @@ async def compute_accumulation_signals(ctx: dict, pipeline_id: str | None = None
             # Find all distinct periods that have holdings
             from margin_api.db.models import InstitutionalHolding
 
-            periods_q = (
-                select(func.distinct(InstitutionalHolding.period_of_report))
-                .order_by(InstitutionalHolding.period_of_report)
+            periods_q = select(func.distinct(InstitutionalHolding.period_of_report)).order_by(
+                InstitutionalHolding.period_of_report
             )
             result = await session.execute(periods_q)
             periods = [row[0] for row in result.all()]

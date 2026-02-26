@@ -182,14 +182,16 @@ class FMPProvider(DataProvider):
 
             bars = []
             for bar in raw_bars:
-                bars.append({
-                    "date": bar.get("date", ""),
-                    "open": bar.get("open"),
-                    "high": bar.get("high"),
-                    "low": bar.get("low"),
-                    "close": bar.get("close"),
-                    "volume": bar.get("volume"),
-                })
+                bars.append(
+                    {
+                        "date": bar.get("date", ""),
+                        "open": bar.get("open"),
+                        "high": bar.get("high"),
+                        "low": bar.get("low"),
+                        "close": bar.get("close"),
+                        "volume": bar.get("volume"),
+                    }
+                )
 
             return FetchResult(
                 provider_name=self.info.name,

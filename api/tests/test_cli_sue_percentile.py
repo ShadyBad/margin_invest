@@ -22,8 +22,7 @@ def _rank_sue_scores(sue_raw_scores: dict[str, float]) -> dict[str, float]:
     """Replicate the cross-universe percentile ranking from run_scoring_v3."""
     tickers = list(sue_raw_scores.keys())
     factors = [
-        FactorScore(name="sue", raw_value=sue_raw_scores[t], percentile_rank=0.0)
-        for t in tickers
+        FactorScore(name="sue", raw_value=sue_raw_scores[t], percentile_rank=0.0) for t in tickers
     ]
     ranked = compute_percentile_ranks(factors, invert=False)
     return {t: ranked[i].percentile_rank for i, t in enumerate(tickers)}

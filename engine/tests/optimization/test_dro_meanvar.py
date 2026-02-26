@@ -107,16 +107,25 @@ class TestDROGoldenValue:
 
         candidates = [
             PortfolioCandidate(
-                ticker="A", expected_alpha=0.03, track="compounder",
-                conviction="exceptional", sector="Tech",
+                ticker="A",
+                expected_alpha=0.03,
+                track="compounder",
+                conviction="exceptional",
+                sector="Tech",
             ),
             PortfolioCandidate(
-                ticker="B", expected_alpha=0.02, track="mispricing",
-                conviction="high", sector="Healthcare",
+                ticker="B",
+                expected_alpha=0.02,
+                track="mispricing",
+                conviction="high",
+                sector="Healthcare",
             ),
             PortfolioCandidate(
-                ticker="C", expected_alpha=0.01, track="both",
-                conviction="medium", sector="Financials",
+                ticker="C",
+                expected_alpha=0.01,
+                track="both",
+                conviction="medium",
+                sector="Financials",
             ),
         ]
         tickers = ["A", "B", "C"]
@@ -148,24 +157,39 @@ class TestDROConstraints:
         # 3 sectors: 2 Tech, 2 Healthcare, 1 Financials
         candidates = [
             PortfolioCandidate(
-                ticker="T0", expected_alpha=0.03, track="compounder",
-                conviction="high", sector="Tech",
+                ticker="T0",
+                expected_alpha=0.03,
+                track="compounder",
+                conviction="high",
+                sector="Tech",
             ),
             PortfolioCandidate(
-                ticker="T1", expected_alpha=0.025, track="compounder",
-                conviction="high", sector="Tech",
+                ticker="T1",
+                expected_alpha=0.025,
+                track="compounder",
+                conviction="high",
+                sector="Tech",
             ),
             PortfolioCandidate(
-                ticker="T2", expected_alpha=0.02, track="mispricing",
-                conviction="high", sector="Healthcare",
+                ticker="T2",
+                expected_alpha=0.02,
+                track="mispricing",
+                conviction="high",
+                sector="Healthcare",
             ),
             PortfolioCandidate(
-                ticker="T3", expected_alpha=0.015, track="mispricing",
-                conviction="high", sector="Healthcare",
+                ticker="T3",
+                expected_alpha=0.015,
+                track="mispricing",
+                conviction="high",
+                sector="Healthcare",
             ),
             PortfolioCandidate(
-                ticker="T4", expected_alpha=0.01, track="both",
-                conviction="medium", sector="Financials",
+                ticker="T4",
+                expected_alpha=0.01,
+                track="both",
+                conviction="medium",
+                sector="Financials",
             ),
         ]
         cov = np.eye(5) * 0.01
@@ -229,9 +253,7 @@ class TestDROEdgeCases:
         candidates = _make_candidates(1, alphas=[0.02])
         cov = np.array([[0.0001]])
         constraints = OptimizationConstraints(max_position=1.0)
-        result = optimize_dro_meanvar(
-            candidates, cov, ["T0"], constraints=constraints
-        )
+        result = optimize_dro_meanvar(candidates, cov, ["T0"], constraints=constraints)
         assert result.solver_status in ("optimal", "optimal_inaccurate")
         assert abs(result.weights.get("T0", 0) - 1.0) < 1e-2
 

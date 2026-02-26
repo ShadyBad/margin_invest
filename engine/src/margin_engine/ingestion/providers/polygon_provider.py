@@ -142,9 +142,7 @@ class PolygonProvider(DataProvider):
 
     def fetch_fundamentals(self, ticker: str) -> FetchResult:
         """Not available on Free tier."""
-        raise NotImplementedError(
-            "Polygon fundamentals requires Starter+ plan"
-        )
+        raise NotImplementedError("Polygon fundamentals requires Starter+ plan")
 
     # ------------------------------------------------------------------
     # Earnings (stubbed — requires Starter+ plan)
@@ -152,6 +150,4 @@ class PolygonProvider(DataProvider):
 
     def fetch_earnings(self, ticker: str) -> FetchResult:
         """Not available on Free tier."""
-        raise NotImplementedError(
-            "Polygon earnings requires Starter+ plan"
-        )
+        raise NotImplementedError("Polygon earnings requires Starter+ plan")

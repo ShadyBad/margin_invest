@@ -5,6 +5,7 @@ Revises: 5953a89f8035
 Create Date: 2026-02-23 09:00:00.000000
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -12,8 +13,8 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
 # revision identifiers, used by Alembic.
-revision: str = 'b7c3d4e5f6a7'
-down_revision: str | Sequence[str] | None = '5953a89f8035'
+revision: str = "b7c3d4e5f6a7"
+down_revision: str | Sequence[str] | None = "5953a89f8035"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

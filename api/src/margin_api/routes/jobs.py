@@ -102,9 +102,7 @@ async def get_pipeline_status(
 
     # Scoring stages (v2, v3)
     job_result = await session.execute(
-        select(JobRun)
-        .where(JobRun.pipeline_id == pipeline_id)
-        .order_by(JobRun.id.asc())
+        select(JobRun).where(JobRun.pipeline_id == pipeline_id).order_by(JobRun.id.asc())
     )
     job_runs = job_result.scalars().all()
     for j in job_runs:

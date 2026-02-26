@@ -77,9 +77,7 @@ class TestInMemoryPITProvider:
         provider.add_snapshot(
             date(2008, 3, 1), "AAPL", _make_profile("AAPL"), _make_period(), 150.0
         )
-        provider.add_snapshot(
-            date(2008, 3, 1), "MSFT", _make_profile("MSFT"), _make_period(), 28.0
-        )
+        provider.add_snapshot(date(2008, 3, 1), "MSFT", _make_profile("MSFT"), _make_period(), 28.0)
 
         universe = provider.get_universe(date(2008, 3, 1))
         assert len(universe) == 2
@@ -91,13 +89,16 @@ class TestInMemoryPITProvider:
         provider.add_snapshot(
             date(2008, 3, 1), "AAPL", _make_profile("AAPL"), _make_period(), 150.0
         )
-        provider.add_snapshot(
-            date(2008, 3, 1), "LEH", _make_profile("LEH"), _make_period(), 40.0
+        provider.add_snapshot(date(2008, 3, 1), "LEH", _make_profile("LEH"), _make_period(), 40.0)
+        provider.add_delisting(
+            "LEH",
+            DelistingEvent(
+                ticker="LEH",
+                delist_date=date(2008, 9, 15),
+                delist_type=DelistingType.BANKRUPTCY,
+                last_price=0.20,
+            ),
         )
-        provider.add_delisting("LEH", DelistingEvent(
-            ticker="LEH", delist_date=date(2008, 9, 15),
-            delist_type=DelistingType.BANKRUPTCY, last_price=0.20,
-        ))
 
         # Before delisting: both present
         universe_before = provider.get_universe(date(2008, 3, 1))
@@ -126,10 +127,15 @@ class TestInMemoryPITProvider:
 
     def test_delisting_bankruptcy_returns_zero_value(self):
         provider = InMemoryPITProvider()
-        provider.add_delisting("LEH", DelistingEvent(
-            ticker="LEH", delist_date=date(2008, 9, 15),
-            delist_type=DelistingType.BANKRUPTCY, last_price=0.20,
-        ))
+        provider.add_delisting(
+            "LEH",
+            DelistingEvent(
+                ticker="LEH",
+                delist_date=date(2008, 9, 15),
+                delist_type=DelistingType.BANKRUPTCY,
+                last_price=0.20,
+            ),
+        )
         event = provider.get_delisting("LEH")
         assert event is not None
         assert event.delist_type == DelistingType.BANKRUPTCY
@@ -137,11 +143,16 @@ class TestInMemoryPITProvider:
 
     def test_delisting_acquisition_returns_acquisition_price(self):
         provider = InMemoryPITProvider()
-        provider.add_delisting("ATVI", DelistingEvent(
-            ticker="ATVI", delist_date=date(2023, 10, 13),
-            delist_type=DelistingType.ACQUISITION, last_price=95.0,
-            acquisition_price=95.0,
-        ))
+        provider.add_delisting(
+            "ATVI",
+            DelistingEvent(
+                ticker="ATVI",
+                delist_date=date(2023, 10, 13),
+                delist_type=DelistingType.ACQUISITION,
+                last_price=95.0,
+                acquisition_price=95.0,
+            ),
+        )
         event = provider.get_delisting("ATVI")
         assert event is not None
         assert event.settlement_value == 95.0

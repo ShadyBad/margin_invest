@@ -82,9 +82,7 @@ async def test_upsert_managers_idempotent(db_session: AsyncSession):
 async def test_upsert_managers_updates_existing(db_session: AsyncSession):
     """Upserting a manager with updated name reflects the change."""
     service = ThirteenFIngestService(db_session)
-    funds = [
-        {"cik": "0001067983", "name": "BERKSHIRE OLD", "short_name": "BH", "tier": "curated"}
-    ]
+    funds = [{"cik": "0001067983", "name": "BERKSHIRE OLD", "short_name": "BH", "tier": "curated"}]
     await service.upsert_managers(funds)
 
     funds[0]["name"] = "BERKSHIRE HATHAWAY INC"

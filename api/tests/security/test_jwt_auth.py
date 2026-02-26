@@ -106,18 +106,14 @@ class TestJwtAuth:
         bad_token = jwt.encode(payload, _TEST_SECRET, algorithm="HS256")
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.get(
-                "/test", headers={"Authorization": f"Bearer {bad_token}"}
-            )
+            resp = await client.get("/test", headers={"Authorization": f"Bearer {bad_token}"})
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
     async def test_malformed_token_rejected(self, app):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.get(
-                "/test", headers={"Authorization": "Bearer not.a.jwt"}
-            )
+            resp = await client.get("/test", headers={"Authorization": "Bearer not.a.jwt"})
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
@@ -138,9 +134,7 @@ class TestJwtAuth:
         test_app = FastAPI()
 
         async def override_db():
-            factory = async_sessionmaker(
-                engine, class_=AsyncSession, expire_on_commit=False
-            )
+            factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
             async with factory() as session:
                 yield session
 

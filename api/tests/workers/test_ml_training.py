@@ -199,15 +199,27 @@ class TestCompositeFromScoreDetailOptionalPillars:
 
     def test_all_optional_pillars_together(self):
         detail = _make_full_detail(
-            growth=_make_factor("growth", 0.20, [
-                {"name": "rev_growth", "raw_value": 0.25, "percentile_rank": 85.0},
-            ]),
-            capital_allocation=_make_factor("capital_allocation", 0.15, [
-                {"name": "buyback_yield", "raw_value": 0.03, "percentile_rank": 70.0},
-            ]),
-            catalyst=_make_factor("catalyst", 0.10, [
-                {"name": "sue_percentile", "raw_value": 2.5, "percentile_rank": 88.0},
-            ]),
+            growth=_make_factor(
+                "growth",
+                0.20,
+                [
+                    {"name": "rev_growth", "raw_value": 0.25, "percentile_rank": 85.0},
+                ],
+            ),
+            capital_allocation=_make_factor(
+                "capital_allocation",
+                0.15,
+                [
+                    {"name": "buyback_yield", "raw_value": 0.03, "percentile_rank": 70.0},
+                ],
+            ),
+            catalyst=_make_factor(
+                "catalyst",
+                0.10,
+                [
+                    {"name": "sue_percentile", "raw_value": 2.5, "percentile_rank": 88.0},
+                ],
+            ),
         )
         composite = _composite_from_score_detail("AAPL", detail)
         assert composite is not None
@@ -224,9 +236,7 @@ class TestCompositeFromScoreDetailOptionalPillars:
 
     def test_optional_pillar_empty_sub_scores_ignored(self):
         """Optional pillar with empty sub_scores should be set to None."""
-        detail = _make_full_detail(
-            growth=_make_factor("growth", 0.20, [])
-        )
+        detail = _make_full_detail(growth=_make_factor("growth", 0.20, []))
         composite = _composite_from_score_detail("AAPL", detail)
         assert composite is not None
         assert composite.growth is None

@@ -59,15 +59,17 @@ def compute_failure_audit(
     for snapshot, regime in zip(snapshots, regimes):
         relative = snapshot.benchmark_return - snapshot.portfolio_return
         if relative > 0:
-            periods.append(FailurePeriod(
-                rebalance_date=snapshot.date,
-                portfolio_return=snapshot.portfolio_return,
-                benchmark_return=snapshot.benchmark_return,
-                relative_underperformance=relative,
-                holdings=snapshot.holdings,
-                regime=regime,
-                regime_context=_regime_context(regime, snapshot.date),
-            ))
+            periods.append(
+                FailurePeriod(
+                    rebalance_date=snapshot.date,
+                    portfolio_return=snapshot.portfolio_return,
+                    benchmark_return=snapshot.benchmark_return,
+                    relative_underperformance=relative,
+                    holdings=snapshot.holdings,
+                    regime=regime,
+                    regime_context=_regime_context(regime, snapshot.date),
+                )
+            )
 
     periods.sort(key=lambda p: -p.relative_underperformance)
     return periods[:n_worst]

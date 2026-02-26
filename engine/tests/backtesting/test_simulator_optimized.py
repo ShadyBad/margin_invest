@@ -67,9 +67,7 @@ class FakeBenchmarkProvider:
         if self._base_date is None:
             self._base_date = as_of_date
         months = (
-            (as_of_date.year - self._base_date.year) * 12
-            + as_of_date.month
-            - self._base_date.month
+            (as_of_date.year - self._base_date.year) * 12 + as_of_date.month - self._base_date.month
         )
         return self._start * (1 + self._rate) ** months
 
@@ -195,10 +193,7 @@ class TestOptimizedMode:
         scored_map = {d: scores for d in dates}
 
         # Only give 5 bars per ticker — not enough for covariance
-        sparse_data = {
-            t: _daily_bars("2024-01-02", [100.0 + j for j in range(5)])
-            for t in tickers
-        }
+        sparse_data = {t: _daily_bars("2024-01-02", [100.0 + j for j in range(5)]) for t in tickers}
 
         sim = WalkForwardSimulator(
             config=config,

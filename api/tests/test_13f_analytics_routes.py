@@ -1,4 +1,5 @@
 """Tests for 13F analytics API endpoints."""
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime

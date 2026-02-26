@@ -378,38 +378,40 @@ class TestScoreAssetContext:
             await session.flush()
             # Both pass all filters
             passing_filters = [{"name": "f1", "passed": True, "verdict": "pass"}]
-            session.add_all([
-                Score(
-                    asset_id=a1.id,
-                    composite_percentile=80.0,
-                    conviction_level="high",
-                    signal="buy",
-                    quality_percentile=80.0,
-                    value_percentile=80.0,
-                    momentum_percentile=80.0,
-                    data_coverage=1.0,
-                    score_detail={
-                        **_score_detail("TST1", 80.0, "high", "buy"),
-                        "filters_passed": passing_filters,
-                    },
-                    scored_at=datetime.now(UTC),
-                ),
-                Score(
-                    asset_id=a2.id,
-                    composite_percentile=75.0,
-                    conviction_level="high",
-                    signal="buy",
-                    quality_percentile=75.0,
-                    value_percentile=75.0,
-                    momentum_percentile=75.0,
-                    data_coverage=1.0,
-                    score_detail={
-                        **_score_detail("TST2", 75.0, "high", "buy"),
-                        "filters_passed": passing_filters,
-                    },
-                    scored_at=datetime.now(UTC),
-                ),
-            ])
+            session.add_all(
+                [
+                    Score(
+                        asset_id=a1.id,
+                        composite_percentile=80.0,
+                        conviction_level="high",
+                        signal="buy",
+                        quality_percentile=80.0,
+                        value_percentile=80.0,
+                        momentum_percentile=80.0,
+                        data_coverage=1.0,
+                        score_detail={
+                            **_score_detail("TST1", 80.0, "high", "buy"),
+                            "filters_passed": passing_filters,
+                        },
+                        scored_at=datetime.now(UTC),
+                    ),
+                    Score(
+                        asset_id=a2.id,
+                        composite_percentile=75.0,
+                        conviction_level="high",
+                        signal="buy",
+                        quality_percentile=75.0,
+                        value_percentile=75.0,
+                        momentum_percentile=75.0,
+                        data_coverage=1.0,
+                        score_detail={
+                            **_score_detail("TST2", 75.0, "high", "buy"),
+                            "filters_passed": passing_filters,
+                        },
+                        scored_at=datetime.now(UTC),
+                    ),
+                ]
+            )
             await session.commit()
 
         app = create_app()

@@ -1,4 +1,5 @@
 """Tests for accumulation signal computation service (DB layer)."""
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
@@ -132,9 +133,7 @@ async def test_compute_signals_for_quarter(db_session: AsyncSession, seeded_data
     assert count == 1
 
     result = await db_session.execute(
-        select(AccumulationSignal).where(
-            AccumulationSignal.period_of_report == date(2025, 12, 31)
-        )
+        select(AccumulationSignal).where(AccumulationSignal.period_of_report == date(2025, 12, 31))
     )
     signal = result.scalar_one()
     assert signal.curated_holders == 1
@@ -150,9 +149,7 @@ async def test_compute_signals_idempotent(db_session: AsyncSession, seeded_data)
     await service.compute_signals(period_of_report=date(2025, 12, 31))
     await service.compute_signals(period_of_report=date(2025, 12, 31))
     result = await db_session.execute(
-        select(AccumulationSignal).where(
-            AccumulationSignal.period_of_report == date(2025, 12, 31)
-        )
+        select(AccumulationSignal).where(AccumulationSignal.period_of_report == date(2025, 12, 31))
     )
     assert len(result.scalars().all()) == 1
 
@@ -165,9 +162,7 @@ async def test_new_position_detected(db_session: AsyncSession, seeded_data):
     assert count == 1
 
     result = await db_session.execute(
-        select(AccumulationSignal).where(
-            AccumulationSignal.period_of_report == date(2025, 9, 30)
-        )
+        select(AccumulationSignal).where(AccumulationSignal.period_of_report == date(2025, 9, 30))
     )
     signal = result.scalar_one()
     assert signal.curated_new_positions == 1  # no Q2 data = new position

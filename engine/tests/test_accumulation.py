@@ -1,4 +1,5 @@
 """Tests for institutional accumulation signal computation."""
+
 from datetime import date
 
 from margin_engine.services.accumulation import (

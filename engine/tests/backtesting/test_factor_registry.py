@@ -44,10 +44,14 @@ class TestFactorRegistry:
     def test_custom_registry(self):
         entries = [
             FactorAvailability(
-                name="test_factor", available_from=date(2010, 1, 1), category="quality",
+                name="test_factor",
+                available_from=date(2010, 1, 1),
+                category="quality",
             ),
             FactorAvailability(
-                name="old_factor", available_from=date(2005, 1, 1), category="value",
+                name="old_factor",
+                available_from=date(2005, 1, 1),
+                category="value",
             ),
         ]
         registry = FactorRegistry(entries)

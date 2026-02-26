@@ -12,33 +12,23 @@ from margin_engine.backtesting.regime_classifier import (
 
 class TestClassifyRegime:
     def test_bull_when_above_trough(self):
-        regime = classify_regime(
-            drawdown_from_peak=0.05, vix=15.0, in_nber_recession=False
-        )
+        regime = classify_regime(drawdown_from_peak=0.05, vix=15.0, in_nber_recession=False)
         assert regime == MarketRegimeHistorical.BULL
 
     def test_bear_when_deep_drawdown(self):
-        regime = classify_regime(
-            drawdown_from_peak=0.25, vix=25.0, in_nber_recession=False
-        )
+        regime = classify_regime(drawdown_from_peak=0.25, vix=25.0, in_nber_recession=False)
         assert regime == MarketRegimeHistorical.BEAR
 
     def test_crisis_when_vix_high_and_drawdown(self):
-        regime = classify_regime(
-            drawdown_from_peak=0.30, vix=45.0, in_nber_recession=True
-        )
+        regime = classify_regime(drawdown_from_peak=0.30, vix=45.0, in_nber_recession=True)
         assert regime == MarketRegimeHistorical.CRISIS
 
     def test_sideways_moderate_drawdown(self):
-        regime = classify_regime(
-            drawdown_from_peak=0.12, vix=18.0, in_nber_recession=False
-        )
+        regime = classify_regime(drawdown_from_peak=0.12, vix=18.0, in_nber_recession=False)
         assert regime == MarketRegimeHistorical.SIDEWAYS
 
     def test_crisis_takes_priority_over_bear(self):
-        regime = classify_regime(
-            drawdown_from_peak=0.35, vix=50.0, in_nber_recession=True
-        )
+        regime = classify_regime(drawdown_from_peak=0.35, vix=50.0, in_nber_recession=True)
         assert regime == MarketRegimeHistorical.CRISIS
 
 
@@ -59,9 +49,7 @@ class TestSegmentByRegime:
         portfolio_returns = [0.02, -0.15, -0.08, 0.05]
         benchmark_returns = [0.01, -0.10, -0.05, 0.03]
 
-        segments = segment_by_regime(
-            dates, regimes, portfolio_returns, benchmark_returns
-        )
+        segments = segment_by_regime(dates, regimes, portfolio_returns, benchmark_returns)
         assert MarketRegimeHistorical.CRISIS in segments
         assert MarketRegimeHistorical.BULL in segments
         crisis = segments[MarketRegimeHistorical.CRISIS]
@@ -85,7 +73,5 @@ class TestNBERRecessions:
     def test_date_in_recession(self):
         recessions = get_nber_recessions()
         # March 2009 should be in GFC recession
-        in_recession = any(
-            start <= date(2009, 3, 1) <= end for start, end in recessions
-        )
+        in_recession = any(start <= date(2009, 3, 1) <= end for start, end in recessions)
         assert in_recession

@@ -74,9 +74,7 @@ async def get_current_user_id(
     raise HTTPException(status_code=401, detail="Not authenticated")
 
 
-def _verify_hmac(
-    user_id_str: str, timestamp_str: str, signature: str, settings: Settings
-) -> int:
+def _verify_hmac(user_id_str: str, timestamp_str: str, signature: str, settings: Settings) -> int:
     """Verify HMAC-SHA256 signature over user_id:timestamp."""
     if not settings.service_auth_secret:
         raise HTTPException(status_code=500, detail="Service auth not configured")

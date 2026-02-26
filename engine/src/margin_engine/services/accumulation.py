@@ -1,4 +1,5 @@
 """Compute institutional accumulation signals from 13F holdings."""
+
 from __future__ import annotations
 
 from collections import defaultdict

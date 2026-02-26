@@ -57,13 +57,15 @@ def generate_walk_forward_partitions(
         if test_end > end_date:
             break
 
-        partitions.append(WalkForwardPartition(
-            train_start=current_train_start,
-            train_end=train_end,
-            test_start=test_start,
-            test_end=test_end,
-            partition_index=idx,
-        ))
+        partitions.append(
+            WalkForwardPartition(
+                train_start=current_train_start,
+                train_end=train_end,
+                test_start=test_start,
+                test_end=test_end,
+                partition_index=idx,
+            )
+        )
 
         idx += 1
         current_train_start = date(current_train_start.year + test_years, 1, 1)

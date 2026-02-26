@@ -45,9 +45,7 @@ class TestCategoryFallback:
                     "cash_flow": {"Operating Cash Flow": 40000},
                 },
             ),
-            "price": _make_fetch_result(
-                DataCategory.PRICE, raw_data={"bars": [{"Close": 150.0}]}
-            ),
+            "price": _make_fetch_result(DataCategory.PRICE, raw_data={"bars": [{"Close": 150.0}]}),
             "earnings": _make_fetch_result(
                 DataCategory.EARNINGS, success=False, error="lxml missing"
             ),
@@ -116,9 +114,7 @@ class TestCategoryFallback:
                 },
             ),
             "price": _make_fetch_result(DataCategory.PRICE, raw_data={"bars": []}),
-            "earnings": _make_fetch_result(
-                DataCategory.EARNINGS, success=False, error="lxml"
-            ),
+            "earnings": _make_fetch_result(DataCategory.EARNINGS, success=False, error="lxml"),
             "info": _make_fetch_result(
                 DataCategory.FUNDAMENTALS,
                 raw_data={
@@ -173,9 +169,7 @@ class TestCategoryFallback:
                     "cash_flow": {"Operating Cash Flow": 40000},
                 },
             ),
-            "price": _make_fetch_result(
-                DataCategory.PRICE, raw_data={"bars": [{"Close": 150.0}]}
-            ),
+            "price": _make_fetch_result(DataCategory.PRICE, raw_data={"bars": [{"Close": 150.0}]}),
             "earnings": _make_fetch_result(
                 DataCategory.EARNINGS, success=False, error="lxml missing"
             ),
@@ -240,9 +234,7 @@ class TestCategoryFallback:
                     "cash_flow": {"Operating Cash Flow": 40000},
                 },
             ),
-            "price": _make_fetch_result(
-                DataCategory.PRICE, raw_data={"bars": [{"Close": 150.0}]}
-            ),
+            "price": _make_fetch_result(DataCategory.PRICE, raw_data={"bars": [{"Close": 150.0}]}),
             "earnings": _make_fetch_result(
                 DataCategory.EARNINGS,
                 raw_data={"earnings": [{"quarter": "2024-01-25", "actual_eps": 2.18}]},

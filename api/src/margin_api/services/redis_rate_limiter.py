@@ -43,9 +43,7 @@ class RedisRateLimiter:
         else:
             # Widen the window so we get at least 1 token per window
             self._window_seconds = math.ceil(60.0 / max_per_minute)
-            self._max_per_window = max(
-                1, (max_per_minute * self._window_seconds) / 60.0
-            )
+            self._max_per_window = max(1, (max_per_minute * self._window_seconds) / 60.0)
 
     def _window_key(self) -> tuple[str, float]:
         """Return (redis_key, seconds_remaining_in_window) for the current window."""

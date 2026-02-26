@@ -89,9 +89,7 @@ async def stripe_webhook(
 
     # Idempotency check — skip already-processed events
     existing = await db.execute(
-        select(ProcessedWebhookEvent).where(
-            ProcessedWebhookEvent.event_id == event.id
-        )
+        select(ProcessedWebhookEvent).where(ProcessedWebhookEvent.event_id == event.id)
     )
     if existing.scalar_one_or_none():
         return {"status": "already_processed"}
@@ -128,10 +126,12 @@ async def stripe_webhook(
         )
 
     # Record event as processed for idempotency
-    db.add(ProcessedWebhookEvent(
-        event_id=event.id,
-        event_type=event.type,
-    ))
+    db.add(
+        ProcessedWebhookEvent(
+            event_id=event.id,
+            event_type=event.type,
+        )
+    )
     await db.commit()
 
     return {"received": True}
@@ -150,10 +150,11 @@ async def billing_status(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    is_active = (
-        user.subscription_plan in ("portfolio", "institutional", "operator")
-        and user.subscription_status in ("active", "trialing")
-    )
+    is_active = user.subscription_plan in (
+        "portfolio",
+        "institutional",
+        "operator",
+    ) and user.subscription_status in ("active", "trialing")
     billing_configured = bool(settings.stripe_secret_key and settings.stripe_portfolio_price_id)
     return BillingStatusResponse(
         plan=user.subscription_plan,

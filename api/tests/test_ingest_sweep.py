@@ -47,9 +47,7 @@ class TestIngestSweep:
 
         assert result["missing_count"] == 0
         complete_calls = [
-            c
-            for c in mock_redis.enqueue_job.call_args_list
-            if c[0][0] == "ingest_sweep_complete"
+            c for c in mock_redis.enqueue_job.call_args_list if c[0][0] == "ingest_sweep_complete"
         ]
         assert len(complete_calls) == 1
 
@@ -92,9 +90,7 @@ class TestIngestSweep:
 
         assert result["missing_count"] == 5
         batch_calls = [
-            c
-            for c in mock_redis.enqueue_job.call_args_list
-            if c[0][0] == "ingest_batch"
+            c for c in mock_redis.enqueue_job.call_args_list if c[0][0] == "ingest_batch"
         ]
         assert len(batch_calls) == 1
 
@@ -164,11 +160,7 @@ class TestIngestSweepComplete:
         result = await ingest_sweep_complete(ctx, "1", "abc123")
 
         assert result["status"] == "completed"
-        score_calls = [
-            c
-            for c in mock_redis.enqueue_job.call_args_list
-            if c[0][0] == "full_score"
-        ]
+        score_calls = [c for c in mock_redis.enqueue_job.call_args_list if c[0][0] == "full_score"]
         assert len(score_calls) == 1
 
     @pytest.mark.asyncio

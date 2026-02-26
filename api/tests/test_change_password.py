@@ -174,9 +174,7 @@ class TestSessionCheck:
                     "new_password": "NewPassword2@",
                 },
             )
-            resp = await client.get(
-                f"/api/v1/auth/session-check/{user_id}?iat={old_iat}"
-            )
+            resp = await client.get(f"/api/v1/auth/session-check/{user_id}?iat={old_iat}")
         assert resp.status_code == 200
         data = resp.json()
         assert data["session_valid"] is True

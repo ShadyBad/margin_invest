@@ -61,9 +61,7 @@ class BacktestConfig(BaseModel):
     optimization_constraints: OptimizationConstraints | None = Field(
         default=None, description="Optimization constraints for OPTIMIZED mode"
     )
-    dro_config: DROConfig | None = Field(
-        default=None, description="DRO config for OPTIMIZED mode"
-    )
+    dro_config: DROConfig | None = Field(default=None, description="DRO config for OPTIMIZED mode")
 
     @model_validator(mode="after")
     def validate_date_range(self) -> BacktestConfig:

@@ -233,12 +233,8 @@ class TestRecentEvents:
     async def test_recent_events_across_tickers(self, client, db_session):
         now = datetime.now(UTC)
         await _add_event_via_db(db_session, ticker="AAPL", timestamp=now)
-        await _add_event_via_db(
-            db_session, ticker="NVDA", timestamp=now - timedelta(minutes=30)
-        )
-        await _add_event_via_db(
-            db_session, ticker="GOOG", timestamp=now - timedelta(minutes=15)
-        )
+        await _add_event_via_db(db_session, ticker="NVDA", timestamp=now - timedelta(minutes=30))
+        await _add_event_via_db(db_session, ticker="GOOG", timestamp=now - timedelta(minutes=15))
         response = await client.get("/api/v1/events/recent")
         data = response.json()
         assert data["total"] == 3

@@ -149,9 +149,7 @@ class WalkForwardSimulator:
             scores = self._universe_provider.get_scores(rebal_date)
 
             # 2. Select holdings based on configured selection mode
-            new_holdings = self._select_holdings(
-                scores, prev_holdings, rebal_date=rebal_date
-            )
+            new_holdings = self._select_holdings(scores, prev_holdings, rebal_date=rebal_date)
 
             # Cache scores as a price lookup map to avoid redundant provider calls
             score_map = {s.ticker: s.price for s in scores}
@@ -224,11 +222,7 @@ class WalkForwardSimulator:
             snapshots.append(snapshot)
 
             # Rank IC tracking: compare previous scores to realized returns
-            if (
-                self._config.selection_mode == SelectionMode.OPTIMIZED
-                and i > 0
-                and prev_holdings
-            ):
+            if self._config.selection_mode == SelectionMode.OPTIMIZED and i > 0 and prev_holdings:
                 ic = self._compute_period_ic(prev_holdings, score_map)
                 if ic is not None:
                     ic_series.append(ic)

@@ -168,13 +168,9 @@ class ReplayOrchestrator:
                     else:
                         eliminated_count += 1
                         failed = [f.name for f in filter_result.failed_filters]
-                        notable_events.append(
-                            f"{snapshot.ticker} eliminated — {', '.join(failed)}"
-                        )
+                        notable_events.append(f"{snapshot.ticker} eliminated — {', '.join(failed)}")
                 except Exception:
-                    logger.warning(
-                        "Filter error for %s on %s", snapshot.ticker, rebal_date
-                    )
+                    logger.warning("Filter error for %s on %s", snapshot.ticker, rebal_date)
                     eliminated_count += 1
 
             # 4. Score survivors (use a deterministic score based on available financials).
@@ -218,21 +214,15 @@ class ReplayOrchestrator:
 
             # 7. Transaction costs
             turnover = self._calculate_turnover(prev_holdings, new_holdings)
-            cost = portfolio_value * (
-                turnover * self._config.transaction_cost_bps / 10_000
-            )
+            cost = portfolio_value * (turnover * self._config.transaction_cost_bps / 10_000)
             portfolio_value -= cost
 
             # 8. Benchmark tracking
-            benchmark_price = self._benchmark_prices.get(
-                rebal_date, 100.0 * (1.0 + 0.005 * i)
-            )
+            benchmark_price = self._benchmark_prices.get(rebal_date, 100.0 * (1.0 + 0.005 * i))
             if initial_benchmark_price is None:
                 initial_benchmark_price = benchmark_price
             if initial_benchmark_price > 0:
-                benchmark_value = (
-                    STARTING_CAPITAL * benchmark_price / initial_benchmark_price
-                )
+                benchmark_value = STARTING_CAPITAL * benchmark_price / initial_benchmark_price
 
             # 9. Returns
             if not snapshots:
@@ -241,17 +231,11 @@ class ReplayOrchestrator:
             else:
                 prev_pv = snapshots[-1].portfolio_value
                 prev_bv = snapshots[-1].benchmark_value
-                port_return = (
-                    (portfolio_value - prev_pv) / prev_pv if prev_pv > 0 else 0.0
-                )
-                bench_return = (
-                    (benchmark_value - prev_bv) / prev_bv if prev_bv > 0 else 0.0
-                )
+                port_return = (portfolio_value - prev_pv) / prev_pv if prev_pv > 0 else 0.0
+                bench_return = (benchmark_value - prev_bv) / prev_bv if prev_bv > 0 else 0.0
 
             # 10. Regime classification (use benchmark drawdown for market-level regime)
-            bench_drawdown = max(
-                0, (STARTING_CAPITAL - benchmark_value) / STARTING_CAPITAL
-            )
+            bench_drawdown = max(0, (STARTING_CAPITAL - benchmark_value) / STARTING_CAPITAL)
             regime = classify_regime(
                 drawdown_from_peak=bench_drawdown,
                 in_nber_recession=is_in_recession(rebal_date),
@@ -335,9 +319,7 @@ class ReplayOrchestrator:
             and period.current_income.gross_profit
             and period.current_income.revenue
         ):
-            gm = float(period.current_income.gross_profit) / float(
-                period.current_income.revenue
-            )
+            gm = float(period.current_income.gross_profit) / float(period.current_income.revenue)
             score += gm * 20  # higher margin = better
 
         # Value signal: earnings yield
@@ -347,9 +329,7 @@ class ReplayOrchestrator:
             and profile.market_cap
             and profile.market_cap > 0
         ):
-            ey = float(period.current_income.net_income) / (
-                float(profile.market_cap) / 1e6
-            )
+            ey = float(period.current_income.net_income) / (float(profile.market_cap) / 1e6)
             score += min(ey * 100, 20)  # cap contribution
 
         return min(max(score, 0), 100)
@@ -360,9 +340,7 @@ class ReplayOrchestrator:
         step = {"monthly": 1, "quarterly": 3, "semi_annual": 6}.get(
             self._config.rebalance_frequency, 1
         )
-        current = date(
-            self._config.start_date.year, self._config.start_date.month, 1
-        )
+        current = date(self._config.start_date.year, self._config.start_date.month, 1)
 
         while current <= self._config.end_date:
             # First business day of the month

@@ -115,9 +115,7 @@ def optimize_dro_meanvar(
             sector_map[candidate_map[t].sector].append(i)
     for sector, indices in sector_map.items():
         if len(indices) > 0:
-            constraint_list.append(
-                cp.sum(w[indices]) <= constraints.max_sector
-            )
+            constraint_list.append(cp.sum(w[indices]) <= constraints.max_sector)
 
     # Cardinality constraint (max_holdings) via big-M relaxation
     # This makes the problem a MIQP which is much harder. For now,

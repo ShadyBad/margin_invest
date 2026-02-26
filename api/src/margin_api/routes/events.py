@@ -157,11 +157,7 @@ async def list_events(
 ) -> EventListResponse:
     """List events for a specific ticker, sorted by timestamp descending."""
     ticker = ticker.upper()
-    stmt = (
-        select(Event)
-        .where(Event.ticker == ticker)
-        .order_by(Event.timestamp.desc())
-    )
+    stmt = select(Event).where(Event.ticker == ticker).order_by(Event.timestamp.desc())
     result = await session.execute(stmt)
     events = result.scalars().all()
     responses = [_event_db_to_response(e) for e in events]
@@ -178,11 +174,7 @@ async def list_recent_events(
     Returns events from the last N hours (default 24), sorted by timestamp descending.
     """
     cutoff = datetime.now(UTC) - timedelta(hours=hours)
-    stmt = (
-        select(Event)
-        .where(Event.timestamp >= cutoff)
-        .order_by(Event.timestamp.desc())
-    )
+    stmt = select(Event).where(Event.timestamp >= cutoff).order_by(Event.timestamp.desc())
     result = await session.execute(stmt)
     events = result.scalars().all()
     responses = [_event_db_to_response(e) for e in events]

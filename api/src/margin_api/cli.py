@@ -435,9 +435,7 @@ async def run_seed(tickers: list[str] | None = None) -> None:
                 existing_asset.consecutive_failures,
                 existing_asset.last_retry_at,
             ):
-                logger.info(
-                    "  %s SKIPPED (status=%s)", ticker, existing_asset.ingestion_status
-                )
+                logger.info("  %s SKIPPED (status=%s)", ticker, existing_asset.ingestion_status)
                 continue
 
         # Resume check: skip if already seeded today
@@ -570,8 +568,11 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                     vols = [
                         float(b.get("volume") or b.get("Volume") or 0)
                         * float(
-                            b.get("close") or b.get("Close")
-                            or b.get("adj_close") or b.get("Adj Close") or 0
+                            b.get("close")
+                            or b.get("Close")
+                            or b.get("adj_close")
+                            or b.get("Adj Close")
+                            or 0
                         )
                         for b in price_bars
                     ]
@@ -747,8 +748,11 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
                     vols = [
                         float(b.get("volume") or b.get("Volume") or 0)
                         * float(
-                            b.get("close") or b.get("Close")
-                            or b.get("adj_close") or b.get("Adj Close") or 0
+                            b.get("close")
+                            or b.get("Close")
+                            or b.get("adj_close")
+                            or b.get("Adj Close")
+                            or 0
                         )
                         for b in bars
                     ]
@@ -1065,9 +1069,7 @@ async def _load_and_predict_ml(
         try:
             from margin_engine.ml.factor_vae import predict_factor_vae
 
-            vae_means, vae_variances = predict_factor_vae(
-                ml_run.vae_model_data, feature_matrix
-            )
+            vae_means, vae_variances = predict_factor_vae(ml_run.vae_model_data, feature_matrix)
             for i, t in enumerate(tickers):
                 result["vae_means"][t] = float(vae_means[i])
                 result["vae_variances"][t] = float(vae_variances[i])
@@ -1163,8 +1165,11 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                     vols = [
                         float(b.get("volume") or b.get("Volume") or 0)
                         * float(
-                            b.get("close") or b.get("Close")
-                            or b.get("adj_close") or b.get("Adj Close") or 0
+                            b.get("close")
+                            or b.get("Close")
+                            or b.get("adj_close")
+                            or b.get("Adj Close")
+                            or 0
                         )
                         for b in bars
                     ]
@@ -1238,9 +1243,11 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 rev_cagr = _compute_revenue_cagr(history)
 
                 # EV/FCF — compute raw value; percentile is ranked later
-                ev = float(profile.market_cap) + float(
-                    latest.current_balance.total_debt
-                ) - float(latest.current_balance.cash_and_equivalents)
+                ev = (
+                    float(profile.market_cap)
+                    + float(latest.current_balance.total_debt)
+                    - float(latest.current_balance.cash_and_equivalents)
+                )
                 ev_fcf_raw = ev / fcf if fcf > 0 else None
 
                 # Earnings acceleration: compare latest EPS growth to prior
@@ -1258,9 +1265,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 capex = abs(float(latest.current_cash_flow.capex))
                 rd = float(latest.current_income.research_and_development)
                 rev_for_ratio = float(latest.current_income.revenue)
-                rd_capex_ratio = (
-                    (rd + capex) / rev_for_ratio if rev_for_ratio > 0 else None
-                )
+                rd_capex_ratio = (rd + capex) / rev_for_ratio if rev_for_ratio > 0 else None
 
                 # Store EV/FCF raw for universe-level percentile ranking
                 if ev_fcf_raw is not None:
@@ -1414,8 +1419,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
         )
         # Join to get the full signal row for the latest period
         result = await session.execute(
-            select(AccumulationSignal)
-            .join(
+            select(AccumulationSignal).join(
                 latest_period_sq,
                 (AccumulationSignal.asset_id == latest_period_sq.c.asset_id)
                 & (AccumulationSignal.period_of_report == latest_period_sq.c.max_period),
@@ -1890,9 +1894,7 @@ async def run_backfill_13f(start_year: int = 2013, max_managers: int = 300) -> N
                     if not await service.is_filing_new(f["accession_number"]):
                         continue
 
-                    xml_text = edgar.fetch_infotable_xml(
-                        mgr_data["cik"], f["accession_number"]
-                    )
+                    xml_text = edgar.fetch_infotable_xml(mgr_data["cik"], f["accession_number"])
                     if xml_text is None:
                         continue
 
@@ -1940,16 +1942,14 @@ async def run_backfill_13f(start_year: int = 2013, max_managers: int = 300) -> N
             acc_service = AccumulationService(session)
             from sqlalchemy import func as sa_func
 
-            periods_q = sa_select(
-                sa_func.distinct(FilingMetadata.period_of_report)
-            ).order_by(FilingMetadata.period_of_report)
+            periods_q = sa_select(sa_func.distinct(FilingMetadata.period_of_report)).order_by(
+                FilingMetadata.period_of_report
+            )
             result = await session.execute(periods_q)
             periods = [row[0] for row in result.all()]
             for period in periods:
                 await acc_service.compute_signals(period_of_report=period)
-        logger.info(
-            "[backfill-13f] Accumulation signals computed for %d quarters", len(periods)
-        )
+        logger.info("[backfill-13f] Accumulation signals computed for %d quarters", len(periods))
     except ImportError:
         logger.warning(
             "[backfill-13f] AccumulationService not available, skipping signal computation"

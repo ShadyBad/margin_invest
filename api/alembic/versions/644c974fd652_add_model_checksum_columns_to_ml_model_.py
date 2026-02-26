@@ -5,14 +5,15 @@ Revises: e10ea8524fbf
 Create Date: 2026-02-26 00:22:29.852064
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '644c974fd652'
-down_revision: str | Sequence[str] | None = 'e10ea8524fbf'
+revision: str = "644c974fd652"
+down_revision: str | Sequence[str] | None = "e10ea8524fbf"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

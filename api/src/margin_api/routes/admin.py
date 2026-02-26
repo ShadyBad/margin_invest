@@ -271,9 +271,7 @@ async def trigger_ml_training(request: Request, x_admin_key: str = Header()) -> 
 
     try:
         redis: ArqRedis = await create_pool(redis_settings)
-        job = await redis.enqueue_job(
-            "train_ml_models", _job_id=f"train_ml:{uuid.uuid4().hex[:8]}"
-        )
+        job = await redis.enqueue_job("train_ml_models", _job_id=f"train_ml:{uuid.uuid4().hex[:8]}")
         await redis.aclose()
     except Exception as e:
         logger.exception("Failed to enqueue ML training job")

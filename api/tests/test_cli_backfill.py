@@ -1,4 +1,5 @@
 """Tests for the backfill-13f CLI command."""
+
 from __future__ import annotations
 
 import argparse

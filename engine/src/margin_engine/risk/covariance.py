@@ -83,9 +83,7 @@ def _anls_shrink_eigenvalues(
         diffs = lam - d_i
         # Gaussian kernel scaled by eigenvalue magnitude
         scale = max(h * max(abs(d_i), 1e-10), 1e-10)
-        kernel_vals = (
-            np.exp(-0.5 * (diffs / scale) ** 2) / (np.sqrt(2.0 * np.pi) * scale)
-        )
+        kernel_vals = np.exp(-0.5 * (diffs / scale) ** 2) / (np.sqrt(2.0 * np.pi) * scale)
 
         # Spectral density at d_i (imaginary part of Stieltjes transform)
         delta_i = np.sum(kernel_vals) / (n_assets * np.pi)
@@ -274,9 +272,7 @@ def _compute_anls_partial(
 
     # Apply ANLS only to non-zero eigenvalues
     nonzero_eigs = eigenvalues[nonzero_mask]
-    d_star_nonzero, shrinkage_intensity = _anls_shrink_eigenvalues(
-        nonzero_eigs, t_obs, n_nonzero
-    )
+    d_star_nonzero, shrinkage_intensity = _anls_shrink_eigenvalues(nonzero_eigs, t_obs, n_nonzero)
 
     # Set null-space eigenvalues to minimum shrunk eigenvalue
     min_shrunk = float(np.min(d_star_nonzero))

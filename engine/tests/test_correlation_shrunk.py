@@ -105,9 +105,7 @@ class TestShrunkCorrelationMatrix:
 
     def test_method_propagates(self, three_ticker_data):
         """Calling with method='linear' still returns a valid CorrelationMatrix."""
-        result = compute_shrunk_return_correlations(
-            three_ticker_data, method="linear"
-        )
+        result = compute_shrunk_return_correlations(three_ticker_data, method="linear")
         assert len(result.tickers) == 3
         # Should still be a valid correlation matrix
         for i in range(len(result.tickers)):

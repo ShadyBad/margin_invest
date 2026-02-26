@@ -26,9 +26,7 @@ class ShadowSnapshot(BaseModel):
     as_of_date: date
     positions: list[ShadowPosition]
     portfolio_value: float
-    recorded_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC)
-    )
+    recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def num_positions(self) -> int:
@@ -55,8 +53,7 @@ class ShadowPortfolio:
         """Record today's portfolio state. Cannot backfill."""
         if self.snapshots and as_of_date <= self.snapshots[-1].as_of_date:
             raise ValueError(
-                f"Cannot backfill: {as_of_date} <= last snapshot "
-                f"{self.snapshots[-1].as_of_date}"
+                f"Cannot backfill: {as_of_date} <= last snapshot {self.snapshots[-1].as_of_date}"
             )
         snapshot = ShadowSnapshot(
             as_of_date=as_of_date,

@@ -1,4 +1,5 @@
 """13F institutional holdings API routes."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -64,9 +65,9 @@ async def get_holdings(
         cusip_result = await db.execute(cusip_q)
         cusip = cusip_result.scalar_one_or_none()
         if cusip:
-            latest_period_q2 = select(
-                func.max(InstitutionalHolding.period_of_report)
-            ).where(InstitutionalHolding.cusip == cusip)
+            latest_period_q2 = select(func.max(InstitutionalHolding.period_of_report)).where(
+                InstitutionalHolding.cusip == cusip
+            )
             result2 = await db.execute(latest_period_q2)
             latest_period = result2.scalar_one_or_none()
 
@@ -454,8 +455,7 @@ async def get_clone_portfolio(
     if "equal_weight" in strategy:
         weight = round(100.0 / len(rows), 2) if rows else 0
         positions = [
-            ClonePosition(ticker=row.ticker or "UNKNOWN", target_weight=weight)
-            for row in rows
+            ClonePosition(ticker=row.ticker or "UNKNOWN", target_weight=weight) for row in rows
         ]
     else:
         # Value-weighted

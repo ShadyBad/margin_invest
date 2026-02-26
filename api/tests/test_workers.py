@@ -159,8 +159,8 @@ class TestFullScore:
 
         call_args = mock_redis.enqueue_job.call_args[0]
         assert call_args[0] == "full_score_v3"
-        assert call_args[1] == "pipe-789"       # pipeline_id
-        assert call_args[2] == mock_job.id       # parent_job_id
+        assert call_args[1] == "pipe-789"  # pipeline_id
+        assert call_args[2] == mock_job.id  # parent_job_id
 
 
 class TestFullScoreV3:
@@ -205,9 +205,7 @@ class TestFullScoreV3:
             patch("margin_api.cli.run_scoring_v3", new_callable=AsyncMock),
             patch("margin_api.workers.reset_engine_cache"),
         ):
-            result = await full_score_v3(
-                {}, pipeline_id="pipe-abc", parent_job_id=42
-            )
+            result = await full_score_v3({}, pipeline_id="pipe-abc", parent_job_id=42)
 
         assert result["status"] == "completed"
         assert result["pipeline_id"] == "pipe-abc"
@@ -298,9 +296,7 @@ class TestFullScoreV4:
             patch("margin_api.cli.run_scoring_v4", new_callable=AsyncMock),
             patch("margin_api.workers.reset_engine_cache"),
         ):
-            result = await full_score_v4(
-                {}, pipeline_id="pipe-v4-abc", parent_job_id=99
-            )
+            result = await full_score_v4({}, pipeline_id="pipe-v4-abc", parent_job_id=99)
 
         assert result["status"] == "completed"
         assert result["pipeline_id"] == "pipe-v4-abc"
@@ -325,9 +321,7 @@ class TestFullScoreV4:
             patch("margin_api.cli.run_scoring_v3", new_callable=AsyncMock),
             patch("margin_api.workers.reset_engine_cache"),
         ):
-            result = await full_score_v3(
-                {"redis": mock_redis}, pipeline_id="pipe-chain"
-            )
+            result = await full_score_v3({"redis": mock_redis}, pipeline_id="pipe-chain")
 
         assert result["status"] == "completed"
         mock_redis.enqueue_job.assert_called_once()
@@ -351,9 +345,7 @@ class TestFullScoreV4:
             patch("margin_api.cli.run_scoring_v3", side_effect=RuntimeError("V3 crash")),
             patch("margin_api.workers.reset_engine_cache"),
         ):
-            result = await full_score_v3(
-                {"redis": mock_redis}, pipeline_id="pipe-fail-chain"
-            )
+            result = await full_score_v3({"redis": mock_redis}, pipeline_id="pipe-fail-chain")
 
         # V3 failed but v4 was still enqueued
         assert result["status"] == "failed"
