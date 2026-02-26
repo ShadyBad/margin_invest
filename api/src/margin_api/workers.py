@@ -14,6 +14,7 @@ import math
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import redis.asyncio as aioredis
 import yfinance as yf
@@ -41,6 +42,9 @@ from margin_api.routes.events import add_event, add_notification
 from margin_api.services.live_prices import LivePriceService
 from margin_api.services.universe import get_active_snapshot
 from margin_api.ws.scores import ScoreChangeMessage, manager
+
+if TYPE_CHECKING:
+    from margin_engine.models.scoring import CompositeScore, FactorBreakdown
 
 logger = logging.getLogger(__name__)
 
@@ -991,7 +995,7 @@ async def backtest_validate(ctx: dict) -> dict:
 
 def _parse_factor_breakdown(
     data: dict,
-) -> FactorBreakdown | None:  # noqa: F821
+) -> FactorBreakdown | None:
     """Parse a FactorBreakdown from a score_detail JSONB sub-dict.
 
     Returns None if the data is malformed or has no sub_scores.
@@ -1040,7 +1044,7 @@ def _parse_factor_breakdown(
 def _composite_from_score_detail(
     ticker: str,
     detail: dict,
-) -> CompositeScore | None:  # noqa: F821
+) -> CompositeScore | None:
     """Build a CompositeScore from the score_detail JSONB dict.
 
     Returns None if required pillars (quality, value, momentum) are missing
@@ -1129,7 +1133,6 @@ async def train_ml_models(ctx: dict) -> dict:
     from margin_engine.factors.registry import default_registry
     from margin_engine.ml.clustering import cluster_stocks
     from margin_engine.ml.signal_model import train_cluster_models
-    from margin_engine.models.scoring import CompositeScore
 
     settings = get_settings()
     logger.info("[ml] Starting ML model training...")

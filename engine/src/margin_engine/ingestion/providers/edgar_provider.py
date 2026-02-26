@@ -13,7 +13,7 @@ import logging
 import re
 from datetime import UTC, datetime
 
-import defusedxml.ElementTree as ET  # noqa: N817
+import defusedxml.ElementTree as DefusedET
 import httpx
 
 from margin_engine.ingestion.rate_limiter import RateLimiter
@@ -309,7 +309,7 @@ class EDGARProvider(DataProvider):
     @staticmethod
     def _parse_form4_xml(xml_text: str, filing_date: str) -> list[dict]:
         """Parse a Form 4 XML document into transaction dicts."""
-        root = ET.fromstring(xml_text)
+        root = DefusedET.fromstring(xml_text)
 
         owner = root.find(".//reportingOwner")
         owner_name = ""
@@ -536,7 +536,7 @@ class EDGARProvider(DataProvider):
         ingestion where we want the complete portfolio snapshot.
         """
         cleaned = re.sub(r'\s+xmlns="[^"]+"', "", xml_text, count=1)
-        root = ET.fromstring(cleaned)
+        root = DefusedET.fromstring(cleaned)
 
         holdings: list[dict] = []
         for entry in root.findall(".//infoTable"):
@@ -617,7 +617,7 @@ class EDGARProvider(DataProvider):
         """Parse 13F infotable XML, filtering for a target company."""
         # Strip namespace for simpler parsing
         cleaned = re.sub(r'\sxmlns="[^"]*"', "", xml_text, count=1)
-        root = ET.fromstring(cleaned)
+        root = DefusedET.fromstring(cleaned)
 
         target_upper = target_company.upper()
         holdings: list[dict] = []
