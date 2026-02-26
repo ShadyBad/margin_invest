@@ -29,7 +29,7 @@ def _mask_key(encrypted_key: str, service: ApiKeyService) -> str:
 
 @router.get("/", response_model=ApiKeyListResponse)
 async def list_keys(
-    _user_id: int = Depends(require_plan("margin_invest")),
+    _user_id: int = Depends(require_plan("portfolio")),
     db: AsyncSession = Depends(get_db),
     service: ApiKeyService = Depends(_get_api_key_service),
 ) -> ApiKeyListResponse:
@@ -52,7 +52,7 @@ async def list_keys(
 @router.post("/", response_model=ApiKeyResponse, status_code=201)
 async def save_key(
     body: SaveKeyRequest,
-    _user_id: int = Depends(require_plan("margin_invest")),
+    _user_id: int = Depends(require_plan("portfolio")),
     db: AsyncSession = Depends(get_db),
     service: ApiKeyService = Depends(_get_api_key_service),
 ) -> ApiKeyResponse:
@@ -76,7 +76,7 @@ async def save_key(
 @router.delete("/{provider_name}")
 async def delete_key(
     provider_name: str,
-    _user_id: int = Depends(require_plan("margin_invest")),
+    _user_id: int = Depends(require_plan("portfolio")),
     db: AsyncSession = Depends(get_db),
     service: ApiKeyService = Depends(_get_api_key_service),
 ) -> dict:

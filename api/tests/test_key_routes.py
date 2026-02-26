@@ -27,7 +27,7 @@ async def setup():
         paid_user = User(
             email="paid@test.com",
             name="Paid",
-            subscription_plan="margin_invest",
+            subscription_plan="portfolio",
         )
         free_user = User(email="free@test.com", name="Free")
         session.add_all([paid_user, free_user])

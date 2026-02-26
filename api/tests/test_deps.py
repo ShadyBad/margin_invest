@@ -26,7 +26,7 @@ async def setup():
         paid_user = User(
             email="paid@test.com",
             name="Paid",
-            subscription_plan="margin_invest",
+            subscription_plan="portfolio",
         )
         session.add_all([free_user, paid_user])
         await session.commit()
@@ -46,7 +46,7 @@ async def setup():
     # Test endpoint gated by require_plan
     @app.get("/premium")
     async def premium_endpoint(
-        _=Depends(require_plan("margin_invest")),
+        _=Depends(require_plan("portfolio")),
     ):
         return {"access": "granted"}
 
@@ -90,7 +90,7 @@ class TestGetCurrentUserId:
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/me", headers={"X-User-Id": "not-a-number"})
         assert resp.status_code == 401
-        assert resp.json()["detail"] == "Unknown user"
+        assert resp.json()["detail"] == "Not authenticated"
 
 
 class TestRequirePlan:

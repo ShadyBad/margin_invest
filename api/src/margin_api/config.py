@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     # Admin
     admin_key: str = ""
 
+    # Service-to-service auth
+    service_auth_secret: str = ""
+    require_signed_auth: bool = False
+
     # ML
     ml_artifact_dir: str = "ml_models"
     ml_train_min_samples: int = 100
