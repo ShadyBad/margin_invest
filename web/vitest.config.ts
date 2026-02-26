@@ -9,5 +9,8 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
     pool: 'forks',
+    // Suppress undici UND_ERR_INVALID_ARG errors that leak from server
+    // components making fetch calls in jsdom (no real server available).
+    dangerouslyIgnoreUnhandledErrors: true,
   },
 })
