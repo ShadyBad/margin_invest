@@ -33,8 +33,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
         mfaToken: { label: "MFA Token", type: "text" },
+        mfaCompletionToken: { label: "MFA Completion Token", type: "text" },
       },
       async authorize(credentials) {
+        // Path 1: MFA completion token (no password needed)
+        if (credentials.mfaCompletionToken) {
+          let verifyRes: Response
+          try {
+            verifyRes = await fetch(`${API_URL}/api/v1/auth/verify-mfa-token`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: credentials.mfaCompletionToken }),
+            })
+          } catch (error) {
+            console.error("[auth] Failed to verify MFA token", error)
+            throw new ApiUnreachableError()
+          }
+
+          if (!verifyRes.ok) {
+            throw new InvalidCredentialsError()
+          }
+
+          const userData = await verifyRes.json()
+          return {
+            id: String(userData.id),
+            name: userData.username,
+            email: userData.email,
+            mfaStatus: "enabled",
+            mfaToken: "verified",
+            avatarUrl: userData.avatar_url,
+          }
+        }
+
+        // Path 2: Existing username/password flow
         let res: Response
         try {
           res = await fetch(`${API_URL}/api/v1/auth/verify-credentials`, {
@@ -91,11 +122,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const challengeToken = (user as Record<string, unknown>).challengeToken as string | undefined
 
       if (mfaStatus === "disabled") {
-        return `/mfa/setup?userId=${user.id}&challengeToken=${challengeToken}`
+        return `/api/mfa-redirect?userId=${user.id}&challengeToken=${challengeToken}&setup=true`
       }
 
       if (mfaStatus === "enabled" && !mfaToken) {
-        return `/mfa/verify?userId=${user.id}&challengeToken=${challengeToken}`
+        return `/api/mfa-redirect?userId=${user.id}&challengeToken=${challengeToken}&setup=false`
       }
 
       return true
