@@ -315,14 +315,22 @@ async def oauth_sync(
 @router.get("/session-check/{user_id}")
 async def check_session(
     user_id: int,
+    iat: int = 0,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Internal endpoint called by NextAuth JWT callback to check if password was changed."""
+    """Check if a user's session should be invalidated.
+
+    Accepts an optional `iat` query param (token issued-at timestamp).
+    Returns whether the token is invalidated -- without leaking raw timestamps.
+    """
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user or not user.password_changed_at:
-        return {"password_changed_at": None}
-    return {"password_changed_at": user.password_changed_at.isoformat()}
+        return {"session_valid": True, "token_invalidated": False}
+
+    changed_at = int(user.password_changed_at.timestamp())
+    token_invalidated = iat > 0 and changed_at > iat
+    return {"session_valid": True, "token_invalidated": token_invalidated}
 
 
 @router.post("/change-password", response_model=ChangePasswordResponse)

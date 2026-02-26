@@ -211,19 +211,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (token.authMethod === "credentials") {
             try {
               const res = await fetch(
-                `${API_URL}/api/v1/auth/session-check/${token.userId}`
+                `${API_URL}/api/v1/auth/session-check/${token.userId}?iat=${token.iat || 0}`
               )
               if (res.ok) {
                 const data = await res.json()
-                if (data.password_changed_at) {
-                  const changedAt = Math.floor(
-                    new Date(data.password_changed_at).getTime() / 1000
-                  )
-                  const tokenIat = (token.iat as number) || 0
-                  if (changedAt > tokenIat) {
-                    // Password was changed after this token was issued — invalidate
-                    return {} as typeof token
-                  }
+                if (data.token_invalidated) {
+                  return {} as typeof token
                 }
               }
             } catch {

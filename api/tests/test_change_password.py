@@ -156,12 +156,39 @@ class TestChangePassword:
 
 class TestSessionCheck:
     @pytest.mark.asyncio
-    async def test_returns_password_changed_at(self, setup):
-        """After a password change, session-check returns the timestamp."""
+    async def test_token_invalidated_after_password_change(self, setup):
+        """After a password change, session-check with old iat returns token_invalidated=True."""
         app, user_id, _ = setup
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            # Change password first to populate password_changed_at
+            # Use iat from before the password change
+            import time
+
+            old_iat = int(time.time()) - 10
+
+            # Change password to populate password_changed_at
+            await client.post(
+                "/api/v1/auth/change-password",
+                json={
+                    "current_password": "OldPassword1!",
+                    "new_password": "NewPassword2@",
+                },
+            )
+            resp = await client.get(
+                f"/api/v1/auth/session-check/{user_id}?iat={old_iat}"
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["session_valid"] is True
+        assert data["token_invalidated"] is True
+
+    @pytest.mark.asyncio
+    async def test_token_not_invalidated_without_iat(self, setup):
+        """Without iat param, token_invalidated is always False."""
+        app, user_id, _ = setup
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            # Change password first
             await client.post(
                 "/api/v1/auth/change-password",
                 json={
@@ -172,26 +199,46 @@ class TestSessionCheck:
             resp = await client.get(f"/api/v1/auth/session-check/{user_id}")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["password_changed_at"] is not None
-        # Should be a valid ISO timestamp
-        assert "T" in data["password_changed_at"]
+        assert data["session_valid"] is True
+        assert data["token_invalidated"] is False
 
     @pytest.mark.asyncio
-    async def test_returns_null_for_no_change(self, setup):
-        """Before any password change, session-check returns null."""
+    async def test_no_leak_of_password_changed_at(self, setup):
+        """Response must NOT contain raw password_changed_at timestamp."""
+        app, user_id, _ = setup
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            await client.post(
+                "/api/v1/auth/change-password",
+                json={
+                    "current_password": "OldPassword1!",
+                    "new_password": "NewPassword2@",
+                },
+            )
+            resp = await client.get(f"/api/v1/auth/session-check/{user_id}?iat=1")
+        data = resp.json()
+        assert "password_changed_at" not in data
+
+    @pytest.mark.asyncio
+    async def test_returns_valid_for_no_change(self, setup):
+        """Before any password change, session-check returns valid session."""
         app, user_id, _ = setup
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get(f"/api/v1/auth/session-check/{user_id}")
         assert resp.status_code == 200
-        assert resp.json()["password_changed_at"] is None
+        data = resp.json()
+        assert data["session_valid"] is True
+        assert data["token_invalidated"] is False
 
     @pytest.mark.asyncio
-    async def test_returns_null_for_nonexistent_user(self, setup):
-        """A bogus user_id returns null rather than an error."""
+    async def test_returns_valid_for_nonexistent_user(self, setup):
+        """A bogus user_id returns session_valid=True, token_invalidated=False."""
         app, _, _ = setup
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/api/v1/auth/session-check/99999")
         assert resp.status_code == 200
-        assert resp.json()["password_changed_at"] is None
+        data = resp.json()
+        assert data["session_valid"] is True
+        assert data["token_invalidated"] is False
