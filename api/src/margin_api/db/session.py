@@ -38,14 +38,10 @@ def get_engine(url: str | None = None):
         # strip it and pass SSL via connect_args instead.
         db_url = settings.database_url
         if "sslmode=require" in db_url:
-            import ssl
+            from margin_api.db.ssl import create_pg_ssl_context
 
             db_url = db_url.replace("?sslmode=require", "").replace("&sslmode=require", "")
-            ssl_ctx = ssl.create_default_context()
-            # Railway (and many managed PG services) use self-signed certs
-            ssl_ctx.check_hostname = False
-            ssl_ctx.verify_mode = ssl.CERT_NONE
-            connect_args["ssl"] = ssl_ctx
+            connect_args["ssl"] = create_pg_ssl_context()
 
         if connect_args:
             engine_kwargs["connect_args"] = connect_args

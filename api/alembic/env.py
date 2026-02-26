@@ -41,14 +41,10 @@ async def run_async_migrations() -> None:
     # asyncpg doesn't accept sslmode as a URL parameter —
     # strip it and pass SSL via connect_args instead.
     if "sslmode=require" in url:
-        import ssl
+        from margin_api.db.ssl import create_pg_ssl_context
 
         url = url.replace("?sslmode=require", "").replace("&sslmode=require", "")
-        ssl_ctx = ssl.create_default_context()
-        # Railway (and many managed PG services) use self-signed certs
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.CERT_NONE
-        connect_args["ssl"] = ssl_ctx
+        connect_args["ssl"] = create_pg_ssl_context()
 
     engine = create_async_engine(url, connect_args=connect_args)
     async with engine.begin() as connection:
