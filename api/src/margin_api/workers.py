@@ -1710,7 +1710,7 @@ class WorkerSettings:
 
     @staticmethod
     async def on_startup(ctx: dict) -> None:
-        """Log worker startup info for debugging connectivity."""
+        """Log worker startup info and clean up stale ingestion runs."""
         settings = get_settings()
         url = settings.redis_url
         # Redact password
@@ -1723,6 +1723,33 @@ class WorkerSettings:
             "[worker] Registered functions: %s",
             [f.__name__ if callable(f) else str(f) for f in WorkerSettings.functions],
         )
+
+        # Mark stale "running" IngestionRuns as abandoned (from previous crashes/deploys)
+        try:
+            engine = get_engine()
+            session_factory = get_session_factory(engine)
+            cutoff = datetime.now(UTC) - timedelta(hours=6)
+            async with session_factory() as session:
+                stale = await session.execute(
+                    select(IngestionRun).where(
+                        IngestionRun.status == "running",
+                        IngestionRun.started_at < cutoff,
+                    )
+                )
+                stale_runs = stale.scalars().all()
+                for run in stale_runs:
+                    run.status = "abandoned"
+                    run.completed_at = datetime.now(UTC)
+                    logger.warning(
+                        "[worker] Marked stale IngestionRun %d as abandoned (started %s)",
+                        run.id,
+                        run.started_at,
+                    )
+                if stale_runs:
+                    await session.commit()
+                    logger.info("[worker] Cleaned up %d stale ingestion runs", len(stale_runs))
+        except Exception:
+            logger.exception("[worker] Failed to clean up stale ingestion runs")
 
     max_jobs = get_settings().ingest_concurrency
 
@@ -1742,15 +1769,15 @@ class WorkerSettings:
         compute_accumulation_signals,
     ]
     cron_jobs = [
-        cron(orchestrate_ingest, hour=21, minute=30),  # 4:30 PM ET — after market close
+        cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
         cron(
             live_price_poll,
             minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
             run_at_startup=False,
         ),
-        cron(retry_quarantined, weekday=6, hour=0),  # Sunday midnight
-        cron(train_ml_models, weekday=5, hour=2),  # Saturday 2 AM UTC
-        cron(full_13f_ingest, hour=22, minute=0),  # 5 PM ET — after daily ingest
+        cron(retry_quarantined, weekday=6, hour=0, run_at_startup=False),  # Sunday midnight
+        cron(train_ml_models, weekday=5, hour=2, run_at_startup=False),  # Saturday 2 AM UTC
+        cron(full_13f_ingest, hour=22, minute=0, run_at_startup=False),  # 5 PM ET
     ]
     # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)
     job_timeout = 1200
