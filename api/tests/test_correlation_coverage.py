@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
 from margin_api.app import create_app
 from margin_api.db.base import Base
 from margin_api.db.models import Asset, FinancialData, Score
-from margin_api.db.session import get_db
 from margin_api.routes.correlations import _parse_bar
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -21,26 +18,30 @@ class TestParseBar:
     """Tests for _parse_bar helper."""
 
     def test_parse_capitalized_keys(self):
-        bar = _parse_bar({
-            "Date": "2025-01-01",
-            "Open": 100.0,
-            "High": 105.0,
-            "Low": 99.0,
-            "Close": 104.0,
-            "Volume": 1000000,
-        })
+        bar = _parse_bar(
+            {
+                "Date": "2025-01-01",
+                "Open": 100.0,
+                "High": 105.0,
+                "Low": 99.0,
+                "Close": 104.0,
+                "Volume": 1000000,
+            }
+        )
         assert bar is not None
         assert bar.close == 104.0
 
     def test_parse_lowercase_keys(self):
-        bar = _parse_bar({
-            "date": "2025-01-02",
-            "open": 100.0,
-            "high": 105.0,
-            "low": 99.0,
-            "close": 103.0,
-            "volume": 500000,
-        })
+        bar = _parse_bar(
+            {
+                "date": "2025-01-02",
+                "open": 100.0,
+                "high": 105.0,
+                "low": 99.0,
+                "close": 103.0,
+                "volume": 500000,
+            }
+        )
         assert bar is not None
         assert bar.close == 103.0
 
@@ -76,17 +77,32 @@ class TestComputeLiveShowcase:
             "composite_percentile": 80.0,
             "conviction_level": "high",
             "signal": "buy",
-            "quality": {"factor_name": "quality", "weight": 0.35, "sub_scores": [], "average_percentile": 80.0},
-            "value": {"factor_name": "value", "weight": 0.30, "sub_scores": [], "average_percentile": 75.0},
-            "momentum": {"factor_name": "momentum", "weight": 0.35, "sub_scores": [], "average_percentile": 85.0},
+            "quality": {
+                "factor_name": "quality",
+                "weight": 0.35,
+                "sub_scores": [],
+                "average_percentile": 80.0,
+            },
+            "value": {
+                "factor_name": "value",
+                "weight": 0.30,
+                "sub_scores": [],
+                "average_percentile": 75.0,
+            },
+            "momentum": {
+                "factor_name": "momentum",
+                "weight": 0.35,
+                "sub_scores": [],
+                "average_percentile": 85.0,
+            },
             "filters_passed": [],
             "data_coverage": 1.0,
         }
 
     def _make_bars(self, n=260):
         """Generate n price bars."""
-        from datetime import date, timedelta
         import random
+        from datetime import date, timedelta
 
         rng = random.Random(42)
         start = date(2024, 1, 2)
@@ -95,14 +111,16 @@ class TestComputeLiveShowcase:
         for i in range(n):
             d = start + timedelta(days=i)
             price *= 1 + rng.gauss(0, 0.01)
-            bars.append({
-                "Date": d.isoformat(),
-                "Open": round(price, 2),
-                "High": round(price * 1.01, 2),
-                "Low": round(price * 0.99, 2),
-                "Close": round(price, 2),
-                "Volume": 1000000,
-            })
+            bars.append(
+                {
+                    "Date": d.isoformat(),
+                    "Open": round(price, 2),
+                    "High": round(price * 1.01, 2),
+                    "Low": round(price * 0.99, 2),
+                    "Close": round(price, 2),
+                    "Volume": 1000000,
+                }
+            )
         return bars
 
     @pytest.mark.asyncio

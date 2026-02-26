@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import ssl
+from datetime import UTC
 from unittest.mock import patch
 
 
@@ -40,8 +41,6 @@ class TestCreatePgSslContext:
     def test_ca_cert_set_returns_cert_required(self):
         """When MARGIN_DB_CA_CERT has real PEM content, uses CERT_REQUIRED."""
         # Generate a self-signed cert PEM for testing
-        import subprocess
-        import tempfile
 
         # Use a real PEM — create a quick self-signed cert
         pem = _generate_self_signed_pem()
@@ -57,10 +56,11 @@ class TestCreatePgSslContext:
 
 def _generate_self_signed_pem() -> str:
     """Generate a minimal self-signed CA PEM certificate for testing."""
+    from datetime import datetime, timedelta
+
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
-    from datetime import datetime, timedelta, timezone
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, "test-ca")])
@@ -70,8 +70,8 @@ def _generate_self_signed_pem() -> str:
         .issuer_name(subject)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.now(timezone.utc))
-        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+        .not_valid_before(datetime.now(UTC))
+        .not_valid_after(datetime.now(UTC) + timedelta(days=1))
         .sign(key, hashes.SHA256())
     )
     return cert.public_bytes(serialization.Encoding.PEM).decode()

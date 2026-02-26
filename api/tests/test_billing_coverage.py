@@ -94,8 +94,7 @@ class TestPortalEndpoint:
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            with patch("margin_api.services.billing.stripe.StripeClient") as mock_cls:
-                mock_stripe = mock_cls.return_value
+            with patch("margin_api.services.billing.stripe.StripeClient"):
                 # The BillingService.create_portal_session raises ValueError when no customer
                 resp = await client.post("/api/v1/billing/portal")
 

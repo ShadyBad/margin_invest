@@ -21,9 +21,24 @@ def _score_detail() -> dict:
         "composite_percentile": 80.0,
         "conviction_level": "high",
         "signal": "buy",
-        "quality": {"factor_name": "quality", "weight": 0.35, "sub_scores": [], "average_percentile": 80.0},
-        "value": {"factor_name": "value", "weight": 0.30, "sub_scores": [], "average_percentile": 75.0},
-        "momentum": {"factor_name": "momentum", "weight": 0.35, "sub_scores": [], "average_percentile": 85.0},
+        "quality": {
+            "factor_name": "quality",
+            "weight": 0.35,
+            "sub_scores": [],
+            "average_percentile": 80.0,
+        },
+        "value": {
+            "factor_name": "value",
+            "weight": 0.30,
+            "sub_scores": [],
+            "average_percentile": 75.0,
+        },
+        "momentum": {
+            "factor_name": "momentum",
+            "weight": 0.35,
+            "sub_scores": [],
+            "average_percentile": 85.0,
+        },
         "filters_passed": [],
         "data_coverage": 1.0,
     }

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
@@ -36,7 +36,7 @@ def _bars(n: int = 3) -> list[dict]:
     """Generate n price bar dicts with proper datetime objects for SQLite."""
     return [
         {
-            "time": datetime(2025, 1, 15, 10, i, 0, tzinfo=timezone.utc),
+            "time": datetime(2025, 1, 15, 10, i, 0, tzinfo=UTC),
             "open": 150.0 + i,
             "high": 151.0 + i,
             "low": 149.0 + i,
@@ -86,7 +86,7 @@ class TestUpsertPriceBars:
         """Bars with capitalized keys (yfinance format) are handled."""
         bars = [
             {
-                "Time": datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+                "Time": datetime(2025, 1, 15, 10, 0, 0, tzinfo=UTC),
                 "Open": 150.0,
                 "High": 151.0,
                 "Low": 149.0,
