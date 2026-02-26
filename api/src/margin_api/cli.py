@@ -1246,7 +1246,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 ev = (
                     float(profile.market_cap)
                     + float(latest.current_balance.total_debt)
-                    - float(latest.current_balance.cash_and_equivalents)
+                    - float(latest.current_balance.cash_and_equivalents or 0)
                 )
                 ev_fcf_raw = ev / fcf if fcf > 0 else None
 
@@ -1262,7 +1262,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                         earnings_accel = growth_recent > growth_older
 
                 # R&D + CapEx / Revenue
-                capex = abs(float(latest.current_cash_flow.capex))
+                capex = abs(float(latest.current_cash_flow.capital_expenditures))
                 rd = float(latest.current_income.research_and_development)
                 rev_for_ratio = float(latest.current_income.revenue)
                 rd_capex_ratio = (rd + capex) / rev_for_ratio if rev_for_ratio > 0 else None

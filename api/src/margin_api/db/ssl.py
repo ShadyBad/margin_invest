@@ -30,7 +30,7 @@ def create_pg_ssl_context() -> ssl.SSLContext:
     else:
         ssl_ctx.check_hostname = False
         ssl_ctx.verify_mode = ssl.CERT_NONE
-        logger.warning(
+        logger.info(
             "DB SSL: CERT_NONE — set MARGIN_DB_CA_CERT env var for certificate verification"
         )
 
