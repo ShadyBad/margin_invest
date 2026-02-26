@@ -34,6 +34,7 @@ from margin_api.db.models import (
     Manager,
     MlModelRun,
     Score,
+    UniverseSnapshot,
     V3Score,
 )
 from margin_api.db.session import get_engine, get_session_factory, reset_engine_cache
@@ -398,6 +399,325 @@ async def orchestrate_ingest(ctx: dict) -> dict:
         "run_id": run_id,
         "total_batches": total_batches,
         "total_tickers": len(tickers),
+    }
+
+
+async def ingest_batch(
+    ctx: dict,
+    run_id: str,
+    pipeline_id: str,
+    tickers: list[str],
+    batch_num: int,
+    is_sweep: bool = False,
+) -> dict:
+    """Process a batch of tickers for ingestion.
+
+    Seeds each ticker via yfinance (rate-limited by Redis), records per-ticker
+    status to the DB, and increments the Redis batch-completion counter.
+    When this is the last batch to complete, enqueues ingest_sweep.
+    When is_sweep=True (cleanup batch), enqueues ingest_sweep_complete instead.
+    """
+    from margin_engine.ingestion.circuit_breaker import CircuitBreaker
+    from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
+
+    from margin_api.cli import seed_ticker_data
+    from margin_api.services.ingestion import should_ingest_ticker
+    from margin_api.services.redis_rate_limiter import RedisRateLimiter
+
+    label = f"[ingest:{run_id}:batch-{batch_num}]"
+    logger.info("%s Starting — %d tickers (sweep=%s)", label, len(tickers), is_sweep)
+
+    settings = get_settings()
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Build rate limiter from Redis
+    raw_redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+    limiter = RedisRateLimiter(raw_redis, max_per_minute=settings.ingest_rate_limit)
+
+    # Don't pass limiter to provider — we rate-limit at the batch level
+    provider = YFinanceProvider(rate_limiter=None)
+
+    # Optional FMP fallback
+    fmp_provider = None
+    fmp_key = os.environ.get("FMP_API_KEY")
+    if fmp_key:
+        from margin_engine.ingestion.providers.fmp_provider import FMPProvider
+
+        fmp_provider = FMPProvider(api_key=fmp_key)
+
+    yf_breaker = CircuitBreaker(failure_threshold=10, cooldown_seconds=900.0)
+    fmp_breaker = (
+        CircuitBreaker(failure_threshold=10, cooldown_seconds=900.0)
+        if fmp_provider
+        else None
+    )
+
+    successes = 0
+    failures = 0
+    partial_count = 0
+    failed_tickers: list[str] = []
+    total = len(tickers)
+    int_run_id = int(run_id)
+    coord_prefix = f"ingest:{run_id}"
+    redis: ArqRedis | None = ctx.get("redis")
+
+    for i, ticker in enumerate(tickers, start=1):
+        logger.info("%s [%d/%d] Seeding %s", label, i, total, ticker)
+
+        # Check if ticker should be ingested
+        async with session_factory() as session:
+            asset_check = await session.execute(select(Asset).where(Asset.ticker == ticker))
+            existing_asset = asset_check.scalar_one_or_none()
+            if existing_asset and not should_ingest_ticker(
+                existing_asset.ingestion_status,
+                existing_asset.consecutive_failures,
+                existing_asset.last_retry_at,
+            ):
+                logger.info(
+                    "%s %s SKIPPED (status=%s)", label, ticker, existing_asset.ingestion_status
+                )
+                continue
+
+        # Resume check: skip if already seeded today
+        async with session_factory() as session:
+            today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
+            resume_check = await session.execute(
+                select(FinancialData)
+                .join(Asset, FinancialData.asset_id == Asset.id)
+                .where(Asset.ticker == ticker, FinancialData.period_end == today_iso)
+                .limit(1)
+            )
+            if resume_check.scalar_one_or_none() is not None:
+                logger.info("%s %s SKIPPED (already seeded today)", label, ticker)
+                continue
+
+        # Circuit breaker gate
+        if not yf_breaker.allow_request():
+            logger.warning("%s %s SKIPPED (circuit breaker open)", label, ticker)
+            failures += 1
+            failed_tickers.append(ticker)
+            continue
+
+        # Rate limit at batch level (shared Redis limiter)
+        await limiter.wait_and_acquire()
+
+        tick_started = datetime.now(UTC)
+        async with session_factory() as session:
+            result = await seed_ticker_data(
+                ticker=ticker,
+                provider=provider,
+                session=session,
+                fallback_provider=(
+                    fmp_provider
+                    if (fmp_breaker is None or fmp_breaker.allow_request())
+                    else None
+                ),
+            )
+        tick_ended = datetime.now(UTC)
+        duration_ms = int((tick_ended - tick_started).total_seconds() * 1000)
+
+        # Update circuit breaker
+        if result.status == "failed":
+            yf_breaker.record_failure()
+        else:
+            yf_breaker.record_success()
+
+        # Record per-ticker audit trail
+        if result.status in ("ok", "partial"):
+            audit_status = "succeeded"
+        else:
+            audit_status = result.status
+        async with session_factory() as session:
+            ticker_status = IngestionTickerStatus(
+                run_id=int_run_id,
+                ticker=ticker,
+                status=audit_status,
+                error_message=result.error_message if result.status == "failed" else None,
+                data_fetched=result.data_categories_present if result.is_success else None,
+                duration_ms=duration_ms,
+                started_at=tick_started,
+                completed_at=tick_ended,
+            )
+            session.add(ticker_status)
+            await session.commit()
+
+        if result.status == "ok":
+            successes += 1
+        elif result.status == "partial":
+            successes += 1
+            partial_count += 1
+        elif result.status == "failed":
+            failures += 1
+            failed_tickers.append(ticker)
+            logger.warning("%s %s FAILED: %s", label, ticker, result.error_message)
+
+    # Push failed tickers to Redis list for sweep
+    if failed_tickers and redis:
+        await redis.rpush(f"{coord_prefix}:failed_tickers", *failed_tickers)
+
+    # Update IngestionRun stats atomically
+    async with session_factory() as session:
+        ing_result = await session.execute(
+            select(IngestionRun).where(IngestionRun.id == int_run_id)
+        )
+        run = ing_result.scalar_one()
+        run.tickers_succeeded = (run.tickers_succeeded or 0) + successes
+        run.tickers_failed = (run.tickers_failed or 0) + failures
+        run.tickers_partial = (run.tickers_partial or 0) + partial_count
+        await session.commit()
+
+    logger.info(
+        "%s Complete: %d succeeded (%d partial), %d failed",
+        label,
+        successes,
+        partial_count,
+        failures,
+    )
+
+    # Completion coordination
+    is_last_batch = False
+    if redis:
+        if is_sweep:
+            # Sweep batch always goes to sweep_complete
+            is_last_batch = True
+            logger.info(
+                "%s Sweep batch complete — enqueuing sweep_complete (pipeline=%s)",
+                label,
+                pipeline_id,
+            )
+            await redis.enqueue_job("ingest_sweep_complete", run_id, pipeline_id)
+        else:
+            completed = await redis.incr(f"{coord_prefix}:completed")
+            total_batches = int(await redis.get(f"{coord_prefix}:total") or 0)
+            if completed >= total_batches:
+                is_last_batch = True
+                logger.info(
+                    "%s Last batch complete — enqueuing sweep (pipeline=%s)",
+                    label,
+                    pipeline_id,
+                )
+                await redis.enqueue_job("ingest_sweep", run_id, pipeline_id)
+
+    # Cleanup Redis connection
+    await raw_redis.aclose()
+
+    return {
+        "status": "completed",
+        "batch_num": batch_num,
+        "succeeded": successes,
+        "partial": partial_count,
+        "failed": failures,
+        "is_last_batch": is_last_batch,
+    }
+
+
+async def ingest_sweep(ctx: dict, run_id: str, pipeline_id: str) -> dict:
+    """Find tickers that were not successfully ingested and enqueue a cleanup batch.
+
+    If all tickers succeeded, goes straight to ingest_sweep_complete.
+    The sweep runs once — any tickers that fail the sweep are left for
+    the weekly retry_quarantined cron.
+    """
+    label = f"[sweep:{run_id}]"
+    logger.info("%s Starting sweep (pipeline=%s)", label, pipeline_id)
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    async with session_factory() as session:
+        run_result = await session.execute(
+            select(IngestionRun).where(IngestionRun.id == int(run_id))
+        )
+        run = run_result.scalar_one()
+
+        snap_result = await session.execute(
+            select(UniverseSnapshot).where(UniverseSnapshot.id == run.snapshot_id)
+        )
+        snapshot = snap_result.scalar_one()
+        universe_tickers = set(snapshot.tickers)
+
+        succeeded_result = await session.execute(
+            select(IngestionTickerStatus.ticker).where(
+                IngestionTickerStatus.run_id == int(run_id),
+                IngestionTickerStatus.status == "succeeded",
+            )
+        )
+        succeeded_tickers = {row[0] for row in succeeded_result.all()}
+
+    missing_tickers = sorted(universe_tickers - succeeded_tickers)
+    logger.info(
+        "%s %d missing tickers out of %d", label, len(missing_tickers), len(universe_tickers)
+    )
+
+    redis: ArqRedis | None = ctx.get("redis")
+    if not redis:
+        return {"status": "error", "message": "No redis"}
+
+    if missing_tickers:
+        await redis.enqueue_job(
+            "ingest_batch",
+            run_id,
+            pipeline_id,
+            missing_tickers,
+            0,  # batch_num=0 for sweep
+            True,  # is_sweep=True
+            _job_id=f"ingest-sweep-batch-{run_id}",
+        )
+        logger.info("%s Enqueued sweep batch with %d tickers", label, len(missing_tickers))
+    else:
+        await redis.enqueue_job("ingest_sweep_complete", run_id, pipeline_id)
+        logger.info("%s No missing tickers — enqueuing sweep_complete", label)
+
+    return {
+        "status": "sweep_dispatched" if missing_tickers else "all_complete",
+        "missing_count": len(missing_tickers),
+    }
+
+
+async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dict:
+    """Finalize the ingestion run and chain to scoring.
+
+    Updates the IngestionRun record with final stats, then enqueues full_score.
+    """
+    label = f"[sweep_complete:{run_id}]"
+    logger.info("%s Finalizing ingestion run (pipeline=%s)", label, pipeline_id)
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    completed_at = datetime.now(UTC)
+    async with session_factory() as session:
+        run_result = await session.execute(
+            select(IngestionRun).where(IngestionRun.id == int(run_id))
+        )
+        run = run_result.scalar_one()
+        run.status = (
+            "failed" if (run.tickers_failed or 0) > run.tickers_requested * 0.5 else "completed"
+        )
+        run.completed_at = completed_at
+        run.duration_seconds = (completed_at - run.started_at).total_seconds()
+        await session.commit()
+
+    logger.info(
+        "%s Ingestion complete: %d succeeded, %d failed (%.0fs)",
+        label,
+        run.tickers_succeeded or 0,
+        run.tickers_failed or 0,
+        run.duration_seconds or 0,
+    )
+
+    redis: ArqRedis | None = ctx.get("redis")
+    if redis:
+        await redis.enqueue_job("full_score", pipeline_id)
+        logger.info("%s Enqueued full_score (pipeline=%s)", label, pipeline_id)
+
+    return {
+        "status": "completed",
+        "pipeline_id": pipeline_id,
+        "succeeded": run.tickers_succeeded or 0,
+        "failed": run.tickers_failed or 0,
+        "duration_seconds": run.duration_seconds,
     }
 
 
@@ -1623,8 +1943,13 @@ class WorkerSettings:
             [f.__name__ if callable(f) else str(f) for f in WorkerSettings.functions],
         )
 
+    max_jobs = get_settings().ingest_concurrency
+
     functions = [
-        full_ingest,
+        orchestrate_ingest,
+        ingest_batch,
+        ingest_sweep,
+        ingest_sweep_complete,
         full_score,
         full_score_v3,
         full_score_v4,
@@ -1636,7 +1961,7 @@ class WorkerSettings:
         compute_accumulation_signals,
     ]
     cron_jobs = [
-        cron(full_ingest, hour=21, minute=30),  # 4:30 PM ET (21:30 UTC) — after market close
+        cron(orchestrate_ingest, hour=21, minute=30),  # 4:30 PM ET — after market close
         cron(
             live_price_poll,
             minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
@@ -1644,7 +1969,7 @@ class WorkerSettings:
         ),
         cron(retry_quarantined, weekday=6, hour=0),  # Sunday midnight
         cron(train_ml_models, weekday=5, hour=2),  # Saturday 2 AM UTC
-        cron(full_13f_ingest, hour=22, minute=0),  # 5 PM ET (22:00 UTC) — after daily ingest
+        cron(full_13f_ingest, hour=22, minute=0),  # 5 PM ET — after daily ingest
     ]
-    # ARQ job timeout: 5 hours for the full pipeline (~3000 tickers, 4+ API calls each)
-    job_timeout = 18000
+    # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)
+    job_timeout = 1200
