@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stripe import SignatureVerificationError
 
 from margin_api.config import Settings, get_settings
-from margin_api.db.models import User
+from margin_api.db.models import ProcessedWebhookEvent, User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
 from margin_api.middleware.mfa_enforcement import require_mfa_dep
@@ -87,6 +87,15 @@ async def stripe_webhook(
     except (ValueError, SignatureVerificationError):
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
+    # Idempotency check — skip already-processed events
+    existing = await db.execute(
+        select(ProcessedWebhookEvent).where(
+            ProcessedWebhookEvent.event_id == event.id
+        )
+    )
+    if existing.scalar_one_or_none():
+        return {"status": "already_processed"}
+
     if event.type in (
         "customer.subscription.created",
         "customer.subscription.updated",
@@ -117,6 +126,13 @@ async def stripe_webhook(
             price_id=price_id,
             current_period_end=current_period_end,
         )
+
+    # Record event as processed for idempotency
+    db.add(ProcessedWebhookEvent(
+        event_id=event.id,
+        event_type=event.type,
+    ))
+    await db.commit()
 
     return {"received": True}
 

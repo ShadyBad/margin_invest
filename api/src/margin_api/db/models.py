@@ -861,3 +861,15 @@ class AccumulationSignal(Base):
             "asset_id", "period_of_report", name="uq_accumulation_asset_period"
         ),
     )
+
+
+class ProcessedWebhookEvent(Base):
+    """Idempotency tracking for Stripe webhook events."""
+
+    __tablename__ = "processed_webhook_events"
+
+    event_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(100))
+    processed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
