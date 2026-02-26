@@ -283,3 +283,36 @@ class ResetPasswordResponse(BaseModel):
     """Response after successful password reset."""
 
     message: str
+
+
+# ---------------------------------------------------------------------------
+# MFA complete schemas (cookie-based challenge flow)
+# ---------------------------------------------------------------------------
+
+
+class MfaCompleteRequest(BaseModel):
+    """Request body for completing MFA during login."""
+
+    totp_code: str | None = Field(None, min_length=6, max_length=6)
+    recovery_code: str | None = Field(None, min_length=8, max_length=9)
+
+
+class MfaCompleteResponse(BaseModel):
+    """Response with a signed MFA completion token."""
+
+    mfa_completion_token: str
+
+
+class VerifyMfaTokenRequest(BaseModel):
+    """Request body for verifying an MFA completion token."""
+
+    token: str
+
+
+class VerifyMfaTokenResponse(BaseModel):
+    """Response with user data after MFA token verification."""
+
+    id: int
+    email: str
+    username: str
+    avatar_url: str | None = None

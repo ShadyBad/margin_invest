@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import time
+
+import jwt as pyjwt
 from datetime import UTC, datetime, timedelta
 
 from argon2.exceptions import VerifyMismatchError
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.config import get_settings
+from margin_api.config import Settings, get_settings
 from margin_api.db.models import LinkedProvider, RecoveryCode, TotpSecret, User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
@@ -27,6 +31,8 @@ from margin_api.schemas.auth import (
     ForgotPasswordResponse,
     LinkProviderRequest,
     LinkProviderResponse,
+    MfaCompleteRequest,
+    MfaCompleteResponse,
     MfaVerifyResponse,
     OAuthSyncRequest,
     OAuthSyncResponse,
@@ -47,6 +53,8 @@ from margin_api.schemas.auth import (
     UnlinkProviderResponse,
     VerifyCredentialsRequest,
     VerifyCredentialsResponse,
+    VerifyMfaTokenRequest,
+    VerifyMfaTokenResponse,
     VerifyRecoveryCodeRequest,
     VerifyTotpRequest,
     WebAuthnOptionsRequest,
@@ -654,4 +662,96 @@ async def security_status(
         mfa_grace_deadline=user.mfa_grace_deadline,
         recovery_codes_remaining=remaining,
         linked_providers=provider_info,
+    )
+
+
+# ---------------------------------------------------------------------------
+# MFA complete endpoints (cookie-based challenge flow)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/mfa/complete", response_model=MfaCompleteResponse)
+async def mfa_complete(
+    body: MfaCompleteRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthService = Depends(_get_auth_service),
+    totp: TotpService = Depends(_get_totp_service),
+    recovery: RecoveryCodeService = Depends(_get_recovery_code_service),
+) -> MfaCompleteResponse:
+    """Complete MFA verification during login using cookie-based challenge."""
+    cookie_value = request.cookies.get("__mfa_challenge")
+    if not cookie_value:
+        raise HTTPException(status_code=401, detail="Missing MFA challenge cookie")
+
+    try:
+        challenge_data = json.loads(cookie_value)
+        user_id = int(challenge_data["userId"])
+        challenge_token = challenge_data["challengeToken"]
+    except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid MFA challenge cookie")
+
+    valid = await auth.verify_challenge_token(db, user_id, challenge_token)
+    if not valid:
+        raise HTTPException(status_code=403, detail="Invalid or expired challenge token")
+
+    if body.totp_code:
+        verified = await totp.verify_totp(db, user_id, body.totp_code)
+        if not verified:
+            raise HTTPException(status_code=401, detail="Invalid verification code")
+    elif body.recovery_code:
+        verified = await recovery.verify_code(db, user_id, body.recovery_code)
+        if not verified:
+            raise HTTPException(status_code=401, detail="Invalid recovery code")
+    else:
+        raise HTTPException(status_code=400, detail="Provide totp_code or recovery_code")
+
+    settings = get_settings()
+    completion_token = pyjwt.encode(
+        {
+            "sub": str(user_id),
+            "purpose": "mfa_complete",
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 60,
+        },
+        settings.jwt_secret,
+        algorithm="HS256",
+    )
+
+    return MfaCompleteResponse(mfa_completion_token=completion_token)
+
+
+@router.post("/verify-mfa-token", response_model=VerifyMfaTokenResponse)
+async def verify_mfa_token(
+    body: VerifyMfaTokenRequest,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> VerifyMfaTokenResponse:
+    """Verify an MFA completion token and return user data for session creation."""
+    try:
+        payload = pyjwt.decode(
+            body.token,
+            settings.jwt_secret,
+            algorithms=["HS256"],
+            options={"require": ["sub", "exp", "iat", "purpose"]},
+        )
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="MFA token expired")
+    except pyjwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid MFA token")
+
+    if payload.get("purpose") != "mfa_complete":
+        raise HTTPException(status_code=401, detail="Invalid token purpose")
+
+    user_id = int(payload["sub"])
+    stmt = select(User).where(User.id == user_id)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return VerifyMfaTokenResponse(
+        id=user.id,
+        email=user.email,
+        username=user.name or "",
+        avatar_url=user.avatar_url,
     )
