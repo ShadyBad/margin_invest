@@ -16,6 +16,7 @@ from margin_api.db.models import (
     SecurityMaster,
 )
 from margin_api.db.session import get_db
+from margin_api.deps import require_plan
 from margin_api.schemas.thirteenf import (
     ChangesSummary,
     ClonePosition,
@@ -262,6 +263,7 @@ async def list_managers(
 async def get_manager_portfolio(
     manager_id: int,
     period: date | None = Query(None, description="Quarter end date, defaults to latest"),
+    user_id: int = Depends(require_plan("institutional")),
     db: AsyncSession = Depends(get_db),
 ) -> ManagerPortfolioResponse:
     """Get a manager's full portfolio for a quarter."""
@@ -333,6 +335,7 @@ async def get_manager_portfolio(
 
 @router.get("/analytics/overlap", response_model=OverlapResponse)
 async def get_overlap(
+    user_id: int = Depends(require_plan("institutional")),
     db: AsyncSession = Depends(get_db),
 ) -> OverlapResponse:
     """Get most commonly held tickers and crowded trades across all tracked managers."""
@@ -394,6 +397,7 @@ async def get_overlap(
 
 @router.get("/analytics/new-positions", response_model=NewPositionResponse)
 async def get_new_positions(
+    user_id: int = Depends(require_plan("institutional")),
     db: AsyncSession = Depends(get_db),
 ) -> NewPositionResponse:
     """Get tickers with the most new institutional positions this quarter."""
@@ -415,6 +419,7 @@ async def get_new_positions(
 async def get_clone_portfolio(
     manager_id: int,
     strategy: str = Query(default="equal_weight_top_20"),
+    user_id: int = Depends(require_plan("institutional")),
     db: AsyncSession = Depends(get_db),
 ) -> CloneResponse:
     """Generate a clone portfolio from a manager's latest holdings."""

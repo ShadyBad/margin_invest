@@ -16,8 +16,10 @@ from margin_api.db.models import (
     InstitutionalHolding,
     Manager,
     SecurityMaster,
+    User,
 )
 from margin_api.db.session import get_db
+from margin_api.deps import get_current_user_id
 
 
 @pytest_asyncio.fixture
@@ -45,6 +47,16 @@ async def db_session(session_factory):
 @pytest_asyncio.fixture
 async def seeded_db(db_session: AsyncSession):
     """Seed data for analytics queries -- multiple managers holding overlapping tickers."""
+    # Create a test user with institutional plan for auth gating
+    test_user = User(
+        email="test@test.com",
+        name="Test User",
+        subscription_plan="institutional",
+    )
+    db_session.add(test_user)
+    await db_session.commit()
+    await db_session.refresh(test_user)
+
     # Create managers
     mgr1 = Manager(
         cik="0001067983",
@@ -194,7 +206,7 @@ async def seeded_db(db_session: AsyncSession):
     db_session.add_all(holdings)
     await db_session.commit()
 
-    return {"mgr1": mgr1, "mgr2": mgr2, "mgr3": mgr3}
+    return {"mgr1": mgr1, "mgr2": mgr2, "mgr3": mgr3, "user": test_user}
 
 
 @pytest_asyncio.fixture
@@ -205,6 +217,7 @@ async def client(db_session, seeded_db):
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user_id] = lambda: seeded_db["user"].id
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

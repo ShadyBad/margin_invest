@@ -6,8 +6,10 @@ import time
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path
 from margin_engine.backtesting.replay_orchestrator import ReplayConfig
+
+from margin_api.deps import require_plan
 
 from margin_api.schemas.backtest import (
     BacktestConfigRequest,
@@ -209,7 +211,9 @@ async def get_backtest_teaser(
     "/backtest/default",
     response_model=FullBacktestResponse,
 )
-async def get_default_backtest() -> FullBacktestResponse:
+async def get_default_backtest(
+    user_id: int = Depends(require_plan("portfolio")),
+) -> FullBacktestResponse:
     """Pre-computed default backtest for pro users."""
     result = get_default_replay_result()
     return build_full_response(result, failure_periods=[])
@@ -222,6 +226,7 @@ async def get_default_backtest() -> FullBacktestResponse:
 )
 async def run_replay(
     config: ReplayConfigRequest,
+    user_id: int = Depends(require_plan("portfolio")),
 ) -> FullBacktestResponse:
     """On-demand custom replay backtest.
 
@@ -252,7 +257,9 @@ async def run_replay(
     "/backtest/shadow-portfolio",
     response_model=ShadowPortfolioResponse,
 )
-async def get_shadow_portfolio() -> ShadowPortfolioResponse:
+async def get_shadow_portfolio(
+    user_id: int = Depends(require_plan("institutional")),
+) -> ShadowPortfolioResponse:
     """Get the live shadow portfolio -- provably forward-looking."""
     # For now, return an empty/placeholder response since
     # the daily worker job hasn't run yet. When real data
