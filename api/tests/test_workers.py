@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from margin_api.services.seed_result import SeedResult
 from margin_api.workers import WorkerSettings
 
 
@@ -22,7 +21,10 @@ class TestWorkerSettings:
 
     def test_function_names(self):
         names = [f.__name__ for f in WorkerSettings.functions]
-        assert "full_ingest" in names
+        assert "orchestrate_ingest" in names
+        assert "ingest_batch" in names
+        assert "ingest_sweep" in names
+        assert "ingest_sweep_complete" in names
         assert "full_score" in names
         assert "full_score_v3" in names
         assert "full_score_v4" in names
@@ -31,7 +33,7 @@ class TestWorkerSettings:
         assert "retry_quarantined" in names
 
     def test_job_timeout_set(self):
-        assert WorkerSettings.job_timeout >= 3600
+        assert WorkerSettings.job_timeout <= 1800
 
 
 def _mock_session_factory():
@@ -56,211 +58,6 @@ def _mock_session_factory():
     mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
     mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
     return mock_factory, mock_session, mock_job
-
-
-class TestFullIngest:
-    @pytest.mark.asyncio
-    async def test_full_ingest_no_snapshot(self):
-        """full_ingest returns error when no active universe snapshot."""
-        from margin_api.workers import full_ingest
-
-        mock_factory, mock_session, _ = _mock_session_factory()
-
-        with (
-            patch("margin_api.workers.get_engine"),
-            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
-            patch("margin_api.workers.get_active_snapshot", return_value=None),
-        ):
-            result = await full_ingest({})
-
-        assert result["status"] == "error"
-        assert "No active universe snapshot" in result["message"]
-
-    @pytest.mark.asyncio
-    async def test_full_ingest_chains_to_scoring(self):
-        """full_ingest enqueues full_score after completion."""
-        from margin_api.workers import full_ingest
-
-        # Mock snapshot
-        mock_snapshot = MagicMock()
-        mock_snapshot.id = 1
-        mock_snapshot.version = "2026.02.19"
-        mock_snapshot.tickers = ["AAPL", "MSFT"]
-
-        # Mock session with sequential execute results:
-        # For each ticker: should_ingest check (no asset) + resume check (no data)
-        # Then final IngestionRun update
-        mock_session = AsyncMock()
-        mock_run = MagicMock()
-        mock_run.id = 1
-        mock_run.started_at = datetime.now(UTC)
-        mock_session.add = MagicMock()
-        mock_session.commit = AsyncMock()
-
-        # Execute calls: (should_ingest, resume) x 2 tickers + IngestionRun update
-        no_result = MagicMock()
-        no_result.scalar_one_or_none.return_value = None
-        run_result = MagicMock()
-        run_result.scalar_one.return_value = mock_run
-        mock_session.execute = AsyncMock(
-            side_effect=[
-                no_result,  # AAPL should_ingest check (no asset)
-                no_result,  # AAPL resume check (not seeded today)
-                no_result,  # MSFT should_ingest check (no asset)
-                no_result,  # MSFT resume check (not seeded today)
-                run_result,  # IngestionRun update
-            ],
-        )
-
-        mock_session_factory = MagicMock()
-        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
-
-        # Mock Redis for job chaining
-        mock_redis = AsyncMock()
-        mock_redis.enqueue_job = AsyncMock()
-
-        with (
-            patch("margin_api.workers.get_engine"),
-            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
-            patch("margin_api.workers.get_active_snapshot", return_value=mock_snapshot),
-            patch("margin_api.cli._load_foreign_skips", return_value=set()),
-            patch(
-                "margin_api.cli.seed_ticker_data",
-                return_value=SeedResult(status="ok"),
-            ),
-            patch("margin_engine.ingestion.providers.yfinance_provider.YFinanceProvider"),
-            patch("margin_engine.ingestion.rate_limiter.RateLimiter"),
-        ):
-            result = await full_ingest({"redis": mock_redis})
-
-        assert result["status"] == "completed"
-        assert result["succeeded"] == 2
-        assert result["partial"] == 0
-        assert result["pipeline_id"] is not None
-        # Chains to full_score with the pipeline_id
-        mock_redis.enqueue_job.assert_called_once()
-        call_args = mock_redis.enqueue_job.call_args
-        assert call_args[0][0] == "full_score"
-        assert call_args[0][1] == result["pipeline_id"]
-
-    @pytest.mark.asyncio
-    async def test_full_ingest_generates_pipeline_id(self):
-        """full_ingest generates a pipeline_id when none is provided."""
-        from margin_api.workers import full_ingest
-
-        mock_snapshot = MagicMock()
-        mock_snapshot.id = 1
-        mock_snapshot.version = "2026.02.19"
-        mock_snapshot.tickers = ["AAPL"]
-
-        mock_session = AsyncMock()
-        mock_run = MagicMock()
-        mock_run.id = 1
-        mock_run.started_at = datetime.now(UTC)
-        mock_session.add = MagicMock()
-        mock_session.commit = AsyncMock()
-        mock_session.execute = AsyncMock(
-            return_value=MagicMock(scalar_one=MagicMock(return_value=mock_run)),
-        )
-
-        mock_factory = MagicMock()
-        mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
-
-        mock_redis = AsyncMock()
-
-        with (
-            patch("margin_api.workers.get_engine"),
-            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
-            patch("margin_api.workers.get_active_snapshot", return_value=mock_snapshot),
-            patch("margin_api.cli._load_foreign_skips", return_value=set()),
-            patch("margin_api.cli.seed_ticker_data", return_value=SeedResult(status="ok")),
-            patch("margin_engine.ingestion.providers.yfinance_provider.YFinanceProvider"),
-            patch("margin_engine.ingestion.rate_limiter.RateLimiter"),
-        ):
-            result = await full_ingest({"redis": mock_redis})
-
-        assert result["pipeline_id"] is not None
-        assert len(result["pipeline_id"]) == 16
-
-    @pytest.mark.asyncio
-    async def test_full_ingest_passes_provided_pipeline_id(self):
-        """full_ingest uses the pipeline_id passed to it."""
-        from margin_api.workers import full_ingest
-
-        mock_snapshot = MagicMock()
-        mock_snapshot.id = 1
-        mock_snapshot.version = "2026.02.19"
-        mock_snapshot.tickers = ["AAPL"]
-
-        mock_session = AsyncMock()
-        mock_run = MagicMock()
-        mock_run.id = 1
-        mock_run.started_at = datetime.now(UTC)
-        mock_session.add = MagicMock()
-        mock_session.commit = AsyncMock()
-        mock_session.execute = AsyncMock(
-            return_value=MagicMock(scalar_one=MagicMock(return_value=mock_run)),
-        )
-
-        mock_factory = MagicMock()
-        mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
-
-        mock_redis = AsyncMock()
-
-        with (
-            patch("margin_api.workers.get_engine"),
-            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
-            patch("margin_api.workers.get_active_snapshot", return_value=mock_snapshot),
-            patch("margin_api.cli._load_foreign_skips", return_value=set()),
-            patch("margin_api.cli.seed_ticker_data", return_value=SeedResult(status="ok")),
-            patch("margin_engine.ingestion.providers.yfinance_provider.YFinanceProvider"),
-            patch("margin_engine.ingestion.rate_limiter.RateLimiter"),
-        ):
-            result = await full_ingest({"redis": mock_redis}, pipeline_id="custom-id-123")
-
-        assert result["pipeline_id"] == "custom-id-123"
-
-    @pytest.mark.asyncio
-    async def test_full_ingest_warns_when_no_redis(self, caplog):
-        """full_ingest logs a warning when redis is not in worker context."""
-        from margin_api.workers import full_ingest
-
-        mock_snapshot = MagicMock()
-        mock_snapshot.id = 1
-        mock_snapshot.version = "2026.02.19"
-        mock_snapshot.tickers = ["AAPL"]
-
-        mock_session = AsyncMock()
-        mock_run = MagicMock()
-        mock_run.id = 1
-        mock_run.started_at = datetime.now(UTC)
-        mock_session.add = MagicMock()
-        mock_session.commit = AsyncMock()
-        mock_session.execute = AsyncMock(
-            return_value=MagicMock(scalar_one=MagicMock(return_value=mock_run)),
-        )
-
-        mock_factory = MagicMock()
-        mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
-
-        with (
-            patch("margin_api.workers.get_engine"),
-            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
-            patch("margin_api.workers.get_active_snapshot", return_value=mock_snapshot),
-            patch("margin_api.cli._load_foreign_skips", return_value=set()),
-            patch("margin_api.cli.seed_ticker_data", return_value=SeedResult(status="ok")),
-            patch("margin_engine.ingestion.providers.yfinance_provider.YFinanceProvider"),
-            patch("margin_engine.ingestion.rate_limiter.RateLimiter"),
-        ):
-            # Pass empty dict — no redis key
-            result = await full_ingest({})
-
-        assert result["status"] == "completed"
-        assert "cannot chain to full_score" in caplog.text
 
 
 class TestFullScore:
@@ -1021,6 +818,22 @@ class TestTrainMlModels:
 class TestWorkerRegistration:
     """Verify new worker functions are registered properly."""
 
+    def test_orchestrate_ingest_registered(self):
+        names = [f.__name__ for f in WorkerSettings.functions]
+        assert "orchestrate_ingest" in names
+
+    def test_ingest_batch_registered(self):
+        names = [f.__name__ for f in WorkerSettings.functions]
+        assert "ingest_batch" in names
+
+    def test_ingest_sweep_registered(self):
+        names = [f.__name__ for f in WorkerSettings.functions]
+        assert "ingest_sweep" in names
+
+    def test_ingest_sweep_complete_registered(self):
+        names = [f.__name__ for f in WorkerSettings.functions]
+        assert "ingest_sweep_complete" in names
+
     def test_train_ml_models_registered(self):
         names = [f.__name__ for f in WorkerSettings.functions]
         assert "train_ml_models" in names
@@ -1029,19 +842,26 @@ class TestWorkerRegistration:
         names = [f.__name__ for f in WorkerSettings.functions]
         assert "backtest_validate" in names
 
+    def test_cron_includes_orchestrate_ingest(self):
+        """orchestrate_ingest should have a daily cron entry."""
+        cron_funcs = []
+        for job in WorkerSettings.cron_jobs:
+            if hasattr(job, "coroutine"):
+                cron_funcs.append(job.coroutine.__name__)
+        assert "orchestrate_ingest" in cron_funcs
+
     def test_cron_includes_train_ml_models(self):
         """train_ml_models should have a weekly cron entry."""
         cron_funcs = []
         for job in WorkerSettings.cron_jobs:
-            # arq cron objects have a coroutine attribute
             if hasattr(job, "coroutine"):
                 cron_funcs.append(job.coroutine.__name__)
         assert "train_ml_models" in cron_funcs
 
     def test_total_functions_count(self):
-        """All 10 worker functions should be registered (8 original + 2 13F)."""
-        assert len(WorkerSettings.functions) == 10
+        """All 13 worker functions should be registered."""
+        assert len(WorkerSettings.functions) == 13
 
     def test_total_cron_jobs_count(self):
-        """Should have 5 cron jobs (4 original + 1 13F ingest)."""
+        """Should have 5 cron jobs."""
         assert len(WorkerSettings.cron_jobs) == 5
