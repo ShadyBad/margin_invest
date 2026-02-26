@@ -2,11 +2,31 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac as hmac_mod
+import logging
 import pickle
 
 import lightgbm as lgb
 import numpy as np
 from sklearn.model_selection import TimeSeriesSplit
+
+logger = logging.getLogger(__name__)
+
+
+def compute_model_checksum(model_bytes: bytes) -> str:
+    """Compute SHA-256 checksum for model bytes."""
+    return hashlib.sha256(model_bytes).hexdigest()
+
+
+def _verify_model_integrity(model_bytes: bytes, expected_checksum: str | None) -> None:
+    """Verify model bytes match expected SHA-256 checksum."""
+    if expected_checksum is None:
+        logger.warning("No checksum for model — skipping integrity check")
+        return
+    actual = hashlib.sha256(model_bytes).hexdigest()
+    if not hmac_mod.compare_digest(actual, expected_checksum):
+        raise ValueError("Model integrity check failed — refusing to unpickle")
 
 
 def train_cluster_models(
@@ -83,29 +103,37 @@ def train_cluster_models(
     return models
 
 
-def predict_alpha(model_bytes: bytes, features: np.ndarray) -> np.ndarray:
+def predict_alpha(
+    model_bytes: bytes, features: np.ndarray, checksum: str | None = None
+) -> np.ndarray:
     """Predict alpha from serialized model.
 
     Args:
         model_bytes: Pickle-serialized LGBMRegressor.
         features: (N, F) feature matrix.
+        checksum: Optional SHA-256 hex digest to verify before unpickling.
 
     Returns:
         (N,) array of predicted alpha values.
     """
+    _verify_model_integrity(model_bytes, checksum)
     model = pickle.loads(model_bytes)  # noqa: S301
     return model.predict(features)
 
 
-def compute_feature_importance(model_bytes: bytes) -> dict[str, float]:
+def compute_feature_importance(
+    model_bytes: bytes, checksum: str | None = None
+) -> dict[str, float]:
     """Get feature importance from serialized model.
 
     Args:
         model_bytes: Pickle-serialized LGBMRegressor.
+        checksum: Optional SHA-256 hex digest to verify before unpickling.
 
     Returns:
         Dict mapping feature_{i} -> importance value.
     """
+    _verify_model_integrity(model_bytes, checksum)
     model = pickle.loads(model_bytes)  # noqa: S301
     importances = model.feature_importances_
     return {f"feature_{i}": float(v) for i, v in enumerate(importances)}

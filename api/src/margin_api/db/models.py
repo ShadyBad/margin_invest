@@ -503,6 +503,9 @@ class MlModelRun(Base):
     # Model bytes stored in DB for persistence across container deploys
     cluster_model_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     vae_model_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    # SHA-256 checksums for integrity verification before unpickling
+    cluster_model_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    vae_model_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class ApiKey(Base):
