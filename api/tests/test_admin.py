@@ -47,7 +47,7 @@ class TestPipelineTrigger:
         assert response.status_code == 503
 
     def test_trigger_enqueues_job(self):
-        """Trigger returns 202 and enqueues full_ingest with correct key."""
+        """Trigger returns 202 and enqueues orchestrate_ingest with correct key."""
         mock_job = MagicMock()
         mock_job.job_id = "test-job-123"
 
@@ -69,11 +69,11 @@ class TestPipelineTrigger:
         assert response.status_code == 202
         data = response.json()
         assert data["status"] == "enqueued"
-        assert data["job"] == "full_ingest"
+        assert data["job"] == "orchestrate_ingest"
         assert data["job_id"] == "test-job-123"
         mock_pool.enqueue_job.assert_called_once()
         call_args = mock_pool.enqueue_job.call_args
-        assert call_args[0][0] == "full_ingest"
+        assert call_args[0][0] == "orchestrate_ingest"
         assert "_job_id" in call_args[1]
 
     def test_trigger_handles_redis_failure(self):

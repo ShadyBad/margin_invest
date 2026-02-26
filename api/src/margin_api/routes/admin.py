@@ -52,19 +52,22 @@ async def trigger_pipeline(request: Request, x_admin_key: str = Header()) -> JSO
     try:
         redis: ArqRedis = await create_pool(redis_settings)
         # Use unique _job_id to bypass ARQ deduplication
-        job = await redis.enqueue_job("full_ingest", _job_id=f"full_ingest:{uuid.uuid4().hex[:8]}")
+        job = await redis.enqueue_job(
+            "orchestrate_ingest",
+            _job_id=f"orchestrate_ingest:{uuid.uuid4().hex[:8]}",
+        )
         await redis.aclose()
     except Exception as e:
         logger.exception("Failed to enqueue pipeline job")
         raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
 
-    logger.info("[admin] Enqueued full_ingest pipeline job: %s", job.job_id)
+    logger.info("[admin] Enqueued orchestrate_ingest pipeline job: %s", job.job_id)
 
     return JSONResponse(
         status_code=202,
         content={
             "status": "enqueued",
-            "job": "full_ingest",
+            "job": "orchestrate_ingest",
             "job_id": job.job_id,
             "message": "Pipeline enqueued: ingest → v2 score → v3 score → v4 score",
         },
