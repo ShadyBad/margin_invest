@@ -1,7 +1,26 @@
 import { auth } from "@/lib/auth"
 import { ApiError } from "./client"
+import { createHmac } from "crypto"
 
 const API_URL = process.env.API_URL || "http://localhost:8000"
+const SERVICE_AUTH_SECRET = process.env.SERVICE_AUTH_SECRET || ""
+
+function signRequest(userId: string): Record<string, string> {
+  if (!SERVICE_AUTH_SECRET) {
+    // Fallback: unsigned (for local dev without secret configured)
+    return { "X-User-Id": userId }
+  }
+  const timestamp = Math.floor(Date.now() / 1000).toString()
+  const payload = `${userId}:${timestamp}`
+  const signature = createHmac("sha256", SERVICE_AUTH_SECRET)
+    .update(payload)
+    .digest("hex")
+  return {
+    "X-User-Id": userId,
+    "X-Auth-Timestamp": timestamp,
+    "X-Auth-Signature": signature,
+  }
+}
 
 export async function serverFetch<T>(
   path: string,
@@ -14,14 +33,11 @@ export async function serverFetch<T>(
     ...((options.headers as Record<string, string>) || {}),
   }
 
-  // Inject user ID from session if available
+  // Inject signed auth headers from session
   try {
     const session = await auth()
     if (session?.userId) {
-      headers["X-User-Id"] = session.userId as string
-    }
-    if (session?.user?.email) {
-      headers["X-User-Email"] = session.user.email
+      Object.assign(headers, signRequest(session.userId as string))
     }
   } catch {
     // Auth not available — continue without user context
