@@ -1,0 +1,15 @@
+[extend]
+
+[[allowlist.paths]]
+description = "Example env files with placeholder values"
+paths = [
+    '''\.env\.example$''',
+    '''\.env\.local\.example$''',
+]
+
+[[allowlist.paths]]
+description = "Test fixtures with fake keys"
+paths = [
+    '''tests/''',
+    '''__tests__/''',
+]
