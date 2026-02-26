@@ -91,8 +91,16 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+            "X-User-Id",
+            "X-User-Email",
+            "X-Auth-Timestamp",
+            "X-Auth-Signature",
+            "X-Admin-Key",
+        ],
     )
 
     # Request ID
@@ -117,7 +125,6 @@ def create_app() -> FastAPI:
     app.include_router(thirteenf_router)
     app.include_router(universe_router)
     app.include_router(correlations_router)
-    app.include_router(thirteenf_router)
     app.include_router(ws_router)
 
     @app.exception_handler(HTTPException)
