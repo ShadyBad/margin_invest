@@ -47,3 +47,9 @@ class GovernanceDashboardResponse(BaseModel):
     avg_approval_latency_hours: float | None = None
     rejection_rate: float | None = None
     recent_anomalies: list[dict] = []
+
+
+class TransparencyResponse(BaseModel):
+    oversight_levels: dict
+    last_approvals: dict
+    pipeline_health: dict

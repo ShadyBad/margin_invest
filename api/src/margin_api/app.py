@@ -29,6 +29,7 @@ from margin_api.routes.keys import router as keys_router
 from margin_api.routes.metrics import router as metrics_router
 from margin_api.routes.scores import router as scores_router
 from margin_api.routes.thirteenf import router as thirteenf_router
+from margin_api.routes.transparency import router as transparency_router
 from margin_api.routes.universe import router as universe_router
 from margin_api.routes.v3_scores import router as v3_scores_router
 from margin_api.schemas.errors import ErrorResponse
@@ -140,6 +141,7 @@ def create_app() -> FastAPI:
     app.include_router(jobs_router)
     app.include_router(backtest_router)
     app.include_router(thirteenf_router)
+    app.include_router(transparency_router)
     app.include_router(universe_router)
     app.include_router(correlations_router)
     app.include_router(ws_router)
