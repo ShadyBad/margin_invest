@@ -4,17 +4,19 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import redis.asyncio as aioredis
 from arq.connections import ArqRedis, create_pool
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
+from margin_engine.universe.config import load_universe_config
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
-from margin_api.db.models import Asset
+from margin_api.db.models import Asset, PipelineApproval, UniverseSnapshot
 from margin_api.db.session import get_db
 from margin_api.middleware.rate_limit import limiter
 
@@ -111,21 +113,78 @@ async def trigger_scoring(request: Request, x_admin_key: str = Header()) -> JSON
     )
 
 
-@router.post("/universe/activate")
+async def stage_universe_activation(
+    session: AsyncSession, config_path: Path
+) -> dict:
+    """Create a staging approval for universe activation instead of activating directly.
+
+    Loads the proposed tickers from universe.yaml, diffs against the current active
+    snapshot, and creates a PipelineApproval with gate_type="universe_activate".
+    """
+    config = load_universe_config(config_path)
+    proposed_tickers = config.tickers
+
+    # Get current active snapshot tickers
+    result = await session.execute(
+        select(UniverseSnapshot).where(UniverseSnapshot.is_active.is_(True))
+    )
+    current_snapshot = result.scalar_one_or_none()
+    current_tickers: list[str] = current_snapshot.tickers if current_snapshot else []
+
+    # Compute diff
+    proposed_set = set(proposed_tickers)
+    current_set = set(current_tickers)
+    added_tickers = sorted(proposed_set - current_set)
+    removed_tickers = sorted(current_set - proposed_set)
+
+    approval = PipelineApproval(
+        gate_type="universe_activate",
+        status="staged",
+        payload_ref={
+            "config_path": str(config_path),
+            "proposed_tickers": proposed_tickers,
+        },
+        impact_summary={
+            "current_count": len(current_tickers),
+            "proposed_count": len(proposed_tickers),
+            "added_tickers": added_tickers,
+            "removed_tickers": removed_tickers,
+        },
+        expires_at=datetime.now(UTC) + timedelta(hours=24),
+    )
+    session.add(approval)
+    await session.commit()
+    await session.refresh(approval)
+
+    logger.info(
+        "[admin] Staged universe activation: +%d/-%d tickers (approval_id=%d)",
+        len(added_tickers),
+        len(removed_tickers),
+        approval.id,
+    )
+
+    return {
+        "status": "staged",
+        "approval_id": approval.id,
+        "added_tickers": added_tickers,
+        "removed_tickers": removed_tickers,
+    }
+
+
+@router.post("/universe/activate", status_code=202)
 @limiter.limit("3/minute")
 async def activate_universe_endpoint(
     request: Request,
     x_admin_key: str = Header(),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Activate the universe from the bundled engine/universe.yaml config.
+    """Stage a universe activation from the bundled engine/universe.yaml config.
 
-    Deactivates any existing active snapshot and creates a new one.
+    Creates a PipelineApproval record for review instead of activating immediately.
     Requires the X-Admin-Key header matching the MARGIN_ADMIN_KEY env var.
+    Returns 202 Accepted with the staged approval details.
     """
     _verify_admin_key(x_admin_key)
-
-    from margin_api.services.universe import activate_universe
 
     # Look for universe.yaml relative to the repo/container root
     candidates = [
@@ -146,23 +205,12 @@ async def activate_universe_endpoint(
         )
 
     try:
-        snapshot = await activate_universe(session, config_path)
+        result = await stage_universe_activation(session, config_path)
     except Exception as e:
-        logger.exception("[admin] Failed to activate universe")
-        raise HTTPException(500, f"Failed to activate universe: {e}") from e
+        logger.exception("[admin] Failed to stage universe activation")
+        raise HTTPException(500, f"Failed to stage universe activation: {e}") from e
 
-    logger.info(
-        "[admin] Activated universe v%s (%d tickers)",
-        snapshot.version,
-        snapshot.ticker_count,
-    )
-
-    return {
-        "status": "activated",
-        "version": snapshot.version,
-        "ticker_count": snapshot.ticker_count,
-        "config_hash": snapshot.config_hash,
-    }
+    return result
 
 
 @router.get("/redis/health")

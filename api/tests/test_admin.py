@@ -120,19 +120,21 @@ class TestUniverseActivate:
         )
         assert response.status_code == 403
 
-    def test_activate_succeeds_with_yaml(self):
-        """Activate universe loads YAML and creates snapshot."""
-        mock_snapshot = MagicMock()
-        mock_snapshot.version = "2026.02.18"
-        mock_snapshot.ticker_count = 3057
-        mock_snapshot.config_hash = "abc123"
+    def test_activate_stages_with_yaml(self):
+        """Activate universe now returns 202 with staged status."""
+        mock_staging_result = {
+            "status": "staged",
+            "approval_id": 1,
+            "added_tickers": ["AAPL"],
+            "removed_tickers": [],
+        }
 
         with (
             patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}),
             patch(
-                "margin_api.services.universe.activate_universe",
+                "margin_api.routes.admin.stage_universe_activation",
                 new_callable=AsyncMock,
-                return_value=mock_snapshot,
+                return_value=mock_staging_result,
             ),
             patch("pathlib.Path.exists", return_value=True),
         ):
@@ -143,11 +145,10 @@ class TestUniverseActivate:
                 headers={"X-Admin-Key": "test-key"},
             )
 
-        assert response.status_code == 200
+        assert response.status_code == 202
         data = response.json()
-        assert data["status"] == "activated"
-        assert data["version"] == "2026.02.18"
-        assert data["ticker_count"] == 3057
+        assert data["status"] == "staged"
+        assert data["approval_id"] == 1
 
 
 class TestQuarantinedEndpoint:

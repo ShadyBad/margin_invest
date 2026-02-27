@@ -308,12 +308,12 @@ class TestUniverseActivateErrors:
         assert "universe.yaml not found" in resp.json()["detail"]
 
     def test_activate_service_error(self):
-        """Returns 500 when activate_universe raises."""
+        """Returns 500 when stage_universe_activation raises."""
         with (
             patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}),
             patch("pathlib.Path.exists", return_value=True),
             patch(
-                "margin_api.services.universe.activate_universe",
+                "margin_api.routes.admin.stage_universe_activation",
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("DB error"),
             ),
@@ -325,4 +325,4 @@ class TestUniverseActivateErrors:
                 headers={"X-Admin-Key": "test-key"},
             )
         assert resp.status_code == 500
-        assert "Failed to activate universe" in resp.json()["detail"]
+        assert "Failed to stage universe activation" in resp.json()["detail"]
