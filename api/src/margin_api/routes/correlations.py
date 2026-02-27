@@ -110,12 +110,12 @@ async def _compute_live_showcase(db: AsyncSession) -> CorrelationResponse | None
     """
     from margin_engine.correlation import compute_return_correlations
 
-    # Get top tickers by composite_raw_score >= 72.0 (High conviction)
+    # Get most recently scored tickers with composite_raw_score >= 72.0
     stmt = (
         select(Score, Asset.ticker)
         .join(Asset, Score.asset_id == Asset.id)
         .where(Score.composite_raw_score >= _HIGH_CONVICTION_THRESHOLD)
-        .order_by(Score.composite_raw_score.desc())
+        .order_by(Score.scored_at.desc())
         .limit(_SHOWCASE_TICKER_COUNT)
     )
     rows = (await db.execute(stmt)).all()
