@@ -1,38 +1,77 @@
 "use client"
 
-const segments = [
-  { label: "Universe", count: "~7,000", width: "100%" },
-  { label: "Pass all filters", count: "~4,200", width: "60%" },
-  { label: "High conviction", count: "~150", width: "12%" },
+const filters = [
+  { label: "Earnings Quality", pass: "~6,500" },
+  { label: "Financial Distress", pass: "~6,100" },
+  { label: "Short-Term Liquidity", pass: "~5,700" },
+  { label: "Debt Service", pass: "~5,200" },
+  { label: "Cash Flow Health", pass: "~4,800" },
+  { label: "Market Cap & Volume", pass: "~4,200" },
 ]
 
 export function FilterFunnel() {
   return (
     <div className="p-6 border border-border-primary rounded-lg bg-bg-elevated">
-      <div className="space-y-3">
-        {segments.map((seg, i) => (
-          <div key={seg.label} className="flex items-center gap-4">
-            <div
-              className="h-8 rounded-sm flex items-center px-3 transition-all"
-              style={{
-                width: seg.width,
-                backgroundColor:
-                  i === 0
-                    ? "var(--color-border-primary)"
-                    : i === 1
-                      ? "var(--color-accent-subtle)"
-                      : "color-mix(in srgb, var(--color-accent) 25%, transparent)",
-              }}
-            >
-              <span className="text-[12px] font-mono text-text-primary whitespace-nowrap">
-                {seg.count}
+      {/* Funnel header */}
+      <div className="flex items-center gap-4 mb-4">
+        <div
+          className="h-8 rounded-sm flex items-center px-3"
+          style={{
+            width: "100%",
+            backgroundColor: "var(--color-border-primary)",
+          }}
+        >
+          <span className="text-[12px] font-mono text-text-primary whitespace-nowrap">
+            ~7,000
+          </span>
+        </div>
+        <span className="text-[12px] text-text-secondary whitespace-nowrap">
+          Universe
+        </span>
+      </div>
+
+      {/* Individual filters */}
+      <div className="space-y-2">
+        {filters.map((filter, i) => {
+          const widthPct = 90 - i * 10
+          return (
+            <div key={filter.label} className="flex items-center gap-4">
+              <div
+                className="h-7 rounded-sm flex items-center px-3"
+                style={{
+                  width: `${widthPct}%`,
+                  backgroundColor: "var(--color-accent-subtle)",
+                }}
+              >
+                <span className="text-[11px] font-mono text-text-primary whitespace-nowrap">
+                  {filter.pass}
+                </span>
+              </div>
+              <span className="text-[12px] text-text-secondary whitespace-nowrap">
+                {filter.label}
               </span>
             </div>
-            <span className="text-[12px] text-text-secondary whitespace-nowrap">
-              {seg.label}
-            </span>
-          </div>
-        ))}
+          )
+        })}
+      </div>
+
+      {/* Funnel result */}
+      <div className="flex items-center gap-4 mt-4">
+        <div
+          className="h-8 rounded-sm flex items-center px-3"
+          style={{
+            width: "25%",
+            backgroundColor:
+              "color-mix(in srgb, var(--color-accent) 25%, transparent)",
+          }}
+        >
+          <span className="text-[12px] font-mono text-text-primary whitespace-nowrap">
+            ~150
+          </span>
+        </div>
+        <span className="text-[12px] text-text-secondary whitespace-nowrap">
+          High conviction
+        </span>
       </div>
     </div>
   )

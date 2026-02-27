@@ -1,12 +1,13 @@
 "use client"
 
 const stages = [
-  { num: "01", label: "Universe", desc: "Selection", metric: "~7,000 US equities" },
-  { num: "02", label: "Data", desc: "Ingestion", metric: "Daily after close" },
-  { num: "03", label: "Filters", desc: "Elimination", metric: "6 independent checks" },
-  { num: "04", label: "Scoring", desc: "Multi-Factor", metric: "20+ quantitative factors" },
-  { num: "05", label: "Conviction", desc: "Dual-Track", metric: "Compounder & Mispricing" },
-  { num: "06", label: "Output", desc: "Decisions", metric: "Cards, targets, sizing" },
+  { num: "01", label: "Universe", desc: "Selection", metric: "7,000+ stocks" },
+  { num: "02", label: "Filters", desc: "Elimination", metric: "6 binary checks" },
+  { num: "03", label: "Scoring", desc: "Factor Analysis", metric: "Quality · Value · Momentum" },
+  { num: "04", label: "Conviction", desc: "Dual-Track", metric: "Compounder & Mispricing" },
+  { num: "05", label: "ML", desc: "Refinement", metric: "Cluster models, VAE" },
+  { num: "06", label: "Smart Money", desc: "Overlay", metric: "13F signals" },
+  { num: "07", label: "Sizing", desc: "Position", metric: "Conviction × type matrix" },
 ]
 
 function PipelineArrow() {
@@ -31,7 +32,7 @@ export function PipelineDiagram() {
       <div className="hidden sm:flex items-center justify-between gap-2">
         {stages.map((stage, i) => (
           <div key={stage.label} className="flex items-center gap-2">
-            <div className="flex flex-col items-center text-center min-w-[90px]">
+            <div className="flex flex-col items-center text-center min-w-[80px]">
               <span className="text-[11px] font-mono font-bold text-accent">
                 {stage.num}
               </span>

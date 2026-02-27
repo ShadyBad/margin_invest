@@ -12,12 +12,13 @@ import {
 } from "recharts"
 
 const data = [
-  { month: "Jan", score: 52 },
-  { month: "Feb", score: 61 },
-  { month: "Mar", score: 68 },
-  { month: "Apr", score: 74 },
-  { month: "May", score: 82 },
-  { month: "Jun", score: 91 },
+  { stage: "Universe", score: 50, label: "Enters pipeline" },
+  { stage: "Filters", score: 55, label: "Passes all 6 checks" },
+  { stage: "Scoring", score: 72, label: "Factor percentiles" },
+  { stage: "Conviction", score: 82, label: "Dual-track gates" },
+  { stage: "ML", score: 85, label: "ML refinement" },
+  { stage: "Smart $", score: 88, label: "13F overlay" },
+  { stage: "Sizing", score: 91, label: "Final output" },
 ]
 
 const convictionBands = [
@@ -33,7 +34,7 @@ export function CandidateJourneyChart() {
         <p className="text-[13px] font-medium text-text-secondary tracking-[0.5px] uppercase">
           Example candidate journey
         </p>
-        <span className="text-[11px] font-mono text-text-tertiary">6-month period</span>
+        <span className="text-[11px] font-mono text-text-tertiary">7-stage pipeline</span>
       </div>
 
       <div className="h-[240px]">
@@ -45,7 +46,7 @@ export function CandidateJourneyChart() {
               vertical={false}
             />
             <XAxis
-              dataKey="month"
+              dataKey="stage"
               tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
               tickLine={false}
               axisLine={{ stroke: "var(--color-border-subtle)" }}
