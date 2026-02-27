@@ -176,7 +176,7 @@ class TestGovernanceEventModel:
 
 class TestGovernanceConfigModel:
     def test_table_name(self):
-        assert GovernanceConfig.__tablename__ == "governance_config"
+        assert GovernanceConfig.__tablename__ == "governance_configs"
 
     def test_columns(self):
         columns = {c.name for c in GovernanceConfig.__table__.columns}
@@ -353,5 +353,5 @@ class TestGovernanceTablesCreated:
         table_names = set(Base.metadata.tables.keys())
         assert "pipeline_approvals" in table_names
         assert "governance_events" in table_names
-        assert "governance_config" in table_names
+        assert "governance_configs" in table_names
         assert "user_proposals" in table_names

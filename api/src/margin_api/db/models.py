@@ -928,7 +928,7 @@ class GovernanceEvent(Base):
 class GovernanceConfig(Base):
     """Key-value config for governance thresholds."""
 
-    __tablename__ = "governance_config"
+    __tablename__ = "governance_configs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     config_key: Mapped[str] = mapped_column(String(100), unique=True)
