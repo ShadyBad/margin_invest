@@ -9,7 +9,6 @@ elimination rate ratios.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
