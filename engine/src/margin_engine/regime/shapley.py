@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from itertools import combinations
 
 from pydantic import BaseModel, Field
 
@@ -69,8 +70,6 @@ def compute_regime_conditioned_shapley(
     RegimeShapleyResult with per-regime ShapleyResult entries.
     """
     # Cache coalition returns: call coalition_returns_fn once per coalition
-    from itertools import combinations
-
     n = len(filters)
     cached_returns: dict[frozenset[str], dict[str, list[float]]] = {}
 
