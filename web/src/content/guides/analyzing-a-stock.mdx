@@ -1,0 +1,256 @@
+---
+title: "Analyzing a Stock"
+description: "A walkthrough of the asset detail page — what each section shows and how to use it for investment research."
+order: 3
+updatedAt: "2026-02-26"
+readingTime: 8
+category: "Workflows"
+---
+
+## Introduction
+
+When you click on a stock from the dashboard or search for one by ticker, you land on the asset detail page. This is where the platform shows everything it knows about a stock -- elimination results, factor scores, conviction analysis, valuation, and institutional positioning -- in a single vertical layout.
+
+This guide walks through each section top to bottom, explains what it shows, and describes how to use it in your research process.
+
+<Callout type="info">
+This guide is educational content explaining how to read the asset detail page. It is not investment advice. Always do your own research before making investment decisions.
+</Callout>
+
+## 1. Hero Header
+
+The hero header sits at the top of the page and gives you the essential identity and score summary at a glance.
+
+**What it shows:**
+
+- **Ticker and company name** -- the stock's symbol and full legal name
+- **Current price** -- the most recent market price the engine used for scoring
+- **Conviction badge and level** -- color-coded indicator of signal strength (EXCEPTIONAL, HIGH, WATCHLIST, or NONE)
+- **Opportunity type** -- whether the stock qualified as a Compounder (Track A), Mispricing (Track B), or Both
+- **Growth stage** -- the engine's classification of where the company sits in its lifecycle (e.g., Growth, Mature, Turnaround)
+- **Score sparkline** -- a miniature chart showing how the composite score has moved over recent scoring periods
+
+**How to use it:**
+
+The hero tells you whether this stock warrants further reading. If the conviction level is NONE or WATCHLIST, the remaining sections still provide useful diagnostic information, but you should not treat the stock as an actionable candidate. If the conviction level is HIGH or EXCEPTIONAL, continue through the page to understand why.
+
+The opportunity type is especially important because it frames the rest of the analysis. A Compounder thesis and a Mispricing thesis are evaluated against different criteria -- the conviction engine section later on the page breaks this down in detail.
+
+## 2. Eliminated Stock View
+
+If a stock failed one or more elimination filters, the page shows a different hero header designed for the eliminated state.
+
+**What it shows:**
+
+- How many filters failed out of the total six
+- The stock's data coverage and last scoring timestamp
+- A hypothetical percentile -- what the composite score would have been if the stock had not been eliminated
+
+**What it does not show:**
+
+- No conviction badge or opportunity type (the stock did not advance to dual-track scoring)
+- No score sparkline (there is no meaningful scoring history for eliminated stocks)
+
+**How to use it:**
+
+The eliminated hero is most useful when you search for a stock you already own or are watching. If a stock you hold shows up as eliminated, scroll down to the elimination gauntlet to see exactly which filters failed and why. The hypothetical percentile tells you whether the stock would have scored well on fundamentals if it had passed filters -- useful for understanding whether the elimination is the only problem or whether the stock also has weak factor scores.
+
+## 3. Elimination Gauntlet
+
+The elimination gauntlet displays the pass/fail results for all six binary filters that every stock must survive before scoring begins.
+
+**What it shows:**
+
+- All six filters listed in order, regardless of outcome
+- Each filter displays: name, pass/fail result, the stock's actual value, and the threshold it was measured against
+- Green checkmarks for passes, red X marks for failures
+- Universe survival statistics -- how many stocks in total survived all six filters
+
+**Key behavior:**
+
+All six filters run regardless of earlier failures. If a stock fails filter #2, filters #3 through #6 still execute. You always see the complete diagnostic picture -- every reason a stock was eliminated, not just the first.
+
+**How to use it:**
+
+For stocks that passed all filters, the gauntlet serves as confirmation that the stock cleared basic quality hurdles before scoring. Scan it quickly and move on.
+
+For eliminated stocks, the gauntlet is the most important section on the page. It tells you exactly what went wrong. Some filters (like earnings quality or solvency) point to fundamental problems you should take seriously. Others (like liquidity) may reflect a stock that is simply too small for the engine's universe but could still be worth researching manually.
+
+<Callout type="tip">
+If a stock fails only one filter and it is the liquidity filter, the underlying business may still be sound. The engine excludes illiquid stocks because scoring them produces unreliable results, not because the businesses are necessarily bad.
+</Callout>
+
+## 4. Factor Radar and Sector-Neutral Banner
+
+Before the scoring pillars, the page shows two contextual elements that frame how to interpret the scores that follow.
+
+**Factor Radar:** A visual chart showing the stock's relative strength across the three pillars -- Quality, Value, and Momentum. The shape of the radar tells you at a glance where the stock is strong and where it is weak.
+
+**Sector-Neutral Banner:** A reminder that all factor scores are computed relative to the stock's GICS sector peers, not the entire universe. A stock scoring in the 80th percentile on a value factor means it is cheaper than 80% of stocks in the same sector, not 80% of all stocks.
+
+This matters because different sectors have structurally different financial profiles. A "cheap" technology company looks very different from a "cheap" utility. Sector-neutral scoring ensures apples-to-apples comparison.
+
+## 5. Scoring Pillars
+
+The scoring pillars section breaks down the stock's quantitative assessment into three categories, each containing individual sub-factor scores.
+
+**Three pillars:**
+
+- **Quality** (7 factors) -- measures business strength: profitability, returns on capital, balance sheet health, earnings consistency, and capital efficiency
+- **Value** (7 factors) -- measures price attractiveness: how cheap or expensive the stock is relative to its fundamentals across multiple valuation lenses
+- **Momentum** (6 factors) -- measures positive trends: price momentum, earnings revisions, insider activity, and catalyst signals
+
+**What each pillar shows:**
+
+- **Pillar percentile** -- the aggregate score across all sub-factors within that pillar
+- **Individual sub-factor scores** -- click to expand and see each factor's percentile
+- **Sub-factor formulas** -- tooltips show the exact formula and academic source for each metric
+- **Growth stage adjustment** -- how the stock's growth stage affected the weighting of this pillar
+
+<Callout type="tip">
+Look for pillars where the stock scores above the 70th percentile -- that is where its relative strength lies. Pay equal attention to pillars below the 30th percentile, which reveal where the stock is weakest compared to sector peers.
+</Callout>
+
+**How to use it:**
+
+The pillar breakdown tells you the story behind the composite score. Two stocks can both be HIGH conviction for completely different reasons. One might have exceptional quality but mediocre value. Another might be deeply cheap with improving momentum but average quality. The pillar section makes these differences visible.
+
+Expand individual sub-factors to understand which specific metrics are driving a pillar score up or down. If a quality pillar is low, is it because of poor profitability or high leverage? The sub-factor detail answers that question.
+
+## 6. Conviction Engine
+
+The conviction engine section shows the results of the dual-track evaluation system that determines the final conviction level and opportunity type.
+
+**Track A -- Compounder:**
+
+Four gate scores, each on a 0-100 percentile scale:
+
+- **Moat Evidence** -- Is there a durable competitive advantage?
+- **Reinvestment Engine** -- Can the company reinvest at high returns?
+- **Capital Allocation** -- Is management allocating capital well?
+- **Growth Gap** -- Is there room to grow?
+
+**Track B -- Mispricing:**
+
+Four gate scores, each on a 0-100 percentile scale:
+
+- **Valuation** -- Is the stock meaningfully undervalued?
+- **Downside Protection** -- Is there a margin of safety?
+- **Catalyst Strength** -- Is there a reason for the market to reprice soon?
+- **Quality Floor** -- Is the business at least decent (avoiding value traps)?
+
+**Additional information shown:**
+
+- **Final conviction level** -- the combined result after evaluating both tracks
+- **Opportunity type** -- Compounder, Mispricing, or Both
+- **ML adjustment badge** -- if the machine learning layer is active and modified the rules-based conviction, a badge indicates the direction and magnitude of the adjustment
+- **Smart money signal** -- institutional accumulation data from curated managers, if available
+
+**How to use it:**
+
+The gate scores tell you where the investment thesis is strong and where it is weak. A Compounder with a strong moat gate but a weak growth gap gate is a mature business with limited reinvestment runway. A Mispricing with strong valuation but weak catalyst is cheap for a reason -- there is no obvious trigger for the market to correct the undervaluation.
+
+Focus on the weakest gate in the qualifying track. That is the point of highest thesis risk.
+
+## 7. ML Audit Panel
+
+Below the conviction engine, the ML audit panel provides transparency into the machine learning layer's influence on the final score.
+
+**What it shows:**
+
+- Whether a qualified ML model exists (requires rank IC above 0.15)
+- The model's rank IC, training date, and confidence level
+- Whether the ML layer overrode the rules-based conviction level, and if so, in which direction
+- The rules-based conviction before ML adjustment vs. the final conviction after
+
+**How to use it:**
+
+If no qualified model exists yet, the panel displays an honest empty state explaining that scoring is purely rules-based. When a model is active, the panel lets you see whether the ML layer agreed with or disagreed with the rules engine. A disagreement is worth understanding -- the ML model may be detecting patterns in the data that the rules engine misses, or it may be wrong.
+
+## 8. Institutional Positioning
+
+The institutional positioning section shows how professional money managers are positioned in this stock, based on SEC 13F filings.
+
+**What it shows:**
+
+- **Holder summary** -- total number of institutional holders and how many are from the curated manager list
+- **Top curated manager holdings** -- a table of high-conviction managers who hold this stock, showing position size and changes
+- **Accumulation trend chart** -- a visual showing whether curated institutional interest is increasing or decreasing over recent quarters
+- **Expandable full holder list** -- the complete list of all institutional holders (Pro feature)
+
+**How to use it:**
+
+Institutional positioning is one input among many. The presence of smart money does not guarantee returns, and 13F data is inherently stale (filed 45 days after quarter end). But when multiple independent high-conviction managers are simultaneously building positions, it suggests that deep fundamental research by well-resourced teams has reached a similar conclusion.
+
+Look at the trend direction more than the absolute number. A stock going from 3 curated holders to 7 over two quarters tells a more interesting story than a stock that has had 10 curated holders for years.
+
+## 9. Valuation Section
+
+The valuation section provides a quantitative estimate of the stock's intrinsic value and margin of safety.
+
+**What it shows:**
+
+- **Fair value estimate** -- the engine's calculated intrinsic value per share
+- **Margin of safety** -- the percentage difference between the current market price and the fair value estimate
+- **Buy price and sell price** -- the prices at which the margin of safety becomes attractive or insufficient
+- **Multiple valuation lenses** -- different valuation methods (EV/FCF, Acquirer's Multiple, etc.) that contributed to the estimate
+
+**How to use it:**
+
+The valuation section is a starting point for your own valuation work, not a replacement for it. The engine uses a systematic approach that works across many stocks but cannot capture company-specific nuances that a human analyst would catch.
+
+Pay attention to the margin of safety. A stock can have a high conviction level but a thin margin of safety if the market has already priced in much of the upside. Conversely, a stock with a wide margin of safety and only WATCHLIST conviction may be cheap for good reasons.
+
+## 10. Backtest Teaser
+
+At the bottom of the page, the backtest teaser shows high-level historical performance statistics for the scoring model applied to this stock.
+
+**What it shows:**
+
+- Model return vs. benchmark return over the backtest period
+- Maximum drawdown for both the model and the benchmark
+- The time period covered by the backtest
+
+**How to use it:**
+
+Backtests show what would have happened historically, not what will happen in the future. Past performance is not indicative of future results. Use this section to understand whether the engine's scoring approach has historically identified this type of stock successfully, not as a prediction of future returns.
+
+## 11. Hypothetical Scores (Eliminated Stocks Only)
+
+For stocks that failed elimination filters, the page shows a hypothetical scoring section below the gauntlet.
+
+**What it shows:**
+
+- What the stock's composite score, percentile, and conviction level would have been if it had passed all filters
+- Pillar-level breakdown (Quality, Value, Momentum) under the hypothetical scenario
+
+**How to use it:**
+
+Hypothetical scores help you understand whether the elimination is the only issue or whether the stock also has weak fundamentals. A stock that was eliminated on a single filter but would have scored in the 90th percentile might be worth monitoring for when the filter issue resolves. A stock that was eliminated and would have scored in the 20th percentile has multiple problems.
+
+## Using This Information
+
+The asset detail page is a research starting point, not a buy or sell signal. Here is how to integrate it effectively:
+
+**Cross-reference with your own analysis.** The engine processes public financial data systematically. It cannot evaluate management quality from earnings calls, assess competitive dynamics from industry knowledge, or factor in non-public information you may have.
+
+**Pay attention to weaknesses, not just strengths.** It is tempting to focus on the pillars where a stock scores well. The more useful exercise is examining where it scores poorly. Low percentiles reveal the risks that could undermine the thesis.
+
+**Check the conviction engine gates.** The gate scores tell you where the investment thesis is vulnerable. A Compounder with a weak capital allocation gate is a company where management might squander the moat advantage. A Mispricing with a weak catalyst gate is a stock that could stay cheap indefinitely.
+
+**Understand the opportunity type.** Compounders and Mispricings have different risk profiles, holding periods, and exit criteria. Do not treat them interchangeably.
+
+## Decision Checklist
+
+Before acting on any candidate, work through these questions:
+
+- [ ] Have I read the factor breakdown and understood why it scored the way it did?
+- [ ] Have I checked which conviction track(s) it qualifies on?
+- [ ] Have I looked at the valuation section to understand the margin of safety?
+- [ ] Have I checked the institutional positioning for smart money signals?
+- [ ] Have I done my own fundamental research beyond what the platform shows?
+- [ ] Does it fit within my portfolio's diversification constraints?
+
+<Callout type="info">
+Margin Invest provides quantitative analysis to support your research process. It is not investment advice.
+</Callout>
