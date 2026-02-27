@@ -32,10 +32,11 @@ export function FormulaTooltip({ metricKey, children }: FormulaTooltipProps) {
   return (
     <span
       ref={triggerRef}
-      className="relative inline-flex items-center gap-1"
+      className="relative inline-flex items-center gap-1 cursor-help"
       data-testid={`formula-trigger-${metricKey}`}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
+      onClick={() => setOpen((prev) => !prev)}
     >
       {children}
       <svg
