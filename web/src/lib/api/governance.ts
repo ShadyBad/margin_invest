@@ -40,3 +40,26 @@ export async function rejectApproval(adminKey: string, id: number, reason?: stri
     body: JSON.stringify({ reason }),
   })
 }
+
+export interface DashboardResponse {
+  pending_count: number
+  avg_approval_latency_hours: number | null
+  rejection_rate: number | null
+  recent_anomalies: unknown[]
+}
+
+export interface TransparencyResponse {
+  oversight_levels: Record<string, string[]>
+  last_approvals: Record<string, { decided_at: string; status: string }>
+  pipeline_health: { status: string; last_successful_run: string | null }
+}
+
+export async function getDashboard(adminKey: string): Promise<DashboardResponse> {
+  return apiFetch<DashboardResponse>("/api/v1/admin/governance/dashboard", {
+    headers: { "X-Admin-Key": adminKey },
+  })
+}
+
+export async function getTransparency(): Promise<TransparencyResponse> {
+  return apiFetch<TransparencyResponse>("/api/v1/governance/transparency")
+}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { ApprovalCard } from "@/components/admin/approval-card"
+import { PipelineStatus } from "@/components/admin/pipeline-status"
 import {
   getApprovals,
   approveApproval,
@@ -95,6 +96,9 @@ export default function ApprovalsPage() {
       <p className="text-sm text-text-tertiary mb-6">
         Review and approve pipeline outputs before publication
       </p>
+
+      {/* Pipeline health monitor */}
+      <PipelineStatus adminKey={ADMIN_KEY} />
 
       {/* Filter buttons */}
       <div className="flex gap-2 mb-6 flex-wrap">
