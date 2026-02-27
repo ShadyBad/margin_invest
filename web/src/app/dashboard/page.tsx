@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { AppShell } from "@/components/layout"
 import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction, MarketRegimeLabel } from "@/components/dashboard"
+import { ProposalBanner } from "@/components/dashboard/proposal-banner"
 import { serverFetch } from "@/lib/api/server"
 import type { DashboardResponse, PickSummary } from "@/lib/api/types"
 
@@ -61,6 +62,8 @@ export default async function DashboardPage() {
           ) : null
         })()}
       </div>
+
+      <ProposalBanner />
 
       {apiError && (
         <div className="rounded-lg border border-yellow-600/30 bg-yellow-950/20 p-4 mb-8">
