@@ -31,7 +31,7 @@ def _try_l1(
     For other severities, the secondary value must be within
     config.substitution_tolerance of the original.
     """
-    if flag.field_path not in secondary_values:
+    if secondary_values is None or flag.field_path not in secondary_values:
         return None
 
     secondary_value = secondary_values[flag.field_path]
@@ -86,7 +86,7 @@ def _try_l2(
     Skips if the prior value is too stale (quarters_stale > carry_forward_max_quarters).
     Confidence decays linearly with staleness, floored at cross_sectional_min_confidence.
     """
-    if flag.field_path not in prior_valid_values:
+    if prior_valid_values is None or flag.field_path not in prior_valid_values:
         return None
 
     value, quarters_stale = prior_valid_values[flag.field_path]
@@ -128,6 +128,9 @@ def _try_l3(
     if flag.field_path in config.excluded_fields or base_field in config.excluded_fields:
         return None
 
+    if sector_distributions is None:
+        return None
+
     # Find matching sector distribution
     for dist in sector_distributions:
         if dist.field_path == flag.field_path:
@@ -148,9 +151,9 @@ def _try_l3(
 def apply_corrections(
     flags: list[DetectionResult],
     config: HealingConfig,
-    secondary_values: dict[str, float],
-    prior_valid_values: dict[str, tuple[float, int]],
-    sector_distributions: list[SectorDistribution],
+    secondary_values: dict[str, float] | None = None,
+    prior_valid_values: dict[str, tuple[float, int]] | None = None,
+    sector_distributions: list[SectorDistribution] | None = None,
 ) -> list[CorrectionEvent]:
     """Apply L1/L2/L3 correction hierarchy to each detection flag.
 
