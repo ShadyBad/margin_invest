@@ -52,7 +52,7 @@ export function UniverseSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.4, ease }}
         >
-          Universe Selection
+          Stage 1 · Universe
         </motion.p>
 
         <motion.h2
@@ -62,7 +62,7 @@ export function UniverseSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          Every US-listed equity. No cherry-picking.
+          Every day, the pipeline starts with 7,000+ stocks.
         </motion.h2>
 
         <motion.p
@@ -72,10 +72,12 @@ export function UniverseSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
-          The engine starts with the full universe of US-listed equities across all
-          major exchanges — NYSE, NASDAQ, and NYSE American. Financials and Real Estate
-          are excluded because their capital structures make standard profitability
-          metrics unreliable. Everything else is in.
+          Every day, the pipeline evaluates 7,000+ US-listed equities. AAPL is
+          one of them. To enter scoring, a stock must first survive six
+          elimination filters. No cherry-picking, no pre-selection — the full
+          universe of NYSE, NASDAQ, and NYSE American listings enters the
+          pipeline. Financials and Real Estate are excluded because their
+          capital structures make standard profitability metrics unreliable.
         </motion.p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -59,16 +59,30 @@ describe("HeroSection", () => {
     ).toBeInTheDocument()
   })
 
+  it("renders narrative subhead about following one stock", () => {
+    render(<HeroSection />)
+    expect(
+      screen.getByText(/Follow one stock through our entire pipeline/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders the V4 pipeline badge", () => {
+    render(<HeroSection />)
+    expect(
+      screen.getByText(/Pipeline V4 · Updated February 2026/)
+    ).toBeInTheDocument()
+  })
+
   it("renders outcome bullets", () => {
     render(<HeroSection />)
     expect(screen.getByText("Scores updated daily after market close")).toBeInTheDocument()
     expect(screen.getByText("Position sizing tied to conviction strength")).toBeInTheDocument()
   })
 
-  it("renders built-for and not-built-for cards", () => {
+  it("renders CTA links", () => {
     render(<HeroSection />)
-    expect(screen.getByText("Built for")).toBeInTheDocument()
-    expect(screen.getByText("Not built for")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /Explore dashboard/i })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /Read guides/i })).toBeInTheDocument()
   })
 })
 
@@ -76,25 +90,42 @@ describe("PipelineSection", () => {
   it("renders the headline", () => {
     render(<PipelineSection />)
     expect(
-      screen.getByText(/From raw data to conviction/)
+      screen.getByText(/Seven stages\. One stock at a time\./)
     ).toBeInTheDocument()
   })
 
-  it("renders all 6 pipeline stages", () => {
+  it("renders narrative about following AAPL", () => {
     render(<PipelineSection />)
+    expect(
+      screen.getByText(/follow Apple \(AAPL\) through the pipeline/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all 7 pipeline stages including ML and Smart Money", () => {
+    render(<PipelineSection />)
+    // "Universe" appears in both stage cards and PipelineDiagram visual
     expect(screen.getAllByText("Universe").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Filters").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Scoring").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Conviction").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Output").length).toBeGreaterThan(0)
+    expect(screen.getByText("Elimination Filters")).toBeInTheDocument()
+    expect(screen.getByText("Factor Scoring")).toBeInTheDocument()
+    expect(screen.getByText("Dual-Track Conviction")).toBeInTheDocument()
+    expect(screen.getByText("ML Refinement")).toBeInTheDocument()
+    expect(screen.getByText("Smart Money Overlay")).toBeInTheDocument()
+    expect(screen.getByText("Position Sizing")).toBeInTheDocument()
   })
 })
 
 describe("UniverseSection", () => {
-  it("renders the headline", () => {
+  it("renders the headline with 7,000+", () => {
     render(<UniverseSection />)
     expect(
-      screen.getByText(/Every US-listed equity/)
+      screen.getByText(/the pipeline starts with 7,000\+ stocks/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders narrative mentioning AAPL and elimination filters", () => {
+    render(<UniverseSection />)
+    expect(
+      screen.getByText(/AAPL is one of them/)
     ).toBeInTheDocument()
   })
 
@@ -107,21 +138,35 @@ describe("UniverseSection", () => {
 })
 
 describe("FiltersSection", () => {
-  it("renders the headline", () => {
+  it("renders the headline about binary checks", () => {
     render(<FiltersSection />)
     expect(
-      screen.getByText(/Bad candidates are removed before scoring begins/)
+      screen.getByText(/Six binary checks\. One failure means elimination\./)
     ).toBeInTheDocument()
   })
 
-  it("renders all six filter cards", () => {
+  it("renders narrative mentioning AAPL", () => {
     render(<FiltersSection />)
-    expect(screen.getByText("Liquidity")).toBeInTheDocument()
-    expect(screen.getByText("Earnings Quality")).toBeInTheDocument()
-    expect(screen.getByText("Bankruptcy Risk")).toBeInTheDocument()
-    expect(screen.getByText("Cash Flow")).toBeInTheDocument()
+    expect(
+      screen.getByText(/AAPL faces six binary pass\/fail checks/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all six filter names", () => {
+    render(<FiltersSection />)
+    expect(screen.getByText("Beneish M-Score")).toBeInTheDocument()
+    expect(screen.getByText("Altman Z-Score")).toBeInTheDocument()
+    expect(screen.getByText("Current Ratio")).toBeInTheDocument()
     expect(screen.getByText("Interest Coverage")).toBeInTheDocument()
-    expect(screen.getByText("Balance Sheet Health")).toBeInTheDocument()
+    expect(screen.getByText("FCF Distress")).toBeInTheDocument()
+    expect(screen.getByText("Liquidity")).toBeInTheDocument()
+  })
+
+  it("renders AAPL result callout", () => {
+    render(<FiltersSection />)
+    expect(
+      screen.getByText(/AAPL passes all six filters and advances to scoring/)
+    ).toBeInTheDocument()
   })
 })
 

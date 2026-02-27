@@ -1,38 +1,65 @@
 "use client"
 
+import { useState } from "react"
 import { motion } from "framer-motion"
 import { FilterFunnel } from "../visuals/filter-funnel"
 
 const ease = [0.22, 1, 0.36, 1] as const
 
-const filters = [
+const aaplFilters = [
   {
-    name: "Liquidity",
-    desc: "Sufficient trading volume and market cap to build a real position",
+    name: "Beneish M-Score",
+    value: "\u22122.41",
+    threshold: "< \u22121.78",
+    pass: true,
+    detail:
+      "Screens for earnings manipulation. A score below \u22121.78 indicates the company is unlikely to be a manipulator.",
   },
   {
-    name: "Earnings Quality",
-    desc: "Beneish M-Score screens for signs of earnings manipulation",
+    name: "Altman Z-Score",
+    value: "5.12",
+    threshold: "> 1.1",
+    pass: true,
+    detail:
+      "Predicts bankruptcy probability. Scores above 2.99 are in the safe zone; AAPL is well above.",
   },
   {
-    name: "Bankruptcy Risk",
-    desc: "Altman Z-Score identifies companies in financial distress",
-  },
-  {
-    name: "Cash Flow",
-    desc: "Consistent free cash flow generation over multiple years",
+    name: "Current Ratio",
+    value: "1.07",
+    threshold: "> 0.8 (tech sector)",
+    pass: true,
+    detail:
+      "Measures short-term liquidity. The threshold is sector-adjusted \u2014 tech companies typically carry less working capital.",
   },
   {
     name: "Interest Coverage",
-    desc: "Ability to service debt obligations from operating earnings",
+    value: "29.8\u00d7",
+    threshold: "> 5.0\u00d7 (tech sector)",
+    pass: true,
+    detail:
+      "Operating earnings divided by interest expense. AAPL covers its debt obligations nearly 30 times over.",
   },
   {
-    name: "Balance Sheet Health",
-    desc: "Current ratio and quick ratio above sector-adjusted thresholds",
+    name: "FCF Distress",
+    value: "5/5 years positive",
+    threshold: "\u2265 3/5",
+    pass: true,
+    detail:
+      "Checks whether the company generated positive free cash flow in at least 3 of the past 5 years.",
+  },
+  {
+    name: "Liquidity",
+    value: "$2.7T market cap",
+    threshold: "> $300M",
+    pass: true,
+    detail:
+      "Ensures sufficient market capitalization for meaningful institutional positioning and reliable price discovery.",
   },
 ]
 
 export function FiltersSection() {
+  const [expanded, setExpanded] = useState<string | null>(null)
+
   return (
     <section className="border-t border-border-subtle">
       <div
@@ -52,7 +79,7 @@ export function FiltersSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.4, ease }}
         >
-          Elimination Filters
+          Stage 2 · Elimination Filters
         </motion.p>
 
         <motion.h2
@@ -62,7 +89,7 @@ export function FiltersSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          Bad candidates are removed before scoring begins.
+          Six binary checks. One failure means elimination.
         </motion.h2>
 
         <motion.p
@@ -72,37 +99,83 @@ export function FiltersSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
-          Before any stock receives a score, it must pass six independent elimination
-          filters. All six run regardless of earlier failures — you see the full
-          diagnostic, not just the first thing that went wrong. Roughly 40% of the
-          universe fails at least one filter.
+          AAPL faces six binary pass/fail checks. One failure means immediate
+          elimination — no exceptions, no overrides. All six run regardless
+          of earlier failures so you see the full diagnostic, not just the
+          first thing that went wrong.
         </motion.p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          {filters.map((filter, i) => (
+        {/* AAPL filter results */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+          {aaplFilters.map((filter, i) => (
             <motion.div
               key={filter.name}
-              className="p-6 border border-border-primary rounded-lg bg-bg-elevated"
+              className="border border-border-primary rounded-lg bg-bg-elevated overflow-hidden"
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.08, ease }}
+              transition={{ duration: 0.5, delay: i * 0.06, ease }}
             >
-              <h3 className="text-[15px] font-semibold text-text-primary mb-2">
-                {filter.name}
-              </h3>
-              <p className="text-[14px] text-text-secondary leading-relaxed">
-                {filter.desc}
-              </p>
+              <button
+                type="button"
+                className="w-full p-5 text-left"
+                onClick={() =>
+                  setExpanded(
+                    expanded === filter.name ? null : filter.name
+                  )
+                }
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[15px] font-semibold text-text-primary">
+                    {filter.name}
+                  </h3>
+                  <span className="text-[13px] font-mono text-bullish">
+                    PASS
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-[14px] font-mono text-text-primary">
+                    {filter.value}
+                  </span>
+                  <span className="text-[12px] text-text-tertiary">
+                    threshold: {filter.threshold}
+                  </span>
+                </div>
+              </button>
+              {expanded === filter.name && (
+                <div className="px-5 pb-5 pt-0">
+                  <p className="text-[13px] text-text-secondary leading-relaxed border-t border-border-subtle pt-3">
+                    {filter.detail}
+                  </p>
+                </div>
+              )}
             </motion.div>
           ))}
         </div>
+
+        {/* Result callout */}
+        <motion.div
+          className="p-5 border border-border-primary rounded-lg bg-bg-elevated mb-10"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.1, ease }}
+        >
+          <p className="text-[15px] text-text-primary font-medium">
+            <span className="text-bullish font-mono mr-2">6/6</span>
+            AAPL passes all six filters and advances to scoring.
+          </p>
+          <p className="text-[12px] text-text-tertiary mt-1">
+            Roughly 40% of the universe fails at least one filter and is
+            eliminated before scoring begins.
+          </p>
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.1, ease }}
+          transition={{ duration: 0.5, delay: 0.14, ease }}
         >
           <FilterFunnel />
         </motion.div>
@@ -114,8 +187,8 @@ export function FiltersSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.4, delay: 0.18, ease }}
         >
-          Filter thresholds are sector-adjusted — a utility company and a tech company
-          are held to different standards where appropriate.
+          Filter thresholds are sector-adjusted — a utility company and a tech
+          company are held to different standards where appropriate.
         </motion.p>
       </div>
     </section>

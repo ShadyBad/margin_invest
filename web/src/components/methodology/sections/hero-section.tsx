@@ -12,18 +12,6 @@ const outcomes = [
   "Position sizing tied to conviction strength",
 ]
 
-const builtFor = [
-  "Self-directed investors who want a repeatable process",
-  "Portfolio managers who value transparency over tips",
-  "Analysts who want to eliminate blind spots",
-]
-
-const notFor = [
-  "Traders looking for intraday signals",
-  "Anyone expecting guaranteed returns",
-  "Passive index investors",
-]
-
 export function HeroSection() {
   return (
     <section>
@@ -58,15 +46,25 @@ export function HeroSection() {
         </motion.h1>
 
         <motion.p
-          className="text-[16px] sm:text-[17px] text-text-secondary leading-relaxed max-w-2xl mb-10"
+          className="text-[16px] sm:text-[17px] text-text-secondary leading-relaxed max-w-2xl mb-6"
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
-          Margin Invest runs every US-listed equity through a deterministic pipeline of
-          elimination filters, multi-factor scoring, and conviction ranking — daily.
-          Same inputs, same outputs. No human judgment anywhere in the process.
+          Follow one stock through our entire pipeline — every filter, every
+          factor, every decision — to see exactly how conviction scores are
+          built.
+        </motion.p>
+
+        <motion.p
+          className="text-xs text-text-tertiary font-mono mb-10"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4, delay: 0.12, ease }}
+        >
+          Pipeline V4 · Updated February 2026
         </motion.p>
 
         {/* Outcome bullets */}
@@ -101,51 +99,27 @@ export function HeroSection() {
           ))}
         </motion.ul>
 
-        {/* Who it's for / not for */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <motion.div
-            className="p-6 border border-border-primary rounded-lg bg-bg-elevated"
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.2, ease }}
+        {/* CTA buttons */}
+        <motion.div
+          className="flex flex-wrap gap-4"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.24, ease }}
+        >
+          <a
+            href="/dashboard"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent text-bg-primary text-[14px] font-medium rounded-lg hover:opacity-90 transition-opacity"
           >
-            <h3 className="text-[15px] font-semibold text-text-primary mb-4">
-              Built for
-            </h3>
-            <ul className="space-y-2">
-              {builtFor.map((item) => (
-                <li key={item} className="flex items-start gap-2">
-                  <span className="text-accent text-[14px] leading-relaxed">+</span>
-                  <span className="text-[14px] text-text-secondary leading-relaxed">
-                    {item}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-          <motion.div
-            className="p-6 border border-border-primary rounded-lg bg-bg-elevated"
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.28, ease }}
+            Explore dashboard
+          </a>
+          <a
+            href="/guides"
+            className="inline-flex items-center gap-2 px-5 py-2.5 border border-border-primary text-text-primary text-[14px] font-medium rounded-lg hover:bg-bg-elevated transition-colors"
           >
-            <h3 className="text-[15px] font-semibold text-text-primary mb-4">
-              Not built for
-            </h3>
-            <ul className="space-y-2">
-              {notFor.map((item) => (
-                <li key={item} className="flex items-start gap-2">
-                  <span className="text-text-tertiary text-[14px] leading-relaxed">–</span>
-                  <span className="text-[14px] text-text-secondary leading-relaxed">
-                    {item}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-        </div>
+            Read guides
+          </a>
+        </motion.div>
       </div>
     </section>
   )
