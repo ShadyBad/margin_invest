@@ -63,3 +63,30 @@ export async function getDashboard(adminKey: string): Promise<DashboardResponse>
 export async function getTransparency(): Promise<TransparencyResponse> {
   return apiFetch<TransparencyResponse>("/api/v1/governance/transparency")
 }
+
+export interface GovernanceEvent {
+  id: number
+  event_type: string
+  source: string
+  detail: Record<string, unknown> | null
+  created_at: string | null
+}
+
+export interface EventListResponse {
+  events: GovernanceEvent[]
+  total: number
+}
+
+export async function getEvents(
+  adminKey: string,
+  options?: { event_type?: string; limit?: number; offset?: number }
+): Promise<EventListResponse> {
+  const params = new URLSearchParams()
+  if (options?.event_type) params.set("event_type", options.event_type)
+  if (options?.limit) params.set("limit", String(options.limit))
+  if (options?.offset) params.set("offset", String(options.offset))
+  const query = params.toString()
+  return apiFetch<EventListResponse>(`/api/v1/admin/governance/events${query ? `?${query}` : ""}`, {
+    headers: { "X-Admin-Key": adminKey },
+  })
+}
