@@ -3,7 +3,8 @@
 import { useEffect, useRef, type ReactNode } from "react"
 import { MicroMetadata } from "./micro-metadata"
 import { ProofFactorBars } from "./proof-factor-bars"
-import { ProofTiltChart } from "./proof-tilt-chart"
+import { ProofSelectivityFunnel } from "./proof-selectivity-funnel"
+import { ProofSectorChart } from "./proof-sector-chart"
 import { ProofHeatmap } from "./proof-heatmap"
 import { ProofHistoricalChart } from "./proof-historical-chart"
 import type { CandidateCard } from "./types"
@@ -91,8 +92,11 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
           <ProofCard title="Factor Transparency">
             <ProofFactorBars />
           </ProofCard>
-          <ProofCard title="Growth vs Value Tilt">
-            <ProofTiltChart candidates={candidates} />
+          <ProofCard title="System Selectivity">
+            <ProofSelectivityFunnel />
+          </ProofCard>
+          <ProofCard title="Sector Breakdown">
+            <ProofSectorChart candidates={candidates} />
           </ProofCard>
           <ProofCard title="Correlation Heatmap">
             <ProofHeatmap />

@@ -11,19 +11,22 @@ vi.mock("@/components/ui/correlation-grid", () => ({
   CorrelationGrid: () => <div data-testid="correlation-grid" />,
 }))
 vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
-  LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
+  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
+  AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
   BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-  Line: () => null,
+  Area: () => null,
   Bar: () => null,
   XAxis: () => null,
   YAxis: () => null,
   CartesianGrid: () => null,
   Tooltip: () => null,
   Legend: () => null,
-  ReferenceLine: () => null,
   Cell: () => null,
-  LabelList: () => null,
+}))
+vi.mock("framer-motion", () => ({
+  motion: {
+    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  },
 }))
 
 import { ProofSection } from "../proof-section"
@@ -36,12 +39,18 @@ describe("ProofSection", () => {
     ).toBeInTheDocument()
   })
 
-  it("renders all 4 proof card titles", () => {
+  it("renders all 5 proof card titles", () => {
     render(<ProofSection />)
     expect(screen.getByText("Factor Transparency")).toBeInTheDocument()
-    expect(screen.getByText("Growth vs Value Tilt")).toBeInTheDocument()
+    expect(screen.getByText("System Selectivity")).toBeInTheDocument()
+    expect(screen.getByText("Sector Breakdown")).toBeInTheDocument()
     expect(screen.getByText("Correlation Heatmap")).toBeInTheDocument()
     expect(screen.getByText("Historical Application")).toBeInTheDocument()
+  })
+
+  it("does NOT render Growth vs Value Tilt (removed)", () => {
+    render(<ProofSection />)
+    expect(screen.queryByText("Growth vs Value Tilt")).not.toBeInTheDocument()
   })
 
   it("renders sector-neutral metadata", () => {
@@ -53,19 +62,5 @@ describe("ProofSection", () => {
     render(<ProofSection />)
     expect(screen.getByText("Valuation")).toBeInTheDocument()
     expect(screen.getByText("Quality")).toBeInTheDocument()
-    expect(screen.getByText("Momentum")).toBeInTheDocument()
-    expect(screen.getByText("Sentiment")).toBeInTheDocument()
-    expect(screen.getByText("Growth")).toBeInTheDocument()
-  })
-
-  it("renders backtesting performance summary", () => {
-    render(<ProofSection candidates={[]} />)
-    expect(screen.getByText(/every signal recorded/i)).toBeInTheDocument()
-    expect(screen.getByText(/past performance does not guarantee/i)).toBeInTheDocument()
-  })
-
-  it("renders live tracking framing instead of backtest numbers", () => {
-    render(<ProofSection candidates={[]} />)
-    expect(screen.getByText(/live tracking/i)).toBeInTheDocument()
   })
 })
