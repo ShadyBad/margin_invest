@@ -108,7 +108,7 @@ export function PipelineStatus({ adminKey }: PipelineStatusProps) {
             data-testid="stat-rejection-value"
             className="text-lg font-mono font-semibold text-text-primary"
           >
-            {rejectionRate != null ? `${rejectionRate}%` : "\u2014"}
+            {rejectionRate != null ? `${(rejectionRate * 100).toFixed(1)}%` : "\u2014"}
           </p>
         </div>
 

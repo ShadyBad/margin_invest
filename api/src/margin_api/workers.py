@@ -1971,6 +1971,26 @@ async def _promote_ml_model_impl(
     return {"status": "promoted", "model_id": model_id, "approval_id": approval_id}
 
 
+async def promote_ml_model(
+    ctx: dict,
+    approval_id: int,
+    decided_by: int | None = None,
+    decision_reason: str | None = None,
+) -> dict:
+    """Worker entry point: promote ML model after operator approval."""
+    logger.info(
+        "[promote_ml_model] Starting (approval=%s, decided_by=%s)",
+        approval_id,
+        decided_by,
+    )
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+    async with session_factory() as session:
+        return await _promote_ml_model_impl(
+            session, approval_id, decided_by, decision_reason
+        )
+
+
 async def live_price_poll(ctx: dict) -> dict:
     """Poll live prices for high-conviction tickers and cache in Redis."""
     settings = get_settings()
@@ -2327,6 +2347,7 @@ class WorkerSettings:
         full_score_v4,
         stage_scores,
         publish_scores,
+        promote_ml_model,
         backtest_validate,
         train_ml_models,
         live_price_poll,

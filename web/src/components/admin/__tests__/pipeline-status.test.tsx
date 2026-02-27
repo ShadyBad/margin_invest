@@ -5,7 +5,7 @@ import { PipelineStatus } from "../pipeline-status"
 const mockDashboard = {
   pending_count: 3,
   avg_approval_latency_hours: 2.5,
-  rejection_rate: 12.3,
+  rejection_rate: 0.123,
   recent_anomalies: [],
 }
 

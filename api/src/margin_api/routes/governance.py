@@ -52,8 +52,9 @@ async def _enqueue_publish_job(approval: PipelineApproval) -> None:
     settings = get_settings()
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
 
+    redis: ArqRedis | None = None
     try:
-        redis: ArqRedis = await create_pool(redis_settings)
+        redis = await create_pool(redis_settings)
 
         if approval.gate_type == "score_publish":
             await redis.enqueue_job(
@@ -68,14 +69,14 @@ async def _enqueue_publish_job(approval: PipelineApproval) -> None:
             )
         elif approval.gate_type == "ml_model_deploy":
             await redis.enqueue_job(
-                "publish_scores",
+                "promote_ml_model",
                 approval.id,
                 approval.decided_by,
                 approval.decision_reason,
                 _job_id=f"promote_ml:{uuid.uuid4().hex[:8]}",
             )
             logger.info(
-                "[governance] Enqueued promote job for approval %d", approval.id
+                "[governance] Enqueued promote_ml_model for approval %d", approval.id
             )
         else:
             logger.warning(
@@ -83,12 +84,13 @@ async def _enqueue_publish_job(approval: PipelineApproval) -> None:
                 approval.gate_type,
                 approval.id,
             )
-
-        await redis.aclose()
     except Exception:
         logger.exception(
             "[governance] Failed to enqueue publish job for approval %d", approval.id
         )
+    finally:
+        if redis is not None:
+            await redis.aclose()
 
 
 @router.get("/approvals")
@@ -223,20 +225,24 @@ async def governance_dashboard(
     thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
     latency_result = await session.execute(
         select(
-            func.avg(
-                func.julianday(PipelineApproval.decided_at)
-                - func.julianday(PipelineApproval.submitted_at)
-            )
-            * 24.0
+            PipelineApproval.submitted_at,
+            PipelineApproval.decided_at,
         )
-        .select_from(PipelineApproval)
         .where(
             PipelineApproval.status == "approved",
             PipelineApproval.decided_at.isnot(None),
             PipelineApproval.submitted_at >= thirty_days_ago,
         )
     )
-    avg_latency = latency_result.scalar()
+    latency_rows = latency_result.all()
+    if latency_rows:
+        total_hours = sum(
+            (row.decided_at - row.submitted_at).total_seconds() / 3600.0
+            for row in latency_rows
+        )
+        avg_latency = round(total_hours / len(latency_rows), 2)
+    else:
+        avg_latency = None
 
     # Rejection rate: rejected / (approved + rejected)
     approved_count_result = await session.execute(
