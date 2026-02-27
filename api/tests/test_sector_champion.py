@@ -91,6 +91,7 @@ def _make_v4score(
         ml_override="none",
         scored_at=datetime.now(UTC),
         detail=_v4_detail(ticker, filters_passed),
+        published=True,
     )
 
 

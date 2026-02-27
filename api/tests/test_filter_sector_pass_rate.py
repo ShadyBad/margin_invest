@@ -115,6 +115,7 @@ async def seeded_session(async_engine):
             ml_override="none",
             scored_at=datetime.now(UTC),
             detail=_v4_detail_with_pass_rates(),
+            published=True,
         )
         session.add(v4)
         await session.commit()
@@ -186,6 +187,7 @@ class TestFilterSectorPassRate:
                 composite_score=60.0,
                 ml_override="none",
                 scored_at=datetime(2099, 1, 1, tzinfo=UTC),  # future so it's "latest"
+                published=True,
                 detail={
                     "ticker": "TSLA",
                     "composite_percentile": 60.0,

@@ -479,7 +479,7 @@ async def get_score(
     """Get the latest scoring result for a specific ticker."""
     ticker = ticker.upper()
 
-    # Try V4Score first (ML-enhanced scoring)
+    # Try V4Score first (ML-enhanced scoring) — only published scores
     v4_query = (
         select(
             V4Score,
@@ -490,6 +490,7 @@ async def get_score(
         )
         .join(Asset, V4Score.asset_id == Asset.id)
         .where(Asset.ticker == ticker)
+        .where(V4Score.published == True)  # noqa: E712
         .order_by(V4Score.scored_at.desc())
         .limit(1)
     )
@@ -624,6 +625,7 @@ async def get_score(
             .where(
                 Asset.sector == sector,
                 Asset.ticker != ticker,
+                V4Score.published == True,  # noqa: E712
             )
             .order_by(V4Score.composite_score.desc())
             .limit(10)  # Check top 10 to find one that passed all filters

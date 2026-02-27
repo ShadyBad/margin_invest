@@ -87,6 +87,7 @@ class TestDashboardV4Enrichment:
                 ml_alpha=0.05,
                 ml_confidence=0.82,
                 ml_override="promoted",
+                published=True,
             )
             session.add(v4)
             await session.commit()
@@ -197,6 +198,7 @@ class TestDashboardV4Enrichment:
                 ml_alpha=0.07,
                 ml_confidence=0.88,
                 ml_override="none",
+                published=True,
             )
             session.add(v4)
             await session.commit()

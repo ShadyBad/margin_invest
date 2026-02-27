@@ -157,6 +157,7 @@ async def _fetch_picks_and_watchlist(
                 V4Score.asset_id,
                 func.max(V4Score.scored_at).label("max_scored_at"),
             )
+            .where(V4Score.published == True)  # noqa: E712
             .group_by(V4Score.asset_id)
             .subquery()
         )
@@ -169,6 +170,7 @@ async def _fetch_picks_and_watchlist(
                 & (V4Score.scored_at == v4_latest_subq.c.max_scored_at),
             )
             .where(Asset.ticker.in_(pick_tickers))
+            .where(V4Score.published == True)  # noqa: E712
         )
         v4_map: dict[str, V4Score] = {}
         for row in v4_result.all():

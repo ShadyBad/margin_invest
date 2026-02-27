@@ -124,6 +124,7 @@ class TestSectorDistributionInScoreEndpoint:
                 ml_override="none",
                 detail=_v4_detail_with_sector_dist(),
                 scored_at=datetime.now(UTC),
+                published=True,
             )
             session.add(v4)
             await session.commit()
@@ -221,6 +222,7 @@ class TestSectorDistributionInScoreEndpoint:
                 ml_override="none",
                 detail=detail_no_dist,
                 scored_at=datetime.now(UTC),
+                published=True,
             )
             session.add(v4)
             await session.commit()
@@ -305,6 +307,7 @@ class TestSectorDistributionInScoreEndpoint:
                 ml_override="none",
                 detail=detail_partial,
                 scored_at=datetime.now(UTC),
+                published=True,
             )
             session.add(v4)
             await session.commit()

@@ -86,6 +86,7 @@ async def v4_seeded_session(async_engine):
             composite_score=0.85,
             ml_override="none",
             detail=_score_detail("AAPL"),
+            published=True,
         )
         session.add(v4)
         await session.commit()
@@ -150,6 +151,7 @@ async def null_market_cap_session(async_engine):
             composite_score=0.60,
             ml_override="none",
             detail=_score_detail("XYZ"),
+            published=True,
         )
         session.add(v4)
         await session.commit()

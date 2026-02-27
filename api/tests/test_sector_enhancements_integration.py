@@ -185,6 +185,7 @@ async def seeded_session(async_engine):
             composite_score=0.45,
             ml_override="none",
             scored_at=datetime.now(UTC),
+            published=True,
             detail=_v4_detail(
                 "TSLA",
                 TSLA_FILTERS,
@@ -205,6 +206,7 @@ async def seeded_session(async_engine):
             composite_score=0.88,
             ml_override="none",
             scored_at=datetime.now(UTC),
+            published=True,
             detail=_v4_detail(
                 "AMZN",
                 AMZN_FILTERS,

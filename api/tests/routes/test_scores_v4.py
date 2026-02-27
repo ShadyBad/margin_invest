@@ -115,6 +115,7 @@ class TestV4ScoreEndpoint:
                 ml_confidence=0.82,
                 ml_override="promoted",
                 detail=_v4_detail(),
+                published=True,
             )
             session.add(v4)
             await session.commit()
@@ -161,6 +162,7 @@ class TestV4ScoreEndpoint:
                 track_b={"name": "mispricing", "score": 55.0},
                 track_c={"name": "ml_alpha", "score": 88.0},
                 detail=_v4_detail(),
+                published=True,
             )
             session.add(v4)
             await session.commit()
@@ -200,6 +202,7 @@ class TestV4ScoreEndpoint:
                 ml_confidence=0.82,
                 ml_override="promoted",
                 detail=_v4_detail(),
+                published=True,
             )
             ml_run = MlModelRun(
                 model_type="lightgbm_cluster",
@@ -298,6 +301,7 @@ class TestV4ScoreEndpoint:
                 ml_confidence=0.95,
                 ml_override="none",
                 detail=_v4_detail(),
+                published=True,
             )
             session.add_all([score, v4])
             await session.commit()
@@ -339,6 +343,7 @@ class TestV4ScoreEndpoint:
                 ml_confidence=0.82,
                 ml_override="none",
                 detail=_v4_detail(),
+                published=True,
             )
             session.add(v4)
 
@@ -480,6 +485,7 @@ class TestV4ScoreEndpoint:
                 ml_confidence=0.5,
                 ml_override="none",
                 detail=_v4_detail(),
+                published=True,
             )
             session.add(v4)
             await session.commit()
