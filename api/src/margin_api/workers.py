@@ -1079,6 +1079,56 @@ async def publish_scores(
 
 
 # ---------------------------------------------------------------------------
+# Expiry daemon
+# ---------------------------------------------------------------------------
+
+
+async def _expire_stale_approvals_impl(session: AsyncSession) -> int:
+    """Expire staged PipelineApprovals that are past their deadline.
+
+    Queries PipelineApproval where status='staged' AND expires_at < now(UTC).
+    Sets each to status='expired' and decided_at=now(UTC).
+    Commits if any were expired.
+
+    Returns count of expired approvals.
+    """
+    now = datetime.now(UTC)
+    result = await session.execute(
+        select(PipelineApproval).where(
+            PipelineApproval.status == "staged",
+            PipelineApproval.expires_at < now,
+        )
+    )
+    stale = result.scalars().all()
+
+    for approval in stale:
+        approval.status = "expired"
+        approval.decided_at = now
+
+    if stale:
+        await session.commit()
+
+    return len(stale)
+
+
+async def expire_stale_approvals(ctx: dict) -> dict:
+    """Worker entry point: expire staged PipelineApprovals past their deadline.
+
+    Runs every 6 hours to clean up approvals that were never acted upon.
+    """
+    logger.info("[expire_stale_approvals] Starting expiry check")
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    async with session_factory() as session:
+        expired_count = await _expire_stale_approvals_impl(session)
+
+    logger.info("[expire_stale_approvals] Expired %d stale approvals", expired_count)
+    return {"status": "completed", "expired_count": expired_count}
+
+
+# ---------------------------------------------------------------------------
 # Score change event helpers
 # ---------------------------------------------------------------------------
 
@@ -2215,6 +2265,7 @@ class WorkerSettings:
         retry_quarantined,
         full_13f_ingest,
         compute_accumulation_signals,
+        expire_stale_approvals,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -2226,6 +2277,7 @@ class WorkerSettings:
         cron(retry_quarantined, weekday=6, hour=0, run_at_startup=False),  # Sunday midnight
         cron(train_ml_models, weekday=5, hour=2, run_at_startup=False),  # Saturday 2 AM UTC
         cron(full_13f_ingest, hour=22, minute=0, run_at_startup=False),  # 5 PM ET
+        cron(expire_stale_approvals, hour={0, 6, 12, 18}, run_at_startup=False),
     ]
     # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)
     job_timeout = 1200
