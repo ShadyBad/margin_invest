@@ -106,7 +106,7 @@ export function ProofHistoricalChart() {
       : data.equity_curve
 
   return (
-    <div>
+    <div aria-label="Historical portfolio performance compared to benchmark">
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={thinned}>
@@ -126,8 +126,8 @@ export function ProofHistoricalChart() {
               width={50}
             />
             <Tooltip
-              formatter={(value: number, name: string) => [
-                formatValue(value),
+              formatter={(value, name) => [
+                formatValue(Number(value)),
                 name,
               ]}
               contentStyle={{
