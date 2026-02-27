@@ -959,3 +959,53 @@ class UserProposal(Base):
     __table_args__ = (
         Index("ix_user_proposals_user_status", "user_id", "status"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Data Healing / Correction models
+# ---------------------------------------------------------------------------
+
+
+class CorrectionEventRecord(Base):
+    """Persisted correction event from the data healing pipeline."""
+
+    __tablename__ = "correction_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    correction_id: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
+    period_end: Mapped[str] = mapped_column(String(10))
+    field_path: Mapped[str] = mapped_column(String(100))
+    detection_tier: Mapped[str] = mapped_column(String(20))
+    detection_detail: Mapped[str] = mapped_column(String(500))
+    original_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    corrected_value: Mapped[float] = mapped_column(Float)
+    correction_method: Mapped[str] = mapped_column(String(30))
+    correction_source: Mapped[str] = mapped_column(String(100))
+    correction_confidence: Mapped[float] = mapped_column(Float)
+    correction_config_version: Mapped[str] = mapped_column(String(20))
+    sector_distribution_snapshot: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    scoring_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    asset: Mapped[Asset] = relationship()
+
+
+class SectorDistributionSnapshot(Base):
+    """Snapshot of sector-level distribution stats for a scoring run."""
+
+    __tablename__ = "sector_distribution_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scoring_run_id: Mapped[str] = mapped_column(String(36), index=True)
+    sector: Mapped[str] = mapped_column(String(50))
+    field_path: Mapped[str] = mapped_column(String(100))
+    median: Mapped[float] = mapped_column(Float)
+    mad: Mapped[float] = mapped_column(Float)
+    n_observations: Mapped[int] = mapped_column()
+    period: Mapped[str] = mapped_column(String(10))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
