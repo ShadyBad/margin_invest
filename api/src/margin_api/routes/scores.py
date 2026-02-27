@@ -232,12 +232,32 @@ def _v4_score_response_from_row(
     for f in detail.get("filters_passed", []):
         f.setdefault("verdict", "pass" if f.get("passed") else "fail")
 
+    # Inject sector_pass_rate into filter results
+    sector = row.asset_sector if hasattr(row, "asset_sector") else None
+    pass_rates = detail.get("sector_filter_pass_rates", {})
+    sector_rates = pass_rates.get(sector, {}) if sector else {}
+    for f in detail.get("filters_passed", []):
+        f.setdefault("sector_pass_rate", sector_rates.get(f.get("name")))
+
     for factor_key in ("quality", "value", "momentum", "capital_allocation", "catalyst"):
         factor = detail.get(factor_key)
         if factor is not None and isinstance(factor, dict) and "average_percentile" not in factor:
             subs = factor.get("sub_scores", [])
             avg = sum(s.get("percentile_rank", 0) for s in subs) / len(subs) if subs else 0.0
             factor["average_percentile"] = avg
+
+    # Inject sector distribution into sub-factor scores
+    sector_dist = detail.get("sector_distribution", {})
+    for factor_key in ("quality", "value", "momentum"):
+        factor = detail.get(factor_key)
+        if factor and isinstance(factor, dict):
+            for sub in factor.get("sub_scores", []):
+                dist = sector_dist.get(sub.get("name"), {})
+                if dist:
+                    sub["sector_p10"] = dist.get("p10")
+                    sub["sector_p50"] = dist.get("p50")
+                    sub["sector_p90"] = dist.get("p90")
+                    sub["sector_count"] = dist.get("count")
 
     detail.setdefault("score", detail.get("composite_raw_score", v4.composite_score))
     detail.setdefault("universe_percentile", detail.get("composite_percentile", 0.0))
@@ -466,6 +486,7 @@ async def get_score(
             Asset.ticker,
             Asset.name.label("asset_name"),
             Asset.sector.label("asset_sector"),
+            Asset.market_cap.label("asset_market_cap"),
         )
         .join(Asset, V4Score.asset_id == Asset.id)
         .where(Asset.ticker == ticker)
@@ -499,6 +520,7 @@ async def get_score(
                 Asset.ticker,
                 Asset.name.label("asset_name"),
                 Asset.sector.label("asset_sector"),
+                Asset.market_cap.label("asset_market_cap"),
             )
             .join(Asset, Score.asset_id == Asset.id)
             .where(Asset.ticker == ticker)
@@ -516,6 +538,11 @@ async def get_score(
     # Populate asset context: sector, universe stats, sector survivors
     sector = row.asset_sector if hasattr(row, "asset_sector") else None
     response.sector = sector
+
+    # Populate market_cap from Asset
+    asset_market_cap = row.asset_market_cap if hasattr(row, "asset_market_cap") else None
+    if asset_market_cap is not None:
+        response.market_cap = float(asset_market_cap)
 
     # Universe size from active snapshot
     from margin_api.db.models import UniverseSnapshot
@@ -563,6 +590,40 @@ async def get_score(
     response.filters_survived_count = filters_survived_count
     if sector:
         response.sector_survivor_count = sector_survivor_count
+
+    # Sector champion: only for eliminated tickers
+    from margin_api.schemas.scores import SectorChampionResponse
+
+    filters = response.filters_passed or []
+    has_failed_filters = any(not f.passed for f in filters)
+
+    if has_failed_filters and sector:
+        # Find highest-scoring passing ticker in same sector
+        champion_q = (
+            select(V4Score, Asset.ticker.label("champ_ticker"))
+            .join(Asset, V4Score.asset_id == Asset.id)
+            .where(
+                Asset.sector == sector,
+                Asset.ticker != ticker,
+            )
+            .order_by(V4Score.composite_score.desc())
+            .limit(10)  # Check top 10 to find one that passed all filters
+        )
+        champ_result = await db.execute(champion_q)
+        champ_rows = champ_result.all()
+
+        for champ_row in champ_rows:
+            champ_v4 = champ_row[0]
+            champ_ticker = champ_row.champ_ticker
+            champ_detail = champ_v4.detail or {}
+            champ_filters = champ_detail.get("filters_passed", [])
+            if champ_filters and all(f.get("passed") for f in champ_filters):
+                filter_values = {f["name"]: f.get("value") for f in champ_filters}
+                response.sector_champion = SectorChampionResponse(
+                    ticker=champ_ticker,
+                    filter_values=filter_values,
+                )
+                break
 
     # Populate institutional_accumulation from 13F pipeline
     from margin_api.db.models import (

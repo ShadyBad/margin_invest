@@ -212,3 +212,29 @@ class ShadowPortfolioResponse(BaseModel):
     max_drawdown: float
     num_days: int
     cannot_be_backdated: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Portfolio-level teaser schemas
+# ---------------------------------------------------------------------------
+
+
+class EquityCurvePoint(BaseModel):
+    """Single month in the equity curve."""
+
+    month: str  # "YYYY-MM" format
+    portfolio: float
+    benchmark: float
+
+
+class PortfolioTeaserResponse(BaseModel):
+    """Portfolio-level teaser for the landing page."""
+
+    model_return: float
+    benchmark_return: float
+    max_drawdown: float
+    sharpe_ratio: float
+    num_months: int
+    start_date: date
+    end_date: date
+    equity_curve: list[EquityCurvePoint]

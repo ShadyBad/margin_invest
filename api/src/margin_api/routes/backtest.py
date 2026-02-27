@@ -18,6 +18,7 @@ from margin_api.schemas.backtest import (
     BacktestTeaserResponse,
     FullBacktestResponse,
     MetricsResponse,
+    PortfolioTeaserResponse,
     ReplayConfigRequest,
     ShadowPortfolioResponse,
     ValidationCheckResponse,
@@ -25,6 +26,7 @@ from margin_api.schemas.backtest import (
 )
 from margin_api.services.backtest import (
     build_full_response,
+    build_portfolio_teaser,
     build_teaser_from_result,
     get_default_replay_result,
     run_custom_backtest,
@@ -204,6 +206,16 @@ async def get_backtest_teaser(
     """Teaser metrics for free users -- 3 numbers + CTA."""
     result = get_default_replay_result()
     return build_teaser_from_result(result, ticker=ticker)
+
+
+@router.get(
+    "/backtest/portfolio-teaser",
+    response_model=PortfolioTeaserResponse,
+)
+async def get_portfolio_teaser() -> PortfolioTeaserResponse:
+    """Portfolio-level teaser for the landing page. Public (no auth)."""
+    result = get_default_replay_result()
+    return build_portfolio_teaser(result)
 
 
 @router.get(

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from fastapi.testclient import TestClient
 from margin_api.app import create_app
 from margin_api.routes import backtest as backtest_module
+from margin_api.schemas.backtest import EquityCurvePoint, PortfolioTeaserResponse
 
 
 @pytest.fixture(autouse=True)
@@ -263,3 +266,122 @@ class TestMultipleBacktests:
         data2 = _run_backtest(client, {"start_date": "2020-01-01"})
         # Different start dates should produce different num_snapshots
         assert data1["num_snapshots"] != data2["num_snapshots"]
+
+
+# ---------------------------------------------------------------------------
+# Portfolio teaser schemas & endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestPortfolioTeaserSchemas:
+    """Verify EquityCurvePoint and PortfolioTeaserResponse instantiation."""
+
+    def test_equity_curve_point_instantiation(self):
+        point = EquityCurvePoint(month="2020-01", portfolio=10500.0, benchmark=10200.0)
+        assert point.month == "2020-01"
+        assert point.portfolio == 10500.0
+        assert point.benchmark == 10200.0
+
+    def test_portfolio_teaser_response_instantiation(self):
+        curve = [
+            EquityCurvePoint(month="2020-01", portfolio=10500.0, benchmark=10200.0),
+            EquityCurvePoint(month="2020-02", portfolio=10800.0, benchmark=10350.0),
+        ]
+        resp = PortfolioTeaserResponse(
+            model_return=5.42,
+            benchmark_return=3.87,
+            max_drawdown=0.28,
+            sharpe_ratio=0.85,
+            num_months=240,
+            start_date=date(2006, 1, 1),
+            end_date=date(2025, 12, 31),
+            equity_curve=curve,
+        )
+        assert resp.model_return == 5.42
+        assert resp.benchmark_return == 3.87
+        assert resp.max_drawdown == 0.28
+        assert resp.sharpe_ratio == 0.85
+        assert resp.num_months == 240
+        assert resp.start_date == date(2006, 1, 1)
+        assert resp.end_date == date(2025, 12, 31)
+        assert len(resp.equity_curve) == 2
+
+    def test_portfolio_teaser_response_empty_curve(self):
+        resp = PortfolioTeaserResponse(
+            model_return=0.0,
+            benchmark_return=0.0,
+            max_drawdown=0.0,
+            sharpe_ratio=0.0,
+            num_months=0,
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 12, 31),
+            equity_curve=[],
+        )
+        assert resp.equity_curve == []
+
+
+class TestPortfolioTeaserEndpoint:
+    """Tests for GET /api/v1/backtest/portfolio-teaser."""
+
+    def test_portfolio_teaser_returns_200(self, client):
+        response = client.get("/api/v1/backtest/portfolio-teaser")
+        assert response.status_code == 200
+
+    def test_portfolio_teaser_has_required_fields(self, client):
+        response = client.get("/api/v1/backtest/portfolio-teaser")
+        data = response.json()
+        assert "model_return" in data
+        assert "benchmark_return" in data
+        assert "max_drawdown" in data
+        assert "sharpe_ratio" in data
+        assert "num_months" in data
+        assert "start_date" in data
+        assert "end_date" in data
+        assert "equity_curve" in data
+
+    def test_portfolio_teaser_metrics_match_defaults(self, client):
+        response = client.get("/api/v1/backtest/portfolio-teaser")
+        data = response.json()
+        assert data["model_return"] == 5.42
+        assert data["benchmark_return"] == 3.87
+        assert data["max_drawdown"] == 0.28
+        assert data["sharpe_ratio"] == 0.85
+        assert data["num_months"] == 240
+        assert data["start_date"] == "2006-01-01"
+        assert data["end_date"] == "2025-12-31"
+
+    def test_portfolio_teaser_equity_curve_has_points(self, client):
+        response = client.get("/api/v1/backtest/portfolio-teaser")
+        data = response.json()
+        curve = data["equity_curve"]
+        # Synthetic default has 240 months of snapshots
+        assert len(curve) == 240
+
+    def test_portfolio_teaser_equity_curve_structure(self, client):
+        response = client.get("/api/v1/backtest/portfolio-teaser")
+        data = response.json()
+        curve = data["equity_curve"]
+        # Check the first point has the right structure
+        first = curve[0]
+        assert "month" in first
+        assert "portfolio" in first
+        assert "benchmark" in first
+        # Month should be in YYYY-MM format
+        assert len(first["month"]) == 7
+        assert first["month"][4] == "-"
+        assert first["month"] == "2006-01"
+
+    def test_portfolio_teaser_equity_curve_values_grow(self, client):
+        response = client.get("/api/v1/backtest/portfolio-teaser")
+        data = response.json()
+        curve = data["equity_curve"]
+        # Portfolio and benchmark should grow over time (monotonic for synthetic data)
+        first = curve[0]
+        last = curve[-1]
+        assert last["portfolio"] > first["portfolio"]
+        assert last["benchmark"] > first["benchmark"]
+
+    def test_portfolio_teaser_no_auth_required(self, client):
+        """Portfolio teaser is public -- no auth headers needed."""
+        response = client.get("/api/v1/backtest/portfolio-teaser")
+        assert response.status_code == 200

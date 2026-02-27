@@ -20,6 +20,7 @@ class FilterResultResponse(BaseModel):
     detail: str = ""
     verdict: str  # "pass", "fail", or "inconclusive"
     missing_fields: list[str] | None = None
+    sector_pass_rate: float | None = None
 
 
 class FactorScoreResponse(BaseModel):
@@ -29,6 +30,10 @@ class FactorScoreResponse(BaseModel):
     raw_value: float
     percentile_rank: float
     detail: str = ""
+    sector_p10: float | None = None
+    sector_p50: float | None = None
+    sector_p90: float | None = None
+    sector_count: int | None = None
 
 
 class FactorBreakdownResponse(BaseModel):
@@ -71,6 +76,13 @@ class InstitutionalAccumulationData(BaseModel):
     percentile: float
     new_positions: int
     top_funds: list[str]
+
+
+class SectorChampionResponse(BaseModel):
+    """Sector champion data for FailedComparison component."""
+
+    ticker: str
+    filter_values: dict[str, float | None]
 
 
 class ScoreResponse(BaseModel):
@@ -133,6 +145,10 @@ class ScoreResponse(BaseModel):
     ml_model_trained_at: str | None = None
     # Institutional accumulation data (from 13F pipeline)
     institutional_accumulation: InstitutionalAccumulationData | None = None
+    # Market cap from Asset table
+    market_cap: float | None = None
+    # Sector champion (only populated for eliminated tickers)
+    sector_champion: SectorChampionResponse | None = None
     # Conditionally included via ?include=
     price_history: list[PriceBarResponse] | None = None
     signal_history: list[SignalTransitionResponse] | None = None

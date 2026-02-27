@@ -11,7 +11,7 @@ import json
 from datetime import date
 
 from margin_engine.backtesting.failure_audit import FailurePeriod
-from margin_engine.backtesting.models import PerformanceMetrics
+from margin_engine.backtesting.models import MonthlySnapshot, PerformanceMetrics
 from margin_engine.backtesting.regime_classifier import RegimeSegment
 from margin_engine.backtesting.replay_orchestrator import (
     ReplayConfig,
@@ -21,10 +21,12 @@ from margin_engine.backtesting.replay_orchestrator import (
 from margin_api.schemas.backtest import (
     AuditRecordResponse,
     BacktestTeaserResponse,
+    EquityCurvePoint,
     FactorTimelineResponse,
     FailurePeriodResponse,
     FullBacktestResponse,
     MetricsResponse,
+    PortfolioTeaserResponse,
     RegimeSegmentResponse,
     ReplayConfigRequest,
 )
@@ -76,6 +78,30 @@ def build_teaser_from_result(
         benchmark_max_drawdown=_benchmark_max_drawdown(result),
         start_date=result.config.start_date,
         end_date=result.config.end_date,
+    )
+
+
+def build_portfolio_teaser(result: ReplayResult) -> PortfolioTeaserResponse:
+    """Build a portfolio-level teaser with equity curve from replay result."""
+    m = result.metrics
+    curve = []
+    for snap in result.snapshots:
+        curve.append(
+            EquityCurvePoint(
+                month=snap.date.strftime("%Y-%m"),
+                portfolio=round(snap.portfolio_value, 2),
+                benchmark=round(snap.benchmark_value, 2),
+            )
+        )
+    return PortfolioTeaserResponse(
+        model_return=m.total_return,
+        benchmark_return=m.benchmark_total_return,
+        max_drawdown=m.max_drawdown,
+        sharpe_ratio=m.sharpe_ratio,
+        num_months=m.num_months,
+        start_date=result.config.start_date,
+        end_date=result.config.end_date,
+        equity_curve=curve,
     )
 
 
@@ -258,10 +284,37 @@ def get_default_replay_result() -> ReplayResult:
         ),
     }
 
+    # Build synthetic monthly snapshots for equity curve.
+    # Portfolio grows at ~10.4% CAGR, benchmark at ~7.3% CAGR over 20 years.
+    snapshots: list[MonthlySnapshot] = []
+    portfolio_monthly = 1 + 0.104 / 12
+    benchmark_monthly = 1 + 0.073 / 12
+    portfolio_value = 10000.0
+    benchmark_value = 10000.0
+    for i in range(240):
+        year = 2006 + (i // 12)
+        month = 1 + (i % 12)
+        p_return = portfolio_monthly - 1
+        b_return = benchmark_monthly - 1
+        portfolio_value *= portfolio_monthly
+        benchmark_value *= benchmark_monthly
+        snapshots.append(
+            MonthlySnapshot(
+                date=date(year, month, 28),
+                holdings=[],
+                portfolio_value=round(portfolio_value, 2),
+                benchmark_value=round(benchmark_value, 2),
+                portfolio_return=round(p_return, 6),
+                benchmark_return=round(b_return, 6),
+                turnover=0.18,
+                transaction_costs=0.0,
+            )
+        )
+
     return ReplayResult(
         config=config,
         metrics=metrics,
-        snapshots=[],
+        snapshots=snapshots,
         audit_log=[],
         regime_segments=regime_segments,
         factor_timeline=[],
