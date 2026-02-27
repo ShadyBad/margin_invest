@@ -3,6 +3,7 @@
 import pytest
 from margin_engine.models.scoring import (
     CompositeScore,
+    ConsistencyFlag,
     ConvictionLevel,
     FactorBreakdown,
     FactorScore,
@@ -177,3 +178,29 @@ class TestScoringConfig:
         for stage in GrowthStage:
             q, v, m = config.weights_for_stage(stage)
             assert q + v + m == pytest.approx(1.0), f"Weights for {stage} don't sum to 1.0"
+
+
+class TestConsistencyFlag:
+    def test_consistency_flag_creation(self):
+        flag = ConsistencyFlag(
+            field_name="revenue",
+            current_value=1_000_000.0,
+            historical_mean=500_000.0,
+            historical_std=50_000.0,
+            z_score=10.0,
+            periods_used=5,
+        )
+        assert flag.field_name == "revenue"
+        assert flag.z_score == 10.0
+        assert flag.is_anomaly is True
+
+    def test_consistency_flag_normal_value(self):
+        flag = ConsistencyFlag(
+            field_name="revenue",
+            current_value=510_000.0,
+            historical_mean=500_000.0,
+            historical_std=50_000.0,
+            z_score=0.2,
+            periods_used=5,
+        )
+        assert flag.is_anomaly is False

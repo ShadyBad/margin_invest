@@ -194,6 +194,24 @@ class ScenarioIV(BaseModel):
     range_pct: float  # (bull - bear) / base
 
 
+_ANOMALY_Z_THRESHOLD = 3.0
+
+
+class ConsistencyFlag(BaseModel):
+    """Flag for a single field that deviates significantly from historical pattern."""
+
+    field_name: str
+    current_value: float
+    historical_mean: float
+    historical_std: float
+    z_score: float
+    periods_used: int
+
+    @property
+    def is_anomaly(self) -> bool:
+        return abs(self.z_score) >= _ANOMALY_Z_THRESHOLD
+
+
 class ScoringConfig(BaseModel):
     """Configuration for the scoring engine — factor weights and thresholds."""
 
