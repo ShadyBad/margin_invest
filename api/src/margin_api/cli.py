@@ -2058,6 +2058,104 @@ async def run_backfill_13f(start_year: int = 2013, max_managers: int = 300) -> N
 # ---------------------------------------------------------------------------
 
 
+def run_ablation(
+    start_date: str = "2015-01-01",
+    end_date: str | None = None,
+    output: str | None = None,
+    bootstrap_n: int = 1000,
+) -> None:
+    """Run metric interference ablation study on the filter architecture."""
+    from datetime import date as date_type
+
+    from margin_engine.ablation.runner import AblationConfig
+    from margin_engine.ablation.study import AblationStudy
+    from margin_engine.backtesting.factor_registry import FactorRegistry
+
+    # The synthetic PIT provider lives in engine/tests — add to sys.path so we
+    # can import it at runtime.  This is the only PIT provider available until
+    # real point-in-time data wiring is complete.
+    engine_tests_dir = str(Path(__file__).resolve().parents[3] / "engine" / "tests")
+    if engine_tests_dir not in sys.path:
+        sys.path.insert(0, engine_tests_dir)
+    from backtesting.helpers import build_pit_provider_with_tickers
+
+    # Parse dates
+    start = date_type.fromisoformat(start_date)
+    end = date_type.fromisoformat(end_date) if end_date else date_type.today()
+
+    tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "JNJ", "XOM", "PG"]
+
+    logger.info("Building synthetic PIT provider for %d tickers...", len(tickers))
+    pit_provider = build_pit_provider_with_tickers(tickers, start=start, end=end)
+
+    config = AblationConfig(start_date=start, end_date=end)
+    registry = FactorRegistry.default()
+
+    logger.info(
+        "Running ablation study (start=%s, end=%s, bootstrap_n=%d)...",
+        start,
+        end,
+        bootstrap_n,
+    )
+    study = AblationStudy(
+        config=config,
+        pit_provider=pit_provider,
+        factor_registry=registry,
+        bootstrap_resamples=bootstrap_n,
+    )
+    report = study.run()
+
+    # Print summary
+    print("\n" + "=" * 72)
+    print("ABLATION STUDY RESULTS")
+    print("=" * 72)
+
+    # Single-filter Sharpes
+    print("\n--- Single-Filter Sharpe Ratios ---")
+    for result in report.single_baselines:
+        filters = sorted(result.combination.enabled_filters)
+        label = ", ".join(filters) if filters else "control (no filters)"
+        print(f"  {label:40s}  Sharpe = {result.metrics.sharpe_ratio:+.4f}")
+
+    # Full stack
+    if report.full_stack:
+        print(f"\n--- Full Stack Sharpe: {report.full_stack.metrics.sharpe_ratio:+.4f} ---")
+
+    # Degradation
+    deg = report.interference.degradation
+    if deg:
+        status = "DETECTED" if deg.detected else "not detected"
+        print(f"\n--- Degradation: {status} ---")
+        print(f"  Best single: {deg.best_single} ({deg.best_single_sharpe:+.4f})")
+        print(f"  Full stack:  {deg.full_stack_sharpe:+.4f}")
+        print(f"  Severity:    {deg.severity:.4f}")
+
+    # Shapley values
+    if report.shapley_values:
+        print("\n--- Shapley Values ---")
+        for name, val in sorted(
+            report.shapley_values.values.items(), key=lambda x: x[1], reverse=True
+        ):
+            print(f"  {name:30s}  {val:+.6f}")
+
+    # Recommendations
+    if report.recommendations:
+        print("\n--- Recommendations ---")
+        for name, action in sorted(report.recommendations.items()):
+            print(f"  {name:30s}  → {action}")
+
+    print("\n" + "=" * 72)
+
+    # Optionally save JSON report
+    if output:
+        import json
+
+        report_path = Path(output)
+        report_path.write_text(json.dumps(report.model_dump(), indent=2, default=str))
+        logger.info("Report saved to %s", report_path)
+        print(f"\nReport saved to {report_path}")
+
+
 def main() -> None:
     """CLI entry point with argparse."""
     logging.basicConfig(
@@ -2195,6 +2293,33 @@ def main() -> None:
         help="Maximum number of managers to process (default: 300)",
     )
 
+    # ablation
+    ablation_parser = subparsers.add_parser(
+        "ablation",
+        help="Run metric interference ablation study on the filter architecture",
+    )
+    ablation_parser.add_argument(
+        "--start-date",
+        default="2015-01-01",
+        help="Backtest start date (YYYY-MM-DD, default: 2015-01-01)",
+    )
+    ablation_parser.add_argument(
+        "--end-date",
+        default=None,
+        help="Backtest end date (YYYY-MM-DD, default: today)",
+    )
+    ablation_parser.add_argument(
+        "--output",
+        default=None,
+        help="Path to save JSON report",
+    )
+    ablation_parser.add_argument(
+        "--bootstrap-n",
+        type=int,
+        default=1000,
+        help="Bootstrap resamples (default: 1000)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "universe":
@@ -2231,6 +2356,13 @@ def main() -> None:
                 start_year=args.start_year,
                 max_managers=args.max_managers,
             )
+        )
+    elif args.command == "ablation":
+        run_ablation(
+            start_date=args.start_date,
+            end_date=args.end_date,
+            output=args.output,
+            bootstrap_n=args.bootstrap_n,
         )
     else:
         parser.print_help()
