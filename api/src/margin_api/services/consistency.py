@@ -84,8 +84,7 @@ async def validate_ticker_consistency(
     # Persist to the latest row's consistency_flags column
     latest_row = rows[-1]
     latest_row.consistency_flags = result_dict
-    session.add(latest_row)
-    await session.commit()
+    await session.flush()
 
     if anomalies:
         logger.warning(
