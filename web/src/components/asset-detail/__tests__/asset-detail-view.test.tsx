@@ -34,7 +34,17 @@ vi.mock("recharts", () => ({
   YAxis: () => <div data-testid="y-axis" />,
   Tooltip: () => <div data-testid="tooltip" />,
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
+  RadarChart: ({ children }: any) => <div data-testid="radar-chart">{children}</div>,
+  PolarGrid: () => <div data-testid="polar-grid" />,
+  PolarAngleAxis: () => <div data-testid="polar-angle-axis" />,
+  Radar: () => <div data-testid="radar" />,
+  Legend: () => <div data-testid="legend" />,
 }))
+
+vi.mock("../factor-radar", () => ({ FactorRadar: () => <div data-testid="factor-radar" /> }))
+vi.mock("../determinism-badge", () => ({ DeterminismBadge: () => <div data-testid="determinism-badge" /> }))
+vi.mock("../sector-neutral-banner", () => ({ SectorNeutralBanner: () => <div data-testid="sector-neutral-banner" /> }))
+vi.mock("../failed-comparison", () => ({ FailedComparison: () => <div data-testid="failed-comparison" />, FailedFilterComparison: {} }))
 
 function makeScoreResponse(overrides: Partial<ScoreResponse> = {}): ScoreResponse {
   return {

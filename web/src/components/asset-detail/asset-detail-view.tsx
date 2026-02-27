@@ -14,6 +14,11 @@ import { HypotheticalScores } from "./hypothetical-scores"
 import { MLAuditPanel } from "./ml-audit-panel"
 import { InstitutionalPositioning } from "./institutional-positioning"
 import { BacktestTeaser } from "./backtest-teaser"
+import { DeterminismBadge } from "./determinism-badge"
+import { FactorRadar } from "./factor-radar"
+import { SectorNeutralBanner } from "./sector-neutral-banner"
+import { FailedComparison, type FailedFilterComparison } from "./failed-comparison"
+import { FILTER_METADATA } from "@/lib/filter-metadata"
 
 interface AssetDetailViewProps {
   ticker: string
@@ -55,6 +60,18 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
     .filter((v): v is number => v != null)
     .reverse()
 
+  const failedFilterComparisons: FailedFilterComparison[] = scoreData.filters_passed
+    .filter((f) => !f.passed)
+    .map((f) => ({
+      filterName: f.name,
+      filterDisplayName: FILTER_METADATA[f.name]?.displayName || f.name,
+      stockValue: f.value ?? 0,
+      threshold: f.threshold ?? 0,
+      championValue: null,
+      championTicker: null,
+      sectorMedian: null,
+    }))
+
   return (
     <div className="space-y-6">
       <Link href="/" className="text-sm text-accent hover:text-accent-hover">
@@ -91,8 +108,11 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           totalFilters={scoreData.filters_passed.length}
           dataCoverage={scoreData.data_coverage}
           scoredAt={scoreData.scored_at}
+          hypotheticalPercentile={scoreData.composite_percentile}
         />
       )}
+
+      <DeterminismBadge />
 
       <EliminationGauntlet
         filters={scoreData.filters_passed}
@@ -100,6 +120,23 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
         totalScored={totalScored}
         filtersSurvivedCount={filtersSurvivedCount}
       />
+
+      {!allFiltersPassed && failedFilterComparisons.length > 0 && (
+        <FailedComparison ticker={ticker} failedFilters={failedFilterComparisons} />
+      )}
+
+      {allFiltersPassed && (
+        <FactorRadar
+          quality={scoreData.quality}
+          value={scoreData.value}
+          momentum={scoreData.momentum}
+          sectorName={scoreData.sector}
+        />
+      )}
+
+      {allFiltersPassed && (
+        <SectorNeutralBanner sectorName={scoreData.sector || "Unknown"} />
+      )}
 
       {allFiltersPassed && (
         <ScoringPillars

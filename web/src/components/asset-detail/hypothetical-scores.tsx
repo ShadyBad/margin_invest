@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { PillarCard } from "./pillar-card"
+import { FactorRadar } from "./factor-radar"
 import type { FactorBreakdownResponse } from "@/lib/api/types"
 
 interface HypotheticalScoresProps {
@@ -87,6 +88,14 @@ export function HypotheticalScores({
                   <span className="text-text-tertiary">N/A</span>
                 </div>
               </div>
+
+              {/* Dimmed factor radar */}
+              <FactorRadar
+                quality={quality}
+                value={value}
+                momentum={momentum}
+                variant="dimmed"
+              />
 
               {/* Pillar cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
