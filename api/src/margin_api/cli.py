@@ -1291,7 +1291,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
 
                 # R&D + CapEx / Revenue
                 capex = abs(float(latest.current_cash_flow.capital_expenditures))
-                rd = float(latest.current_income.research_and_development)
+                rd = float(latest.current_income.rd_expense or 0)
                 rev_for_ratio = float(latest.current_income.revenue)
                 rd_capex_ratio = (rd + capex) / rev_for_ratio if rev_for_ratio > 0 else None
 

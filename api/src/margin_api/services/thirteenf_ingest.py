@@ -85,9 +85,29 @@ class ThirteenFIngestService:
         manager: Manager,
         parsed_holdings: list[dict],
     ) -> int:
-        """Store parsed holdings for a filing. Returns count inserted."""
-        count = 0
+        """Store parsed holdings for a filing. Returns count inserted.
+
+        Aggregates duplicate CUSIP+put_call entries (sums shares/values)
+        since 13F filings can list the same security multiple times across accounts.
+        """
+        # Aggregate by (cusip, put_call) to avoid unique constraint violations
+        aggregated: dict[tuple[str, str], dict] = {}
         for h in parsed_holdings:
+            key = (h["cusip"], h.get("put_call", "NONE"))
+            if key in aggregated:
+                agg = aggregated[key]
+                agg["shares"] += h["shares"]
+                agg["value_thousands"] += h["value_thousands"]
+                agg["voting_sole"] = (agg.get("voting_sole") or 0) + (h.get("voting_sole") or 0)
+                agg["voting_shared"] = (agg.get("voting_shared") or 0) + (
+                    h.get("voting_shared") or 0
+                )
+                agg["voting_none"] = (agg.get("voting_none") or 0) + (h.get("voting_none") or 0)
+            else:
+                aggregated[key] = dict(h)
+
+        count = 0
+        for h in aggregated.values():
             sec = await self.get_or_create_security(h["cusip"], h["issuer_name"])
             holding = InstitutionalHolding(
                 filing_id=filing.id,
