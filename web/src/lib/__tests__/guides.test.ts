@@ -81,3 +81,42 @@ describe("extractTocHeadings", () => {
     ])
   })
 })
+
+describe("groupGuidesByCategory", () => {
+  it("groups guides into Concepts, Workflows, and Reference", async () => {
+    const { groupGuidesByCategory } = await import("../guides")
+    const guides = [
+      { slug: "a", category: "Concepts", title: "A", description: "", order: 1, updatedAt: "", readingTime: 1 },
+      { slug: "b", category: "Workflows", title: "B", description: "", order: 2, updatedAt: "", readingTime: 1 },
+      { slug: "c", category: "Reference", title: "C", description: "", order: 3, updatedAt: "", readingTime: 1 },
+      { slug: "d", category: "Concepts", title: "D", description: "", order: 4, updatedAt: "", readingTime: 1 },
+    ]
+    const grouped = groupGuidesByCategory(guides)
+    expect(grouped.Concepts).toHaveLength(2)
+    expect(grouped.Workflows).toHaveLength(1)
+    expect(grouped.Reference).toHaveLength(1)
+  })
+
+  it("returns empty arrays for categories with no matching guides", async () => {
+    const { groupGuidesByCategory } = await import("../guides")
+    const guides = [
+      { slug: "a", category: "Reference", title: "A", description: "", order: 1, updatedAt: "", readingTime: 1 },
+    ]
+    const grouped = groupGuidesByCategory(guides)
+    expect(grouped.Concepts).toHaveLength(0)
+    expect(grouped.Workflows).toHaveLength(0)
+    expect(grouped.Reference).toHaveLength(1)
+  })
+
+  it("ignores guides with unrecognized categories", async () => {
+    const { groupGuidesByCategory } = await import("../guides")
+    const guides = [
+      { slug: "a", category: "Core Concepts", title: "A", description: "", order: 1, updatedAt: "", readingTime: 1 },
+      { slug: "b", category: "Unknown", title: "B", description: "", order: 2, updatedAt: "", readingTime: 1 },
+    ]
+    const grouped = groupGuidesByCategory(guides)
+    expect(grouped.Concepts).toHaveLength(0)
+    expect(grouped.Workflows).toHaveLength(0)
+    expect(grouped.Reference).toHaveLength(0)
+  })
+})

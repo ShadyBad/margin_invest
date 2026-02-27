@@ -25,6 +25,30 @@ export interface TocHeading {
 }
 
 // ---------------------------------------------------------------------------
+// Category grouping
+// ---------------------------------------------------------------------------
+
+export const GUIDE_CATEGORIES = ["Concepts", "Workflows", "Reference"] as const
+export type GuideCategory = (typeof GUIDE_CATEGORIES)[number]
+
+export function groupGuidesByCategory(
+  guides: GuideMetadata[],
+): Record<GuideCategory, GuideMetadata[]> {
+  const grouped: Record<GuideCategory, GuideMetadata[]> = {
+    Concepts: [],
+    Workflows: [],
+    Reference: [],
+  }
+  for (const guide of guides) {
+    const cat = guide.category as GuideCategory
+    if (cat in grouped) {
+      grouped[cat].push(guide)
+    }
+  }
+  return grouped
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 

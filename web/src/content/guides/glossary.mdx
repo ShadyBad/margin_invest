@@ -1,0 +1,118 @@
+---
+title: "Glossary"
+description: "Definitions for every term used across Margin Invest methodology and guides."
+order: 1
+updatedAt: "2026-02-26"
+readingTime: 12
+category: "Reference"
+---
+
+Every term used across the Margin Invest platform and guides, defined concisely with formulas where applicable.
+
+### Altman Z-Score
+
+A bankruptcy-prediction model combining five financial ratios. Formula: `6.56(WC/TA) + 3.26(RE/TA) + 6.72(EBIT/TA) + 1.05(Equity/TL)`. Scores below 1.1 indicate financial distress; used as an elimination filter. Source: Altman (1968).
+
+### Asymmetry Ratio
+
+Measures upside vs. downside capture over a rolling period. A ratio above 1.0 means the asset captures more upside than downside relative to its benchmark, indicating favorable risk-adjusted behavior.
+
+### Beneish M-Score
+
+An 8-variable composite (DSRI, GMI, AQI, SGI, DEPI, SGAI, accruals, leverage) that detects earnings manipulation. Companies with M-Scores above -2.22 have a high probability of manipulating reported earnings. Used as an elimination filter. Source: Beneish (1999).
+
+### Catalyst Strength
+
+A momentum sub-factor blending standardized unexpected earnings (SUE) with institutional accumulation signals. Captures whether fundamental catalysts and smart-money positioning are aligned in a single directional signal.
+
+### Compounder
+
+An asset classified in the mature growth stage that demonstrates high and stable returns on invested capital, sustainable free cash flow generation, and consistent shareholder yield. Compounders receive weight adjustments favoring quality and value factors.
+
+### Conviction Level
+
+The final output of the scoring pipeline, derived from composite score percentile. Maps to five tiers: Strong Conviction (top ~5%), Conviction (next ~15%), Moderate (next ~30%), Weak (next ~30%), and No Conviction (bottom ~20%).
+
+### Current Ratio
+
+`Current Assets / Current Liabilities`. Measures short-term liquidity. A low current ratio means the company may struggle to pay near-term obligations. Thresholds are sector-adjusted. Used as an elimination filter. Source: Beaver (1966).
+
+### DCF Margin of Safety
+
+`(Intrinsic Value - Price) / Intrinsic Value`. Measures the discount between a discounted cash flow estimate of intrinsic value and the current market price. Larger positive values indicate greater mispricing in the investor's favor. Source: Klarman (1991).
+
+### Elimination Filter
+
+A binary pass/fail gate that runs before scoring. Assets failing any filter are excluded from the scored universe. Filters include liquidity, Beneish M-Score, Altman Z-Score, current ratio, FCF distress, and interest coverage. Filters run first to reduce noise and protect against catastrophic losses.
+
+### Enterprise Value
+
+`Market Cap + Total Debt - Cash & Equivalents`. Represents the total acquisition cost of a business, accounting for both equity and debt holders. Used as the numerator in multiple valuation ratios.
+
+### EV/FCF
+
+`(Market Cap + Debt - Cash) / (CFO - CapEx)`. Enterprise Value divided by Free Cash Flow. A valuation multiple that measures how many years of free cash flow it would take to acquire the entire business. Lower values indicate cheaper assets. Source: Greenblatt (2006).
+
+### Free Cash Flow
+
+`Cash Flow from Operations - Capital Expenditures`. The cash available to the firm after maintaining or expanding its asset base. Persistent negative FCF triggers the cash flow distress elimination filter.
+
+### Growth Gap
+
+The difference between an asset's sustainable growth rate and the market-implied growth rate derived from its current valuation. A positive growth gap suggests the market is underpricing the company's growth potential.
+
+### Growth Stage
+
+A classification of where a company sits in its lifecycle: early growth, growth, mature, or declining. Growth stage determines factor weight adjustments in the scoring pipeline — early-stage companies weight momentum more heavily, while mature companies weight quality and value.
+
+### Interest Coverage
+
+`EBIT / Interest Expense`. Measures a company's ability to service its debt. Low interest coverage increases default risk, especially during downturns. Used as an elimination filter. Source: Ohlson (1980).
+
+### Invested Capital
+
+`Total Equity + Total Debt - Cash & Equivalents`. The capital deployed in business operations. Used as the denominator in ROIC to measure how efficiently a company generates returns from the capital invested in it.
+
+### Mispricing
+
+The divergence between a model's estimate of intrinsic value and the current market price. Margin Invest quantifies mispricing through DCF margin of safety, acquirer's multiple, and EV/FCF relative to sector peers.
+
+### Moat Durability Score
+
+A composite measure of competitive advantage persistence, combining ROIC stability, gross margin trends, and capital allocation efficiency over multi-year windows. Higher scores indicate the company's returns are likely sustainable rather than reverting to the mean.
+
+### NOPAT
+
+Net Operating Profit After Tax. `EBIT * (1 - Tax Rate)`. Represents the profit generated by core operations after taxes but before financing costs. Used in the numerator of ROIC.
+
+### Percentile Rank
+
+A score from 0 to 100 indicating where an asset falls relative to its peers. All raw factor scores are converted to percentile ranks for cross-factor comparison. Ranking is done within GICS sector first (sector-neutral), then combined into composite scores.
+
+### Piotroski F-Score
+
+A 9-signal composite scoring financial strength across profitability (ROA, CFO, margin), leverage (debt ratio, current ratio), and efficiency (asset turnover). Scores range from 0 to 9; higher values indicate stronger fundamentals. Source: Piotroski (2000).
+
+### Position Sizing
+
+The process of determining how much capital to allocate to a single asset. Margin Invest uses conviction level, volatility, and correlation constraints to suggest position sizes. The liquidity elimination filter ensures minimum market cap requirements for efficient execution.
+
+### ROIC
+
+Return on Invested Capital. `NOPAT / Invested Capital`. Measures how efficiently a company converts capital into profits. The ROIC-WACC spread (ROIC minus the weighted average cost of capital) indicates whether a company is creating or destroying value. Source: Mauboussin (2014).
+
+### Sector-Neutral Scoring
+
+The practice of ranking assets within their GICS sector before combining into a cross-sector composite. This prevents sector-level biases — for example, all tech stocks having higher growth metrics — from distorting the final rankings. Every asset competes against its sector peers first.
+
+### Shareholder Yield
+
+`(Dividends + Net Buybacks) / Market Cap`. Measures total cash returned to shareholders as a percentage of market capitalization. Captures both dividend income and share repurchases in a single metric. Source: Faber (2013).
+
+### Track A
+
+The primary scoring pathway for assets that pass all elimination filters and have sufficient data for full factor analysis. Track A assets receive composite scores across all four pillars (quality, value, momentum, growth) and are eligible for conviction ratings.
+
+### Track B
+
+The secondary scoring pathway for assets that pass elimination filters but lack data for one or more scoring factors. Track B assets receive partial scores with explicit data-gap disclosures and lower conviction ceilings reflecting the reduced analytical coverage.

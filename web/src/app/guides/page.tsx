@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Navbar } from "@/components/nav/navbar"
-import { GuideCard } from "@/components/guides/guide-card"
-import { getAllGuides } from "@/lib/guides"
+import { GuideCategoryTabs } from "@/components/guides/guide-category-tabs"
+import { getAllGuides, groupGuidesByCategory } from "@/lib/guides"
 
 export const metadata: Metadata = {
   title: "Guides | Margin Invest",
@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 
 export default async function GuidesPage() {
   const guides = await getAllGuides()
+  const grouped = groupGuidesByCategory(guides)
 
   return (
     <main className="relative bg-bg-primary min-h-screen">
@@ -26,11 +27,7 @@ export default async function GuidesPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {guides.map((guide, index) => (
-              <GuideCard key={guide.slug} guide={guide} index={index} />
-            ))}
-          </div>
+          <GuideCategoryTabs grouped={grouped} />
         </div>
       </div>
     </main>
