@@ -1,0 +1,253 @@
+---
+title: "Scoring Factors"
+description: "All 20 factors across Quality, Value, and Momentum pillars — formulas, academic sources, and what each one measures."
+order: 2
+updatedAt: "2026-02-26"
+readingTime: 15
+category: "Concepts"
+---
+
+## How Factors Work
+
+<Callout type="info">
+This guide is educational reference material explaining the factors used in Margin Invest's scoring engine. It is not investment advice. Always do your own research before making investment decisions.
+</Callout>
+
+After passing elimination filters, stocks are scored across three pillars — **Quality**, **Value**, and **Momentum** — using 20 individual factors. Each factor is percentile-ranked within its GICS sector, producing scores from 0 to 100. This sector-neutral approach ensures a cheap bank is not compared to a cheap tech company.
+
+A percentile of 85 means the stock scores better than 85% of its sector peers on that factor. All factors use the same 0-100 scale, which makes cross-factor comparison straightforward: an 85 on Gross Profitability represents the same relative strength as an 85 on Price Momentum, even though the underlying units are completely different.
+
+## Quality Pillar (7 Factors)
+
+The Quality pillar measures the fundamental strength of the business — how profitably it operates, how stable those profits are, and how trustworthy the reported numbers are.
+
+### 1. Gross Profitability
+
+How much economic value the business creates from its assets before operating expenses and financing costs. Research has shown this to be one of the strongest single predictors of future stock returns.
+
+<Formula>(Revenue - COGS) / Total Assets</Formula>
+
+**Source:** Novy-Marx (2013), "The Other Side of Value: The Gross Profitability Premium"
+
+<TechnicalDetail summary="Why gross profit, not net income?">
+Net income is polluted by capital structure decisions (debt vs. equity), tax strategies, and one-time charges. Gross profit strips all of that away to reveal the core economics of the business. A company with high gross profitability relative to its asset base is extracting real value from its operations, regardless of how it is financed or what accounting choices it makes. Novy-Marx showed that gross profitability has roughly the same power predicting returns as book-to-market — the classic value factor — but captures a completely different dimension of quality.
+</TechnicalDetail>
+
+### 2. ROIC-WACC Spread
+
+Measures economic value creation — the gap between what a company earns on its invested capital and what that capital costs. A positive spread means every dollar deployed generates more than it costs. A negative spread means the business is destroying value regardless of reported accounting profits.
+
+<Formula>NOPAT / Invested Capital - WACC</Formula>
+
+**Source:** Mauboussin (2014), "Measuring the Moat"
+
+<TechnicalDetail summary="How WACC is estimated">
+WACC (weighted average cost of capital) blends the cost of equity (estimated via CAPM using beta and equity risk premium) with the after-tax cost of debt, weighted by the company's capital structure. The spread matters more than ROIC in isolation because a company earning 12% ROIC with a 10% WACC (2% spread) is creating less value than one earning 8% ROIC with a 5% WACC (3% spread). The spread is what drives compounding.
+</TechnicalDetail>
+
+### 3. Earnings Quality
+
+Detects earnings driven by accounting accruals rather than actual cash. When a company reports high net income but low operating cash flow, the difference is accruals — revenue recognized but not yet collected, expenses deferred, or other non-cash adjustments. High accruals historically predict poor future returns because they tend to reverse.
+
+<Formula>(Net Income - CFO) / Total Assets</Formula>
+
+**Source:** Sloan (1996), "Do Stock Prices Fully Reflect Information in Accruals and Cash Flows About Future Earnings?"
+
+<TechnicalDetail summary="Interpretation: lower is better">
+This formula produces a negative number when cash flow exceeds reported earnings, which is the healthy case — the company is generating more cash than its income statement suggests. A positive number means reported earnings exceed cash flow, indicating heavy reliance on accruals. The engine ranks stocks so that more negative values (higher cash-flow quality) receive higher percentiles. Sloan's research showed that the market systematically misprices the accrual component of earnings, creating a predictable return pattern.
+</TechnicalDetail>
+
+### 4. Piotroski F-Score
+
+A composite measure of financial strength improvement across nine binary signals spanning profitability, leverage, liquidity, and operating efficiency. Each signal scores 0 or 1; total ranges from 0 (worst) to 9 (best). Originally designed to separate winners from losers within deep-value stocks.
+
+<Formula>9-signal composite (ROA, CFO, leverage, liquidity, margin, turnover)</Formula>
+
+**Source:** Piotroski (2000), "Value Investing: The Use of Historical Financial Statement Information to Separate Winners from Losers"
+
+<TechnicalDetail summary="The nine signals">
+**Profitability (4 signals):** Positive ROA, positive operating cash flow, ROA improvement year-over-year, and cash flow exceeding net income (quality of earnings). **Leverage & Liquidity (3 signals):** Decrease in long-term debt ratio, increase in current ratio, and no new equity issuance. **Operating Efficiency (2 signals):** Increase in gross margin and increase in asset turnover. Each signal is binary — the company either improved or it did not. This simplicity makes the score robust and hard to game.
+</TechnicalDetail>
+
+### 5. Accrual Ratio
+
+Measures the gap between reported earnings and cash flow over a longer window than the single-period Earnings Quality factor. High accruals over multiple years often precede poor future returns and can indicate aggressive accounting practices or deteriorating business fundamentals.
+
+<TechnicalDetail summary="Relationship to Earnings Quality">
+While Earnings Quality (Sloan's accrual anomaly) captures the single-period accrual level, the Accrual Ratio looks at the cumulative pattern. A company might have a one-off accrual spike that does not repeat, but if the accrual ratio remains elevated across multiple periods, it signals a structural disconnect between reported earnings and cash generation. The two factors together provide a more complete picture of earnings reliability.
+</TechnicalDetail>
+
+### 6. Moat Durability
+
+A proprietary 0-4 score combining ROIC stability, competitive position indicators, and reinvestment consistency. Each point represents a distinct moat signature the engine detects: scale economics, pricing power, switching costs, and capital efficiency. Higher scores indicate a more durable competitive advantage that protects future returns.
+
+<TechnicalDetail summary="How moat signatures are detected">
+**Scale Economics:** Unit costs decline as volume grows, visible through improving margins at higher revenue. **Pricing Power:** The company can raise prices without proportional customer loss, measured through stable or expanding margins over time. **Switching Costs:** Customer retention rates and revenue concentration patterns suggest meaningful friction to leaving. **Capital Efficiency:** Consistently high ROIC relative to the sector median, indicating an economic moat protecting margins. Each signature is scored independently; a company with all four has a wide moat, while zero indicates no detectable competitive advantage.
+</TechnicalDetail>
+
+### 7. ROIC Stability
+
+Standard deviation of ROIC over 5 years. Lower variability means more predictable economic returns. A company that earns 15% ROIC every year is more valuable than one that swings between 5% and 25%, even though the average is the same — volatile returns undermine compounding and make the business harder to value with confidence.
+
+<TechnicalDetail summary="Why stability compounds">
+Compounding requires reinvestment at attractive rates. If ROIC is volatile, the company cannot reliably predict what its next dollar of reinvestment will earn. Management faces harder capital allocation decisions, and investors face wider valuation uncertainty. Stable ROIC also signals that the competitive moat is durable — the company is not subject to boom-bust cycles driven by commodity prices, regulatory changes, or customer concentration.
+</TechnicalDetail>
+
+## Value Pillar (7 Factors)
+
+The Value pillar measures whether the stock is cheap relative to what the business is worth — using multiple lenses so no single valuation method dominates.
+
+### 1. DCF Margin of Safety
+
+The gap between estimated intrinsic value (via discounted cash flow) and the current market price. A larger margin means the stock is more undervalued. This is the most fundamental valuation concept — buying a dollar of value for less than a dollar.
+
+<Formula>(Intrinsic Value - Price) / Intrinsic Value</Formula>
+
+**Source:** Klarman (1991), "Margin of Safety: Risk-Averse Value Investing Strategies for the Thoughtful Investor"
+
+<TechnicalDetail summary="DCF model inputs">
+The engine projects free cash flows using a two-stage model: a near-term growth phase based on analyst consensus and historical trends, followed by a terminal growth phase converging to GDP growth. The discount rate is the company-specific WACC. Because DCF is highly sensitive to terminal assumptions, the engine uses conservative terminal growth rates (2-3%) and cross-checks the result against three other valuation methods.
+</TechnicalDetail>
+
+### 2. EV/FCF
+
+Enterprise value relative to free cash flow — what you would pay for the entire business (including its debt) relative to the cash it generates. Lower is cheaper. Uses enterprise value rather than market cap to account for differences in capital structure, making comparisons fairer across companies with different debt levels.
+
+<Formula>(Market Cap + Debt - Cash) / (CFO - CapEx)</Formula>
+
+**Source:** Greenblatt (2006), "The Little Book That Beats the Market"
+
+<TechnicalDetail summary="Why EV instead of market cap?">
+Two companies can have the same market cap but very different total costs to acquire if one carries significant debt. Enterprise value captures the true cost to an acquirer — you buy the equity and assume the debt, offset by cash on hand. Normalizing by free cash flow (operating cash flow minus capital expenditures) rather than earnings avoids accounting distortions from depreciation methods, tax strategies, and non-cash charges.
+</TechnicalDetail>
+
+### 3. Acquirer's Multiple
+
+What an acquirer would pay relative to operating earnings. Simpler and often more predictive than price-to-earnings because it uses enterprise value (capturing debt) and EBIT (before financing and tax effects). Carlisle's research showed that the cheapest stocks on this metric systematically outperform.
+
+<Formula>Enterprise Value / EBIT</Formula>
+
+**Source:** Carlisle (2014), "Deep Value: Why Activist Investors and Other Contrarians Battle for Control of Losing Corporations"
+
+<TechnicalDetail summary="Relationship to Greenblatt's Magic Formula">
+Greenblatt's "magic formula" combines a high earnings yield (EBIT/EV, the inverse of the Acquirer's Multiple) with high return on capital. Carlisle tested the two components separately and found that cheapness alone — the Acquirer's Multiple — drove most of the returns. Adding a quality filter actually reduced performance in his dataset, because the cheapest stocks included deep-value turnarounds that a quality screen would eliminate. The engine uses both approaches but keeps them as separate factors.
+</TechnicalDetail>
+
+### 4. Owner Earnings Yield
+
+A Buffett-inspired metric measuring true owner cash flow yield. Adjusts for maintenance capex (the amount needed to sustain the business, not grow it) and working capital changes that distort reported free cash flow. This captures what the business actually generates for its owners after keeping the lights on.
+
+<TechnicalDetail summary="Owner earnings vs. free cash flow">
+Standard free cash flow subtracts total capital expenditures, which includes both maintenance capex (replacing worn-out equipment) and growth capex (expanding capacity). Owner earnings attempts to subtract only maintenance capex, giving a truer picture of the cash available to owners. The distinction matters most for capital-intensive businesses where a large share of capex goes toward growth. A company spending heavily on expansion may have low reported FCF but high owner earnings.
+</TechnicalDetail>
+
+### 5. Shareholder Yield
+
+Total cash returned to shareholders as a percentage of market cap. Captures both dividends and buybacks, providing a more complete picture of capital return than dividend yield alone. Many high-quality companies return capital primarily through repurchases rather than dividends, which a dividend-only lens would miss entirely.
+
+<Formula>(Dividends + Net Buybacks) / Market Cap</Formula>
+
+**Source:** Faber (2013), "Shareholder Yield: A Better Approach to Dividend Investing"
+
+<TechnicalDetail summary="Net buybacks, not gross">
+The engine uses net buybacks (shares repurchased minus shares issued) to avoid crediting companies that buy back stock with one hand and dilute with stock-based compensation with the other. A company repurchasing $500M in stock while issuing $400M in SBC is only returning $100M net. This adjustment is particularly important in the technology sector where SBC is often a significant expense.
+</TechnicalDetail>
+
+### 6. Growth Gap
+
+The difference between the company's sustainable growth rate and the growth rate the current stock price implies. Computed via Reverse DCF: the engine works backward from the market price to determine what growth the market is pricing in, then compares it to demonstrated growth. A positive gap means the market underestimates growth potential.
+
+<TechnicalDetail summary="Reverse DCF methodology">
+Instead of estimating intrinsic value from projected growth (forward DCF), Reverse DCF takes the current price as given and solves for the implied growth rate that would justify it. This implied rate is compared against the company's trailing 3-year revenue CAGR and reinvestment-driven sustainable growth rate. When the implied rate is lower than the demonstrated rate, there is a positive growth gap — the market is pricing in deceleration that has not yet materialized.
+</TechnicalDetail>
+
+### 7. Asset Floor
+
+Net asset value as a percentage of market cap. Provides a downside protection estimate — how much of the stock price is backed by tangible assets. A high asset floor means that even in a worst-case liquidation scenario, a significant portion of the investment is recoverable.
+
+<TechnicalDetail summary="What counts as net assets">
+The engine uses tangible book value, excluding goodwill and other intangible assets that may not survive a liquidation. This is deliberately conservative — intangibles like brand value or patents have real economic worth in a going concern, but in a downside scenario they may be worth far less. The asset floor is meant to answer: "If everything goes wrong, what is the hard floor on this stock's value?"
+</TechnicalDetail>
+
+## Momentum Pillar (6 Factors)
+
+The Momentum pillar captures whether the stock has positive forces behind it — price trends, earnings surprises, and informed buyers accumulating shares.
+
+### 1. Price Momentum
+
+Classic 12-minus-1 month momentum: the stock's return over the past year, excluding the most recent month. Skipping the last month avoids the well-documented short-term reversal effect where recent winners tend to give back gains over very short periods.
+
+<Formula>(Price_now / Price_12mo_ago) - 1, skip last month</Formula>
+
+**Source:** Jegadeesh & Titman (1993), "Returns to Buying Winners and Selling Losers: Implications for Stock Market Efficiency"
+
+<TechnicalDetail summary="Why 12-1 months specifically?">
+Jegadeesh and Titman tested multiple formation periods and found that 12 months captures the intermediate-term momentum effect — the tendency of stocks with positive returns over the past year to continue outperforming. The 1-month skip avoids the short-term reversal (also called the "microstructure" effect), where stocks that have risen sharply in the last few weeks tend to pull back. The 12-1 construction has been replicated across decades and international markets.
+</TechnicalDetail>
+
+### 2. Standardized Unexpected Earnings (SUE)
+
+Measures earnings surprise relative to the typical magnitude of surprises for that company. A company that beats expectations by $0.05 when its surprises are usually $0.01 is sending a much stronger signal than one that beats by $0.05 when its surprises regularly swing by $0.10. Captures the well-documented post-earnings announcement drift.
+
+<Formula>(Actual EPS - Expected EPS) / StdDev(surprises)</Formula>
+
+**Source:** Foster, Olsen & Shevlin (1984), "Earnings Releases, Anomalies, and the Behavior of Security Returns"
+
+<TechnicalDetail summary="Post-earnings announcement drift">
+When a company reports an earnings surprise, the stock price adjusts — but research shows it does not adjust fully. Positive surprises are followed by continued drift upward for 60-90 days, and negative surprises by continued drift downward. SUE standardizes the surprise magnitude, making it comparable across companies with different earnings volatility. The engine uses SUE as part of the catalyst signal for Track B scoring, where it indicates fundamental momentum that the market has not yet fully priced.
+</TechnicalDetail>
+
+### 3. Insider Cluster Score
+
+Clusters of insider buying — three or more distinct insiders purchasing shares within a 90-day window, weighted by role seniority. A single insider buying could be routine or personal. Multiple insiders buying around the same time signals broad management conviction that the stock is undervalued. CEOs and CFOs carry more weight than directors.
+
+<Formula>3+ distinct insiders buying within 90 days, weighted by role</Formula>
+
+**Source:** Lakonishok & Lee (2001), "Are Insider Trades Informative?"
+
+<TechnicalDetail summary="Why clusters, not individual trades?">
+Lakonishok and Lee found that individual insider purchases have modest predictive power — insiders buy for many reasons including diversification plans and option exercises. But when multiple insiders buy in a tight window, the signal strengthens dramatically. These clusters indicate that several people with the best possible information about the company independently decided to put their own money at risk. The role weighting reflects that C-suite executives typically have better information than outside directors.
+</TechnicalDetail>
+
+### 4. Institutional Accumulation
+
+Tracks sophisticated institutional investors building new positions, based on 13F filings from a curated list of high-conviction managers. Net new positions from these managers indicate smart money recognizing value before the broader market does.
+
+<Formula>Net new positions from curated 13F filers</Formula>
+
+**Source:** Cohen, Polk & Silli (2010), "Best Ideas"
+
+<TechnicalDetail summary="Why curated managers matter">
+Not all institutional buying is informative. Index funds buy mechanically, and many active managers are closet indexers. Cohen, Polk, and Silli showed that the "best ideas" of skilled managers — their highest-conviction new positions — significantly outperform. The engine tracks a curated list of managers with demonstrated long-term alpha, focusing on their new position initiations rather than incremental additions. This filters out noise from mechanical rebalancing and focuses on genuine conviction signals.
+</TechnicalDetail>
+
+### 5. Sentiment Score
+
+Composite of analyst revision trends, short interest changes, and options market signals. Captures the direction and intensity of market participant expectations. Rising analyst estimates, declining short interest, and bullish options positioning collectively indicate improving sentiment that often precedes price appreciation.
+
+<TechnicalDetail summary="Component signals">
+**Analyst revisions:** Net upgrades minus downgrades over 90 days, normalized by coverage count. **Short interest:** Percentage change in shares sold short over 30 days — declining short interest means bears are covering. **Options skew:** The relative pricing of put vs. call options, which reflects the aggregate positioning of options traders. Each component is standardized and combined into a single composite, so no single signal source dominates.
+</TechnicalDetail>
+
+### 6. Runway Score
+
+Measures how long a company can sustain its current growth trajectory based on reinvestment rate and capital efficiency. A company growing at 20% per year needs sufficient reinvestment opportunities at attractive returns to maintain that pace. If the reinvestment runway is short, growth will decelerate regardless of current momentum.
+
+<TechnicalDetail summary="Growth sustainability math">
+The Runway Score combines the current reinvestment rate, the marginal return on new capital deployed, and the total addressable market relative to current revenue. A company reinvesting 40% of earnings at 20% incremental ROIC in a large market has a long runway. The same company in a saturated niche has a short one. This factor adds a forward-looking dimension to the momentum pillar — it distinguishes sustainable momentum from a growth rate that is about to hit a wall.
+</TechnicalDetail>
+
+## How Factors Combine
+
+Individual factor percentiles are combined within each pillar, and pillar scores feed into the final composite. Factor weights are not equal — they vary by the company's growth stage. A High Growth company receives more weight on reinvestment and momentum factors; a Mature company receives more weight on capital return and value factors. See the Conviction & Tracks guide for details on how growth stage adjustments work.
+
+All factors within a pillar use **multiplicative scoring**: if any single factor scores zero, it pulls the entire pillar toward zero. This prevents a company from masking a fundamental weakness in one area with strength in another.
+
+## Known Limitations
+
+<KnownLimitations>
+- Insider and institutional data have reporting lags — 2 business days for insider transactions (SEC Form 4), 45 days for institutional holdings (13F filings). By the time the data is available, some price impact may have already occurred.
+- Some factors are more predictive in certain market regimes than others. Momentum tends to crash during sharp reversals, while value factors can underperform for extended periods during speculative bubbles.
+- Percentile ranks are relative to sector peers — a "high" quality stock in a low-quality sector may still be mediocre in absolute terms. A bank scoring 90th percentile on ROIC is not comparable in absolute terms to a software company scoring 90th percentile.
+- Factor weights vary by growth stage, which means two stocks with identical raw scores can receive different composite scores if they are in different growth stages. See the Conviction & Tracks guide for the weight adjustment logic.
+</KnownLimitations>
