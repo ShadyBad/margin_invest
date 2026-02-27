@@ -19,6 +19,7 @@ from margin_engine.models.liquidity import (
 )
 from margin_engine.models.scoring import (
     CompositeScore,
+    ConsistencyFlag,
     ConvictionLevel,
     FactorBreakdown,
     FactorScore,
@@ -36,6 +37,7 @@ __all__ = [
     "BalanceSheet",
     "CashFlowStatement",
     "CompositeScore",
+    "ConsistencyFlag",
     "ConvictionLevel",
     "EarningsSurprise",
     "FactorBreakdown",
