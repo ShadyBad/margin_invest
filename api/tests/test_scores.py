@@ -10,7 +10,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from margin_api.app import create_app
 from margin_api.db.base import Base
-from margin_api.db.models import Asset, Score
+from margin_api.db.models import Asset, FinancialData, Score
 from margin_api.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -431,3 +431,152 @@ class TestScoreAssetContext:
         assert body["filters_survived_count"] == 2  # Both pass all filters
         assert body["sector_survivor_count"] == 1  # TST2, not self
         assert body["total_scored"] == 2
+
+
+@pytest.mark.asyncio
+class TestConsistencyWarnings:
+    """Tests for consistency_warnings field in score response."""
+
+    async def test_score_has_empty_consistency_warnings_by_default(self, client):
+        """Score response includes consistency_warnings as empty list when no anomalies."""
+        response = await client.get("/api/v1/scores/AAPL")
+        assert response.status_code == 200
+        data = response.json()
+        assert "consistency_warnings" in data
+        assert data["consistency_warnings"] == []
+
+    async def test_score_surfaces_consistency_anomalies(self, async_engine):
+        """When FinancialData has anomalies, they appear in consistency_warnings."""
+        factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+
+        async with factory() as session:
+            asset = Asset(
+                ticker="WARN",
+                name="Warning Corp",
+                sector="Financials",
+                market_cap=Decimal("100000000000"),
+            )
+            session.add(asset)
+            await session.flush()
+
+            # Create a score
+            score = Score(
+                asset_id=asset.id,
+                composite_percentile=85.0,
+                conviction_level="high",
+                signal="buy",
+                quality_percentile=80.0,
+                value_percentile=82.0,
+                momentum_percentile=88.0,
+                data_coverage=1.0,
+                score_detail=_score_detail("WARN", 85.0, "high", "buy"),
+                scored_at=datetime.now(UTC),
+            )
+            session.add(score)
+            await session.flush()
+
+            # Create FinancialData with consistency anomalies
+            anomalies = [
+                {
+                    "field_name": "shares_outstanding",
+                    "z_score": 10.5,
+                    "current_value": 5000000000,
+                    "historical_mean": 1000000000,
+                    "severity": "high",
+                },
+                {
+                    "field_name": "total_revenue",
+                    "z_score": 4.2,
+                    "current_value": 500000000000,
+                    "historical_mean": 100000000000,
+                    "severity": "medium",
+                },
+            ]
+            fd = FinancialData(
+                asset_id=asset.id,
+                period_end="2025-12-31",
+                filing_date="2026-02-15",
+                consistency_flags={
+                    "has_anomalies": True,
+                    "anomalies": anomalies,
+                    "checked_at": "2026-02-15T00:00:00Z",
+                },
+            )
+            session.add(fd)
+            await session.commit()
+
+        app = create_app()
+
+        async def override_get_db():
+            async with factory() as session:
+                yield session
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.get("/api/v1/scores/WARN")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["consistency_warnings"]) == 2
+        assert body["consistency_warnings"][0]["field_name"] == "shares_outstanding"
+        assert body["consistency_warnings"][0]["z_score"] == 10.5
+        assert body["consistency_warnings"][1]["field_name"] == "total_revenue"
+        assert body["consistency_warnings"][1]["z_score"] == 4.2
+
+    async def test_score_no_warnings_when_no_anomalies_flag(self, async_engine):
+        """When consistency_flags exists but has_anomalies is False, warnings stay empty."""
+        factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+
+        async with factory() as session:
+            asset = Asset(
+                ticker="CLEAN",
+                name="Clean Corp",
+                sector="Healthcare",
+                market_cap=Decimal("50000000000"),
+            )
+            session.add(asset)
+            await session.flush()
+
+            score = Score(
+                asset_id=asset.id,
+                composite_percentile=70.0,
+                conviction_level="medium",
+                signal="watch",
+                quality_percentile=65.0,
+                value_percentile=72.0,
+                momentum_percentile=73.0,
+                data_coverage=1.0,
+                score_detail=_score_detail("CLEAN", 70.0, "medium", "watch"),
+                scored_at=datetime.now(UTC),
+            )
+            session.add(score)
+            await session.flush()
+
+            fd = FinancialData(
+                asset_id=asset.id,
+                period_end="2025-12-31",
+                filing_date="2026-02-15",
+                consistency_flags={
+                    "has_anomalies": False,
+                    "anomalies": [],
+                    "checked_at": "2026-02-15T00:00:00Z",
+                },
+            )
+            session.add(fd)
+            await session.commit()
+
+        app = create_app()
+
+        async def override_get_db():
+            async with factory() as session:
+                yield session
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.get("/api/v1/scores/CLEAN")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["consistency_warnings"] == []

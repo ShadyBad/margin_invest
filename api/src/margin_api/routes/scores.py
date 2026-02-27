@@ -591,6 +591,21 @@ async def get_score(
     if sector:
         response.sector_survivor_count = sector_survivor_count
 
+    # Load consistency warnings from latest FinancialData
+    from margin_api.db.models import FinancialData
+
+    asset_id = row[0].asset_id
+    consistency_q = (
+        select(FinancialData.consistency_flags)
+        .where(FinancialData.asset_id == asset_id)
+        .order_by(FinancialData.period_end.desc())
+        .limit(1)
+    )
+    consistency_result = await db.execute(consistency_q)
+    consistency_flags = consistency_result.scalar_one_or_none()
+    if consistency_flags and consistency_flags.get("has_anomalies"):
+        response.consistency_warnings = consistency_flags["anomalies"]
+
     # Sector champion: only for eliminated tickers
     from margin_api.schemas.scores import SectorChampionResponse
 
@@ -634,7 +649,6 @@ async def get_score(
     )
     from margin_api.schemas.scores import InstitutionalAccumulationData
 
-    asset_id = row[0].asset_id
     accum_q = (
         select(AccumulationSignal)
         .where(AccumulationSignal.asset_id == asset_id)
@@ -674,7 +688,6 @@ async def get_score(
     includes = set((include or "").split(",")) if include else set()
 
     if "price_history" in includes:
-        from margin_api.db.models import FinancialData
         from margin_api.schemas.scores import PriceBarResponse
 
         fd_query = (

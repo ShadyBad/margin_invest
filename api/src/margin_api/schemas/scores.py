@@ -149,6 +149,8 @@ class ScoreResponse(BaseModel):
     market_cap: float | None = None
     # Sector champion (only populated for eliminated tickers)
     sector_champion: SectorChampionResponse | None = None
+    # Data consistency warnings (from post-ingestion validation)
+    consistency_warnings: list[dict] = []
     # Conditionally included via ?include=
     price_history: list[PriceBarResponse] | None = None
     signal_history: list[SignalTransitionResponse] | None = None
