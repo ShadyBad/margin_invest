@@ -166,8 +166,8 @@ export function ProofHistoricalChart() {
         <Metric label="CAGR" value={formatPct(cagr)} accent={cagr > 0} />
         <Metric
           label="Max Drawdown"
-          value={formatPct(data.max_drawdown)}
-          danger={data.max_drawdown < 0}
+          value={`-${formatPct(Math.abs(data.max_drawdown))}`}
+          danger={data.max_drawdown !== 0}
         />
         <Metric label="Sharpe Ratio" value={data.sharpe_ratio.toFixed(2)} />
         <Metric

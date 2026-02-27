@@ -86,7 +86,7 @@ export function ProofSelectivityFunnel() {
   const maxVal = data.universe_size || 1
 
   return (
-    <div>
+    <div aria-label="Selectivity funnel showing how many equities survive each scoring stage">
       <div className="space-y-2">
         {BARS.map((bar, i) => {
           const raw =

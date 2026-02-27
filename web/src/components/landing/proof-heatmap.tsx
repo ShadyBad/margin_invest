@@ -65,7 +65,7 @@ export function ProofHeatmap() {
   const interpretation = interpretCorrelation(data.matrix)
 
   return (
-    <div>
+    <div aria-label="Correlation matrix between the 5 most recently analyzed candidates">
       <CorrelationGrid
         tickers={data.tickers}
         matrix={data.matrix}

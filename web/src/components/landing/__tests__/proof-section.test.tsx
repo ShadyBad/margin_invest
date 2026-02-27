@@ -1,5 +1,21 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeAll } from "vitest"
 import { render, screen } from "@testing-library/react"
+
+beforeAll(() => {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      onchange: null,
+      dispatchEvent: vi.fn(),
+    })),
+  })
+})
 
 vi.mock("gsap", () => ({
   default: { registerPlugin: vi.fn(), to: vi.fn(), set: vi.fn(), fromTo: vi.fn() },

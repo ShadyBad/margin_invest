@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import {
   BarChart,
   Bar,
@@ -41,7 +42,21 @@ function aggregateBySector(candidates: CandidateCard[]): SectorRow[] {
   return Array.from(map.values()).sort((a, b) => b.total - a.total)
 }
 
+function useIsNarrow(): boolean {
+  const [narrow, setNarrow] = useState(false)
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 639px)")
+    setNarrow(mql.matches)
+    const handler = (e: MediaQueryListEvent) => setNarrow(e.matches)
+    mql.addEventListener("change", handler)
+    return () => mql.removeEventListener("change", handler)
+  }, [])
+  return narrow
+}
+
 export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
+  const isNarrow = useIsNarrow()
+
   if (candidates.length === 0) {
     return (
       <div>
@@ -58,7 +73,7 @@ export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
   const chartHeight = Math.max(180, data.length * 32)
 
   return (
-    <div>
+    <div aria-label="Sector breakdown of candidates by conviction level">
       <div style={{ height: chartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" barCategoryGap="20%">
@@ -93,21 +108,24 @@ export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
               name="Exceptional"
               fill="var(--color-accent)"
               radius={[0, 4, 4, 0]}
-              barSize={8}
+              barSize={isNarrow ? 16 : 8}
+              stackId={isNarrow ? "stack" : undefined}
             />
             <Bar
               dataKey="high"
               name="High"
               fill="color-mix(in srgb, var(--color-accent), transparent 40%)"
               radius={[0, 4, 4, 0]}
-              barSize={8}
+              barSize={isNarrow ? 16 : 8}
+              stackId={isNarrow ? "stack" : undefined}
             />
             <Bar
               dataKey="medium"
               name="Medium"
               fill="color-mix(in srgb, var(--color-warning), transparent 40%)"
               radius={[0, 4, 4, 0]}
-              barSize={8}
+              barSize={isNarrow ? 16 : 8}
+              stackId={isNarrow ? "stack" : undefined}
             />
           </BarChart>
         </ResponsiveContainer>
