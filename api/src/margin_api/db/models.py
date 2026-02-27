@@ -148,6 +148,7 @@ class FinancialData(Base):
     earnings_data: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     data_categories_present: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     source: Mapped[str] = mapped_column(String(50), default="yfinance")
+    consistency_flags: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
