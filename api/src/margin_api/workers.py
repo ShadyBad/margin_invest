@@ -9,6 +9,7 @@ Start the worker with:
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import os
@@ -29,6 +30,7 @@ from margin_api.db.models import (
     Event,
     FilingMetadata,
     FinancialData,
+    GovernanceEvent,
     IngestionRun,
     IngestionTickerStatus,
     JobRun,
@@ -1126,6 +1128,72 @@ async def expire_stale_approvals(ctx: dict) -> dict:
 
     logger.info("[expire_stale_approvals] Expired %d stale approvals", expired_count)
     return {"status": "completed", "expired_count": expired_count}
+
+
+# ---------------------------------------------------------------------------
+# Governance event rollup (Redis stream → DB)
+# ---------------------------------------------------------------------------
+
+GOVERNANCE_STREAM_KEY = "governance:events"
+
+
+async def _rollup_governance_events_impl(session: AsyncSession, redis: object) -> int:
+    """Read governance events from Redis stream and batch-insert into DB.
+
+    Returns the count of events inserted.
+    """
+    entries = await redis.xrange(GOVERNANCE_STREAM_KEY)  # type: ignore[union-attr]
+    if not entries:
+        return 0
+
+    for _entry_id, fields in entries:
+        # Redis fields may be bytes — decode them
+        def _decode(val: bytes | str) -> str:
+            return val.decode() if isinstance(val, bytes) else val
+
+        event_type = _decode(fields.get(b"event_type", fields.get("event_type", b"")))
+        source = _decode(fields.get(b"source", fields.get("source", b"")))
+        detail_raw = _decode(fields.get(b"detail", fields.get("detail", b"null")))
+        created_at_raw = _decode(fields.get(b"created_at", fields.get("created_at", b"")))
+
+        detail = json.loads(detail_raw)
+        created_at = datetime.fromisoformat(created_at_raw)
+
+        session.add(
+            GovernanceEvent(
+                event_type=event_type,
+                source=source,
+                detail=detail,
+                created_at=created_at,
+            )
+        )
+
+    await session.commit()
+    await redis.xtrim(GOVERNANCE_STREAM_KEY, maxlen=10000)  # type: ignore[union-attr]
+    return len(entries)
+
+
+async def rollup_governance_events(ctx: dict) -> dict:
+    """Worker entry point: read governance events from Redis stream and persist to DB.
+
+    Runs every 6 hours (03:00, 09:00, 15:00, 21:00 UTC).
+    """
+    logger.info("[rollup_governance_events] Starting rollup")
+
+    settings = get_settings()
+    raw_redis = aioredis.from_url(settings.redis_url, decode_responses=False)
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    try:
+        async with session_factory() as session:
+            count = await _rollup_governance_events_impl(session, raw_redis)
+    finally:
+        await raw_redis.aclose()
+
+    logger.info("[rollup_governance_events] Inserted %d events", count)
+    return {"status": "completed", "events_count": count}
 
 
 # ---------------------------------------------------------------------------
@@ -2266,6 +2334,7 @@ class WorkerSettings:
         full_13f_ingest,
         compute_accumulation_signals,
         expire_stale_approvals,
+        rollup_governance_events,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -2278,6 +2347,7 @@ class WorkerSettings:
         cron(train_ml_models, weekday=5, hour=2, run_at_startup=False),  # Saturday 2 AM UTC
         cron(full_13f_ingest, hour=22, minute=0, run_at_startup=False),  # 5 PM ET
         cron(expire_stale_approvals, hour={0, 6, 12, 18}, run_at_startup=False),
+        cron(rollup_governance_events, hour={3, 9, 15, 21}, run_at_startup=False),
     ]
     # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)
     job_timeout = 1200
