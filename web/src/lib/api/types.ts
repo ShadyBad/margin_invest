@@ -104,6 +104,15 @@ export interface ScoreResponse {
     new_positions: number
     top_funds: string[]
   } | null
+  // Data consistency warnings
+  consistency_warnings?: Array<{
+    field_name: string
+    z_score: number
+    current_value: number
+    historical_mean: number
+    historical_std: number
+    periods_used: number
+  }>
 }
 
 export interface ScoreListResponse {
