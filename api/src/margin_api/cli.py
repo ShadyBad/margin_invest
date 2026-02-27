@@ -1079,16 +1079,19 @@ async def _load_and_predict_ml(
     return result
 
 
-def _inject_sector_pass_rates(
+def _inject_sector_stats(
     detail: dict,
     ticker: str,
     ticker_data_list: list,
     sector_pass_rates: dict[str, dict[str, float]],
+    all_sector_distributions: dict[str, dict[str, dict]],
 ) -> dict:
-    """Inject sector_filter_pass_rates into a composite detail dict."""
+    """Inject sector_filter_pass_rates and sector_distribution into a composite detail dict."""
     for td in ticker_data_list:
         if td.ticker == ticker:
             detail["sector_filter_pass_rates"] = sector_pass_rates
+            sector_name = td.profile.sector.value
+            detail["sector_distribution"] = all_sector_distributions.get(sector_name, {})
             break
     return detail
 
@@ -1542,8 +1545,11 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
             len(ticker_data_list),
         )
 
-    # Compute sector filter pass rates
-    from margin_api.services.sector_stats import compute_sector_filter_pass_rates
+    # Compute sector filter pass rates and sector distributions
+    from margin_api.services.sector_stats import (
+        compute_all_sector_distributions,
+        compute_sector_filter_pass_rates,
+    )
 
     filter_data_for_rates: list[tuple[str, list[dict]]] = []
     for c in composites_by_ticker.values():
@@ -1556,6 +1562,9 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 break
 
     sector_pass_rates = compute_sector_filter_pass_rates(filter_data_for_rates)
+
+    # Compute sector distributions (P10/P50/P90 per sub-factor per sector)
+    all_sector_distributions = compute_all_sector_distributions(raw_results)
 
     # Run v4 pipeline
     results = score_universe_v4(ticker_data_list, shiller_cape=cape, ml_predictions=ml_predictions)
@@ -1598,11 +1607,12 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 ml_confidence=v4r.ml_confidence,
                 ml_override=v4r.ml_override,
                 detail=(
-                    _inject_sector_pass_rates(
+                    _inject_sector_stats(
                         composites_by_ticker[v4r.ticker].model_dump(mode="json"),
                         v4r.ticker,
                         ticker_data_list,
                         sector_pass_rates,
+                        all_sector_distributions,
                     )
                     if v4r.ticker in composites_by_ticker
                     else None
