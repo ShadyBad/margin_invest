@@ -29,6 +29,7 @@ from margin_engine.backtesting.regime_classifier import (
     is_in_recession,
     segment_by_regime,
 )
+from margin_engine.config.filter_config import FilterConfig
 from margin_engine.scoring.filters.pipeline import run_elimination_filters
 
 logger = logging.getLogger(__name__)
@@ -104,11 +105,15 @@ class ReplayOrchestrator:
         pit_provider: PointInTimeProvider,
         factor_registry: FactorRegistry,
         benchmark_prices: dict[date, float] | None = None,
+        filter_config: FilterConfig | None = None,
+        disabled_filters: set[str] | None = None,
     ) -> None:
         self._config = config
         self._provider = pit_provider
         self._registry = factor_registry
         self._benchmark_prices = benchmark_prices or {}
+        self._filter_config = filter_config
+        self._disabled_filters = disabled_filters
         self._calculator = PerformanceCalculator()
 
     def run(self) -> ReplayResult:
@@ -162,6 +167,8 @@ class ReplayOrchestrator:
                     filter_result = run_elimination_filters(
                         period=snapshot.period,
                         profile=snapshot.profile,
+                        config=self._filter_config,
+                        disabled_filters=self._disabled_filters,
                     )
                     if filter_result.passed:
                         survivors.append(snapshot)
