@@ -7,7 +7,7 @@ interface NavLinksProps {
 
 export function NavLinks({ links }: NavLinksProps) {
   return (
-    <div className="hidden md:flex items-center gap-8">
+    <div className="flex items-center gap-8">
       {links.map((link) => (
         <Link
           key={link.href}

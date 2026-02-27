@@ -19,10 +19,12 @@ export function Navbar() {
       className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-[900px]"
       aria-label="Main navigation"
     >
-      <div className="flex items-center justify-between bg-bg-elevated border border-border-subtle rounded-2xl px-6 py-3 shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+      <div className="relative flex items-center justify-between bg-bg-elevated border border-border-subtle rounded-2xl px-6 py-3 shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
         <NavLogo href={nav.logoHref} />
 
-        <NavLinks links={nav.links} />
+        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2">
+          <NavLinks links={nav.links} />
+        </div>
 
         <div className="hidden md:flex items-center gap-3">
           <TickerSearch />
