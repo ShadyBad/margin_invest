@@ -1,93 +1,195 @@
 ---
-title: "Elimination Filters Explained"
-description: "Learn about the binary pass/fail checks that screen out risky stocks before scoring begins."
-order: 2
-updatedAt: "2026-02-19"
+title: "Elimination Filters"
+description: "Six binary pass/fail checks that remove financially distressed, manipulated, or illiquid stocks before scoring begins."
+order: 1
+updatedAt: "2026-02-26"
 readingTime: 7
-category: "Core Concepts"
+category: "Concepts"
 ---
 
-## Why Filters Exist
+## Why Filters Come First
+
+Elimination filters are the first stage of the pipeline. They are binary -- pass or fail. One failure eliminates the stock from scoring entirely.
+
+This is deliberate: no amount of scoring sophistication can rescue a fundamentally distressed company. A stock with manipulated earnings or persistent cash burn will produce unreliable factor scores downstream, so the engine removes it before wasting compute on expensive scoring calculations.
 
 <Callout type="info">
-This guide is educational content explaining how our scoring engine works. It is not investment advice. Always do your own research before making investment decisions.
+All six filters run regardless of earlier failures. If a stock fails filter #2, filters #3 through #6 still execute. This gives you a complete diagnostic picture -- every reason a stock was eliminated, not just the first one encountered.
 </Callout>
 
-The elimination filters implement a **fail-fast principle**: remove clearly distressed or manipulated companies before the engine spends resources on expensive scoring calculations. Think of them as a quality gate -- if a company cannot clear these basic checks, no amount of scoring nuance will make it a sound investment candidate.
+A stock must pass all six filters to proceed to dual-track scoring. There are no partial passes and no overrides.
 
-There are six elimination filters in total. All six run regardless of whether an earlier filter has already failed. This means you always get **complete diagnostics** showing every reason a stock was eliminated, not just the first one encountered.
+## 1. Earnings Quality (Beneish M-Score)
 
-A stock must **pass all six filters** to proceed to dual-track scoring.
+Detects earnings manipulation. Companies with artificially inflated earnings are excluded.
 
-## The Six Elimination Filters
+The Beneish M-Score is a probabilistic model that uses eight financial ratio indexes to identify whether a company has manipulated its reported earnings. Each index captures a different dimension of financial statement distortion -- from revenue recognition timing to asset quality deterioration.
 
-### Beneish M-Score
+<Formula>M-Score = -4.84 + 0.920(DSRI) + 0.528(GMI) + 0.404(AQI) + 0.892(SGI) + 0.115(DEPI) - 0.172(SGAI) + 4.679(TATA) - 0.327(LVGI)</Formula>
 
-The Beneish M-Score detects earnings manipulation using a composite of financial ratios. It examines patterns across revenue recognition, asset quality, margin changes, and accruals to flag companies whose reported earnings may not reflect economic reality.
+**Threshold:** M-Score > -1.78 signals likely manipulation and **fails** the filter. Scores at or below -1.78 pass.
 
-- **Threshold**: A score greater than **-1.78** flags manipulation risk and **fails** the filter
-- Scores at or below -1.78 are considered safe and pass the filter
+<TechnicalDetail summary="How the Beneish M-Score works">
 
-<Callout type="tip">
-The M-Score was designed to detect Enron-style earnings manipulation. Research has shown it successfully flagged many high-profile fraud cases before they became public.
-</Callout>
+The eight variables each measure a specific year-over-year change in financial characteristics:
 
-### Altman Z-Score
+| Variable | Name | What It Measures |
+|----------|------|------------------|
+| DSRI | Days Sales in Receivables Index | Whether receivables are growing faster than revenue (revenue inflation) |
+| GMI | Gross Margin Index | Whether gross margins are deteriorating (pressure to manipulate) |
+| AQI | Asset Quality Index | Whether the proportion of non-hard assets is growing (capitalizing expenses) |
+| SGI | Sales Growth Index | Revenue growth rate (high-growth firms face more manipulation pressure) |
+| DEPI | Depreciation Index | Whether depreciation rates are slowing (inflating asset values) |
+| SGAI | SG&A Index | Whether selling/admin costs are disproportionate to revenue |
+| TATA | Total Accruals to Total Assets | Gap between reported earnings and cash flow (the strongest single indicator) |
+| LVGI | Leverage Index | Whether leverage is increasing (debt covenant pressure to manipulate) |
 
-The Altman Z-Score is a bankruptcy distress indicator that combines five financial ratios spanning profitability, leverage, liquidity, solvency, and activity into a single composite score.
+**Why -1.78?** Beneish's original research established -1.78 as the threshold where the probability of manipulation becomes statistically significant. At this cutoff, the model correctly identified a high percentage of SEC enforcement cases while maintaining an acceptable false positive rate.
 
-- **Threshold**: A score below **1.1** indicates severe financial distress and **fails** the filter
-- Scores at or above 1.1 pass the filter
+The engine computes M-Scores for all available periods and detects deteriorating trends. If scores are moving toward the threshold over consecutive periods, a warning flag is raised even if the current score still passes.
 
-<Callout type="warning">
-The Utilities sector is exempt from this filter due to their unique capital structure. High leverage is normal and expected for regulated utilities, so applying a standard Z-Score threshold would incorrectly eliminate healthy companies.
-</Callout>
+**Citation:** Beneish, M.D. (1999). "The Detection of Earnings Manipulation." *Financial Analysts Journal*, 55(5), 24-36.
 
-### Current Ratio
+</TechnicalDetail>
 
-The current ratio measures short-term solvency by comparing what a company owns in the near term against what it owes.
+## 2. Financial Distress (Altman Z-Score)
+
+Predicts bankruptcy probability. Companies in the distress zone are excluded.
+
+The engine uses the Z'' (Z-double-prime) variant, which is designed for non-manufacturing and emerging-market companies. It removes the sales/assets ratio from the original model, making it applicable across sectors.
+
+<Formula>Z'' = 6.56(WC/TA) + 3.26(RE/TA) + 6.72(EBIT/TA) + 1.05(Equity/TL)</Formula>
+
+**Threshold:** Z-Score < 1.1 indicates the distress zone and **fails** the filter. Scores at or above 1.1 pass.
+
+<TechnicalDetail summary="Z-Score zones and sector exemptions">
+
+The Z'' Score divides companies into three zones:
+
+| Zone | Z'' Score | Interpretation |
+|------|-----------|----------------|
+| Safe | > 2.6 | Low probability of bankruptcy |
+| Grey | 1.1 - 2.6 | Elevated risk, warrants monitoring |
+| Distress | < 1.1 | High probability of financial distress |
+
+The filter eliminates only distress zone companies (below 1.1). Grey zone companies pass the filter but may receive lower scores in downstream scoring factors.
+
+**Component ratios:**
+
+- **WC/TA** (Working Capital / Total Assets) -- Measures short-term liquidity relative to firm size
+- **RE/TA** (Retained Earnings / Total Assets) -- Captures cumulative profitability and firm age
+- **EBIT/TA** (EBIT / Total Assets) -- Operating productivity independent of tax and leverage
+- **Equity/TL** (Total Equity / Total Liabilities) -- Solvency ratio measuring how much asset value can decline before liabilities exceed assets
+
+**Utilities are exempt.** Regulated utilities operate with structurally high leverage by design. Applying a standard Z-Score threshold to their capital structure would incorrectly eliminate healthy, regulated companies. The engine skips this filter entirely for the Utilities sector.
+
+When total liabilities are zero (rare but possible), the Equity/TL ratio is capped at 10.0 to prevent a single extreme ratio from dominating the composite score.
+
+**Citation:** Altman, E.I. (1968). "Financial Ratios, Discriminant Analysis and the Prediction of Corporate Bankruptcy." *The Journal of Finance*, 23(4), 589-609.
+
+</TechnicalDetail>
+
+## 3. Short-Term Liquidity (Current Ratio)
+
+Checks if the company can pay its near-term bills. A low current ratio means the company may struggle to meet short-term obligations as they come due.
 
 <Formula>Current Ratio = Current Assets / Current Liabilities</Formula>
 
-The default threshold is **0.8**, but sector-specific adjustments apply:
+Thresholds are sector-adjusted:
 
 | Sector | Threshold |
 |--------|-----------|
-| Technology | 0.8 |
-| Utilities | 0.6 |
-| All others | 0.8 |
+| Information Technology | > 0.8 |
+| Utilities | > 0.6 |
+| All others | > 0.8 |
 
-Companies below their sector threshold fail the filter.
+Companies at or below their sector threshold fail the filter.
 
-### Interest Coverage
+<TechnicalDetail summary="Sector adjustments and rescue mechanisms">
 
-Interest coverage measures how easily a company can pay interest on its outstanding debt. The engine uses a **3-year median** for stability, smoothing out one-off spikes or dips.
+**Why sector-adjusted thresholds?** Capital-intensive regulated industries (like utilities) routinely operate with lower current ratios because their revenue streams are predictable and regulated. Applying a single threshold across all sectors would eliminate healthy utility companies.
+
+The Technology threshold was calibrated at 0.8 rather than a higher value because mega-cap tech companies with aggressive share buyback programs (like Apple, with a current ratio around 0.87) would otherwise be incorrectly eliminated despite strong fundamentals.
+
+**Multi-year analysis:** The engine computes the median current ratio over the 3 most recent annual periods, smoothing out temporary fluctuations.
+
+**Quick ratio rescue:** If the median current ratio falls below the threshold but the most recent period's quick ratio (cash + receivables / current liabilities) exceeds 0.5, the stock passes with a warning flag. This prevents eliminating companies whose low current ratio is driven by high inventory rather than genuine liquidity stress.
+
+**Decline guard:** If the current ratio has declined more than 30% from the oldest to newest period in the lookback window, a warning is raised regardless of whether the absolute threshold is met. Rapid deterioration in liquidity often precedes distress.
+
+**Citation:** Beaver, W.H. (1966). "Financial Ratios As Predictors of Failure." *Journal of Accounting Research*, 4, 71-111.
+
+</TechnicalDetail>
+
+## 4. Debt Service (Interest Coverage)
+
+Checks if the company earns enough to service its debt. Low interest coverage means the company barely generates enough operating income to pay interest, increasing default risk during economic downturns.
 
 <Formula>Interest Coverage = EBIT / Interest Expense</Formula>
 
-Sector-specific thresholds reflect different capital intensity norms:
+The engine uses a **3-year median** for stability, smoothing out one-off spikes or dips in either EBIT or interest expense.
+
+Sector-specific thresholds:
 
 | Sector | Threshold |
 |--------|-----------|
-| Technology | 5.0x |
-| Utilities | 1.2x |
-| Default | 1.5x |
+| Information Technology | > 5.0x |
+| Utilities | > 1.2x |
+| All others | > 1.5x |
 
-Companies below their sector threshold fail the filter.
+Companies at or below their sector threshold fail the filter.
 
-### Free Cash Flow Distress
+<TechnicalDetail summary="Why thresholds vary by sector">
 
-This filter checks for persistent negative free cash flow, which signals a company that consistently burns more cash than it generates.
+**Technology (5.0x):** High-margin, asset-light businesses should easily cover their (typically modest) interest expense. A tech company struggling to maintain 5x coverage likely has margin or revenue problems that make it a poor investment candidate.
 
-- **Requirement**: A company must have **3 or more positive FCF years** in the last 5
-- **Minimum FCF margin**: Companies with an FCF margin below **-5%** are flagged
-- A demonstrably **positive trend** in FCF can rescue borderline cases where the numbers are close to the threshold
+**Utilities (1.2x):** Regulated utilities carry significant debt by design -- their capital-intensive infrastructure is financed through long-term debt with predictable servicing schedules. A 1.2x threshold reflects the reality that even healthy utilities operate with structurally higher leverage.
 
-### Liquidity
+**Default (1.5x):** Most sectors operate between these extremes. A 1.5x minimum ensures the company has meaningful headroom above a 1:1 breakeven on debt service.
 
-The liquidity filter has two sub-checks to ensure a stock is tradeable enough for meaningful analysis:
+**Automatic fail on negative EBIT:** If the most recent period shows negative EBIT (operating loss) while the company has outstanding interest expense, the filter fails immediately regardless of the median. An operating loss with debt obligations is an acute distress signal.
 
-**Market Cap** -- minimum market capitalization requirements vary by sector:
+**Trend guard:** If the most recent period's interest coverage is more than 20% below the median, a warning is raised. This flags companies where debt service capacity is deteriorating even if the median still clears the threshold.
+
+Companies with zero interest expense (no debt) automatically pass -- there is no debt service obligation to evaluate.
+
+**Citation:** Ohlson, J.A. (1980). "Financial Ratios and the Probabilistic Prediction of Bankruptcy." *Journal of Accounting Research*, 18(1), 109-131.
+
+</TechnicalDetail>
+
+## 5. Cash Flow Health (FCF Distress)
+
+Requires at least 3 of the last 5 years with positive free cash flow. Persistent cash burn is disqualifying -- it increases dilution risk and limits capital return to shareholders.
+
+This filter does not use a ratio formula. It counts the number of annual periods with positive free cash flow (operating cash flow minus capital expenditures) across the most recent 5-year window.
+
+**Thresholds:**
+- **Positive year count:** At least 3 of 5 years must show FCF >= 0
+- **FCF margin floor:** Median FCF margin (FCF / revenue) must be >= -5%
+
+<TechnicalDetail summary="Rescue paths and style-aware adjustments">
+
+**Positive trend rescue:** If a company fails the 3-of-5 count but its FCF has been improving for 2 or more consecutive years, the filter passes with a warning. This prevents eliminating companies that are clearly on a recovery trajectory.
+
+**Cyclical sector relaxation:** Companies in cyclical sectors (Energy, Materials, Industrials, Consumer Discretionary) use a relaxed threshold of 2-of-5 positive years instead of 3-of-5. Cyclical businesses are expected to have negative FCF during trough years -- penalizing them equally would create systematic sector bias.
+
+**Growth stock adjustment:** Stocks classified as Growth style use a relaxed requirement of 2-of-5 positive years. An additional rescue path exists: if the latest period has positive operating cash flow and the median gross margin exceeds 40%, the stock passes with a warning. This accommodates high-growth companies that are reinvesting aggressively but have a viable business model.
+
+**FCF margin floor at -5%:** Even with all rescue paths, a company whose median FCF margin is below -5% fails unconditionally. This prevents companies with structural cash burn from sneaking through via the trend rescue or cyclical relaxation.
+
+**How this affects startups and recently IPO'd companies:** Companies with fewer than 5 years of financial history are evaluated on however many years are available. This means a company with only 2 years of data needs both to show positive FCF -- a stricter effective requirement. The liquidity filter's 5-year history minimum partially mitigates this by excluding very young companies.
+
+**Citation:** Richardson, S.A., Sloan, R.G., Soliman, M.T., & Tuna, I. (2005). "Accrual Reliability, Earnings Persistence and Stock Prices." *Journal of Accounting and Economics*, 39(3), 437-485.
+
+</TechnicalDetail>
+
+## 6. Liquidity (Market Cap & Volume)
+
+Ensures the stock can be traded efficiently. Illiquid stocks create execution risk -- wide bid-ask spreads, high slippage, and difficulty exiting positions make even a well-scored company uninvestable.
+
+This filter has multiple sub-checks. A stock must pass all of them.
+
+**Minimum market capitalization** (sector-adjusted):
 
 | Sector | Minimum Market Cap |
 |--------|-------------------|
@@ -95,39 +197,43 @@ The liquidity filter has two sub-checks to ensure a stock is tradeable enough fo
 | Energy | $500M |
 | All others | $300M |
 
-**Dollar Volume** -- 60-day average daily dollar volume, tiered by market cap size:
+**Minimum daily dollar volume** (60-day window, tiered by market cap):
 
-| Market Cap Tier | Min Daily Dollar Volume |
-|----------------|------------------------|
-| Mega Cap | $50M |
-| Large Cap | $20M |
-| Mid Cap | $5M |
-| Small Cap | $2M |
+| Market Cap Tier | Minimum Daily Dollar Volume |
+|----------------|----------------------------|
+| Mega Cap (>$200B) | $50M |
+| Large Cap ($10B-$200B) | $20M |
+| Mid Cap ($2B-$10B) | $5M |
+| Small Cap (<$2B) | $2M |
 
-A stock must pass both sub-checks to clear the liquidity filter.
+**Additional requirements:**
+- At least **5 years** of trading history
+- Sectors **Financials** and **Real Estate** are excluded in the current version
 
-## How Filters Run
+<TechnicalDetail summary="Position sizing and divergence checks">
 
-All six filters execute regardless of earlier failures. This is a deliberate design choice that provides **complete diagnostics** -- you can see every reason a stock was eliminated, not just the first failure encountered. This makes it much easier to understand why a stock did not qualify and whether the issues are temporary or structural.
+Beyond the basic market cap and volume floors, the engine performs two additional liquidity assessments when daily price bar data is available:
 
-A stock must pass **every single filter** to proceed to the scoring phase. There are no partial passes or overrides.
+**Position sizing check:** Can a $500,000 position be filled within 5 trading days at a 5% daily participation rate? This simulates real-world execution constraints. If the stock's median daily dollar volume is too low to fill a modest position without dominating the tape, it fails.
 
-## Common Pitfalls
+**Divergence ratio:** The engine compares 90-day median dollar volume to 20-day median dollar volume. If the ratio exceeds 3.0, recent volume has dropped sharply relative to the longer-term baseline. This flags stocks where liquidity may be evaporating -- a leading indicator of execution risk.
 
-<Callout type="warning">
-"Why was my stock eliminated?" -- Check the filter results in the detail panel to see which specific filter or filters failed. Often it is a combination of multiple filters, not just one.
-</Callout>
+**Why Financials and Real Estate are excluded:** These sectors have fundamentally different balance sheet structures. Bank assets (loans), insurance float, and REIT property portfolios do not map cleanly to the standard financial ratios used by other elimination filters (current ratio, Z-Score, FCF). Rather than produce misleading filter results, the engine excludes them. This is a known limitation that may be addressed with sector-specific filter variants in a future release.
 
-<Callout type="tip">
-Sector-specific thresholds exist for a reason. A Utility company with a 0.7 current ratio is healthy by industry standards, while the same ratio would be concerning for a Tech company. Always consider sector context when reviewing filter results.
-</Callout>
+**Citation:** Amihud, Y. (2002). "Illiquidity and Stock Returns: Cross-Section and Time-Series Effects." *Journal of Financial Markets*, 5(1), 31-56.
 
-<Callout type="warning">
-Filters are intentionally conservative. A stock that barely fails is still at risk -- the thresholds represent minimum acceptable quality, not aggressive cutoffs. Borderline results should prompt further investigation, not frustration with the filter.
-</Callout>
+</TechnicalDetail>
 
-## What Happens Next
+## What Happens After Filters
 
-Stocks that pass all six elimination filters proceed to **dual-track scoring**, where they are evaluated as both Compounder candidates (steady growth compounding) and Mispricing candidates (undervalued relative to intrinsic worth).
+Stocks that pass all six elimination filters proceed to **dual-track scoring**, where they are evaluated as both Compounder candidates (steady growth compounding) and Mispricing candidates (undervalued relative to intrinsic worth). See the How Scoring Works guide for the full scoring pipeline.
 
-See the "How Scoring Works" guide for the full scoring pipeline.
+<KnownLimitations>
+
+- **Sector-adjusted thresholds may not perfectly fit every sub-industry.** The engine uses GICS sector-level adjustments, but within a sector like Industrials there is wide variation between capital-light consulting firms and capital-intensive manufacturers. Sub-industry calibration is planned but not yet implemented.
+- **REITs and financial companies are entirely excluded.** Their capital structures trigger false positives across multiple filters. Sector-specific filter variants are needed to evaluate these companies fairly.
+- **Newly IPO'd companies may lack sufficient history.** The 5-year trading history requirement and multi-year financial lookbacks mean companies with less history are either excluded outright or evaluated on a smaller data window, which increases false positive risk.
+- **Filter thresholds are reviewed periodically but not dynamically adjusted.** Thresholds are based on academic research and calibrated against historical data, but they do not adapt to changing market conditions in real time. A threshold that works well in normal markets may be too strict or too lenient during unusual regimes.
+- **Utilities Z-Score exemption is all-or-nothing.** Rather than applying a modified threshold for utilities, the engine skips the Z-Score filter entirely. This means a utility company in genuine distress could pass the Z-Score check by exemption, though other filters (interest coverage, current ratio) would likely catch it.
+
+</KnownLimitations>
