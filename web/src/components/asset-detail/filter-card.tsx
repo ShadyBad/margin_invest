@@ -7,6 +7,8 @@ import type { FilterResultResponse } from "@/lib/api/types"
 interface FilterCardProps {
   filter: FilterResultResponse
   expanded: boolean
+  sectorPassRate?: number | null
+  sectorName?: string | null
 }
 
 function formatValue(value: number | null, name: string): string {
@@ -34,7 +36,7 @@ function formatThreshold(threshold: number | null, name: string): string {
   return threshold.toFixed(2)
 }
 
-export function FilterCard({ filter, expanded }: FilterCardProps) {
+export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: FilterCardProps) {
   const meta = FILTER_METADATA[filter.name]
   const passed = filter.passed
   const isInconclusive = filter.verdict === "inconclusive"
@@ -92,6 +94,13 @@ export function FilterCard({ filter, expanded }: FilterCardProps) {
           <span className="text-text-primary">{formatThreshold(filter.threshold, filter.name)}</span>
         </div>
       </div>
+
+      {/* Sector context — only for failed filters when data available */}
+      {!passed && sectorPassRate != null && sectorName && (
+        <p className="text-[10px] text-tertiary mt-1.5">
+          {Math.round(sectorPassRate * 100)}% of {sectorName} stocks pass this filter.
+        </p>
+      )}
 
       {/* Formula (if available) */}
       {meta?.formula && expanded && (
