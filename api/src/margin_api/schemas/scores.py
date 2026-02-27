@@ -85,6 +85,17 @@ class SectorChampionResponse(BaseModel):
     filter_values: dict[str, float | None]
 
 
+class ConsistencyWarningResponse(BaseModel):
+    """A single data consistency warning from post-ingestion validation."""
+
+    field_name: str
+    current_value: float
+    historical_mean: float
+    historical_std: float
+    z_score: float
+    periods_used: int
+
+
 class ScoreResponse(BaseModel):
     """Full scoring result for a single ticker."""
 
@@ -150,7 +161,7 @@ class ScoreResponse(BaseModel):
     # Sector champion (only populated for eliminated tickers)
     sector_champion: SectorChampionResponse | None = None
     # Data consistency warnings (from post-ingestion validation)
-    consistency_warnings: list[dict] = []
+    consistency_warnings: list[ConsistencyWarningResponse] = []
     # Conditionally included via ?include=
     price_history: list[PriceBarResponse] | None = None
     signal_history: list[SignalTransitionResponse] | None = None

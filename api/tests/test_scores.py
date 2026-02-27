@@ -482,14 +482,16 @@ class TestConsistencyWarnings:
                     "z_score": 10.5,
                     "current_value": 5000000000,
                     "historical_mean": 1000000000,
-                    "severity": "high",
+                    "historical_std": 200000000,
+                    "periods_used": 4,
                 },
                 {
                     "field_name": "total_revenue",
                     "z_score": 4.2,
                     "current_value": 500000000000,
                     "historical_mean": 100000000000,
-                    "severity": "medium",
+                    "historical_std": 50000000000,
+                    "periods_used": 5,
                 },
             ]
             fd = FinancialData(

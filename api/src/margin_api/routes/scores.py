@@ -604,7 +604,11 @@ async def get_score(
     consistency_result = await db.execute(consistency_q)
     consistency_flags = consistency_result.scalar_one_or_none()
     if consistency_flags and consistency_flags.get("has_anomalies"):
-        response.consistency_warnings = consistency_flags["anomalies"]
+        from margin_api.schemas.scores import ConsistencyWarningResponse
+
+        response.consistency_warnings = [
+            ConsistencyWarningResponse(**w) for w in consistency_flags["anomalies"]
+        ]
 
     # Sector champion: only for eliminated tickers
     from margin_api.schemas.scores import SectorChampionResponse

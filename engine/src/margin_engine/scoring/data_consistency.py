@@ -11,6 +11,7 @@ use a fallback: flag if current deviates >100% from mean.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 
 from margin_engine.models.financial import FinancialHistory, FinancialPeriod
 from margin_engine.models.scoring import ConsistencyFlag
@@ -22,7 +23,7 @@ _FALLBACK_DEVIATION_PCT = 1.0  # 100% deviation when std is zero
 
 def _extract_field(period: FinancialPeriod, field_name: str) -> float | None:
     """Extract a critical field value from a FinancialPeriod."""
-    extractors: dict[str, callable] = {
+    extractors: dict[str, Callable[[FinancialPeriod], float]] = {
         "revenue": lambda p: float(p.current_income.revenue),
         "total_assets": lambda p: float(p.current_balance.total_assets),
         "shares_outstanding": lambda p: float(p.current_income.shares_outstanding),
