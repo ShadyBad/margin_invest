@@ -45,6 +45,7 @@ export function BillingSection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch("/api/v1/billing/status")
@@ -59,16 +60,24 @@ export function BillingSection() {
 
   async function handleCheckout(plan: string) {
     setActionLoading(plan)
+    setActionError(null)
     try {
       const resp = await fetch("/api/v1/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan }),
       })
-      const data = await resp.json()
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}))
+        throw new Error(body.message || `Checkout failed (${resp.status})`)
       }
+      const data = await resp.json()
+      if (!data.checkout_url) {
+        throw new Error("No checkout URL returned")
+      }
+      window.location.href = data.checkout_url
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to start checkout.")
     } finally {
       setActionLoading(null)
     }
@@ -76,12 +85,20 @@ export function BillingSection() {
 
   async function handlePortal() {
     setActionLoading("portal")
+    setActionError(null)
     try {
       const resp = await fetch("/api/v1/billing/portal", { method: "POST" })
-      const data = await resp.json()
-      if (data.portal_url) {
-        window.location.href = data.portal_url
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}))
+        throw new Error(body.message || `Request failed (${resp.status})`)
       }
+      const data = await resp.json()
+      if (!data.portal_url) {
+        throw new Error("No portal URL returned")
+      }
+      window.location.href = data.portal_url
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to open subscription portal.")
     } finally {
       setActionLoading(null)
     }
@@ -185,6 +202,18 @@ export function BillingSection() {
         >
           {actionLoading === "portal" ? "Loading..." : "Manage subscription"}
         </button>
+      )}
+
+      {!status.billing_configured && (
+        <p className="text-xs text-text-secondary mt-3">
+          Billing is not yet available. Please contact support.
+        </p>
+      )}
+
+      {actionError && (
+        <div className="rounded-sm border border-red-500/30 bg-red-500/5 p-3 mt-3">
+          <p className="text-sm text-red-400">{actionError}</p>
+        </div>
       )}
     </section>
   )
