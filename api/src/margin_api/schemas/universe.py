@@ -36,6 +36,17 @@ class UniverseStatusResponse(BaseModel):
     is_complete: bool
 
 
+class UniverseFunnelResponse(BaseModel):
+    """Selectivity funnel for the landing page."""
+
+    universe_size: int
+    survived_filters: int
+    exceptional_count: int
+    high_count: int
+    medium_count: int
+    last_scored_at: datetime | None
+
+
 class Warning(BaseModel):
     """Structured warning for incomplete universe coverage."""
 

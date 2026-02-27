@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import Asset, IngestionRun, Score
 from margin_api.db.session import get_db
-from margin_api.schemas.universe import UniverseStatusResponse
+from margin_api.schemas.universe import UniverseFunnelResponse, UniverseStatusResponse
 from margin_api.services.freshness import FRESH_THRESHOLD, STALE_THRESHOLD
 from margin_api.services.universe import get_active_snapshot
 
@@ -111,3 +111,56 @@ async def get_universe_status(db: AsyncSession = Depends(get_db)):
         last_scoring_run=last_scoring_run,
         is_complete=is_complete,
     )
+
+
+async def _compute_funnel(db: AsyncSession) -> UniverseFunnelResponse:
+    """Compute the selectivity funnel from universe snapshot + scores."""
+    snapshot = await get_active_snapshot(db)
+    universe_size = snapshot.ticker_count if snapshot else 0
+
+    # Count distinct scored assets (survived filters)
+    survived_result = await db.execute(
+        select(func.count(func.distinct(Score.asset_id)))
+    )
+    survived_filters = survived_result.scalar() or 0
+
+    # Count each conviction level
+    exceptional_result = await db.execute(
+        select(func.count(func.distinct(Score.asset_id))).where(
+            Score.conviction_level == "exceptional"
+        )
+    )
+    exceptional_count = exceptional_result.scalar() or 0
+
+    high_result = await db.execute(
+        select(func.count(func.distinct(Score.asset_id))).where(
+            Score.conviction_level == "high"
+        )
+    )
+    high_count = high_result.scalar() or 0
+
+    medium_result = await db.execute(
+        select(func.count(func.distinct(Score.asset_id))).where(
+            Score.conviction_level == "medium"
+        )
+    )
+    medium_count = medium_result.scalar() or 0
+
+    # Last scored timestamp
+    last_scored_result = await db.execute(select(func.max(Score.scored_at)))
+    last_scored_at = last_scored_result.scalar()
+
+    return UniverseFunnelResponse(
+        universe_size=universe_size,
+        survived_filters=survived_filters,
+        exceptional_count=exceptional_count,
+        high_count=high_count,
+        medium_count=medium_count,
+        last_scored_at=last_scored_at,
+    )
+
+
+@router.get("/universe/funnel", response_model=UniverseFunnelResponse)
+async def get_universe_funnel(db: AsyncSession = Depends(get_db)):
+    """Return the selectivity funnel for the landing page."""
+    return await _compute_funnel(db)
