@@ -20,7 +20,7 @@ import redis.asyncio as aioredis
 import yfinance as yf
 from arq import cron
 from arq.connections import ArqRedis, RedisSettings
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
@@ -926,6 +926,156 @@ async def stage_scores(
             job.completed_at = datetime.now(UTC)
             await session.commit()
         return {"status": "failed", "pipeline_id": pipeline_id, "error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Publish scores (operator approval)
+# ---------------------------------------------------------------------------
+
+
+async def _publish_scores_impl(
+    session: AsyncSession,
+    approval_id: int,
+    decided_by: int | None = None,
+    decision_reason: str | None = None,
+) -> dict:
+    """Flip V4Score.published=True for scores referenced by a PipelineApproval.
+
+    Fetches the approval, validates it is in "staged" status, then bulk-updates
+    all matching V4Score rows. Updates the approval to "approved" with decision
+    metadata.
+
+    Returns a dict with status, published_count, and approval_id.
+    """
+    # Fetch approval
+    result = await session.execute(
+        select(PipelineApproval).where(PipelineApproval.id == approval_id)
+    )
+    approval = result.scalar_one_or_none()
+
+    if approval is None:
+        return {"status": "error", "message": "not found"}
+
+    if approval.status != "staged":
+        return {"status": "error", "message": "not in staged status"}
+
+    # Parse scored_at from payload_ref
+    scored_at_str = approval.payload_ref["scored_at"]
+    scored_at = datetime.fromisoformat(scored_at_str)
+
+    # Bulk-update unpublished V4Scores at this scored_at
+    update_result = await session.execute(
+        update(V4Score)
+        .where(
+            V4Score.scored_at == scored_at,
+            V4Score.published == False,  # noqa: E712
+        )
+        .values(published=True)
+    )
+    published_count = update_result.rowcount
+
+    # Update approval status
+    approval.status = "approved"
+    approval.decided_at = datetime.now(UTC)
+    approval.decided_by = decided_by
+    approval.decision_reason = decision_reason
+
+    await session.commit()
+
+    logger.info(
+        "[publish_scores] Published %d scores (approval=%d, decided_by=%s)",
+        published_count,
+        approval_id,
+        decided_by,
+    )
+
+    return {
+        "status": "published",
+        "published_count": published_count,
+        "approval_id": approval_id,
+    }
+
+
+async def publish_scores(
+    ctx: dict,
+    approval_id: int,
+    decided_by: int | None = None,
+    decision_reason: str | None = None,
+) -> dict:
+    """Worker entry point: publish staged V4Scores after operator approval.
+
+    Calls _publish_scores_impl to flip published=True, then emits score change
+    events and broadcasts them via WebSocket.
+    """
+    logger.info(
+        "[publish_scores] Starting (approval=%s, decided_by=%s)",
+        approval_id,
+        decided_by,
+    )
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="publish_scores",
+            status="running",
+            triggered_by="operator",
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        async with session_factory() as session:
+            result = await _publish_scores_impl(
+                session, approval_id, decided_by, decision_reason
+            )
+
+        # If published, emit score change events and broadcast
+        if result.get("status") == "published":
+            reset_engine_cache()
+            eng = get_engine()
+            sf = get_session_factory(eng)
+            async with sf() as session:
+                n_events = await _emit_score_change_events(session)
+                n_broadcast = await _broadcast_score_events(session)
+                logger.info(
+                    "[publish_scores] Emitted %d events, broadcast %d",
+                    n_events,
+                    n_broadcast,
+                )
+
+        # Mark job completed
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        logger.info("[publish_scores] Complete: %s", result)
+        return result
+
+    except Exception as e:
+        logger.exception("[publish_scores] Failed: %s", e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "failed", "approval_id": approval_id, "error": str(e)}
 
 
 # ---------------------------------------------------------------------------
@@ -1922,6 +2072,7 @@ class WorkerSettings:
         full_score_v3,
         full_score_v4,
         stage_scores,
+        publish_scores,
         backtest_validate,
         train_ml_models,
         live_price_poll,
