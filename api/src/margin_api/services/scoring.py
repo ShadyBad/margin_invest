@@ -11,6 +11,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from margin_engine.healing.models import HealingConfig, SectorDistribution
+from margin_engine.healing.pipeline import HealingPipeline, HealingResult
 from margin_engine.ingestion.normalizer import (
     normalize_balance_sheet,
     normalize_cash_flow,
@@ -93,11 +95,23 @@ def build_financial_period(
     prior_income_raw: dict | None = None,
     prior_balance_raw: dict | None = None,
     prior_cashflow_raw: dict | None = None,
-) -> FinancialPeriod:
+    # Healing pipeline (optional)
+    healing_pipeline: HealingPipeline | None = None,
+    sector: str = "",
+    sector_distributions: list[SectorDistribution] | None = None,
+    prior_sector_distributions: list[SectorDistribution] | None = None,
+    ticker_history: dict[str, list[float]] | None = None,
+    secondary_values: dict[str, float] | None = None,
+    prior_valid_values: dict[str, float] | None = None,
+    sector_ticker_count: int = 0,
+    sector_flagged_tickers: set[str] | None = None,
+) -> FinancialPeriod | tuple[FinancialPeriod, HealingResult]:
     """Convert raw JSON dicts into a FinancialPeriod engine model.
 
     Uses the engine's normalizer functions to handle field-name variations
-    across different data providers.
+    across different data providers. When a ``healing_pipeline`` is supplied,
+    the pipeline is run after normalization and the result is returned as a
+    ``(FinancialPeriod, HealingResult)`` tuple.
 
     Args:
         income_raw: Raw income statement dict (camelCase or snake_case keys).
@@ -108,9 +122,20 @@ def build_financial_period(
         prior_income_raw: Optional prior-period income statement dict.
         prior_balance_raw: Optional prior-period balance sheet dict.
         prior_cashflow_raw: Optional prior-period cash flow statement dict.
+        healing_pipeline: Optional HealingPipeline instance. When provided the
+            function runs detection/correction and returns a tuple.
+        sector: GICS sector name (required when healing_pipeline is set).
+        sector_distributions: Current cross-sectional distributions for Tier 2/3.
+        prior_sector_distributions: Prior-period distributions for Tier 3.
+        ticker_history: Field path -> historical values for self-history detection.
+        secondary_values: Alternative data source values for L1 correction.
+        prior_valid_values: Last known good values for L2 carry-forward.
+        sector_ticker_count: Total tickers in sector (for breadth circuit breaker).
+        sector_flagged_tickers: Set of tickers already flagged in this sector.
 
     Returns:
-        A fully populated FinancialPeriod.
+        A bare ``FinancialPeriod`` when no healing pipeline is provided, or a
+        ``(FinancialPeriod, HealingResult)`` tuple when healing is enabled.
     """
     current_income = normalize_income_statement(income_raw)
     current_balance = normalize_balance_sheet(balance_raw)
@@ -120,7 +145,7 @@ def build_financial_period(
     prior_balance = normalize_balance_sheet(prior_balance_raw) if prior_balance_raw else None
     prior_cash_flow = normalize_cash_flow(prior_cashflow_raw) if prior_cashflow_raw else None
 
-    return FinancialPeriod(
+    period = FinancialPeriod(
         period_end=period_end,
         filing_date=filing_date,
         current_income=current_income,
@@ -130,6 +155,23 @@ def build_financial_period(
         current_cash_flow=current_cash_flow,
         prior_cash_flow=prior_cash_flow,
     )
+
+    if healing_pipeline is None:
+        return period
+
+    healing_result = healing_pipeline.heal(
+        period=period,
+        sector=sector,
+        sector_distributions=sector_distributions or [],
+        prior_sector_distributions=prior_sector_distributions or [],
+        ticker_history=ticker_history or {},
+        secondary_values=secondary_values,
+        prior_valid_values=prior_valid_values,
+        sector_ticker_count=sector_ticker_count,
+        sector_flagged_tickers=sector_flagged_tickers,
+    )
+
+    return healing_result.period, healing_result
 
 
 def build_asset_profile(
