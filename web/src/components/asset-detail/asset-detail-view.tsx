@@ -14,6 +14,7 @@ import { HypotheticalScores } from "./hypothetical-scores"
 import { MLAuditPanel } from "./ml-audit-panel"
 import { InstitutionalPositioning } from "./institutional-positioning"
 import { BacktestTeaser } from "./backtest-teaser"
+import { ConsistencyBadge } from "./consistency-badge"
 import { DeterminismBadge } from "./determinism-badge"
 import { FactorRadar } from "./factor-radar"
 import { SectorNeutralBanner } from "./sector-neutral-banner"
@@ -113,6 +114,10 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
       )}
 
       <DeterminismBadge />
+
+      {scoreData.consistency_warnings && scoreData.consistency_warnings.length > 0 && (
+        <ConsistencyBadge warnings={scoreData.consistency_warnings} />
+      )}
 
       <EliminationGauntlet
         filters={scoreData.filters_passed}
