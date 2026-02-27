@@ -1,22 +1,31 @@
 "use client"
 
+import Link from "next/link"
 import { motion } from "framer-motion"
 
 const ease = [0.22, 1, 0.36, 1] as const
 
-const doItems = [
-  "Use candidates as a starting point for your own research",
-  "Review the factor breakdown to understand why a stock scores well",
-  "Compare the engine\u2019s price target to your own valuation work",
-  "Use position sizing as a framework, then adjust for your risk tolerance",
-  "Monitor conviction changes over time \u2014 a rising score often confirms an improving fundamental picture",
-]
-
-const dontItems = [
-  "Don\u2019t treat a high conviction score as a buy recommendation",
-  "Don\u2019t skip your own due diligence because the engine did quantitative work",
-  "Don\u2019t ignore the limitations section below",
-  "Don\u2019t assume past scoring accuracy predicts future results",
+const guides = [
+  {
+    title: "Getting Started",
+    desc: "Set up your dashboard and score your first stock",
+    href: "/guides/getting-started",
+  },
+  {
+    title: "Reading the Dashboard",
+    desc: "Understand every element on your candidate cards",
+    href: "/guides/reading-the-dashboard",
+  },
+  {
+    title: "Scoring Factors",
+    desc: "Deep dive into all 20 factors across three pillars",
+    href: "/guides/scoring-factors",
+  },
+  {
+    title: "Analyzing a Stock",
+    desc: "Step-by-step workflow from score to decision",
+    href: "/guides/analyzing-a-stock",
+  },
 ]
 
 export function UsageSection() {
@@ -39,7 +48,7 @@ export function UsageSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.4, ease }}
         >
-          Responsible Usage
+          Next Steps
         </motion.p>
 
         <motion.h2
@@ -49,7 +58,7 @@ export function UsageSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          What to do — and not do — with these candidates.
+          How to use these outputs.
         </motion.h2>
 
         <motion.p
@@ -59,90 +68,35 @@ export function UsageSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
-          Margin Invest surfaces candidates and quantifies conviction. It does not
-          make decisions for you. Here&apos;s how to get the most value from the output.
+          The engine replaces the tedious parts of investment analysis — data
+          gathering, normalization, cross-factor comparison, and ranking. The
+          judgment call on whether to act is always yours. These guides walk
+          you through practical workflows.
         </motion.p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          {/* Do list */}
-          <motion.div
-            className="p-6 border border-border-primary rounded-lg bg-bg-elevated"
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1, ease }}
-          >
-            <ul className="space-y-3">
-              {doItems.map((item) => (
-                <li key={item} className="flex items-start gap-2.5">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    className="text-accent flex-shrink-0 mt-0.5"
-                  >
-                    <path
-                      d="M3 8.5L6.5 12L13 4"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span className="text-[14px] text-text-secondary leading-relaxed">
-                    {item}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-
-          {/* Don't list */}
-          <motion.div
-            className="p-6 border border-border-primary rounded-lg bg-bg-elevated"
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.18, ease }}
-          >
-            <ul className="space-y-3">
-              {dontItems.map((item) => (
-                <li key={item} className="flex items-start gap-2.5">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    className="text-bearish flex-shrink-0 mt-0.5"
-                  >
-                    <path
-                      d="M4 4L12 12M12 4L4 12"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <span className="text-[14px] text-text-secondary leading-relaxed">
-                    {item}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {guides.map((guide, i) => (
+            <motion.div
+              key={guide.title}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: i * 0.06, ease }}
+            >
+              <Link
+                href={guide.href}
+                className="block p-5 border border-border-primary rounded-lg bg-bg-elevated hover:border-accent/40 transition-colors"
+              >
+                <h3 className="text-[15px] font-semibold text-text-primary mb-1">
+                  {guide.title}
+                </h3>
+                <p className="text-[13px] text-text-secondary">
+                  {guide.desc}
+                </p>
+              </Link>
+            </motion.div>
+          ))}
         </div>
-
-        <motion.p
-          className="text-[14px] sm:text-[15px] text-text-secondary leading-relaxed max-w-2xl"
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, ease }}
-        >
-          The engine replaces the tedious parts of investment analysis — data gathering,
-          normalization, cross-factor comparison, and ranking. The judgment call on
-          whether to act is always yours.
-        </motion.p>
       </div>
     </section>
   )

@@ -7,6 +7,8 @@ import {
   FiltersSection,
   ScoringSection,
   ConvictionSection,
+  MLRefinementSection,
+  SmartMoneySection,
   OutputsSection,
   UsageSection,
   TransparencySection,
@@ -30,6 +32,8 @@ export default function MethodologyPage() {
         <FiltersSection />
         <ScoringSection />
         <ConvictionSection />
+        <MLRefinementSection />
+        <SmartMoneySection />
         <OutputsSection />
         <UsageSection />
         <TransparencySection />

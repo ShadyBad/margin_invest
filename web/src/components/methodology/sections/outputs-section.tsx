@@ -5,22 +5,34 @@ import { MarginOfSafetyBand } from "../visuals/margin-of-safety-band"
 
 const ease = [0.22, 1, 0.36, 1] as const
 
-const outputs = [
+const exampleOutput = [
+  { label: "Conviction", value: "HIGH", color: "text-accent" },
+  { label: "Opportunity Type", value: "Compounder", color: "text-text-primary" },
+  { label: "Suggested Position", value: "8%", color: "text-text-primary" },
+]
+
+const factorBreakdown = [
+  { pillar: "Quality", percentile: 82, suffix: "nd", color: "text-accent" },
+  { pillar: "Value", percentile: 64, suffix: "th", color: "text-bullish" },
+  { pillar: "Momentum", percentile: 71, suffix: "st", color: "text-warning" },
+]
+
+const outputFields = [
   {
-    title: "Candidate cards",
-    desc: "Each stock on your dashboard shows its conviction level, opportunity type (Compounder or Mispricing), signal (Buy / Hold / Sell), and pillar percentile bars \u2014 all at a glance. Click any card to open the full analysis.",
+    title: "Conviction level",
+    desc: "How strongly the factor evidence supports the investment case. Ranges from NONE to EXCEPTIONAL based on gate alignment.",
+  },
+  {
+    title: "Opportunity type",
+    desc: "Whether the stock qualifies as a Compounder (durable advantage), Mispricing (discount to intrinsic value), or both.",
+  },
+  {
+    title: "Suggested position size",
+    desc: "An allocation percentage calibrated to conviction strength and opportunity type. Higher conviction earns a larger position.",
   },
   {
     title: "Factor breakdown",
-    desc: "Drill into the exact Quality, Value, and Momentum percentile scores. See which factors are driving the conviction level and which are holding it back. Every score is auditable \u2014 no black boxes.",
-  },
-  {
-    title: "Price target framework",
-    desc: "The engine synthesizes multiple valuation methods into a single Margin Invest Value, then applies a dynamic margin of safety to produce a buy price and a sell price. You always know where the current price sits relative to the engine\u2019s assessment.",
-  },
-  {
-    title: "Position sizing",
-    desc: "Suggested allocation percentages are tied directly to conviction strength and opportunity type. Higher conviction and stronger factor alignment earn a larger suggested position. The engine does the sizing math so you don\u2019t have to.",
+    desc: "The individual Quality, Value, and Momentum percentile scores — so you see exactly which dimensions are driving the conviction level.",
   },
 ]
 
@@ -44,7 +56,7 @@ export function OutputsSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.4, ease }}
         >
-          Product Outputs
+          Stage 7 · Position Sizing
         </motion.p>
 
         <motion.h2
@@ -54,7 +66,7 @@ export function OutputsSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          Structured outputs you can act on — not opinions to interpret.
+          After all stages, AAPL receives its final output.
         </motion.h2>
 
         <motion.p
@@ -64,26 +76,76 @@ export function OutputsSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
-          Every scored candidate produces a set of concrete outputs designed to
-          eliminate ambiguity. You see exactly why a stock scores the way it does,
-          what price represents a good entry, and how much of your portfolio it warrants.
+          Seven stages of analysis produce a set of concrete, actionable
+          outputs. No ambiguity — you see exactly why a stock scores the way
+          it does, what conviction level it earns, and how much of your
+          portfolio it warrants.
         </motion.p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          {outputs.map((output, i) => (
+        {/* Example AAPL output */}
+        <motion.div
+          className="p-6 border border-border-primary rounded-lg bg-bg-elevated mb-6 max-w-lg"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.1, ease }}
+        >
+          <p className="text-[12px] font-medium text-text-tertiary uppercase tracking-wide mb-4">
+            Example output — AAPL
+          </p>
+          <div className="space-y-3 mb-4">
+            {exampleOutput.map((item) => (
+              <div key={item.label} className="flex items-baseline justify-between">
+                <span className="text-[13px] text-text-secondary">
+                  {item.label}
+                </span>
+                <span className={`text-[14px] font-mono font-semibold ${item.color}`}>
+                  {item.value}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-border-subtle pt-3">
+            <p className="text-[12px] font-medium text-text-tertiary uppercase tracking-wide mb-2">
+              Factor breakdown
+            </p>
+            <div className="space-y-2">
+              {factorBreakdown.map((fb) => (
+                <div key={fb.pillar} className="flex items-center gap-3">
+                  <span className={`text-[13px] font-semibold ${fb.color} w-24`}>
+                    {fb.pillar}
+                  </span>
+                  <div className="flex-1 h-2 bg-bg-subtle rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-accent/60 rounded-full"
+                      style={{ width: `${fb.percentile}%` }}
+                    />
+                  </div>
+                  <span className="text-[12px] font-mono text-text-tertiary w-10 text-right">
+                    {fb.percentile}{fb.suffix}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Output field explanations */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+          {outputFields.map((field, i) => (
             <motion.div
-              key={output.title}
-              className="p-6 border border-border-primary rounded-lg bg-bg-elevated"
+              key={field.title}
+              className="p-5 border border-border-primary rounded-lg bg-bg-elevated"
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.08, ease }}
+              transition={{ duration: 0.5, delay: i * 0.06, ease }}
             >
               <h3 className="text-[15px] font-semibold text-text-primary mb-2">
-                {output.title}
+                {field.title}
               </h3>
-              <p className="text-[14px] text-text-secondary leading-relaxed">
-                {output.desc}
+              <p className="text-[13px] text-text-secondary leading-relaxed">
+                {field.desc}
               </p>
             </motion.div>
           ))}
@@ -107,9 +169,9 @@ export function OutputsSection() {
           transition={{ duration: 0.5, delay: 0.15, ease }}
         >
           When the current price falls below the buy price, the signal is Buy.
-          Between buy and sell, it&apos;s Hold. Above the sell target, it&apos;s Sell.
-          The margin of safety widens or tightens based on how much the valuation
-          methods agree.
+          Between buy and sell, it&apos;s Hold. Above the sell target,
+          it&apos;s Sell. The margin of safety widens or tightens based on how
+          much the valuation methods agree.
         </motion.p>
       </div>
     </section>

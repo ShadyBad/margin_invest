@@ -1,0 +1,167 @@
+---
+title: "ML Pipeline"
+description: "How machine learning models are trained on Margin Invest's own scoring history to refine predictions — and why they're optional."
+order: 4
+updatedAt: "2026-02-26"
+readingTime: 8
+category: "Concepts"
+---
+
+## Introduction
+
+The deterministic scoring pipeline — elimination filters, factor scoring, track cascades, conviction assignment — captures known, well-researched patterns. Every formula in it has an academic source. Every threshold has a reason.
+
+But markets contain patterns that traditional factor models miss. Cross-factor interactions shift across regimes. The relative predictive power of individual factors changes over time. A static weight matrix cannot adapt to these dynamics.
+
+The ML pipeline is an additive refinement layer that learns from the system's own prediction history. It observes which factor combinations actually predicted outperformance over the past 90+ days, and nudges conviction levels accordingly.
+
+<Callout type="info">
+ML is optional and secondary. The deterministic pipeline is the foundation. ML adjustments are bounded to one conviction level in either direction, fully auditable, and transparent. The system works completely without ML — and new deployments start that way by design.
+</Callout>
+
+## Why ML on Top of Deterministic Scoring?
+
+Factor models capture what decades of finance research have proven: cheap stocks with high quality and positive momentum tend to outperform. These relationships are well-established and persistent.
+
+What factor models do not capture is how those relationships interact in specific contexts. Among high-quality technology stocks, does momentum or value matter more right now? When the market regime shifts from expansion to contraction, which factor combinations hold up and which break down?
+
+Think of it this way: factors tell you what to measure. ML tells you how those measurements interact in the current environment.
+
+The ML layer does not replace factors. It cannot introduce new data or override the pipeline's elimination filters. It adjusts the relative weighting of existing signals based on what has actually been working — and it can only move conviction by one level in either direction. A stock that scores LOW on the deterministic pipeline cannot be promoted to EXCEPTIONAL by ML. The bounds are hard constraints.
+
+## Training Process
+
+Models train on a weekly schedule: Saturday at 2:00 AM UTC, when markets are closed and no scoring runs are in progress.
+
+The training process requires a minimum of 100 scored assets in the database. Below that threshold, the training job completes gracefully without producing a model — the system needs enough predictions to evaluate whether the ML layer is actually helpful.
+
+After training, the model is evaluated using rank IC (rank information coefficient): the Spearman correlation between the model's predicted ranks and actual future returns. Only models with a rank IC above 0.15 are activated. This is a quality threshold, not a business rule — 0.15 means the model's predictions have a statistically meaningful relationship with outcomes.
+
+If the model cannot predict better than chance, it stays dormant. The deterministic pipeline continues to run without any ML adjustment.
+
+<TechnicalDetail summary="Training pipeline details">
+The `train_ml_models` worker job runs on a weekly cron schedule (Saturday 2:00 AM UTC). The pipeline:
+
+1. Loads the latest composite scores from the database with full JSONB detail
+2. Reconstructs `CompositeScore` objects and builds a feature matrix from the factor registry
+3. Clusters stocks by factor similarity using KMeans (default: 5 clusters)
+4. Loads price history for all scored tickers and computes forward returns
+5. Trains per-cluster LightGBM models using walk-forward time-series cross-validation
+6. Optionally trains a FactorVAE model for anomaly detection
+7. Evaluates model quality via rank IC on out-of-sample data (no look-ahead bias)
+8. Records a `MlModelRun` in the database with model artifacts, training metrics, and qualification status
+
+Model artifacts — both cluster models and VAE state — are stored in the database as serialized bytes (`cluster_model_data` as pickled dict, `vae_model_data` as PyTorch state dict). This is deliberate: containers are ephemeral on Railway, so filesystem storage would not survive a redeploy. SHA-256 checksums are verified before unpickling to prevent tampering.
+
+Each training run preserves a complete audit record: number of clusters, feature count, sample count, per-cluster sizes, rank IC, and VAE metrics. Training history is never deleted.
+</TechnicalDetail>
+
+## Cluster Models
+
+Not all stocks should be scored the same way. A mature dividend-paying utility and a high-growth SaaS company have fundamentally different risk-return profiles — the factors that predict outperformance for one group may be irrelevant for the other.
+
+The cluster model groups stocks with similar factor profiles together using unsupervised learning. Within each cluster, a separate LightGBM model learns which factor combinations predict forward returns for that specific peer group.
+
+<Example title="Cluster-specific factor importance">
+Among a cluster of high-quality tech stocks, the model might learn that momentum signals are more predictive than value signals — these companies rarely trade at deep value, so traditional valuation metrics carry less weight. In a cluster of mature industrials, the model might find the opposite: value and capital allocation factors dominate, while momentum adds noise.
+</Example>
+
+Clusters are recalculated each training cycle. As market conditions shift and factor profiles change, stocks can migrate between clusters. A company transitioning from high growth to steady state will naturally move into a cluster where value factors carry more weight.
+
+<TechnicalDetail summary="How clustering works">
+The clustering pipeline:
+
+1. Builds a feature matrix from all scored assets using the factor registry
+2. Imputes missing values with column medians (or zero if an entire column is NaN)
+3. Z-scores all features using `StandardScaler` for scale-invariant distance computation
+4. Runs KMeans with `n_clusters=5` (configurable via `ml_n_clusters`), `n_init=10` for stability
+5. Returns a mapping of cluster ID to constituent tickers
+
+Each cluster gets its own LightGBM regressor trained on the forward returns of its members. Walk-forward `TimeSeriesSplit` cross-validation (up to 5 folds) is used when a cluster has 50+ samples. Smaller clusters train on all available data.
+
+LightGBM parameters are conservative: 100 estimators, learning rate 0.05, max depth 5, 80% subsample ratio. These are chosen to avoid overfitting on the relatively small sample sizes typical of stock universes.
+</TechnicalDetail>
+
+## VAE (Variational Autoencoder)
+
+The FactorVAE serves a different purpose from the cluster models. Where cluster models predict which factors matter most, the VAE detects anomalous scoring patterns — stocks whose factor profiles are unusual relative to their peers.
+
+The VAE learns a compressed representation (latent space) of normal factor profiles. When a stock's factor profile does not compress and reconstruct well, that reconstruction error signals something unusual about its factor combination. This can indicate either opportunity (an overlooked stock) or risk (a stock whose fundamentals are deteriorating in a pattern the model has not seen before).
+
+The VAE uses a prior-posterior architecture: during training, the encoder sees both features and future returns, while at inference, only the predictor (prior network) runs — using features alone. This design prevents look-ahead bias while allowing the model to learn what factor patterns are associated with future outcomes.
+
+<TechnicalDetail summary="VAE architecture overview">
+The FactorVAE has three components:
+
+- **Encoder (posterior):** Takes features + future returns as input, outputs a latent distribution (mean and log-variance). Only used during training.
+- **Predictor (prior):** Takes features only, outputs a latent distribution. Used at inference — this is what runs in production.
+- **Decoder:** Maps a latent sample to a predicted return.
+
+Training minimizes: `reconstruction_loss + KL(posterior || prior)`. The KL term forces the prior to approximate the posterior, so at inference the prior can stand alone.
+
+Configuration: latent dimension 8, hidden dimension 64, 100 training epochs, Adam optimizer at learning rate 1e-3. The model outputs two values per stock: a mean prediction and a variance. High variance indicates the model is uncertain about that stock — the factor profile does not fit the learned patterns well.
+
+VAE bytes are stored alongside cluster models in the `MlModelRun` table. The VAE is optional — if training fails, the pipeline continues with cluster models only.
+</TechnicalDetail>
+
+## Score Adjustment
+
+When ML is active, the ensemble override system can promote or demote a stock's conviction by exactly one level. The adjustment is not a score multiplier — it moves the conviction category (e.g., MEDIUM to HIGH, or HIGH to MEDIUM).
+
+The decision process:
+
+1. The model must qualify (rank IC > 0.15 from training)
+2. The GBM and VAE predictions are blended (60% GBM weight, 40% VAE weight)
+3. Confidence is computed from the VAE variance — lower variance means higher confidence
+4. If confidence is below 0.60, no adjustment is made
+5. The blended ML signal is percentile-ranked against all stocks in the universe
+6. If the signal is in the top 15% (85th+ percentile) with confidence above 0.75: promote one level
+7. If the signal is in the bottom 15% (15th- percentile) with confidence above 0.75: demote one level
+8. Otherwise: no adjustment
+
+The "ML Adjusted" badge appears on stocks where the ML layer has changed the conviction level. The original deterministic conviction and the adjusted conviction are both stored and visible in the ML Audit Panel on the asset detail page.
+
+<TechnicalDetail summary="Adjustment mechanics">
+The override is implemented in `apply_ml_override()`:
+
+- Conviction levels are ordered: NONE < MEDIUM < HIGH < EXCEPTIONAL
+- Promotion moves one step up the ladder; demotion moves one step down
+- EXCEPTIONAL cannot be promoted further; NONE cannot be demoted further
+- Both `rules_conviction` (before ML) and `conviction` (after ML) are persisted on the `V4Score` record
+- The `ml_override` field records the type: `"none"`, `"promoted"`, or `"demoted"`
+- `ml_alpha` and `ml_confidence` are stored for audit purposes
+- If conviction changes, position sizing is recomputed for the new conviction level
+
+The key constraint: ML cannot skip levels. A MEDIUM stock can become HIGH, but never EXCEPTIONAL. This prevents the ML layer from creating extreme positions that the deterministic pipeline would not support.
+</TechnicalDetail>
+
+## Graceful Degradation
+
+The ML pipeline was designed to be absent. Every code path that touches ML predictions handles the case where no qualified model exists.
+
+- **New deployment:** No scoring history exists, so no model can train. The system runs deterministic-only scoring. The training job runs each Saturday, checks the sample count, and exits gracefully until enough data accumulates.
+- **Model quality drops:** If a previously qualified model's rank IC falls below 0.15 on the next training cycle, the new model is saved as non-qualifying. The V4 scoring pipeline queries for the latest *qualified* model — if none exists, `ml_predictions` is `None` and all stocks receive purely deterministic scores.
+- **Prediction failure:** If the ML prediction step fails for a specific cluster or the VAE, errors are caught and logged. The pipeline continues with whatever predictions succeeded, or falls back to deterministic-only.
+
+The system status clearly indicates whether ML is active or dormant. When no qualified model exists, the dashboard and asset detail pages show deterministic scores without any ML badges or adjustment indicators.
+
+The system was designed to work without ML. ML makes it better when it earns its place, but is never required.
+
+## Verify It Yourself
+
+<VerifyItYourself claim="ML transparency">
+Check any stock's asset detail page. If ML is active, you will see an "ML Adjusted" badge on the conviction panel. Click it to see the adjustment amount and the original deterministic score. If no badge appears, the score is purely deterministic. You can also check the ML Audit Panel below the conviction section for the model's rank IC, confidence level, and whether the current model qualifies.
+</VerifyItYourself>
+
+## Known Limitations
+
+<KnownLimitations>
+- Models need 100+ scored assets before they can be trained — new deployments start deterministic-only and may remain so for weeks until the universe is large enough.
+- Rank IC threshold (0.15) means models may not activate for months if prediction quality is insufficient. This is intentional — a bad model is worse than no model.
+- ML adjustments are correlational, not causal — they identify patterns in factor interactions, not the economic mechanisms behind them.
+- Models retrain weekly — scores may shift slightly after Saturday training runs as the model updates its view of which factor combinations are working.
+- Cluster membership can change between training cycles, causing subtle score changes for stocks near cluster boundaries.
+- ML model quality varies across market regimes — models trained during extended bull markets may underperform during sharp reversals, which is why the rank IC qualification gate exists.
+- LightGBM and VAE hyperparameters are fixed, not tuned per cycle. This prioritizes stability over marginal accuracy gains but means the models may not optimally adapt to unusual market conditions.
+- VAE training can fail silently — if it does, the pipeline continues with GBM-only predictions and reduced ensemble diversity.
+</KnownLimitations>

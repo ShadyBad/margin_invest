@@ -46,6 +46,8 @@ import { UniverseSection } from "../sections/universe-section"
 import { FiltersSection } from "../sections/filters-section"
 import { ScoringSection } from "../sections/scoring-section"
 import { ConvictionSection } from "../sections/conviction-section"
+import { MLRefinementSection } from "../sections/ml-refinement-section"
+import { SmartMoneySection } from "../sections/smart-money-section"
 import { OutputsSection } from "../sections/outputs-section"
 import { UsageSection } from "../sections/usage-section"
 import { TransparencySection } from "../sections/transparency-section"
@@ -171,29 +173,52 @@ describe("FiltersSection", () => {
 })
 
 describe("ScoringSection", () => {
-  it("renders the headline", () => {
+  it("renders the stage label", () => {
     render(<ScoringSection />)
     expect(
-      screen.getByText(/20\+ factors\. Three pillars\. Sector-neutral ranking\./)
+      screen.getByText(/Stage 3 · Factor Scoring/)
     ).toBeInTheDocument()
   })
 
-  it("renders all three pillars", () => {
+  it("renders the headline", () => {
+    render(<ScoringSection />)
+    expect(
+      screen.getByText(/20 factors\. Three pillars\. Sector-neutral ranking\./)
+    ).toBeInTheDocument()
+  })
+
+  it("renders AAPL narrative", () => {
+    render(<ScoringSection />)
+    expect(
+      screen.getByText(/AAPL passed all filters/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all three pillars with factor counts", () => {
     render(<ScoringSection />)
     expect(screen.getAllByText("Quality").length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText("Value").length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText("Momentum").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("7 factors").length).toBe(2) // Quality + Value
+    expect(screen.getByText("6 factors")).toBeInTheDocument()
   })
 
-  it("renders named sub-factors", () => {
+  it("renders percentile ranking explanation", () => {
     render(<ScoringSection />)
-    expect(screen.getByText("ROIC-WACC Spread")).toBeInTheDocument()
-    expect(screen.getByText("Piotroski F-Score")).toBeInTheDocument()
-    expect(screen.getByText("Insider Cluster Score")).toBeInTheDocument()
+    expect(
+      screen.getByText(/A percentile of 85 means AAPL scores better than 85%/)
+    ).toBeInTheDocument()
   })
 })
 
 describe("ConvictionSection", () => {
+  it("renders the stage label", () => {
+    render(<ConvictionSection />)
+    expect(
+      screen.getByText(/Stage 4 · Dual-Track Conviction/)
+    ).toBeInTheDocument()
+  })
+
   it("renders the headline", () => {
     render(<ConvictionSection />)
     expect(
@@ -201,34 +226,145 @@ describe("ConvictionSection", () => {
     ).toBeInTheDocument()
   })
 
-  it("renders both track cards", () => {
+  it("renders AAPL narrative about multiplicative scoring", () => {
+    render(<ConvictionSection />)
+    expect(
+      screen.getByText(/one weak gate kills the score/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders both track cards with gates", () => {
     render(<ConvictionSection />)
     expect(screen.getByText(/Track A/)).toBeInTheDocument()
     expect(screen.getByText(/Track B/)).toBeInTheDocument()
+    expect(screen.getByText("Moat Evidence")).toBeInTheDocument()
+    expect(screen.getByText("Reinvestment Engine")).toBeInTheDocument()
+    expect(screen.getByText("Capital Allocation")).toBeInTheDocument()
+    expect(screen.getByText("Ensemble Valuation")).toBeInTheDocument()
+    expect(screen.getByText("Downside Protection")).toBeInTheDocument()
+    expect(screen.getByText("Quality Floor")).toBeInTheDocument()
   })
 
-  it("renders conviction levels", () => {
+  it("renders all four conviction levels", () => {
     render(<ConvictionSection />)
-    expect(screen.getAllByText("Exceptional").length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText("High").length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText("Watchlist").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText("EXCEPTIONAL")).toBeInTheDocument()
+    expect(screen.getByText("HIGH")).toBeInTheDocument()
+    expect(screen.getByText("WATCHLIST")).toBeInTheDocument()
+    expect(screen.getByText("NONE")).toBeInTheDocument()
+  })
+})
+
+describe("MLRefinementSection", () => {
+  it("renders the stage label", () => {
+    render(<MLRefinementSection />)
+    expect(
+      screen.getByText(/Stage 5 · ML Refinement/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders the headline", () => {
+    render(<MLRefinementSection />)
+    expect(
+      screen.getByText(/Deterministic first\. Machine learning second\./)
+    ).toBeInTheDocument()
+  })
+
+  it("renders AAPL narrative", () => {
+    render(<MLRefinementSection />)
+    expect(
+      screen.getByText(/deterministic scores are now refined by machine learning/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all key points", () => {
+    render(<MLRefinementSection />)
+    expect(screen.getByText("Weekly training cycle")).toBeInTheDocument()
+    expect(screen.getByText("Quality gate")).toBeInTheDocument()
+    expect(screen.getByText("Cluster + anomaly detection")).toBeInTheDocument()
+    expect(screen.getByText("Bounded adjustments")).toBeInTheDocument()
+    expect(screen.getByText("Graceful degradation")).toBeInTheDocument()
+  })
+
+  it("renders the ML Adjusted badge callout", () => {
+    render(<MLRefinementSection />)
+    expect(screen.getByText("ML Adjusted")).toBeInTheDocument()
+  })
+
+  it("mentions rank IC threshold", () => {
+    render(<MLRefinementSection />)
+    expect(
+      screen.getByText(/rank IC.*exceeds 0\.15/)
+    ).toBeInTheDocument()
+  })
+})
+
+describe("SmartMoneySection", () => {
+  it("renders the stage label", () => {
+    render(<SmartMoneySection />)
+    expect(
+      screen.getByText(/Stage 6 · Smart Money Overlay/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders the headline mentioning AAPL", () => {
+    render(<SmartMoneySection />)
+    expect(
+      screen.getByText(/What institutional investors are doing with AAPL/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders all key points", () => {
+    render(<SmartMoneySection />)
+    expect(screen.getByText("13F filings")).toBeInTheDocument()
+    expect(screen.getByText("Accumulation signals")).toBeInTheDocument()
+    expect(screen.getByText("Curated manager list")).toBeInTheDocument()
+    expect(screen.getByText("45-day reporting lag")).toBeInTheDocument()
+  })
+
+  it("renders the caveat about confirmation signal", () => {
+    render(<SmartMoneySection />)
+    expect(
+      screen.getByText(/Institutional positioning is a confirmation signal/)
+    ).toBeInTheDocument()
   })
 })
 
 describe("OutputsSection", () => {
-  it("renders the headline", () => {
+  it("renders the stage label", () => {
     render(<OutputsSection />)
     expect(
-      screen.getByText(/Structured outputs you can act on/)
+      screen.getByText(/Stage 7 · Position Sizing/)
     ).toBeInTheDocument()
   })
 
-  it("renders all four output cards", () => {
+  it("renders the headline about AAPL final output", () => {
     render(<OutputsSection />)
-    expect(screen.getByText("Candidate cards")).toBeInTheDocument()
-    expect(screen.getByText("Factor breakdown")).toBeInTheDocument()
-    expect(screen.getByText("Price target framework")).toBeInTheDocument()
-    expect(screen.getByText("Position sizing")).toBeInTheDocument()
+    expect(
+      screen.getByText(/After all stages, AAPL receives its final output/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders example AAPL output", () => {
+    render(<OutputsSection />)
+    expect(screen.getByText("Conviction")).toBeInTheDocument()
+    expect(screen.getByText("HIGH")).toBeInTheDocument()
+    expect(screen.getByText("Compounder")).toBeInTheDocument()
+    expect(screen.getByText("8%")).toBeInTheDocument()
+  })
+
+  it("renders factor breakdown percentiles", () => {
+    render(<OutputsSection />)
+    expect(screen.getByText("82nd")).toBeInTheDocument()
+    expect(screen.getByText("64th")).toBeInTheDocument()
+    expect(screen.getByText("71st")).toBeInTheDocument()
+  })
+
+  it("renders all four output field explanations", () => {
+    render(<OutputsSection />)
+    expect(screen.getByText("Conviction level")).toBeInTheDocument()
+    expect(screen.getByText("Opportunity type")).toBeInTheDocument()
+    expect(screen.getByText("Suggested position size")).toBeInTheDocument()
+    expect(screen.getAllByText("Factor breakdown").length).toBeGreaterThanOrEqual(1)
   })
 })
 
@@ -236,60 +372,70 @@ describe("UsageSection", () => {
   it("renders the headline", () => {
     render(<UsageSection />)
     expect(
-      screen.getByText(/What to do — and not do/)
+      screen.getByText(/How to use these outputs/)
     ).toBeInTheDocument()
   })
 
-  it("renders do and don't items", () => {
+  it("renders guide links", () => {
     render(<UsageSection />)
-    expect(screen.getByText(/Use candidates as a starting point/)).toBeInTheDocument()
-    expect(screen.getByText(/Don\u2019t treat a high conviction score/)).toBeInTheDocument()
+    expect(screen.getByText("Getting Started")).toBeInTheDocument()
+    expect(screen.getByText("Reading the Dashboard")).toBeInTheDocument()
+    expect(screen.getByText("Scoring Factors")).toBeInTheDocument()
+    expect(screen.getByText("Analyzing a Stock")).toBeInTheDocument()
+  })
+
+  it("renders guide links with correct hrefs", () => {
+    render(<UsageSection />)
+    expect(
+      screen.getByRole("link", { name: /Getting Started/i })
+    ).toHaveAttribute("href", "/guides/getting-started")
+    expect(
+      screen.getByRole("link", { name: /Scoring Factors/i })
+    ).toHaveAttribute("href", "/guides/scoring-factors")
   })
 })
 
 describe("TransparencySection", () => {
-  it("renders the headline", () => {
+  it("renders the headline about showing work", () => {
     render(<TransparencySection />)
     expect(
-      screen.getByText(/What this is — and what it isn't/)
+      screen.getByText(/We show our work because we trust our work/)
     ).toBeInTheDocument()
   })
 
   it("renders all three principles", () => {
     render(<TransparencySection />)
-    expect(screen.getByText("Not financial advice")).toBeInTheDocument()
-    expect(screen.getByText("Models have limits")).toBeInTheDocument()
-    expect(screen.getByText("Structure, not prediction")).toBeInTheDocument()
+    expect(screen.getByText("Deterministic")).toBeInTheDocument()
+    expect(screen.getByText("Published formulas")).toBeInTheDocument()
+    expect(screen.getByText("Known limitations")).toBeInTheDocument()
   })
 
-  it("renders the validation checklist", () => {
+  it("renders determinism explanation mentioning AAPL", () => {
     render(<TransparencySection />)
-    expect(screen.getByText(/Before acting on any candidate/)).toBeInTheDocument()
-    expect(screen.getByText(/Does the thesis make sense/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Enter AAPL today and tomorrow with the same data/)
+    ).toBeInTheDocument()
   })
 })
 
 describe("CTASection", () => {
-  it("renders the headline", () => {
+  it("renders CTA description", () => {
     render(<CTASection />)
     expect(
-      screen.getByText(/Replace hours of screening/)
+      screen.getByText(/See the full pipeline in action/)
     ).toBeInTheDocument()
   })
 
-  it("renders both comparison cards", () => {
+  it("renders CTA links with correct hrefs", () => {
     render(<CTASection />)
-    expect(screen.getByText("Without a system")).toBeInTheDocument()
-    expect(screen.getByText("With Margin Invest")).toBeInTheDocument()
-  })
+    const dashboardLink = screen.getByRole("link", {
+      name: /Explore the Dashboard/i,
+    })
+    expect(dashboardLink).toHaveAttribute("href", "/dashboard")
 
-  it("renders CTA links", () => {
-    render(<CTASection />)
-    expect(
-      screen.getByRole("link", { name: /Score your first stock free/i })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole("link", { name: /Compare plans/i })
-    ).toBeInTheDocument()
+    const guidesLink = screen.getByRole("link", {
+      name: /Read the Guides/i,
+    })
+    expect(guidesLink).toHaveAttribute("href", "/guides")
   })
 })

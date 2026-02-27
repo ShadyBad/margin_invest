@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { motion } from "framer-motion"
 import { ScoreBreakdownBars } from "../visuals/score-breakdown-bars"
 
@@ -8,7 +9,8 @@ const ease = [0.22, 1, 0.36, 1] as const
 const pillars = [
   {
     name: "Quality",
-    desc: "Measures the durability and efficiency of a business \u2014 how well it converts capital into returns, and whether those returns are real.",
+    count: 7,
+    desc: "Measures the durability and efficiency of a business — how well it converts capital into returns, and whether those returns are real.",
     borderColor: "border-t-accent",
     titleColor: "text-accent",
     factors: [
@@ -23,13 +25,14 @@ const pillars = [
   },
   {
     name: "Value",
-    desc: "Measures what you\u2019re paying relative to what the business generates \u2014 across multiple valuation lenses to avoid single-metric traps.",
+    count: 7,
+    desc: "Measures what you're paying relative to what the business generates — across multiple valuation lenses to avoid single-metric traps.",
     borderColor: "border-t-bullish",
     titleColor: "text-bullish",
     factors: [
       "DCF Margin of Safety",
       "EV/FCF",
-      "Acquirer\u2019s Multiple",
+      "Acquirer's Multiple",
       "Owner Earnings Yield",
       "Shareholder Yield",
       "Reverse DCF Growth Gap",
@@ -38,11 +41,12 @@ const pillars = [
   },
   {
     name: "Momentum",
+    count: 6,
     desc: "Measures whether the market, insiders, and institutions are confirming what the fundamentals suggest.",
     borderColor: "border-t-warning",
     titleColor: "text-warning",
     factors: [
-      "Price Momentum (12\u20111 month)",
+      "Price Momentum (12‑1 month)",
       "Standardized Unexpected Earnings",
       "Insider Cluster Score",
       "Institutional Accumulation",
@@ -53,6 +57,8 @@ const pillars = [
 ]
 
 export function ScoringSection() {
+  const [expandedPillar, setExpandedPillar] = useState<string | null>(null)
+
   return (
     <section className="border-t border-border-subtle">
       <div
@@ -72,7 +78,7 @@ export function ScoringSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.4, ease }}
         >
-          Multi-Factor Scoring
+          Stage 3 · Factor Scoring
         </motion.p>
 
         <motion.h2
@@ -82,7 +88,7 @@ export function ScoringSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          20+ factors. Three pillars. Sector-neutral ranking.
+          20 factors. Three pillars. Sector-neutral ranking.
         </motion.h2>
 
         <motion.p
@@ -92,11 +98,10 @@ export function ScoringSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
-          Every stock that passes elimination is scored across 20+ quantitative
-          factors organized into three pillars. Each factor is ranked within its own
-          sector first — a tech company&apos;s profitability is compared to other tech
-          companies, not to utilities. This sector-neutral approach ensures scores
-          reflect genuine outlier performance among true peers.
+          AAPL passed all filters. Now it enters multi-factor scoring across
+          three pillars. Each factor is ranked within AAPL&apos;s GICS sector.
+          A percentile of 85 means AAPL scores better than 85% of its
+          tech-sector peers on that factor.
         </motion.p>
 
         {/* Pillar cards */}
@@ -104,28 +109,49 @@ export function ScoringSection() {
           {pillars.map((pillar, i) => (
             <motion.div
               key={pillar.name}
-              className={`p-6 border border-border-primary rounded-lg bg-bg-elevated border-t-2 ${pillar.borderColor}`}
+              className={`border border-border-primary rounded-lg bg-bg-elevated border-t-2 ${pillar.borderColor} overflow-hidden`}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.08, ease }}
             >
-              <h3 className={`text-[18px] font-semibold ${pillar.titleColor} mb-3`}>
-                {pillar.name}
-              </h3>
-              <p className="text-[14px] text-text-secondary leading-relaxed mb-4">
-                {pillar.desc}
-              </p>
-              <div className="space-y-1">
-                {pillar.factors.map((factor) => (
-                  <span
-                    key={factor}
-                    className="block text-[12px] text-text-tertiary font-mono"
+              <button
+                type="button"
+                className="w-full p-6 text-left"
+                onClick={() =>
+                  setExpandedPillar(
+                    expandedPillar === pillar.name ? null : pillar.name
+                  )
+                }
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3
+                    className={`text-[18px] font-semibold ${pillar.titleColor}`}
                   >
-                    {factor}
+                    {pillar.name}
+                  </h3>
+                  <span className="text-[13px] font-mono text-text-tertiary">
+                    {pillar.count} factors
                   </span>
-                ))}
-              </div>
+                </div>
+                <p className="text-[14px] text-text-secondary leading-relaxed">
+                  {pillar.desc}
+                </p>
+              </button>
+              {expandedPillar === pillar.name && (
+                <div className="px-6 pb-5 pt-0">
+                  <div className="border-t border-border-subtle pt-3 space-y-1">
+                    {pillar.factors.map((factor) => (
+                      <span
+                        key={factor}
+                        className="block text-[12px] text-text-tertiary font-mono"
+                      >
+                        {factor}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           ))}
         </div>
@@ -138,11 +164,12 @@ export function ScoringSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          Factor scores are converted to percentile ranks within each sector, then
-          combined into a pillar average. Pillar weights adjust based on the
-          company&apos;s growth stage — a high-growth company is weighted differently
-          than a mature cash cow. The final composite score is re-ranked across the
-          entire universe to produce a single conviction percentile.
+          Factor scores are converted to percentile ranks within each sector,
+          then combined into a pillar average. Pillar weights adjust based on
+          the company&apos;s growth stage — a high-growth company is weighted
+          differently than a mature cash cow. The final composite score is
+          re-ranked across the entire universe to produce a single conviction
+          percentile.
         </motion.p>
 
         {/* Score breakdown visual */}
