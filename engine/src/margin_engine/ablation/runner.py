@@ -17,6 +17,7 @@ from margin_engine.backtesting.factor_registry import FactorRegistry
 from margin_engine.backtesting.models import PerformanceMetrics
 from margin_engine.backtesting.pit_provider import PointInTimeProvider
 from margin_engine.backtesting.replay_orchestrator import ReplayConfig, ReplayOrchestrator
+from margin_engine.regime.models import RegimeState
 
 ALL_FILTER_NAMES: set[str] = {
     "liquidity",
@@ -69,6 +70,7 @@ class AblationResult(BaseModel):
     metrics: PerformanceMetrics
     survivor_counts: list[int] = Field(default_factory=list)
     monthly_returns: list[float] = Field(default_factory=list)
+    regime_tags: list[RegimeState] = Field(default_factory=list)
 
 
 class AblationRunner:
@@ -193,9 +195,15 @@ class AblationRunner:
         # Extract monthly portfolio returns from snapshots
         monthly_returns = [snap.portfolio_return for snap in result.snapshots]
 
+        # Extract regime tags from audit records
+        regime_tags = [
+            rec.regime_state for rec in result.audit_log if rec.regime_state is not None
+        ]
+
         return AblationResult(
             combination=combination,
             metrics=result.metrics,
             survivor_counts=survivor_counts,
             monthly_returns=monthly_returns,
+            regime_tags=regime_tags,
         )

@@ -12,6 +12,8 @@ import math
 import time
 from datetime import date
 
+import numpy as np
+
 from pydantic import BaseModel, Field
 
 from margin_engine.backtesting.factor_registry import FactorRegistry
@@ -30,6 +32,8 @@ from margin_engine.backtesting.regime_classifier import (
     segment_by_regime,
 )
 from margin_engine.config.filter_config import FilterConfig
+from margin_engine.regime.classifier import MultiDimensionalRegimeClassifier
+from margin_engine.regime.models import RegimeState
 from margin_engine.scoring.filters.pipeline import run_elimination_filters
 
 logger = logging.getLogger(__name__)
@@ -64,6 +68,9 @@ class RebalanceAuditRecord(BaseModel):
     available_factors: list[str]
     missing_factors: list[str]
     regime: MarketRegimeHistorical
+    regime_state: RegimeState | None = Field(
+        default=None, description="Multi-dimensional regime at rebalance"
+    )
 
 
 class FactorTimelineEntry(BaseModel):
@@ -107,6 +114,7 @@ class ReplayOrchestrator:
         benchmark_prices: dict[date, float] | None = None,
         filter_config: FilterConfig | None = None,
         disabled_filters: set[str] | None = None,
+        regime_classifier: MultiDimensionalRegimeClassifier | None = None,
     ) -> None:
         self._config = config
         self._provider = pit_provider
@@ -114,6 +122,7 @@ class ReplayOrchestrator:
         self._benchmark_prices = benchmark_prices or {}
         self._filter_config = filter_config
         self._disabled_filters = disabled_filters
+        self._regime_classifier = regime_classifier
         self._calculator = PerformanceCalculator()
 
     def run(self) -> ReplayResult:
@@ -136,6 +145,13 @@ class ReplayOrchestrator:
         benchmark_value = STARTING_CAPITAL
         prev_holdings: list[HoldingRecord] = []
         initial_benchmark_price: float | None = None
+
+        # Multi-dimensional regime classification history accumulators.
+        # In a synthetic backtest we derive vol and credit observations from
+        # benchmark returns so the plumbing works even without real VIX / OAS data.
+        vol_observations: list[float] = []
+        credit_observations: list[float] = []
+        benchmark_peak = STARTING_CAPITAL
 
         for i, rebal_date in enumerate(rebalance_dates):
             # 1. Load PIT universe
@@ -242,11 +258,43 @@ class ReplayOrchestrator:
                 bench_return = (benchmark_value - prev_bv) / prev_bv if prev_bv > 0 else 0.0
 
             # 10. Regime classification (use benchmark drawdown for market-level regime)
-            bench_drawdown = max(0, (STARTING_CAPITAL - benchmark_value) / STARTING_CAPITAL)
+            benchmark_peak = max(benchmark_peak, benchmark_value)
+            bench_drawdown = max(0, (benchmark_peak - benchmark_value) / benchmark_peak)
             regime = classify_regime(
                 drawdown_from_peak=bench_drawdown,
                 in_nber_recession=is_in_recession(rebal_date),
             )
+
+            # 10b. Multi-dimensional regime classification (optional).
+            #      Accumulate synthetic vol/credit observations from benchmark returns
+            #      so the plumbing works even without real market data sources.
+            regime_state_value: RegimeState | None = None
+            if self._regime_classifier is not None:
+                # Synthetic volatility proxy: absolute benchmark return (annualised)
+                synthetic_vol = abs(bench_return) * (12.0 ** 0.5) if bench_return != 0.0 else 0.15
+                vol_observations.append(synthetic_vol)
+
+                # Synthetic credit spread proxy: higher when benchmark drops
+                base_spread = 150.0  # baseline OAS in bps
+                synthetic_spread = base_spread + max(0.0, -bench_return * 5000.0)
+                credit_observations.append(synthetic_spread)
+
+                min_hist = self._regime_classifier.config.min_history_months
+                if len(vol_observations) >= min_hist:
+                    # Trailing 12-month return from snapshots
+                    trailing_returns = portfolio_returns_list[-12:] if portfolio_returns_list else []
+                    trailing_12m = sum(trailing_returns) if trailing_returns else 0.0
+
+                    regime_state_value = self._regime_classifier.classify(
+                        as_of_date=rebal_date,
+                        realized_vol=vol_observations[-1],
+                        trailing_12m_return=trailing_12m,
+                        drawdown_from_peak=bench_drawdown,
+                        shiller_cape=25.0,  # synthetic placeholder
+                        credit_spread_bps=credit_observations[-1],
+                        vol_history=np.array(vol_observations),
+                        credit_history=np.array(credit_observations),
+                    )
 
             snapshot_record = MonthlySnapshot(
                 date=rebal_date,
@@ -283,6 +331,7 @@ class ReplayOrchestrator:
                     available_factors=[f.name for f in available],
                     missing_factors=[f.name for f in missing],
                     regime=regime,
+                    regime_state=regime_state_value,
                 )
             )
 
