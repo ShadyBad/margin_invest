@@ -33,9 +33,11 @@ from margin_api.db.models import (
     IngestionTickerStatus,
     JobRun,
     MlModelRun,
+    PipelineApproval,
     Score,
     UniverseSnapshot,
     V3Score,
+    V4Score,
 )
 from margin_api.db.session import get_engine, get_session_factory, reset_engine_cache
 from margin_api.routes.events import add_event, add_notification
@@ -760,18 +762,170 @@ async def full_score_v4(
             await session.commit()
         return {"status": "failed", "pipeline_id": pipeline_id, "error": str(e)}
 
-    # Emit score change events and broadcast via WebSocket
-    try:
-        async with session_factory() as session:
-            n_events = await _emit_score_change_events(session)
-            if n_events:
-                logger.info("[score_v4] Emitted %d score change events", n_events)
-                await _broadcast_score_events(session)
-                logger.info("[score_v4] Broadcast score change events via WebSocket")
-    except Exception as e:
-        logger.warning("[score_v4] Score change event emission failed: %s", e)
+    # Chain to stage_scores for governance approval before publishing
+    redis: ArqRedis | None = ctx.get("redis")
+    if redis:
+        scored_at_iso = datetime.now(UTC).isoformat()
+        await redis.enqueue_job(
+            "stage_scores",
+            pipeline_id,
+            job_id,
+            scored_at_iso,
+            _job_id=f"stage_scores:{uuid.uuid4().hex[:8]}",
+        )
+        logger.info("[score_v4] Chained -> stage_scores (pipeline=%s)", pipeline_id)
+    else:
+        logger.warning("[score_v4] No redis in worker context — cannot chain to stage_scores")
 
     return {"status": "completed", "pipeline_id": pipeline_id}
+
+
+# ---------------------------------------------------------------------------
+# Stage scores (governance gate before publishing)
+# ---------------------------------------------------------------------------
+
+
+async def _stage_scores_impl(
+    session: AsyncSession,
+    pipeline_id: str | None,
+    scored_at: datetime,
+) -> dict:
+    """Create a PipelineApproval for unpublished V4Scores at the given scored_at.
+
+    Compares each new score's conviction against the latest published score for
+    the same asset to count conviction changes.
+
+    Returns a dict with status, approval_id, and ticker_count.
+    """
+    # Find all unpublished V4Scores at this scored_at
+    result = await session.execute(
+        select(V4Score).where(
+            V4Score.scored_at == scored_at,
+            V4Score.published == False,  # noqa: E712
+        )
+    )
+    new_scores = result.scalars().all()
+    ticker_count = len(new_scores)
+
+    # Count conviction changes vs latest published score per asset
+    conviction_changes = 0
+    for new_score in new_scores:
+        prev_result = await session.execute(
+            select(V4Score)
+            .where(
+                V4Score.asset_id == new_score.asset_id,
+                V4Score.published == True,  # noqa: E712
+            )
+            .order_by(V4Score.scored_at.desc())
+            .limit(1)
+        )
+        prev_score = prev_result.scalar_one_or_none()
+        if prev_score and prev_score.conviction != new_score.conviction:
+            conviction_changes += 1
+
+    # Create the PipelineApproval
+    approval = PipelineApproval(
+        gate_type="score_publish",
+        status="staged",
+        pipeline_id=pipeline_id,
+        payload_ref={
+            "scored_at": scored_at.isoformat(),
+            "ticker_count": ticker_count,
+        },
+        impact_summary={
+            "ticker_count": ticker_count,
+            "conviction_changes": conviction_changes,
+        },
+        expires_at=datetime.now(UTC) + timedelta(hours=24),
+    )
+    session.add(approval)
+    await session.flush()
+
+    approval_id = approval.id
+    await session.commit()
+
+    logger.info(
+        "[stage_scores] Staged %d scores (conviction_changes=%d, approval=%d)",
+        ticker_count,
+        conviction_changes,
+        approval_id,
+    )
+
+    return {
+        "status": "staged",
+        "approval_id": approval_id,
+        "ticker_count": ticker_count,
+    }
+
+
+async def stage_scores(
+    ctx: dict,
+    pipeline_id: str | None = None,
+    parent_job_id: int | None = None,
+    scored_at_iso: str | None = None,
+) -> dict:
+    """Worker entry point: create a PipelineApproval for newly scored V4Scores.
+
+    Chained from full_score_v4 after scoring completes.
+    """
+    logger.info(
+        "[stage_scores] Starting (pipeline=%s, parent=%s, scored_at=%s)",
+        pipeline_id,
+        parent_job_id,
+        scored_at_iso,
+    )
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="stage_scores",
+            status="running",
+            triggered_by="chained",
+            parent_job_id=parent_job_id,
+            pipeline_id=pipeline_id,
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        scored_at = datetime.fromisoformat(scored_at_iso) if scored_at_iso else datetime.now(UTC)
+
+        async with session_factory() as session:
+            result = await _stage_scores_impl(session, pipeline_id, scored_at)
+
+        # Mark job completed
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        logger.info("[stage_scores] Complete: %s", result)
+        return result
+
+    except Exception as e:
+        logger.exception("[stage_scores] Failed: %s", e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "failed", "pipeline_id": pipeline_id, "error": str(e)}
 
 
 # ---------------------------------------------------------------------------
@@ -1767,6 +1921,7 @@ class WorkerSettings:
         full_score,
         full_score_v3,
         full_score_v4,
+        stage_scores,
         backtest_validate,
         train_ml_models,
         live_price_poll,
