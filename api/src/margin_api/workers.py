@@ -487,6 +487,34 @@ async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dic
         run.duration_seconds or 0,
     )
 
+    # Run post-ingestion consistency validation (non-blocking)
+    try:
+        from margin_api.services.consistency import validate_universe_consistency
+
+        async with session_factory() as session:
+            # Get successfully ingested tickers for this run
+            succeeded_result = await session.execute(
+                select(IngestionTickerStatus.ticker).where(
+                    IngestionTickerStatus.run_id == int(run_id),
+                    IngestionTickerStatus.status == "succeeded",
+                )
+            )
+            ingested_tickers = [row[0] for row in succeeded_result.all()]
+
+            if ingested_tickers:
+                logger.info(
+                    "%s Running consistency validation on %d tickers",
+                    label,
+                    len(ingested_tickers),
+                )
+                await validate_universe_consistency(session, tickers=ingested_tickers)
+                await session.commit()
+                logger.info("%s Consistency validation complete", label)
+            else:
+                logger.info("%s No succeeded tickers — skipping consistency validation", label)
+    except Exception:
+        logger.exception("%s Consistency validation failed (non-blocking)", label)
+
     redis: ArqRedis | None = ctx.get("redis")
     if redis:
         await redis.enqueue_job("full_score", pipeline_id)
