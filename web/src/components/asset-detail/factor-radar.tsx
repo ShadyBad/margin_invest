@@ -177,11 +177,11 @@ export function FactorRadar({
               strokeDasharray={strokeDasharray}
               fill="var(--color-accent, #1A7A5A)"
               fillOpacity={fillOpacity}
-              onClick={(_: unknown, index: number) => {
+              onClick={((_: unknown, index: number) => {
                 if (onAxisClick && data[index]) {
                   onAxisClick(data[index].factor)
                 }
-              }}
+              }) as any}
             />
             <Legend
               wrapperStyle={{

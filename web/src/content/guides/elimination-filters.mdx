@@ -25,7 +25,7 @@ Detects earnings manipulation. Companies with artificially inflated earnings are
 
 The Beneish M-Score is a probabilistic model that uses eight financial ratio indexes to identify whether a company has manipulated its reported earnings. Each index captures a different dimension of financial statement distortion -- from revenue recognition timing to asset quality deterioration.
 
-<Formula>M-Score = -4.84 + 0.920(DSRI) + 0.528(GMI) + 0.404(AQI) + 0.892(SGI) + 0.115(DEPI) - 0.172(SGAI) + 4.679(TATA) - 0.327(LVGI)</Formula>
+<Formula>{"M-Score = -4.84 + 0.920(DSRI) + 0.528(GMI) + 0.404(AQI) + 0.892(SGI) + 0.115(DEPI) - 0.172(SGAI) + 4.679(TATA) - 0.327(LVGI)"}</Formula>
 
 **Threshold:** M-Score > -1.78 signals likely manipulation and **fails** the filter. Scores at or below -1.78 pass.
 
@@ -58,7 +58,7 @@ Predicts bankruptcy probability. Companies in the distress zone are excluded.
 
 The engine uses the Z'' (Z-double-prime) variant, which is designed for non-manufacturing and emerging-market companies. It removes the sales/assets ratio from the original model, making it applicable across sectors.
 
-<Formula>Z'' = 6.56(WC/TA) + 3.26(RE/TA) + 6.72(EBIT/TA) + 1.05(Equity/TL)</Formula>
+<Formula>{"Z'' = 6.56(WC/TA) + 3.26(RE/TA) + 6.72(EBIT/TA) + 1.05(Equity/TL)"}</Formula>
 
 **Threshold:** Z-Score < 1.1 indicates the distress zone and **fails** the filter. Scores at or above 1.1 pass.
 
@@ -93,7 +93,7 @@ When total liabilities are zero (rare but possible), the Equity/TL ratio is capp
 
 Checks if the company can pay its near-term bills. A low current ratio means the company may struggle to meet short-term obligations as they come due.
 
-<Formula>Current Ratio = Current Assets / Current Liabilities</Formula>
+<Formula>{"Current Ratio = Current Assets / Current Liabilities"}</Formula>
 
 Thresholds are sector-adjusted:
 
@@ -125,7 +125,7 @@ The Technology threshold was calibrated at 0.8 rather than a higher value becaus
 
 Checks if the company earns enough to service its debt. Low interest coverage means the company barely generates enough operating income to pay interest, increasing default risk during economic downturns.
 
-<Formula>Interest Coverage = EBIT / Interest Expense</Formula>
+<Formula>{"Interest Coverage = EBIT / Interest Expense"}</Formula>
 
 The engine uses a **3-year median** for stability, smoothing out one-off spikes or dips in either EBIT or interest expense.
 
@@ -201,10 +201,10 @@ This filter has multiple sub-checks. A stock must pass all of them.
 
 | Market Cap Tier | Minimum Daily Dollar Volume |
 |----------------|----------------------------|
-| Mega Cap (>$200B) | $50M |
+| Mega Cap (&gt;$200B) | $50M |
 | Large Cap ($10B-$200B) | $20M |
 | Mid Cap ($2B-$10B) | $5M |
-| Small Cap (<$2B) | $2M |
+| Small Cap (&lt;$2B) | $2M |
 
 **Additional requirements:**
 - At least **5 years** of trading history

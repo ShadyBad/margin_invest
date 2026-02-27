@@ -130,7 +130,7 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           quality={scoreData.quality}
           value={scoreData.value}
           momentum={scoreData.momentum}
-          sectorName={scoreData.sector}
+          sectorName={scoreData.sector ?? undefined}
         />
       )}
 

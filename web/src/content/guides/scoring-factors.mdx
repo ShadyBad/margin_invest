@@ -25,7 +25,7 @@ The Quality pillar measures the fundamental strength of the business — how pro
 
 How much economic value the business creates from its assets before operating expenses and financing costs. Research has shown this to be one of the strongest single predictors of future stock returns.
 
-<Formula>(Revenue - COGS) / Total Assets</Formula>
+<Formula>{"(Revenue - COGS) / Total Assets"}</Formula>
 
 **Source:** Novy-Marx (2013), "The Other Side of Value: The Gross Profitability Premium"
 
@@ -37,7 +37,7 @@ Net income is polluted by capital structure decisions (debt vs. equity), tax str
 
 Measures economic value creation — the gap between what a company earns on its invested capital and what that capital costs. A positive spread means every dollar deployed generates more than it costs. A negative spread means the business is destroying value regardless of reported accounting profits.
 
-<Formula>NOPAT / Invested Capital - WACC</Formula>
+<Formula>{"NOPAT / Invested Capital - WACC"}</Formula>
 
 **Source:** Mauboussin (2014), "Measuring the Moat"
 
@@ -49,7 +49,7 @@ WACC (weighted average cost of capital) blends the cost of equity (estimated via
 
 Detects earnings driven by accounting accruals rather than actual cash. When a company reports high net income but low operating cash flow, the difference is accruals — revenue recognized but not yet collected, expenses deferred, or other non-cash adjustments. High accruals historically predict poor future returns because they tend to reverse.
 
-<Formula>(Net Income - CFO) / Total Assets</Formula>
+<Formula>{"(Net Income - CFO) / Total Assets"}</Formula>
 
 **Source:** Sloan (1996), "Do Stock Prices Fully Reflect Information in Accruals and Cash Flows About Future Earnings?"
 
@@ -61,7 +61,7 @@ This formula produces a negative number when cash flow exceeds reported earnings
 
 A composite measure of financial strength improvement across nine binary signals spanning profitability, leverage, liquidity, and operating efficiency. Each signal scores 0 or 1; total ranges from 0 (worst) to 9 (best). Originally designed to separate winners from losers within deep-value stocks.
 
-<Formula>9-signal composite (ROA, CFO, leverage, liquidity, margin, turnover)</Formula>
+<Formula>{"9-signal composite (ROA, CFO, leverage, liquidity, margin, turnover)"}</Formula>
 
 **Source:** Piotroski (2000), "Value Investing: The Use of Historical Financial Statement Information to Separate Winners from Losers"
 
@@ -101,7 +101,7 @@ The Value pillar measures whether the stock is cheap relative to what the busine
 
 The gap between estimated intrinsic value (via discounted cash flow) and the current market price. A larger margin means the stock is more undervalued. This is the most fundamental valuation concept — buying a dollar of value for less than a dollar.
 
-<Formula>(Intrinsic Value - Price) / Intrinsic Value</Formula>
+<Formula>{"(Intrinsic Value - Price) / Intrinsic Value"}</Formula>
 
 **Source:** Klarman (1991), "Margin of Safety: Risk-Averse Value Investing Strategies for the Thoughtful Investor"
 
@@ -113,7 +113,7 @@ The engine projects free cash flows using a two-stage model: a near-term growth 
 
 Enterprise value relative to free cash flow — what you would pay for the entire business (including its debt) relative to the cash it generates. Lower is cheaper. Uses enterprise value rather than market cap to account for differences in capital structure, making comparisons fairer across companies with different debt levels.
 
-<Formula>(Market Cap + Debt - Cash) / (CFO - CapEx)</Formula>
+<Formula>{"(Market Cap + Debt - Cash) / (CFO - CapEx)"}</Formula>
 
 **Source:** Greenblatt (2006), "The Little Book That Beats the Market"
 
@@ -125,7 +125,7 @@ Two companies can have the same market cap but very different total costs to acq
 
 What an acquirer would pay relative to operating earnings. Simpler and often more predictive than price-to-earnings because it uses enterprise value (capturing debt) and EBIT (before financing and tax effects). Carlisle's research showed that the cheapest stocks on this metric systematically outperform.
 
-<Formula>Enterprise Value / EBIT</Formula>
+<Formula>{"Enterprise Value / EBIT"}</Formula>
 
 **Source:** Carlisle (2014), "Deep Value: Why Activist Investors and Other Contrarians Battle for Control of Losing Corporations"
 
@@ -145,7 +145,7 @@ Standard free cash flow subtracts total capital expenditures, which includes bot
 
 Total cash returned to shareholders as a percentage of market cap. Captures both dividends and buybacks, providing a more complete picture of capital return than dividend yield alone. Many high-quality companies return capital primarily through repurchases rather than dividends, which a dividend-only lens would miss entirely.
 
-<Formula>(Dividends + Net Buybacks) / Market Cap</Formula>
+<Formula>{"(Dividends + Net Buybacks) / Market Cap"}</Formula>
 
 **Source:** Faber (2013), "Shareholder Yield: A Better Approach to Dividend Investing"
 
@@ -177,7 +177,7 @@ The Momentum pillar captures whether the stock has positive forces behind it —
 
 Classic 12-minus-1 month momentum: the stock's return over the past year, excluding the most recent month. Skipping the last month avoids the well-documented short-term reversal effect where recent winners tend to give back gains over very short periods.
 
-<Formula>(Price_now / Price_12mo_ago) - 1, skip last month</Formula>
+<Formula>{"(Price_now / Price_12mo_ago) - 1, skip last month"}</Formula>
 
 **Source:** Jegadeesh & Titman (1993), "Returns to Buying Winners and Selling Losers: Implications for Stock Market Efficiency"
 
@@ -189,7 +189,7 @@ Jegadeesh and Titman tested multiple formation periods and found that 12 months 
 
 Measures earnings surprise relative to the typical magnitude of surprises for that company. A company that beats expectations by $0.05 when its surprises are usually $0.01 is sending a much stronger signal than one that beats by $0.05 when its surprises regularly swing by $0.10. Captures the well-documented post-earnings announcement drift.
 
-<Formula>(Actual EPS - Expected EPS) / StdDev(surprises)</Formula>
+<Formula>{"(Actual EPS - Expected EPS) / StdDev(surprises)"}</Formula>
 
 **Source:** Foster, Olsen & Shevlin (1984), "Earnings Releases, Anomalies, and the Behavior of Security Returns"
 
@@ -201,7 +201,7 @@ When a company reports an earnings surprise, the stock price adjusts — but res
 
 Clusters of insider buying — three or more distinct insiders purchasing shares within a 90-day window, weighted by role seniority. A single insider buying could be routine or personal. Multiple insiders buying around the same time signals broad management conviction that the stock is undervalued. CEOs and CFOs carry more weight than directors.
 
-<Formula>3+ distinct insiders buying within 90 days, weighted by role</Formula>
+<Formula>{"3+ distinct insiders buying within 90 days, weighted by role"}</Formula>
 
 **Source:** Lakonishok & Lee (2001), "Are Insider Trades Informative?"
 
@@ -213,7 +213,7 @@ Lakonishok and Lee found that individual insider purchases have modest predictiv
 
 Tracks sophisticated institutional investors building new positions, based on 13F filings from a curated list of high-conviction managers. Net new positions from these managers indicate smart money recognizing value before the broader market does.
 
-<Formula>Net new positions from curated 13F filers</Formula>
+<Formula>{"Net new positions from curated 13F filers"}</Formula>
 
 **Source:** Cohen, Polk & Silli (2010), "Best Ideas"
 

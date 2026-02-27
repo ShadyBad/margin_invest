@@ -38,7 +38,7 @@ Is there a durable competitive advantage?
 
 A moat is the structural characteristic that lets a business earn excess returns without those returns being competed away. The engine scans for four moat signatures: scale economics (declining unit costs with volume), pricing power (ability to raise prices without proportional customer loss), switching costs (friction that discourages customers from leaving), and capital efficiency (high returns on invested capital relative to the asset base).
 
-<Formula>Moat Durability = count of detected moat signatures (0 to 4)</Formula>
+<Formula>{"Moat Durability = count of detected moat signatures (0 to 4)"}</Formula>
 
 The gate requires at least two distinct moat signatures. A single advantage can be eroded; multiple overlapping advantages are much harder to dislodge.
 
@@ -59,7 +59,7 @@ Can the company reinvest at high returns?
 
 A moat alone is not enough. The company must also have the opportunity and willingness to reinvest capital at attractive rates. The combination of high returns on incremental capital and a high reinvestment rate is what drives compounding -- earning strong returns on a growing capital base.
 
-<Formula>Compounding Power = Incremental ROIC x Reinvestment Rate x (1 - ROIC CV)</Formula>
+<Formula>{"Compounding Power = Incremental ROIC x Reinvestment Rate x (1 - ROIC CV)"}</Formula>
 
 - **Incremental ROIC** measures the return on each new dollar invested, not the average return on all capital. A company with a legacy business earning 30% ROIC that invests new capital at 8% has a high average ROIC but low incremental ROIC.
 - **Reinvestment Rate** is the fraction of earnings plowed back into the business. Higher reinvestment at high ROIC means faster compounding.
@@ -100,7 +100,7 @@ Even the best compounder can be overpriced.
 
 This gate uses a Reverse DCF approach: instead of projecting cash flows forward to estimate intrinsic value, it works backward from the current stock price to determine what growth rate the market is implicitly expecting. That implied growth rate is compared to the company's demonstrated growth trajectory.
 
-<Formula>Growth Gap = Historical Growth Rate - Market Implied Growth Rate</Formula>
+<Formula>{"Growth Gap = Historical Growth Rate - Market Implied Growth Rate"}</Formula>
 
 A positive growth gap means the market is pricing in less growth than the company has historically delivered. This provides a margin of safety on growth assumptions -- you are paying for less growth than the company has shown it can produce.
 
@@ -159,7 +159,7 @@ A cheap stock without a catalyst can stay cheap indefinitely -- the classic "val
 - **Institutional Accumulation Percentile** -- Are institutional investors increasing their positions? When sophisticated allocators start accumulating, it suggests the opportunity is being recognized.
 - **Earnings Surprise (SUE) Percentile** -- Has the company recently beaten earnings expectations? Positive surprises can trigger analyst upgrades and price re-rating.
 
-<Formula>Catalyst Strength = max(Insider Buying Percentile, Institutional Accumulation Percentile, SUE Percentile)</Formula>
+<Formula>{"Catalyst Strength = max(Insider Buying Percentile, Institutional Accumulation Percentile, SUE Percentile)"}</Formula>
 
 <TechnicalDetail summary="Catalyst thresholds">
 The gate requires catalyst strength above the 60th percentile -- the strongest of the three signals must rank in the top 40% of the universe.
@@ -189,9 +189,9 @@ The Piotroski F-Score is used as a secondary check -- companies with an F-Score 
 
 Within each track, gate scores are multiplied together rather than averaged. This is the single most important design choice in the scoring engine.
 
-<Formula>Track A Score = Moat x Reinvestment x Capital Allocation x Growth Gap</Formula>
+<Formula>{"Track A Score = Moat x Reinvestment x Capital Allocation x Growth Gap"}</Formula>
 
-<Formula>Track B Score = Valuation x Downside Protection x Catalyst x Quality Floor</Formula>
+<Formula>{"Track B Score = Valuation x Downside Protection x Catalyst x Quality Floor"}</Formula>
 
 <Example title="Why multiplication matters">
 Consider a company scoring 90th percentile on three gates but 10th percentile on one:

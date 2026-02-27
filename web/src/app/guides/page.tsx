@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import { Navbar } from "@/components/nav/navbar"
 import { GuideCategoryTabs } from "@/components/guides/guide-category-tabs"
-import { getAllGuides, groupGuidesByCategory } from "@/lib/guides"
+import { groupGuidesByCategory } from "@/lib/guides"
+import { getAllGuides } from "@/lib/guides.server"
 
 export const metadata: Metadata = {
   title: "Guides | Margin Invest",

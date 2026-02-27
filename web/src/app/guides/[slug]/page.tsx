@@ -5,12 +5,8 @@ import { compileMDX } from "next-mdx-remote/rsc"
 import { Navbar } from "@/components/nav/navbar"
 import { GuideLayout } from "@/components/guides/guide-layout"
 import { mdxComponents } from "@/components/guides/mdx-components"
-import {
-  getGuideBySlug,
-  getAllGuideSlugs,
-  extractTocHeadings,
-  type GuideFrontmatter,
-} from "@/lib/guides"
+import { extractTocHeadings, type GuideFrontmatter } from "@/lib/guides"
+import { getGuideBySlug, getAllGuideSlugs } from "@/lib/guides.server"
 
 interface PageProps {
   params: Promise<{ slug: string }>
