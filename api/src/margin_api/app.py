@@ -21,6 +21,7 @@ from margin_api.routes.correlations import router as correlations_router
 from margin_api.routes.dashboard import router as dashboard_router
 from margin_api.routes.dna import router as dna_router
 from margin_api.routes.events import router as events_router
+from margin_api.routes.governance import router as governance_router
 from margin_api.routes.health import router as health_router
 from margin_api.routes.ingestion import router as ingestion_router
 from margin_api.routes.jobs import router as jobs_router
@@ -134,6 +135,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router)
     app.include_router(dna_router)
     app.include_router(events_router)
+    app.include_router(governance_router)
     app.include_router(ingestion_router)
     app.include_router(jobs_router)
     app.include_router(backtest_router)

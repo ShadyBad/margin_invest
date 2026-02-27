@@ -1,0 +1,29 @@
+"""Pydantic schemas for governance admin endpoints."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from pydantic import BaseModel
+
+
+class ApprovalSummary(BaseModel):
+    id: int
+    gate_type: str
+    status: str
+    pipeline_id: str | None = None
+    payload_ref: dict | None = None
+    impact_summary: dict | None = None
+    submitted_at: datetime | None = None
+    decided_at: datetime | None = None
+    decided_by: int | None = None
+    decision_reason: str | None = None
+    expires_at: datetime | None = None
+
+
+class ApprovalListResponse(BaseModel):
+    approvals: list[ApprovalSummary]
+
+
+class ApprovalDecisionRequest(BaseModel):
+    reason: str | None = None
