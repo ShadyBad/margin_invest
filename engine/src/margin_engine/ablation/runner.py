@@ -17,6 +17,7 @@ from margin_engine.backtesting.factor_registry import FactorRegistry
 from margin_engine.backtesting.models import PerformanceMetrics
 from margin_engine.backtesting.pit_provider import PointInTimeProvider
 from margin_engine.backtesting.replay_orchestrator import ReplayConfig, ReplayOrchestrator
+from margin_engine.regime.classifier import MultiDimensionalRegimeClassifier
 from margin_engine.regime.models import RegimeState
 
 ALL_FILTER_NAMES: set[str] = {
@@ -87,11 +88,13 @@ class AblationRunner:
         pit_provider: PointInTimeProvider,
         factor_registry: FactorRegistry,
         benchmark_prices: dict[date, float] | None = None,
+        regime_classifier: MultiDimensionalRegimeClassifier | None = None,
     ) -> None:
         self._config = config
         self._provider = pit_provider
         self._registry = factor_registry
         self._benchmark_prices = benchmark_prices
+        self._regime_classifier = regime_classifier
 
     # ------------------------------------------------------------------
     # Public API
@@ -185,6 +188,7 @@ class AblationRunner:
             factor_registry=self._registry,
             benchmark_prices=self._benchmark_prices,
             disabled_filters=combination.disabled_filters,
+            regime_classifier=self._regime_classifier,
         )
 
         result = orchestrator.run()

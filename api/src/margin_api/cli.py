@@ -2156,6 +2156,99 @@ def run_ablation(
         print(f"\nReport saved to {report_path}")
 
 
+def run_regime_characterize(
+    start_date: str = "2006-01-01",
+    end_date: str | None = None,
+    output: str | None = None,
+    bootstrap_n: int = 1000,
+) -> None:
+    """Run regime characterization study on the filter architecture."""
+    from datetime import date as date_type
+
+    from margin_engine.backtesting.factor_registry import FactorRegistry
+    from margin_engine.regime.study import RegimeCharacterizationStudy, RegimeStudyConfig
+
+    # The synthetic PIT provider lives in engine/tests — add to sys.path so we
+    # can import it at runtime.
+    engine_tests_dir = str(Path(__file__).resolve().parents[3] / "engine" / "tests")
+    if engine_tests_dir not in sys.path:
+        sys.path.insert(0, engine_tests_dir)
+    from backtesting.helpers import build_pit_provider_with_tickers
+
+    # Parse dates
+    start = date_type.fromisoformat(start_date)
+    end = date_type.fromisoformat(end_date) if end_date else date_type.today()
+
+    tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "JNJ", "XOM", "PG"]
+
+    logger.info("Building synthetic PIT provider for %d tickers...", len(tickers))
+    pit_provider = build_pit_provider_with_tickers(tickers, start=start, end=end)
+
+    config = RegimeStudyConfig(
+        start_date=start,
+        end_date=end,
+        bootstrap_resamples=bootstrap_n,
+    )
+    registry = FactorRegistry.default()
+
+    logger.info(
+        "Running regime characterization study (start=%s, end=%s, bootstrap_n=%d)...",
+        start,
+        end,
+        bootstrap_n,
+    )
+    study = RegimeCharacterizationStudy(
+        config=config,
+        pit_provider=pit_provider,
+        factor_registry=registry,
+        bootstrap_resamples=bootstrap_n,
+    )
+    report = study.run()
+
+    # Print summary
+    print("\n" + "=" * 72)
+    print("REGIME CHARACTERIZATION STUDY RESULTS")
+    print("=" * 72)
+
+    print(f"\nDuration: {report.duration_seconds:.2f}s")
+
+    # Observed regimes
+    print(f"\n--- Observed Regimes ({len(report.observed_regimes)}) ---")
+    for regime in report.observed_regimes:
+        print(f"  {regime}")
+
+    # Gate profiles
+    print(f"\n--- Gate Profiles ({len(report.gate_profiles)}) ---")
+    for gate_name, profile in sorted(report.gate_profiles.items()):
+        print(f"  {gate_name:30s}  PDR={profile.max_pdr:+.4f}  VIF={profile.max_vif:.4f}")
+        if profile.most_degraded_regime:
+            print(f"    Most degraded in: {profile.most_degraded_regime}")
+
+    # Regime segmented metrics
+    if report.regime_segmented_metrics:
+        print("\n--- Regime-Segmented Metrics ---")
+        for label, rsm in report.regime_segmented_metrics.items():
+            print(f"  [{label}]")
+            for key, slc in sorted(rsm.slices.items()):
+                print(
+                    f"    {key:40s}  "
+                    f"Sharpe={slc.sharpe_ratio:+.4f}  "
+                    f"DD={slc.max_drawdown:+.4f}  "
+                    f"N={slc.n_months}"
+                )
+
+    print("\n" + "=" * 72)
+
+    # Optionally save JSON report
+    if output:
+        import json
+
+        report_path = Path(output)
+        report_path.write_text(json.dumps(report.model_dump(), indent=2, default=str))
+        logger.info("Report saved to %s", report_path)
+        print(f"\nReport saved to {report_path}")
+
+
 def main() -> None:
     """CLI entry point with argparse."""
     logging.basicConfig(
@@ -2320,6 +2413,33 @@ def main() -> None:
         help="Bootstrap resamples (default: 1000)",
     )
 
+    # regime-characterize
+    regime_parser = subparsers.add_parser(
+        "regime-characterize",
+        help="Run regime characterization study on the filter architecture",
+    )
+    regime_parser.add_argument(
+        "--start-date",
+        default="2006-01-01",
+        help="Backtest start date (YYYY-MM-DD, default: 2006-01-01)",
+    )
+    regime_parser.add_argument(
+        "--end-date",
+        default=None,
+        help="Backtest end date (YYYY-MM-DD, default: today)",
+    )
+    regime_parser.add_argument(
+        "--output",
+        default=None,
+        help="Path to save JSON report",
+    )
+    regime_parser.add_argument(
+        "--bootstrap-n",
+        type=int,
+        default=1000,
+        help="Bootstrap resamples (default: 1000)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "universe":
@@ -2359,6 +2479,13 @@ def main() -> None:
         )
     elif args.command == "ablation":
         run_ablation(
+            start_date=args.start_date,
+            end_date=args.end_date,
+            output=args.output,
+            bootstrap_n=args.bootstrap_n,
+        )
+    elif args.command == "regime-characterize":
+        run_regime_characterize(
             start_date=args.start_date,
             end_date=args.end_date,
             output=args.output,
