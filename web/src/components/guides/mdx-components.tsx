@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { TechnicalDetail } from "./technical-detail"
 
 // ---------------------------------------------------------------------------
 // Slugify helper (mirrors lib/guides.ts slugify for heading ID consistency)
@@ -187,4 +188,5 @@ export const mdxComponents = {
   Callout,
   Formula,
   Example,
+  TechnicalDetail,
 }
