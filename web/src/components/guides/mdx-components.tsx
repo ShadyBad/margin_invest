@@ -1,5 +1,7 @@
 import type { ReactNode } from "react"
+import { KnownLimitations } from "./known-limitations"
 import { TechnicalDetail } from "./technical-detail"
+import { VerifyItYourself } from "./verify-it-yourself"
 
 // ---------------------------------------------------------------------------
 // Slugify helper (mirrors lib/guides.ts slugify for heading ID consistency)
@@ -186,7 +188,9 @@ export const mdxComponents = {
 
   // Custom components (available in MDX content)
   Callout,
-  Formula,
   Example,
+  Formula,
+  KnownLimitations,
   TechnicalDetail,
+  VerifyItYourself,
 }
