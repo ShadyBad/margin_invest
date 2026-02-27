@@ -322,6 +322,7 @@ class V4Score(Base):
     ml_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     ml_override: Mapped[str] = mapped_column(String(20), default="none")
     detail: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    published: Mapped[bool] = mapped_column(default=False)
 
     asset: Mapped[Asset] = relationship(back_populates="v4_scores")
 
@@ -508,6 +509,7 @@ class MlModelRun(Base):
     # SHA-256 checksums for integrity verification before unpickling
     cluster_model_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
     vae_model_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    deployment_status: Mapped[str] = mapped_column(String(20), default="candidate")
 
 
 class ApiKey(Base):
@@ -876,4 +878,84 @@ class AuditLog(Base):
     detail: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
+    )
+
+
+# ---------------------------------------------------------------------------
+# Governance models
+# ---------------------------------------------------------------------------
+
+
+class PipelineApproval(Base):
+    """Tracks approval gates for high-stakes pipeline outputs."""
+
+    __tablename__ = "pipeline_approvals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    gate_type: Mapped[str] = mapped_column(String(30))
+    status: Mapped[str] = mapped_column(String(20), default="staged")
+    pipeline_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    payload_ref: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    impact_summary: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decided_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_pipeline_approvals_status", "status"),
+        Index("ix_pipeline_approvals_gate_type", "gate_type"),
+    )
+
+
+class GovernanceEvent(Base):
+    """Lightweight event log for governance actions."""
+
+    __tablename__ = "governance_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(80), index=True)
+    source: Mapped[str] = mapped_column(String(50))
+    detail: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
+    )
+
+
+class GovernanceConfig(Base):
+    """Key-value config for governance thresholds."""
+
+    __tablename__ = "governance_config"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    config_key: Mapped[str] = mapped_column(String(100), unique=True)
+    config_value: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class UserProposal(Base):
+    """System-generated proposals for end-user approval."""
+
+    __tablename__ = "user_proposals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    proposal_type: Mapped[str] = mapped_column(String(30))
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    payload: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_user_proposals_user_status", "user_id", "status"),
     )
