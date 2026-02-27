@@ -27,3 +27,23 @@ class ApprovalListResponse(BaseModel):
 
 class ApprovalDecisionRequest(BaseModel):
     reason: str | None = None
+
+
+class GovernanceEventResponse(BaseModel):
+    id: int
+    event_type: str
+    source: str
+    detail: dict | None = None
+    created_at: datetime | None = None
+
+
+class GovernanceEventListResponse(BaseModel):
+    events: list[GovernanceEventResponse]
+    total: int
+
+
+class GovernanceDashboardResponse(BaseModel):
+    pending_count: int
+    avg_approval_latency_hours: float | None = None
+    rejection_rate: float | None = None
+    recent_anomalies: list[dict] = []

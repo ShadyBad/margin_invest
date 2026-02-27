@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from arq.connections import ArqRedis, RedisSettings, create_pool
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
-from margin_api.db.models import PipelineApproval
+from margin_api.db.models import GovernanceEvent, PipelineApproval
 from margin_api.db.session import get_db
 from margin_api.middleware.rate_limit import limiter
 from margin_api.routes.admin import _verify_admin_key
@@ -20,6 +20,9 @@ from margin_api.schemas.governance import (
     ApprovalDecisionRequest,
     ApprovalListResponse,
     ApprovalSummary,
+    GovernanceDashboardResponse,
+    GovernanceEventListResponse,
+    GovernanceEventResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -196,3 +199,118 @@ async def reject_approval(
     await session.commit()
 
     return {"status": "rejected", "approval_id": approval.id}
+
+
+@router.get("/governance/dashboard")
+@limiter.limit("30/minute")
+async def governance_dashboard(
+    request: Request,
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> GovernanceDashboardResponse:
+    """Aggregated governance statistics dashboard."""
+    _verify_admin_key(x_admin_key)
+
+    # Count pending (staged) approvals
+    pending_result = await session.execute(
+        select(func.count()).select_from(PipelineApproval).where(
+            PipelineApproval.status == "staged"
+        )
+    )
+    pending_count = pending_result.scalar() or 0
+
+    # Average approval latency in hours (last 30 days)
+    thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
+    latency_result = await session.execute(
+        select(
+            func.avg(
+                func.julianday(PipelineApproval.decided_at)
+                - func.julianday(PipelineApproval.submitted_at)
+            )
+            * 24.0
+        )
+        .select_from(PipelineApproval)
+        .where(
+            PipelineApproval.status == "approved",
+            PipelineApproval.decided_at.isnot(None),
+            PipelineApproval.submitted_at >= thirty_days_ago,
+        )
+    )
+    avg_latency = latency_result.scalar()
+
+    # Rejection rate: rejected / (approved + rejected)
+    approved_count_result = await session.execute(
+        select(func.count()).select_from(PipelineApproval).where(
+            PipelineApproval.status == "approved"
+        )
+    )
+    approved_count = approved_count_result.scalar() or 0
+
+    rejected_count_result = await session.execute(
+        select(func.count()).select_from(PipelineApproval).where(
+            PipelineApproval.status == "rejected"
+        )
+    )
+    rejected_count = rejected_count_result.scalar() or 0
+
+    total_decided = approved_count + rejected_count
+    rejection_rate = (rejected_count / total_decided) if total_decided > 0 else None
+
+    return GovernanceDashboardResponse(
+        pending_count=pending_count,
+        avg_approval_latency_hours=round(avg_latency, 2) if avg_latency is not None else None,
+        rejection_rate=round(rejection_rate, 4) if rejection_rate is not None else None,
+        recent_anomalies=[],
+    )
+
+
+@router.get("/governance/events")
+@limiter.limit("30/minute")
+async def list_governance_events(
+    request: Request,
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+    event_type: str | None = None,
+    limit: int = Query(default=50, le=200, ge=1),
+    offset: int = Query(default=0, ge=0),
+) -> GovernanceEventListResponse:
+    """Paginated governance event log."""
+    _verify_admin_key(x_admin_key)
+
+    # Base query for filtering
+    base_filter = []
+    if event_type is not None:
+        base_filter.append(GovernanceEvent.event_type.like(f"{event_type}%"))
+
+    # Total count
+    count_query = select(func.count()).select_from(GovernanceEvent)
+    if base_filter:
+        count_query = count_query.where(*base_filter)
+    total_result = await session.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Paginated events
+    events_query = (
+        select(GovernanceEvent)
+        .order_by(GovernanceEvent.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    if base_filter:
+        events_query = events_query.where(*base_filter)
+    events_result = await session.execute(events_query)
+    events = events_result.scalars().all()
+
+    return GovernanceEventListResponse(
+        events=[
+            GovernanceEventResponse(
+                id=e.id,
+                event_type=e.event_type,
+                source=e.source,
+                detail=e.detail,
+                created_at=e.created_at,
+            )
+            for e in events
+        ],
+        total=total,
+    )

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from margin_api.app import create_app
 from margin_api.config import get_settings
 from margin_api.db.base import Base
-from margin_api.db.models import PipelineApproval
+from margin_api.db.models import GovernanceEvent, PipelineApproval
 from margin_api.db.session import get_db
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -639,3 +639,390 @@ class TestGovernanceIntegration:
         assert response.status_code == 200
         data = response.json()
         assert len(data["approvals"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# Helpers for dashboard/events tests
+# ---------------------------------------------------------------------------
+
+
+async def _create_event(
+    session: AsyncSession,
+    event_type: str = "score.staged",
+    source: str = "stage_scores",
+    detail: dict | None = None,
+    created_at: datetime | None = None,
+) -> GovernanceEvent:
+    """Create a GovernanceEvent record in the database."""
+    event = GovernanceEvent(
+        event_type=event_type,
+        source=source,
+        detail=detail or {"info": "test"},
+    )
+    if created_at is not None:
+        event.created_at = created_at
+    session.add(event)
+    await session.commit()
+    await session.refresh(event)
+    return event
+
+
+# ---------------------------------------------------------------------------
+# Tests: Governance Dashboard
+# ---------------------------------------------------------------------------
+
+
+class TestGovernanceDashboard:
+    """Integration tests for GET /governance/dashboard."""
+
+    @pytest.mark.asyncio
+    async def test_dashboard_pending_count(self, db_session, session_factory):
+        """Dashboard returns correct pending_count for staged approvals."""
+        await _create_approval(db_session, status="staged")
+        await _create_approval(db_session, status="staged")
+        await _create_approval(db_session, status="approved",
+                               decided_at=datetime.now(UTC))
+
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/dashboard",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["pending_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_dashboard_avg_approval_latency(self, db_session, session_factory):
+        """Dashboard returns avg_approval_latency_hours for approved approvals."""
+        now = datetime.now(UTC)
+        # Create an approved approval with known submitted_at and decided_at
+        approval = PipelineApproval(
+            gate_type="score_publish",
+            status="approved",
+            payload_ref={"run_id": 1},
+            impact_summary={"tickers": 5},
+            submitted_at=now - timedelta(hours=2),
+            decided_at=now,
+            expires_at=now + timedelta(hours=24),
+        )
+        db_session.add(approval)
+        # Create a second approved with 4-hour latency
+        approval2 = PipelineApproval(
+            gate_type="score_publish",
+            status="approved",
+            payload_ref={"run_id": 2},
+            impact_summary={"tickers": 3},
+            submitted_at=now - timedelta(hours=4),
+            decided_at=now,
+            expires_at=now + timedelta(hours=24),
+        )
+        db_session.add(approval2)
+        await db_session.commit()
+
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/dashboard",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        # Average of 2h and 4h = 3h
+        assert data["avg_approval_latency_hours"] is not None
+        assert abs(data["avg_approval_latency_hours"] - 3.0) < 0.5
+
+    @pytest.mark.asyncio
+    async def test_dashboard_no_approved_returns_none_latency(
+        self, db_session, session_factory
+    ):
+        """Dashboard returns None for avg_approval_latency_hours when no approved."""
+        await _create_approval(db_session, status="staged")
+
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/dashboard",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["avg_approval_latency_hours"] is None
+
+    @pytest.mark.asyncio
+    async def test_dashboard_rejection_rate(self, db_session, session_factory):
+        """Dashboard returns rejection_rate = rejected / (approved + rejected)."""
+        now = datetime.now(UTC)
+        # 2 approved, 1 rejected => rate = 1/3 ≈ 0.3333
+        for _ in range(2):
+            a = PipelineApproval(
+                gate_type="score_publish",
+                status="approved",
+                payload_ref={},
+                impact_summary={},
+                submitted_at=now - timedelta(hours=1),
+                decided_at=now,
+                expires_at=now + timedelta(hours=24),
+            )
+            db_session.add(a)
+        r = PipelineApproval(
+            gate_type="score_publish",
+            status="rejected",
+            payload_ref={},
+            impact_summary={},
+            submitted_at=now - timedelta(hours=1),
+            decided_at=now,
+            expires_at=now + timedelta(hours=24),
+        )
+        db_session.add(r)
+        await db_session.commit()
+
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/dashboard",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["rejection_rate"] is not None
+        assert abs(data["rejection_rate"] - 0.3333) < 0.01
+
+    @pytest.mark.asyncio
+    async def test_dashboard_no_decisions_returns_none_rate(
+        self, db_session, session_factory
+    ):
+        """Dashboard returns None for rejection_rate when no decisions exist."""
+        await _create_approval(db_session, status="staged")
+
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/dashboard",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["rejection_rate"] is None
+
+
+# ---------------------------------------------------------------------------
+# Tests: Governance Events
+# ---------------------------------------------------------------------------
+
+
+class TestGovernanceEvents:
+    """Integration tests for GET /governance/events."""
+
+    @pytest.mark.asyncio
+    async def test_events_returns_paginated(self, db_session, session_factory):
+        """Events endpoint returns paginated event list with total count."""
+        for i in range(5):
+            await _create_event(
+                db_session,
+                event_type=f"score.staged.{i}",
+                source="stage_scores",
+            )
+
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/events?limit=3&offset=0",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 5
+        assert len(data["events"]) == 3
+
+    @pytest.mark.asyncio
+    async def test_events_offset(self, db_session, session_factory):
+        """Events endpoint respects offset for pagination."""
+        for i in range(5):
+            await _create_event(
+                db_session,
+                event_type=f"score.staged.{i}",
+                source="stage_scores",
+            )
+
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/events?limit=50&offset=3",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 5
+        assert len(data["events"]) == 2  # 5 total - 3 offset = 2 remaining
+
+    @pytest.mark.asyncio
+    async def test_events_filters_by_event_type_prefix(
+        self, db_session, session_factory
+    ):
+        """Events endpoint filters by event_type prefix match."""
+        await _create_event(db_session, event_type="score.staged")
+        await _create_event(db_session, event_type="score.published")
+        await _create_event(db_session, event_type="ml.deployed")
+        await _create_event(db_session, event_type="circuit.tripped")
+
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/events?event_type=score",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        assert len(data["events"]) == 2
+        for event in data["events"]:
+            assert event["event_type"].startswith("score")
+
+    @pytest.mark.asyncio
+    async def test_events_returns_event_fields(self, db_session, session_factory):
+        """Events endpoint returns all expected fields for each event."""
+        await _create_event(
+            db_session,
+            event_type="score.staged",
+            source="stage_scores",
+            detail={"run_id": 42},
+        )
+
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/events",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        event = data["events"][0]
+        assert "id" in event
+        assert event["event_type"] == "score.staged"
+        assert event["source"] == "stage_scores"
+        assert event["detail"] == {"run_id": 42}
+        assert "created_at" in event
+
+    @pytest.mark.asyncio
+    async def test_events_requires_admin_key(self, db_session, session_factory):
+        """Events endpoint requires admin key."""
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/events",
+                headers={"X-Admin-Key": "wrong-key"},
+            )
+
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_dashboard_requires_admin_key(self, db_session, session_factory):
+        """Dashboard endpoint requires admin key."""
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get(
+                "/api/v1/admin/governance/dashboard",
+                headers={"X-Admin-Key": "wrong-key"},
+            )
+
+        assert response.status_code == 403
