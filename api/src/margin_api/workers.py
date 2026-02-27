@@ -1675,6 +1675,7 @@ async def train_ml_models(ctx: dict) -> dict:
                 model_qualifies=bool(model_qualifies),
                 overall_rank_ic=float(overall_rank_ic),
                 vae_rank_ic=float(vae_metrics.rank_ic) if vae_metrics else None,
+                deployment_status="candidate",
             )
             session.add(ml_run)
 
@@ -1691,6 +1692,12 @@ async def train_ml_models(ctx: dict) -> dict:
             )
             job.completed_at = datetime.now(UTC)
             await session.commit()
+            ml_run_id = ml_run.id
+
+        # Stage model for operator approval before it can be promoted to active
+        async with session_factory() as session:
+            stage_result = await _stage_ml_model_impl(session, ml_run_id)
+            logger.info("[train_ml] Staged model %d for operator approval", ml_run_id)
 
         logger.info(
             "[ml] Training complete: %d clusters, %d features, %d samples",
@@ -1715,6 +1722,135 @@ async def train_ml_models(ctx: dict) -> dict:
             job.completed_at = datetime.now(UTC)
             await session.commit()
         return {"status": "failed", "error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# ML model deployment gate
+# ---------------------------------------------------------------------------
+
+
+async def _stage_ml_model_impl(
+    session: AsyncSession,
+    model_run_id: int,
+) -> dict:
+    """Create a PipelineApproval for an ML model awaiting operator approval.
+
+    Fetches the MlModelRun, compares against the current active model (if any),
+    and creates a staged approval with impact metrics.
+
+    Returns a dict with status and approval_id.
+    """
+    # Fetch model run
+    result = await session.execute(
+        select(MlModelRun).where(MlModelRun.id == model_run_id)
+    )
+    model = result.scalar_one_or_none()
+
+    if model is None:
+        return {"status": "error", "message": "not found"}
+
+    # Build impact summary
+    impact_summary: dict = {
+        "rank_ic": model.overall_rank_ic,
+        "model_qualifies": model.model_qualifies,
+        "n_clusters": model.n_clusters,
+        "n_features": model.n_features,
+        "n_samples": model.n_samples,
+    }
+
+    # Compare against currently active model
+    active_result = await session.execute(
+        select(MlModelRun).where(MlModelRun.deployment_status == "active").limit(1)
+    )
+    active_model = active_result.scalar_one_or_none()
+
+    if active_model is not None:
+        previous_ic = active_model.overall_rank_ic or 0.0
+        current_ic = model.overall_rank_ic or 0.0
+        impact_summary["previous_rank_ic"] = previous_ic
+        impact_summary["rank_ic_delta"] = current_ic - previous_ic
+
+    # Create PipelineApproval
+    approval = PipelineApproval(
+        gate_type="ml_model_deploy",
+        status="staged",
+        payload_ref={"ml_model_run_id": model.id},
+        impact_summary=impact_summary,
+        expires_at=datetime.now(UTC) + timedelta(hours=48),
+    )
+    session.add(approval)
+    await session.flush()
+
+    approval_id = approval.id
+    await session.commit()
+
+    logger.info(
+        "[stage_ml] Staged model %d for operator approval (approval=%d)",
+        model_run_id,
+        approval_id,
+    )
+
+    return {"status": "staged", "approval_id": approval_id}
+
+
+async def _promote_ml_model_impl(
+    session: AsyncSession,
+    approval_id: int,
+    decided_by: int | None = None,
+    decision_reason: str | None = None,
+) -> dict:
+    """Promote a staged ML model to active after operator approval.
+
+    Retires all currently active models, sets the candidate to active,
+    and updates the PipelineApproval to approved.
+
+    Returns a dict with status, model_id, and approval_id.
+    """
+    # Fetch approval
+    result = await session.execute(
+        select(PipelineApproval).where(PipelineApproval.id == approval_id)
+    )
+    approval = result.scalar_one_or_none()
+
+    if approval is None:
+        return {"status": "error", "message": "not found"}
+
+    if approval.status != "staged":
+        return {"status": "error", "message": "not in staged status"}
+
+    # Get model ID from payload_ref
+    model_id = approval.payload_ref["ml_model_run_id"]
+
+    # Retire all currently active models
+    await session.execute(
+        update(MlModelRun)
+        .where(MlModelRun.deployment_status == "active")
+        .values(deployment_status="retired")
+    )
+
+    # Set candidate to active
+    await session.execute(
+        update(MlModelRun)
+        .where(MlModelRun.id == model_id)
+        .values(deployment_status="active")
+    )
+
+    # Update approval
+    approval.status = "approved"
+    approval.decided_at = datetime.now(UTC)
+    approval.decided_by = decided_by
+    approval.decision_reason = decision_reason
+
+    await session.commit()
+
+    logger.info(
+        "[promote_ml] Promoted model %d to active (approval=%d, decided_by=%s)",
+        model_id,
+        approval_id,
+        decided_by,
+    )
+
+    return {"status": "promoted", "model_id": model_id, "approval_id": approval_id}
 
 
 async def live_price_poll(ctx: dict) -> dict:
