@@ -1,0 +1,280 @@
+---
+title: "Conviction & Tracks"
+description: "How the dual-track system evaluates stocks as Compounders, Mispricings, or Both — and determines conviction levels."
+order: 3
+updatedAt: "2026-02-26"
+readingTime: 10
+category: "Concepts"
+---
+
+## Introduction
+
+Different investment theses require different evidence. A compounding business -- like a dominant retailer with decades of reinvestment runway -- needs proof of durable competitive advantage, disciplined capital allocation, and a reasonable price. A mispriced stock -- like a beaten-down cyclical trading below liquidation value -- needs proof of undervaluation, a margin of safety, and a catalyst to close the gap.
+
+These are fundamentally different ways to make money in equities, and evaluating them with a single scorecard would blur the distinctions that matter most. The dual-track system evaluates both theses independently, for every stock, every time.
+
+<Callout type="info">
+This guide explains the conviction and track system used by Margin Invest's scoring engine. It is educational content, not investment advice or a recommendation to buy or sell any security.
+</Callout>
+
+## The Dual-Track System
+
+Investors find returns in fundamentally different ways. Some buy great businesses and hold them for years, letting compounding do the work. Others buy cheap assets and wait for the market to correct its mistake. Both approaches have produced strong long-term returns when applied with discipline.
+
+The engine does not force you to choose. It runs two independent evaluations in parallel:
+
+- **Track A: Compounder** -- Identifies companies that compound shareholder wealth over time through operational excellence, reinvestment at high returns, and disciplined capital allocation.
+- **Track B: Mispricing** -- Identifies stocks trading at a meaningful discount to intrinsic value with downside protection and a near-term catalyst for re-rating.
+
+A stock can qualify on both tracks (rare and the strongest signal), one track, or neither. The two tracks are not mutually exclusive -- a high-quality business can also be temporarily undervalued -- but the combination is uncommon because the market tends to price quality businesses at a premium.
+
+## Track A -- Compounder
+
+Track A uses four gates, each scored on a 0-100 percentile scale. All four must show strength because the gates are multiplied together -- one weak gate kills the entire track score.
+
+### Gate 1: Moat Evidence
+
+Is there a durable competitive advantage?
+
+A moat is the structural characteristic that lets a business earn excess returns without those returns being competed away. The engine scans for four moat signatures: scale economics (declining unit costs with volume), pricing power (ability to raise prices without proportional customer loss), switching costs (friction that discourages customers from leaving), and capital efficiency (high returns on invested capital relative to the asset base).
+
+<Formula>Moat Durability = count of detected moat signatures (0 to 4)</Formula>
+
+The gate requires at least two distinct moat signatures. A single advantage can be eroded; multiple overlapping advantages are much harder to dislodge.
+
+<TechnicalDetail summary="Moat signature detection">
+Each moat signature is detected through a combination of financial metrics and trends:
+
+- **Scale economics:** Gross margin expansion coinciding with revenue growth over 3+ year periods. If the company grows and margins improve simultaneously, unit costs are likely declining.
+- **Pricing power:** Revenue-per-unit growth exceeding inflation while customer retention (or volume) remains stable. Price increases that do not reduce demand indicate brand strength or product differentiation.
+- **Switching costs:** Customer retention metrics, integration depth indicators, and contract renewal rates where available. High recurring revenue as a percentage of total revenue is a strong proxy.
+- **Capital efficiency:** ROIC consistently above WACC across multiple economic cycles, suggesting structural rather than cyclical profitability.
+
+A moat durability score of 3 or 4 is required for EXCEPTIONAL conviction. A score of 2 is the minimum for HIGH.
+</TechnicalDetail>
+
+### Gate 2: Reinvestment Engine
+
+Can the company reinvest at high returns?
+
+A moat alone is not enough. The company must also have the opportunity and willingness to reinvest capital at attractive rates. The combination of high returns on incremental capital and a high reinvestment rate is what drives compounding -- earning strong returns on a growing capital base.
+
+<Formula>Compounding Power = Incremental ROIC x Reinvestment Rate x (1 - ROIC CV)</Formula>
+
+- **Incremental ROIC** measures the return on each new dollar invested, not the average return on all capital. A company with a legacy business earning 30% ROIC that invests new capital at 8% has a high average ROIC but low incremental ROIC.
+- **Reinvestment Rate** is the fraction of earnings plowed back into the business. Higher reinvestment at high ROIC means faster compounding.
+- **ROIC CV** (coefficient of variation) penalizes volatile returns. The term (1 - ROIC CV) rewards consistency -- a company that earns 15% every year is more valuable than one that alternates between 5% and 25%.
+
+<TechnicalDetail summary="Compounding power thresholds">
+- Gate pass threshold: compounding power > 0.04
+- HIGH conviction threshold: compounding power > 0.08
+- EXCEPTIONAL conviction threshold: compounding power > 0.15
+
+A compounding power of 0.04 implies the company is generating modest but positive incremental returns on reinvested capital. At 0.15, the company is an elite compounder -- high returns, high reinvestment, and consistent execution.
+</TechnicalDetail>
+
+### Gate 3: Capital Allocation
+
+Is management allocating capital well?
+
+The best business in the world can be destroyed by poor capital allocation -- overpaying for acquisitions, levering up at the wrong time, or diluting shareholders through excessive stock-based compensation. This gate evaluates six dimensions of management stewardship:
+
+- **Debt discipline** -- Is leverage managed prudently relative to earnings power?
+- **Organic reinvestment** -- Does the company prioritize internal growth over financial engineering?
+- **Buyback effectiveness** -- When shares are repurchased, is it at prices below intrinsic value?
+- **Insider ownership** -- Do executives have meaningful personal wealth tied to the stock?
+- **SBC dilution** -- How much shareholder value is eroded by stock-based compensation?
+- **M&A discipline** -- Has the company's acquisition history created or destroyed value?
+
+Each sub-factor is normalized to a 0-to-1 scale, then combined via weighted average into a single composite.
+
+<TechnicalDetail summary="Capital allocation scoring">
+The composite score is a weighted average of six sub-factors, each on a 0-to-1 scale. The gate requires a composite score above 0.5, meaning management allocates capital more effectively than the median company in the universe.
+
+Piotroski F-Score improvement over time is also tracked as a supporting signal. A company with an improving F-Score and a composite above 0.5 suggests management is actively getting better at capital allocation, not just maintaining the status quo.
+</TechnicalDetail>
+
+### Gate 4: Valuation / Growth Gap
+
+Even the best compounder can be overpriced.
+
+This gate uses a Reverse DCF approach: instead of projecting cash flows forward to estimate intrinsic value, it works backward from the current stock price to determine what growth rate the market is implicitly expecting. That implied growth rate is compared to the company's demonstrated growth trajectory.
+
+<Formula>Growth Gap = Historical Growth Rate - Market Implied Growth Rate</Formula>
+
+A positive growth gap means the market is pricing in less growth than the company has historically delivered. This provides a margin of safety on growth assumptions -- you are paying for less growth than the company has shown it can produce.
+
+<TechnicalDetail summary="Growth gap thresholds and regime adjustments">
+- Gate pass threshold: growth gap > 0.0
+- HIGH conviction threshold: growth gap > 0.03
+- EXCEPTIONAL conviction threshold: growth gap > 0.08
+
+In elevated-valuation environments (market-wide Shiller CAPE above the 75th historical percentile), thresholds tighten to demand a larger gap. This prevents the engine from labeling stocks as reasonably priced when the entire market is expensive.
+</TechnicalDetail>
+
+## Track B -- Mispricing
+
+Track B identifies stocks where the market price has temporarily disconnected from intrinsic value. It uses the same four-gate multiplicative structure as Track A -- all four gates must show strength.
+
+### Gate 1: Ensemble Valuation
+
+Is the stock genuinely cheap by multiple measures?
+
+Relying on a single valuation model is dangerous -- every model has blind spots. The engine aggregates four independent valuation methods to reduce the risk of acting on one model's error:
+
+- **Discounted Cash Flow (DCF)** -- Projects future free cash flows and discounts to present value.
+- **Owner Earnings Intrinsic Value** -- Uses Buffett-style owner earnings (net income plus depreciation minus maintenance capex).
+- **Asset Floor Intrinsic Value** -- Calculates a liquidation-based floor from tangible assets.
+- **Peer Comparison Intrinsic Value** -- Benchmarks valuation multiples against sector peers.
+
+Beyond the individual estimates, the engine checks for convergence: at least three of the four methods must agree within plus or minus 30% of the median estimate. This prevents the engine from acting on a single outlier model.
+
+<TechnicalDetail summary="Ensemble valuation thresholds">
+The gate requires the current price to be below 60% of the ensemble intrinsic value -- a 40% or greater discount. This is deliberately strict. Most stocks do not trade at a 40% discount to a multi-model consensus, and that is the point: the engine only flags genuine dislocations, not modest undervaluation.
+
+For EXCEPTIONAL conviction, all four methods must converge (not just three), and the discount must exceed 50%.
+</TechnicalDetail>
+
+### Gate 2: Downside Protection
+
+How much could you lose?
+
+Cheap stocks can get cheaper. This gate checks whether there is a meaningful floor beneath the current price by comparing the stock price to the asset floor per share -- an estimate of what the business would be worth in liquidation.
+
+The gate requires at least a 50% cushion to the asset floor. This means that even in a worst-case liquidation scenario, the expected loss is limited. Downside protection is what separates a disciplined value investment from speculative bottom-fishing.
+
+<TechnicalDetail summary="Asset floor calculation">
+The asset floor is calculated from tangible book value, adjusted for the quality of assets on the balance sheet. Cash and receivables are counted at face value. Inventory is discounted based on industry norms for liquidation recovery. Goodwill and intangibles are excluded entirely.
+
+This is conservative by design. If the asset floor provides a 50% cushion, the actual downside in a non-liquidation scenario is likely much smaller.
+</TechnicalDetail>
+
+### Gate 3: Catalyst
+
+What will unlock the value?
+
+A cheap stock without a catalyst can stay cheap indefinitely -- the classic "value trap." This gate checks for near-term evidence that the market will close the valuation gap. The engine evaluates three potential catalyst signals and uses the strongest:
+
+- **Insider Buying Percentile** -- Are company insiders purchasing shares in the open market? Insider buying is one of the strongest signals of management confidence, particularly cluster buying (multiple insiders buying within a short window).
+- **Institutional Accumulation Percentile** -- Are institutional investors increasing their positions? When sophisticated allocators start accumulating, it suggests the opportunity is being recognized.
+- **Earnings Surprise (SUE) Percentile** -- Has the company recently beaten earnings expectations? Positive surprises can trigger analyst upgrades and price re-rating.
+
+<Formula>Catalyst Strength = max(Insider Buying Percentile, Institutional Accumulation Percentile, SUE Percentile)</Formula>
+
+<TechnicalDetail summary="Catalyst thresholds">
+The gate requires catalyst strength above the 60th percentile -- the strongest of the three signals must rank in the top 40% of the universe.
+
+For EXCEPTIONAL conviction, catalyst strength must exceed the 80th percentile, meaning the strongest signal is in the top 20%.
+
+The engine uses the maximum of the three signals rather than an average because catalysts are event-driven: you only need one strong catalyst to trigger a re-rating. Averaging would dilute a strong insider buying signal with the absence of institutional accumulation, which is not how catalysts work in practice.
+</TechnicalDetail>
+
+### Gate 4: Quality Floor
+
+Is the business fundamentally sound?
+
+This gate prevents the engine from recommending deeply discounted companies that are cheap for good reason -- businesses in structural decline, burning cash, or destroying value. It uses return on invested capital as a quality screen:
+
+- **ROIC at or above 8%** -- Full pass (score of 1.0). The business earns an adequate return on capital, confirming the mispricing is driven by market sentiment rather than fundamental deterioration.
+- **ROIC below 8% but improving** -- Partial pass (score between 0.5 and 1.0). The business is not yet earning its cost of capital but the trajectory is positive, suggesting a turnaround.
+- **ROIC below 8% and not improving** -- Fail (score of 0.0). The business is destroying value with no signs of recovery.
+
+<TechnicalDetail summary="Quality floor details">
+Earnings quality (Beneish M-Score) and free cash flow consistency are also factored into the quality floor assessment. A company passing on ROIC but showing signs of earnings manipulation or erratic free cash flow will receive a reduced quality score.
+
+The Piotroski F-Score is used as a secondary check -- companies with an F-Score below 4 (out of 9) face additional scrutiny regardless of ROIC.
+</TechnicalDetail>
+
+## Multiplicative Scoring
+
+Within each track, gate scores are multiplied together rather than averaged. This is the single most important design choice in the scoring engine.
+
+<Formula>Track A Score = Moat x Reinvestment x Capital Allocation x Growth Gap</Formula>
+
+<Formula>Track B Score = Valuation x Downside Protection x Catalyst x Quality Floor</Formula>
+
+<Example title="Why multiplication matters">
+Consider a company scoring 90th percentile on three gates but 10th percentile on one:
+
+**Multiplicative:** 0.90 x 0.90 x 0.90 x 0.10 = 0.0729 (7.3% -- weak)
+
+**Additive average:** (90 + 90 + 90 + 10) / 4 = 70% (misleadingly strong)
+
+The additive system hides the critical weakness. The multiplicative system exposes it. A company with a massive moat, strong reinvestment, and disciplined capital allocation but a dangerously overpriced stock (10th percentile growth gap) should not score well on Track A. Multiplication enforces that.
+</Example>
+
+This mirrors how compounding works in practice. A company with a strong moat, high reinvestment rates, disciplined management, and a reasonable valuation will compound wealth. Remove any one of those ingredients and the compounding thesis breaks down. Multiplication captures this reality -- zero on any dimension means zero overall.
+
+<Callout type="tip">
+Multiplicative scoring is deliberately conservative. It requires balanced strength across all dimensions simultaneously. There is no way to compensate for a fundamental weakness in one area with excellence in another. This means the engine will miss some winners (false negatives), but it rarely endorses losers (false positives). The tradeoff is intentional.
+</Callout>
+
+## Conviction Levels
+
+Continuous track scores are converted into discrete conviction levels through a gating system. Each level requires progressively stricter thresholds:
+
+| Level | Meaning | Recommended Action |
+|-------|---------|-------------------|
+| EXCEPTIONAL | Both tracks show extraordinary strength, or one track is in the top 1% | Deep fundamental research warranted |
+| HIGH | Strong score on at least one track | Evaluate as a serious candidate |
+| WATCHLIST | Moderate signals -- worth monitoring | Monitor for improvement, do not allocate |
+| NONE | Neither track shows sufficient evidence | No action |
+
+<TechnicalDetail summary="Detailed conviction thresholds">
+
+| Level | Track A Requirements | Track B Requirements |
+|-------|---------------------|---------------------|
+| EXCEPTIONAL | 4/4 gates pass + compounding > 0.15 + moat >= 3 + gap > 0.08 | 4/4 gates pass + asymmetry > 5.0 + catalyst > 80th pctl + 4 methods converging |
+| HIGH | 4/4 gates pass + compounding > 0.08 + moat >= 2 + gap > 0.03 | 4/4 gates pass + asymmetry > 3.0 + catalyst > 60th pctl + 3 methods converging |
+| WATCHLIST | 3/4 gates pass + compounding > 0.04 | 3/4 gates pass + asymmetry > 1.5 |
+| NONE | Anything else | Anything else |
+
+A few important details:
+
+- **EXCEPTIONAL is deliberately rare.** It requires elite performance on every metric, not just clearing the gates. On Track A, the company must have three or more moat signatures, compounding power above 0.15, and a growth gap above 0.08. On Track B, it requires extreme asymmetry (5x upside), a top-quintile catalyst, and all four valuation methods converging.
+- **WATCHLIST allows one weak gate.** Three of four gates must pass, meaning one dimension can be below threshold. These stocks are worth monitoring but do not meet the bar for allocation.
+- **When both tracks qualify**, the engine takes the strongest conviction level from either track. A stock earning HIGH on Track A and WATCHLIST on Track B is classified as HIGH conviction with opportunity type "Both."
+</TechnicalDetail>
+
+## Opportunity Types
+
+The combination of track results determines the opportunity type, which signals what kind of investment thesis the stock represents:
+
+| Type | Meaning | Typical Holding Period |
+|------|---------|----------------------|
+| Compounder | Qualifies on Track A only | 3-5+ years |
+| Mispricing | Qualifies on Track B only | 1-2 years (until re-rating) |
+| Both | Qualifies on both tracks (rare) | Strongest signal -- evaluate both theses |
+| Neither | Does not qualify on either track | Not recommended |
+
+**Compounder** stocks are high-quality businesses expected to grow steadily over long holding periods. The investment thesis is that the business will compound shareholder wealth through operational excellence. Monitoring focuses on whether the moat is intact, reinvestment opportunities persist, and management continues to allocate capital well.
+
+**Mispricing** stocks are undervalued relative to intrinsic value with a near-term catalyst. The investment thesis is that the market has temporarily mispriced the stock and a specific catalyst will close the gap. Monitoring focuses on whether the catalyst is materializing, the valuation gap is narrowing, and downside protection remains intact.
+
+**Both** is the rarest and strongest classification. It means the stock is both a high-quality compounder and currently undervalued. These opportunities arise when the market punishes a fundamentally strong business due to temporary concerns -- an earnings miss, a sector rotation, or macro fear. When both theses are present, the position has both the long-term compounding foundation and the near-term re-rating catalyst.
+
+## Growth-Stage Adjustments
+
+Not all companies are at the same stage of their lifecycle. A high-growth software company reinvesting aggressively should be evaluated differently from a mature dividend-paying utility. The engine adjusts gate weights based on the company's growth stage:
+
+- **High Growth** -- More weight on reinvestment engine and moat evidence. Less weight on current capital allocation (high-growth companies often have minimal buyback or dividend history).
+- **Stable Growth** -- Balanced weights across all four gates. This is the default configuration.
+- **Mature / Low Growth** -- More weight on capital allocation and valuation. A mature company's returns depend more on disciplined capital deployment than on reinvestment runway.
+
+<TechnicalDetail summary="How growth stage is determined">
+Growth stage is classified based on revenue growth rate, reinvestment rate, and company age. Companies with sustained revenue growth above 20% and high reinvestment rates are classified as High Growth. Companies with revenue growth below 5% and high payout ratios are classified as Mature. Everything in between is Stable Growth.
+
+The weight adjustments are multiplicative modifiers on gate scores, not replacements. A high-growth company with poor moat evidence still fails the moat gate -- the adjustment increases the moat gate's contribution to the overall score, making it more important, not less.
+</TechnicalDetail>
+
+<VerifyItYourself claim="Gate-by-gate transparency">
+Open any stock's asset detail page. The Conviction Engine section shows each gate's score for both tracks. You can see exactly which gates are strong and which are weak -- there is no hidden logic. The gate scores, the resulting track scores, the conviction level, and the opportunity type are all visible on the page.
+</VerifyItYourself>
+
+<KnownLimitations>
+- Multiplicative scoring is conservative -- it requires balanced strength across all dimensions. This produces more false negatives (missing good stocks) than false positives (endorsing bad ones). If you see a stock you believe in classified as NONE, check which gate is the bottleneck.
+- Gate thresholds are calibrated for US equities and may not apply directly to international markets where accounting standards, capital structures, and market microstructures differ.
+- Opportunity type classification depends on where the strongest signal comes from, not the only signal. A "Compounder" may still have moderate mispricing characteristics -- it just did not clear all four Track B gates.
+- Growth-stage adjustments modify gate weights, which means two stocks with identical raw gate scores can receive different track scores and conviction levels if they are in different growth stages.
+- The quality floor gate on Track B uses ROIC as its primary metric, which disadvantages asset-light business models (software, marketplaces) that generate value through intangible assets not captured in invested capital calculations.
+</KnownLimitations>
