@@ -1,0 +1,114 @@
+---
+title: "Reading the Dashboard"
+description: "How to interpret stock cards, conviction badges, opportunity types, and the dashboard's ranking logic."
+order: 2
+updatedAt: "2026-02-26"
+readingTime: 5
+category: "Workflows"
+---
+
+## How the Dashboard is Organized
+
+The dashboard is a ranked list. Stocks are sorted by conviction strength, highest first. The strongest candidates -- the ones with the most quantitative evidence in their favor -- always appear at the top.
+
+Only qualifying stocks appear. Any stock that fails an elimination filter is excluded from the dashboard entirely. You will never see a zombie company, a stock under active delisting risk, or a company with fraudulent accounting warnings in the ranked list. Those are removed before scoring even begins.
+
+The dashboard updates daily after the scoring pipeline completes. When new financial data arrives (earnings, price changes, insider filings), the engine re-scores the entire universe and re-ranks. You do not need to refresh or trigger anything manually.
+
+## Anatomy of a Stock Card
+
+Each card on the dashboard is designed to communicate the essential signal at a glance. Here is what each element means:
+
+### Conviction Badge
+
+The colored badge in the upper corner is the single most important element on the card. It tells you the engine's overall assessment of evidence strength.
+
+| Badge | Level | Meaning |
+|-------|-------|---------|
+| Gold | EXCEPTIONAL | Top candidates -- strongest evidence across both tracks |
+| Green | HIGH | Strong evidence on at least one track |
+| Gray | WATCHLIST | Worth monitoring, insufficient for allocation |
+
+The badge color is determined by the conviction engine after all factor scores, gate scores, and track scores have been computed. It is the final output of the entire pipeline.
+
+### Opportunity Type Label
+
+Below the conviction badge, each card shows one of three opportunity type labels:
+
+| Type | What It Means | Typical Holding Period |
+|------|---------------|----------------------|
+| Compounder | Business compounds value over time (Track A) | 3-5+ years |
+| Mispricing | Stock trades below fair value with catalysts (Track B) | 1-2 years |
+| Both | Qualifies on both tracks (rare, strongest signal) | Varies |
+
+The opportunity type determines the investment thesis. A Compounder is a business you want to own for years because it generates excess returns and reinvests them effectively. A Mispricing is a stock the market is temporarily undervaluing, and you expect a catalyst to close the gap. Both means the stock qualifies independently on each track -- a high-quality compounder that also happens to be undervalued. This combination is rare and represents the strongest possible signal.
+
+### Sector Tag
+
+Each card displays a GICS sector classification tag. The dashboard uses color-coded sector tags to help visual grouping -- each GICS sector has a consistent color across the platform. This makes it easy to spot sector concentration at a glance.
+
+<Callout type="tip">
+If you see several cards at the top of the dashboard with the same sector color, that is a signal to think about diversification before acting.
+</Callout>
+
+### Score Summary
+
+The composite percentile summarizes the stock's overall factor performance across all scoring dimensions. This is a single number on a 0-100 scale reflecting where the stock ranks relative to its sector peers across quality, value, and momentum factors.
+
+### Click to Expand
+
+Click any card to open the full detail view. The expanded view shows the complete factor breakdown, individual gate scores, elimination filter results, and position sizing suggestions. The detail view is where you learn the story behind the score -- two HIGH conviction stocks can have completely different profiles, and the expanded view makes the distinction clear.
+
+## Conviction Badge Colors
+
+The three badge colors map directly to the three actionable conviction levels:
+
+**Gold (EXCEPTIONAL)** -- Reserved for stocks that demonstrate elite performance across every dimension simultaneously. These are rare by design. The engine requires strength on all gates across both tracks, which means a single weak factor disqualifies a stock from EXCEPTIONAL status. When you see gold, the quantitative evidence is as strong as it gets.
+
+**Green (HIGH)** -- Indicates strong evidence on at least one track. The stock has cleared all elimination filters, scores well on the majority of factors, and passes the conviction engine's minimum thresholds. HIGH conviction candidates are worth serious evaluation and independent research.
+
+**Gray (WATCHLIST)** -- The stock shows some positive signals but does not yet meet the minimum threshold for allocation. One or more quality gates have not been met. WATCHLIST means monitor -- check back after the next data update to see if the profile improves. Never allocate capital to WATCHLIST candidates.
+
+<Callout type="warning">
+WATCHLIST is not a buy signal. It means the evidence is insufficient. Acting on WATCHLIST candidates defeats the purpose of the conviction system.
+</Callout>
+
+## Opportunity Types
+
+The dual-track engine evaluates every stock as both a potential Compounder and a potential Mispricing. The opportunity type label reflects which track or tracks the stock qualified on.
+
+**Compounder (Track A)** -- The business compounds shareholder value over time through durable competitive advantages, high returns on capital, and disciplined reinvestment. Compounders typically warrant longer holding periods because the thesis is about sustained quality, not a single event. The value accrues gradually as the business continues to execute.
+
+**Mispricing (Track B)** -- The stock trades below the engine's estimate of fair value, with a margin of safety and identifiable catalysts for revaluation. Mispricing opportunities may have shorter holding periods because the thesis resolves when the market reprices the stock. Once the gap closes, the opportunity is gone.
+
+**Both** -- Qualified independently on both tracks. A high-quality compounder that is also meaningfully undervalued. This is the strongest possible signal because two independent analytical frameworks both confirm the opportunity. Both-qualified stocks typically receive the largest suggested allocation.
+
+<TechnicalDetail summary="Why Both is rare">
+Track A rewards businesses that earn premium returns on capital -- and the market usually prices these businesses at a premium. Track B rewards stocks trading below intrinsic value -- which typically means the business has some operational or structural weakness. For a stock to qualify on both tracks, it needs to be a genuinely excellent business that the market is temporarily mispricing. This combination is uncommon because markets are generally efficient at recognizing quality.
+</TechnicalDetail>
+
+## Sort Order
+
+The default sort is conviction strength descending. EXCEPTIONAL candidates appear first, then HIGH, then WATCHLIST. Within the same conviction level, stocks are ordered by composite score -- the stock with the higher overall factor performance ranks higher.
+
+This means the dashboard always answers the same question: "Where is the strongest evidence right now?" The top of the list is always the strongest signal. You never need to scroll through weak candidates to find strong ones.
+
+## Empty State
+
+If the dashboard shows no qualifying stocks, this means the pipeline ran but no stocks currently meet the minimum conviction threshold. This is by design -- the system is conservative. An empty dashboard is better than a dashboard full of low-conviction picks.
+
+The elimination filters and conviction thresholds are deliberately strict. In a market environment where most stocks are fully valued and few show strong factor profiles, an empty dashboard is an honest answer. The engine does not lower its standards to fill the screen.
+
+<Callout type="tip">
+Use the search bar to look up specific tickers even when they do not appear on the dashboard. Eliminated stocks still show their filter results, so you can see exactly which checks they failed and why.
+</Callout>
+
+## Common Pitfalls
+
+**Conviction is not a price prediction.** Do not equate conviction level with "stock will go up." Conviction measures evidence quality -- the strength and consistency of the quantitative signals across multiple factors. A HIGH conviction stock has strong evidence in its favor, but strong evidence does not guarantee positive returns.
+
+**Do not over-trade on small score changes.** Daily score fluctuations are normal as prices move and data updates arrive. Small changes in composite score within the same conviction level are noise, not signal. Wait for meaningful conviction level changes -- WATCHLIST to HIGH, or HIGH to EXCEPTIONAL -- before reconsidering your position.
+
+**Do not ignore eliminations.** If a stock you hold gets eliminated from the dashboard, check which filter triggered and why. Elimination filters catch serious structural issues -- accounting red flags, liquidity problems, excessive leverage. An elimination is not a minor score change; it means the stock failed a binary safety check.
+
+**WATCHLIST means monitor, never allocate.** The temptation to "get in early" on a WATCHLIST stock is strong. Resist it. WATCHLIST means one or more quality gates have not been met. The evidence is not yet sufficient. Wait for the profile to improve or move on to candidates where the evidence is already clear.
