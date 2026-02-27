@@ -66,6 +66,7 @@ def run_elimination_filters(
     config: FilterConfig | None = None,
     history: FinancialHistory | None = None,
     price_bars: list[PriceBar] | None = None,
+    disabled_filters: set[str] | None = None,
 ) -> PipelineResult:
     """Run all elimination filters in sequence.
 
@@ -90,6 +91,12 @@ def run_elimination_filters(
         price_bars: Optional list of daily OHLCV bars. When provided, the
             liquidity filter uses v2 with position sizing and divergence
             analysis.
+        disabled_filters: Optional set of filter names to exclude from the
+            returned results. Filters are still executed (preserving the
+            no-short-circuit guarantee) but removed before returning.
+            Valid names: ``"liquidity"``, ``"beneish_m_score"``,
+            ``"altman_z_score"``, ``"fcf_distress"``,
+            ``"interest_coverage"``, ``"current_ratio"``.
 
     Returns:
         PipelineResult containing all filter outcomes.
@@ -148,5 +155,8 @@ def run_elimination_filters(
         interest_result,
         current_result,
     ]
+
+    if disabled_filters:
+        results = [r for r in results if r.name not in disabled_filters]
 
     return PipelineResult(results=results)
