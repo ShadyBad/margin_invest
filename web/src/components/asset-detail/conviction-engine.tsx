@@ -1,4 +1,5 @@
 import { formatAttributeLabel } from "@/lib/format"
+import { FormulaTooltip } from "@/components/ui/formula-tooltip"
 import type { FactorBreakdownResponse } from "@/lib/api/types"
 
 interface InstitutionalAccumulation {
@@ -101,9 +102,11 @@ export function ConvictionEngine({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {asymmetryRatio != null && (
           <div className="terminal-card p-4 space-y-1">
-            <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
-              Asymmetry Ratio
-            </span>
+            <FormulaTooltip metricKey="asymmetry_ratio">
+              <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+                Asymmetry Ratio
+              </span>
+            </FormulaTooltip>
             <span className="text-2xl font-display text-text-primary block">
               {asymmetryRatio.toFixed(1)}x
             </span>
@@ -115,9 +118,11 @@ export function ConvictionEngine({
 
         {maxPositionPct != null && (
           <div className="terminal-card p-4 space-y-1">
-            <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
-              Max Position
-            </span>
+            <FormulaTooltip metricKey="max_position_pct">
+              <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+                Max Position
+              </span>
+            </FormulaTooltip>
             <span className="text-2xl font-display text-text-primary block">
               {maxPositionPct.toFixed(1)}%
             </span>

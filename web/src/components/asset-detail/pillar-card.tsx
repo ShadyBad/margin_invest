@@ -4,7 +4,12 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { formatAttributeLabel } from "@/lib/format"
 import { SUB_FACTOR_FORMULAS } from "@/lib/sub-factor-formulas"
+import { FormulaTooltip } from "@/components/ui/formula-tooltip"
 import type { FactorBreakdownResponse } from "@/lib/api/types"
+
+function normalizeSubFactorKey(name: string): string {
+  return name.toLowerCase().replace(/[\s\-\u2013]+/g, "_").replace(/[^a-z0-9_]/g, "")
+}
 
 interface PillarCardProps {
   pillar: FactorBreakdownResponse
@@ -91,7 +96,9 @@ export function PillarCard({ pillar }: PillarCardProps) {
                       }
                     >
                       <span className="text-text-primary truncate">
-                        {formatAttributeLabel(sub.name)}
+                        <FormulaTooltip metricKey={normalizeSubFactorKey(sub.name)}>
+                          <span>{formatAttributeLabel(sub.name)}</span>
+                        </FormulaTooltip>
                         {formulaData && (
                           <span className="text-[9px] text-text-tertiary ml-1">
                             {isSubExpanded ? "\u25B2" : "fx"}

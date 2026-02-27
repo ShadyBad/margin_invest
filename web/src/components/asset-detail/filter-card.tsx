@@ -1,6 +1,7 @@
 "use client"
 
 import { FILTER_METADATA } from "@/lib/filter-metadata"
+import { FormulaTooltip } from "@/components/ui/formula-tooltip"
 import type { FilterResultResponse } from "@/lib/api/types"
 
 interface FilterCardProps {
@@ -65,9 +66,11 @@ export function FilterCard({ filter, expanded }: FilterCardProps) {
       {/* Header row */}
       <div className="flex items-center gap-2">
         <span className={`text-base font-semibold ${iconColor}`}>{icon}</span>
-        <span className="text-sm font-semibold text-text-primary">
-          {meta?.displayName ?? filter.name}
-        </span>
+        <FormulaTooltip metricKey={filter.name}>
+          <span className="text-sm font-semibold text-text-primary">
+            {meta?.displayName ?? filter.name}
+          </span>
+        </FormulaTooltip>
         {meta?.technicalName && (
           <span className="text-xs text-text-tertiary">({meta.technicalName})</span>
         )}

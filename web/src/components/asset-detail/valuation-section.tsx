@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { getValuationAudit } from "@/lib/api/scores"
+import { FormulaTooltip } from "@/components/ui/formula-tooltip"
 import type { ValuationAuditResponse } from "@/lib/api/types"
 
 interface ValuationSectionProps {
@@ -21,6 +22,13 @@ const METHOD_LABELS: Record<string, string> = {
   ev_fcf: "EV/FCF",
   acquirers_multiple: "EV/EBIT",
   shareholder_yield: "Shareholder Yield",
+}
+
+const METHOD_FORMULA_KEYS: Record<string, string> = {
+  dcf: "dcf_valuation",
+  ev_fcf: "ev_fcf_valuation",
+  acquirers_multiple: "ev_ebit_valuation",
+  shareholder_yield: "shareholder_yield_valuation",
 }
 
 function PriceRuler({
@@ -233,7 +241,9 @@ export function ValuationSection({
                 key={key}
                 className="grid grid-cols-[1fr_100px_60px] gap-2 text-xs items-center"
               >
-                <span className="text-text-primary">{METHOD_LABELS[key] ?? key}</span>
+                <FormulaTooltip metricKey={METHOD_FORMULA_KEYS[key] ?? key}>
+                  <span className="text-text-primary">{METHOD_LABELS[key] ?? key}</span>
+                </FormulaTooltip>
                 <span className="text-right font-mono text-text-primary">${val.toFixed(2)}</span>
                 <span className="text-right text-bullish">Computed</span>
               </div>

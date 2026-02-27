@@ -86,9 +86,9 @@ describe("ScoringPillars", () => {
     fireEvent.click(screen.getByTestId("pillar-quality-toggle"))
     // Click on the Gross Profitability sub-factor row
     fireEvent.click(screen.getByText("Gross Profitability"))
-    // Expect to see the formula and source
-    expect(screen.getByText(/Revenue - COGS/)).toBeInTheDocument()
-    expect(screen.getByText(/Novy-Marx/)).toBeInTheDocument()
+    // Expect to see the formula and source (FormulaTooltip hover + inline expansion may both render)
+    expect(screen.getAllByText(/Revenue - COGS/).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/Novy-Marx/).length).toBeGreaterThanOrEqual(1)
   })
 
   it("hides formula when sub-factor row is clicked again", () => {
@@ -102,12 +102,13 @@ describe("ScoringPillars", () => {
     )
     // Expand the quality pillar
     fireEvent.click(screen.getByTestId("pillar-quality-toggle"))
-    // Click to expand formula
+    // Click to expand formula — first click opens both tooltip and inline formula
     fireEvent.click(screen.getByText("Gross Profitability"))
-    expect(screen.getByText(/Revenue - COGS/)).toBeInTheDocument()
-    // Click again to collapse formula
-    fireEvent.click(screen.getByText("Gross Profitability"))
-    expect(screen.queryByText(/Revenue - COGS/)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/Revenue - COGS/).length).toBeGreaterThanOrEqual(1)
+    // Click again to collapse — second click toggles both off
+    const nameElements = screen.getAllByText("Gross Profitability")
+    fireEvent.click(nameElements[0])
+    expect(screen.queryAllByText(/Revenue - COGS/).length).toBe(0)
   })
 
   it("shows fx indicator on sub-factors with formulas", () => {
