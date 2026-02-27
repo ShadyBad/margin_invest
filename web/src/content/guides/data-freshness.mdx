@@ -1,104 +1,109 @@
 ---
 title: "Data Sources & Freshness"
-description: "Where data comes from, when it updates, and what to do when values look off."
+description: "Where Margin Invest's data comes from, how often it updates, and what the known lags and limitations are."
 order: 6
-updatedAt: "2026-02-19"
-readingTime: 5
-category: "Reference"
+updatedAt: "2026-02-26"
+readingTime: 6
+category: "Concepts"
 ---
 
-## Overview
+## Introduction
 
 <Callout type="info">
 This guide is educational content explaining how our data pipeline works. It is not investment advice. Always do your own research before making investment decisions.
 </Callout>
 
-Margin Invest aggregates data from multiple financial data providers to build a comprehensive picture of each company. Rather than relying on a single source, the engine uses **fallback chains** -- if the primary provider for a given data type is unavailable or returns incomplete results, the system automatically falls back to the next provider in the chain.
+The scoring pipeline is only as good as its data. Every factor score, elimination filter, and conviction gate depends on numbers that arrive from external providers on their own schedules. Here is where every data point comes from, how often it updates, and what delays to expect.
 
-This approach improves both reliability and coverage. Scores can continue to be calculated even when individual providers experience downtime or data gaps.
+## Data Pipeline Overview
 
-## Data Provider Chains
+The system runs a **batched ingest pipeline** daily, designed to process thousands of tickers reliably without overwhelming data providers.
 
-Each data type flows through a prioritized chain of providers:
+1. **`orchestrate_ingest`** kicks off at **21:30 UTC** (after US market close)
+2. Divides the full universe (~7,000+ tickers) into batches of ~50
+3. Runs up to **3 concurrent batches** with rate limiting (36 requests/minute)
+4. After all batches complete, a sweep verifies completeness
+5. The scoring chain fires automatically: `full_score` &rarr; `full_score_v3` &rarr; `full_score_v4`
 
-| Data Type | Primary Provider | Fallback 1 | Fallback 2 |
-|-----------|-----------------|------------|------------|
-| Fundamentals (income, balance sheet, cash flow) | FMP | yfinance | SEC EDGAR XBRL |
-| Price History (daily OHLCV) | Polygon | yfinance | -- |
-| Insider Transactions | SEC EDGAR Form 4 | Finnhub | -- |
-| Institutional Holdings | SEC EDGAR 13F | Finnhub | -- |
-| Macro Data (Shiller CAPE, etc.) | FRED | -- | -- |
-| News & Earnings | Finnhub | FMP | -- |
+Total pipeline runtime is approximately **2--4 hours** depending on universe size and provider response times. By the time US markets open the next morning, all scores reflect the previous day's data.
+
+## Data Sources by Type
+
+Each data type flows through a prioritized chain of providers. If the primary provider is unavailable or returns incomplete results, the system falls back automatically.
+
+| Data Type | Primary Provider | Fallback | Update Frequency | Typical Lag |
+|-----------|-----------------|----------|------------------|-------------|
+| Fundamental data (financials) | FMP | yfinance &rarr; SEC EDGAR | Quarterly (follows earnings) | 1--45 days after earnings |
+| Price data (daily OHLCV) | Polygon | yfinance | Daily | Same day (after market close) |
+| Insider transactions | SEC EDGAR Form 4 | Finnhub | As filed | 2 business days |
+| 13F institutional holdings | SEC EDGAR | -- | Quarterly | 45-day filing deadline |
+| Market data (volume, market cap) | FMP | yfinance | Daily | Same day |
+| Macro indicators (Shiller CAPE) | FRED | -- | Monthly/Quarterly | Varies by indicator |
 
 <Callout type="tip">
-The fallback system means that even if a primary provider experiences downtime, scores continue to be calculated using backup sources.
+The fallback system means that even if a primary provider experiences downtime, scores continue to be calculated using backup sources. The engine always prefers the primary provider and only falls back when data is unavailable.
 </Callout>
 
 ## Update Cadences
 
 Different data types arrive on different schedules. Understanding these cadences helps set expectations for when scores will change.
 
-| Data Type | Update Frequency | Typical Lag |
-|-----------|-----------------|-------------|
-| Quarterly Financials | After SEC filing | ~45 days after quarter end |
-| Price Data | Daily | Same day (market close) |
-| Insider Transactions | After SEC Form 4 filing | Within 2 business days of transaction |
-| Institutional Holdings | After SEC 13F filing | ~45 days after quarter end |
-| Macro Indicators | Monthly/Quarterly (varies) | Varies by indicator |
+- **Daily (21:30 UTC)**: Price, volume, market cap, and basic financials refresh via the batched ingest pipeline
+- **Daily (22:00 UTC)**: 13F filing ingest checks for newly published filings on SEC EDGAR
+- **Quarterly**: Fundamental data refreshes when companies report earnings, typically 2--6 weeks after quarter end. This is the primary driver of score changes.
+- **Weekly (Saturday 2:00 AM UTC)**: ML model training runs, recalculating cluster assignments and VAE adjustments
+- **On-demand**: Insider transaction data arrives as new SEC Form 4 filings appear, typically within 2 business days of the transaction
 
 ## Data Windows
 
-The engine looks at different time horizons depending on what it is calculating:
+The engine uses fixed lookback windows to ensure every company is evaluated on the same basis:
 
 - **Historical depth**: Up to 5 years of quarterly financials where available
-- **Volume averaging**: 60-day window for dollar volume calculations
+- **Volume averaging**: 60-day rolling window for dollar volume calculations
 - **Trend analysis**: Multi-year periods for ROIC trends, revenue CAGR, and margin trajectories
-- **Minimum data requirement**: At least 5 years of history for robust analysis
+- **13F history**: Available back to 2013 for curated institutional managers
+- **Minimum data requirement**: At least 5 years of history for robust analysis -- companies with less history may receive incomplete scores or inconclusive filter results
 
-These windows are fixed by design. Using consistent lookback periods ensures that all companies are evaluated on the same basis, preventing recency bias from skewing results.
+These windows are fixed by design. Using consistent lookback periods prevents recency bias from skewing results.
 
-## Troubleshooting Stale Data
+## Troubleshooting
 
-### Scores Haven't Changed Recently
-
-If scores appear static, consider the timing relative to earnings seasons. The majority of score movement comes from new quarterly financial data, which arrives in waves:
-
-- **Price-dependent metrics** (like dollar volume and relative valuation) update daily with market close data
-- **Fundamental metrics** (like ROIC, margins, and growth rates) only change when a new quarterly filing is processed
-- Between earnings seasons, it is normal for scores to remain largely stable
-
-### A Metric Looks Wrong
-
-Different providers may report slightly different values for the same metric. This can happen due to accounting adjustments, restatements, or differences in how providers interpret non-standard filings. The engine always uses the primary provider's value when it is available, falling back only when necessary.
-
-<Callout type="tip">
-If a specific metric looks off, check the company's latest SEC filing for the authoritative number. Minor discrepancies between data providers are normal and typically resolve when the next filing is processed.
+<Callout type="info">
+**"Why hasn't my stock's score changed?"** -- Between earnings seasons, fundamental data does not change. Price and momentum data update daily, but factor scores derived from quarterly financials may remain stable for weeks. The majority of score movement comes from new quarterly financial data, which arrives in waves during earnings season.
 </Callout>
 
-### A Stock Shows "Inconclusive" on a Filter
+<Callout type="info">
+**"Why do two providers show different numbers?"** -- Fallback providers may use different reporting periods or data cleaning methodologies. The system always prefers the primary provider and only falls back when data is unavailable. Minor discrepancies between sources typically resolve when the next quarterly filing is processed.
+</Callout>
 
-An "Inconclusive" result means insufficient data was available to evaluate that particular filter. This is most common for:
+<Callout type="info">
+**"Why is a score 'inconclusive'?"** -- Some filters require minimum data history (e.g., 5 years of free cash flow data). Recently IPO'd companies may lack sufficient history. Inconclusive is treated as a filter failure -- when the engine cannot confirm a company passes a safety check, it does not assume the best case. This is a deliberately conservative design.
+</Callout>
 
-- Recently IPO'd companies that lack multi-year financial history
-- Foreign listings with non-standard reporting formats
-- Companies with unusual fiscal year-ends or reporting gaps
+## Pipeline Architecture
 
-Inconclusive is treated as a filter failure. This is a deliberately conservative approach -- when the engine cannot confirm a company passes a safety check, it does not assume the best case.
+<TechnicalDetail summary="Pipeline architecture details">
+The batched ingest pipeline is designed for reliability and provider-friendliness:
+
+- **Orchestration**: `orchestrate_ingest` &rarr; `ingest_batch` &times;N &rarr; `ingest_sweep` &rarr; `ingest_sweep_complete` &rarr; scoring chain
+- **Rate limiting**: `RedisRateLimiter` enforces 36 requests/minute to respect provider rate limits
+- **Concurrency**: 3 concurrent batches, each processing ~50 tickers
+- **Batch size**: Configurable via `MARGIN_INGEST_BATCH_SIZE` (default 50)
+- **Rate limit**: Configurable via `MARGIN_INGEST_RATE_LIMIT` (default 36 requests/min)
+- **Max concurrency**: Configurable via `MARGIN_INGEST_CONCURRENCY` (default 3)
+- **Worker timeout**: 20 minutes per batch (`job_timeout=1200`)
+- **Sweep phase**: After all batches complete, `ingest_sweep` checks for any tickers that were missed or failed, retrying them before triggering the scoring chain
+- **Scoring chain**: `full_score` (v2 base scores) &rarr; `full_score_v3` (sector-neutral percentiles) &rarr; `full_score_v4` (ML-adjusted final scores)
+</TechnicalDetail>
 
 ## Known Limitations
 
-<Callout type="warning">
-**Newly IPO'd companies**: Companies with fewer than 5 years of public financial data may have incomplete scoring. Some filters require multi-year history that is not available yet.
-</Callout>
-
-<Callout type="warning">
-**Sector classification**: The engine relies on GICS (Global Industry Classification Standard) data. If a company's GICS classification is missing or outdated, sector-neutral scoring may be affected.
-</Callout>
-
-<Callout type="warning">
-**Real-time gaps**: Data is not real-time. Price data reflects the previous market close. Fundamental data reflects the most recent SEC filing. Intraday events (earnings releases, major news) are not immediately reflected in scores.
-</Callout>
-
-**Non-standard reporting**: Companies that report in non-standard ways (e.g., different fiscal year-end, non-GAAP-only reporting) may have less accurate derived metrics. The engine does its best to normalize these cases, but edge cases exist.
-
-**Provider coverage**: Some smaller or international companies may not be fully covered by all data providers. The fallback system helps bridge gaps, but coverage limitations can still affect the completeness of analysis for less widely followed stocks.
+<KnownLimitations>
+- **Newly IPO'd companies** (less than 2 years of history) may lack sufficient data for reliable scoring. Some filters require multi-year financial history that is not yet available.
+- **US-focused coverage**: Provider coverage is strongest for US equities. International listings have limited coverage and may have incomplete data across multiple factors.
+- **No real-time data**: All data reflects the previous trading day at earliest. Intraday events (earnings releases, major news) are not immediately reflected in scores.
+- **Sector classification lag**: GICS classifications may lag for companies undergoing business model changes. Until the classification updates, sector-neutral scoring may place the company in the wrong peer group.
+- **Provider outage fallbacks**: During provider outages, fallback sources may use different reporting periods or data cleaning methodologies, producing slightly different values.
+- **Free cash flow variability**: FCF data quality varies by industry. REITs, banks, and other financial companies report cash flows differently, which can affect filter accuracy. REITs and financial companies are currently excluded from scoring entirely.
+- **13F reporting delay**: Institutional holdings data has a 45-day filing deadline after quarter end. By the time 13F data is available, some of the position changes may already be reflected in price.
+</KnownLimitations>
