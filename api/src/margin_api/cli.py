@@ -1095,7 +1095,12 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
 
     from margin_api.data.fred_client import fetch_shiller_cape
     from margin_api.db.models import AccumulationSignal, MlModelRun, V4Score
-    from margin_api.services.scoring import build_asset_profile, build_financial_history_from_rows
+    from margin_api.services.scoring import (
+        build_asset_profile,
+        build_financial_history_from_rows,
+        compute_raw_factor_scores,
+        rank_and_compute_composites,
+    )
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
@@ -1119,6 +1124,12 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
     style_inputs: dict[str, dict] = {}
     total = len(tickers)
     asset_ids: dict[str, int] = {}
+    # Stash intermediate data for computing V2-style composite detail blobs
+    ticker_profiles: dict[str, AssetProfile] = {}
+    ticker_bars_raw: dict[str, list[dict]] = {}
+    ticker_earnings_raw: dict[str, list[dict]] = {}
+    ticker_histories: dict[str, FinancialHistory] = {}
+    ticker_latest_periods: dict[str, FinancialPeriod] = {}
 
     for i, ticker in enumerate(tickers, start=1):
         async with session_factory() as session:
@@ -1321,6 +1332,12 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 )
                 ticker_data_list.append(td)
                 asset_ids[ticker] = asset.id
+                # Stash data for composite detail blob
+                ticker_profiles[ticker] = profile
+                ticker_bars_raw[ticker] = bars
+                ticker_earnings_raw[ticker] = earnings_entries
+                ticker_histories[ticker] = history
+                ticker_latest_periods[ticker] = latest
                 logger.info("[%d/%d] Prepared: %s (style=%s)", i, total, ticker, style.value)
             except Exception as e:
                 logger.error("[%d/%d] FAILED %s: %s", i, total, ticker, e)
@@ -1483,6 +1500,34 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
         else:
             logger.info("No qualified ML model found — running rules-only v4 scoring")
 
+    # Compute V2-style composite detail blobs for the detail JSONB field
+    composites_by_ticker: dict[str, CompositeScore] = {}
+    raw_results = []
+    for td in ticker_data_list:
+        t = td.ticker
+        if t in ticker_profiles and t in ticker_latest_periods:
+            try:
+                raw = compute_raw_factor_scores(
+                    ticker=t,
+                    period=ticker_latest_periods[t],
+                    profile=ticker_profiles[t],
+                    price_bars_raw=ticker_bars_raw.get(t, []),
+                    earnings_raw=ticker_earnings_raw.get(t, []),
+                    history=ticker_histories.get(t),
+                )
+                raw_results.append(raw)
+            except Exception as e:
+                logger.warning("Failed to compute raw factor scores for %s: %s", t, e)
+    if raw_results:
+        composites = rank_and_compute_composites(raw_results)
+        for composite in composites:
+            composites_by_ticker[composite.ticker] = composite
+        logger.info(
+            "Computed composite detail blobs for %d/%d tickers",
+            len(composites_by_ticker),
+            len(ticker_data_list),
+        )
+
     # Run v4 pipeline
     results = score_universe_v4(ticker_data_list, shiller_cape=cape, ml_predictions=ml_predictions)
 
@@ -1523,6 +1568,11 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 ml_alpha=v4r.ml_alpha,
                 ml_confidence=v4r.ml_confidence,
                 ml_override=v4r.ml_override,
+                detail=(
+                    composites_by_ticker[v4r.ticker].model_dump(mode="json")
+                    if v4r.ticker in composites_by_ticker
+                    else None
+                ),
             )
             session.add(score)
             successes += 1
