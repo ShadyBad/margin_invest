@@ -1,0 +1,134 @@
+---
+title: "Institutional Signals"
+description: "How 13F filings from institutional investors feed into scoring — accumulation signals, curated managers, and what it means."
+order: 5
+updatedAt: "2026-02-26"
+readingTime: 7
+category: "Concepts"
+---
+
+## Introduction
+
+Institutional investors with $100M+ in assets under management must disclose their holdings quarterly via SEC Form 13F. The system monitors these filings for accumulation signals -- patterns of institutional buying that can indicate informed conviction.
+
+Institutional activity is not inherently predictive. Index funds rebalance mechanically. Many active managers are closet indexers. But a subset of high-conviction managers -- those running concentrated portfolios with demonstrated long-term alpha -- make allocation decisions based on deep fundamental research. When several of these managers independently start building positions in the same stock, the signal is worth measuring.
+
+<Callout type="info">
+Institutional accumulation is one input among 20 factors. It feeds into the catalyst strength component of the Momentum pillar. It is not a standalone buy signal, and the presence of institutional buying does not guarantee future returns. This guide is educational content, not investment advice.
+</Callout>
+
+## What Are 13F Filings?
+
+SEC Form 13F is a quarterly report that institutional investment managers with $100M or more in qualifying assets must file with the Securities and Exchange Commission. The filing discloses all US equity positions held at the end of each calendar quarter.
+
+Key characteristics of 13F data:
+
+- **Filing deadline:** 45 days after quarter end. Q1 holdings (as of March 31) are due by May 15. Q2 by August 14. Q3 by November 14. Q4 by February 14.
+- **Coverage:** US equity holdings including common stock, ETFs, options, warrants, and convertible securities. The filing shows the number of shares held and the market value at quarter end.
+- **What it does not show:** Short positions, fixed income, international holdings, or derivatives (other than listed options). A manager could be net short a stock through unlisted derivatives while the 13F shows a long position.
+- **Staleness:** By the time a filing appears, the data describes positions that are 45 to 135 days old. The manager may have already exited the position. This lag is a fundamental limitation of the data source.
+
+The engine ingests 13F filings automatically after each quarterly deadline, processing them through a pipeline that maps securities to the internal asset universe and computes accumulation signals.
+
+## Accumulation Signals
+
+Raw 13F data shows who holds what. The accumulation signal answers a more useful question: is institutional interest increasing or decreasing?
+
+For each stock in the universe, the system computes:
+
+- **Curated holders:** How many managers from the curated list hold this stock in the current quarter
+- **New positions:** How many curated managers initiated a position this quarter that they did not hold last quarter
+- **Net shares:** The aggregate change in shares held across curated managers (new shares bought minus shares sold)
+
+These raw counts are then percentile-ranked across the full universe to produce the accumulation percentile -- a 0-100 score indicating where this stock falls relative to all other stocks in terms of institutional interest.
+
+<Example title="Reading an accumulation percentile">
+A stock with an accumulation percentile of 88 means its institutional accumulation signal is stronger than 88% of all stocks in the universe. Several curated managers are building new positions or adding to existing ones. A stock at the 15th percentile means institutional interest is weaker than 85% of the universe -- managers are either absent or reducing positions.
+</Example>
+
+<TechnicalDetail summary="How accumulation is calculated and ranked">
+The engine function `compute_quarter_signals()` processes all holdings for a given quarter:
+
+1. For each stock, it counts the number of curated managers holding it (`curated_holders`) and the total managers across all tiers (`total_holders`).
+2. It identifies new positions -- holdings where the manager had zero shares in the previous quarter (`prev_shares is None`).
+3. It calculates the net share delta: `shares_held - prev_shares` for existing positions, or the full `shares_held` for new positions.
+4. These raw signals are aggregated into a `QuarterSignal` per stock.
+
+The percentile ranking step happens at the scoring pipeline level. The `signal_score` for each stock is ranked against all other stocks in the universe using standard percentile ranking (0-100). This universe-relative approach means the signal adapts to the overall level of institutional activity -- during quiet quarters when few managers are making changes, even modest accumulation can rank high.
+
+The accumulation percentile feeds into `compute_catalyst_strength()` in the scoring pipeline. When both SUE (earnings surprise) and accumulation data are available, they are equal-weighted averaged. When only one signal is present, it is used alone. When neither is available, catalyst strength is zero.
+</TechnicalDetail>
+
+## Curated Manager List
+
+Not all 13F filers are equally informative. The SEC requires thousands of institutions to file, but the majority are index funds, quantitative shops running thousands of positions, or low-conviction managers whose buying and selling patterns carry no meaningful information about individual stock quality.
+
+The system tracks a curated set of high-conviction managers selected for specific characteristics:
+
+- **Concentrated portfolios:** Fewer positions means each holding represents a meaningful conviction bet. A manager with 500 positions is spreading bets; a manager with 25 is concentrating on best ideas.
+- **Long holding periods:** Managers who trade frequently are reacting to noise. Managers who hold positions for years are making fundamental assessments.
+- **Demonstrable alpha generation:** The manager's track record shows persistent outperformance, not just one good year.
+
+The curated list is reviewed periodically but remains static between reviews. This prevents the system from retroactively changing the manager universe based on recent performance.
+
+<TechnicalDetail summary="Manager selection and signal quality">
+Managers in the system are classified into tiers: `curated` and `top_aum`. Only the `curated` tier feeds into the accumulation signal used for scoring. The `top_aum` tier provides broader context but does not affect factor scores.
+
+The distinction matters because of research by Cohen, Polk, and Silli (2010), who showed that the "best ideas" of skilled managers -- their highest-conviction positions -- significantly outperform. The signal comes not from what all institutions are doing, but from what concentrated, skilled managers are doing with their most deliberate allocations.
+
+Types of managers excluded from the curated list:
+- **Index funds** (e.g., Vanguard Total Stock Market): their buying is mechanical, driven by fund flows rather than conviction
+- **Quantitative shops with thousands of positions**: high position counts indicate systematic strategies, not fundamental conviction
+- **Closet indexers**: active managers whose holdings closely mirror the benchmark, where individual positions carry minimal signal
+- **Short-holding-period traders**: frequent turnover suggests reactive rather than research-driven allocations
+
+The curated list is intentionally small to maximize signal quality. Adding more managers increases coverage but dilutes the signal toward market-average behavior.
+</TechnicalDetail>
+
+## How It Feeds Into Scoring
+
+Institutional accumulation occupies a specific place in the scoring pipeline:
+
+1. **13F data** is ingested quarterly and processed into per-stock accumulation signals
+2. **Accumulation signals** are percentile-ranked across the full universe (0-100)
+3. **Accumulation percentile** feeds into `compute_catalyst_strength()`, where it is averaged with the SUE (Standardized Unexpected Earnings) percentile when both are available
+4. **Catalyst strength** is one of the inputs to Track B (Mispricing), Gate 3 -- the catalyst gate
+5. **Gate 3** checks whether near-term catalysts exist to close the valuation gap identified by Gates 1 and 2
+
+The relationship is additive, not dominant. A high accumulation percentile improves catalyst strength, which improves the Track B gate score, which contributes to the multiplicative track score. But because Track B uses multiplicative scoring across all four gates, strong institutional accumulation alone cannot carry a stock that fails on valuation, downside protection, or quality.
+
+<Callout type="tip">
+Institutional accumulation is one of six factors in the Momentum pillar. Within the catalyst strength calculation, it is equal-weighted with SUE when both signals are present. When accumulation data is not available (the stock has no curated manager holdings), the catalyst strength calculation falls back to SUE alone. The system degrades gracefully rather than penalizing stocks with no institutional coverage.
+</Callout>
+
+## Smart Money Page
+
+The `/smart-money` page provides direct access to the institutional data that feeds the accumulation signal, organized into three tabs:
+
+**Fund Tracker** -- Browse individual manager portfolios from the curated and top-AUM lists. See their top holdings, position sizes, and changes from the previous quarter. This is the raw data behind the accumulation signal, presented per-manager rather than per-stock.
+
+**Market Signals** -- An aggregate view showing which stocks are most widely held across the curated manager universe, which stocks saw the most new position initiations this quarter, and where crowding risk exists (many managers holding the same names). This tab answers the question: what is the curated manager universe doing collectively?
+
+**Clone Lab** -- An educational tool that shows what a portfolio would look like if you followed a specific manager's disclosed strategy. Select a manager, choose an allocation approach (equal-weight, conviction-weight, or sector-constrained), and see the resulting portfolio composition. This is a thought experiment, not a recommendation -- past manager performance does not predict future results, and 13F data is already stale by the time it is available.
+
+<Callout type="info">
+Full Smart Money features require a Pro subscription. Free-tier users can see the aggregate accumulation data on individual stock pages but cannot access the Fund Tracker, Market Signals, or Clone Lab tabs.
+</Callout>
+
+## Verify It Yourself
+
+<VerifyItYourself claim="Institutional transparency">
+Open any stock's asset detail page and scroll to Institutional Positioning. You will see holder data, accumulation trends, and which curated managers hold the stock. The accumulation percentile shown there is the same value that feeds into the catalyst strength factor in Track B scoring.
+</VerifyItYourself>
+
+## Known Limitations
+
+<KnownLimitations>
+- 45-day reporting lag means positions are already 1.5 to 3 months old by the time they appear. The manager may have exited the position entirely between the filing date and now.
+- Only covers US equity long positions -- no shorts, bonds, or international holdings. A manager's 13F may show a long position while they are net short through unlisted derivatives.
+- Not all managers file 13F. Foreign investors, those under $100M AUM, and certain exempt entities are not required to report. Institutional activity from these sources is invisible.
+- Crowded trades analysis requires previous quarter comparison data, which is currently limited for newly tracked stocks that lack historical filing coverage.
+- Clone Lab is educational -- past manager performance does not predict future results, and the 45-day data lag means any "cloned" portfolio is based on outdated positions.
+- The curated manager list is static between review periods. A manager whose strategy changes will continue to be included (or excluded) until the next review.
+- New position detection depends on the previous quarter's filing. If a manager skipped a filing or filed late, the delta calculation may misclassify existing positions as new.
+</KnownLimitations>
