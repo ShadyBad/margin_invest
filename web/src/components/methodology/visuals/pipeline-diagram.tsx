@@ -4,10 +4,10 @@ const stages = [
   { num: "01", label: "Universe", desc: "Selection", metric: "7,000+ stocks" },
   { num: "02", label: "Filters", desc: "Elimination", metric: "6 binary checks" },
   { num: "03", label: "Scoring", desc: "Factor Analysis", metric: "Quality · Value · Momentum" },
-  { num: "04", label: "Conviction", desc: "Dual-Track", metric: "Compounder & Mispricing" },
+  { num: "04", label: "Composite", desc: "Dual-Track", metric: "Compounder & Mispricing" },
   { num: "05", label: "ML", desc: "Refinement", metric: "Cluster models, VAE" },
   { num: "06", label: "Smart Money", desc: "Overlay", metric: "13F signals" },
-  { num: "07", label: "Sizing", desc: "Position", metric: "Conviction × type matrix" },
+  { num: "07", label: "Sizing", desc: "Position", metric: "Tier × type matrix" },
 ]
 
 function PipelineArrow() {

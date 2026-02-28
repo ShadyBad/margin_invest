@@ -15,13 +15,13 @@ const data = [
   { stage: "Universe", score: 50, label: "Enters pipeline" },
   { stage: "Filters", score: 55, label: "Passes all 6 checks" },
   { stage: "Scoring", score: 72, label: "Factor percentiles" },
-  { stage: "Conviction", score: 82, label: "Dual-track gates" },
+  { stage: "Composite", score: 82, label: "Dual-track gates" },
   { stage: "ML", score: 85, label: "ML refinement" },
   { stage: "Smart $", score: 88, label: "13F overlay" },
   { stage: "Sizing", score: 91, label: "Final output" },
 ]
 
-const convictionBands = [
+const tierBands = [
   { y: 70, label: "Watchlist", color: "var(--color-text-tertiary)" },
   { y: 85, label: "High", color: "var(--color-warning)" },
   { y: 95, label: "Exceptional", color: "var(--color-accent)" },
@@ -67,7 +67,7 @@ export function CandidateJourneyChart() {
               labelStyle={{ color: "var(--color-text-secondary)" }}
               itemStyle={{ color: "var(--color-accent)" }}
             />
-            {convictionBands.map((band) => (
+            {tierBands.map((band) => (
               <ReferenceLine
                 key={band.label}
                 y={band.y}
@@ -89,7 +89,7 @@ export function CandidateJourneyChart() {
       </div>
 
       <div className="flex items-center gap-4 mt-4">
-        {convictionBands.map((band) => (
+        {tierBands.map((band) => (
           <div key={band.label} className="flex items-center gap-1.5">
             <div
               className="w-4 h-px"
