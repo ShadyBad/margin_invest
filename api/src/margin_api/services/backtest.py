@@ -205,6 +205,7 @@ def build_full_response(
         weighting=result.config.weighting,
         sector_exclusions=result.config.sector_exclusions,
         transaction_cost_bps=result.config.transaction_cost_bps,
+        seed=result.config.seed,
     )
 
     return FullBacktestResponse(
