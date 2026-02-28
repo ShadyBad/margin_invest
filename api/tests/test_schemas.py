@@ -138,8 +138,8 @@ class TestScoreResponse:
         response = ScoreResponse(
             ticker="AAPL",
             composite_percentile=96.0,
-            conviction_level="high",
-            signal="buy",
+            composite_tier="high",
+            signal="strong",
             quality=FactorBreakdownResponse(
                 factor_name="quality",
                 weight=0.35,
@@ -175,8 +175,8 @@ class TestScoreResponse:
         data = response.model_dump()
         assert data["ticker"] == "AAPL"
         assert data["composite_percentile"] == 96.0
-        assert data["conviction_level"] == "high"
-        assert data["signal"] == "buy"
+        assert data["composite_tier"] == "high"
+        assert data["signal"] == "strong"
         assert data["quality"]["factor_name"] == "quality"
         assert data["value"]["factor_name"] == "value"
         assert data["momentum"]["factor_name"] == "momentum"
@@ -193,8 +193,8 @@ class TestScoreResponse:
 
         assert response.ticker == "MSFT"
         assert response.composite_percentile == 99.4
-        assert response.conviction_level == "high"
-        assert response.signal == "buy"
+        assert response.composite_tier == "high"
+        assert response.signal == "strong"
 
         # Quality breakdown
         assert response.quality.factor_name == "quality"
@@ -249,8 +249,8 @@ class TestScoreResponse:
             composite_raw_score=87.4,
             score=87.4,
             universe_percentile=100.0,
-            conviction_level="exceptional",
-            signal="buy",
+            composite_tier="exceptional",
+            signal="strong",
             quality=FactorBreakdownResponse(
                 factor_name="quality",
                 weight=0.35,
@@ -310,8 +310,8 @@ class TestScoreListResponse:
         score = ScoreResponse(
             ticker="GOOG",
             composite_percentile=92.0,
-            conviction_level="medium",
-            signal="watch",
+            composite_tier="medium",
+            signal="emerging",
             quality=FactorBreakdownResponse(
                 factor_name="quality",
                 weight=0.35,
@@ -355,8 +355,8 @@ class TestPickSummary:
             ticker="NVDA",
             name="NVIDIA Corporation",
             composite_percentile=99.5,
-            conviction_level="exceptional",
-            signal="buy",
+            composite_tier="exceptional",
+            signal="strong",
             quality_percentile=97.0,
             value_percentile=85.0,
             momentum_percentile=98.0,
@@ -365,8 +365,8 @@ class TestPickSummary:
         assert data["ticker"] == "NVDA"
         assert data["name"] == "NVIDIA Corporation"
         assert data["composite_percentile"] == 99.5
-        assert data["conviction_level"] == "exceptional"
-        assert data["signal"] == "buy"
+        assert data["composite_tier"] == "exceptional"
+        assert data["signal"] == "strong"
         assert data["quality_percentile"] == 97.0
         assert data["value_percentile"] == 85.0
         assert data["momentum_percentile"] == 98.0
@@ -380,8 +380,8 @@ class TestPickSummary:
             composite_percentile=99.5,
             score=91.2,
             universe_percentile=99.5,
-            conviction_level="exceptional",
-            signal="buy",
+            composite_tier="exceptional",
+            signal="strong",
             quality_percentile=97.0,
             value_percentile=85.0,
             momentum_percentile=98.0,
@@ -398,13 +398,13 @@ class TestWatchlistItem:
             ticker="AMZN",
             name="Amazon.com Inc.",
             composite_raw_score=73.0,
-            conviction_level="medium",
+            composite_tier="medium",
         )
         data = item.model_dump()
         assert data["ticker"] == "AMZN"
         assert data["name"] == "Amazon.com Inc."
         assert data["composite_raw_score"] == 73.0
-        assert data["conviction_level"] == "medium"
+        assert data["composite_tier"] == "medium"
 
     def test_watchlist_item_enriched_fields(self) -> None:
         """Verify WatchlistItem with all enriched fields."""
@@ -412,7 +412,7 @@ class TestWatchlistItem:
             ticker="MSFT",
             name="Microsoft Corp",
             composite_raw_score=67.5,
-            conviction_level="medium",
+            composite_tier="medium",
             sector="Information Technology",
             actual_price=420.50,
             price_upside=0.15,
@@ -435,8 +435,8 @@ class TestDashboardResponse:
                     ticker="NVDA",
                     name="NVIDIA Corporation",
                     composite_percentile=99.5,
-                    conviction_level="exceptional",
-                    signal="buy",
+                    composite_tier="exceptional",
+                    signal="strong",
                     quality_percentile=97.0,
                     value_percentile=85.0,
                     momentum_percentile=98.0,
@@ -447,7 +447,7 @@ class TestDashboardResponse:
                     ticker="AMZN",
                     name="Amazon.com Inc.",
                     composite_raw_score=73.0,
-                    conviction_level="medium",
+                    composite_tier="medium",
                 ),
             ],
             last_updated="2026-02-12T10:30:00Z",

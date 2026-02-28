@@ -8,8 +8,8 @@ def test_score_response_includes_name():
         ticker="AAPL",
         name="Apple Inc.",
         composite_percentile=92.0,
-        conviction_level="exceptional",
-        signal="buy",
+        composite_tier="exceptional",
+        signal="strong",
         quality=FactorBreakdownResponse(
             factor_name="quality",
             weight=0.35,
@@ -40,8 +40,8 @@ def test_score_response_name_defaults_to_empty():
     resp = ScoreResponse(
         ticker="AAPL",
         composite_percentile=92.0,
-        conviction_level="exceptional",
-        signal="buy",
+        composite_tier="exceptional",
+        signal="strong",
         quality=FactorBreakdownResponse(
             factor_name="quality",
             weight=0.35,
