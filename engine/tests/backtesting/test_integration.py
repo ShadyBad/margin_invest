@@ -513,6 +513,7 @@ class TestExportVerification:
         import margin_engine.backtesting as bt
 
         expected = {
+            "AsyncPointInTimeProvider",
             "BacktestConfig",
             "BacktestResult",
             "BenchmarkProvider",
