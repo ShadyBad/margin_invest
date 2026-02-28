@@ -5,10 +5,10 @@ import type { ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/type
 
 // Mock all child components to isolate orchestration logic
 vi.mock("../panel-backdrop", () => ({
-  PanelBackdrop: ({ onClose }: any) => <div data-testid="panel-backdrop" onClick={onClose} />,
+  PanelBackdrop: ({ onClose }: { onClose: () => void }) => <div data-testid="panel-backdrop" onClick={onClose} />,
 }))
 vi.mock("../executive-header", () => ({
-  ExecutiveHeader: (props: any) => <div data-testid="executive-header">{props.ticker}</div>,
+  ExecutiveHeader: (props: { ticker: string }) => <div data-testid="executive-header">{props.ticker}</div>,
 }))
 vi.mock("../score-chart", () => ({
   ScoreChart: () => <div data-testid="score-chart" />,
@@ -23,7 +23,7 @@ vi.mock("../insight-panel", () => ({
   InsightPanel: () => <div data-testid="insight-panel" />,
 }))
 vi.mock("../panel-valuation", () => ({
-  PanelValuation: (props: any) => (
+  PanelValuation: (props: { buyPrice?: number | null }) => (
     <div data-testid="panel-valuation" data-buy-price={props.buyPrice ?? "none"} />
   ),
 }))
@@ -34,17 +34,17 @@ vi.mock("../score-history-table", () => ({
   ScoreHistoryTable: () => <div data-testid="score-history-table" />,
 }))
 vi.mock("../../pro-gate", () => ({
-  ProGate: ({ children }: any) => <div data-testid="pro-gate">{children}</div>,
+  ProGate: ({ children }: { children: React.ReactNode }) => <div data-testid="pro-gate">{children}</div>,
 }))
 
 vi.mock("framer-motion", async () => {
   const actual = await vi.importActual("framer-motion")
   return {
     ...actual,
-    AnimatePresence: ({ children }: any) => <>{children}</>,
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     motion: {
-      ...(actual as any).motion,
-      div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+      ...(actual as Record<string, unknown>).motion as Record<string, unknown>,
+      div: ({ children, ...props }: Record<string, unknown> & { children?: React.ReactNode }) => <div {...props as React.HTMLAttributes<HTMLDivElement>}>{children}</div>,
     },
   }
 })

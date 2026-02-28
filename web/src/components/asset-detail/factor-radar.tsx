@@ -177,11 +177,13 @@ export function FactorRadar({
               strokeDasharray={strokeDasharray}
               fill="var(--color-accent, #1A7A5A)"
               fillOpacity={fillOpacity}
+              /* eslint-disable @typescript-eslint/no-explicit-any -- Recharts onClick callback type mismatch */
               onClick={((_: unknown, index: number) => {
                 if (onAxisClick && data[index]) {
                   onAxisClick(data[index].factor)
                 }
               }) as any}
+              /* eslint-enable @typescript-eslint/no-explicit-any */
             />
             <Legend
               wrapperStyle={{

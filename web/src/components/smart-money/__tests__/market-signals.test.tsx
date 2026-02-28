@@ -6,8 +6,8 @@ const mockGetOverlap = vi.fn()
 const mockGetNewPositions = vi.fn()
 
 vi.mock("@/lib/api/thirteenf", () => ({
-  getOverlap: (...args: any[]) => mockGetOverlap(...args),
-  getNewPositions: (...args: any[]) => mockGetNewPositions(...args),
+  getOverlap: (...args: unknown[]) => mockGetOverlap(...args),
+  getNewPositions: (...args: unknown[]) => mockGetNewPositions(...args),
 }))
 
 const MOCK_OVERLAP = {

@@ -67,6 +67,7 @@ function GradientOrbs() {
   )
 
   useFrame((_, delta) => {
+    // eslint-disable-next-line react-hooks/immutability -- Three.js uniforms are mutable by design
     uniforms.uTime.value += delta * 0.15
   })
 
@@ -140,6 +141,7 @@ function Particles() {
   const pointsRef = useRef<THREE.Points>(null)
   const count = 50
 
+  /* eslint-disable react-hooks/purity -- Math.random for one-time particle seeding in Three.js */
   const { positions, speeds } = useMemo(() => {
     const pos = new Float32Array(count * 3)
     const spd = new Float32Array(count)
@@ -151,6 +153,7 @@ function Particles() {
     }
     return { positions: pos, speeds: spd }
   }, [])
+  /* eslint-enable react-hooks/purity */
 
   useFrame((state, delta) => {
     if (!pointsRef.current) return

@@ -136,6 +136,7 @@ export function HeroCandidateCard({
 
   // Trigger bar animation on mount
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- triggers CSS transition after mount for animation
     setBarWidths(true)
   }, [])
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import Link from "next/link"
 
 const ease = [0.22, 1, 0.36, 1] as const
 
@@ -107,18 +108,18 @@ export function HeroSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.24, ease }}
         >
-          <a
+          <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent text-bg-primary text-[14px] font-medium rounded-lg hover:opacity-90 transition-opacity"
           >
             Explore dashboard
-          </a>
-          <a
+          </Link>
+          <Link
             href="/guides"
             className="inline-flex items-center gap-2 px-5 py-2.5 border border-border-primary text-text-primary text-[14px] font-medium rounded-lg hover:bg-bg-elevated transition-colors"
           >
             Read guides
-          </a>
+          </Link>
         </motion.div>
       </div>
     </section>

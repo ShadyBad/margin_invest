@@ -2,7 +2,7 @@
 
 interface ChartTooltipProps {
   active?: boolean
-  payload?: any[]
+  payload?: Array<{ payload?: Record<string, unknown> }>
   label?: string
 }
 

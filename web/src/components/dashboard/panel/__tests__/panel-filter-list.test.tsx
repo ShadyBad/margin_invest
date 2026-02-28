@@ -7,10 +7,10 @@ vi.mock("framer-motion", async () => {
   const actual = await vi.importActual("framer-motion")
   return {
     ...actual,
-    AnimatePresence: ({ children }: any) => <>{children}</>,
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     motion: {
-      ...(actual as any).motion,
-      div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+      ...(actual as Record<string, unknown>).motion as Record<string, unknown>,
+      div: ({ children, ...props }: Record<string, unknown> & { children?: React.ReactNode }) => <div {...props as React.HTMLAttributes<HTMLDivElement>}>{children}</div>,
     },
   }
 })

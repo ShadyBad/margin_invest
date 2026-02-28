@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { colors, fonts, spacing, motion, glass } from "../tokens"
+import { colors, motion, glass } from "../tokens"
 
 describe("design tokens", () => {
   it("exports evolved color palette with new depth tokens", () => {

@@ -7,8 +7,8 @@ vi.mock("framer-motion", async () => {
   return {
     ...actual,
     motion: {
-      ...(actual as any).motion,
-      div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+      ...(actual as Record<string, unknown>).motion as Record<string, unknown>,
+      div: ({ children, ...props }: Record<string, unknown> & { children?: React.ReactNode }) => <div {...props as React.HTMLAttributes<HTMLDivElement>}>{children}</div>,
     },
   }
 })

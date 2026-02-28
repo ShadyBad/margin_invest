@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest"
 
 // Use vi.hoisted to ensure mock variables are available when vi.mock factory runs
-const { mockAuth, mockHandlers, mockSignIn, mockSignOut, mockNextAuth } = vi.hoisted(() => {
+const { mockNextAuth } = vi.hoisted(() => {
   const mockAuth = vi.fn()
   const mockHandlers = { GET: vi.fn(), POST: vi.fn() }
   const mockSignIn = vi.fn()

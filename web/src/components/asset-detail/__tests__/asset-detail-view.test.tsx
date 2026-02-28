@@ -27,14 +27,14 @@ vi.mock("@/lib/api/thirteenf", () => ({
 }))
 
 vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
-  AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="responsive-container">{children}</div>,
+  AreaChart: ({ children }: { children: React.ReactNode }) => <div data-testid="area-chart">{children}</div>,
   Area: () => <div data-testid="area" />,
   XAxis: () => <div data-testid="x-axis" />,
   YAxis: () => <div data-testid="y-axis" />,
   Tooltip: () => <div data-testid="tooltip" />,
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
-  RadarChart: ({ children }: any) => <div data-testid="radar-chart">{children}</div>,
+  RadarChart: ({ children }: { children: React.ReactNode }) => <div data-testid="radar-chart">{children}</div>,
   PolarGrid: () => <div data-testid="polar-grid" />,
   PolarAngleAxis: () => <div data-testid="polar-angle-axis" />,
   Radar: () => <div data-testid="radar" />,

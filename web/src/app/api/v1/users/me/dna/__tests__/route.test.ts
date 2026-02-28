@@ -25,7 +25,7 @@ describe("GET /api/v1/users/me/dna", () => {
     vi.mocked(auth).mockResolvedValue({
       userId: "1",
       user: { email: "test@test.com" },
-    } as any)
+    } as unknown as Awaited<ReturnType<typeof auth>>)
     mockFetch.mockResolvedValue({
       ok: true,
       json: () =>

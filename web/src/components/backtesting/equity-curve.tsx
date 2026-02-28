@@ -74,7 +74,6 @@ export function EquityCurve({
   points,
   regimeBands,
   showDrawdown = true,
-  height = 400,
   className,
 }: EquityCurveProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -134,7 +133,7 @@ export function EquityCurve({
 
     // Build a path that traces the portfolio line for drawdown segments,
     // then returns along the "peak" line
-    let pathParts: string[] = []
+    const pathParts: string[] = []
     let inDrawdown = false
     let segmentStart = -1
 

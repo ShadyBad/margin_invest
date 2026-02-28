@@ -80,7 +80,7 @@ function buildChartData(
   }))
 }
 
-function PriceTargetTooltip({ active, payload, label }: any) {
+function PriceTargetTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ payload?: ChartPoint }>; label?: string }) {
   if (!active || !payload?.length) return null
   const data = payload[0]?.payload as ChartPoint
   if (!data) return null

@@ -50,6 +50,8 @@ export function ScoreChart({
   scoringFrequency,
   lastScored,
 }: ScoreChartProps) {
+  const gradientId = useId()
+
   if (!data || data.length < 2) {
     return (
       <div
@@ -61,8 +63,6 @@ export function ScoreChart({
       </div>
     )
   }
-
-  const gradientId = useId()
 
   const sorted = [...data].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),

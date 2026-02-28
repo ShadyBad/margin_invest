@@ -18,8 +18,8 @@ beforeAll(() => {
 })
 
 vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-  BarChart: ({ children }: any) => <div data-testid="sector-bar-chart">{children}</div>,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  BarChart: ({ children }: { children: React.ReactNode }) => <div data-testid="sector-bar-chart">{children}</div>,
   Bar: () => null,
   XAxis: () => null,
   YAxis: () => null,

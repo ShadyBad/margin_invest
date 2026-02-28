@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 
 const PROVIDER_LABELS: Record<string, string> = {
   google: "Google",

@@ -38,7 +38,7 @@ export function SignalTimeline({
     <div className={className} data-testid="signal-timeline">
       <h4 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-3">Signal History</h4>
       <div className="space-y-3">
-        {transitions.map((t, i) => {
+        {transitions.map((t) => {
           const date = new Date(t.transitioned_at).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",

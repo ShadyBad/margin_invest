@@ -41,7 +41,7 @@ export async function serverFetch<T>(
       headers,
       cache: options.cache ?? "no-store",
     })
-  } catch (err) {
+  } catch {
     throw new ApiError(503, "SERVICE_UNAVAILABLE", "API server is not reachable")
   }
 

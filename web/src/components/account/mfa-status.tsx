@@ -68,6 +68,7 @@ export function MfaStatus({
 
   // State 2: Has password, MFA not enabled
   if (hasPassword && !mfaEnabled) {
+    // eslint-disable-next-line react-hooks/purity -- deadline comparison is intentionally evaluated at render time
     const graceExpired = mfaGraceDeadline && new Date(mfaGraceDeadline).getTime() <= Date.now()
     const graceRemaining = mfaGraceDeadline ? formatGraceDeadline(mfaGraceDeadline) : null
 

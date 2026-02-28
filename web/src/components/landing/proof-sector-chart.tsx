@@ -46,6 +46,7 @@ function useIsNarrow(): boolean {
   const [narrow, setNarrow] = useState(false)
   useEffect(() => {
     const mql = window.matchMedia("(max-width: 639px)")
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initializing from matchMedia only available client-side
     setNarrow(mql.matches)
     const handler = (e: MediaQueryListEvent) => setNarrow(e.matches)
     mql.addEventListener("change", handler)

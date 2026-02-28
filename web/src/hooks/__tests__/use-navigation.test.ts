@@ -4,10 +4,10 @@ import { useNavigation } from "../use-navigation"
 
 // Mock next-auth/react
 const mockSignOut = vi.fn()
-let mockSession: any = null
+let mockSession: Record<string, unknown> | null = null
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: mockSession, status: mockSession ? "authenticated" : "unauthenticated" }),
-  signOut: (...args: any[]) => mockSignOut(...args),
+  signOut: (...args: unknown[]) => mockSignOut(...args),
 }))
 
 // Mock next/navigation

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { FILTER_METADATA } from "@/lib/filter-metadata"
 import { FilterCard } from "../filter-card"
+import type { FilterResultResponse } from "@/lib/api/types"
 
 describe("FILTER_METADATA", () => {
   it("every filter has an academic citation", () => {
@@ -21,7 +22,7 @@ describe("FilterCard", () => {
       detail: "Based on Q3 2025 10-Q filed Oct 2025",
       verdict: "passed",
     }
-    render(<FilterCard filter={filter as any} expanded={true} />)
+    render(<FilterCard filter={filter as FilterResultResponse} expanded={true} />)
     expect(screen.getByText(/Q3 2025 10-Q/)).toBeInTheDocument()
   })
 
@@ -36,7 +37,7 @@ describe("FilterCard", () => {
     }
     render(
       <FilterCard
-        filter={filter as any}
+        filter={filter as FilterResultResponse}
         expanded={true}
         sectorPassRate={0.68}
         sectorName="Consumer Discretionary"
@@ -58,7 +59,7 @@ describe("FilterCard", () => {
     }
     render(
       <FilterCard
-        filter={filter as any}
+        filter={filter as FilterResultResponse}
         expanded={true}
         sectorPassRate={0.68}
         sectorName="Consumer Discretionary"
@@ -76,7 +77,7 @@ describe("FilterCard", () => {
       detail: "Below safe zone",
       verdict: "failed",
     }
-    render(<FilterCard filter={filter as any} expanded={true} />)
+    render(<FilterCard filter={filter as FilterResultResponse} expanded={true} />)
     expect(
       screen.queryByText(/stocks pass this filter/)
     ).not.toBeInTheDocument()

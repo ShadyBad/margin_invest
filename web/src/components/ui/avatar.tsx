@@ -66,6 +66,7 @@ export function Avatar({ name, avatarUrl, oauthAvatarUrl, size, className }: Ava
   }
 
   return (
+    // eslint-disable-next-line @next/next/no-img-element -- external OAuth avatar URLs are dynamic and unoptimizable
     <img
       src={activeUrl}
       alt={`${name}'s avatar`}

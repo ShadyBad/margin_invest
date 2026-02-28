@@ -7,8 +7,8 @@ const mockGetManagers = vi.fn()
 const mockGetClonePortfolio = vi.fn()
 
 vi.mock("@/lib/api/thirteenf", () => ({
-  getManagers: (...args: any[]) => mockGetManagers(...args),
-  getClonePortfolio: (...args: any[]) => mockGetClonePortfolio(...args),
+  getManagers: (...args: unknown[]) => mockGetManagers(...args),
+  getClonePortfolio: (...args: unknown[]) => mockGetClonePortfolio(...args),
 }))
 
 const MOCK_CURATED_MANAGERS = [

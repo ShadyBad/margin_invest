@@ -1,18 +1,20 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 
+type MockProps = Record<string, unknown> & { children?: React.ReactNode }
+
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-    h1: ({ children, ...props }: any) => <h1 {...props}>{children}</h1>,
-    h2: ({ children, ...props }: any) => <h2 {...props}>{children}</h2>,
-    h3: ({ children, ...props }: any) => <h3 {...props}>{children}</h3>,
-    h4: ({ children, ...props }: any) => <h4 {...props}>{children}</h4>,
-    p: ({ children, ...props }: any) => <p {...props}>{children}</p>,
-    span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
-    ul: ({ children, ...props }: any) => <ul {...props}>{children}</ul>,
-    section: ({ children, ...props }: any) => (
-      <section {...props}>{children}</section>
+    div: ({ children, ...props }: MockProps) => <div {...props as React.HTMLAttributes<HTMLDivElement>}>{children}</div>,
+    h1: ({ children, ...props }: MockProps) => <h1 {...props as React.HTMLAttributes<HTMLHeadingElement>}>{children}</h1>,
+    h2: ({ children, ...props }: MockProps) => <h2 {...props as React.HTMLAttributes<HTMLHeadingElement>}>{children}</h2>,
+    h3: ({ children, ...props }: MockProps) => <h3 {...props as React.HTMLAttributes<HTMLHeadingElement>}>{children}</h3>,
+    h4: ({ children, ...props }: MockProps) => <h4 {...props as React.HTMLAttributes<HTMLHeadingElement>}>{children}</h4>,
+    p: ({ children, ...props }: MockProps) => <p {...props as React.HTMLAttributes<HTMLParagraphElement>}>{children}</p>,
+    span: ({ children, ...props }: MockProps) => <span {...props as React.HTMLAttributes<HTMLSpanElement>}>{children}</span>,
+    ul: ({ children, ...props }: MockProps) => <ul {...props as React.HTMLAttributes<HTMLUListElement>}>{children}</ul>,
+    section: ({ children, ...props }: MockProps) => (
+      <section {...props as React.HTMLAttributes<HTMLElement>}>{children}</section>
     ),
   },
   useInView: () => true,
@@ -30,8 +32,8 @@ vi.mock("framer-motion", () => ({
 }))
 
 vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-  LineChart: ({ children }: any) => <div>{children}</div>,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Line: () => null,
   XAxis: () => null,
   YAxis: () => null,

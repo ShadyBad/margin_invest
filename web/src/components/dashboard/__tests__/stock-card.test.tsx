@@ -33,7 +33,7 @@ vi.mock("@/lib/sector-colors", () => ({
 
 // Mock AssetPanel (slide-over panel)
 vi.mock("../panel", () => ({
-  AssetPanel: ({ isOpen, ticker }: any) =>
+  AssetPanel: ({ isOpen, ticker }: { isOpen: boolean; ticker: string }) =>
     isOpen ? <div data-testid={`asset-panel-${ticker}`} /> : null,
 }))
 

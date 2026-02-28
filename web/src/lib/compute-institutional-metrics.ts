@@ -64,7 +64,7 @@ export function computeVolatility(bars: PriceBar[]): number | null {
   return Math.round(annualized * 10) / 10
 }
 
-function classifyRisk(volatility: number | null, _growthStage?: string): string {
+function classifyRisk(volatility: number | null): string {
   if (volatility == null) return "Unknown"
   if (volatility > 40) return "Aggressive"
   if (volatility > 25) return "Moderate-High"
@@ -86,6 +86,6 @@ export function computeInstitutionalMetrics(score: ScoreResponse): Institutional
     maxDrawdown: computeMaxDrawdown(sorted),
     volatility,
     avgProfitMargin: null,
-    riskClassification: classifyRisk(volatility, score.growth_stage),
+    riskClassification: classifyRisk(volatility),
   }
 }

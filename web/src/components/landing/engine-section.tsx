@@ -88,7 +88,7 @@ export function EngineSection({ onStageChange }: EngineSectionProps) {
     if (!sectionRef.current) return
 
     let cancelled = false
-    let triggers: { kill: () => void }[] = []
+    const triggers: { kill: () => void }[] = []
 
     async function animate() {
       const gsapModule = await import("gsap")

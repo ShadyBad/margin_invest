@@ -1,16 +1,17 @@
 import { describe, it, expect, vi } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 
 vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: any) => (
+  ResponsiveContainer: ({ children }: { children: ReactNode }) => (
     <div data-testid="responsive-container">{children}</div>
   ),
-  RadarChart: ({ children }: any) => <div data-testid="radar-chart">{children}</div>,
+  RadarChart: ({ children }: { children: ReactNode }) => <div data-testid="radar-chart">{children}</div>,
   PolarGrid: () => <div data-testid="polar-grid" />,
-  PolarAngleAxis: ({ dataKey }: any) => (
+  PolarAngleAxis: ({ dataKey }: { dataKey: string }) => (
     <div data-testid="polar-angle-axis" data-key={dataKey} />
   ),
-  Radar: ({ name, dataKey }: any) => (
+  Radar: ({ name, dataKey }: { name: string; dataKey: string }) => (
     <div data-testid={`radar-${name}`} data-key={dataKey} />
   ),
   Legend: () => <div data-testid="legend" />,

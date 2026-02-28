@@ -65,10 +65,11 @@ export function MfaEnforcementBanner() {
   const [dismissed, setDismissed] = useState(false)
   const [, setTick] = useState(0)
 
-  // Check sessionStorage on mount
+  // Check sessionStorage on mount — setState in effect is intentional for SSR hydration safety
   useEffect(() => {
     try {
       if (sessionStorage.getItem(DISMISS_KEY) === "true") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe: sessionStorage only available client-side
         setDismissed(true)
       }
     } catch {

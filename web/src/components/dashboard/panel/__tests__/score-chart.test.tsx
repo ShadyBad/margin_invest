@@ -3,8 +3,8 @@ import { render, screen } from "@testing-library/react"
 import { ScoreChart } from "../score-chart"
 
 vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
-  ComposedChart: ({ children }: any) => <div data-testid="composed-chart">{children}</div>,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="responsive-container">{children}</div>,
+  ComposedChart: ({ children }: { children: React.ReactNode }) => <div data-testid="composed-chart">{children}</div>,
   Area: () => <div data-testid="area" />,
   Line: () => <div data-testid="line" />,
   XAxis: () => <div data-testid="x-axis" />,

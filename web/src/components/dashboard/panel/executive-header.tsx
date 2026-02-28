@@ -26,7 +26,6 @@ export function ExecutiveHeader({
   scoreDelta,
   conviction,
   signal,
-  opportunityType,
   buyPrice,
   sellPrice,
   actualPrice,
