@@ -1063,7 +1063,7 @@ class PITFinancialSnapshot(Base):
 
     __tablename__ = "pit_financial_snapshots"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     cik: Mapped[str] = mapped_column(String(10), index=True)
     ticker: Mapped[str] = mapped_column(String(10), index=True)
     filing_date: Mapped[date] = mapped_column(index=True)
@@ -1106,7 +1106,7 @@ class PITUniverseMembership(Base):
 
     __tablename__ = "pit_universe_memberships"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     ticker: Mapped[str] = mapped_column(String(10), index=True)
     cik: Mapped[str] = mapped_column(String(10))
     quarter_date: Mapped[date]
