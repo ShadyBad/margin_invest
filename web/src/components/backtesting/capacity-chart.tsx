@@ -57,7 +57,7 @@ export function CapacityChart({ rows, breakevenAum }: CapacityChartProps) {
           />
           <Tooltip
             formatter={(value: number | undefined) => [value?.toFixed(2) ?? "—", "Sharpe"]}
-            labelFormatter={(label: string | number) => formatAum(Number(label))}
+            labelFormatter={(label) => formatAum(Number(label))}
             contentStyle={{
               backgroundColor: "var(--color-bg-elevated)",
               border: "1px solid var(--color-border-primary)",
