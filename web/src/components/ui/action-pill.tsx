@@ -7,12 +7,19 @@ interface ActionPillProps {
 }
 
 const pillConfig: Record<string, { bg: string; text: string; label: string }> = {
-  buy: { bg: "bg-bullish/10", text: "text-bullish", label: "BUY" },
-  hold: { bg: "bg-accent/10", text: "text-accent", label: "HOLD" },
-  sell: { bg: "bg-warning/10", text: "text-warning", label: "SELL" },
-  watch: { bg: "bg-text-secondary/10", text: "text-text-secondary", label: "WATCH" },
-  urgent_sell: { bg: "bg-bearish/10", text: "text-bearish", label: "SELL" },
-  no_action: { bg: "bg-bg-secondary", text: "text-text-tertiary", label: "N/A" },
+  strong: { bg: "bg-bullish/10", text: "text-bullish", label: "STRONG" },
+  stable: { bg: "bg-accent/10", text: "text-accent", label: "STABLE" },
+  weak: { bg: "bg-warning/10", text: "text-warning", label: "WEAK" },
+  emerging: { bg: "bg-text-secondary/10", text: "text-text-secondary", label: "EMERGING" },
+  failed: { bg: "bg-bearish/10", text: "text-bearish", label: "FAILED" },
+  neutral: { bg: "bg-bg-secondary", text: "text-text-tertiary", label: "\u2014" },
+  // Backward compat for old signal values
+  buy: { bg: "bg-bullish/10", text: "text-bullish", label: "STRONG" },
+  hold: { bg: "bg-accent/10", text: "text-accent", label: "STABLE" },
+  sell: { bg: "bg-warning/10", text: "text-warning", label: "WEAK" },
+  watch: { bg: "bg-text-secondary/10", text: "text-text-secondary", label: "EMERGING" },
+  urgent_sell: { bg: "bg-bearish/10", text: "text-bearish", label: "FAILED" },
+  no_action: { bg: "bg-bg-secondary", text: "text-text-tertiary", label: "\u2014" },
 }
 
 function formatPrice(price: number | null | undefined): string {
@@ -27,16 +34,16 @@ function getSubtext(
   actualPrice?: number | null,
 ): string {
   const s = signal.toLowerCase()
-  if (s === "buy" && buyPrice != null) return `Below ${formatPrice(buyPrice)} buy target`
-  if (s === "hold" && actualPrice != null && buyPrice != null && sellPrice != null) {
+  if ((s === "strong" || s === "buy") && buyPrice != null) return `Below ${formatPrice(buyPrice)} target`
+  if ((s === "stable" || s === "hold") && actualPrice != null && buyPrice != null && sellPrice != null) {
     return `Between ${formatPrice(buyPrice)} and ${formatPrice(sellPrice)}`
   }
-  if (s === "sell" && sellPrice != null) return `Above ${formatPrice(sellPrice)} sell target`
-  if (s === "urgent_sell" && actualPrice != null && sellPrice != null) {
+  if ((s === "weak" || s === "sell") && sellPrice != null) return `Above ${formatPrice(sellPrice)} target`
+  if ((s === "failed" || s === "urgent_sell") && actualPrice != null && sellPrice != null) {
     const pct = ((actualPrice - sellPrice) / sellPrice * 100)
-    return `+${pct.toFixed(0)}% over sell target`
+    return `+${pct.toFixed(0)}% over target`
   }
-  if (s === "watch") return "Monitoring"
+  if (s === "emerging" || s === "watch") return "Monitoring"
   return ""
 }
 

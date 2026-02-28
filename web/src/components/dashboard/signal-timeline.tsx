@@ -6,6 +6,13 @@ interface SignalTimelineProps {
 }
 
 const signalColor: Record<string, string> = {
+  strong: "text-bullish",
+  stable: "text-accent",
+  weak: "text-warning",
+  failed: "text-bearish",
+  emerging: "text-text-secondary",
+  neutral: "text-text-tertiary",
+  // Backward compat
   buy: "text-bullish",
   hold: "text-accent",
   sell: "text-warning",

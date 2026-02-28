@@ -100,6 +100,13 @@ export function HeroHeader({
   }
 
   const signalColors: Record<string, string> = {
+    strong: "text-bullish",
+    stable: "text-accent",
+    weak: "text-bearish",
+    emerging: "text-text-secondary",
+    failed: "text-bearish",
+    neutral: "text-text-tertiary",
+    // Backward compat
     buy: "text-bullish",
     hold: "text-accent",
     sell: "text-bearish",
