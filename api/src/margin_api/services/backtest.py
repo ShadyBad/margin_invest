@@ -220,30 +220,40 @@ def build_full_response(
         seed=result.config.seed,
     )
 
-    # Sensitivity analysis
-    sensitivity_data = run_sensitivity_analysis(result.snapshots)
-    sensitivity = SensitivityResponse(
-        rows=[CostSensitivityRow(**row) for row in sensitivity_data]
-    )
+    # Cost analysis is only meaningful when snapshots have non-zero costs.
+    # The synthetic default result has transaction_costs=0.0 for all months,
+    # which would produce misleading sensitivity/capacity/validation data.
+    has_real_costs = any(s.transaction_costs > 0 for s in result.snapshots)
 
-    # Capacity analysis
-    capacity_data = run_capacity_analysis(result.snapshots)
-    capacity = CapacityResponse(
-        rows=[CapacityRow(**row) for row in capacity_data["rows"]],
-        breakeven_aum=capacity_data["breakeven_aum"],
-    )
+    sensitivity: SensitivityResponse | None = None
+    capacity: CapacityResponse | None = None
+    cost_validation: CostValidationResponse | None = None
 
-    # Cost validation — compute average cost bps across snapshots
-    total_costs = sum(s.transaction_costs for s in result.snapshots)
-    total_pv = sum(s.portfolio_value for s in result.snapshots)
-    avg_cost_bps = (total_costs / total_pv * 10_000) if total_pv > 0 else 0.0
-    validation_result = validate_cost_assumptions(avg_cost_bps, market_cap_billions=10.0)
-    cost_validation = CostValidationResponse(
-        model_cost_bps=validation_result["model_cost_bps"],
-        benchmark_range_bps=list(validation_result["benchmark_range_bps"]),
-        status=str(validation_result["status"]),
-        source=str(validation_result["source"]),
-    )
+    if has_real_costs:
+        # Sensitivity analysis
+        sensitivity_data = run_sensitivity_analysis(result.snapshots)
+        sensitivity = SensitivityResponse(
+            rows=[CostSensitivityRow(**row) for row in sensitivity_data]
+        )
+
+        # Capacity analysis
+        capacity_data = run_capacity_analysis(result.snapshots)
+        capacity = CapacityResponse(
+            rows=[CapacityRow(**row) for row in capacity_data["rows"]],
+            breakeven_aum=capacity_data["breakeven_aum"],
+        )
+
+        # Cost validation — compute average cost bps across snapshots
+        total_costs = sum(s.transaction_costs for s in result.snapshots)
+        total_pv = sum(s.portfolio_value for s in result.snapshots)
+        avg_cost_bps = (total_costs / total_pv * 10_000) if total_pv > 0 else 0.0
+        validation_result = validate_cost_assumptions(avg_cost_bps, market_cap_billions=10.0)
+        cost_validation = CostValidationResponse(
+            model_cost_bps=validation_result["model_cost_bps"],
+            benchmark_range_bps=list(validation_result["benchmark_range_bps"]),
+            status=str(validation_result["status"]),
+            source=str(validation_result["source"]),
+        )
 
     return FullBacktestResponse(
         config=config_resp,

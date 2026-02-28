@@ -5,6 +5,9 @@ import { formatScoredAt } from "@/lib/format"
 import { AppShell } from "@/components/layout"
 import {
   AuditLog,
+  CapacityChart,
+  CostDisclosure,
+  CostSensitivity,
   EquityCurve,
   FactorTimeline,
   FailureAudit,
@@ -351,6 +354,40 @@ export default function BacktestingPage() {
                 <MetricsSummary metrics={metrics} />
               </section>
             )}
+
+            {/* -------------------------------------------------------------- */}
+            {/* Section 3b — Cost Sensitivity Analysis                         */}
+            {/* -------------------------------------------------------------- */}
+            {replayData?.sensitivity && replayData.sensitivity.rows.length > 0 && (
+              <section>
+                <h2 className="text-lg font-semibold text-text-primary mb-4">
+                  Cost Sensitivity Analysis
+                </h2>
+                <CostSensitivity rows={replayData.sensitivity.rows} />
+              </section>
+            )}
+
+            {/* -------------------------------------------------------------- */}
+            {/* Section 3c — Capacity Analysis                                 */}
+            {/* -------------------------------------------------------------- */}
+            {replayData?.capacity && replayData.capacity.rows.length > 0 && (
+              <section>
+                <h2 className="text-lg font-semibold text-text-primary mb-4">
+                  Capacity Analysis
+                </h2>
+                <CapacityChart
+                  rows={replayData.capacity.rows}
+                  breakevenAum={replayData.capacity.breakeven_aum}
+                />
+              </section>
+            )}
+
+            {/* -------------------------------------------------------------- */}
+            {/* Section 3d — Cost Disclosure                                    */}
+            {/* -------------------------------------------------------------- */}
+            <section>
+              <CostDisclosure costValidation={replayData?.cost_validation} />
+            </section>
 
             <section>
               <h2 className="text-lg font-semibold text-text-primary mb-4">
