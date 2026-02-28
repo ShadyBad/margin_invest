@@ -26,14 +26,16 @@ if ! uv run ruff check engine/ api/ 2>/dev/null; then
   exit 2
 fi
 
-# Auto-fix web lint (if web/ files are staged)
+# Auto-fix web lint (if web/ files are staged; subshell preserves cwd)
 if git diff --cached --name-only | grep -q '^web/'; then
-  cd web
-  npx eslint . --fix 2>/dev/null || true
-  if ! npx eslint . 2>/dev/null; then
-    echo "Blocked: eslint found unfixable errors in web/. Fix them before committing." >&2
-    exit 2
-  fi
+  (
+    cd web
+    npx eslint . --fix 2>/dev/null || true
+    if ! npx eslint . 2>/dev/null; then
+      echo "Blocked: eslint found unfixable errors in web/. Fix them before committing." >&2
+      exit 2
+    fi
+  ) || exit 2
 fi
 
 exit 0
