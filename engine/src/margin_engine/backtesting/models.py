@@ -95,6 +95,16 @@ class MonthlySnapshot(BaseModel):
     benchmark_return: float = Field(description="Month-over-month benchmark return")
     turnover: float = Field(description="Fraction of portfolio traded this month")
     transaction_costs: float
+    gross_return: float | None = Field(
+        default=None,
+        description="Month-over-month return BEFORE transaction costs",
+    )
+
+    @model_validator(mode="after")
+    def _default_gross_return(self) -> MonthlySnapshot:
+        if self.gross_return is None:
+            self.gross_return = self.portfolio_return
+        return self
 
     @property
     def excess_return(self) -> float:

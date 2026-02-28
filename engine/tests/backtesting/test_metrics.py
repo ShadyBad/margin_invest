@@ -29,6 +29,7 @@ def _make_snapshot(
     benchmark_return: float,
     turnover: float = 0.1,
     transaction_costs: float = 100.0,
+    gross_return: float | None = None,
 ) -> MonthlySnapshot:
     """Create a MonthlySnapshot with minimal boilerplate."""
     return MonthlySnapshot(
@@ -42,6 +43,7 @@ def _make_snapshot(
         benchmark_return=benchmark_return,
         turnover=turnover,
         transaction_costs=transaction_costs,
+        gross_return=gross_return,
     )
 
 

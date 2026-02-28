@@ -189,14 +189,20 @@ class WalkForwardSimulator:
             if i == 0:
                 portfolio_return = 0.0
                 benchmark_return = 0.0
+                gross_return = 0.0
             else:
                 prev_portfolio_value = snapshots[i - 1].portfolio_value
                 if prev_portfolio_value > 0:
                     portfolio_return = (
                         portfolio_value_after_costs - prev_portfolio_value
                     ) / prev_portfolio_value
+                    # Gross return uses pre-cost portfolio_value
+                    gross_return = (
+                        portfolio_value - prev_portfolio_value
+                    ) / prev_portfolio_value
                 else:
                     portfolio_return = 0.0
+                    gross_return = 0.0
 
                 prev_benchmark_value = snapshots[i - 1].benchmark_value
                 if prev_benchmark_value > 0:
@@ -218,6 +224,7 @@ class WalkForwardSimulator:
                 benchmark_return=benchmark_return,
                 turnover=turnover,
                 transaction_costs=transaction_costs,
+                gross_return=gross_return,
             )
             snapshots.append(snapshot)
 
