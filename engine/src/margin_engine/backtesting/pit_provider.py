@@ -78,6 +78,27 @@ class PointInTimeProvider(Protocol):
         ...
 
 
+@runtime_checkable
+class AsyncPointInTimeProvider(Protocol):
+    """Async variant of PointInTimeProvider for database-backed providers."""
+
+    async def get_universe(self, as_of_date: date) -> list[PITSnapshot]:
+        """Return all tradeable stocks at the given date."""
+        ...
+
+    async def get_snapshot(self, ticker: str, as_of_date: date) -> PITSnapshot | None:
+        """Return point-in-time data for a specific ticker."""
+        ...
+
+    async def get_price(self, ticker: str, as_of_date: date) -> float | None:
+        """Return closing price for a ticker at the given date."""
+        ...
+
+    async def get_delisting(self, ticker: str) -> DelistingEvent | None:
+        """Return delisting event for a ticker, or None if still listed."""
+        ...
+
+
 class InMemoryPITProvider:
     """In-memory implementation of PointInTimeProvider for testing."""
 

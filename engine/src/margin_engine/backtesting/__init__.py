@@ -15,6 +15,7 @@ from margin_engine.backtesting.models import (
     ValidationResult,
 )
 from margin_engine.backtesting.pit_provider import (
+    AsyncPointInTimeProvider,
     DelistingEvent,
     DelistingType,
     InMemoryPITProvider,
@@ -57,6 +58,7 @@ from margin_engine.backtesting.walk_forward import (
 )
 
 __all__ = [
+    "AsyncPointInTimeProvider",
     "BacktestConfig",
     "BacktestResult",
     "BenchmarkProvider",
