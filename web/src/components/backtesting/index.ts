@@ -1,4 +1,7 @@
 export { AuditLog } from "./audit-log"
+export { CapacityChart } from "./capacity-chart"
+export type { CapacityRow, CapacityChartProps } from "./capacity-chart"
+export { CostSensitivity } from "./cost-sensitivity"
 export { EquityCurve } from "./equity-curve"
 export type { EquityCurvePoint, EquityCurveProps, RegimeBand } from "./equity-curve"
 export { FactorTimeline } from "./factor-timeline"

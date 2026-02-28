@@ -5,9 +5,10 @@ interface MetricCardProps {
   value: string
   colorClass: string
   testId: string
+  grossValue?: string
 }
 
-function MetricCard({ label, value, colorClass, testId }: MetricCardProps) {
+function MetricCard({ label, value, colorClass, testId, grossValue }: MetricCardProps) {
   return (
     <div
       className="bg-bg-elevated border border-border-primary rounded-sm p-4"
@@ -15,6 +16,9 @@ function MetricCard({ label, value, colorClass, testId }: MetricCardProps) {
     >
       <p className="text-xs text-text-secondary mb-1">{label}</p>
       <p className={`text-xl font-semibold ${colorClass}`}>{value}</p>
+      {grossValue && (
+        <p className="text-xs text-text-tertiary mt-0.5">(gross: {grossValue})</p>
+      )}
     </div>
   )
 }
@@ -58,6 +62,7 @@ export function MetricsSummary({ metrics }: MetricsSummaryProps) {
         value={formatPercent(metrics.cagr)}
         colorClass={valueColor(metrics.cagr)}
         testId="metric-cagr"
+        grossValue={metrics.gross_cagr ? formatPercent(metrics.gross_cagr) : undefined}
       />
       <MetricCard
         label="Excess CAGR"
@@ -70,6 +75,7 @@ export function MetricsSummary({ metrics }: MetricsSummaryProps) {
         value={formatRatio(metrics.sharpe_ratio)}
         colorClass={valueColor(metrics.sharpe_ratio)}
         testId="metric-sharpe-ratio"
+        grossValue={metrics.gross_sharpe ? formatRatio(metrics.gross_sharpe) : undefined}
       />
       <MetricCard
         label="Sortino Ratio"
@@ -82,6 +88,7 @@ export function MetricsSummary({ metrics }: MetricsSummaryProps) {
         value={formatPercent(metrics.max_drawdown)}
         colorClass={drawdownColor(metrics.max_drawdown)}
         testId="metric-max-drawdown"
+        grossValue={metrics.gross_max_drawdown ? formatPercent(metrics.gross_max_drawdown) : undefined}
       />
       <MetricCard
         label="Win Rate"
@@ -119,6 +126,14 @@ export function MetricsSummary({ metrics }: MetricsSummaryProps) {
         colorClass="text-text-primary"
         testId="metric-avg-turnover"
       />
+      {metrics.cost_drag_bps != null && metrics.cost_drag_bps > 0 && (
+        <MetricCard
+          label="Cost Drag"
+          value={`${Math.round(metrics.cost_drag_bps)} bps/yr`}
+          colorClass="text-warning"
+          testId="metric-cost-drag"
+        />
+      )}
     </div>
   )
 }
