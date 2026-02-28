@@ -10,7 +10,10 @@ import hashlib
 import json
 from datetime import date
 
+from margin_engine.backtesting.capacity import run_capacity_analysis
+from margin_engine.backtesting.cost_model import validate_cost_assumptions
 from margin_engine.backtesting.failure_audit import FailurePeriod
+from margin_engine.backtesting.metrics import run_sensitivity_analysis
 from margin_engine.backtesting.models import MonthlySnapshot, PerformanceMetrics
 from margin_engine.backtesting.regime_classifier import RegimeSegment
 from margin_engine.backtesting.replay_orchestrator import (
@@ -21,6 +24,10 @@ from margin_engine.backtesting.replay_orchestrator import (
 from margin_api.schemas.backtest import (
     AuditRecordResponse,
     BacktestTeaserResponse,
+    CapacityResponse,
+    CapacityRow,
+    CostSensitivityRow,
+    CostValidationResponse,
     EquityCurvePoint,
     FactorTimelineResponse,
     FailurePeriodResponse,
@@ -29,6 +36,7 @@ from margin_api.schemas.backtest import (
     PortfolioTeaserResponse,
     RegimeSegmentResponse,
     ReplayConfigRequest,
+    SensitivityResponse,
 )
 
 
@@ -61,6 +69,10 @@ def _build_metrics_response(
         benchmark_total_return=m.benchmark_total_return,
         num_months=m.num_months,
         avg_turnover=m.avg_turnover,
+        gross_cagr=m.gross_cagr,
+        gross_sharpe=m.gross_sharpe,
+        gross_max_drawdown=m.gross_max_drawdown,
+        cost_drag_bps=m.cost_drag_bps,
     )
 
 
@@ -208,6 +220,31 @@ def build_full_response(
         seed=result.config.seed,
     )
 
+    # Sensitivity analysis
+    sensitivity_data = run_sensitivity_analysis(result.snapshots)
+    sensitivity = SensitivityResponse(
+        rows=[CostSensitivityRow(**row) for row in sensitivity_data]
+    )
+
+    # Capacity analysis
+    capacity_data = run_capacity_analysis(result.snapshots)
+    capacity = CapacityResponse(
+        rows=[CapacityRow(**row) for row in capacity_data["rows"]],
+        breakeven_aum=capacity_data["breakeven_aum"],
+    )
+
+    # Cost validation — compute average cost bps across snapshots
+    total_costs = sum(s.transaction_costs for s in result.snapshots)
+    total_pv = sum(s.portfolio_value for s in result.snapshots)
+    avg_cost_bps = (total_costs / total_pv * 10_000) if total_pv > 0 else 0.0
+    validation_result = validate_cost_assumptions(avg_cost_bps, market_cap_billions=10.0)
+    cost_validation = CostValidationResponse(
+        model_cost_bps=validation_result["model_cost_bps"],
+        benchmark_range_bps=list(validation_result["benchmark_range_bps"]),
+        status=str(validation_result["status"]),
+        source=str(validation_result["source"]),
+    )
+
     return FullBacktestResponse(
         config=config_resp,
         metrics=_build_metrics_response(result.metrics),
@@ -224,10 +261,13 @@ def build_full_response(
         honesty_disclosure=(
             "Past performance does not predict future returns. "
             "These results include survivorship bias, limited "
-            "factor coverage before 2010, and synthetic "
-            "transaction cost estimates. Publication bias "
-            "haircuts have NOT been applied to these numbers."
+            "factor coverage before 2010, and non-linear "
+            "transaction cost estimates (commission + spread + "
+            "market impact). See Cost Model Assumptions for details."
         ),
+        sensitivity=sensitivity,
+        capacity=capacity,
+        cost_validation=cost_validation,
     )
 
 

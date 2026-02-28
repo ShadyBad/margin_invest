@@ -259,6 +259,10 @@ export interface BacktestMetrics {
   benchmark_total_return: number
   num_months: number
   avg_turnover: number
+  gross_cagr?: number
+  gross_sharpe?: number
+  gross_max_drawdown?: number
+  cost_drag_bps?: number
 }
 
 export interface ValidationCheck {
@@ -402,6 +406,37 @@ export interface ReplayConfigResponse {
   transaction_cost_bps: number
 }
 
+export interface CostSensitivityRow {
+  multiplier: number
+  cagr: number
+  sharpe: number
+  max_drawdown: number
+  cost_drag_bps: number
+}
+
+export interface SensitivityResponse {
+  rows: CostSensitivityRow[]
+}
+
+export interface CapacityRow {
+  aum: number
+  cagr: number
+  sharpe: number
+  avg_impact_bps: number
+}
+
+export interface CapacityResponse {
+  rows: CapacityRow[]
+  breakeven_aum: number | null
+}
+
+export interface CostValidationResponse {
+  model_cost_bps: number
+  benchmark_range_bps: number[]
+  status: string
+  source: string
+}
+
 export interface FullBacktestResponse {
   config: ReplayConfigResponse
   metrics: BacktestMetrics
@@ -412,6 +447,9 @@ export interface FullBacktestResponse {
   equity_curve: { date: string; portfolio_value: number; benchmark_value: number }[]
   walk_forward_note: string
   honesty_disclosure: string
+  sensitivity?: SensitivityResponse
+  capacity?: CapacityResponse
+  cost_validation?: CostValidationResponse
 }
 
 export interface ShadowSnapshotResponse {

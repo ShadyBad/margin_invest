@@ -119,6 +119,10 @@ class TestRunAndGetMetrics:
             "benchmark_total_return",
             "num_months",
             "avg_turnover",
+            "gross_cagr",
+            "gross_sharpe",
+            "gross_max_drawdown",
+            "cost_drag_bps",
         }
         assert set(data.keys()) == expected_fields
 

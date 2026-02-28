@@ -39,6 +39,10 @@ class MetricsResponse(BaseModel):
     benchmark_total_return: float
     num_months: int
     avg_turnover: float
+    gross_cagr: float = 0.0
+    gross_sharpe: float = 0.0
+    gross_max_drawdown: float = 0.0
+    cost_drag_bps: float = 0.0
 
 
 class ValidationCheckResponse(BaseModel):
@@ -175,6 +179,47 @@ class FailurePeriodResponse(BaseModel):
     regime_context: str
 
 
+class CostSensitivityRow(BaseModel):
+    """A single row in the cost sensitivity analysis."""
+
+    multiplier: float
+    cagr: float
+    sharpe: float
+    max_drawdown: float
+    cost_drag_bps: float
+
+
+class SensitivityResponse(BaseModel):
+    """Cost sensitivity analysis across multiplier levels."""
+
+    rows: list[CostSensitivityRow]
+
+
+class CapacityRow(BaseModel):
+    """A single row in the capacity analysis."""
+
+    aum: float
+    cagr: float
+    sharpe: float
+    avg_impact_bps: float
+
+
+class CapacityResponse(BaseModel):
+    """Strategy capacity analysis across AUM levels."""
+
+    rows: list[CapacityRow]
+    breakeven_aum: float | None
+
+
+class CostValidationResponse(BaseModel):
+    """Academic benchmark validation of cost assumptions."""
+
+    model_cost_bps: float
+    benchmark_range_bps: list[float]
+    status: str
+    source: str
+
+
 class FullBacktestResponse(BaseModel):
     """Full backtest result for pro users."""
 
@@ -187,6 +232,9 @@ class FullBacktestResponse(BaseModel):
     equity_curve: list[dict]
     walk_forward_note: str
     honesty_disclosure: str
+    sensitivity: SensitivityResponse | None = None
+    capacity: CapacityResponse | None = None
+    cost_validation: CostValidationResponse | None = None
 
 
 # ---------------------------------------------------------------------------
