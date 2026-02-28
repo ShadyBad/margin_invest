@@ -8,6 +8,7 @@ from decimal import Decimal
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -452,6 +453,8 @@ class BacktestRun(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+    seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    environment_snapshot: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
 
     results: Mapped[list[BacktestResult]] = relationship(back_populates="run")
 
@@ -510,6 +513,42 @@ class MlModelRun(Base):
     cluster_model_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
     vae_model_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
     deployment_status: Mapped[str] = mapped_column(String(20), default="candidate")
+    seed: Mapped[int] = mapped_column(Integer, default=42)
+    run_group_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+
+
+class SeedValidationReport(Base):
+    """Distributional validation results for a multi-seed ML training run."""
+
+    __tablename__ = "seed_validation_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_group_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    n_seeds: Mapped[int] = mapped_column(Integer, nullable=False)
+    metric_distributions: Mapped[dict] = mapped_column(JSONVariant, nullable=False)
+    gate_passed: Mapped[bool] = mapped_column(default=False)
+    gate_details: Mapped[dict] = mapped_column(JSONVariant, nullable=False)
+    selected_seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    previous_comparison: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    environment_snapshot: Mapped[dict] = mapped_column(JSONVariant, nullable=False)
+
+
+class ReproducibilityAudit(Base):
+    """Audit trail for pipeline reproducibility."""
+
+    __tablename__ = "reproducibility_audits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pipeline_stage: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    run_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    config_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    environment_snapshot: Mapped[dict] = mapped_column(JSONVariant, nullable=False)
+    input_data_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class ApiKey(Base):
