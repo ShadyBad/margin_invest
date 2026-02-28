@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     ml_train_min_samples: int = 100
     ml_n_clusters: int = 5
     vae_enable: bool = True
+    ml_n_seeds: int = 20
 
     # Batched ingest
     ingest_batch_size: int = 50

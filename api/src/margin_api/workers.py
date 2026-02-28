@@ -38,6 +38,7 @@ from margin_api.db.models import (
     PipelineApproval,
     ReproducibilityAudit,
     Score,
+    SeedValidationReport,
     UniverseSnapshot,
     V3Score,
     V4Score,
@@ -1586,16 +1587,20 @@ def _composite_from_score_detail(
 
 
 async def train_ml_models(ctx: dict) -> dict:
-    """Train ML cluster models on latest composite scores.
+    """Train ML cluster models on latest composite scores using multi-seed validation.
 
     Steps:
     1. Load latest composite scores from DB
     2. Reconstruct CompositeScore objects from JSONB
-    3. Build feature matrix
-    4. Cluster stocks
-    5. Train per-cluster LightGBM models
-    6. Save model artifacts
-    7. Record MlModelRun in DB
+    3. Build feature matrix and forward returns
+    4. Loop over N seeds (configurable via ml_n_seeds):
+       - Cluster stocks, train LightGBM + VAE, compute rank IC
+       - Store MlModelRun per seed with run_group_id
+    5. Validate seed distribution (IC stability gate)
+    6. Compare to previous run group (Wilcoxon test)
+    7. Store SeedValidationReport and ReproducibilityAudit
+    8. If gate passes: reject non-best seeds, stage best for approval
+       If gate fails: reject all seeds, emit governance event
     """
     from margin_engine.factors.feature_matrix import build_feature_matrix
     from margin_engine.factors.registry import default_registry
@@ -1679,17 +1684,13 @@ async def train_ml_models(ctx: dict) -> dict:
         registry = default_registry()
         features, tickers, feature_names = build_feature_matrix(composites, registry)
 
-        # Cluster stocks
-        n_clusters = settings.ml_n_clusters
-        clusters = cluster_stocks(features, tickers, n_clusters=n_clusters)
-
         import numpy as np
         from margin_engine.ml.forward_returns import compute_forward_returns
 
+        n_clusters = settings.ml_n_clusters
+
         # Load price data for training tickers
         async with session_factory() as session:
-            from margin_api.db.models import FinancialData
-
             price_result = await session.execute(
                 select(FinancialData.price_history, Asset.ticker)
                 .join(Asset, FinancialData.asset_id == Asset.id)
@@ -1723,65 +1724,6 @@ async def train_ml_models(ctx: dict) -> dict:
             "[ml] Forward returns: %d/%d tickers have real data", n_with_returns, len(tickers)
         )
 
-        # Convert clusters from {cluster_id: [tickers]} to {cluster_id: [indices]}
-        ticker_to_idx = {t: i for i, t in enumerate(tickers)}
-        cluster_indices = {
-            cid: [ticker_to_idx[t] for t in ctickers if t in ticker_to_idx]
-            for cid, ctickers in clusters.items()
-        }
-
-        # Train models
-        models = train_cluster_models(features, forward_returns, cluster_indices)
-
-        # Train FactorVAE
-        from margin_engine.ml.factor_vae import FactorVAEConfig, train_factor_vae
-
-        vae_bytes = None
-        vae_metrics = None
-        if settings.vae_enable:
-            try:
-                vae_config = FactorVAEConfig(enable=True, latent_dim=8, hidden_dim=64, epochs=100)
-                vae_bytes, vae_metrics = train_factor_vae(features, forward_returns, vae_config)
-                logger.info(
-                    "[ml] VAE trained: rank_ic=%.4f, recon_loss=%.4f",
-                    vae_metrics.rank_ic,
-                    vae_metrics.reconstruction_loss,
-                )
-            except Exception as e:
-                logger.warning("[ml] VAE training failed, continuing without: %s", e)
-        else:
-            logger.info("[ml] VAE training disabled via config")
-
-        # Serialize cluster models as pickled dict for DB storage
-        import pickle
-
-        cluster_model_data = pickle.dumps(models)
-        vae_model_data = vae_bytes  # already bytes or None
-
-        # Compute rank IC and model qualification
-        from margin_engine.ml.signal_model import predict_alpha
-        from scipy.stats import spearmanr
-
-        all_preds = np.zeros(len(tickers))
-        for cluster_id_ic, model_bytes_ic in models.items():
-            c_indices = cluster_indices[cluster_id_ic]
-            if c_indices:
-                cluster_features = features[c_indices]
-                preds = predict_alpha(model_bytes_ic, cluster_features)
-                for j, idx in enumerate(c_indices):
-                    all_preds[idx] = preds[j]
-
-        mask = forward_returns != 0.0
-        if mask.sum() > 10:
-            overall_rank_ic, _ = spearmanr(all_preds[mask], forward_returns[mask])
-            if np.isnan(overall_rank_ic):
-                overall_rank_ic = 0.0
-        else:
-            overall_rank_ic = 0.0
-
-        model_qualifies = overall_rank_ic > 0.15
-        logger.info("[ml] Overall rank IC: %.4f (qualifies=%s)", overall_rank_ic, model_qualifies)
-
         # Sanitize values for JSONB — numpy types are not JSON-serializable
         def _sanitize(obj: object) -> object:
             if isinstance(obj, (np.integer,)):
@@ -1799,60 +1741,279 @@ async def train_ml_models(ctx: dict) -> dict:
                 return [_sanitize(v) for v in obj]
             return obj
 
-        raw_metrics = {
-            "feature_names": feature_names,
-            "cluster_sizes": {str(k): len(v) for k, v in cluster_indices.items()},
-            "vae_metrics": (vae_metrics.model_dump() if vae_metrics else None),
-        }
+        # --- Multi-seed training loop ---
+        import pickle
 
-        # Record MlModelRun
-        async with session_factory() as session:
-            ml_run = MlModelRun(
-                model_type="lightgbm_cluster",
-                n_clusters=int(len(models)),
-                n_features=int(features.shape[1]),
-                n_samples=int(features.shape[0]),
-                train_metrics=_sanitize(raw_metrics),
-                cluster_model_data=cluster_model_data,
-                vae_model_data=vae_model_data,
-                model_qualifies=bool(model_qualifies),
-                overall_rank_ic=float(overall_rank_ic),
-                vae_rank_ic=float(vae_metrics.rank_ic) if vae_metrics else None,
-                deployment_status="candidate",
+        from margin_engine.ml.factor_vae import FactorVAEConfig, train_factor_vae
+        from margin_engine.ml.model_comparison import compare_model_groups
+        from margin_engine.ml.reproducibility import capture_environment, compute_data_hash
+        from margin_engine.ml.seed_validation import validate_seed_distribution
+        from margin_engine.ml.signal_model import predict_alpha
+        from scipy.stats import spearmanr
+
+        run_group_id = str(uuid.uuid4())
+        n_seeds = settings.ml_n_seeds
+        ticker_to_idx = {t: i for i, t in enumerate(tickers)}
+        seed_metrics_list: list[dict] = []
+        seed_ml_run_ids: list[int] = []
+        best_rank_ic = -999.0
+        best_seed_idx = 0
+
+        logger.info("[ml] Starting multi-seed training: %d seeds, group=%s", n_seeds, run_group_id)
+
+        for seed_idx in range(n_seeds):
+            # Cluster stocks with this seed
+            clusters = cluster_stocks(features, tickers, n_clusters=n_clusters, seed=seed_idx)
+
+            # Convert clusters from {cluster_id: [tickers]} to {cluster_id: [indices]}
+            cluster_indices = {
+                cid: [ticker_to_idx[t] for t in ctickers if t in ticker_to_idx]
+                for cid, ctickers in clusters.items()
+            }
+
+            # Train per-cluster LightGBM models
+            models = train_cluster_models(
+                features, forward_returns, cluster_indices, seed=seed_idx
             )
-            session.add(ml_run)
 
-            # Update JobRun — use no_autoflush to prevent premature flush
-            # of the ml_run INSERT when querying JobRun
-            with session.no_autoflush:
-                result = await session.execute(select(JobRun).where(JobRun.id == job_id))
-                job = result.scalar_one()
+            # Train FactorVAE (optional)
+            vae_bytes = None
+            vae_metrics = None
+            if settings.vae_enable:
+                try:
+                    vae_config = FactorVAEConfig(
+                        enable=True, latent_dim=8, hidden_dim=64, epochs=100
+                    )
+                    vae_bytes, vae_metrics = train_factor_vae(
+                        features, forward_returns, vae_config, seed=seed_idx
+                    )
+                    logger.info(
+                        "[ml] Seed %d VAE: rank_ic=%.4f, recon=%.4f",
+                        seed_idx,
+                        vae_metrics.rank_ic,
+                        vae_metrics.reconstruction_loss,
+                    )
+                except Exception as e:
+                    logger.warning("[ml] Seed %d VAE failed, continuing: %s", seed_idx, e)
+            else:
+                if seed_idx == 0:
+                    logger.info("[ml] VAE training disabled via config")
+
+            # Compute rank IC for this seed
+            all_preds = np.zeros(len(tickers))
+            for cluster_id_ic, model_bytes_ic in models.items():
+                c_indices = cluster_indices[cluster_id_ic]
+                if c_indices:
+                    cluster_features = features[c_indices]
+                    preds = predict_alpha(model_bytes_ic, cluster_features)
+                    for j, idx in enumerate(c_indices):
+                        all_preds[idx] = preds[j]
+
+            mask = forward_returns != 0.0
+            if mask.sum() > 10:
+                overall_rank_ic, _ = spearmanr(all_preds[mask], forward_returns[mask])
+                if np.isnan(overall_rank_ic):
+                    overall_rank_ic = 0.0
+            else:
+                overall_rank_ic = 0.0
+
+            model_qualifies = overall_rank_ic > 0.15
+            logger.info(
+                "[ml] Seed %d: rank_ic=%.4f (qualifies=%s)", seed_idx, overall_rank_ic,
+                model_qualifies,
+            )
+
+            # Collect cluster labels for ARI (assign each ticker to its cluster)
+            cluster_labels = [0] * len(tickers)
+            for cid, indices in cluster_indices.items():
+                for idx in indices:
+                    cluster_labels[idx] = cid
+
+            # Serialize and store MlModelRun for this seed
+            cluster_model_data = pickle.dumps(models)
+            vae_model_data = vae_bytes
+
+            raw_metrics = {
+                "feature_names": feature_names,
+                "cluster_sizes": {str(k): len(v) for k, v in cluster_indices.items()},
+                "vae_metrics": (vae_metrics.model_dump() if vae_metrics else None),
+            }
+
+            async with session_factory() as session:
+                ml_run = MlModelRun(
+                    model_type="lightgbm_cluster",
+                    n_clusters=int(len(models)),
+                    n_features=int(features.shape[1]),
+                    n_samples=int(features.shape[0]),
+                    train_metrics=_sanitize(raw_metrics),
+                    cluster_model_data=cluster_model_data,
+                    vae_model_data=vae_model_data,
+                    model_qualifies=bool(model_qualifies),
+                    overall_rank_ic=float(overall_rank_ic),
+                    vae_rank_ic=float(vae_metrics.rank_ic) if vae_metrics else None,
+                    deployment_status="candidate",
+                    seed=seed_idx,
+                    run_group_id=run_group_id,
+                )
+                session.add(ml_run)
+                await session.commit()
+                seed_ml_run_ids.append(ml_run.id)
+
+            # Collect seed metrics for validation
+            seed_metrics_list.append({
+                "seed": seed_idx,
+                "rank_ic": float(overall_rank_ic),
+                "cluster_labels": cluster_labels,
+                "n_clusters": int(len(models)),
+            })
+
+            if overall_rank_ic > best_rank_ic:
+                best_rank_ic = overall_rank_ic
+                best_seed_idx = seed_idx
+
+        # --- Post-loop: validate seed distribution ---
+        logger.info(
+            "[ml] Multi-seed complete. Best seed=%d (IC=%.4f). Validating...",
+            best_seed_idx,
+            best_rank_ic,
+        )
+
+        validation = validate_seed_distribution(seed_metrics_list)
+
+        # Compare to previous run group (if one exists)
+        previous_comparison: dict | None = None
+        async with session_factory() as session:
+            prev_report_result = await session.execute(
+                select(SeedValidationReport)
+                .where(SeedValidationReport.run_group_id != run_group_id)
+                .order_by(SeedValidationReport.created_at.desc())
+                .limit(1)
+            )
+            prev_report = prev_report_result.scalar_one_or_none()
+            if prev_report:
+                prev_runs = await session.execute(
+                    select(MlModelRun.overall_rank_ic)
+                    .where(MlModelRun.run_group_id == prev_report.run_group_id)
+                    .order_by(MlModelRun.seed)
+                )
+                prev_ics = [r[0] or 0.0 for r in prev_runs.all()]
+                current_ics = [m["rank_ic"] for m in seed_metrics_list]
+                comparison_result = compare_model_groups(current_ics, prev_ics)
+                previous_comparison = comparison_result.to_dict()
+
+        # Store SeedValidationReport
+        env_snapshot = capture_environment()
+        async with session_factory() as session:
+            report = SeedValidationReport(
+                run_group_id=run_group_id,
+                n_seeds=n_seeds,
+                metric_distributions=_sanitize({
+                    k: v.to_dict() for k, v in validation.metric_distributions.items()
+                }),
+                gate_passed=validation.gate_passed,
+                gate_details=_sanitize(validation.gate_details),
+                selected_seed=validation.selected_seed,
+                previous_comparison=_sanitize(previous_comparison),
+                environment_snapshot=env_snapshot,
+            )
+            session.add(report)
+            await session.commit()
+
+        # Store ReproducibilityAudit for this training run
+        async with session_factory() as session:
+            audit = ReproducibilityAudit(
+                pipeline_stage="train_ml_models",
+                config_hash=compute_data_hash(tickers, str(datetime.now(UTC).date())),
+                environment_snapshot=env_snapshot,
+                input_data_hash=compute_data_hash(
+                    sorted(tickers), str(datetime.now(UTC).date())
+                ),
+            )
+            session.add(audit)
+            await session.commit()
+
+        # --- Gate decision ---
+        if validation.gate_passed:
+            # Reject all seeds except the best; stage the best for approval
+            best_ml_run_id = seed_ml_run_ids[best_seed_idx]
+
+            async with session_factory() as session:
+                # Mark non-best seeds as rejected
+                for i, run_id in enumerate(seed_ml_run_ids):
+                    if i != best_seed_idx:
+                        await session.execute(
+                            update(MlModelRun)
+                            .where(MlModelRun.id == run_id)
+                            .values(deployment_status="rejected")
+                        )
+                await session.commit()
+
+            # Stage the best model for operator approval
+            async with session_factory() as session:
+                await _stage_ml_model_impl(session, best_ml_run_id)
+                logger.info(
+                    "[train_ml] Gate PASSED. Staged seed %d (run %d) for approval",
+                    best_seed_idx,
+                    best_ml_run_id,
+                )
+        else:
+            # Gate failed — reject all seeds, create governance event
+            async with session_factory() as session:
+                for run_id in seed_ml_run_ids:
+                    await session.execute(
+                        update(MlModelRun)
+                        .where(MlModelRun.id == run_id)
+                        .values(deployment_status="rejected")
+                    )
+                event = GovernanceEvent(
+                    event_type="seed_validation_failed",
+                    source="train_ml_models",
+                    detail=_sanitize({
+                        "run_group_id": run_group_id,
+                        "n_seeds": n_seeds,
+                        "gate_details": validation.gate_details,
+                        "best_rank_ic": best_rank_ic,
+                        "best_seed": best_seed_idx,
+                    }),
+                )
+                session.add(event)
+                await session.commit()
+            logger.warning(
+                "[train_ml] Gate FAILED for group %s. No model promoted.", run_group_id
+            )
+
+        # Update JobRun record
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
             job.status = "completed"
             job.progress = 1.0
             job.progress_detail = (
-                f"{len(models)} cluster models, {len(feature_names)} features, "
-                f"{len(tickers)} samples"
+                f"{n_seeds} seeds, {n_clusters} clusters, "
+                f"{len(feature_names)} features, "
+                f"gate={'PASS' if validation.gate_passed else 'FAIL'}"
             )
             job.completed_at = datetime.now(UTC)
             await session.commit()
-            ml_run_id = ml_run.id
-
-        # Stage model for operator approval before it can be promoted to active
-        async with session_factory() as session:
-            stage_result = await _stage_ml_model_impl(session, ml_run_id)
-            logger.info("[train_ml] Staged model %d for operator approval", ml_run_id)
 
         logger.info(
-            "[ml] Training complete: %d clusters, %d features, %d samples",
+            "[ml] Training complete: %d seeds, %d clusters, %d features, %d samples, gate=%s",
+            n_seeds,
             n_clusters,
             len(feature_names),
             len(tickers),
+            "PASS" if validation.gate_passed else "FAIL",
         )
         return {
             "status": "completed",
+            "n_seeds": n_seeds,
             "n_clusters": n_clusters,
             "n_features": len(feature_names),
             "n_samples": len(tickers),
+            "gate_passed": validation.gate_passed,
+            "best_seed": best_seed_idx,
+            "best_rank_ic": float(best_rank_ic),
+            "run_group_id": run_group_id,
         }
 
     except Exception as e:
