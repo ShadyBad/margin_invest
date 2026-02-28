@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react"
 
-const notForItems = ["Narrative-driven conviction", "Signal chasers", "Discretionary overrides"]
+const notForItems = ["Narrative-driven investing", "Signal chasers", "Discretionary overrides"]
 const forItems = ["Systematic decision-making", "Factor-based allocation", "Structured risk management"]
 
 export function PositioningSection() {

@@ -37,7 +37,7 @@ describe("EngineSection", () => {
     render(<EngineSection onStageChange={noop} />)
     // Cards appear in both desktop and mobile layouts
     expect(screen.getAllByText("Multi-Factor Ranking").length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText("Conviction Score Synthesis").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Composite Score Synthesis").length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText("Portfolio Correlation Mapping").length).toBeGreaterThanOrEqual(1)
   })
 })

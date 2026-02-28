@@ -69,13 +69,13 @@ export function HeroSection({ data }: HeroSectionProps) {
         {/* Left column — headline + CTAs */}
         <div>
           <h1 data-hero-headline className="font-display text-5xl md:text-7xl lg:text-[80px] leading-[1.05] tracking-tight mb-6">
-            <span className="block text-text-primary">Conviction.</span>
+            <span className="block text-text-primary">Discipline.</span>
             <span className="block text-accent">Engineered.</span>
           </h1>
 
           <p data-hero-subtext className="text-lg md:text-xl text-text-secondary max-w-lg mb-10 leading-relaxed">
             A deterministic capital allocation system that replaces narrative with structure.
-            Search any ticker — we&apos;ll show you exactly what the math says.
+            Search any ticker — the system shows you the quantitative evidence.
           </p>
 
           <div data-hero-ctas className="flex flex-wrap items-center gap-6">

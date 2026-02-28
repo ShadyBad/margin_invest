@@ -72,7 +72,7 @@ describe("Landing page assembly", () => {
     render(jsx)
 
     // Hero
-    expect(screen.getByText("Conviction.")).toBeInTheDocument()
+    expect(screen.getByText("Discipline.")).toBeInTheDocument()
     expect(screen.getByText("Engineered.")).toBeInTheDocument()
 
     // Problem
@@ -87,7 +87,7 @@ describe("Landing page assembly", () => {
     expect(screen.getAllByText("Portfolio Correlation Mapping").length).toBeGreaterThanOrEqual(1)
 
     // Proof
-    expect(screen.getByText(/structure creates measurable advantage/i)).toBeInTheDocument()
+    expect(screen.getByText(/structure replaces intuition with evidence/i)).toBeInTheDocument()
 
     // Positioning
     expect(screen.getByText(/discipline isn.t enough/i)).toBeInTheDocument()

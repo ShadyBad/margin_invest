@@ -60,10 +60,10 @@ const bottomRowCards: CardData[] = [
       "Raw scores converted to percentile ranks (0-100) within GICS sector. Cross-factor comparison becomes meaningful.",
   },
   {
-    title: "Conviction Score Synthesis",
+    title: "Composite Score Synthesis",
     subtitle: "Output",
     description:
-      "Weighted combination of factor percentiles produces a single composite conviction score. Growth stage adjusts weights automatically.",
+      "Weighted combination of factor percentiles produces a single composite score. Growth stage adjusts weights automatically.",
   },
   {
     title: "Sector-Neutral Construction",

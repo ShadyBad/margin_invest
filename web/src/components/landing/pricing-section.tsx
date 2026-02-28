@@ -26,7 +26,7 @@ const tiers: Tier[] = [
       "Full 6-factor breakdown",
       "90-day history",
       "25-ticker watchlist",
-      "Conviction alerts",
+      "Score alerts",
     ],
     highlighted: true,
   },

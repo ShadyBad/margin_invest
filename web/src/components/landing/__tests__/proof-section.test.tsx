@@ -51,7 +51,7 @@ describe("ProofSection", () => {
   it("renders headline", () => {
     render(<ProofSection />)
     expect(
-      screen.getByText(/structure creates measurable advantage/i)
+      screen.getByText(/structure replaces intuition with evidence/i)
     ).toBeInTheDocument()
   })
 

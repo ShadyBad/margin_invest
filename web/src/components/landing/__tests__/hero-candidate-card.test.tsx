@@ -38,7 +38,7 @@ describe("HeroCandidateCard", () => {
     expect(screen.getByText(/live engine output/i)).toBeInTheDocument()
   })
 
-  it("renders conviction score as largest visual element", () => {
+  it("renders composite score as largest visual element", () => {
     render(<HeroCandidateCard candidates={FALLBACK_CANDIDATES} />)
     expect(screen.getByText("78")).toBeInTheDocument()
   })

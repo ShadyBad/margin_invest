@@ -23,9 +23,9 @@ vi.mock("gsap/ScrollTrigger", () => ({
 import { HeroSection } from "../hero-section"
 
 describe("HeroSection", () => {
-  it("renders Conviction. and Engineered.", () => {
+  it("renders Discipline. and Engineered.", () => {
     render(<HeroSection data={null} />)
-    expect(screen.getByText("Conviction.")).toBeInTheDocument()
+    expect(screen.getByText("Discipline.")).toBeInTheDocument()
     expect(screen.getByText("Engineered.")).toBeInTheDocument()
   })
 
@@ -54,5 +54,6 @@ describe("HeroSection", () => {
   it("renders search-any-ticker call to action in subtext", () => {
     render(<HeroSection data={null} />)
     expect(screen.getByText(/search any ticker/i)).toBeInTheDocument()
+    expect(screen.getByText(/quantitative evidence/i)).toBeInTheDocument()
   })
 })

@@ -18,7 +18,7 @@ describe("PositioningSection", () => {
 
   it("renders Not for items", () => {
     render(<PositioningSection />)
-    expect(screen.getByText("Narrative-driven conviction")).toBeInTheDocument()
+    expect(screen.getByText("Narrative-driven investing")).toBeInTheDocument()
     expect(screen.getByText("Signal chasers")).toBeInTheDocument()
     expect(screen.getByText("Discretionary overrides")).toBeInTheDocument()
   })

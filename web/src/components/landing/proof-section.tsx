@@ -73,7 +73,7 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
     <section id="proof" className="py-24 px-6">
       <div className="max-w-5xl mx-auto">
         <h2 className="font-display text-4xl md:text-[36px] text-text-primary text-center mb-4">
-          Structure creates measurable advantage.
+          Structure replaces intuition with evidence.
         </h2>
         <div className="text-center mb-16">
           <MicroMetadata text="Sector-neutral by design" />
