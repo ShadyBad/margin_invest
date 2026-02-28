@@ -230,6 +230,7 @@ describe("LoginCard", () => {
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "short")
       await user.type(screen.getByLabelText("Confirm Password"), "short")
+      await user.click(screen.getByTestId("tos-checkbox"))
       await user.click(screen.getByRole("button", { name: /create account/i }))
       expect(screen.getByText(/password does not meet all requirements/i)).toBeInTheDocument()
     })
@@ -243,6 +244,7 @@ describe("LoginCard", () => {
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
       await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!x")
+      await user.click(screen.getByTestId("tos-checkbox"))
       await user.click(screen.getByRole("button", { name: /create account/i }))
       expect(screen.getByText("Passwords do not match")).toBeInTheDocument()
     })
@@ -302,6 +304,57 @@ describe("LoginCard", () => {
     })
   })
 
+  describe("ToS acceptance checkbox", () => {
+    it("shows ToS checkbox in signup mode", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.getByTestId("tos-checkbox")).toBeInTheDocument()
+      expect(screen.getByText(/Terms of Service/)).toBeInTheDocument()
+      expect(screen.getByText(/Privacy Policy/)).toBeInTheDocument()
+    })
+
+    it("does not show ToS checkbox in signin mode", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.queryByTestId("tos-checkbox")).not.toBeInTheDocument()
+    })
+
+    it("Create Account button is disabled when ToS unchecked", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      expect(screen.getByRole("button", { name: /create account/i })).toBeDisabled()
+    })
+
+    it("Create Account button is enabled when ToS checked", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByTestId("tos-checkbox"))
+      expect(screen.getByRole("button", { name: /create account/i })).not.toBeDisabled()
+    })
+
+    it("ToS links point to /terms and /privacy", async () => {
+      const user = userEvent.setup()
+      render(<LoginCard />)
+      const segmented = screen.getByTestId("segmented-control")
+      await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
+      await user.click(screen.getByText("Continue with email"))
+      const termsLink = screen.getByRole("link", { name: /terms of service/i })
+      const privacyLink = screen.getByRole("link", { name: /privacy policy/i })
+      expect(termsLink).toHaveAttribute("href", "/terms")
+      expect(privacyLink).toHaveAttribute("href", "/privacy")
+    })
+  })
+
   describe("sign-up registration", () => {
     it("calls register API and switches to sign-in on success", async () => {
       const user = userEvent.setup()
@@ -317,6 +370,7 @@ describe("LoginCard", () => {
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
       await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!!")
+      await user.click(screen.getByTestId("tos-checkbox"))
       await user.click(screen.getByRole("button", { name: /create account/i }))
 
       await waitFor(() => {
@@ -355,6 +409,7 @@ describe("LoginCard", () => {
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
       await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!!")
+      await user.click(screen.getByTestId("tos-checkbox"))
       await user.click(screen.getByRole("button", { name: /create account/i }))
 
       await waitFor(() => {
@@ -373,6 +428,7 @@ describe("LoginCard", () => {
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
       await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!!")
+      await user.click(screen.getByTestId("tos-checkbox"))
       await user.click(screen.getByRole("button", { name: /create account/i }))
 
       await waitFor(() => {
