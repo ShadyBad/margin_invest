@@ -3,7 +3,7 @@ import { OnboardingFlow } from "@/components/onboarding/onboarding-flow"
 
 export const metadata: Metadata = {
   title: "Score Your Portfolio | Margin Invest",
-  description: "Enter your tickers and see conviction scores in 60 seconds.",
+  description: "Enter your tickers and see composite scores in 60 seconds.",
 }
 
 export default function OnboardingPage() {

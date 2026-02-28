@@ -9,7 +9,7 @@ category: "Workflows"
 
 ## Introduction
 
-When you click on a stock from the dashboard or search for one by ticker, you land on the asset detail page. This is where the platform shows everything it knows about a stock -- elimination results, factor scores, conviction analysis, valuation, and institutional positioning -- in a single vertical layout.
+When you click on a stock from the dashboard or search for one by ticker, you land on the asset detail page. This is where the platform shows everything it knows about a stock -- elimination results, factor scores, composite tier analysis, valuation, and institutional positioning -- in a single vertical layout.
 
 This guide walks through each section top to bottom, explains what it shows, and describes how to use it in your research process.
 
@@ -25,16 +25,16 @@ The hero header sits at the top of the page and gives you the essential identity
 
 - **Ticker and company name** -- the stock's symbol and full legal name
 - **Current price** -- the most recent market price the engine used for scoring
-- **Conviction badge and level** -- color-coded indicator of signal strength (EXCEPTIONAL, HIGH, WATCHLIST, or NONE)
+- **Composite tier badge** -- color-coded indicator of signal strength (EXCEPTIONAL, HIGH, WATCHLIST, or NONE)
 - **Opportunity type** -- whether the stock qualified as a Compounder (Track A), Mispricing (Track B), or Both
 - **Growth stage** -- the engine's classification of where the company sits in its lifecycle (e.g., Growth, Mature, Turnaround)
 - **Score sparkline** -- a miniature chart showing how the composite score has moved over recent scoring periods
 
 **How to use it:**
 
-The hero tells you whether this stock warrants further reading. If the conviction level is NONE or WATCHLIST, the remaining sections still provide useful diagnostic information, but you should not treat the stock as an actionable candidate. If the conviction level is HIGH or EXCEPTIONAL, continue through the page to understand why.
+The hero tells you whether this stock warrants further reading. If the composite tier is NONE or WATCHLIST, the remaining sections still provide useful diagnostic information, but you should not treat the stock as an actionable candidate. If the composite tier is HIGH or EXCEPTIONAL, continue through the page to understand why.
 
-The opportunity type is especially important because it frames the rest of the analysis. A Compounder thesis and a Mispricing thesis are evaluated against different criteria -- the conviction engine section later on the page breaks this down in detail.
+The opportunity type is especially important because it frames the rest of the analysis. A Compounder thesis and a Mispricing thesis are evaluated against different criteria -- the score engine section later on the page breaks this down in detail.
 
 ## 2. Eliminated Stock View
 
@@ -48,7 +48,7 @@ If a stock failed one or more elimination filters, the page shows a different he
 
 **What it does not show:**
 
-- No conviction badge or opportunity type (the stock did not advance to dual-track scoring)
+- No composite tier badge or opportunity type (the stock did not advance to dual-track scoring)
 - No score sparkline (there is no meaningful scoring history for eliminated stocks)
 
 **How to use it:**
@@ -113,13 +113,13 @@ Look for pillars where the stock scores above the 70th percentile -- that is whe
 
 **How to use it:**
 
-The pillar breakdown tells you the story behind the composite score. Two stocks can both be HIGH conviction for completely different reasons. One might have exceptional quality but mediocre value. Another might be deeply cheap with improving momentum but average quality. The pillar section makes these differences visible.
+The pillar breakdown tells you the story behind the composite score. Two stocks can both be HIGH composite tier for completely different reasons. One might have exceptional quality but mediocre value. Another might be deeply cheap with improving momentum but average quality. The pillar section makes these differences visible.
 
 Expand individual sub-factors to understand which specific metrics are driving a pillar score up or down. If a quality pillar is low, is it because of poor profitability or high leverage? The sub-factor detail answers that question.
 
-## 6. Conviction Engine
+## 6. Score Engine
 
-The conviction engine section shows the results of the dual-track evaluation system that determines the final conviction level and opportunity type.
+The score engine section shows the results of the dual-track evaluation system that determines the final composite tier and opportunity type.
 
 **Track A -- Compounder:**
 
@@ -141,9 +141,9 @@ Four gate scores, each on a 0-100 percentile scale:
 
 **Additional information shown:**
 
-- **Final conviction level** -- the combined result after evaluating both tracks
+- **Final composite tier** -- the combined result after evaluating both tracks
 - **Opportunity type** -- Compounder, Mispricing, or Both
-- **ML adjustment badge** -- if the machine learning layer is active and modified the rules-based conviction, a badge indicates the direction and magnitude of the adjustment
+- **ML adjustment badge** -- if the machine learning layer is active and modified the rules-based composite tier, a badge indicates the direction and magnitude of the adjustment
 - **Smart money signal** -- institutional accumulation data from curated managers, if available
 
 **How to use it:**
@@ -154,14 +154,14 @@ Focus on the weakest gate in the qualifying track. That is the point of highest 
 
 ## 7. ML Audit Panel
 
-Below the conviction engine, the ML audit panel provides transparency into the machine learning layer's influence on the final score.
+Below the score engine, the ML audit panel provides transparency into the machine learning layer's influence on the final score.
 
 **What it shows:**
 
 - Whether a qualified ML model exists (requires rank IC above 0.15)
 - The model's rank IC, training date, and confidence level
-- Whether the ML layer overrode the rules-based conviction level, and if so, in which direction
-- The rules-based conviction before ML adjustment vs. the final conviction after
+- Whether the ML layer overrode the rules-based composite tier, and if so, in which direction
+- The rules-based composite tier before ML adjustment vs. the final composite tier after
 
 **How to use it:**
 
@@ -199,7 +199,7 @@ The valuation section provides a quantitative estimate of the stock's intrinsic 
 
 The valuation section is a starting point for your own valuation work, not a replacement for it. The engine uses a systematic approach that works across many stocks but cannot capture company-specific nuances that a human analyst would catch.
 
-Pay attention to the margin of safety. A stock can have a high conviction level but a thin margin of safety if the market has already priced in much of the upside. Conversely, a stock with a wide margin of safety and only WATCHLIST conviction may be cheap for good reasons.
+Pay attention to the margin of safety. A stock can have a high composite tier but a thin margin of safety if the market has already priced in much of the upside. Conversely, a stock with a wide margin of safety and only WATCHLIST composite tier may be cheap for good reasons.
 
 ## 10. Backtest Teaser
 
@@ -221,7 +221,7 @@ For stocks that failed elimination filters, the page shows a hypothetical scorin
 
 **What it shows:**
 
-- What the stock's composite score, percentile, and conviction level would have been if it had passed all filters
+- What the stock's composite score, percentile, and composite tier would have been if it had passed all filters
 - Pillar-level breakdown (Quality, Value, Momentum) under the hypothetical scenario
 
 **How to use it:**
@@ -236,7 +236,7 @@ The asset detail page is a research starting point, not a buy or sell signal. He
 
 **Pay attention to weaknesses, not just strengths.** It is tempting to focus on the pillars where a stock scores well. The more useful exercise is examining where it scores poorly. Low percentiles reveal the risks that could undermine the thesis.
 
-**Check the conviction engine gates.** The gate scores tell you where the investment thesis is vulnerable. A Compounder with a weak capital allocation gate is a company where management might squander the moat advantage. A Mispricing with a weak catalyst gate is a stock that could stay cheap indefinitely.
+**Check the score engine gates.** The gate scores tell you where the investment thesis is vulnerable. A Compounder with a weak capital allocation gate is a company where management might squander the moat advantage. A Mispricing with a weak catalyst gate is a stock that could stay cheap indefinitely.
 
 **Understand the opportunity type.** Compounders and Mispricings have different risk profiles, holding periods, and exit criteria. Do not treat them interchangeably.
 
@@ -245,7 +245,7 @@ The asset detail page is a research starting point, not a buy or sell signal. He
 Before acting on any candidate, work through these questions:
 
 - [ ] Have I read the factor breakdown and understood why it scored the way it did?
-- [ ] Have I checked which conviction track(s) it qualifies on?
+- [ ] Have I checked which scoring track(s) it qualifies on?
 - [ ] Have I looked at the valuation section to understand the margin of safety?
 - [ ] Have I checked the institutional positioning for smart money signals?
 - [ ] Have I done my own fundamental research beyond what the platform shows?

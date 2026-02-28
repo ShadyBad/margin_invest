@@ -16,7 +16,7 @@ const endpoints = [
       {
         method: "GET",
         path: "/api/v1/scores/{ticker}",
-        description: "Conviction score, factor breakdown, composite percentile",
+        description: "Composite score, factor breakdown, composite percentile",
       },
       {
         method: "GET",

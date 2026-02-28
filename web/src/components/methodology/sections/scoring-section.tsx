@@ -168,7 +168,7 @@ export function ScoringSection() {
           then combined into a pillar average. Pillar weights adjust based on
           the company&apos;s growth stage — a high-growth company is weighted
           differently than a mature cash cow. The final composite score is
-          re-ranked across the entire universe to produce a single conviction
+          re-ranked across the entire universe to produce a single composite
           percentile.
         </motion.p>
 

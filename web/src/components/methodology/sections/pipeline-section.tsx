@@ -11,7 +11,7 @@ const stages = [
   { num: "3", label: "Factor Scoring", detail: "Quality \u00b7 Value \u00b7 Momentum" },
   {
     num: "4",
-    label: "Dual-Track Conviction",
+    label: "Dual-Track Scoring",
     detail: "Compounder & Mispricing",
   },
   { num: "5", label: "ML Refinement", detail: "Cluster models, VAE" },
@@ -23,7 +23,7 @@ const stages = [
   {
     num: "7",
     label: "Position Sizing",
-    detail: "Conviction \u00d7 opportunity type",
+    detail: "Composite tier \u00d7 opportunity type",
   },
 ]
 

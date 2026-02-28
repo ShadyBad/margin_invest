@@ -70,7 +70,7 @@ export const faqCategories: FaqCategory[] = [
       {
         question: "Where can I learn how scoring works?",
         answer:
-          "Visit the How It Works page for a full breakdown of the pipeline — from elimination filters through multi-factor scoring to conviction ranking.",
+          "Visit the How It Works page for a full breakdown of the pipeline — from elimination filters through multi-factor scoring to composite scoring.",
       },
     ],
   },

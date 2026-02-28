@@ -27,7 +27,7 @@ export function CTASection() {
         >
           <p className="text-[16px] sm:text-[17px] text-text-secondary mb-8 max-w-lg mx-auto">
             See the full pipeline in action. Score any stock and get the
-            complete factor breakdown, conviction level, and position sizing.
+            complete factor breakdown, composite tier, and position sizing.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

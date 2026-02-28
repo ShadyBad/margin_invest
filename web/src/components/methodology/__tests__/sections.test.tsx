@@ -78,7 +78,7 @@ describe("HeroSection", () => {
   it("renders outcome bullets", () => {
     render(<HeroSection />)
     expect(screen.getByText("Scores updated daily after market close")).toBeInTheDocument()
-    expect(screen.getByText("Position sizing tied to conviction strength")).toBeInTheDocument()
+    expect(screen.getByText("Position sizing tied to composite tier strength")).toBeInTheDocument()
   })
 
   it("renders CTA links", () => {
@@ -109,7 +109,7 @@ describe("PipelineSection", () => {
     expect(screen.getAllByText("Universe").length).toBeGreaterThan(0)
     expect(screen.getByText("Elimination Filters")).toBeInTheDocument()
     expect(screen.getByText("Factor Scoring")).toBeInTheDocument()
-    expect(screen.getByText("Dual-Track Conviction")).toBeInTheDocument()
+    expect(screen.getByText("Dual-Track Scoring")).toBeInTheDocument()
     expect(screen.getByText("ML Refinement")).toBeInTheDocument()
     expect(screen.getByText("Smart Money Overlay")).toBeInTheDocument()
     expect(screen.getByText("Position Sizing")).toBeInTheDocument()
@@ -215,7 +215,7 @@ describe("ConvictionSection", () => {
   it("renders the stage label", () => {
     render(<ConvictionSection />)
     expect(
-      screen.getByText(/Stage 4 · Dual-Track Conviction/)
+      screen.getByText(/Stage 4 · Dual-Track Scoring/)
     ).toBeInTheDocument()
   })
 
@@ -346,7 +346,7 @@ describe("OutputsSection", () => {
 
   it("renders example AAPL output", () => {
     render(<OutputsSection />)
-    expect(screen.getByText("Conviction")).toBeInTheDocument()
+    expect(screen.getByText("Composite Tier")).toBeInTheDocument()
     expect(screen.getByText("HIGH")).toBeInTheDocument()
     expect(screen.getByText("Compounder")).toBeInTheDocument()
     expect(screen.getByText("8%")).toBeInTheDocument()
@@ -361,7 +361,7 @@ describe("OutputsSection", () => {
 
   it("renders all four output field explanations", () => {
     render(<OutputsSection />)
-    expect(screen.getByText("Conviction level")).toBeInTheDocument()
+    expect(screen.getByText("Composite tier")).toBeInTheDocument()
     expect(screen.getByText("Opportunity type")).toBeInTheDocument()
     expect(screen.getByText("Suggested position size")).toBeInTheDocument()
     expect(screen.getAllByText("Factor breakdown").length).toBeGreaterThanOrEqual(1)

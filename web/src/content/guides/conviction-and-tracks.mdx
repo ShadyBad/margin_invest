@@ -1,6 +1,6 @@
 ---
-title: "Conviction & Tracks"
-description: "How the dual-track system evaluates stocks as Compounders, Mispricings, or Both — and determines conviction levels."
+title: "Composite Score & Tracks"
+description: "How the dual-track system evaluates stocks as Compounders, Mispricings, or Both — and determines composite tiers."
 order: 3
 updatedAt: "2026-02-26"
 readingTime: 10
@@ -14,7 +14,7 @@ Different investment theses require different evidence. A compounding business -
 These are fundamentally different ways to make money in equities, and evaluating them with a single scorecard would blur the distinctions that matter most. The dual-track system evaluates both theses independently, for every stock, every time.
 
 <Callout type="info">
-This guide explains the conviction and track system used by Margin Invest's scoring engine. It is educational content, not investment advice or a recommendation to buy or sell any security.
+This guide explains the composite scoring and track system used by Margin Invest's scoring engine. It is educational content, not investment advice or a recommendation to buy or sell any security.
 </Callout>
 
 ## The Dual-Track System
@@ -50,7 +50,7 @@ Each moat signature is detected through a combination of financial metrics and t
 - **Switching costs:** Customer retention metrics, integration depth indicators, and contract renewal rates where available. High recurring revenue as a percentage of total revenue is a strong proxy.
 - **Capital efficiency:** ROIC consistently above WACC across multiple economic cycles, suggesting structural rather than cyclical profitability.
 
-A moat durability score of 3 or 4 is required for EXCEPTIONAL conviction. A score of 2 is the minimum for HIGH.
+A moat durability score of 3 or 4 is required for EXCEPTIONAL composite tier. A score of 2 is the minimum for HIGH.
 </TechnicalDetail>
 
 ### Gate 2: Reinvestment Engine
@@ -67,8 +67,8 @@ A moat alone is not enough. The company must also have the opportunity and willi
 
 <TechnicalDetail summary="Compounding power thresholds">
 - Gate pass threshold: compounding power > 0.04
-- HIGH conviction threshold: compounding power > 0.08
-- EXCEPTIONAL conviction threshold: compounding power > 0.15
+- HIGH composite tier threshold: compounding power > 0.08
+- EXCEPTIONAL composite tier threshold: compounding power > 0.15
 
 A compounding power of 0.04 implies the company is generating modest but positive incremental returns on reinvested capital. At 0.15, the company is an elite compounder -- high returns, high reinvestment, and consistent execution.
 </TechnicalDetail>
@@ -106,8 +106,8 @@ A positive growth gap means the market is pricing in less growth than the compan
 
 <TechnicalDetail summary="Growth gap thresholds and regime adjustments">
 - Gate pass threshold: growth gap > 0.0
-- HIGH conviction threshold: growth gap > 0.03
-- EXCEPTIONAL conviction threshold: growth gap > 0.08
+- HIGH composite tier threshold: growth gap > 0.03
+- EXCEPTIONAL composite tier threshold: growth gap > 0.08
 
 In elevated-valuation environments (market-wide Shiller CAPE above the 75th historical percentile), thresholds tighten to demand a larger gap. This prevents the engine from labeling stocks as reasonably priced when the entire market is expensive.
 </TechnicalDetail>
@@ -132,7 +132,7 @@ Beyond the individual estimates, the engine checks for convergence: at least thr
 <TechnicalDetail summary="Ensemble valuation thresholds">
 The gate requires the current price to be below 60% of the ensemble intrinsic value -- a 40% or greater discount. This is deliberately strict. Most stocks do not trade at a 40% discount to a multi-model consensus, and that is the point: the engine only flags genuine dislocations, not modest undervaluation.
 
-For EXCEPTIONAL conviction, all four methods must converge (not just three), and the discount must exceed 50%.
+For EXCEPTIONAL composite tier, all four methods must converge (not just three), and the discount must exceed 50%.
 </TechnicalDetail>
 
 ### Gate 2: Downside Protection
@@ -164,7 +164,7 @@ A cheap stock without a catalyst can stay cheap indefinitely -- the classic "val
 <TechnicalDetail summary="Catalyst thresholds">
 The gate requires catalyst strength above the 60th percentile -- the strongest of the three signals must rank in the top 40% of the universe.
 
-For EXCEPTIONAL conviction, catalyst strength must exceed the 80th percentile, meaning the strongest signal is in the top 20%.
+For EXCEPTIONAL composite tier, catalyst strength must exceed the 80th percentile, meaning the strongest signal is in the top 20%.
 
 The engine uses the maximum of the three signals rather than an average because catalysts are event-driven: you only need one strong catalyst to trigger a re-rating. Averaging would dilute a strong insider buying signal with the absence of institutional accumulation, which is not how catalysts work in practice.
 </TechnicalDetail>
@@ -209,9 +209,9 @@ This mirrors how compounding works in practice. A company with a strong moat, hi
 Multiplicative scoring is deliberately conservative. It requires balanced strength across all dimensions simultaneously. There is no way to compensate for a fundamental weakness in one area with excellence in another. This means the engine will miss some winners (false negatives), but it rarely endorses losers (false positives). The tradeoff is intentional.
 </Callout>
 
-## Conviction Levels
+## Composite Tiers
 
-Continuous track scores are converted into discrete conviction levels through a gating system. Each level requires progressively stricter thresholds:
+Continuous track scores are converted into discrete composite tiers through a gating system. Each tier requires progressively stricter thresholds:
 
 | Level | Meaning | Recommended Action |
 |-------|---------|-------------------|
@@ -220,7 +220,7 @@ Continuous track scores are converted into discrete conviction levels through a 
 | WATCHLIST | Moderate signals -- worth monitoring | Monitor for improvement, do not allocate |
 | NONE | Neither track shows sufficient evidence | No action |
 
-<TechnicalDetail summary="Detailed conviction thresholds">
+<TechnicalDetail summary="Detailed composite tier thresholds">
 
 | Level | Track A Requirements | Track B Requirements |
 |-------|---------------------|---------------------|
@@ -233,7 +233,7 @@ A few important details:
 
 - **EXCEPTIONAL is deliberately rare.** It requires elite performance on every metric, not just clearing the gates. On Track A, the company must have three or more moat signatures, compounding power above 0.15, and a growth gap above 0.08. On Track B, it requires extreme asymmetry (5x upside), a top-quintile catalyst, and all four valuation methods converging.
 - **WATCHLIST allows one weak gate.** Three of four gates must pass, meaning one dimension can be below threshold. These stocks are worth monitoring but do not meet the bar for allocation.
-- **When both tracks qualify**, the engine takes the strongest conviction level from either track. A stock earning HIGH on Track A and WATCHLIST on Track B is classified as HIGH conviction with opportunity type "Both."
+- **When both tracks qualify**, the engine takes the strongest composite tier from either track. A stock earning HIGH on Track A and WATCHLIST on Track B is classified as HIGH composite tier with opportunity type "Both."
 </TechnicalDetail>
 
 ## Opportunity Types
@@ -268,13 +268,13 @@ The weight adjustments are multiplicative modifiers on gate scores, not replacem
 </TechnicalDetail>
 
 <VerifyItYourself claim="Gate-by-gate transparency">
-Open any stock's asset detail page. The Conviction Engine section shows each gate's score for both tracks. You can see exactly which gates are strong and which are weak -- there is no hidden logic. The gate scores, the resulting track scores, the conviction level, and the opportunity type are all visible on the page.
+Open any stock's asset detail page. The Score Engine section shows each gate's score for both tracks. You can see exactly which gates are strong and which are weak -- there is no hidden logic. The gate scores, the resulting track scores, the composite tier, and the opportunity type are all visible on the page.
 </VerifyItYourself>
 
 <KnownLimitations>
 - Multiplicative scoring is conservative -- it requires balanced strength across all dimensions. This produces more false negatives (missing good stocks) than false positives (endorsing bad ones). If you see a stock you believe in classified as NONE, check which gate is the bottleneck.
 - Gate thresholds are calibrated for US equities and may not apply directly to international markets where accounting standards, capital structures, and market microstructures differ.
 - Opportunity type classification depends on where the strongest signal comes from, not the only signal. A "Compounder" may still have moderate mispricing characteristics -- it just did not clear all four Track B gates.
-- Growth-stage adjustments modify gate weights, which means two stocks with identical raw gate scores can receive different track scores and conviction levels if they are in different growth stages.
+- Growth-stage adjustments modify gate weights, which means two stocks with identical raw gate scores can receive different track scores and composite tiers if they are in different growth stages.
 - The quality floor gate on Track B uses ROIC as its primary metric, which disadvantages asset-light business models (software, marketplaces) that generate value through intangible assets not captured in invested capital calculations.
 </KnownLimitations>

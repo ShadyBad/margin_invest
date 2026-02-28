@@ -18,7 +18,7 @@ import {
 export const metadata: Metadata = {
   title: "How It Works | Margin Invest",
   description:
-    "How Margin Invest scores every US-listed equity — a deterministic pipeline of elimination filters, multi-factor scoring across Quality, Value, and Momentum, and dual-track conviction ranking.",
+    "How Margin Invest scores every US-listed equity — a deterministic pipeline of elimination filters, multi-factor scoring across Quality, Value, and Momentum, and dual-track composite scoring.",
 }
 
 export default function MethodologyPage() {

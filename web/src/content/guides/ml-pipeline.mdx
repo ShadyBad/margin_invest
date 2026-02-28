@@ -9,14 +9,14 @@ category: "Concepts"
 
 ## Introduction
 
-The deterministic scoring pipeline — elimination filters, factor scoring, track cascades, conviction assignment — captures known, well-researched patterns. Every formula in it has an academic source. Every threshold has a reason.
+The deterministic scoring pipeline — elimination filters, factor scoring, track cascades, composite tier assignment — captures known, well-researched patterns. Every formula in it has an academic source. Every threshold has a reason.
 
 But markets contain patterns that traditional factor models miss. Cross-factor interactions shift across regimes. The relative predictive power of individual factors changes over time. A static weight matrix cannot adapt to these dynamics.
 
-The ML pipeline is an additive refinement layer that learns from the system's own prediction history. It observes which factor combinations actually predicted outperformance over the past 90+ days, and nudges conviction levels accordingly.
+The ML pipeline is an additive refinement layer that learns from the system's own prediction history. It observes which factor combinations actually predicted outperformance over the past 90+ days, and nudges composite tiers accordingly.
 
 <Callout type="info">
-ML is optional and secondary. The deterministic pipeline is the foundation. ML adjustments are bounded to one conviction level in either direction, fully auditable, and transparent. The system works completely without ML — and new deployments start that way by design.
+ML is optional and secondary. The deterministic pipeline is the foundation. ML adjustments are bounded to one composite tier in either direction, fully auditable, and transparent. The system works completely without ML — and new deployments start that way by design.
 </Callout>
 
 ## Why ML on Top of Deterministic Scoring?
@@ -27,7 +27,7 @@ What factor models do not capture is how those relationships interact in specifi
 
 Think of it this way: factors tell you what to measure. ML tells you how those measurements interact in the current environment.
 
-The ML layer does not replace factors. It cannot introduce new data or override the pipeline's elimination filters. It adjusts the relative weighting of existing signals based on what has actually been working — and it can only move conviction by one level in either direction. A stock that scores LOW on the deterministic pipeline cannot be promoted to EXCEPTIONAL by ML. The bounds are hard constraints.
+The ML layer does not replace factors. It cannot introduce new data or override the pipeline's elimination filters. It adjusts the relative weighting of existing signals based on what has actually been working — and it can only move a stock's composite tier by one level in either direction. A stock that scores LOW on the deterministic pipeline cannot be promoted to EXCEPTIONAL by ML. The bounds are hard constraints.
 
 ## Training Process
 
@@ -106,7 +106,7 @@ VAE bytes are stored alongside cluster models in the `MlModelRun` table. The VAE
 
 ## Score Adjustment
 
-When ML is active, the ensemble override system can promote or demote a stock's conviction by exactly one level. The adjustment is not a score multiplier — it moves the conviction category (e.g., MEDIUM to HIGH, or HIGH to MEDIUM).
+When ML is active, the ensemble override system can promote or demote a stock's composite tier by exactly one level. The adjustment is not a score multiplier — it moves the tier category (e.g., MEDIUM to HIGH, or HIGH to MEDIUM).
 
 The decision process:
 
@@ -119,18 +119,18 @@ The decision process:
 7. If the signal is in the bottom 15% (15th- percentile) with confidence above 0.75: demote one level
 8. Otherwise: no adjustment
 
-The "ML Adjusted" badge appears on stocks where the ML layer has changed the conviction level. The original deterministic conviction and the adjusted conviction are both stored and visible in the ML Audit Panel on the asset detail page.
+The "ML Adjusted" badge appears on stocks where the ML layer has changed the composite tier. The original deterministic composite tier and the adjusted tier are both stored and visible in the ML Audit Panel on the asset detail page.
 
 <TechnicalDetail summary="Adjustment mechanics">
 The override is implemented in `apply_ml_override()`:
 
-- Conviction levels are ordered: NONE < MEDIUM < HIGH < EXCEPTIONAL
+- Composite tiers are ordered: NONE < MEDIUM < HIGH < EXCEPTIONAL
 - Promotion moves one step up the ladder; demotion moves one step down
 - EXCEPTIONAL cannot be promoted further; NONE cannot be demoted further
-- Both `rules_conviction` (before ML) and `conviction` (after ML) are persisted on the `V4Score` record
+- Both `rules_composite_tier` (before ML) and `composite_tier` (after ML) are persisted on the `V4Score` record
 - The `ml_override` field records the type: `"none"`, `"promoted"`, or `"demoted"`
 - `ml_alpha` and `ml_confidence` are stored for audit purposes
-- If conviction changes, position sizing is recomputed for the new conviction level
+- If the composite tier changes, position sizing is recomputed accordingly
 
 The key constraint: ML cannot skip levels. A MEDIUM stock can become HIGH, but never EXCEPTIONAL. This prevents the ML layer from creating extreme positions that the deterministic pipeline would not support.
 </TechnicalDetail>
@@ -150,7 +150,7 @@ The system was designed to work without ML. ML makes it better when it earns its
 ## Verify It Yourself
 
 <VerifyItYourself claim="ML transparency">
-Check any stock's asset detail page. If ML is active, you will see an "ML Adjusted" badge on the conviction panel. Click it to see the adjustment amount and the original deterministic score. If no badge appears, the score is purely deterministic. You can also check the ML Audit Panel below the conviction section for the model's rank IC, confidence level, and whether the current model qualifies.
+Check any stock's asset detail page. If ML is active, you will see an "ML Adjusted" badge on the composite tier panel. Click it to see the adjustment amount and the original deterministic score. If no badge appears, the score is purely deterministic. You can also check the ML Audit Panel below the scoring section for the model's rank IC, confidence level, and whether the current model qualifies.
 </VerifyItYourself>
 
 ## Known Limitations
