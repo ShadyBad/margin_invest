@@ -2727,6 +2727,26 @@ async def snapshot_shadow_portfolio(ctx: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Daily PIT update
+# ---------------------------------------------------------------------------
+
+
+async def daily_pit_update(ctx: dict) -> dict:
+    """Daily PIT data update — new EDGAR filings + price append + universe refresh.
+
+    Runs daily at 23:00 UTC. Checks EDGAR for new 10-K/10-Q filings,
+    appends recent prices for all active universe tickers, and refreshes
+    universe membership near quarter ends.
+    """
+    from margin_api.services.edgar.daily_update import run_daily_pit_update
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+    result = await run_daily_pit_update(session_factory)
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -2812,6 +2832,7 @@ class WorkerSettings:
         rollup_governance_events,
         precompute_default_backtest,
         snapshot_shadow_portfolio,
+        daily_pit_update,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -2833,6 +2854,7 @@ class WorkerSettings:
             run_at_startup=False,
         ),  # Sunday 3 AM UTC
         cron(snapshot_shadow_portfolio, hour=22, minute=30, run_at_startup=False),  # Daily 10:30 PM UTC
+        cron(daily_pit_update, hour=23, minute=0, run_at_startup=False),  # Daily 11 PM UTC
     ]
     # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)
     job_timeout = 1200
