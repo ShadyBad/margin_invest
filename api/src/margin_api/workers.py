@@ -14,7 +14,7 @@ import logging
 import math
 import os
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import redis.asyncio as aioredis
@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from margin_api.config import get_settings
 from margin_api.db.models import (
     Asset,
+    BacktestRun,
     Event,
     FilingMetadata,
     FinancialData,
@@ -35,10 +36,12 @@ from margin_api.db.models import (
     IngestionTickerStatus,
     JobRun,
     MlModelRun,
+    PITFinancialSnapshot,
     PipelineApproval,
     ReproducibilityAudit,
     Score,
     SeedValidationReport,
+    ShadowPortfolioSnapshot,
     UniverseSnapshot,
     V3Score,
     V4Score,
@@ -2459,6 +2462,271 @@ async def compute_accumulation_signals(ctx: dict, pipeline_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
+# Backtest / Shadow Portfolio workers
+# ---------------------------------------------------------------------------
+
+
+async def precompute_default_backtest(ctx: dict) -> dict:
+    """Pre-compute the default backtest using real PIT data.
+
+    Runs weekly (Sunday 03:00 UTC). Creates a DatabasePITProvider, runs
+    ReplayOrchestrator with default config (2009-present), and stores the
+    result in the backtest_runs table.
+
+    Falls back gracefully when PIT tables are empty.
+    """
+    from margin_engine.backtesting.factor_registry import FactorRegistry
+    from margin_engine.backtesting.replay_orchestrator import ReplayConfig, ReplayOrchestrator
+
+    from margin_api.services.backtest import compute_config_hash
+    from margin_api.services.pit_provider import DatabasePITProvider
+
+    logger.info("[precompute_backtest] Starting precompute_default_backtest...")
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="precompute_default_backtest",
+            status="running",
+            triggered_by="schedule",
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        # Check if PIT tables have any data
+        async with session_factory() as session:
+            result = await session.execute(
+                select(func.count()).select_from(PITFinancialSnapshot)
+            )
+            pit_count = result.scalar_one()
+
+        if pit_count == 0:
+            logger.info(
+                "[precompute_backtest] No PIT data available, skipping precompute"
+            )
+            async with session_factory() as session:
+                job_result = await session.execute(
+                    select(JobRun).where(JobRun.id == job_id)
+                )
+                job = job_result.scalar_one()
+                job.status = "completed"
+                job.progress = 1.0
+                job.progress_detail = "Skipped — no PIT data"
+                job.completed_at = datetime.now(UTC)
+                await session.commit()
+            return {"status": "skipped", "reason": "no_pit_data"}
+
+        # PIT data exists — run the real backtest
+        config = ReplayConfig(
+            start_date=date(2009, 1, 1),
+            rebalance_frequency="monthly",
+        )
+        config_hash = compute_config_hash(config)
+
+        async with session_factory() as session:
+            provider = DatabasePITProvider(session)
+            registry = FactorRegistry.default()
+            orchestrator = ReplayOrchestrator(config, provider, registry)
+            replay_result = await orchestrator.run_async()
+
+            # Get active universe snapshot for the backtest run record
+            active_snap = await get_active_snapshot(session)
+            universe_id = active_snap.id if active_snap else 1
+
+        # Store in backtest_runs
+        metrics = replay_result.metrics
+        async with session_factory() as session:
+            run = BacktestRun(
+                name="default",
+                universe_snapshot_id=universe_id,
+                start_date=config.start_date.isoformat(),
+                end_date=config.end_date.isoformat(),
+                rebalance_frequency=config.rebalance_frequency,
+                config=config.model_dump(mode="json"),
+                config_hash=config_hash,
+                status="complete",
+                total_return=metrics.total_return,
+                annualized_return=metrics.cagr,
+                sharpe_ratio=metrics.sharpe_ratio,
+                max_drawdown=metrics.max_drawdown,
+                summary_stats=replay_result.model_dump(mode="json"),
+                started_at=datetime.now(UTC),
+                completed_at=datetime.now(UTC),
+            )
+            session.add(run)
+            await session.commit()
+
+        # Mark job completed
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(
+                select(JobRun).where(JobRun.id == job_id)
+            )
+            job = job_result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        result_dict = {
+            "status": "completed",
+            "metrics": {
+                "total_return": metrics.total_return,
+                "cagr": metrics.cagr,
+                "sharpe_ratio": metrics.sharpe_ratio,
+                "max_drawdown": metrics.max_drawdown,
+            },
+        }
+        logger.info("[precompute_backtest] Complete: %s", result_dict)
+        return result_dict
+
+    except Exception as e:
+        logger.exception("[precompute_backtest] Failed: %s", e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(
+                select(JobRun).where(JobRun.id == job_id)
+            )
+            job = job_result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "error", "message": str(e)}
+
+
+async def snapshot_shadow_portfolio(ctx: dict) -> dict:
+    """Take a daily snapshot of the current scored portfolio.
+
+    Runs daily at 22:30 UTC. Queries the latest published V4Scores,
+    builds a portfolio snapshot, and appends to shadow_portfolio_snapshots.
+    Uses on_conflict_do_nothing on as_of_date for idempotency.
+    """
+    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+    logger.info("[shadow_portfolio] Starting snapshot_shadow_portfolio...")
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="snapshot_shadow_portfolio",
+            status="running",
+            triggered_by="schedule",
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        async with session_factory() as session:
+            # Query latest published V4Scores with their assets
+            result = await session.execute(
+                select(V4Score, Asset.ticker)
+                .join(Asset, V4Score.asset_id == Asset.id)
+                .where(V4Score.published.is_(True))
+                .order_by(V4Score.composite_score.desc())
+            )
+            rows = result.all()
+
+        if not rows:
+            logger.info("[shadow_portfolio] No published V4Scores found, recording empty snapshot")
+            positions: list[dict] = []
+            num_positions = 0
+        else:
+            # Build positions list
+            positions = []
+            for v4_score, ticker in rows:
+                weight = 1.0 / len(rows) if len(rows) > 0 else 0.0
+                positions.append(
+                    {
+                        "ticker": ticker,
+                        "score": v4_score.composite_score,
+                        "conviction": v4_score.conviction,
+                        "weight": round(weight, 6),
+                    }
+                )
+            num_positions = len(positions)
+
+        portfolio_value = 1_000_000.0
+        as_of = date.today().isoformat()
+
+        # Insert with idempotent upsert (skip if date already recorded)
+        async with session_factory() as session:
+            # Check if snapshot already exists for today
+            existing = await session.execute(
+                select(ShadowPortfolioSnapshot).where(
+                    ShadowPortfolioSnapshot.as_of_date == as_of
+                )
+            )
+            if existing.scalar_one_or_none() is not None:
+                logger.info(
+                    "[shadow_portfolio] Snapshot for %s already exists, skipping", as_of
+                )
+            else:
+                snapshot = ShadowPortfolioSnapshot(
+                    as_of_date=as_of,
+                    portfolio_value=portfolio_value,
+                    num_positions=num_positions,
+                    positions_json=positions,
+                )
+                session.add(snapshot)
+                await session.commit()
+                logger.info(
+                    "[shadow_portfolio] Recorded snapshot for %s with %d positions",
+                    as_of,
+                    num_positions,
+                )
+
+        # Mark job completed
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(
+                select(JobRun).where(JobRun.id == job_id)
+            )
+            job = job_result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        result_dict = {"status": "completed", "positions": num_positions}
+        logger.info("[shadow_portfolio] Complete: %s", result_dict)
+        return result_dict
+
+    except Exception as e:
+        logger.exception("[shadow_portfolio] Failed: %s", e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(
+                select(JobRun).where(JobRun.id == job_id)
+            )
+            job = job_result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "error", "message": str(e)}
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -2542,6 +2810,8 @@ class WorkerSettings:
         compute_accumulation_signals,
         expire_stale_approvals,
         rollup_governance_events,
+        precompute_default_backtest,
+        snapshot_shadow_portfolio,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -2555,6 +2825,14 @@ class WorkerSettings:
         cron(full_13f_ingest, hour=22, minute=0, run_at_startup=False),  # 5 PM ET
         cron(expire_stale_approvals, hour={0, 6, 12, 18}, run_at_startup=False),
         cron(rollup_governance_events, hour={3, 9, 15, 21}, run_at_startup=False),
+        cron(
+            precompute_default_backtest,
+            weekday="sun",
+            hour=3,
+            minute=0,
+            run_at_startup=False,
+        ),  # Sunday 3 AM UTC
+        cron(snapshot_shadow_portfolio, hour=22, minute=30, run_at_startup=False),  # Daily 10:30 PM UTC
     ]
     # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)
     job_timeout = 1200

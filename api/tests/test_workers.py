@@ -858,9 +858,9 @@ class TestWorkerRegistration:
         assert "train_ml_models" in cron_funcs
 
     def test_total_functions_count(self):
-        """All 18 worker functions should be registered."""
-        assert len(WorkerSettings.functions) == 18
+        """All 20 worker functions should be registered."""
+        assert len(WorkerSettings.functions) == 20
 
     def test_total_cron_jobs_count(self):
-        """Should have 7 cron jobs."""
-        assert len(WorkerSettings.cron_jobs) == 7
+        """Should have 9 cron jobs."""
+        assert len(WorkerSettings.cron_jobs) == 9
