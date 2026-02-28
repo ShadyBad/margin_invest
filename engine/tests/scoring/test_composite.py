@@ -227,10 +227,10 @@ class TestCompositeTier:
         assert result.composite_tier == CompositeTier.EXCEPTIONAL
 
     def test_high_conviction(self):
-        """composite_raw_score >= 72 but < 79 -> high."""
-        quality = [_make_factor_score(percentile_rank=75.0)]
-        value = [_make_factor_score(percentile_rank=75.0)]
-        momentum = [_make_factor_score(percentile_rank=75.0)]
+        """composite_raw_score >= 71 but < 76 -> high."""
+        quality = [_make_factor_score(percentile_rank=73.0)]
+        value = [_make_factor_score(percentile_rank=73.0)]
+        momentum = [_make_factor_score(percentile_rank=73.0)]
 
         result = compute_composite_score(
             ticker="HI",
@@ -240,11 +240,11 @@ class TestCompositeTier:
             filters_passed=[],
         )
 
-        assert result.composite_raw_score == pytest.approx(75.0)
+        assert result.composite_raw_score == pytest.approx(73.0)
         assert result.composite_tier == CompositeTier.HIGH
 
     def test_medium_conviction(self):
-        """composite_raw_score >= 65 but < 72 -> medium."""
+        """composite_raw_score >= 66 but < 71 -> medium."""
         quality = [_make_factor_score(percentile_rank=68.0)]
         value = [_make_factor_score(percentile_rank=68.0)]
         momentum = [_make_factor_score(percentile_rank=68.0)]
@@ -260,8 +260,8 @@ class TestCompositeTier:
         assert result.composite_raw_score == pytest.approx(68.0)
         assert result.composite_tier == CompositeTier.MEDIUM
 
-    def test_none_below_65(self):
-        """composite_raw_score < 65 -> none."""
+    def test_none_below_66(self):
+        """composite_raw_score < 66 -> none."""
         quality = [_make_factor_score(percentile_rank=50.0)]
         value = [_make_factor_score(percentile_rank=50.0)]
         momentum = [_make_factor_score(percentile_rank=50.0)]

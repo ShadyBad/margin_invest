@@ -220,7 +220,7 @@ class TestGateFailure:
             gate_result_b=_passing_gate(),
         )
         assert result.composite_percentile <= 98.0
-        assert result.composite_raw_score < 72.0
+        assert result.composite_raw_score < 71.0
         assert result.composite_tier == CompositeTier.MEDIUM
 
     def test_winning_track_b_gate_fails_caps_to_medium(self):
@@ -236,7 +236,7 @@ class TestGateFailure:
             gate_result_b=_failing_gate(),
         )
         assert result.composite_percentile <= 98.0
-        assert result.composite_raw_score < 72.0
+        assert result.composite_raw_score < 71.0
         assert result.composite_tier == CompositeTier.MEDIUM
 
     def test_gate_pass_preserves_scores(self):
@@ -282,7 +282,7 @@ class TestGateFailure:
             gate_result_a=_failing_gate(),
             gate_result_b=_passing_gate(),
         )
-        assert result.composite_raw_score < 72.0
+        assert result.composite_raw_score < 71.0
         assert result.composite_tier == CompositeTier.MEDIUM
 
 

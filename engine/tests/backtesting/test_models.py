@@ -51,11 +51,11 @@ class TestSelectionMode:
             start_date=date(2020, 1, 1),
             end_date=date(2020, 12, 31),
             selection_mode=SelectionMode.CONVICTION_MOS,
-            min_conviction_score=79.0,
+            min_conviction_score=76.0,
             min_margin_of_safety=0.30,
         )
         assert config.selection_mode == SelectionMode.CONVICTION_MOS
-        assert config.min_conviction_score == 79.0
+        assert config.min_conviction_score == 76.0
         assert config.min_margin_of_safety == 0.30
 
     def test_conviction_mos_defaults(self):
@@ -64,7 +64,7 @@ class TestSelectionMode:
             end_date=date(2020, 12, 31),
             selection_mode=SelectionMode.CONVICTION_MOS,
         )
-        assert config.min_conviction_score == 79.0
+        assert config.min_conviction_score == 76.0
         assert config.min_margin_of_safety == 0.20
 
 

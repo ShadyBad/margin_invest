@@ -46,7 +46,7 @@ class BacktestConfig(BaseModel):
     benchmark_ticker: str = Field(default="SPY")
     selection_mode: SelectionMode = SelectionMode.TOP_PERCENTILE
     min_conviction_score: float = Field(
-        default=79.0, description="Minimum composite_raw_score for CONVICTION_MOS mode"
+        default=76.0, description="Minimum composite_raw_score for CONVICTION_MOS mode"
     )
     min_margin_of_safety: float = Field(
         default=0.20, description="Minimum margin of safety for CONVICTION_MOS mode"
@@ -55,7 +55,7 @@ class BacktestConfig(BaseModel):
         default=5, description="Maximum number of holdings for CONVICTION_MOS mode"
     )
     min_conviction_score_high: float = Field(
-        default=72.0,
+        default=71.0,
         description="Minimum composite_raw_score for High-conviction tier 2 backfill",
     )
     optimization_constraints: OptimizationConstraints | None = Field(

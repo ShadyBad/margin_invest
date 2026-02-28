@@ -16,7 +16,7 @@ from margin_engine.scoring.position_sizing import compute_position_size
 
 # Gate failure caps — prevent high conviction when quality gates fail
 _MEDIUM_PERCENTILE_CAP = 98.0
-_MEDIUM_RAW_SCORE_CAP = 71.9  # Just below HIGH threshold (72.0) -> forces MEDIUM max
+_MEDIUM_RAW_SCORE_CAP = 70.9  # Just below HIGH threshold (71.0) -> forces MEDIUM max
 
 
 def score_dual_track(

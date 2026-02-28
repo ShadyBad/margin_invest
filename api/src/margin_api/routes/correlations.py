@@ -41,7 +41,7 @@ _SHOWCASE_FALLBACK = CorrelationResponse(
     computed_at=datetime(2026, 1, 1, tzinfo=UTC),
 )
 
-_HIGH_CONVICTION_THRESHOLD = 72.0
+_HIGH_CONVICTION_THRESHOLD = 71.0
 _SHOWCASE_TICKER_COUNT = 5
 
 

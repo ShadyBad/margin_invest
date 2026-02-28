@@ -319,7 +319,7 @@ class TestRerankComposites:
         """After re-ranking 100 composites, the top ticker should not be 'none'.
 
         Conviction is determined by composite_raw_score (not percentile),
-        so raw scores must exceed the medium threshold (65.0).
+        so raw scores must exceed the medium threshold (66.0).
         """
         composites = [_make_composite(f"T{i}", 50.0 + i * 0.3) for i in range(100)]
         result = rerank_composites(composites)

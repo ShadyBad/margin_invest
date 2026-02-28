@@ -19,10 +19,10 @@ class BacktestConfigRequest(BaseModel):
     slippage_bps: float = Field(default=5.0, ge=0)
     benchmark_ticker: str = "SPY"
     selection_mode: str = "top_percentile"
-    min_conviction_score: float = Field(default=79.0, ge=0, le=100)
+    min_conviction_score: float = Field(default=76.0, ge=0, le=100)
     min_margin_of_safety: float = Field(default=0.20, ge=-1.0, le=1.0)
     max_holdings: int = Field(default=5, ge=1, le=50)
-    min_conviction_score_high: float = Field(default=72.0, ge=0, le=100)
+    min_conviction_score_high: float = Field(default=71.0, ge=0, le=100)
 
 
 class MetricsResponse(BaseModel):

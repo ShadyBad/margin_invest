@@ -92,29 +92,29 @@ class TestCompositeScore:
         assert score.signal == Signal.BUY
 
     def test_composite_tier_exceptional_boundary(self):
-        score = self._make_score(composite_raw_score=79.0)
+        score = self._make_score(composite_raw_score=76.0)
         assert score.composite_tier == CompositeTier.EXCEPTIONAL
 
     def test_composite_tier_high(self):
-        score = self._make_score(composite_raw_score=75.0)
+        score = self._make_score(composite_raw_score=73.0)
         assert score.composite_tier == CompositeTier.HIGH
         assert score.signal == Signal.BUY
 
     def test_composite_tier_high_boundary(self):
-        score = self._make_score(composite_raw_score=72.0)
+        score = self._make_score(composite_raw_score=71.0)
         assert score.composite_tier == CompositeTier.HIGH
 
     def test_composite_tier_medium(self):
-        score = self._make_score(composite_raw_score=67.0)
+        score = self._make_score(composite_raw_score=68.0)
         assert score.composite_tier == CompositeTier.MEDIUM
         assert score.signal == Signal.WATCH
 
     def test_composite_tier_medium_boundary(self):
-        score = self._make_score(composite_raw_score=65.0)
+        score = self._make_score(composite_raw_score=66.0)
         assert score.composite_tier == CompositeTier.MEDIUM
 
     def test_composite_tier_none(self):
-        score = self._make_score(composite_raw_score=64.9)
+        score = self._make_score(composite_raw_score=65.9)
         assert score.composite_tier == CompositeTier.NONE
         assert score.signal == Signal.NO_ACTION
 
@@ -125,14 +125,14 @@ class TestCompositeScore:
     def test_turnaround_uses_same_thresholds(self):
         """No turnaround exception — same thresholds for all growth stages."""
         score = self._make_score(
-            composite_raw_score=72.0,
+            composite_raw_score=71.0,
             growth_stage=GrowthStage.TURNAROUND,
         )
         assert score.composite_tier == CompositeTier.HIGH
 
     def test_below_high_turnaround_is_medium(self):
         score = self._make_score(
-            composite_raw_score=71.9,
+            composite_raw_score=70.9,
             growth_stage=GrowthStage.TURNAROUND,
         )
         assert score.composite_tier == CompositeTier.MEDIUM
@@ -161,9 +161,9 @@ class TestScoringConfig:
 
     def test_default_thresholds(self):
         config = ScoringConfig()
-        assert config.exceptional_threshold == 79.0
-        assert config.high_threshold == 72.0
-        assert config.medium_threshold == 65.0
+        assert config.exceptional_threshold == 76.0
+        assert config.high_threshold == 71.0
+        assert config.medium_threshold == 66.0
 
     def test_growth_stage_weights(self):
         config = ScoringConfig()

@@ -506,8 +506,8 @@ class TestConvictionDerivation:
             # The score field must be 0.0, NOT 75.0 (the percentile)
             assert picks[0]["score"] == 0.0
 
-    async def test_conviction_boundary_79(self, async_engine):
-        """raw_score=79.0 exactly -> conviction_level="exceptional"."""
+    async def test_conviction_boundary_76(self, async_engine):
+        """raw_score=76.0 exactly -> conviction_level="exceptional"."""
         factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             asset = Asset(
@@ -521,7 +521,7 @@ class TestConvictionDerivation:
             score = Score(
                 asset_id=asset.id,
                 composite_percentile=95.0,
-                composite_raw_score=79.0,
+                composite_raw_score=76.0,
                 conviction_level="exceptional",
                 signal="buy",
                 quality_percentile=80.0,
@@ -546,10 +546,10 @@ class TestConvictionDerivation:
             data = response.json()
             pick = data["picks"][0]
             assert pick["composite_tier"] == "exceptional"
-            assert pick["score"] == 79.0
+            assert pick["score"] == 76.0
 
-    async def test_conviction_boundary_78_9(self, async_engine):
-        """raw_score=78.9 -> conviction_level='high' (just below exceptional)."""
+    async def test_conviction_boundary_75_9(self, async_engine):
+        """raw_score=75.9 -> conviction_level='high' (just below exceptional)."""
         factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             asset = Asset(
@@ -563,12 +563,12 @@ class TestConvictionDerivation:
             score = Score(
                 asset_id=asset.id,
                 composite_percentile=93.0,
-                composite_raw_score=78.9,
+                composite_raw_score=75.9,
                 conviction_level="high",
                 signal="buy",
-                quality_percentile=78.0,
-                value_percentile=78.0,
-                momentum_percentile=78.0,
+                quality_percentile=75.0,
+                value_percentile=75.0,
+                momentum_percentile=75.0,
                 data_coverage=1.0,
                 scored_at=datetime.now(UTC),
             )
@@ -588,4 +588,4 @@ class TestConvictionDerivation:
             data = response.json()
             pick = data["picks"][0]
             assert pick["composite_tier"] == "high"
-            assert pick["score"] == 78.9
+            assert pick["score"] == 75.9

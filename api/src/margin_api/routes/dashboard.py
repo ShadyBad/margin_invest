@@ -187,11 +187,11 @@ async def _fetch_picks_and_watchlist(
 
 def _derive_composite_tier(raw_score: float) -> str:
     """Re-derive composite_tier from raw_score using engine thresholds."""
-    if raw_score >= 79.0:
+    if raw_score >= 76.0:
         return "exceptional"
-    if raw_score >= 72.0:
+    if raw_score >= 71.0:
         return "high"
-    if raw_score >= 65.0:
+    if raw_score >= 66.0:
         return "medium"
     return "none"
 

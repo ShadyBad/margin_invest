@@ -14,10 +14,10 @@ class FilterVerdict(StrEnum):
 
 
 class CompositeTier(StrEnum):
-    EXCEPTIONAL = "exceptional"  # composite_raw_score >= 79
-    HIGH = "high"  # composite_raw_score >= 72
-    MEDIUM = "medium"  # composite_raw_score >= 65
-    NONE = "none"  # < 65
+    EXCEPTIONAL = "exceptional"  # composite_raw_score >= 76
+    HIGH = "high"  # composite_raw_score >= 71
+    MEDIUM = "medium"  # composite_raw_score >= 66
+    NONE = "none"  # < 66
 
 
 # Backward compat alias — use CompositeTier instead
@@ -150,11 +150,11 @@ class CompositeScore(BaseModel):
 
     @property
     def composite_tier(self) -> CompositeTier:
-        if self.composite_raw_score >= 79.0:
+        if self.composite_raw_score >= 76.0:
             return CompositeTier.EXCEPTIONAL
-        if self.composite_raw_score >= 72.0:
+        if self.composite_raw_score >= 71.0:
             return CompositeTier.HIGH
-        if self.composite_raw_score >= 65.0:
+        if self.composite_raw_score >= 66.0:
             return CompositeTier.MEDIUM
         return CompositeTier.NONE
 
@@ -230,9 +230,9 @@ class ScoringConfig(BaseModel):
     momentum_weight: float = 0.35
 
     # Conviction thresholds (raw score) — absolute, universe-independent
-    exceptional_threshold: float = 79.0
-    high_threshold: float = 72.0
-    medium_threshold: float = 65.0  # renamed from watchlist_threshold
+    exceptional_threshold: float = 76.0
+    high_threshold: float = 71.0
+    medium_threshold: float = 66.0  # renamed from watchlist_threshold
     sell_threshold: float = 97.0
 
     def weights_for_stage(self, stage: GrowthStage) -> tuple[float, float, float]:

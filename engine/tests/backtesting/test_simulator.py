@@ -1144,7 +1144,7 @@ class TestBacktestConfigV2Fields:
 
     def test_min_conviction_score_high_default(self):
         config = BacktestConfig(start_date=date(2020, 1, 1), end_date=date(2020, 12, 31))
-        assert config.min_conviction_score_high == 72.0
+        assert config.min_conviction_score_high == 71.0
 
     def test_min_margin_of_safety_default_changed(self):
         config = BacktestConfig(start_date=date(2020, 1, 1), end_date=date(2020, 12, 31))
@@ -1173,7 +1173,7 @@ class TestBacktestConfigV2Fields:
 class TestConvictionMosSelection:
     """Tests for _select_by_conviction_mos stock selection."""
 
-    def _make_simulator(self, min_score: float = 79.0, min_mos: float = 0.30):
+    def _make_simulator(self, min_score: float = 76.0, min_mos: float = 0.30):
         config = BacktestConfig(
             start_date=date(2020, 1, 1),
             end_date=date(2020, 12, 31),
@@ -1223,7 +1223,7 @@ class TestConvictionMosSelection:
     def test_mos_exactly_threshold_rejected(self):
         sim = self._make_simulator()
         scores = [
-            ScoredStock(ticker="META", composite_score=79.0, price=500.0, margin_of_safety=0.30),
+            ScoredStock(ticker="META", composite_score=76.0, price=500.0, margin_of_safety=0.30),
         ]
         holdings = sim._select_holdings(scores, [])
         assert len(holdings) == 0
@@ -1231,7 +1231,7 @@ class TestConvictionMosSelection:
     def test_mos_barely_above_threshold(self):
         sim = self._make_simulator()
         scores = [
-            ScoredStock(ticker="META", composite_score=79.0, price=500.0, margin_of_safety=0.3001),
+            ScoredStock(ticker="META", composite_score=76.0, price=500.0, margin_of_safety=0.3001),
         ]
         holdings = sim._select_holdings(scores, [])
         assert len(holdings) == 1
@@ -1346,7 +1346,7 @@ class TestConvictionMosSimulation:
             start_date=date(2020, 1, 1),
             end_date=date(2020, 3, 31),
             selection_mode=SelectionMode.CONVICTION_MOS,
-            min_conviction_score=79.0,
+            min_conviction_score=76.0,
             min_margin_of_safety=0.30,
             transaction_cost_bps=0.0,
             slippage_bps=0.0,
@@ -1360,7 +1360,7 @@ class TestConvictionMosSimulation:
 
         assert len(result.snapshots) == 3
         # Jan: A (score=85, mos=0.40) and B (score=80, mos=0.35) selected
-        # C rejected (score=70, below 79)
+        # C rejected (score=70, below 76)
         snap1 = result.snapshots[0]
         assert len(snap1.holdings) == 2
         tickers = {h.ticker for h in snap1.holdings}
@@ -1520,8 +1520,8 @@ class TestPrecedenceFillSimulation:
             start_date=date(2020, 1, 1),
             end_date=date(2020, 3, 31),
             selection_mode=SelectionMode.CONVICTION_MOS,
-            min_conviction_score=79.0,
-            min_conviction_score_high=72.0,
+            min_conviction_score=76.0,
+            min_conviction_score_high=71.0,
             min_margin_of_safety=0.20,
             max_holdings=5,
             transaction_cost_bps=0.0,
@@ -1574,8 +1574,8 @@ class TestPrecedenceFillSimulation:
             start_date=date(2020, 1, 1),
             end_date=date(2020, 2, 28),
             selection_mode=SelectionMode.CONVICTION_MOS,
-            min_conviction_score=79.0,
-            min_conviction_score_high=72.0,
+            min_conviction_score=76.0,
+            min_conviction_score_high=71.0,
             min_margin_of_safety=0.20,
             max_holdings=5,
             transaction_cost_bps=0.0,
