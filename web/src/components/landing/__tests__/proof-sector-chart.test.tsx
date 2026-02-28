@@ -41,7 +41,7 @@ function makeCandidate(overrides: Partial<CandidateCard>): CandidateCard {
     margin_of_safety: 0.2,
     score: 75,
     composite_percentile: 75,
-    conviction_level: "high",
+    composite_tier: "high",
     quality_percentile: 70,
     value_percentile: 75,
     momentum_percentile: 60,
@@ -62,9 +62,9 @@ describe("ProofSectorChart", () => {
 
   it("renders bar chart when candidates provided", () => {
     const candidates = [
-      makeCandidate({ sector: "Technology", conviction_level: "exceptional" }),
-      makeCandidate({ sector: "Healthcare", conviction_level: "high" }),
-      makeCandidate({ sector: "Financials", conviction_level: "medium" }),
+      makeCandidate({ sector: "Technology", composite_tier: "exceptional" }),
+      makeCandidate({ sector: "Healthcare", composite_tier: "high" }),
+      makeCandidate({ sector: "Financials", composite_tier: "medium" }),
     ]
     render(<ProofSectorChart candidates={candidates} />)
     expect(screen.getByTestId("sector-bar-chart")).toBeInTheDocument()
@@ -72,7 +72,7 @@ describe("ProofSectorChart", () => {
 
   it("renders subtitle text", () => {
     const candidates = [
-      makeCandidate({ sector: "Technology", conviction_level: "high" }),
+      makeCandidate({ sector: "Technology", composite_tier: "high" }),
     ]
     render(<ProofSectorChart candidates={candidates} />)
     expect(screen.getByText(/candidates by sector/i)).toBeInTheDocument()
@@ -80,7 +80,7 @@ describe("ProofSectorChart", () => {
 
   it("renders sector-neutral safeguard note", () => {
     const candidates = [
-      makeCandidate({ sector: "Technology", conviction_level: "high" }),
+      makeCandidate({ sector: "Technology", composite_tier: "high" }),
     ]
     render(<ProofSectorChart candidates={candidates} />)
     expect(screen.getByText(/sector-neutral/i)).toBeInTheDocument()

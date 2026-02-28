@@ -92,7 +92,7 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           actualPrice={scoreData.actual_price}
           compositeScore={scoreData.score}
           universePercentile={scoreData.universe_percentile}
-          convictionLevel={scoreData.conviction_level}
+          convictionLevel={scoreData.composite_tier}
           signal={scoreData.signal}
           dataCoverage={scoreData.data_coverage}
           scoredAt={scoreData.scored_at}
@@ -183,7 +183,7 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           mlConfidence={scoreData.ml_confidence ?? null}
           mlOverride={scoreData.ml_override ?? null}
           rulesConviction={scoreData.rules_conviction ?? null}
-          conviction={scoreData.conviction_level ?? null}
+          conviction={scoreData.composite_tier ?? null}
         />
       )}
 
@@ -220,7 +220,7 @@ export function AssetDetailView({ ticker, scoreData, historyData, apiError, tota
           ticker={scoreData.ticker}
           compositeScore={scoreData.score}
           compositePercentile={scoreData.universe_percentile}
-          convictionLevel={scoreData.conviction_level}
+          convictionLevel={scoreData.composite_tier}
           quality={scoreData.quality}
           value={scoreData.value}
           momentum={scoreData.momentum}

@@ -33,8 +33,8 @@ function aggregateBySector(candidates: CandidateCard[]): SectorRow[] {
       map.set(sector, { sector, exceptional: 0, high: 0, medium: 0, total: 0 })
     }
     const row = map.get(sector)!
-    if (c.conviction_level === "exceptional") row.exceptional++
-    else if (c.conviction_level === "high") row.high++
+    if (c.composite_tier === "exceptional") row.exceptional++
+    else if (c.composite_tier === "high") row.high++
     else row.medium++
     row.total++
   }

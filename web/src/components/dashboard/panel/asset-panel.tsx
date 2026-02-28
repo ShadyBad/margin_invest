@@ -99,7 +99,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
         score: p.composite_percentile,
         delta: p.delta ?? 0,
         signal: p.signal,
-        conviction: p.conviction_level,
+        conviction: p.composite_tier,
         keyChange: p.delta != null ? `${p.delta > 0 ? "+" : ""}${p.delta.toFixed(1)}` : "Current",
       }))
     }
@@ -108,7 +108,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
       score: scoredResult.score,
       delta: 0,
       signal: scoredResult.signal,
-      conviction: scoredResult.conviction_level,
+      conviction: scoredResult.composite_tier,
       keyChange: "Current",
     }]
   }, [historyData, scoredResult])
@@ -120,7 +120,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
         score: p.composite_percentile,
         signal: p.signal,
         delta: p.delta,
-        conviction: p.conviction_level,
+        conviction: p.composite_tier,
       }))
     }
     return [{
@@ -128,7 +128,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
       score: scoredResult.score,
       signal: scoredResult.signal,
       delta: null,
-      conviction: scoredResult.conviction_level,
+      conviction: scoredResult.composite_tier,
     }]
   }, [historyData, scoredResult])
 
@@ -173,7 +173,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
               companyName={scoredResult.name}
               compositeScore={scoredResult.score}
               scoreDelta={latestDelta ?? 0}
-              conviction={scoredResult.conviction_level}
+              conviction={scoredResult.composite_tier}
               signal={scoredResult.signal}
               opportunityType={(scoredResult.winning_track as "compounder" | "mispricing") ?? "compounder"}
               buyPrice={scoredResult.buy_price}

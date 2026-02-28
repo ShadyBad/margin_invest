@@ -63,7 +63,7 @@ const mockScore: ScoreResponse = {
   universe_percentile: 95,
   composite_percentile: 95,
   composite_raw_score: 88,
-  conviction_level: "exceptional",
+  composite_tier: "exceptional",
   signal: "buy",
   quality: { factor_name: "quality", weight: 0.35, average_percentile: 90, sub_scores: [] },
   value: { factor_name: "value", weight: 0.30, average_percentile: 85, sub_scores: [] },

@@ -93,7 +93,7 @@ function WatchlistRow({ item }: { item: WatchlistItem }) {
         </div>
 
         {/* Conviction badge */}
-        <ConvictionBadge level={item.conviction_level} />
+        <ConvictionBadge level={item.composite_tier} />
 
         {/* Score */}
         <span className="text-sm font-mono text-text-primary w-8 text-right">

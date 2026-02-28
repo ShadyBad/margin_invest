@@ -54,7 +54,7 @@ function makeScoreResponse(overrides: Partial<ScoreResponse> = {}): ScoreRespons
     universe_percentile: 96,
     composite_percentile: 96,
     composite_raw_score: 78.3,
-    conviction_level: "high",
+    composite_tier: "high",
     signal: "buy",
     quality: { factor_name: "quality", weight: 0.3, average_percentile: 72, sub_scores: [] },
     value: { factor_name: "value", weight: 0.4, average_percentile: 81, sub_scores: [] },
