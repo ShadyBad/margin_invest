@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { ConditionalFooter } from "@/components/layout/conditional-footer";
 import { MfaRequiredModal } from "@/components/modals/mfa-required-modal";
+import { AnalysisDisclaimerModal } from "@/components/modals/analysis-disclaimer-modal";
 import "./globals.css";
 
 const interTight = Inter_Tight({
@@ -27,7 +28,7 @@ const instrumentSerif = Instrument_Serif({
 export const metadata: Metadata = {
   title: "Margin Invest",
   description:
-    "Deterministic investment analysis — conviction scoring without human bias",
+    "Deterministic investment analysis — quantitative scoring without human bias",
 };
 
 export default function RootLayout({
@@ -45,6 +46,7 @@ export default function RootLayout({
             {children}
             <ConditionalFooter />
             <MfaRequiredModal />
+            <AnalysisDisclaimerModal />
           </SessionProvider>
         </ThemeProvider>
       </body>
