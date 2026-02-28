@@ -48,8 +48,17 @@ class TestPublicScoreResponse:
         """PublicScoreResponse must NOT have fields from ScoreResponse."""
         fields = set(PublicScoreResponse.model_fields.keys())
         forbidden = {
-            "ml_alpha", "ml_confidence", "price_history", "signal_history",
-            "sub_scores", "buy_price", "sell_price", "margin_invest_value",
-            "opportunity_type", "track_a", "track_b", "track_c",
+            "ml_alpha",
+            "ml_confidence",
+            "price_history",
+            "signal_history",
+            "sub_scores",
+            "buy_price",
+            "sell_price",
+            "margin_invest_value",
+            "opportunity_type",
+            "track_a",
+            "track_b",
+            "track_c",
         }
         assert fields & forbidden == set()

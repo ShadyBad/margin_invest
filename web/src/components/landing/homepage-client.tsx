@@ -8,7 +8,9 @@ import { PipelineChips } from "./pipeline-chips"
 import { EngineSection } from "./engine-section"
 import { ProofSection } from "./proof-section"
 import { PositioningSection } from "./positioning-section"
+import { DifferentiatorSection } from "./differentiator-section"
 import { PricingSection } from "./pricing-section"
+import { FaqSection } from "./faq-section"
 import { InfrastructureSection } from "./infrastructure-section"
 import { FooterSection } from "./footer-section"
 import { SectionIndicator } from "./section-indicator"
@@ -37,7 +39,9 @@ export function HomepageClient({ data }: HomepageClientProps) {
       <PipelineChips activeStage={activeStage} />
       <EngineSection onStageChange={handleStageChange} />
       <PositioningSection />
+      <DifferentiatorSection />
       <PricingSection />
+      <FaqSection />
       <InfrastructureSection />
       <FooterSection />
       <SectionIndicator />

@@ -230,10 +230,19 @@ class TestPublicScoreEndpoint:
         resp = client.get("/api/v1/public/score/AAPL")
         data = resp.json()
         forbidden = [
-            "ml_alpha", "ml_confidence", "price_history", "signal_history",
-            "buy_price", "sell_price", "margin_invest_value",
-            "opportunity_type", "track_a", "track_b", "track_c",
-            "sub_scores", "filters_passed",
+            "ml_alpha",
+            "ml_confidence",
+            "price_history",
+            "signal_history",
+            "buy_price",
+            "sell_price",
+            "margin_invest_value",
+            "opportunity_type",
+            "track_a",
+            "track_b",
+            "track_c",
+            "sub_scores",
+            "filters_passed",
         ]
         for field in forbidden:
             assert field not in data, f"Forensic field '{field}' leaked into public response"
