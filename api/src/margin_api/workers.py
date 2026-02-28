@@ -36,6 +36,7 @@ from margin_api.db.models import (
     JobRun,
     MlModelRun,
     PipelineApproval,
+    ReproducibilityAudit,
     Score,
     UniverseSnapshot,
     V3Score,
@@ -749,6 +750,30 @@ async def full_score_v4(
             await session.commit()
 
         logger.info("[score_v4] V4 scoring complete")
+
+        # Reproducibility audit
+        try:
+            from margin_engine.ml.reproducibility import capture_environment, compute_data_hash
+
+            async with session_factory() as session:
+                snapshot = await get_active_snapshot(session)
+                scored_tickers_list = sorted(snapshot.tickers) if snapshot else []
+                audit = ReproducibilityAudit(
+                    pipeline_stage="full_score_v4",
+                    config_hash=compute_data_hash(
+                        scored_tickers_list,
+                        str(datetime.now(UTC).date()),
+                    ),
+                    environment_snapshot=capture_environment(),
+                    input_data_hash=compute_data_hash(
+                        scored_tickers_list,
+                        str(datetime.now(UTC).date()),
+                    ),
+                )
+                session.add(audit)
+                await session.commit()
+        except Exception as e:
+            logger.warning("[v4] Reproducibility audit failed (non-fatal): %s", e)
 
     except Exception as e:
         logger.exception("[score_v4] V4 scoring failed: %s", e)
