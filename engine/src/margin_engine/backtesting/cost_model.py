@@ -110,9 +110,11 @@ def compute_transaction_cost(
 # Cost assumptions & academic benchmarks
 # ---------------------------------------------------------------------------
 
-COST_ASSUMPTIONS: dict = {
-    "base_commission_bps": 5.0,
-    "market_impact_coefficient": 0.1,
+_DEFAULTS = CostModelConfig()
+
+COST_ASSUMPTIONS: dict[str, object] = {
+    "base_commission_bps": _DEFAULTS.base_commission_bps,
+    "market_impact_coefficient": _DEFAULTS.market_impact_coefficient,
     "spread_formula": "spread_bps = 3.0 + 50.0 / sqrt(market_cap / 1e9)",
     "spread_description": (
         "Bid-ask spread widens for smaller companies. "
@@ -132,7 +134,7 @@ COST_ASSUMPTIONS: dict = {
     ],
 }
 
-ACADEMIC_BENCHMARKS: list[dict] = [
+ACADEMIC_BENCHMARKS: list[dict[str, object]] = [
     {
         "source": "Frazzini, Israel & Moskowitz (2015)",
         "paper": "Trading Costs of Asset Pricing Anomalies",
@@ -160,7 +162,7 @@ ACADEMIC_BENCHMARKS: list[dict] = [
 def validate_cost_assumptions(
     model_cost_bps: float,
     market_cap_billions: float,
-) -> dict:
+) -> dict[str, object]:
     """Validate model cost against academic benchmark for the appropriate cap tier.
 
     Tier selection:
@@ -182,7 +184,10 @@ def validate_cost_assumptions(
     else:
         tier = "small_cap"
 
-    benchmark = next(b for b in ACADEMIC_BENCHMARKS if b["market_cap_range"] == tier)
+    benchmark = next(
+        (b for b in ACADEMIC_BENCHMARKS if b["market_cap_range"] == tier),
+        ACADEMIC_BENCHMARKS[0],
+    )
     low, high = benchmark["cost_range_bps"]
 
     if model_cost_bps < low:
