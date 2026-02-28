@@ -20,7 +20,7 @@ class TestWorkerSettings:
         assert len(WorkerSettings.cron_jobs) >= 2
 
     def test_function_names(self):
-        names = [f.__name__ for f in WorkerSettings.functions]
+        names = [f.name if hasattr(f, "name") else f.__name__ for f in WorkerSettings.functions]
         assert "orchestrate_ingest" in names
         assert "ingest_batch" in names
         assert "ingest_sweep" in names
@@ -818,27 +818,27 @@ class TestWorkerRegistration:
     """Verify new worker functions are registered properly."""
 
     def test_orchestrate_ingest_registered(self):
-        names = [f.__name__ for f in WorkerSettings.functions]
+        names = [f.name if hasattr(f, "name") else f.__name__ for f in WorkerSettings.functions]
         assert "orchestrate_ingest" in names
 
     def test_ingest_batch_registered(self):
-        names = [f.__name__ for f in WorkerSettings.functions]
+        names = [f.name if hasattr(f, "name") else f.__name__ for f in WorkerSettings.functions]
         assert "ingest_batch" in names
 
     def test_ingest_sweep_registered(self):
-        names = [f.__name__ for f in WorkerSettings.functions]
+        names = [f.name if hasattr(f, "name") else f.__name__ for f in WorkerSettings.functions]
         assert "ingest_sweep" in names
 
     def test_ingest_sweep_complete_registered(self):
-        names = [f.__name__ for f in WorkerSettings.functions]
+        names = [f.name if hasattr(f, "name") else f.__name__ for f in WorkerSettings.functions]
         assert "ingest_sweep_complete" in names
 
     def test_train_ml_models_registered(self):
-        names = [f.__name__ for f in WorkerSettings.functions]
+        names = [f.name if hasattr(f, "name") else f.__name__ for f in WorkerSettings.functions]
         assert "train_ml_models" in names
 
     def test_backtest_validate_registered(self):
-        names = [f.__name__ for f in WorkerSettings.functions]
+        names = [f.name if hasattr(f, "name") else f.__name__ for f in WorkerSettings.functions]
         assert "backtest_validate" in names
 
     def test_cron_includes_orchestrate_ingest(self):
@@ -858,8 +858,8 @@ class TestWorkerRegistration:
         assert "train_ml_models" in cron_funcs
 
     def test_total_functions_count(self):
-        """All 21 worker functions should be registered."""
-        assert len(WorkerSettings.functions) == 21
+        """All 22 worker functions should be registered."""
+        assert len(WorkerSettings.functions) == 22
 
     def test_total_cron_jobs_count(self):
         """Should have 10 cron jobs."""

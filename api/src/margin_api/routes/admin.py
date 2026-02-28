@@ -338,6 +338,50 @@ async def trigger_ml_training(request: Request, x_admin_key: str = Header()) -> 
     )
 
 
+@router.post("/pit/backfill")
+@limiter.limit("1/hour")
+async def trigger_pit_backfill(request: Request, x_admin_key: str = Header()) -> JSONResponse:
+    """Enqueue the PIT data bootstrap pipeline (EDGAR → prices → universe → backtest).
+
+    Runs the full backfill chain as a background worker job. Safe to call
+    multiple times — the worker skips if PIT tables already have data.
+
+    Requires the X-Admin-Key header matching the MARGIN_ADMIN_KEY env var.
+    """
+    _verify_admin_key(x_admin_key)
+
+    settings = get_settings()
+    from arq.connections import RedisSettings
+
+    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+
+    try:
+        redis: ArqRedis = await create_pool(redis_settings)
+        job = await redis.enqueue_job(
+            "bootstrap_pit_data",
+            _job_id=f"bootstrap_pit:{uuid.uuid4().hex[:8]}",
+        )
+        await redis.aclose()
+    except Exception as e:
+        logger.exception("Failed to enqueue PIT backfill job")
+        raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
+
+    logger.info("[admin] Enqueued bootstrap_pit_data job: %s", job.job_id)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "enqueued",
+            "job": "bootstrap_pit_data",
+            "job_id": job.job_id,
+            "message": (
+                "PIT backfill enqueued: EDGAR filings → daily prices → "
+                "universe assembly → default backtest precompute"
+            ),
+        },
+    )
+
+
 @router.get("/ingestion/quarantined")
 @limiter.limit("3/minute")
 async def get_quarantined_assets(

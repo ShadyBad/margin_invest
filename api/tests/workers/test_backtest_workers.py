@@ -1,12 +1,15 @@
-"""Tests for precompute_default_backtest and snapshot_shadow_portfolio workers."""
+"""Tests for precompute_default_backtest, snapshot_shadow_portfolio, and bootstrap_pit_data workers."""
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
 
+from margin_api.config import get_settings
 from margin_api.db.models import (
     BacktestRun,
     JobRun,
@@ -316,6 +319,15 @@ class TestWorkerRegistration:
 
         assert snapshot_shadow_portfolio in WorkerSettings.functions
 
+    def test_bootstrap_pit_data_in_functions(self):
+        from margin_api.workers import WorkerSettings
+
+        func_names = [
+            f.name if hasattr(f, "name") else f.__name__
+            for f in WorkerSettings.functions
+        ]
+        assert "bootstrap_pit_data" in func_names
+
     def test_precompute_in_cron_jobs(self):
         from margin_api.workers import WorkerSettings
 
@@ -333,3 +345,209 @@ class TestWorkerRegistration:
             for job in WorkerSettings.cron_jobs
         ]
         assert "snapshot_shadow_portfolio" in cron_funcs
+
+
+# ---------------------------------------------------------------------------
+# bootstrap_pit_data tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_is_idempotent_with_existing_data():
+    """Worker should run even when data exists (only fetches missing data)."""
+    from margin_api.workers import bootstrap_pit_data
+
+    job_mock = MagicMock()
+    job_mock.id = 42
+
+    factory, session, added = _mock_session_factory(
+        execute_side_effects=[
+            {"scalar_one": 5000},  # existing filing count
+            {"all": [("AAPL",), ("MSFT",)]},  # distinct tickers query
+        ]
+    )
+
+    mock_redis = AsyncMock()
+    mock_redis.enqueue_job = AsyncMock()
+
+    # EDGAR returns 0 new inserts (all already exist)
+    edgar_result = {"total": 100, "inserted": 0, "skipped": 100, "failed": 0}
+    price_result = {"AAPL": 0, "MSFT": 0}
+    universe_result = {"quarters_processed": 68, "tickers_tracked": 2, "delistings_detected": 0}
+
+    with (
+        patch("margin_api.workers.get_engine"),
+        patch("margin_api.workers.get_session_factory", return_value=factory),
+        patch("margin_api.workers.reset_engine_cache"),
+        patch(
+            "margin_api.workers.run_edgar_backfill",
+            new_callable=AsyncMock,
+            return_value=edgar_result,
+        ),
+        patch(
+            "margin_api.workers.backfill_prices_for_tickers",
+            new_callable=AsyncMock,
+            return_value=price_result,
+        ),
+        patch(
+            "margin_api.workers.assemble_universe",
+            new_callable=AsyncMock,
+            return_value=universe_result,
+        ),
+        patch(
+            "margin_api.workers.fill_last_known_prices",
+            new_callable=AsyncMock,
+            return_value=0,
+        ),
+    ):
+        result = await bootstrap_pit_data({"redis": mock_redis})
+
+    # Should complete (not skip), even though data exists
+    assert result["status"] == "completed"
+    assert result["edgar"]["inserted"] == 0
+    assert result["edgar"]["skipped"] == 100
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_runs_full_pipeline():
+    """Worker should chain EDGAR → prices → universe when tables empty."""
+    from margin_api.workers import bootstrap_pit_data
+
+    job_mock = MagicMock()
+    job_mock.id = 42
+
+    factory, session, added = _mock_session_factory(
+        execute_side_effects=[
+            {"scalar_one": 0},       # PIT count → empty
+            {"all": [("AAPL",), ("MSFT",)]},  # distinct tickers query
+        ]
+    )
+
+    mock_redis = AsyncMock()
+    mock_redis.enqueue_job = AsyncMock()
+
+    edgar_result = {"total": 100, "inserted": 95, "skipped": 3, "failed": 2}
+    price_result = {"AAPL": 4000, "MSFT": 4000}
+    universe_result = {"quarters_processed": 68, "tickers_tracked": 2, "delistings_detected": 0}
+
+    with (
+        patch("margin_api.workers.get_engine"),
+        patch("margin_api.workers.get_session_factory", return_value=factory),
+        patch("margin_api.workers.reset_engine_cache"),
+        patch(
+            "margin_api.workers.run_edgar_backfill",
+            new_callable=AsyncMock,
+            return_value=edgar_result,
+        ),
+        patch(
+            "margin_api.workers.backfill_prices_for_tickers",
+            new_callable=AsyncMock,
+            return_value=price_result,
+        ),
+        patch(
+            "margin_api.workers.assemble_universe",
+            new_callable=AsyncMock,
+            return_value=universe_result,
+        ),
+        patch(
+            "margin_api.workers.fill_last_known_prices",
+            new_callable=AsyncMock,
+            return_value=0,
+        ),
+    ):
+        result = await bootstrap_pit_data({"redis": mock_redis})
+
+    assert result["status"] == "completed"
+    assert result["edgar"] == edgar_result
+    assert result["prices_tickers"] == 2
+    assert result["universe"] == universe_result
+
+    # Should have created a JobRun
+    job_runs = [o for o in added if isinstance(o, JobRun)]
+    assert len(job_runs) == 1
+    assert job_runs[0].job_type == "bootstrap_pit_data"
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_handles_errors():
+    """Worker should mark job as failed on exception."""
+    from margin_api.workers import bootstrap_pit_data
+
+    job_mock = MagicMock()
+    job_mock.id = 42
+
+    factory, session, added = _mock_session_factory(
+        execute_side_effects=[
+            {"scalar_one": 0},  # PIT count → empty
+        ]
+    )
+
+    with (
+        patch("margin_api.workers.get_engine"),
+        patch("margin_api.workers.get_session_factory", return_value=factory),
+        patch("margin_api.workers.reset_engine_cache"),
+        patch(
+            "margin_api.workers.run_edgar_backfill",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("SEC EDGAR down"),
+        ),
+    ):
+        result = await bootstrap_pit_data({})
+
+    assert result["status"] == "error"
+    assert "SEC EDGAR down" in result["message"]
+
+
+# ---------------------------------------------------------------------------
+# Admin PIT backfill endpoint tests
+# ---------------------------------------------------------------------------
+
+
+class TestPitBackfillEndpoint:
+    def setup_method(self):
+        get_settings.cache_clear()
+
+    def teardown_method(self):
+        get_settings.cache_clear()
+
+    def test_pit_backfill_requires_admin_key(self):
+        from margin_api.app import create_app
+
+        get_settings.cache_clear()
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            client = TestClient(app)
+            response = client.post("/api/v1/admin/pit/backfill")
+            assert response.status_code == 422
+
+    def test_pit_backfill_enqueues_job(self):
+        from margin_api.app import create_app
+
+        get_settings.cache_clear()
+        mock_job = MagicMock()
+        mock_job.job_id = "bootstrap-123"
+
+        mock_pool = AsyncMock()
+        mock_pool.enqueue_job = AsyncMock(return_value=mock_job)
+        mock_pool.aclose = AsyncMock()
+
+        with (
+            patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}),
+            patch("margin_api.routes.admin.create_pool", return_value=mock_pool),
+        ):
+            app = create_app()
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/admin/pit/backfill",
+                headers={"X-Admin-Key": "test-key"},
+            )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data["status"] == "enqueued"
+        assert data["job"] == "bootstrap_pit_data"
+        assert data["job_id"] == "bootstrap-123"
+
+        mock_pool.enqueue_job.assert_called_once()
+        call_args = mock_pool.enqueue_job.call_args
+        assert call_args[0][0] == "bootstrap_pit_data"

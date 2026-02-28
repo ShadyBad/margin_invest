@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 import redis.asyncio as aioredis
 import yfinance as yf
 from arq import cron
+from arq import func as arq_func
 from arq.connections import ArqRedis, RedisSettings
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,6 +49,9 @@ from margin_api.db.models import (
 )
 from margin_api.db.session import get_engine, get_session_factory, reset_engine_cache
 from margin_api.routes.events import add_event, add_notification
+from margin_api.services.edgar.backfill import run_edgar_backfill
+from margin_api.services.edgar.price_backfill import backfill_prices_for_tickers
+from margin_api.services.edgar.universe_assembly import assemble_universe, fill_last_known_prices
 from margin_api.services.live_prices import LivePriceService
 from margin_api.services.universe import get_active_snapshot
 from margin_api.ws.scores import ScoreChangeMessage, manager
@@ -2747,6 +2751,141 @@ async def daily_pit_update(ctx: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# PIT Data Bootstrap
+# ---------------------------------------------------------------------------
+
+
+async def bootstrap_pit_data(ctx: dict) -> dict:
+    """Bootstrap PIT data pipeline: EDGAR backfill → price backfill → universe assembly.
+
+    Idempotent: safe to re-run at any time. Each phase uses ON CONFLICT
+    DO NOTHING or accession_number dedup, so only missing data is fetched.
+
+    Auto-triggered on worker startup when PIT tables are empty.
+    Can also be triggered manually via POST /admin/pit/backfill to
+    resume a partial backfill or catch up on new historical data.
+    """
+    logger.info("[bootstrap_pit] Starting PIT data bootstrap...")
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Log current state for observability
+    async with session_factory() as session:
+        result = await session.execute(
+            select(func.count()).select_from(PITFinancialSnapshot)
+        )
+        existing_count = result.scalar_one()
+    logger.info("[bootstrap_pit] Current filing count: %d", existing_count)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="bootstrap_pit_data",
+            status="running",
+            triggered_by="startup",
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        # Phase 1: EDGAR backfill (2009-present)
+        logger.info("[bootstrap_pit] Phase 1/4: EDGAR backfill...")
+        edgar_result = await run_edgar_backfill(
+            start_year=2009,
+            end_year=datetime.now(UTC).year,
+            session_factory=session_factory,
+        )
+        logger.info("[bootstrap_pit] EDGAR backfill complete: %s", edgar_result)
+
+        # Phase 2: Price backfill for all tickers found in filings
+        logger.info("[bootstrap_pit] Phase 2/4: Price backfill...")
+        async with session_factory() as session:
+            result = await session.execute(
+                select(PITFinancialSnapshot.ticker).distinct()
+            )
+            tickers = [row[0] for row in result.all()]
+
+        if tickers:
+            price_result = await backfill_prices_for_tickers(
+                tickers=tickers,
+                start_date="2009-01-01",
+                batch_size=500,
+                session_factory=session_factory,
+            )
+            logger.info(
+                "[bootstrap_pit] Price backfill complete: %d tickers", len(price_result)
+            )
+        else:
+            price_result = {}
+            logger.warning("[bootstrap_pit] No tickers found for price backfill")
+
+        # Phase 3: Universe assembly
+        logger.info("[bootstrap_pit] Phase 3/4: Universe assembly...")
+        async with session_factory() as session:
+            universe_result = await assemble_universe(session)
+            await fill_last_known_prices(session)
+        logger.info("[bootstrap_pit] Universe assembly complete: %s", universe_result)
+
+        # Phase 4: Trigger precompute_default_backtest via ARQ
+        logger.info("[bootstrap_pit] Phase 4/4: Enqueueing default backtest precompute...")
+        try:
+            redis_pool: ArqRedis = ctx.get("redis")  # type: ignore[assignment]
+            if redis_pool is not None:
+                await redis_pool.enqueue_job(
+                    "precompute_default_backtest",
+                    _job_id=f"precompute_backtest:{uuid.uuid4().hex[:8]}",
+                )
+                logger.info("[bootstrap_pit] Enqueued precompute_default_backtest")
+        except Exception:
+            logger.warning(
+                "[bootstrap_pit] Could not enqueue precompute, will run on next cron",
+                exc_info=True,
+            )
+
+        # Mark job completed
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(
+                select(JobRun).where(JobRun.id == job_id)
+            )
+            job = job_result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        summary = {
+            "status": "completed",
+            "edgar": edgar_result,
+            "prices_tickers": len(price_result),
+            "universe": universe_result,
+        }
+        logger.info("[bootstrap_pit] Bootstrap complete: %s", summary)
+        return summary
+
+    except Exception as e:
+        logger.exception("[bootstrap_pit] Bootstrap failed: %s", e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(
+                select(JobRun).where(JobRun.id == job_id)
+            )
+            job = job_result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "error", "message": str(e)}
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -2809,6 +2948,30 @@ class WorkerSettings:
         except Exception:
             logger.exception("[worker] Failed to clean up stale ingestion runs")
 
+        # Auto-bootstrap PIT data if tables are empty
+        try:
+            engine = get_engine()
+            session_factory = get_session_factory(engine)
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(func.count()).select_from(PITFinancialSnapshot)
+                )
+                pit_count = result.scalar_one()
+
+            if pit_count == 0:
+                logger.info("[worker] PIT tables empty — enqueueing bootstrap_pit_data")
+                redis_pool: ArqRedis = ctx.get("redis")  # type: ignore[assignment]
+                if redis_pool is not None:
+                    await redis_pool.enqueue_job(
+                        "bootstrap_pit_data",
+                        _job_id=f"bootstrap_pit:{uuid.uuid4().hex[:8]}",
+                    )
+                    logger.info("[worker] bootstrap_pit_data enqueued")
+            else:
+                logger.info("[worker] PIT tables have %d filings, skipping bootstrap", pit_count)
+        except Exception:
+            logger.exception("[worker] Failed to check/enqueue PIT bootstrap")
+
     max_jobs = get_settings().ingest_concurrency
 
     functions = [
@@ -2833,6 +2996,7 @@ class WorkerSettings:
         precompute_default_backtest,
         snapshot_shadow_portfolio,
         daily_pit_update,
+        arq_func(bootstrap_pit_data, timeout=86400, max_tries=1),  # 24h timeout, no retry
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
