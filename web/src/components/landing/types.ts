@@ -5,9 +5,9 @@ export interface CandidateCard {
   actual_price: number
   buy_price: number
   margin_of_safety: number
-  score: number                  // Raw weighted composite (0-100) — displayed as Conviction Score
+  score: number                  // Raw weighted composite (0-100) — displayed as Composite Score
   composite_percentile: number   // Percentile rank — kept for factor bar compat
-  conviction_level: string
+  composite_tier: string
   quality_percentile: number
   value_percentile: number
   momentum_percentile: number

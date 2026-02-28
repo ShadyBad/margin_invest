@@ -7,7 +7,7 @@ def test_score_response_has_price_fields():
     data = {
         "ticker": "AAPL",
         "composite_percentile": 96.0,
-        "conviction_level": "high",
+        "composite_tier": "high",
         "signal": "buy",
         "quality": {
             "factor_name": "quality",
@@ -46,7 +46,7 @@ def test_score_response_price_fields_default_none():
     data = {
         "ticker": "AAPL",
         "composite_percentile": 50.0,
-        "conviction_level": "none",
+        "composite_tier": "none",
         "signal": "no_action",
         "quality": {
             "factor_name": "quality",
@@ -109,7 +109,7 @@ def test_score_response_includes_ml_fields():
     resp = ScoreResponse(
         ticker="AAPL",
         composite_percentile=85.0,
-        conviction_level="high",
+        composite_tier="high",
         signal="buy",
         quality=FactorBreakdownResponse(
             factor_name="quality", weight=0.35, sub_scores=[], average_percentile=80.0
@@ -147,7 +147,7 @@ def test_score_response_ml_fields_default_none():
     resp = ScoreResponse(
         ticker="MSFT",
         composite_percentile=70.0,
-        conviction_level="medium",
+        composite_tier="medium",
         signal="watch",
         quality=FactorBreakdownResponse(
             factor_name="quality", weight=0.35, sub_scores=[], average_percentile=60.0
@@ -176,7 +176,7 @@ def test_pick_summary_includes_ml_fields():
         ticker="AAPL",
         name="Apple",
         composite_percentile=85.0,
-        conviction_level="high",
+        composite_tier="high",
         signal="buy",
         quality_percentile=80.0,
         value_percentile=70.0,

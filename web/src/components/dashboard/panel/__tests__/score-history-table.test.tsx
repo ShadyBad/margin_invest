@@ -7,9 +7,9 @@ vi.mock("@/components/ui", () => ({
 }))
 
 const mockHistory = [
-  { date: "2026-02-16", score: 87, delta: 3, signal: "buy", conviction: "exceptional", keyChange: "Value \u2191 94\u219298" },
-  { date: "2026-02-09", score: 84, delta: -1, signal: "buy", conviction: "high", keyChange: "Momentum \u2193 96\u219293" },
-  { date: "2026-02-02", score: 85, delta: 5, signal: "buy", conviction: "high", keyChange: "Quality \u2191 58\u219265" },
+  { date: "2026-02-16", score: 87, delta: 3, signal: "strong", conviction: "exceptional", keyChange: "Value \u2191 94\u219298" },
+  { date: "2026-02-09", score: 84, delta: -1, signal: "strong", conviction: "high", keyChange: "Momentum \u2193 96\u219293" },
+  { date: "2026-02-02", score: 85, delta: 5, signal: "strong", conviction: "high", keyChange: "Quality \u2191 58\u219265" },
 ]
 
 describe("ScoreHistoryTable", () => {

@@ -34,7 +34,7 @@ def _v4_detail(
         "ticker": ticker,
         "composite_percentile": 50.0,
         "composite_raw_score": 0.5,
-        "conviction_level": "medium",
+        "composite_tier": "medium",
         "signal": "watch",
         "quality": {
             "factor_name": "quality",

@@ -124,7 +124,7 @@ export const FORMULA_DEFINITIONS: Record<string, FormulaDefinition> = {
     source: "13F filing analysis",
     interpretation: "Positive accumulation by top funds signals institutional confidence.",
   },
-  // Conviction Engine
+  // Score Engine
   asymmetry_ratio: {
     name: "Asymmetry Ratio",
     formula: "Upside to Intrinsic Value / Downside to Stop Loss",
@@ -135,7 +135,7 @@ export const FORMULA_DEFINITIONS: Record<string, FormulaDefinition> = {
     name: "Max Position %",
     formula: "f* = (p\u00B7b \u2212 q) / b, capped at Kelly fraction",
     source: "Kelly (1956)",
-    interpretation: "Suggested max allocation. Higher conviction = larger position allowed.",
+    interpretation: "Suggested max allocation. Higher composite score = larger position allowed.",
   },
   // Valuation methods
   dcf_valuation: {

@@ -9,8 +9,8 @@ const nullProps = {
   mlAlpha: null,
   mlConfidence: null,
   mlOverride: null,
-  rulesConviction: null,
-  conviction: null,
+  rulesTier: null,
+  compositeTier: null,
 }
 
 describe("MLAuditPanel", () => {
@@ -45,8 +45,8 @@ describe("MLAuditPanel", () => {
         mlAlpha={3.2}
         mlConfidence={0.72}
         mlOverride="none"
-        rulesConviction="high"
-        conviction="high"
+        rulesTier="high"
+        compositeTier="high"
       />
     )
     expect(screen.getByText("Machine Learning Audit")).toBeInTheDocument()
@@ -69,15 +69,15 @@ describe("MLAuditPanel", () => {
         mlAlpha={5.1}
         mlConfidence={0.85}
         mlOverride="promoted"
-        rulesConviction="medium"
-        conviction="high"
+        rulesTier="medium"
+        compositeTier="high"
       />
     )
     expect(screen.getByText("PROMOTED")).toBeInTheDocument()
     expect(screen.getByText("Qualified")).toBeInTheDocument()
     expect(screen.getByText(/0\.25/)).toBeInTheDocument()
     expect(screen.getByText(/85%/)).toBeInTheDocument()
-    // Conviction transition: medium -> high
+    // Tier transition: medium -> high
     expect(screen.getByText(/promoted from medium to high/i)).toBeInTheDocument()
   })
 
@@ -91,8 +91,8 @@ describe("MLAuditPanel", () => {
         mlAlpha={-2.4}
         mlConfidence={0.78}
         mlOverride="demoted"
-        rulesConviction="high"
-        conviction="medium"
+        rulesTier="high"
+        compositeTier="medium"
       />
     )
     expect(screen.getByText("DEMOTED")).toBeInTheDocument()

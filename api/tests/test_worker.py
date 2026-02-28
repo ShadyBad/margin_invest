@@ -15,7 +15,7 @@ from margin_api.db.models import Asset, FinancialData, Score
 from margin_api.worker import score_ticker
 from margin_engine.models.scoring import (
     CompositeScore,
-    ConvictionLevel,
+    CompositeTier,
     FactorBreakdown,
     FactorScore,
     GrowthStage,
@@ -210,7 +210,7 @@ class TestScoreTickerSuccess:
         added_score: Score = session.add.call_args[0][0]
         assert added_score.asset_id == 1
         assert added_score.composite_percentile == 64.0
-        assert added_score.conviction_level == ConvictionLevel.NONE.value
+        assert added_score.conviction_level == CompositeTier.NONE.value
         assert added_score.signal == Signal.NO_ACTION.value
         assert added_score.quality_percentile == composite.quality.average_percentile
         assert added_score.value_percentile == composite.value.average_percentile

@@ -11,6 +11,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
+import { HYPOTHETICAL_DISCLAIMER } from "@/lib/disclaimers"
 
 interface EquityCurvePoint {
   month: string
@@ -107,6 +108,9 @@ export function ProofHistoricalChart() {
 
   return (
     <div aria-label="Historical portfolio performance compared to benchmark">
+      <div className="text-xs font-mono uppercase tracking-widest text-warning/80 mb-2" data-testid="hypothetical-badge">
+        Simulated Performance — Not Actual Trading Results
+      </div>
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={thinned}>
@@ -177,10 +181,14 @@ export function ProofHistoricalChart() {
         />
       </div>
 
-      <p className="text-[9px] text-text-tertiary mt-3 text-center italic">
-        Past performance is not indicative of future results. Walk-forward methodology: no
-        look-ahead bias.
-      </p>
+      <div className="mt-3 border border-warning/20 rounded p-3 bg-warning/5" data-testid="hypothetical-disclaimer">
+        <p className="text-[9px] text-text-tertiary leading-relaxed">
+          {HYPOTHETICAL_DISCLAIMER}
+        </p>
+        <p className="text-[9px] text-text-tertiary mt-1 italic">
+          Walk-forward methodology: no look-ahead bias.
+        </p>
+      </div>
     </div>
   )
 }

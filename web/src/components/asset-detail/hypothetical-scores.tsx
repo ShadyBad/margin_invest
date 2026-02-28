@@ -10,30 +10,30 @@ interface HypotheticalScoresProps {
   ticker: string
   compositeScore: number
   compositePercentile: number
-  convictionLevel: string
+  compositeTier: string
   quality: FactorBreakdownResponse
   value: FactorBreakdownResponse
   momentum: FactorBreakdownResponse
   growthStage?: string | null
 }
 
-const CONVICTION_MINIMUM = 65.0
+const TIER_MINIMUM = 65.0
 
 export function HypotheticalScores({
   ticker,
   compositeScore,
   compositePercentile,
-  convictionLevel,
+  compositeTier,
   quality,
   value,
   momentum,
 }: HypotheticalScoresProps) {
   const [expanded, setExpanded] = useState(false)
-  const wouldQualify = compositeScore >= CONVICTION_MINIMUM
+  const wouldQualify = compositeScore >= TIER_MINIMUM
 
   const narrative = wouldQualify
     ? `Even if it had passed filters, ${ticker} would rank in the ${Math.round(compositePercentile)}th percentile of the scored universe. However, the elimination filters exist to remove fundamental risk regardless of scoring potential.`
-    : `Even if it had passed filters, ${ticker} would rank in the ${Math.round(compositePercentile)}th percentile of the scored universe — below the threshold for any conviction level (minimum: ${CONVICTION_MINIMUM}).`
+    : `Even if it had passed filters, ${ticker} would rank in the ${Math.round(compositePercentile)}th percentile of the scored universe — below the threshold for any composite tier (minimum: ${TIER_MINIMUM}).`
 
   return (
     <section data-testid="hypothetical-scores">
@@ -80,8 +80,8 @@ export function HypotheticalScores({
                   </span>
                 </div>
                 <div>
-                  <span className="text-text-tertiary text-xs block">Conviction</span>
-                  <span className="text-text-primary uppercase">{convictionLevel}</span>
+                  <span className="text-text-tertiary text-xs block">Composite Tier</span>
+                  <span className="text-text-primary uppercase">{compositeTier}</span>
                 </div>
                 <div>
                   <span className="text-text-tertiary text-xs block">Signal</span>

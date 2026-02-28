@@ -9,7 +9,7 @@ def test_score_response_includes_name():
         name="Apple Inc.",
         composite_percentile=92.0,
         composite_tier="exceptional",
-        signal="strong",
+        signal="buy",
         quality=FactorBreakdownResponse(
             factor_name="quality",
             weight=0.35,
@@ -41,7 +41,7 @@ def test_score_response_name_defaults_to_empty():
         ticker="AAPL",
         composite_percentile=92.0,
         composite_tier="exceptional",
-        signal="strong",
+        signal="buy",
         quality=FactorBreakdownResponse(
             factor_name="quality",
             weight=0.35,

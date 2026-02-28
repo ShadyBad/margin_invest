@@ -33,8 +33,8 @@ function aggregateBySector(candidates: CandidateCard[]): SectorRow[] {
       map.set(sector, { sector, exceptional: 0, high: 0, medium: 0, total: 0 })
     }
     const row = map.get(sector)!
-    if (c.conviction_level === "exceptional") row.exceptional++
-    else if (c.conviction_level === "high") row.high++
+    if (c.composite_tier === "exceptional") row.exceptional++
+    else if (c.composite_tier === "high") row.high++
     else row.medium++
     row.total++
   }
@@ -73,7 +73,7 @@ export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
   const chartHeight = Math.max(180, data.length * 32)
 
   return (
-    <div aria-label="Sector breakdown of candidates by conviction level">
+    <div aria-label="Sector breakdown of candidates by composite tier">
       <div style={{ height: chartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" barCategoryGap="20%">
@@ -131,7 +131,7 @@ export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
         </ResponsiveContainer>
       </div>
       <p className="text-[10px] text-text-tertiary mt-3 text-center">
-        Candidates by sector and conviction level
+        Candidates by sector and composite tier
       </p>
       <p className="text-[9px] text-text-tertiary mt-1 text-center italic">
         Scoring is sector-neutral. Distribution reflects where quality + value currently

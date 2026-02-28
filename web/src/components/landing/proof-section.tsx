@@ -73,7 +73,7 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
     <section id="proof" className="py-24 px-6">
       <div className="max-w-5xl mx-auto">
         <h2 className="font-display text-4xl md:text-[36px] text-text-primary text-center mb-4">
-          Structure creates measurable advantage.
+          Structure replaces intuition with evidence.
         </h2>
         <div className="text-center mb-16">
           <MicroMetadata text="Sector-neutral by design" />
@@ -81,6 +81,9 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
         <div className="text-center mb-8 space-y-2">
           <p className="text-sm font-mono text-text-primary">
             Every signal recorded · Sector-neutral · Live tracking from day one
+          </p>
+          <p className="text-[10px] text-warning/80 font-mono uppercase tracking-wider max-w-md mx-auto">
+            All performance data shown below is hypothetical and simulated
           </p>
           <p className="text-[10px] text-text-tertiary max-w-md mx-auto">
             Past performance does not guarantee future results. Walk-forward backtesting with

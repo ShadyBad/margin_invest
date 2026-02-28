@@ -102,6 +102,7 @@ export function LoginCard({ initialMode = "signin", authError, authCode, resetSu
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [forgotMode, setForgotMode] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  const [tosAccepted, setTosAccepted] = useState(false)
 
   const passwordRules = validatePassword(password)
 
@@ -380,12 +381,29 @@ export function LoginCard({ initialMode = "signin", authError, authCode, resetSu
                 )}
               </div>
             )}
+            {mode === "signup" && (
+              <label className="flex items-start gap-2 text-[13px] text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={tosAccepted}
+                  onChange={(e) => setTosAccepted(e.target.checked)}
+                  className="mt-0.5 accent-accent"
+                  data-testid="tos-checkbox"
+                />
+                <span>
+                  I agree to the{" "}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Terms of Service</a>
+                  {" "}and{" "}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Privacy Policy</a>
+                </span>
+              </label>
+            )}
             {resetSent && (
               <p className="text-[13px] text-green-400 text-center">Check your email for a reset link.</p>
             )}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (mode === "signup" && !tosAccepted)}
               className="h-12 w-full rounded-xl bg-accent text-white text-[15px] font-semibold hover:brightness-110 active:scale-[0.98] transition-all duration-150 ease-out disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {forgotMode && mode === "signin" ? "Send reset link" : mode === "signin" ? "Sign In" : "Create Account"}

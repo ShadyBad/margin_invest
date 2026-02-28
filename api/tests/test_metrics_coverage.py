@@ -118,7 +118,7 @@ def _score_detail() -> dict:
     return {
         "ticker": "TEST",
         "composite_percentile": 50.0,
-        "conviction_level": "medium",
+        "composite_tier": "medium",
         "signal": "hold",
         "quality": {
             "factor_name": "quality",

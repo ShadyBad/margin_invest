@@ -7,9 +7,9 @@ const ease = [0.22, 1, 0.36, 1] as const
 const outcomes = [
   "Scores updated daily after market close",
   "Transparent factor breakdowns you can audit",
-  "Quantified conviction levels, not subjective ratings",
+  "Quantified composite tiers, not subjective ratings",
   "Price targets with explicit margin of safety",
-  "Position sizing tied to conviction strength",
+  "Position sizing tied to composite tier strength",
 ]
 
 export function HeroSection() {
@@ -53,7 +53,7 @@ export function HeroSection() {
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
           Follow one stock through our entire pipeline — every filter, every
-          factor, every decision — to see exactly how conviction scores are
+          factor, every decision — to see exactly how composite scores are
           built.
         </motion.p>
 

@@ -105,8 +105,8 @@ class ScoreResponse(BaseModel):
     universe_percentile: float = 0.0  # Universe-level rank (0-100)
     composite_percentile: float  # Kept for backwards compat
     composite_raw_score: float = 0.0  # Kept for backwards compat
-    conviction_level: str  # "exceptional", "high", "medium", "none"
-    signal: str  # "buy", "watch", "no_action", etc.
+    composite_tier: str  # "exceptional", "high", "medium", "none"
+    signal: str  # "strong", "emerging", "neutral", "stable", "weak", "failed"
     quality: FactorBreakdownResponse
     value: FactorBreakdownResponse
     momentum: FactorBreakdownResponse
@@ -175,7 +175,7 @@ class ScoreResponse(BaseModel):
             universe_percentile=score.composite_percentile,
             composite_percentile=score.composite_percentile,
             composite_raw_score=score.composite_raw_score,
-            conviction_level=score.conviction_level.value,
+            composite_tier=score.composite_tier.value,
             signal=score.signal.value,
             quality=_breakdown_from_engine(score.quality),
             value=_breakdown_from_engine(score.value),

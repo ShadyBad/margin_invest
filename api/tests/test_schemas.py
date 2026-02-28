@@ -139,7 +139,7 @@ class TestScoreResponse:
             ticker="AAPL",
             composite_percentile=96.0,
             composite_tier="high",
-            signal="strong",
+            signal="buy",
             quality=FactorBreakdownResponse(
                 factor_name="quality",
                 weight=0.35,
@@ -176,7 +176,7 @@ class TestScoreResponse:
         assert data["ticker"] == "AAPL"
         assert data["composite_percentile"] == 96.0
         assert data["composite_tier"] == "high"
-        assert data["signal"] == "strong"
+        assert data["signal"] == "buy"
         assert data["quality"]["factor_name"] == "quality"
         assert data["value"]["factor_name"] == "value"
         assert data["momentum"]["factor_name"] == "momentum"
@@ -250,7 +250,7 @@ class TestScoreResponse:
             score=87.4,
             universe_percentile=100.0,
             composite_tier="exceptional",
-            signal="strong",
+            signal="buy",
             quality=FactorBreakdownResponse(
                 factor_name="quality",
                 weight=0.35,
@@ -311,7 +311,7 @@ class TestScoreListResponse:
             ticker="GOOG",
             composite_percentile=92.0,
             composite_tier="medium",
-            signal="emerging",
+            signal="watch",
             quality=FactorBreakdownResponse(
                 factor_name="quality",
                 weight=0.35,
@@ -356,7 +356,7 @@ class TestPickSummary:
             name="NVIDIA Corporation",
             composite_percentile=99.5,
             composite_tier="exceptional",
-            signal="strong",
+            signal="buy",
             quality_percentile=97.0,
             value_percentile=85.0,
             momentum_percentile=98.0,
@@ -366,7 +366,7 @@ class TestPickSummary:
         assert data["name"] == "NVIDIA Corporation"
         assert data["composite_percentile"] == 99.5
         assert data["composite_tier"] == "exceptional"
-        assert data["signal"] == "strong"
+        assert data["signal"] == "buy"
         assert data["quality_percentile"] == 97.0
         assert data["value_percentile"] == 85.0
         assert data["momentum_percentile"] == 98.0
@@ -381,7 +381,7 @@ class TestPickSummary:
             score=91.2,
             universe_percentile=99.5,
             composite_tier="exceptional",
-            signal="strong",
+            signal="buy",
             quality_percentile=97.0,
             value_percentile=85.0,
             momentum_percentile=98.0,
@@ -436,7 +436,7 @@ class TestDashboardResponse:
                     name="NVIDIA Corporation",
                     composite_percentile=99.5,
                     composite_tier="exceptional",
-                    signal="strong",
+                    signal="buy",
                     quality_percentile=97.0,
                     value_percentile=85.0,
                     momentum_percentile=98.0,

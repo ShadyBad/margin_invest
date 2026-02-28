@@ -29,9 +29,9 @@ A momentum sub-factor blending standardized unexpected earnings (SUE) with insti
 
 An asset classified in the mature growth stage that demonstrates high and stable returns on invested capital, sustainable free cash flow generation, and consistent shareholder yield. Compounders receive weight adjustments favoring quality and value factors.
 
-### Conviction Level
+### Composite Tier
 
-The final output of the scoring pipeline, derived from composite score percentile. Maps to five tiers: Strong Conviction (top ~5%), Conviction (next ~15%), Moderate (next ~30%), Weak (next ~30%), and No Conviction (bottom ~20%).
+The final output of the scoring pipeline, derived from composite score percentile. Maps to four tiers: EXCEPTIONAL (top ~5%), HIGH (next ~15%), WATCHLIST (next ~30%), and NONE (bottom ~50%).
 
 ### Current Ratio
 
@@ -95,7 +95,7 @@ A 9-signal composite scoring financial strength across profitability (ROA, CFO, 
 
 ### Position Sizing
 
-The process of determining how much capital to allocate to a single asset. Margin Invest uses conviction level, volatility, and correlation constraints to suggest position sizes. The liquidity elimination filter ensures minimum market cap requirements for efficient execution.
+The process of determining how much capital to allocate to a single asset. Margin Invest uses composite tier, volatility, and correlation constraints to suggest position sizes. The liquidity elimination filter ensures minimum market cap requirements for efficient execution.
 
 ### ROIC
 
@@ -111,8 +111,8 @@ The practice of ranking assets within their GICS sector before combining into a 
 
 ### Track A
 
-The primary scoring pathway for assets that pass all elimination filters and have sufficient data for full factor analysis. Track A assets receive composite scores across all four pillars (quality, value, momentum, growth) and are eligible for conviction ratings.
+The primary scoring pathway for assets that pass all elimination filters and have sufficient data for full factor analysis. Track A assets receive composite scores across all four pillars (quality, value, momentum, growth) and are eligible for composite tier ratings.
 
 ### Track B
 
-The secondary scoring pathway for assets that pass elimination filters but lack data for one or more scoring factors. Track B assets receive partial scores with explicit data-gap disclosures and lower conviction ceilings reflecting the reduced analytical coverage.
+The secondary scoring pathway for assets that pass elimination filters but lack data for one or more scoring factors. Track B assets receive partial scores with explicit data-gap disclosures and lower composite tier ceilings reflecting the reduced analytical coverage.

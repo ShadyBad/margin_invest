@@ -14,7 +14,7 @@ function toCandidateCard(pick: DashboardResponse["picks"][0]): CandidateCard {
     margin_of_safety: pick.margin_of_safety ?? 0,
     score: pick.score,
     composite_percentile: pick.composite_percentile,
-    conviction_level: pick.conviction_level,
+    composite_tier: pick.composite_tier,
     quality_percentile: pick.quality_percentile,
     value_percentile: pick.value_percentile,
     momentum_percentile: pick.momentum_percentile,

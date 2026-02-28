@@ -17,13 +17,35 @@ export default function LegalPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <h1 className="heading-2 text-text-primary mb-12">Legal</h1>
 
+          <nav className="flex flex-wrap gap-4 mb-10 text-[13px]">
+            <Link
+              href="/terms"
+              className="text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
+            >
+              Terms of Service
+            </Link>
+            <Link
+              href="/privacy"
+              className="text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
+            >
+              Privacy Policy
+            </Link>
+          </nav>
+
           <div className="space-y-12 text-text-secondary body-text">
             <section>
               <h2 className="heading-3 text-text-primary mb-4">1. Terms of Use</h2>
               <p className="mb-4">
                 By accessing or using Margin Invest (&ldquo;the Platform&rdquo;), you agree to be
                 bound by these Terms of Use. If you do not agree to these terms, you must not use
-                the Platform.
+                the Platform. See our full{" "}
+                <Link
+                  href="/terms"
+                  className="text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
+                >
+                  Terms of Service
+                </Link>{" "}
+                for complete details.
               </p>
               <p className="mb-4">
                 Margin Invest provides quantitative investment analysis tools and scoring frameworks
@@ -40,9 +62,75 @@ export default function LegalPage() {
               <h2 className="heading-3 text-text-primary mb-4">2. Investment Disclaimer</h2>
               <p className="mb-4">
                 Margin Invest does not provide personalized investment advice. All content, including
-                conviction scores, factor breakdowns, rankings, and portfolio insights, is provided
+                composite scores, factor breakdowns, rankings, and portfolio insights, is provided
                 for informational purposes only.
               </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+                <div className="p-5 border border-border-primary rounded-lg bg-bg-elevated">
+                  <h3 className="text-[14px] font-semibold text-text-primary mb-3 uppercase tracking-wide">
+                    Margin Invest IS
+                  </h3>
+                  <ul className="space-y-2 text-[13px] text-text-secondary">
+                    <li className="flex items-start gap-2">
+                      <span className="text-bullish mt-0.5 flex-shrink-0">&bull;</span>
+                      A quantitative analysis tool
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-bullish mt-0.5 flex-shrink-0">&bull;</span>
+                      A software platform with automated scoring models
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-bullish mt-0.5 flex-shrink-0">&bull;</span>
+                      An informational resource
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-bullish mt-0.5 flex-shrink-0">&bull;</span>
+                      A backtested data provider
+                    </li>
+                  </ul>
+                </div>
+                <div className="p-5 border border-border-primary rounded-lg bg-bg-elevated">
+                  <h3 className="text-[14px] font-semibold text-text-primary mb-3 uppercase tracking-wide">
+                    Margin Invest IS NOT
+                  </h3>
+                  <ul className="space-y-2 text-[13px] text-text-secondary">
+                    <li className="flex items-start gap-2">
+                      <span className="text-bearish mt-0.5 flex-shrink-0">&bull;</span>
+                      A financial adviser or investment adviser
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-bearish mt-0.5 flex-shrink-0">&bull;</span>
+                      A broker-dealer
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-bearish mt-0.5 flex-shrink-0">&bull;</span>
+                      A custodian of your assets
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-bearish mt-0.5 flex-shrink-0">&bull;</span>
+                      A guarantee of investment returns
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-bearish mt-0.5 flex-shrink-0">&bull;</span>
+                      A replacement for professional financial advice
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-bearish mt-0.5 flex-shrink-0">&bull;</span>
+                      A financial product or security
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-bearish mt-0.5 flex-shrink-0">&bull;</span>
+                      A margin or leverage provider
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-bearish mt-0.5 flex-shrink-0">&bull;</span>
+                      A fiduciary
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
               <p className="mb-4">Nothing on this Platform constitutes:</p>
               <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
                 <li>Investment advice</li>
@@ -76,7 +164,14 @@ export default function LegalPage() {
               <h2 className="heading-3 text-text-primary mb-4">4. Data Usage &amp; Privacy</h2>
               <p className="mb-4">
                 Margin Invest may collect limited user data necessary for authentication, platform
-                functionality, and performance optimization.
+                functionality, and performance optimization. See our full{" "}
+                <Link
+                  href="/privacy"
+                  className="text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
+                >
+                  Privacy Policy
+                </Link>{" "}
+                for complete details.
               </p>
               <p className="mb-4">We do not sell user data to third parties.</p>
               <p className="mb-4">

@@ -50,7 +50,7 @@ export interface ScoreResponse {
   universe_percentile: number  // Universe-level rank (0-100)
   composite_percentile: number // Kept for backwards compat
   composite_raw_score: number  // Kept for backwards compat
-  conviction_level: string
+  composite_tier: string
   signal: string
   quality: FactorBreakdownResponse
   value: FactorBreakdownResponse
@@ -147,7 +147,7 @@ export interface PickSummary {
   score: number                // Raw weighted average
   universe_percentile: number  // Universe-level rank (0-100)
   composite_percentile: number // Kept for backwards compat
-  conviction_level: string
+  composite_tier: string
   signal: string
   quality_percentile: number
   value_percentile: number
@@ -180,7 +180,7 @@ export interface WatchlistItem {
   ticker: string
   name: string
   composite_raw_score: number
-  conviction_level: string
+  composite_tier: string
   sector?: string | null
   actual_price?: number | null
   price_upside?: number | null
@@ -222,7 +222,7 @@ export interface ScoreHistoryPoint {
   quality_percentile: number | null
   value_percentile: number | null
   momentum_percentile: number | null
-  conviction_level: string
+  composite_tier: string
   signal: string
   margin_invest_value: number | null
   buy_price: number | null

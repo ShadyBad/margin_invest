@@ -58,7 +58,7 @@ def _score_response_from_row(
     if detail:
         try:
             # Several fields are computed @property on engine models, not in model_dump().
-            detail.setdefault("conviction_level", score.conviction_level)
+            detail.setdefault("composite_tier", score.conviction_level)
             detail.setdefault("signal", score.signal)
             detail.setdefault("name", row.asset_name if hasattr(row, "asset_name") else "")
             detail.setdefault("scored_at", scored_at.isoformat() if scored_at else None)
@@ -136,7 +136,7 @@ def _score_response_from_row(
         score=score.composite_raw_score,
         universe_percentile=score.composite_percentile,
         composite_percentile=score.composite_percentile,
-        conviction_level=score.conviction_level,
+        composite_tier=score.conviction_level,
         signal=score.signal,
         quality=FactorBreakdownResponse(
             factor_name="quality",
@@ -223,7 +223,7 @@ def _v4_score_response_from_row(
     detail = v4.detail or {}
 
     # Populate computed properties that @property methods would provide
-    detail.setdefault("conviction_level", v4.conviction)
+    detail.setdefault("composite_tier", v4.conviction)
     detail.setdefault("signal", detail.get("signal", "no_action"))
     detail.setdefault("name", asset_name or "")
     detail.setdefault("ticker", ticker)
@@ -406,7 +406,7 @@ async def get_score_history(
                 quality_percentile=row.quality_percentile,
                 value_percentile=row.value_percentile,
                 momentum_percentile=row.momentum_percentile,
-                conviction_level=row.conviction_level,
+                composite_tier=row.conviction_level,
                 signal=row.signal,
                 margin_invest_value=(
                     float(row.margin_invest_value) if row.margin_invest_value is not None else None

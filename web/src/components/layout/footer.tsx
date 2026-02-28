@@ -4,6 +4,8 @@ const footerLinks = [
   { href: "/support", label: "Support" },
   { href: "/methodology", label: "Methodology" },
   { href: "/legal", label: "Legal" },
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
   { href: "/security", label: "Security" },
   { href: "/api-docs", label: "API" },
   { href: "/contact", label: "Contact" },

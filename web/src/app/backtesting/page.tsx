@@ -28,6 +28,7 @@ import {
   getDefaultBacktest,
   getShadowPortfolio,
 } from "@/lib/api/backtest"
+import { HYPOTHETICAL_DISCLAIMER } from "@/lib/disclaimers"
 import type {
   BacktestResult,
   BacktestMetrics,
@@ -230,6 +231,9 @@ export default function BacktestingPage() {
         {/* Header                                                           */}
         {/* ---------------------------------------------------------------- */}
         <div className="mb-8">
+          <div className="text-xs font-mono uppercase tracking-widest text-warning/80 mb-3" data-testid="hypothetical-results-badge">
+            Hypothetical Results — Not Actual Trading Records
+          </div>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-text-primary font-[family-name:var(--font-display)]">
@@ -436,12 +440,14 @@ export default function BacktestingPage() {
             {/* Honesty Footer                                                 */}
             {/* -------------------------------------------------------------- */}
             <div
-              className="terminal-card p-4 text-center"
+              className="terminal-card p-4"
               data-testid="backtest-disclosure"
             >
+              <p className="text-[10px] font-mono uppercase tracking-wider text-warning/80 mb-2">
+                Hypothetical Performance Disclosure
+              </p>
               <p className="text-xs text-text-tertiary">
-                {replayData?.honesty_disclosure ??
-                  "Backtest results are simulated and do not guarantee future performance. Past performance is not indicative of future results."}
+                {replayData?.honesty_disclosure ?? HYPOTHETICAL_DISCLAIMER}
               </p>
             </div>
           </div>

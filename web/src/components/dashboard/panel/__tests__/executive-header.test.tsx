@@ -22,7 +22,7 @@ const baseProps = {
   compositeScore: 92,
   scoreDelta: 3,
   conviction: "exceptional",
-  signal: "buy",
+  signal: "strong",
   opportunityType: "compounder" as const,
   timeRange: "3M" as const,
   onTimeRangeChange: vi.fn(),

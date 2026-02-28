@@ -29,7 +29,7 @@ from margin_engine.models.financial import (
 )
 from margin_engine.models.scoring import (
     CompositeScore,
-    ConvictionLevel,
+    CompositeTier,
     FactorScore,
     FilterResult,
     GrowthStage,
@@ -369,7 +369,7 @@ def rank_and_compute_composites(
     # Compute composite scores with ranked percentiles and price targets
     composites: list[CompositeScore] = []
     for r in raw_results:
-        # First pass: compute composite without price targets to get conviction_level
+        # First pass: compute composite without price targets to get composite_tier
         base_composite = compute_composite_score(
             ticker=r.ticker,
             quality_scores=r.quality_scores,
@@ -379,14 +379,14 @@ def rank_and_compute_composites(
             growth_stage=r.growth_stage,
         )
 
-        # Second pass: compute price targets using the derived conviction_level
+        # Second pass: compute price targets using the derived composite_tier
         price_targets = None
         if r.period is not None and r.profile is not None:
             price_targets = compute_price_targets(
                 period=r.period,
                 profile=r.profile,
                 price_bars=r.price_bars,
-                conviction_level=base_composite.conviction_level,
+                conviction_level=base_composite.composite_tier,
                 growth_stage=r.growth_stage,
             )
 
@@ -411,18 +411,18 @@ def rank_and_compute_composites(
     composites = rerank_composites(composites)
 
     # Apply data quality gate: cap conviction when data coverage is low
-    conviction_score_cap: dict[ConvictionLevel, float] = {
-        ConvictionLevel.NONE: 64.9,
-        ConvictionLevel.MEDIUM: 71.9,
-        ConvictionLevel.HIGH: 78.9,
+    tier_score_cap: dict[CompositeTier, float] = {
+        CompositeTier.NONE: 64.9,
+        CompositeTier.MEDIUM: 71.9,
+        CompositeTier.HIGH: 78.9,
     }
     gated: list[CompositeScore] = []
     for composite in composites:
-        gated_conviction = apply_data_quality_gate(
-            composite.conviction_level, composite.data_coverage
+        gated_tier = apply_data_quality_gate(
+            composite.composite_tier, composite.data_coverage
         )
-        if gated_conviction != composite.conviction_level:
-            max_score = conviction_score_cap.get(gated_conviction, composite.composite_raw_score)
+        if gated_tier != composite.composite_tier:
+            max_score = tier_score_cap.get(gated_tier, composite.composite_raw_score)
             composite = composite.model_copy(
                 update={
                     "composite_raw_score": min(composite.composite_raw_score, max_score),

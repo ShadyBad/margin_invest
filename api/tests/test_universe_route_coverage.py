@@ -19,7 +19,7 @@ def _score_detail() -> dict:
     return {
         "ticker": "AAPL",
         "composite_percentile": 80.0,
-        "conviction_level": "high",
+        "composite_tier": "high",
         "signal": "buy",
         "quality": {
             "factor_name": "quality",

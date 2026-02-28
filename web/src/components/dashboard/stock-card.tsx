@@ -114,7 +114,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
   return (
     <>
     <div
-      className={`relative bg-bg-elevated border border-border-primary border-l-2 cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 p-6 ${getCardTierClasses(pick.conviction_level)} ${getCardShadow(pick.conviction_level)} ${className}`}
+      className={`relative bg-bg-elevated border border-border-primary border-l-2 cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 p-6 ${getCardTierClasses(pick.composite_tier)} ${getCardShadow(pick.composite_tier)} ${className}`}
       style={{
         borderLeftColor: getSectorColor(pick.sector),
         transition: `transform 200ms ${INTERACTION_EASE}, box-shadow 200ms ${INTERACTION_EASE}, border-color 200ms ${INTERACTION_EASE}`,
@@ -131,7 +131,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       }}
       aria-expanded={expanded}
     >
-      {pick.conviction_level === "exceptional" && (
+      {pick.composite_tier === "exceptional" && (
         <div className="absolute inset-0 rounded-lg pointer-events-none bg-[radial-gradient(ellipse_at_top_left,rgba(180,160,130,0.04),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(26,122,90,0.03),transparent_50%)]" />
       )}
       <div className="flex items-center justify-between mb-3">
@@ -166,7 +166,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 15 }}
         >
-          <ConvictionBadge level={pick.conviction_level} />
+          <ConvictionBadge level={pick.composite_tier} />
         </motion.div>
           {pick.ml_override === "promoted" && (
             <span
@@ -212,10 +212,10 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
         <div>
           <AnimatedScore
             value={pick.score ?? pick.composite_percentile}
-            className={getScoreClasses(pick.conviction_level)}
+            className={getScoreClasses(pick.composite_tier)}
           />
           <span className="block text-[11px] font-medium text-text-tertiary tracking-[0.15em] uppercase mt-1">
-            conviction
+            composite
           </span>
         </div>
         <ActionPill

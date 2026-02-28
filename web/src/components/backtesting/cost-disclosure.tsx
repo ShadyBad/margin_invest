@@ -37,13 +37,13 @@ function AcademicValidation({ costValidation }: { costValidation: CostValidation
 
 export function CostDisclosure({ costValidation }: CostDisclosureProps) {
   return (
-    <details data-testid="cost-disclosure" className="terminal-card p-4">
-      <summary
+    <div data-testid="cost-disclosure" className="terminal-card p-4">
+      <h3
         data-testid="cost-disclosure-toggle"
-        className="text-xs font-semibold tracking-widest text-text-secondary cursor-pointer"
+        className="text-xs font-semibold tracking-widest text-text-secondary"
       >
         COST MODEL ASSUMPTIONS
-      </summary>
+      </h3>
 
       <div data-testid="cost-disclosure-content" className="mt-3">
         <div className="mt-3">
@@ -89,6 +89,6 @@ export function CostDisclosure({ costValidation }: CostDisclosureProps) {
 
         {costValidation && <AcademicValidation costValidation={costValidation} />}
       </div>
-    </details>
+    </div>
   )
 }

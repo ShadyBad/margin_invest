@@ -6,7 +6,7 @@ import { MarginOfSafetyBand } from "../visuals/margin-of-safety-band"
 const ease = [0.22, 1, 0.36, 1] as const
 
 const exampleOutput = [
-  { label: "Conviction", value: "HIGH", color: "text-accent" },
+  { label: "Composite Tier", value: "HIGH", color: "text-accent" },
   { label: "Opportunity Type", value: "Compounder", color: "text-text-primary" },
   { label: "Suggested Position", value: "8%", color: "text-text-primary" },
 ]
@@ -19,7 +19,7 @@ const factorBreakdown = [
 
 const outputFields = [
   {
-    title: "Conviction level",
+    title: "Composite tier",
     desc: "How strongly the factor evidence supports the investment case. Ranges from NONE to EXCEPTIONAL based on gate alignment.",
   },
   {
@@ -28,11 +28,11 @@ const outputFields = [
   },
   {
     title: "Suggested position size",
-    desc: "An allocation percentage calibrated to conviction strength and opportunity type. Higher conviction earns a larger position.",
+    desc: "An allocation percentage calibrated to composite tier strength and opportunity type. A higher composite tier earns a larger position.",
   },
   {
     title: "Factor breakdown",
-    desc: "The individual Quality, Value, and Momentum percentile scores — so you see exactly which dimensions are driving the conviction level.",
+    desc: "The individual Quality, Value, and Momentum percentile scores — so you see exactly which dimensions are driving the composite tier.",
   },
 ]
 
@@ -78,7 +78,7 @@ export function OutputsSection() {
         >
           Seven stages of analysis produce a set of concrete, actionable
           outputs. No ambiguity — you see exactly why a stock scores the way
-          it does, what conviction level it earns, and how much of your
+          it does, what composite tier it earns, and how much of your
           portfolio it warrants.
         </motion.p>
 

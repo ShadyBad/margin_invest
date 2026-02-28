@@ -628,7 +628,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                 asset_id=asset_ids[composite.ticker],
                 composite_percentile=composite.composite_percentile,
                 composite_raw_score=composite.composite_raw_score,
-                conviction_level=composite.conviction_level.value,
+                conviction_level=composite.composite_tier.value,
                 signal=composite.signal.value,
                 quality_percentile=composite.quality.average_percentile,
                 value_percentile=composite.value.average_percentile,
@@ -657,7 +657,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
     # Summary
     levels = defaultdict(int)
     for c in composites:
-        levels[c.conviction_level.value] += 1
+        levels[c.composite_tier.value] += 1
     logger.info("Scoring complete: %d scored out of %d tickers", successes, total)
     logger.info("Conviction levels:")
     for level in ("exceptional", "high", "medium", "none"):

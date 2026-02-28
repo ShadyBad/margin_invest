@@ -75,7 +75,7 @@ class TestComputeLiveShowcase:
         return {
             "ticker": "X",
             "composite_percentile": 80.0,
-            "conviction_level": "high",
+            "composite_tier": "high",
             "signal": "buy",
             "quality": {
                 "factor_name": "quality",

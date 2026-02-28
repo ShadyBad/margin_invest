@@ -25,7 +25,7 @@ def _score_detail(
     return {
         "ticker": ticker,
         "composite_percentile": percentile,
-        "conviction_level": conviction,
+        "composite_tier": conviction,
         "signal": signal,
         "quality": {
             "factor_name": "quality",
@@ -179,7 +179,7 @@ class TestGetScore:
         data = response.json()
         assert data["ticker"] == "AAPL"
         assert data["composite_percentile"] == 99.5
-        assert data["conviction_level"] == "exceptional"
+        assert data["composite_tier"] == "exceptional"
         assert data["signal"] == "buy"
 
     async def test_get_score_not_found(self, client):
@@ -324,7 +324,7 @@ class TestMalformedScoreDetail:
         assert resp.status_code == 200  # Not 500!
         body = resp.json()
         assert body["ticker"] == "BROKEN"
-        assert body["conviction_level"] == "high"
+        assert body["composite_tier"] == "high"
 
 
 @pytest.mark.asyncio

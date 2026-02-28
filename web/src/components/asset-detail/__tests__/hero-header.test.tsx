@@ -14,8 +14,8 @@ const baseProps = {
   compositeScore: 78.3,
   universePercentile: 96,
   universeSize: 2847,
-  convictionLevel: "high",
-  signal: "buy",
+  compositeTier: "high",
+  signal: "strong",
   dataCoverage: 0.94,
   scoredAt: "2026-02-23T12:00:00Z",
   dataFreshness: "fresh" as const,
@@ -35,7 +35,7 @@ describe("HeroHeader", () => {
     expect(screen.getByTestId("metric-score")).toHaveTextContent("78.3")
     expect(screen.getByTestId("metric-percentile")).toHaveTextContent("Top 4%")
     expect(screen.getByTestId("metric-conviction")).toHaveTextContent("HIGH")
-    expect(screen.getByTestId("metric-signal")).toHaveTextContent("BUY")
+    expect(screen.getByTestId("metric-signal")).toHaveTextContent("STRONG")
   })
 
   it("renders metadata ribbon", () => {
@@ -85,8 +85,8 @@ describe("HeroHeader", () => {
         name="Microsoft"
         compositeScore={65.0}
         universePercentile={80}
-        convictionLevel="medium"
-        signal="hold"
+        compositeTier="medium"
+        signal="stable"
         dataCoverage={0.85}
       />
     )

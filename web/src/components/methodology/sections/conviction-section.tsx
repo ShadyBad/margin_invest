@@ -60,7 +60,7 @@ const trackB = {
 const convictionLevels = [
   {
     level: "EXCEPTIONAL",
-    meaning: "Qualifies on both tracks simultaneously — strongest conviction",
+    meaning: "Qualifies on both tracks simultaneously — strongest composite tier",
   },
   {
     level: "HIGH",
@@ -97,7 +97,7 @@ export function ConvictionSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.4, ease }}
         >
-          Stage 4 · Dual-Track Conviction
+          Stage 4 · Dual-Track Scoring
         </motion.p>
 
         <motion.h2
@@ -117,7 +117,7 @@ export function ConvictionSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
-          With factor scores in hand, AAPL enters the dual-track conviction
+          With factor scores in hand, AAPL enters the dual-track scoring
           system. Each track has four gates, and scoring is multiplicative —
           one weak gate kills the score. A company can&apos;t compensate for a
           missing moat with cheap valuation.
@@ -204,7 +204,7 @@ export function ConvictionSection() {
           transition={{ duration: 0.4, delay: 0.18, ease }}
         >
           As a company&apos;s fundamentals improve and the market hasn&apos;t
-          repriced, conviction rises. The engine tracks this progression
+          repriced, the composite tier rises. The engine tracks this progression
           automatically.
         </motion.p>
       </div>

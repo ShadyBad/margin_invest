@@ -203,10 +203,10 @@ export function HeroCandidateCard({
           </div>
         </div>
 
-        {/* Conviction Score — largest element */}
+        {/* Composite Score — largest element */}
         <div className="border-y border-border-subtle py-4 my-4 text-center">
           <div className="text-[10px] uppercase tracking-widest text-text-tertiary mb-2">
-            Conviction Score
+            Composite Score
           </div>
           <div className="font-mono text-5xl font-bold text-text-primary">
             {Math.round(candidate.score)}

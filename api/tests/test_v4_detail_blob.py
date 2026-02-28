@@ -294,14 +294,15 @@ class TestCompositeDetailBlobStructure:
         detail = composite.model_dump(mode="json")
         assert "growth_stage" in detail
 
-    def test_detail_conviction_level_is_property(self):
-        """conviction_level is a @property on CompositeScore, not in model_dump()."""
+    def test_detail_composite_tier_is_property(self):
+        """composite_tier is a @property on CompositeScore, not in model_dump()."""
         composite = self._compute_composite()
         detail = composite.model_dump(mode="json")
-        # conviction_level is a computed @property and is NOT in model_dump
+        # composite_tier is a computed @property and is NOT in model_dump
+        assert "composite_tier" not in detail
         assert "conviction_level" not in detail
         # But the composite object itself has the property
-        assert composite.conviction_level is not None
+        assert composite.composite_tier is not None
 
     def test_detail_signal_is_property(self):
         """signal is a @property on CompositeScore, not in model_dump()."""

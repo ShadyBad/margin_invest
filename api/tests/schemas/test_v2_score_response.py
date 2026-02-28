@@ -21,7 +21,7 @@ class TestV2ScoreResponse:
         resp = ScoreResponse(
             ticker="TEST",
             composite_percentile=95.0,
-            conviction_level="high",
+            composite_tier="high",
             signal="buy",
             quality=_minimal_breakdown("quality"),
             value=_minimal_breakdown("value"),
@@ -53,7 +53,7 @@ class TestV2ScoreResponse:
         resp = ScoreResponse(
             ticker="COST",
             composite_percentile=99.5,
-            conviction_level="high",
+            composite_tier="high",
             signal="buy",
             quality=_minimal_breakdown("quality"),
             value=_minimal_breakdown("value"),

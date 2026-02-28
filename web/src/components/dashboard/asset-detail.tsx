@@ -65,7 +65,7 @@ export function AssetDetail({ score, className = "" }: AssetDetailProps) {
         <span className="text-3xl font-mono font-bold text-accent ml-auto">
           {(score.score ?? score.composite_percentile).toFixed(0)}
         </span>
-        <ConvictionBadge level={score.conviction_level} />
+        <ConvictionBadge level={score.composite_tier} />
         <ActionPill
           signal={score.signal}
           buyPrice={score.buy_price}

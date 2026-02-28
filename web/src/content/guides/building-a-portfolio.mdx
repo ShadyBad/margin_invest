@@ -9,11 +9,11 @@ category: "Workflows"
 
 ## Introduction
 
-The scoring pipeline produces candidates with conviction levels and opportunity types. This guide walks through how to use those outputs to construct a portfolio — from selecting qualifying candidates to calculating your cash position.
+The scoring pipeline produces candidates with composite tiers and opportunity types. This guide walks through how to use those outputs to construct a portfolio — from selecting qualifying candidates to calculating your cash position.
 
 ## Step 1: Start with Qualifying Candidates
 
-Only **EXCEPTIONAL** and **HIGH** conviction stocks get allocations:
+Only **EXCEPTIONAL** and **HIGH** composite tier stocks get allocations:
 
 - **EXCEPTIONAL** and **HIGH** — eligible for position sizing
 - **WATCHLIST** — monitor only, never allocate
@@ -23,7 +23,7 @@ If no stocks qualify at EXCEPTIONAL or HIGH, hold cash. An empty portfolio is a 
 
 ## Step 2: Check the Sizing Matrix
 
-Position sizing is determined by conviction level multiplied by opportunity type:
+Position sizing is determined by composite tier multiplied by opportunity type:
 
 | | EXCEPTIONAL | HIGH | WATCHLIST |
 |---|---|---|---|
@@ -31,7 +31,7 @@ Position sizing is determined by conviction level multiplied by opportunity type
 | Mispricing | 12% | 6% | 0% |
 | Both | 20% | 10% | 0% |
 
-"Both" gets the largest allocation because two independent conviction signals (value + quality) provide stronger evidence. A stock qualifying on both Track A (Compounder) and Track B (Mispricing) combines durable competitive advantages with temporary market undervaluation — a rare and powerful combination.
+"Both" gets the largest allocation because two independent scoring signals (value + quality) provide stronger evidence. A stock qualifying on both Track A (Compounder) and Track B (Mispricing) combines durable competitive advantages with temporary market undervaluation — a rare and powerful combination.
 
 ## Step 3: Apply Diversification Constraints
 
@@ -39,7 +39,7 @@ Position sizing is determined by conviction level multiplied by opportunity type
 - Watch for sector concentration — avoid loading up on one industry
 - The 10-position limit is a hard cap, even if more stocks qualify
 
-Even if multiple candidates in the same sector pass all conviction gates, consider your total sector exposure. The engine scores each stock independently — it does not automatically balance across sectors.
+Even if multiple candidates in the same sector pass all scoring gates, consider your total sector exposure. The engine scores each stock independently — it does not automatically balance across sectors.
 
 ## Step 4: Calculate Your Cash Position
 
@@ -61,17 +61,17 @@ Starting candidates from the dashboard:
 Total allocated: **50%**
 Cash position: **50%**
 
-This is normal — a 50% cash position reflects conservative conviction sizing. The engine is expressing that half the hypothetical portfolio should be deployed across these 5 candidates, with the remaining capital held in reserve.
+This is normal — a 50% cash position reflects conservative composite tier sizing. The engine is expressing that half the hypothetical portfolio should be deployed across these 5 candidates, with the remaining capital held in reserve.
 </Example>
 
 ## Step 5: Review and Rebalance
 
-- Check weekly for conviction changes
+- Check weekly for composite tier changes
 - If a stock drops from HIGH to WATCHLIST, reduce to 0%
 - If a stock is eliminated, exit the position
-- Don't rebalance on minor score fluctuations — wait for conviction-level changes
+- Don't rebalance on minor score fluctuations — wait for composite tier changes
 
-A change in conviction level (e.g., HIGH to EXCEPTIONAL) is meaningful. A small change in composite score within the same conviction level is usually noise. See the [Weekly Review Process](/guides/weekly-review) guide for a structured approach.
+A change in composite tier (e.g., HIGH to EXCEPTIONAL) is meaningful. A small change in composite score within the same composite tier is usually noise. See the [Weekly Review Process](/guides/weekly-review) guide for a structured approach.
 
 <VerifyItYourself claim="Position sizing transparency">
 Check any EXCEPTIONAL stock on the dashboard. The suggested position size will be larger than a HIGH stock of the same opportunity type. WATCHLIST stocks always show 0% allocation.
@@ -79,7 +79,7 @@ Check any EXCEPTIONAL stock on the dashboard. The suggested position size will b
 
 ## Common Pitfalls
 
-- **Don't allocate to WATCHLIST stocks** — the system explicitly recommends 0%. If a stock hasn't cleared enough conviction gates, the engine is saying it does not warrant capital allocation yet.
-- **Don't fill a 10-position portfolio for the sake of being "fully invested"** — quality matters more than quantity. A 4-position portfolio with high conviction beats a 10-position portfolio with diluted conviction.
-- **Don't ignore sector concentration** — diversification matters even among high-conviction picks. Three strong candidates from the same sector significantly increase your exposure to sector-specific events.
+- **Don't allocate to WATCHLIST stocks** — the system explicitly recommends 0%. If a stock hasn't cleared enough scoring gates, the engine is saying it does not warrant capital allocation yet.
+- **Don't fill a 10-position portfolio for the sake of being "fully invested"** — quality matters more than quantity. A 4-position portfolio with high-scoring beats a 10-position portfolio with diluted evidence.
+- **Don't ignore sector concentration** — diversification matters even among high-scoring picks. Three strong candidates from the same sector significantly increase your exposure to sector-specific events.
 - **Don't fight the cash position** — if the system produces few qualifying candidates, that's information. The engine is telling you the opportunity set is limited.

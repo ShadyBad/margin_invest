@@ -43,8 +43,8 @@ const basePick: PickSummary = {
   score: 92,
   universe_percentile: 95,
   composite_percentile: 95,
-  conviction_level: "exceptional",
-  signal: "buy",
+  composite_tier: "exceptional",
+  signal: "strong",
   quality_percentile: 90,
   value_percentile: 85,
   momentum_percentile: 88,
@@ -56,44 +56,44 @@ const basePick: PickSummary = {
 
 describe("StockCard visual hierarchy", () => {
   it("renders exceptional card with rounded-lg and sector bar", () => {
-    render(<StockCard pick={{ ...basePick, conviction_level: "exceptional", score: 92 }} />)
+    render(<StockCard pick={{ ...basePick, composite_tier: "exceptional", score: 92 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
     expect(card.className).toContain("rounded-lg")
     expect(card.className).toContain("border-l-2")
   })
 
   it("renders high card with sector bar", () => {
-    render(<StockCard pick={{ ...basePick, conviction_level: "high", score: 80 }} />)
+    render(<StockCard pick={{ ...basePick, composite_tier: "high", score: 80 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
     expect(card.className).toContain("border-l-2")
     expect(card.className).toContain("rounded-lg")
   })
 
   it("renders watchlist card with sector bar and no conviction glow", () => {
-    render(<StockCard pick={{ ...basePick, conviction_level: "watchlist", score: 55 }} />)
+    render(<StockCard pick={{ ...basePick, composite_tier: "watchlist", score: 55 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
     expect(card.className).toContain("border-l-2")
     expect(card.className).toContain("rounded-lg")
   })
 
   it("renders exceptional score in accent color with display font", () => {
-    render(<StockCard pick={{ ...basePick, conviction_level: "exceptional", score: 92 }} />)
+    render(<StockCard pick={{ ...basePick, composite_tier: "exceptional", score: 92 }} />)
     expect(screen.getByText("92")).toHaveClass("text-accent")
     expect(screen.getByText("92")).toHaveClass("font-display")
   })
 
   it("renders watchlist score in muted color", () => {
-    render(<StockCard pick={{ ...basePick, conviction_level: "watchlist", score: 55 }} />)
+    render(<StockCard pick={{ ...basePick, composite_tier: "watchlist", score: 55 }} />)
     expect(screen.getByText("55")).toHaveClass("text-text-secondary")
   })
 
-  it("renders conviction label below score", () => {
-    render(<StockCard pick={{ ...basePick, conviction_level: "exceptional", score: 92 }} />)
-    expect(screen.getByText("conviction")).toBeInTheDocument()
+  it("renders composite label below score", () => {
+    render(<StockCard pick={{ ...basePick, composite_tier: "exceptional", score: 92 }} />)
+    expect(screen.getByText("composite")).toBeInTheDocument()
   })
 
   it("renders exceptional card with radial gradient overlay but no top accent stripe", () => {
-    render(<StockCard pick={{ ...basePick, conviction_level: "exceptional", score: 92 }} />)
+    render(<StockCard pick={{ ...basePick, composite_tier: "exceptional", score: 92 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
     // Top accent stripe was removed; only the radial gradient overlay remains
     const stripe = card.querySelector(".bg-accent.h-\\[2px\\]")

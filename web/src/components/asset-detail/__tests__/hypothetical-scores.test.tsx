@@ -6,7 +6,7 @@ const props = {
   ticker: "TSLA",
   compositeScore: 61.4,
   compositePercentile: 38,
-  convictionLevel: "none",
+  compositeTier: "none",
   quality: {
     factor_name: "quality",
     weight: 0.3,

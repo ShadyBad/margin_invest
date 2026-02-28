@@ -30,7 +30,7 @@ export function OnboardingFlow() {
               Score your portfolio.
             </h1>
             <p className="text-[15px] text-text-secondary mb-8">
-              Enter your tickers and see conviction scores in 60 seconds.
+              Enter your tickers and see composite scores in 60 seconds.
             </p>
             <TickerInput onSubmit={handleSubmit} />
           </div>
