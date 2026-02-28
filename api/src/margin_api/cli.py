@@ -2110,6 +2110,42 @@ async def run_price_backfill(
     await engine.dispose()
 
 
+async def run_edgar_backfill_cmd(
+    start_year: int = 2009,
+    end_year: int = 2026,
+    checkpoint_file: str = ".edgar_checkpoint",
+    dry_run: bool = False,
+) -> None:
+    """Run EDGAR backfill: download XBRL filings and insert into pit_financial_snapshots."""
+    from margin_api.services.edgar.backfill import run_edgar_backfill
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    logger.info(
+        "[edgar-backfill] Starting backfill for years %d-%d (dry_run=%s)",
+        start_year,
+        end_year,
+        dry_run,
+    )
+
+    summary = await run_edgar_backfill(
+        start_year=start_year,
+        end_year=end_year,
+        session_factory=session_factory,
+        checkpoint_file=checkpoint_file,
+        dry_run=dry_run,
+    )
+
+    print(
+        f"\nEDGAR backfill complete: {summary['total']} total, "
+        f"{summary['inserted']} inserted, {summary['skipped']} skipped, "
+        f"{summary['failed']} failed"
+    )
+
+    await engine.dispose()
+
+
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
@@ -2471,6 +2507,34 @@ def main() -> None:
         help="Specific tickers to backfill (default: all from pit_financial_snapshots)",
     )
 
+    # edgar-backfill
+    edgar_backfill_parser = subparsers.add_parser(
+        "edgar-backfill",
+        help="Backfill SEC EDGAR XBRL filings into pit_financial_snapshots",
+    )
+    edgar_backfill_parser.add_argument(
+        "--start-year",
+        type=int,
+        default=2009,
+        help="Earliest year to backfill from (default: 2009)",
+    )
+    edgar_backfill_parser.add_argument(
+        "--end-year",
+        type=int,
+        default=2026,
+        help="Latest year to backfill to (default: 2026)",
+    )
+    edgar_backfill_parser.add_argument(
+        "--checkpoint-file",
+        default=".edgar_checkpoint",
+        help="Path to checkpoint file for resumable backfills (default: .edgar_checkpoint)",
+    )
+    edgar_backfill_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Only build index, don't fetch/parse/insert",
+    )
+
     # ablation
     ablation_parser = subparsers.add_parser(
         "ablation",
@@ -2569,6 +2633,15 @@ def main() -> None:
                 end_date=args.end_date,
                 batch_size=args.batch_size,
                 tickers=args.tickers,
+            )
+        )
+    elif args.command == "edgar-backfill":
+        asyncio.run(
+            run_edgar_backfill_cmd(
+                start_year=args.start_year,
+                end_year=args.end_year,
+                checkpoint_file=args.checkpoint_file,
+                dry_run=args.dry_run,
             )
         )
     elif args.command == "ablation":
