@@ -11,29 +11,24 @@ vi.mock("gsap/ScrollTrigger", () => ({
 import { PricingSection } from "../pricing-section"
 
 describe("PricingSection", () => {
-  it("renders pre-headline", () => {
+  it("renders headline", () => {
     render(<PricingSection />)
     expect(
-      screen.getByText(/system scales with your responsibility/)
+      screen.getByText(/Invest in your process/)
     ).toBeInTheDocument()
   })
 
   it("renders all 3 tiers", () => {
     render(<PricingSection />)
+    expect(screen.getByText("Scout")).toBeInTheDocument()
     expect(screen.getByText("Analyst")).toBeInTheDocument()
     expect(screen.getByText("Portfolio")).toBeInTheDocument()
-    expect(screen.getByText("Institutional")).toBeInTheDocument()
-  })
-
-  it("renders Most Popular tag", () => {
-    render(<PricingSection />)
-    expect(screen.getByText("Most Popular")).toBeInTheDocument()
   })
 
   it("renders prices", () => {
     render(<PricingSection />)
     expect(screen.getByText("Free")).toBeInTheDocument()
-    expect(screen.getByText("$29")).toBeInTheDocument()
-    expect(screen.getByText("$79")).toBeInTheDocument()
+    expect(screen.getByText("$19")).toBeInTheDocument()
+    expect(screen.getByText("$49")).toBeInTheDocument()
   })
 })

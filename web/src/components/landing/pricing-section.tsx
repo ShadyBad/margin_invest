@@ -4,43 +4,46 @@ import { PricingTierCard, type Tier } from "./pricing-tier-card"
 
 const tiers: Tier[] = [
   {
-    name: "Analyst",
+    name: "Scout",
     price: "Free",
     period: "",
-    description: "Start analyzing with the core scoring engine.",
+    description: "Search any ticker. See what survives.",
     features: [
-      "3 analyses per month",
-      "Composite score",
-      "Top-level breakdown",
+      "Unlimited ticker searches",
+      "Composite score + factor bars",
+      "Elimination filter results",
+      "1 full forensic report / month",
       "5-ticker watchlist",
     ],
     highlighted: false,
   },
   {
-    name: "Portfolio",
-    price: "$29",
+    name: "Analyst",
+    price: "$19",
     period: "/mo",
-    description: "Full factor access for active portfolio managers.",
+    description: "Full forensic access for serious investors.",
     features: [
-      "Unlimited analysis",
-      "Full 6-factor breakdown",
-      "90-day history",
+      "Everything in Scout",
+      "Unlimited forensic reports",
+      "90-day score history",
       "25-ticker watchlist",
       "Score alerts",
+      "Sector peer comparison",
     ],
     highlighted: true,
   },
   {
-    name: "Institutional",
-    price: "$79",
+    name: "Portfolio",
+    price: "$49",
     period: "/mo",
-    description: "Enterprise-grade tools for allocators and teams.",
+    description: "The system that runs your portfolio.",
     features: [
-      "Everything in Portfolio",
+      "Everything in Analyst",
       "Unlimited history",
       "Correlation analysis",
-      "Sector rotation",
+      "Smart Money (13F tracking)",
       "API access",
+      "Priority support",
     ],
     highlighted: false,
   },
@@ -50,13 +53,24 @@ export function PricingSection() {
   return (
     <section id="pricing" className="py-24 px-6">
       <div className="max-w-5xl mx-auto">
-        <p className="text-sm uppercase tracking-[0.2em] text-text-tertiary text-center mb-16">
-          The system scales with your responsibility.
+        <h2 className="font-display text-3xl md:text-4xl text-text-primary text-center mb-3">
+          Invest in your process, not another guru.
+        </h2>
+        <p className="text-base text-text-secondary text-center mb-16 max-w-md mx-auto">
+          Start free. Upgrade when the data changes how you think.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {tiers.map((tier) => (
             <PricingTierCard key={tier.name} tier={tier} />
           ))}
+        </div>
+        <div className="text-center space-y-3">
+          <p className="text-sm text-text-secondary">
+            30-day money-back guarantee on all paid plans. No questions.
+          </p>
+          <p className="text-xs text-text-tertiary">
+            Founding members lock in this price forever. Pricing increases after launch.
+          </p>
         </div>
       </div>
     </section>

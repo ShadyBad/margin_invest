@@ -90,11 +90,11 @@ describe("Landing page assembly", () => {
     expect(screen.getByText(/structure replaces intuition with evidence/i)).toBeInTheDocument()
 
     // Positioning
-    expect(screen.getByText(/discipline isn.t enough/i)).toBeInTheDocument()
+    expect(screen.getByText(/system has no opinion/i)).toBeInTheDocument()
 
     // Pricing
-    expect(screen.getByText("Analyst")).toBeInTheDocument()
-    expect(screen.getByText("Institutional")).toBeInTheDocument()
+    expect(screen.getByText("Scout")).toBeInTheDocument()
+    expect(screen.getByText("Portfolio")).toBeInTheDocument()
 
     // Infrastructure (NEW)
     expect(screen.getByText(/institutional-grade infrastructure/i)).toBeInTheDocument()

@@ -2,8 +2,16 @@
 
 import { useEffect, useRef } from "react"
 
-const notForItems = ["Narrative-driven investing", "Signal chasers", "Discretionary overrides"]
-const forItems = ["Systematic decision-making", "Factor-based allocation", "Structured risk management"]
+const notForItems = [
+  "Narrative-driven conviction",
+  "Signal chasers and day traders",
+  "Anyone who needs an override button",
+]
+const forItems = [
+  "Investors who know their process is broken",
+  "People who want math, not opinions",
+  "Anyone willing to trust structure over stories",
+]
 
 export function PositioningSection() {
   const gridRef = useRef<HTMLDivElement>(null)
@@ -49,7 +57,7 @@ export function PositioningSection() {
     <section id="positioning" className="py-24 px-6">
       <div className="max-w-4xl mx-auto">
         <h2 className="font-display text-4xl md:text-[36px] text-text-primary text-center mb-16">
-          Built for investors who know discipline isn&apos;t enough.
+          The system has no opinion. That&apos;s the point.
         </h2>
         <div
           ref={gridRef}
