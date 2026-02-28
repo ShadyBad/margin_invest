@@ -127,7 +127,7 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
             asset_id=asset.id,
             composite_percentile=composite.composite_percentile,
             composite_raw_score=composite.composite_raw_score,
-            conviction_level=composite.conviction_level.value,
+            conviction_level=composite.composite_tier.value,
             signal=composite.signal.value,
             quality_percentile=composite.quality.average_percentile,
             value_percentile=composite.value.average_percentile,
@@ -156,7 +156,7 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
             "Scored %s: composite=%.1f conviction=%s signal=%s",
             ticker,
             composite.composite_percentile,
-            composite.conviction_level.value,
+            composite.composite_tier.value,
             composite.signal.value,
         )
         return True

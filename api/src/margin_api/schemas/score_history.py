@@ -14,7 +14,7 @@ class ScoreHistoryPoint(BaseModel):
     quality_percentile: float | None = None
     value_percentile: float | None = None
     momentum_percentile: float | None = None
-    conviction_level: str
+    composite_tier: str
     signal: str
     margin_invest_value: float | None = None
     buy_price: float | None = None

@@ -87,8 +87,8 @@ PRIOR_CASHFLOW = {
     "commonStockIssued": "0",
 }
 
-VALID_CONVICTION_LEVELS = {"exceptional", "high", "medium", "none"}
-VALID_SIGNALS = {"buy", "watch", "no_action", "hold", "sell", "urgent_sell"}
+VALID_COMPOSITE_TIERS = {"exceptional", "high", "medium", "none"}
+VALID_SIGNALS = {"strong", "emerging", "neutral", "stable", "weak", "failed"}
 
 
 def _price_bars_raw(n_bars: int = 260) -> list[dict]:
@@ -182,8 +182,8 @@ class TestFullPipeline:
         # composite_percentile in valid range
         assert 0.0 <= composite.composite_percentile <= 100.0
 
-        # conviction_level is one of the valid values
-        assert composite.conviction_level.value in VALID_CONVICTION_LEVELS
+        # composite_tier is one of the valid values
+        assert composite.composite_tier.value in VALID_COMPOSITE_TIERS
 
         # signal is one of the valid values
         assert composite.signal.value in VALID_SIGNALS
@@ -223,7 +223,7 @@ class TestFullPipeline:
         # Verify key fields survive the round-trip
         assert reconstructed.ticker == "AAPL"
         assert reconstructed.composite_percentile == response.composite_percentile
-        assert reconstructed.conviction_level == response.conviction_level
+        assert reconstructed.composite_tier == response.composite_tier
         assert reconstructed.signal == response.signal
         assert reconstructed.data_coverage == response.data_coverage
         assert len(reconstructed.quality.sub_scores) == 5
@@ -257,7 +257,7 @@ class TestFullPipeline:
         assert isinstance(composite, CompositeScore)
         assert composite.ticker == "JPM"
         assert 0.0 <= composite.composite_percentile <= 100.0
-        assert composite.conviction_level.value in VALID_CONVICTION_LEVELS
+        assert composite.composite_tier.value in VALID_COMPOSITE_TIERS
         assert composite.signal.value in VALID_SIGNALS
         assert 0.0 <= composite.data_coverage <= 1.0
         assert len(composite.filters_passed) == 6

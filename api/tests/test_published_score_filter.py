@@ -242,7 +242,7 @@ class TestPublishedScoreFilter:
                     "ticker": ticker,
                     "composite_percentile": score,
                     "composite_raw_score": score / 100,
-                    "conviction_level": "medium",
+                    "composite_tier": "medium",
                     "signal": "watch",
                     "quality": {
                         "factor_name": "quality",

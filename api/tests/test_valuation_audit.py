@@ -18,7 +18,7 @@ def _score_detail_with_audit() -> dict:
     return {
         "ticker": "AAPL",
         "composite_percentile": 95.0,
-        "conviction_level": "high",
+        "composite_tier": "high",
         "signal": "buy",
         "quality": {
             "factor_name": "quality",
@@ -94,7 +94,7 @@ def _score_detail_without_audit() -> dict:
     return {
         "ticker": "MSFT",
         "composite_percentile": 80.0,
-        "conviction_level": "medium",
+        "composite_tier": "medium",
         "signal": "hold",
         "quality": {
             "factor_name": "quality",

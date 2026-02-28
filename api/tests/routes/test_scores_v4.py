@@ -129,7 +129,7 @@ class TestV4ScoreEndpoint:
             assert data["ml_override"] == "promoted"
             assert data["rules_conviction"] == "medium"
             assert data["style"] == "growth"
-            assert data["conviction_level"] == "high"
+            assert data["composite_tier"] == "high"
             assert data["regime"] == "normal"
 
     async def test_get_score_serves_v4_track_fields(self, session_factory):
@@ -258,7 +258,7 @@ class TestV4ScoreEndpoint:
             data = resp.json()
             assert data["ml_alpha"] is None
             assert data["ml_override"] is None
-            assert data["conviction_level"] == "medium"
+            assert data["composite_tier"] == "medium"
 
     async def test_v4_preferred_over_v2(self, session_factory):
         """When both V4Score and Score exist, V4Score is preferred."""
@@ -311,7 +311,7 @@ class TestV4ScoreEndpoint:
             assert resp.status_code == 200
             data = resp.json()
             # Should use V4 score, not V2
-            assert data["conviction_level"] == "exceptional"
+            assert data["composite_tier"] == "exceptional"
             assert data["ml_alpha"] == 0.1
 
     async def test_score_includes_institutional_accumulation(self, session_factory):

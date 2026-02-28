@@ -196,12 +196,12 @@ class TestDashboardPicks:
         assert aapl_pick["momentum_percentile"] == 97.0
 
     async def test_pick_includes_signal_and_conviction(self, client):
-        """Each pick includes signal and conviction_level."""
+        """Each pick includes signal and composite_tier."""
         response = await client.get("/api/v1/dashboard")
         data = response.json()
         aapl_pick = data["picks"][0]
         assert aapl_pick["signal"] == "buy"
-        assert aapl_pick["conviction_level"] == "exceptional"
+        assert aapl_pick["composite_tier"] == "exceptional"
         assert aapl_pick["name"] == "Apple Inc."
 
     async def test_pick_includes_sector(self, client):
@@ -234,7 +234,7 @@ class TestDashboardPicks:
         assert aapl["score"] == 82.0  # composite_raw_score
         assert aapl["composite_percentile"] == 99.5  # composite_percentile
         assert aapl["universe_percentile"] == 99.5  # same as composite_percentile
-        assert aapl["conviction_level"] == "exceptional"  # conviction_level
+        assert aapl["composite_tier"] == "exceptional"  # composite_tier
         assert aapl["signal"] == "buy"  # signal
         assert aapl["quality_percentile"] == 98.0  # quality_percentile
         assert aapl["value_percentile"] == 95.0  # value_percentile
@@ -256,13 +256,13 @@ class TestDashboardWatchlist:
         assert len(watchlist) == 1
         assert watchlist[0]["ticker"] == "MSFT"
         assert watchlist[0]["composite_raw_score"] == 67.0
-        assert watchlist[0]["conviction_level"] == "medium"
+        assert watchlist[0]["composite_tier"] == "medium"
         assert watchlist[0]["sector"] == "Information Technology"
 
 
 @pytest.mark.asyncio
 class TestDashboardMixed:
-    async def test_mixed_conviction_levels(self, client):
+    async def test_mixed_composite_tiers(self, client):
         """Exceptional/high -> picks, medium -> watchlist, none -> excluded."""
         response = await client.get("/api/v1/dashboard")
         data = response.json()
@@ -460,7 +460,7 @@ class TestDashboardUniverseMetadata:
 
 @pytest.mark.asyncio
 class TestConvictionDerivation:
-    """Verify that stored conviction_level matches engine threshold derivation."""
+    """Verify that stored composite_tier matches engine threshold derivation."""
 
     async def test_score_zero_shows_zero_not_percentile(self, async_engine):
         """When composite_raw_score=0.0, the API returns score=0.0 (not composite_percentile)."""
@@ -507,7 +507,7 @@ class TestConvictionDerivation:
             assert picks[0]["score"] == 0.0
 
     async def test_conviction_boundary_79(self, async_engine):
-        """raw_score=79.0 exactly -> conviction_level='exceptional'."""
+        """raw_score=79.0 exactly -> conviction_level="exceptional"."""
         factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             asset = Asset(
@@ -545,7 +545,7 @@ class TestConvictionDerivation:
             response = await ac.get("/api/v1/dashboard")
             data = response.json()
             pick = data["picks"][0]
-            assert pick["conviction_level"] == "exceptional"
+            assert pick["composite_tier"] == "exceptional"
             assert pick["score"] == 79.0
 
     async def test_conviction_boundary_78_9(self, async_engine):
@@ -587,5 +587,5 @@ class TestConvictionDerivation:
             response = await ac.get("/api/v1/dashboard")
             data = response.json()
             pick = data["picks"][0]
-            assert pick["conviction_level"] == "high"
+            assert pick["composite_tier"] == "high"
             assert pick["score"] == 78.9

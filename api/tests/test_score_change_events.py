@@ -110,8 +110,8 @@ class TestEmitScoreChangeEvents:
         assert payload["old_score"] == 50.0
         assert payload["new_score"] == 70.0
         assert payload["delta"] == 20.0
-        assert payload["old_conviction"] == "moderate"
-        assert payload["new_conviction"] == "high"
+        assert payload["old_composite_tier"] == "moderate"
+        assert payload["new_composite_tier"] == "high"
 
     @pytest.mark.asyncio
     async def test_emit_ignores_small_delta(self, db_session):

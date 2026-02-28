@@ -50,7 +50,7 @@ def _pick_summary_from_row(row) -> PickSummary:
         score=s.composite_raw_score,
         universe_percentile=s.composite_percentile,
         composite_percentile=s.composite_percentile,
-        conviction_level=s.conviction_level,
+        composite_tier=s.conviction_level,
         signal=s.signal,
         quality_percentile=s.quality_percentile,
         value_percentile=s.value_percentile,
@@ -125,7 +125,7 @@ async def _fetch_picks_and_watchlist(
             ticker=row.ticker,
             name=row.asset_name,
             composite_raw_score=row.Score.composite_raw_score,
-            conviction_level=row.Score.conviction_level,
+            composite_tier=row.Score.conviction_level,
             sector=getattr(row, "asset_sector", None),
             actual_price=getattr(row.Score, "actual_price", None),
             price_upside=(
@@ -185,8 +185,8 @@ async def _fetch_picks_and_watchlist(
     return picks, watchlist
 
 
-def _derive_conviction_level(raw_score: float) -> str:
-    """Re-derive conviction_level from raw_score using engine thresholds."""
+def _derive_composite_tier(raw_score: float) -> str:
+    """Re-derive composite_tier from raw_score using engine thresholds."""
     if raw_score >= 79.0:
         return "exceptional"
     if raw_score >= 72.0:
@@ -197,25 +197,25 @@ def _derive_conviction_level(raw_score: float) -> str:
 
 
 def _derive_signal(
-    conviction_level: str,
+    composite_tier: str,
     actual_price=None,
     buy_price=None,
     sell_price=None,
 ) -> str:
-    """Re-derive signal from conviction_level and price targets."""
-    if conviction_level == "medium":
-        return "watch"
-    if conviction_level == "none":
-        return "no_action"
+    """Re-derive signal from composite_tier and price targets."""
+    if composite_tier == "medium":
+        return "emerging"
+    if composite_tier == "none":
+        return "neutral"
     if actual_price is not None and sell_price is not None and buy_price is not None:
         if actual_price > sell_price * 1.15:
-            return "urgent_sell"
+            return "failed"
         if actual_price > sell_price:
-            return "sell"
+            return "weak"
         if actual_price <= buy_price:
-            return "buy"
-        return "hold"
-    return "buy"
+            return "strong"
+        return "stable"
+    return "strong"
 
 
 @router.get("/dashboard/audit")
@@ -249,7 +249,7 @@ async def audit_dashboard(
             "score_id": s.id,
             "composite_raw_score": s.composite_raw_score,
             "composite_percentile": s.composite_percentile,
-            "conviction_level": s.conviction_level,
+            "composite_tier": s.conviction_level,
             "signal": s.signal,
             "quality_percentile": s.quality_percentile,
             "value_percentile": s.value_percentile,
@@ -261,7 +261,7 @@ async def audit_dashboard(
             "scored_at": s.scored_at.isoformat() if s.scored_at else None,
         }
 
-        derived_conviction = _derive_conviction_level(s.composite_raw_score)
+        derived_conviction = _derive_composite_tier(s.composite_raw_score)
         derived_signal = _derive_signal(
             derived_conviction,
             actual_price=getattr(s, "actual_price", None),
@@ -270,7 +270,7 @@ async def audit_dashboard(
         )
 
         derived_values = {
-            "conviction_level": derived_conviction,
+            "composite_tier": derived_conviction,
             "signal": derived_signal,
         }
 
@@ -278,7 +278,7 @@ async def audit_dashboard(
         if s.conviction_level != derived_conviction:
             mismatches.append(
                 {
-                    "field": "conviction_level",
+                    "field": "composite_tier",
                     "db_value": s.conviction_level,
                     "derived_value": derived_conviction,
                 }
@@ -487,5 +487,5 @@ async def get_dashboard_status(
         "assets": {
             "total": total_assets,
         },
-        "conviction_breakdown": conviction_counts,
+        "tier_breakdown": conviction_counts,
     }

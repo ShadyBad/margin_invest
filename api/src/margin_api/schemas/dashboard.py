@@ -16,7 +16,7 @@ class PickSummary(BaseModel):
     score: float = 0.0  # Raw weighted average
     universe_percentile: float = 0.0  # Universe-level rank
     composite_percentile: float  # Kept for backwards compat
-    conviction_level: str
+    composite_tier: str
     signal: str
     quality_percentile: float
     value_percentile: float
@@ -50,7 +50,7 @@ class WatchlistItem(BaseModel):
     ticker: str
     name: str
     composite_raw_score: float
-    conviction_level: str
+    composite_tier: str
     sector: str | None = None
     actual_price: float | None = None
     price_upside: float | None = None

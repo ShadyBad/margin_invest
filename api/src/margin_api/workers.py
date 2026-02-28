@@ -1274,8 +1274,8 @@ async def _emit_score_change_events(session: AsyncSession) -> int:
             "old_score": old_score.composite_percentile,
             "new_score": new_score.composite_percentile,
             "delta": round(delta, 2),
-            "old_conviction": old_score.conviction_level,
-            "new_conviction": new_score.conviction_level,
+            "old_composite_tier": old_score.conviction_level,
+            "new_composite_tier": new_score.conviction_level,
         }
 
         event_db = await add_event(
