@@ -273,3 +273,93 @@ class PerformanceCalculator:
             return 0.0
 
         return (mean_active * 12) / tracking_error
+
+
+def run_sensitivity_analysis(
+    snapshots: list[MonthlySnapshot],
+    multipliers: list[float] | None = None,
+    risk_free_rate: float = 0.04,
+) -> list[dict[str, float]]:
+    """Recompute performance metrics at different cost multiplier levels.
+
+    Takes the gross_return and transaction_costs from each snapshot, scales
+    costs by each multiplier, and recomputes net returns + metrics.
+
+    Args:
+        snapshots: Original snapshots with gross_return and transaction_costs populated.
+        multipliers: Cost multiplier levels (default [1.0, 2.0, 3.0]).
+        risk_free_rate: Annual risk-free rate for Sharpe calculation.
+
+    Returns:
+        List of dicts, one per multiplier, with keys:
+        multiplier, cagr, sharpe, max_drawdown, cost_drag_bps.
+    """
+    if multipliers is None:
+        multipliers = [1.0, 2.0, 3.0]
+
+    if not snapshots:
+        return [
+            {
+                "multiplier": m,
+                "cagr": 0.0,
+                "sharpe": 0.0,
+                "max_drawdown": 0.0,
+                "cost_drag_bps": 0.0,
+            }
+            for m in multipliers
+        ]
+
+    # Extract gross returns and dollar costs from snapshots
+    gross_returns = [s.gross_return for s in snapshots]
+    costs_dollars = [s.transaction_costs for s in snapshots]
+
+    # Derive initial portfolio value from the first snapshot
+    first = snapshots[0]
+    if abs(1.0 + first.portfolio_return) > _EPS:
+        initial_pv = first.portfolio_value / (1.0 + first.portfolio_return)
+    else:
+        initial_pv = first.portfolio_value
+
+    # Compute gross CAGR (costs at 0x) for cost_drag calculation
+    num_months = len(snapshots)
+    years = num_months / 12.0
+    gross_total_ratio = math.prod(1.0 + r for r in gross_returns)
+    gross_cagr = PerformanceCalculator._cagr(gross_total_ratio, years)
+
+    risk_free_monthly = risk_free_rate / 12.0
+
+    results: list[dict[str, float]] = []
+
+    for m in multipliers:
+        pv = initial_pv
+        net_returns: list[float] = []
+        portfolio_values: list[float] = []
+
+        for i in range(num_months):
+            gross_pv = pv * (1.0 + gross_returns[i])
+            adjusted_cost = costs_dollars[i] * m
+            net_pv = gross_pv - adjusted_cost
+            net_return = (net_pv - pv) / pv if abs(pv) > _EPS else 0.0
+            net_returns.append(net_return)
+            pv = net_pv
+            portfolio_values.append(pv)
+
+        # Compute metrics from the adjusted return series
+        total_ratio = math.prod(1.0 + r for r in net_returns)
+        cagr = PerformanceCalculator._cagr(total_ratio, years)
+        sharpe = PerformanceCalculator._sharpe(net_returns, risk_free_monthly)
+        max_dd = PerformanceCalculator._max_drawdown(portfolio_values)
+
+        cost_drag_bps = (gross_cagr - cagr) * 10_000
+
+        results.append(
+            {
+                "multiplier": m,
+                "cagr": cagr,
+                "sharpe": sharpe,
+                "max_drawdown": max_dd,
+                "cost_drag_bps": max(cost_drag_bps, 0.0),
+            }
+        )
+
+    return results
