@@ -104,3 +104,97 @@ def compute_transaction_cost(
         market_impact_bps=market_impact_bps,
         total_bps=total_bps,
     )
+
+
+# ---------------------------------------------------------------------------
+# Cost assumptions & academic benchmarks
+# ---------------------------------------------------------------------------
+
+COST_ASSUMPTIONS: dict = {
+    "base_commission_bps": 5.0,
+    "market_impact_coefficient": 0.1,
+    "spread_formula": "spread_bps = 3.0 + 50.0 / sqrt(market_cap / 1e9)",
+    "spread_description": (
+        "Bid-ask spread widens for smaller companies. "
+        "Mega-caps converge toward ~3 bps; micro-caps can exceed 100 bps."
+    ),
+    "impact_formula": "impact_bps = coefficient * sqrt(trade_value / adv) * 10000",
+    "impact_description": (
+        "Square-root market impact model. Cost grows sub-linearly with trade size "
+        "relative to average daily volume, consistent with Kyle (1985)."
+    ),
+    "not_modeled": [
+        "short-selling costs",
+        "taxes",
+        "management fees",
+        "opportunity cost",
+        "time-of-day effects",
+    ],
+}
+
+ACADEMIC_BENCHMARKS: list[dict] = [
+    {
+        "source": "Frazzini, Israel & Moskowitz (2015)",
+        "paper": "Trading Costs of Asset Pricing Anomalies",
+        "asset_class": "US equities",
+        "market_cap_range": "large_cap",
+        "cost_range_bps": (10, 20),
+    },
+    {
+        "source": "Frazzini, Israel & Moskowitz (2015)",
+        "paper": "Trading Costs of Asset Pricing Anomalies",
+        "asset_class": "US equities",
+        "market_cap_range": "small_cap",
+        "cost_range_bps": (30, 60),
+    },
+    {
+        "source": "Novy-Marx & Velikov (2016)",
+        "paper": "A Taxonomy of Anomalies and Their Trading Costs",
+        "asset_class": "US equities",
+        "market_cap_range": "all_cap",
+        "cost_range_bps": (10, 50),
+    },
+]
+
+
+def validate_cost_assumptions(
+    model_cost_bps: float,
+    market_cap_billions: float,
+) -> dict:
+    """Validate model cost against academic benchmark for the appropriate cap tier.
+
+    Tier selection:
+        - >= 10B  -> large_cap  (Frazzini et al.)
+        - >= 2B   -> all_cap    (Novy-Marx & Velikov)
+        - <  2B   -> small_cap  (Frazzini et al.)
+
+    Args:
+        model_cost_bps: The modeled transaction cost in basis points.
+        market_cap_billions: Company market capitalisation in billions of dollars.
+
+    Returns:
+        Dict with model_cost_bps, benchmark_range_bps, status, and source.
+    """
+    if market_cap_billions >= 10.0:
+        tier = "large_cap"
+    elif market_cap_billions >= 2.0:
+        tier = "all_cap"
+    else:
+        tier = "small_cap"
+
+    benchmark = next(b for b in ACADEMIC_BENCHMARKS if b["market_cap_range"] == tier)
+    low, high = benchmark["cost_range_bps"]
+
+    if model_cost_bps < low:
+        status = "below_benchmark"
+    elif model_cost_bps > high:
+        status = "above_benchmark"
+    else:
+        status = "within_range"
+
+    return {
+        "model_cost_bps": model_cost_bps,
+        "benchmark_range_bps": (low, high),
+        "status": status,
+        "source": benchmark["source"],
+    }

@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import numpy as np
 from margin_engine.backtesting.cost_model import (
+    ACADEMIC_BENCHMARKS,
+    COST_ASSUMPTIONS,
     CostModelConfig,
     TransactionCost,
     compute_market_impact_bps,
     compute_spread_bps,
     compute_transaction_cost,
+    validate_cost_assumptions,
 )
 
 
@@ -100,3 +103,114 @@ class TestComputeTransactionCost:
             market_cap=500e6,
         )
         assert cost.total_bps > 15.0
+
+
+class TestCostAssumptions:
+    def test_assumptions_has_required_keys(self):
+        assert "base_commission_bps" in COST_ASSUMPTIONS
+        assert "market_impact_coefficient" in COST_ASSUMPTIONS
+        assert "spread_formula" in COST_ASSUMPTIONS
+
+    def test_assumptions_values_are_positive(self):
+        assert COST_ASSUMPTIONS["base_commission_bps"] > 0
+        assert COST_ASSUMPTIONS["market_impact_coefficient"] > 0
+
+    def test_assumptions_has_description_keys(self):
+        assert "spread_description" in COST_ASSUMPTIONS
+        assert "impact_formula" in COST_ASSUMPTIONS
+        assert "impact_description" in COST_ASSUMPTIONS
+
+    def test_assumptions_not_modeled_is_list(self):
+        assert isinstance(COST_ASSUMPTIONS["not_modeled"], list)
+        assert len(COST_ASSUMPTIONS["not_modeled"]) > 0
+
+    def test_assumptions_not_modeled_items(self):
+        not_modeled = COST_ASSUMPTIONS["not_modeled"]
+        assert "short-selling costs" in not_modeled
+        assert "taxes" in not_modeled
+        assert "management fees" in not_modeled
+        assert "opportunity cost" in not_modeled
+        assert "time-of-day effects" in not_modeled
+
+
+class TestAcademicBenchmarks:
+    def test_benchmarks_non_empty(self):
+        assert len(ACADEMIC_BENCHMARKS) >= 2
+
+    def test_benchmark_structure(self):
+        for b in ACADEMIC_BENCHMARKS:
+            assert "source" in b
+            assert "paper" in b
+            assert "asset_class" in b
+            assert "market_cap_range" in b
+            assert "cost_range_bps" in b
+            assert len(b["cost_range_bps"]) == 2
+            assert b["cost_range_bps"][0] <= b["cost_range_bps"][1]
+
+    def test_frazzini_large_cap_benchmark(self):
+        large_cap = [b for b in ACADEMIC_BENCHMARKS if b["market_cap_range"] == "large_cap"]
+        assert len(large_cap) >= 1
+        assert large_cap[0]["cost_range_bps"] == (10, 20)
+
+    def test_frazzini_small_cap_benchmark(self):
+        small_cap = [b for b in ACADEMIC_BENCHMARKS if b["market_cap_range"] == "small_cap"]
+        assert len(small_cap) >= 1
+        assert small_cap[0]["cost_range_bps"] == (30, 60)
+
+    def test_novy_marx_all_cap_benchmark(self):
+        all_cap = [b for b in ACADEMIC_BENCHMARKS if b["market_cap_range"] == "all_cap"]
+        assert len(all_cap) >= 1
+        assert all_cap[0]["cost_range_bps"] == (10, 50)
+
+
+class TestValidateCostAssumptions:
+    def test_within_range(self):
+        result = validate_cost_assumptions(model_cost_bps=15.0, market_cap_billions=50.0)
+        assert result["status"] == "within_range"
+
+    def test_below_benchmark_optimistic(self):
+        result = validate_cost_assumptions(model_cost_bps=3.0, market_cap_billions=50.0)
+        assert result["status"] == "below_benchmark"
+
+    def test_above_benchmark_conservative(self):
+        result = validate_cost_assumptions(model_cost_bps=100.0, market_cap_billions=50.0)
+        assert result["status"] == "above_benchmark"
+
+    def test_small_cap_uses_small_cap_range(self):
+        result = validate_cost_assumptions(model_cost_bps=40.0, market_cap_billions=0.5)
+        assert result["status"] == "within_range"
+
+    def test_result_contains_source(self):
+        result = validate_cost_assumptions(model_cost_bps=15.0, market_cap_billions=50.0)
+        assert "source" in result
+        assert "Frazzini" in result["source"]
+
+    def test_result_contains_model_cost(self):
+        result = validate_cost_assumptions(model_cost_bps=15.0, market_cap_billions=50.0)
+        assert result["model_cost_bps"] == 15.0
+
+    def test_result_contains_benchmark_range(self):
+        result = validate_cost_assumptions(model_cost_bps=15.0, market_cap_billions=50.0)
+        assert "benchmark_range_bps" in result
+        assert isinstance(result["benchmark_range_bps"], tuple)
+
+    def test_mid_cap_uses_all_cap_range(self):
+        """Market cap >=2B but <10B uses all_cap benchmark."""
+        result = validate_cost_assumptions(model_cost_bps=25.0, market_cap_billions=5.0)
+        assert result["status"] == "within_range"
+        assert "Novy-Marx" in result["source"]
+
+    def test_boundary_10b_uses_large_cap(self):
+        """Exactly 10B should use large_cap benchmark."""
+        result = validate_cost_assumptions(model_cost_bps=15.0, market_cap_billions=10.0)
+        assert result["benchmark_range_bps"] == (10, 20)
+
+    def test_boundary_2b_uses_all_cap(self):
+        """Exactly 2B should use all_cap benchmark."""
+        result = validate_cost_assumptions(model_cost_bps=25.0, market_cap_billions=2.0)
+        assert result["benchmark_range_bps"] == (10, 50)
+
+    def test_below_2b_uses_small_cap(self):
+        """Below 2B should use small_cap benchmark."""
+        result = validate_cost_assumptions(model_cost_bps=40.0, market_cap_billions=1.0)
+        assert result["benchmark_range_bps"] == (30, 60)
