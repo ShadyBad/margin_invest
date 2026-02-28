@@ -1,4 +1,4 @@
-"""Scoring result models — outputs of the conviction engine."""
+"""Scoring result models — outputs of the scoring engine."""
 
 from __future__ import annotations
 
@@ -21,12 +21,12 @@ class ConvictionLevel(StrEnum):
 
 
 class Signal(StrEnum):
-    BUY = "buy"
-    HOLD = "hold"
-    WATCH = "watch"
-    SELL = "sell"
-    URGENT_SELL = "urgent_sell"
-    NO_ACTION = "no_action"
+    BUY = "strong"
+    HOLD = "stable"
+    WATCH = "emerging"
+    SELL = "weak"
+    URGENT_SELL = "failed"
+    NO_ACTION = "neutral"
 
 
 class GrowthStage(StrEnum):
