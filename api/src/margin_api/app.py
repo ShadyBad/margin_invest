@@ -27,6 +27,7 @@ from margin_api.routes.ingestion import router as ingestion_router
 from margin_api.routes.jobs import router as jobs_router
 from margin_api.routes.keys import router as keys_router
 from margin_api.routes.metrics import router as metrics_router
+from margin_api.routes.model_validation import router as model_validation_router
 from margin_api.routes.proposals import router as proposals_router
 from margin_api.routes.scores import router as scores_router
 from margin_api.routes.thirteenf import router as thirteenf_router
@@ -139,6 +140,7 @@ def create_app() -> FastAPI:
     app.include_router(dna_router)
     app.include_router(events_router)
     app.include_router(governance_router)
+    app.include_router(model_validation_router)
     app.include_router(ingestion_router)
     app.include_router(jobs_router)
     app.include_router(backtest_router)
