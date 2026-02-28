@@ -109,6 +109,7 @@ class ReplayConfigRequest(BaseModel):
     )
     sector_exclusions: list[str] = Field(default_factory=list, max_length=2)
     transaction_cost_bps: float = Field(default=20.0, ge=0)
+    seed: int | None = None
 
     @model_validator(mode="after")
     def validate_constraints(self) -> Self:
