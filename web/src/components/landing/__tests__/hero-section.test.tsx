@@ -19,6 +19,19 @@ vi.mock("gsap", () => ({
 vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
+// Mock apiFetch for HeroSearch
+vi.mock("@/lib/api/client", () => ({
+  apiFetch: vi.fn(),
+  ApiError: class extends Error {
+    status: number
+    errorCode: string
+    constructor(status: number, errorCode: string, message?: string) {
+      super(message)
+      this.status = status
+      this.errorCode = errorCode
+    }
+  },
+}))
 
 import { HeroSection } from "../hero-section"
 
@@ -34,16 +47,10 @@ describe("HeroSection", () => {
     expect(screen.getByText(/deterministic capital allocation/)).toBeInTheDocument()
   })
 
-  it("primary CTA links to /dashboard", () => {
+  it("renders search input instead of old CTAs", () => {
     render(<HeroSection data={null} />)
-    const link = screen.getByRole("link", { name: /open the dashboard/i })
-    expect(link).toHaveAttribute("href", "/dashboard")
-  })
-
-  it("secondary CTA links to /methodology", () => {
-    render(<HeroSection data={null} />)
-    const link = screen.getByRole("link", { name: /see the methodology/i })
-    expect(link).toHaveAttribute("href", "/methodology")
+    expect(screen.getByPlaceholderText(/search any ticker/i)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument()
   })
 
   it("shows AAPL from fallback when data is null", () => {

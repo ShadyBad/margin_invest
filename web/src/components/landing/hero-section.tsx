@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import Link from "next/link"
 import type { HomepageData } from "./types"
 import { FALLBACK_CANDIDATES, DEFAULT_UNIVERSE_SIZE, DEFAULT_ELIGIBLE_COUNT } from "./candidate-data"
 import { HeroCandidateCard } from "./hero-candidate-card"
+import { HeroSearch } from "./hero-search"
 
 interface HeroSectionProps {
   data: HomepageData | null
@@ -78,20 +78,7 @@ export function HeroSection({ data }: HeroSectionProps) {
             Search any ticker — the system shows you the quantitative evidence.
           </p>
 
-          <div data-hero-ctas className="flex flex-wrap items-center gap-6">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center px-6 py-3 bg-accent text-bg-primary font-medium text-sm rounded hover:bg-accent/90 transition-colors duration-200"
-            >
-              Open the Dashboard
-            </Link>
-            <Link
-              href="/methodology"
-              className="text-sm text-text-secondary underline underline-offset-4 hover:text-text-primary transition-colors duration-200"
-            >
-              See the Methodology
-            </Link>
-          </div>
+          <HeroSearch />
         </div>
 
         {/* Right column — rotating card */}
