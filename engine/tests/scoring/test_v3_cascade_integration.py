@@ -17,7 +17,7 @@ from margin_engine.models.financial import (
     GICSSector,
     IncomeStatement,
 )
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.market_regime import detect_regime, regime_adjustments
 from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
 from margin_engine.scoring.v3_cascade import (
@@ -251,9 +251,9 @@ class TestCompounderQualifiesEndToEnd:
         assert result.total_gates == 4
         assert result.score > 0
         assert result.conviction in (
-            ConvictionLevel.EXCEPTIONAL,
-            ConvictionLevel.HIGH,
-            ConvictionLevel.MEDIUM,
+            CompositeTier.EXCEPTIONAL,
+            CompositeTier.HIGH,
+            CompositeTier.MEDIUM,
         )
 
 
@@ -346,9 +346,9 @@ class TestMispricingQualifiesEndToEnd:
         assert result.total_gates == 4
         assert result.score > 0
         assert result.conviction in (
-            ConvictionLevel.EXCEPTIONAL,
-            ConvictionLevel.HIGH,
-            ConvictionLevel.MEDIUM,
+            CompositeTier.EXCEPTIONAL,
+            CompositeTier.HIGH,
+            CompositeTier.MEDIUM,
         )
 
 
@@ -411,18 +411,18 @@ class TestBothTracksPromoteToExceptional:
         # If both tracks are at HIGH+, opportunity_type should be "both"
         # and conviction promoted to EXCEPTIONAL.
         if track_a.conviction in (
-            ConvictionLevel.EXCEPTIONAL,
-            ConvictionLevel.HIGH,
-        ) and track_b.conviction in (ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH):
+            CompositeTier.EXCEPTIONAL,
+            CompositeTier.HIGH,
+        ) and track_b.conviction in (CompositeTier.EXCEPTIONAL, CompositeTier.HIGH):
             assert result.opportunity_type == "both"
-            assert result.conviction == ConvictionLevel.EXCEPTIONAL
+            assert result.conviction == CompositeTier.EXCEPTIONAL
             assert result.max_position_pct == 20.0
         else:
             # At minimum, at least one track qualified
             assert result.conviction in (
-                ConvictionLevel.EXCEPTIONAL,
-                ConvictionLevel.HIGH,
-                ConvictionLevel.MEDIUM,
+                CompositeTier.EXCEPTIONAL,
+                CompositeTier.HIGH,
+                CompositeTier.MEDIUM,
             )
         assert result.max_position_pct > 0
 

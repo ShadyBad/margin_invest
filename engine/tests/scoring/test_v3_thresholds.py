@@ -1,6 +1,6 @@
 """Tests for v3 absolute conviction thresholds."""
 
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.v3_thresholds import (
     assess_track_a_conviction,
     assess_track_b_conviction,
@@ -16,7 +16,7 @@ class TestTrackAConviction:
             moat_durability=3,
             growth_gap=0.10,
         )
-        assert level == ConvictionLevel.EXCEPTIONAL
+        assert level == CompositeTier.EXCEPTIONAL
 
     def test_high(self):
         level = assess_track_a_conviction(
@@ -26,7 +26,7 @@ class TestTrackAConviction:
             moat_durability=2,
             growth_gap=0.05,
         )
-        assert level == ConvictionLevel.HIGH
+        assert level == CompositeTier.HIGH
 
     def test_medium(self):
         level = assess_track_a_conviction(
@@ -36,7 +36,7 @@ class TestTrackAConviction:
             moat_durability=2,
             growth_gap=0.01,
         )
-        assert level == ConvictionLevel.MEDIUM
+        assert level == CompositeTier.MEDIUM
 
     def test_none_insufficient_gates(self):
         level = assess_track_a_conviction(
@@ -46,7 +46,7 @@ class TestTrackAConviction:
             moat_durability=3,
             growth_gap=0.10,
         )
-        assert level == ConvictionLevel.NONE
+        assert level == CompositeTier.NONE
 
     def test_none_low_moat(self):
         level = assess_track_a_conviction(
@@ -56,7 +56,7 @@ class TestTrackAConviction:
             moat_durability=1,
             growth_gap=0.10,
         )
-        assert level == ConvictionLevel.NONE
+        assert level == CompositeTier.NONE
 
 
 class TestTrackBConviction:
@@ -68,7 +68,7 @@ class TestTrackBConviction:
             catalyst_percentile=85.0,
             converging_methods=4,
         )
-        assert level == ConvictionLevel.EXCEPTIONAL
+        assert level == CompositeTier.EXCEPTIONAL
 
     def test_high(self):
         level = assess_track_b_conviction(
@@ -78,7 +78,7 @@ class TestTrackBConviction:
             catalyst_percentile=65.0,
             converging_methods=3,
         )
-        assert level == ConvictionLevel.HIGH
+        assert level == CompositeTier.HIGH
 
     def test_medium(self):
         level = assess_track_b_conviction(
@@ -88,7 +88,7 @@ class TestTrackBConviction:
             catalyst_percentile=50.0,
             converging_methods=2,
         )
-        assert level == ConvictionLevel.MEDIUM
+        assert level == CompositeTier.MEDIUM
 
     def test_none_low_asymmetry(self):
         level = assess_track_b_conviction(
@@ -98,7 +98,7 @@ class TestTrackBConviction:
             catalyst_percentile=85.0,
             converging_methods=4,
         )
-        assert level == ConvictionLevel.NONE
+        assert level == CompositeTier.NONE
 
 
 class TestRegimeAdjustedTrackA:
@@ -114,7 +114,7 @@ class TestRegimeAdjustedTrackA:
             growth_gap=0.04,
             growth_gap_adjustment=0.02,
         )
-        assert result == ConvictionLevel.MEDIUM
+        assert result == CompositeTier.MEDIUM
 
     def test_cheap_regime_relaxes_growth_gap(self):
         """In CHEAP regime, growth_gap_adjustment=-0.02.
@@ -128,7 +128,7 @@ class TestRegimeAdjustedTrackA:
             growth_gap=0.02,
             growth_gap_adjustment=-0.02,
         )
-        assert result == ConvictionLevel.HIGH
+        assert result == CompositeTier.HIGH
 
     def test_no_adjustment_default(self):
         """Without adjustment param, behavior unchanged from existing tests."""
@@ -139,7 +139,7 @@ class TestRegimeAdjustedTrackA:
             moat_durability=3,
             growth_gap=0.04,
         )
-        assert result == ConvictionLevel.HIGH
+        assert result == CompositeTier.HIGH
 
 
 class TestRegimeAdjustedTrackB:
@@ -154,7 +154,7 @@ class TestRegimeAdjustedTrackB:
             converging_methods=3,
             asymmetry_adjustment=-1.0,
         )
-        assert result == ConvictionLevel.HIGH
+        assert result == CompositeTier.HIGH
 
     def test_euphoria_catalyst_override(self):
         """EUPHORIA: catalyst_percentile_override=90.0.
@@ -170,4 +170,4 @@ class TestRegimeAdjustedTrackB:
         )
         # With override at 90: catalyst 75 < 90 fails EXCEPTIONAL.
         # Without override at HIGH level: catalyst 75 > 60 passes HIGH.
-        assert result == ConvictionLevel.HIGH
+        assert result == CompositeTier.HIGH

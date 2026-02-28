@@ -17,7 +17,7 @@ from margin_engine.models.financial import (
     FinancialPeriod,
     GICSSector,
 )
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.market_regime import detect_regime, regime_adjustments
 from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
 from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
@@ -53,10 +53,10 @@ class TickerV3Data(BaseModel):
 
 
 _CONVICTION_ORDER = {
-    ConvictionLevel.EXCEPTIONAL: 0,
-    ConvictionLevel.HIGH: 1,
-    ConvictionLevel.MEDIUM: 2,
-    ConvictionLevel.NONE: 3,
+    CompositeTier.EXCEPTIONAL: 0,
+    CompositeTier.HIGH: 1,
+    CompositeTier.MEDIUM: 2,
+    CompositeTier.NONE: 3,
 }
 
 

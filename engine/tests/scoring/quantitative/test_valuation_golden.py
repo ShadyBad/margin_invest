@@ -17,7 +17,7 @@ from margin_engine.models.financial import (
     IncomeStatement,
     PriceBar,
 )
-from margin_engine.models.scoring import ConvictionLevel, GrowthStage
+from margin_engine.models.scoring import CompositeTier, GrowthStage
 from margin_engine.scoring.quantitative.price_targets import compute_price_targets
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ class TestGoldenAllMethodsValid:
             period=period,
             profile=profile,
             price_bars=bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
             growth_stage=GrowthStage.STEADY_GROWTH,
             growth_rate=0.05,
             discount_rate=0.10,
@@ -191,7 +191,7 @@ class TestGoldenNegativeFCF:
             period=period,
             profile=profile,
             price_bars=bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
             growth_stage=GrowthStage.STEADY_GROWTH,
         )
 
@@ -277,7 +277,7 @@ class TestGoldenHighLeverageAcquirersExcluded:
             period=period,
             profile=profile,
             price_bars=bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
             growth_stage=GrowthStage.STEADY_GROWTH,
         )
 
@@ -327,7 +327,7 @@ class TestGoldenCyclicalHigherMoS:
             period=period,
             profile=profile,
             price_bars=bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
             growth_stage=GrowthStage.CYCLICAL,
             growth_rate=0.05,
             discount_rate=0.10,
@@ -338,7 +338,7 @@ class TestGoldenCyclicalHigherMoS:
             period=period,
             profile=profile,
             price_bars=bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
             growth_stage=GrowthStage.STEADY_GROWTH,
             growth_rate=0.05,
             discount_rate=0.10,
@@ -423,7 +423,7 @@ class TestGoldenOutlierMethodRemoved:
             period=period,
             profile=profile,
             price_bars=bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
             growth_stage=GrowthStage.STEADY_GROWTH,
         )
 
@@ -467,7 +467,7 @@ class TestGoldenDeterminism:
             period=period,
             profile=profile,
             price_bars=bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
             growth_stage=GrowthStage.STEADY_GROWTH,
             growth_rate=0.05,
             discount_rate=0.10,

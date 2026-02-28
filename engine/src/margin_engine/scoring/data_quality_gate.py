@@ -8,23 +8,23 @@ Rules:
 
 from __future__ import annotations
 
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 
 _FULL_THRESHOLD = 0.80
 _MIN_THRESHOLD = 0.60
 
 
 def apply_data_quality_gate(
-    conviction: ConvictionLevel,
+    conviction: CompositeTier,
     data_coverage: float,
-) -> ConvictionLevel:
+) -> CompositeTier:
     """Apply data quality gate to conviction level."""
     if data_coverage < _MIN_THRESHOLD:
-        return ConvictionLevel.NONE
+        return CompositeTier.NONE
 
     if data_coverage < _FULL_THRESHOLD:
-        if conviction in (ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH):
-            return ConvictionLevel.MEDIUM
+        if conviction in (CompositeTier.EXCEPTIONAL, CompositeTier.HIGH):
+            return CompositeTier.MEDIUM
         return conviction
 
     return conviction

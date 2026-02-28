@@ -9,7 +9,7 @@ from margin_engine.models.financial import (
     FinancialPeriod,
     IncomeStatement,
 )
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.quantitative.ensemble_valuation import compute_ensemble_valuation
 from margin_engine.scoring.quantitative.moat_durability import moat_durability_score
 from margin_engine.scoring.quantitative.reverse_dcf import reverse_dcf_growth_gap
@@ -95,7 +95,7 @@ class TestV3FullPipeline:
             moat_durability=int(moat.raw_value),
             growth_gap=gap.raw_value,
         )
-        assert conviction in (ConvictionLevel.HIGH, ConvictionLevel.EXCEPTIONAL)
+        assert conviction in (CompositeTier.HIGH, CompositeTier.EXCEPTIONAL)
 
         # Step 5: Timing
         timing = compute_v3_timing_signal(55.0, is_mispricing_track=False)
@@ -113,7 +113,7 @@ class TestV3FullPipeline:
         track_b = V3TrackResult(
             track="mispricing",
             qualifies=False,
-            conviction=ConvictionLevel.NONE,
+            conviction=CompositeTier.NONE,
             score=0.0,
             gates_passed=1,
             total_gates=4,
@@ -157,7 +157,7 @@ class TestV3FullPipeline:
             catalyst_percentile=85.0,
             converging_methods=ensemble.converging_count,
         )
-        assert conviction in (ConvictionLevel.HIGH, ConvictionLevel.EXCEPTIONAL)
+        assert conviction in (CompositeTier.HIGH, CompositeTier.EXCEPTIONAL)
 
         # Step 5: Timing (mispricing track -- contrarian, low momentum = buy_now)
         timing = compute_v3_timing_signal(25.0, is_mispricing_track=True)
@@ -167,7 +167,7 @@ class TestV3FullPipeline:
         track_a = V3TrackResult(
             track="compounder",
             qualifies=False,
-            conviction=ConvictionLevel.NONE,
+            conviction=CompositeTier.NONE,
             score=0.0,
             gates_passed=1,
             total_gates=4,
@@ -183,14 +183,14 @@ class TestV3FullPipeline:
         result = orchestrate_v3("MISPR", track_a, track_b, timing)
         assert result.opportunity_type == "mispricing"
         assert result.max_position_pct > 0
-        assert result.conviction in (ConvictionLevel.HIGH, ConvictionLevel.EXCEPTIONAL)
+        assert result.conviction in (CompositeTier.HIGH, CompositeTier.EXCEPTIONAL)
 
     def test_both_tracks_qualify_promotes_to_exceptional(self):
         """Stock qualifying on both tracks at HIGH+ gets promoted to EXCEPTIONAL."""
         track_a = V3TrackResult(
             track="compounder",
             qualifies=True,
-            conviction=ConvictionLevel.HIGH,
+            conviction=CompositeTier.HIGH,
             score=0.5,
             gates_passed=4,
             total_gates=4,
@@ -198,14 +198,14 @@ class TestV3FullPipeline:
         track_b = V3TrackResult(
             track="mispricing",
             qualifies=True,
-            conviction=ConvictionLevel.HIGH,
+            conviction=CompositeTier.HIGH,
             score=0.4,
             gates_passed=4,
             total_gates=4,
         )
         result = orchestrate_v3("DUAL", track_a, track_b, "buy_now")
         assert result.opportunity_type == "both"
-        assert result.conviction == ConvictionLevel.EXCEPTIONAL
+        assert result.conviction == CompositeTier.EXCEPTIONAL
         assert result.max_position_pct == 20.0
 
     def test_neither_track_qualifies(self):
@@ -213,7 +213,7 @@ class TestV3FullPipeline:
         track_a = V3TrackResult(
             track="compounder",
             qualifies=False,
-            conviction=ConvictionLevel.NONE,
+            conviction=CompositeTier.NONE,
             score=0.0,
             gates_passed=1,
             total_gates=4,
@@ -221,7 +221,7 @@ class TestV3FullPipeline:
         track_b = V3TrackResult(
             track="mispricing",
             qualifies=False,
-            conviction=ConvictionLevel.NONE,
+            conviction=CompositeTier.NONE,
             score=0.0,
             gates_passed=1,
             total_gates=4,
@@ -229,7 +229,7 @@ class TestV3FullPipeline:
         result = orchestrate_v3("MEDI", track_a, track_b, "buy_now")
         assert result.opportunity_type == "neither"
         assert result.max_position_pct == 0.0
-        assert result.conviction == ConvictionLevel.NONE
+        assert result.conviction == CompositeTier.NONE
 
     def test_timing_signal_variety(self):
         """Different momentum values produce different timing signals per track."""
@@ -250,7 +250,7 @@ class TestV3FullPipeline:
         track_a = V3TrackResult(
             track="compounder",
             qualifies=True,
-            conviction=ConvictionLevel.EXCEPTIONAL,
+            conviction=CompositeTier.EXCEPTIONAL,
             score=1.0,
             gates_passed=4,
             total_gates=4,
@@ -258,7 +258,7 @@ class TestV3FullPipeline:
         track_b_fail = V3TrackResult(
             track="mispricing",
             qualifies=False,
-            conviction=ConvictionLevel.NONE,
+            conviction=CompositeTier.NONE,
             score=0.0,
             gates_passed=0,
             total_gates=4,
@@ -270,7 +270,7 @@ class TestV3FullPipeline:
         track_a_fail = V3TrackResult(
             track="compounder",
             qualifies=False,
-            conviction=ConvictionLevel.NONE,
+            conviction=CompositeTier.NONE,
             score=0.0,
             gates_passed=0,
             total_gates=4,
@@ -278,7 +278,7 @@ class TestV3FullPipeline:
         track_b = V3TrackResult(
             track="mispricing",
             qualifies=True,
-            conviction=ConvictionLevel.HIGH,
+            conviction=CompositeTier.HIGH,
             score=0.5,
             gates_passed=4,
             total_gates=4,

@@ -72,7 +72,7 @@ def score_dual_track(
         result.composite_raw_score = min(result.composite_raw_score, _MEDIUM_RAW_SCORE_CAP)
 
     # 5. Compute position sizing
-    conviction_level = result.conviction_level
-    result.max_position_pct = compute_position_size(asymmetry_ratio_value, conviction_level)
+    composite_tier = result.composite_tier
+    result.max_position_pct = compute_position_size(asymmetry_ratio_value, composite_tier)
 
     return result

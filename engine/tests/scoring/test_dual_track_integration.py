@@ -6,7 +6,7 @@ without requiring real financial data. Tests the pipeline composition, not indiv
 
 import pytest
 from margin_engine.models.scoring import (
-    ConvictionLevel,
+    CompositeTier,
     FactorScore,
     FilterResult,
     GrowthStage,
@@ -238,7 +238,7 @@ class TestDualTrackPipelineIntegration:
 
     def test_position_sizing_returns_value(self):
         """Position sizing returns a non-negative value for any inputs."""
-        size = compute_position_size(1.8, ConvictionLevel.MEDIUM)
+        size = compute_position_size(1.8, CompositeTier.MEDIUM)
         assert size >= 0.0
 
     def test_timing_signal_is_set_for_compounder(self):

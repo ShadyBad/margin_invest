@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from margin_engine.ml.blend import blend_with_vae
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 
 # Ordered from lowest to highest conviction.
-_CONVICTION_ORDER: list[ConvictionLevel] = [
-    ConvictionLevel.NONE,
-    ConvictionLevel.MEDIUM,
-    ConvictionLevel.HIGH,
-    ConvictionLevel.EXCEPTIONAL,
+_CONVICTION_ORDER: list[CompositeTier] = [
+    CompositeTier.NONE,
+    CompositeTier.MEDIUM,
+    CompositeTier.HIGH,
+    CompositeTier.EXCEPTIONAL,
 ]
 
-_CONVICTION_INDEX: dict[ConvictionLevel, int] = {
+_CONVICTION_INDEX: dict[CompositeTier, int] = {
     level: idx for idx, level in enumerate(_CONVICTION_ORDER)
 }
 
@@ -24,13 +24,13 @@ def _clamp(value: float, lo: float, hi: float) -> float:
 
 
 def apply_ml_override(
-    rules_conviction: ConvictionLevel,
+    rules_conviction: CompositeTier,
     ml_alpha: float,
     vae_mean: float,
     vae_variance: float,
     model_qualifies: bool,
     universe_ml_alphas: list[float],
-) -> tuple[ConvictionLevel, str]:
+) -> tuple[CompositeTier, str]:
     """Optionally promote or demote *rules_conviction* by one level.
 
     The ML ensemble signal is computed by blending the GBM and VAE

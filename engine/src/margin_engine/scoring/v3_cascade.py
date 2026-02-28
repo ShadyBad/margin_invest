@@ -12,7 +12,7 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.market_regime import RegimeAdjustments
 from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
 from margin_engine.scoring.quantitative.asymmetry import asymmetry_ratio as compute_asymmetry
@@ -59,7 +59,7 @@ class TrackAInputs(BaseModel):
 
 # Conviction levels that qualify for inclusion
 _QUALIFYING_CONVICTIONS = frozenset(
-    {ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH, ConvictionLevel.MEDIUM}
+    {CompositeTier.EXCEPTIONAL, CompositeTier.HIGH, CompositeTier.MEDIUM}
 )
 
 

@@ -1,6 +1,6 @@
 """Tests for v3 orchestrator — runs both tracks, assigns conviction, handles 'both'."""
 
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.v3_orchestrator import (
     V3TrackResult,
     orchestrate_v3,
@@ -11,7 +11,7 @@ def _track_a_exceptional() -> V3TrackResult:
     return V3TrackResult(
         track="compounder",
         qualifies=True,
-        conviction=ConvictionLevel.EXCEPTIONAL,
+        conviction=CompositeTier.EXCEPTIONAL,
         score=0.048,
         gates_passed=4,
         total_gates=4,
@@ -22,7 +22,7 @@ def _track_b_exceptional() -> V3TrackResult:
     return V3TrackResult(
         track="mispricing",
         qualifies=True,
-        conviction=ConvictionLevel.EXCEPTIONAL,
+        conviction=CompositeTier.EXCEPTIONAL,
         score=9.0,
         gates_passed=4,
         total_gates=4,
@@ -33,7 +33,7 @@ def _track_a_high() -> V3TrackResult:
     return V3TrackResult(
         track="compounder",
         qualifies=True,
-        conviction=ConvictionLevel.HIGH,
+        conviction=CompositeTier.HIGH,
         score=0.012,
         gates_passed=4,
         total_gates=4,
@@ -44,7 +44,7 @@ def _track_b_high() -> V3TrackResult:
     return V3TrackResult(
         track="mispricing",
         qualifies=True,
-        conviction=ConvictionLevel.HIGH,
+        conviction=CompositeTier.HIGH,
         score=5.0,
         gates_passed=4,
         total_gates=4,
@@ -55,7 +55,7 @@ def _track_a_medium() -> V3TrackResult:
     return V3TrackResult(
         track="compounder",
         qualifies=True,
-        conviction=ConvictionLevel.MEDIUM,
+        conviction=CompositeTier.MEDIUM,
         score=0.005,
         gates_passed=3,
         total_gates=4,
@@ -66,7 +66,7 @@ def _track_b_medium() -> V3TrackResult:
     return V3TrackResult(
         track="mispricing",
         qualifies=True,
-        conviction=ConvictionLevel.MEDIUM,
+        conviction=CompositeTier.MEDIUM,
         score=2.5,
         gates_passed=3,
         total_gates=4,
@@ -77,7 +77,7 @@ def _track_not_qualified() -> V3TrackResult:
     return V3TrackResult(
         track="compounder",
         qualifies=False,
-        conviction=ConvictionLevel.NONE,
+        conviction=CompositeTier.NONE,
         score=0.0,
         gates_passed=1,
         total_gates=4,
@@ -88,7 +88,7 @@ def _track_b_not_qualified() -> V3TrackResult:
     return V3TrackResult(
         track="mispricing",
         qualifies=False,
-        conviction=ConvictionLevel.NONE,
+        conviction=CompositeTier.NONE,
         score=0.0,
         gates_passed=1,
         total_gates=4,
@@ -104,7 +104,7 @@ class TestOrchestrate:
             timing_signal="buy_now",
         )
         assert result.opportunity_type == "both"
-        assert result.conviction == ConvictionLevel.EXCEPTIONAL
+        assert result.conviction == CompositeTier.EXCEPTIONAL
         assert result.max_position_pct == 20.0
 
     def test_both_high_promotes_to_both(self):
@@ -115,7 +115,7 @@ class TestOrchestrate:
             timing_signal="buy_now",
         )
         assert result.opportunity_type == "both"
-        assert result.conviction == ConvictionLevel.EXCEPTIONAL
+        assert result.conviction == CompositeTier.EXCEPTIONAL
         assert result.max_position_pct == 20.0
 
     def test_mixed_exceptional_high_promotes_to_both(self):
@@ -126,7 +126,7 @@ class TestOrchestrate:
             timing_signal="buy_now",
         )
         assert result.opportunity_type == "both"
-        assert result.conviction == ConvictionLevel.EXCEPTIONAL
+        assert result.conviction == CompositeTier.EXCEPTIONAL
         assert result.max_position_pct == 20.0
 
     def test_only_track_a_qualifies(self):
@@ -137,7 +137,7 @@ class TestOrchestrate:
             timing_signal="buy_now",
         )
         assert result.opportunity_type == "compounder"
-        assert result.conviction == ConvictionLevel.HIGH
+        assert result.conviction == CompositeTier.HIGH
         assert result.max_position_pct == 8.0
 
     def test_only_track_b_qualifies(self):
@@ -148,7 +148,7 @@ class TestOrchestrate:
             timing_signal="buy_now",
         )
         assert result.opportunity_type == "mispricing"
-        assert result.conviction == ConvictionLevel.EXCEPTIONAL
+        assert result.conviction == CompositeTier.EXCEPTIONAL
         assert result.max_position_pct == 12.0
 
     def test_neither_qualifies(self):
@@ -159,7 +159,7 @@ class TestOrchestrate:
             timing_signal="buy_now",
         )
         assert result.opportunity_type == "neither"
-        assert result.conviction == ConvictionLevel.NONE
+        assert result.conviction == CompositeTier.NONE
         assert result.max_position_pct == 0.0
 
     def test_zero_output_valid(self):
@@ -182,7 +182,7 @@ class TestOrchestrate:
         )
         # Both qualify but neither is HIGH+, so no "both" promotion
         assert result.opportunity_type != "both"
-        assert result.conviction == ConvictionLevel.MEDIUM
+        assert result.conviction == CompositeTier.MEDIUM
         assert result.max_position_pct == 4.0  # Medium compounder starter
 
     def test_one_medium_one_high_no_promotion(self):
@@ -195,7 +195,7 @@ class TestOrchestrate:
         )
         # Track B is stronger (HIGH vs MEDIUM), so mispricing wins
         assert result.opportunity_type == "mispricing"
-        assert result.conviction == ConvictionLevel.HIGH
+        assert result.conviction == CompositeTier.HIGH
 
 
 class TestV3ResultModel:
@@ -232,14 +232,14 @@ class TestV3TrackResultModel:
         tr = V3TrackResult(
             track="compounder",
             qualifies=True,
-            conviction=ConvictionLevel.HIGH,
+            conviction=CompositeTier.HIGH,
             score=0.012,
             gates_passed=4,
             total_gates=4,
         )
         assert tr.track == "compounder"
         assert tr.qualifies is True
-        assert tr.conviction == ConvictionLevel.HIGH
+        assert tr.conviction == CompositeTier.HIGH
         assert tr.score == 0.012
         assert tr.gates_passed == 4
         assert tr.total_gates == 4

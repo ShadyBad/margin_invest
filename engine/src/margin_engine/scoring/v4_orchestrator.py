@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.v3_orchestrator import V3TrackResult
 from margin_engine.scoring.v3_position_sizing import compute_v3_position_size
 
@@ -21,7 +21,7 @@ class V4Result(BaseModel):
     ticker: str
     opportunity_type: str  # "compounder", "mispricing", "efficient_growth",
     # "both", "compounder_growth", "all_three", "neither"
-    conviction: ConvictionLevel
+    conviction: CompositeTier
     track_a: V3TrackResult
     track_b: V3TrackResult
     track_c: V3TrackResult
@@ -29,17 +29,17 @@ class V4Result(BaseModel):
     max_position_pct: float
 
 
-_STRONG_CONVICTIONS = frozenset({ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH})
+_STRONG_CONVICTIONS = frozenset({CompositeTier.EXCEPTIONAL, CompositeTier.HIGH})
 
 _QUALIFYING_CONVICTIONS = frozenset(
-    {ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH, ConvictionLevel.MEDIUM}
+    {CompositeTier.EXCEPTIONAL, CompositeTier.HIGH, CompositeTier.MEDIUM}
 )
 
 _CONVICTION_ORDER = {
-    ConvictionLevel.EXCEPTIONAL: 0,
-    ConvictionLevel.HIGH: 1,
-    ConvictionLevel.MEDIUM: 2,
-    ConvictionLevel.NONE: 3,
+    CompositeTier.EXCEPTIONAL: 0,
+    CompositeTier.HIGH: 1,
+    CompositeTier.MEDIUM: 2,
+    CompositeTier.NONE: 3,
 }
 
 
@@ -53,7 +53,7 @@ def _is_strong(track: V3TrackResult) -> bool:
     return track.conviction in _STRONG_CONVICTIONS
 
 
-def _best_conviction(*convictions: ConvictionLevel) -> ConvictionLevel:
+def _best_conviction(*convictions: CompositeTier) -> CompositeTier:
     """Return the strongest conviction from the given levels."""
     return min(convictions, key=lambda c: _CONVICTION_ORDER[c])
 
@@ -85,7 +85,7 @@ def orchestrate_v4(
 
     # Rule 1: All three strong -> "all_three", EXCEPTIONAL
     if a_strong and b_strong and c_strong:
-        conviction = ConvictionLevel.EXCEPTIONAL
+        conviction = CompositeTier.EXCEPTIONAL
         opp_type = "all_three"
         position = compute_v3_position_size(opp_type, conviction)
         return V4Result(
@@ -101,7 +101,7 @@ def orchestrate_v4(
 
     # Rule 2: A+B strong -> "both", EXCEPTIONAL
     if a_strong and b_strong:
-        conviction = ConvictionLevel.EXCEPTIONAL
+        conviction = CompositeTier.EXCEPTIONAL
         opp_type = "both"
         position = compute_v3_position_size(opp_type, conviction)
         return V4Result(
@@ -117,7 +117,7 @@ def orchestrate_v4(
 
     # Rule 3: A+C strong -> "compounder_growth", EXCEPTIONAL
     if a_strong and c_strong:
-        conviction = ConvictionLevel.EXCEPTIONAL
+        conviction = CompositeTier.EXCEPTIONAL
         opp_type = "compounder_growth"
         position = compute_v3_position_size(opp_type, conviction)
         return V4Result(
@@ -148,7 +148,7 @@ def orchestrate_v4(
     else:
         # Rule 6: None qualify
         opp_type = "neither"
-        conviction = ConvictionLevel.NONE
+        conviction = CompositeTier.NONE
         position = 0.0
 
     return V4Result(

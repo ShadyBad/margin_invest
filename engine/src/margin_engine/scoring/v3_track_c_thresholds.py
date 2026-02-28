@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 
 _FULL_GATES = 4
 _MEDIUM_GATES = 3
@@ -19,7 +19,7 @@ def assess_track_c_conviction(
     incremental_roic: float,
     wacc: float,
     tam_headroom: float,
-) -> ConvictionLevel:
+) -> CompositeTier:
     """Determine Track C conviction level from absolute thresholds.
 
     EXCEPTIONAL: 4/4 gates + rule_of_40 >= 50 + inc_ROIC > 2*WACC + TAM > 5x
@@ -28,7 +28,7 @@ def assess_track_c_conviction(
     NONE: < 3 gates
     """
     if gates_passed < _MEDIUM_GATES:
-        return ConvictionLevel.NONE
+        return CompositeTier.NONE
 
     if (
         gates_passed >= _FULL_GATES
@@ -37,13 +37,13 @@ def assess_track_c_conviction(
         and tam_headroom > _EXCEPTIONAL_TAM_HEADROOM
         and tam_headroom < 50  # reject implausible TAM estimates
     ):
-        return ConvictionLevel.EXCEPTIONAL
+        return CompositeTier.EXCEPTIONAL
 
     if (
         gates_passed >= _FULL_GATES
         and rule_of_40_score >= _HIGH_RULE_OF_40
         and incremental_roic > wacc
     ):
-        return ConvictionLevel.HIGH
+        return CompositeTier.HIGH
 
-    return ConvictionLevel.MEDIUM
+    return CompositeTier.MEDIUM

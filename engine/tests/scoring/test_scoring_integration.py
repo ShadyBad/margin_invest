@@ -16,7 +16,7 @@ from margin_engine.models.financial import (
     IncomeStatement,
 )
 from margin_engine.models.scoring import (
-    ConvictionLevel,
+    CompositeTier,
     FactorScore,
     FilterResult,
     GrowthStage,
@@ -255,7 +255,7 @@ class TestGrowthStageAffectsWeights:
 # ---------------------------------------------------------------------------
 
 
-class TestConvictionLevelsFromPipeline:
+class TestCompositeTiersFromPipeline:
     """Synthetic stocks hitting conviction thresholds from the pipeline."""
 
     def test_exceptional_conviction(self):
@@ -273,7 +273,7 @@ class TestConvictionLevelsFromPipeline:
         )
 
         assert result.composite_percentile >= 99.95
-        assert result.conviction_level == ConvictionLevel.EXCEPTIONAL
+        assert result.composite_tier == CompositeTier.EXCEPTIONAL
 
     def test_high_conviction(self):
         """Stock with all sub-scores at 75th percentile -> HIGH (raw_score >= 72, < 79)."""
@@ -290,7 +290,7 @@ class TestConvictionLevelsFromPipeline:
         )
 
         assert result.composite_raw_score == pytest.approx(75.0)
-        assert result.conviction_level == ConvictionLevel.HIGH
+        assert result.composite_tier == CompositeTier.HIGH
 
 
 # ---------------------------------------------------------------------------

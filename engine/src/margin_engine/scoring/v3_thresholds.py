@@ -6,7 +6,7 @@ Conviction determined by absolute quality of the opportunity, not rank vs peers.
 
 from __future__ import annotations
 
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 
 # Track A thresholds
 _A_EXCEPTIONAL_POWER = 0.15
@@ -42,8 +42,8 @@ def assess_track_a_conviction(
     moat_durability: int,
     growth_gap: float,
     growth_gap_adjustment: float = 0.0,
-    prior_conviction: ConvictionLevel | None = None,
-) -> ConvictionLevel:
+    prior_conviction: CompositeTier | None = None,
+) -> CompositeTier:
     """Determine Track A conviction level from absolute thresholds.
 
     Args:
@@ -88,10 +88,10 @@ def _compute_track_a(
     moat_durability: int,
     growth_gap: float,
     growth_gap_adjustment: float,
-) -> ConvictionLevel:
+) -> CompositeTier:
     """Core Track A conviction logic without hysteresis."""
     if gates_passed < _A_MIN_GATES_MEDIUM or moat_durability < _A_MEDIUM_MOAT:
-        return ConvictionLevel.NONE
+        return CompositeTier.NONE
 
     if (
         gates_passed >= _A_MIN_GATES_FULL
@@ -99,7 +99,7 @@ def _compute_track_a(
         and moat_durability >= _A_EXCEPTIONAL_MOAT
         and growth_gap > _A_EXCEPTIONAL_GAP + growth_gap_adjustment
     ):
-        return ConvictionLevel.EXCEPTIONAL
+        return CompositeTier.EXCEPTIONAL
 
     if (
         gates_passed >= _A_MIN_GATES_FULL
@@ -107,26 +107,26 @@ def _compute_track_a(
         and moat_durability >= _A_HIGH_MOAT
         and growth_gap > _A_HIGH_GAP + growth_gap_adjustment
     ):
-        return ConvictionLevel.HIGH
+        return CompositeTier.HIGH
 
     if compounding_power > _A_MEDIUM_POWER:
-        return ConvictionLevel.MEDIUM
+        return CompositeTier.MEDIUM
 
-    return ConvictionLevel.NONE
+    return CompositeTier.NONE
 
 
-def _conviction_rank(level: ConvictionLevel) -> int:
+def _conviction_rank(level: CompositeTier) -> int:
     """Numeric rank for conviction ordering (higher is better)."""
     return {
-        ConvictionLevel.NONE: 0,
-        ConvictionLevel.MEDIUM: 1,
-        ConvictionLevel.HIGH: 2,
-        ConvictionLevel.EXCEPTIONAL: 3,
+        CompositeTier.NONE: 0,
+        CompositeTier.MEDIUM: 1,
+        CompositeTier.HIGH: 2,
+        CompositeTier.EXCEPTIONAL: 3,
     }[level]
 
 
 def _within_buffer_track_a(
-    prior: ConvictionLevel,
+    prior: CompositeTier,
     compounding_power: float,
     moat_durability: int,
     growth_gap: float,
@@ -140,7 +140,7 @@ def _within_buffer_track_a(
     """
     buf = 1.0 - _HYSTERESIS_BUFFER  # 0.90
 
-    if prior == ConvictionLevel.EXCEPTIONAL:
+    if prior == CompositeTier.EXCEPTIONAL:
         gap_threshold = (_A_EXCEPTIONAL_GAP + growth_gap_adjustment) * buf
         return (
             compounding_power > _A_EXCEPTIONAL_POWER * buf
@@ -148,7 +148,7 @@ def _within_buffer_track_a(
             and growth_gap > gap_threshold
         )
 
-    if prior == ConvictionLevel.HIGH:
+    if prior == CompositeTier.HIGH:
         gap_threshold = (_A_HIGH_GAP + growth_gap_adjustment) * buf
         return (
             compounding_power > _A_HIGH_POWER * buf
@@ -168,7 +168,7 @@ def assess_track_b_conviction(
     converging_methods: int,
     asymmetry_adjustment: float = 0.0,
     catalyst_percentile_override: float | None = None,
-) -> ConvictionLevel:
+) -> CompositeTier:
     """Determine Track B conviction level from absolute thresholds.
 
     Args:
@@ -178,7 +178,7 @@ def assess_track_b_conviction(
             percentile threshold (e.g., euphoria regime raises the bar).
     """
     if gates_passed < _B_MIN_GATES_MEDIUM or asymmetry_ratio < _B_MEDIUM_ASYMMETRY:
-        return ConvictionLevel.NONE
+        return CompositeTier.NONE
 
     exceptional_catalyst = (
         catalyst_percentile_override
@@ -192,7 +192,7 @@ def assess_track_b_conviction(
         and catalyst_percentile > exceptional_catalyst
         and converging_methods >= _B_EXCEPTIONAL_CONVERGING
     ):
-        return ConvictionLevel.EXCEPTIONAL
+        return CompositeTier.EXCEPTIONAL
 
     if (
         gates_passed >= _B_MIN_GATES_FULL
@@ -200,6 +200,6 @@ def assess_track_b_conviction(
         and catalyst_percentile > _B_HIGH_CATALYST
         and converging_methods >= _B_HIGH_CONVERGING
     ):
-        return ConvictionLevel.HIGH
+        return CompositeTier.HIGH
 
-    return ConvictionLevel.MEDIUM
+    return CompositeTier.MEDIUM

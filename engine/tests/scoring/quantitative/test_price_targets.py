@@ -12,7 +12,7 @@ from margin_engine.models.financial import (
     IncomeStatement,
     PriceBar,
 )
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.quantitative.price_targets import (
     PriceTargets,
     _clamp_intrinsic_value,
@@ -126,7 +126,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert isinstance(result, PriceTargets)
 
@@ -136,7 +136,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.margin_invest_value is not None
         assert result.margin_invest_value > 0
@@ -147,7 +147,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.buy_price is not None
         assert result.sell_price is not None
@@ -166,7 +166,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         # Latest bar is 2025-09-28 with close=197
         assert result.actual_price == pytest.approx(197.0)
@@ -179,14 +179,14 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
             growth_stage=GrowthStage.STEADY_GROWTH,
         )
         turnaround = compute_price_targets(
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
             growth_stage=GrowthStage.TURNAROUND,
         )
         # Same intrinsic value (same inputs)
@@ -208,7 +208,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=[],
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.actual_price is None
 
@@ -244,7 +244,7 @@ class TestPriceTargets:
             period=period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.valuation_methods is not None
         assert "dcf" not in result.valuation_methods
@@ -266,7 +266,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.margin_invest_value is None
         assert result.buy_price is None
@@ -279,7 +279,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.valuation_methods is not None
         assert len(result.valuation_methods) == 4
@@ -294,7 +294,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.price_upside is not None
         assert result.margin_invest_value is not None
@@ -308,7 +308,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.valuation_audit is not None
         assert len(result.valuation_audit.methods) > 0
@@ -326,7 +326,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         audit = result.valuation_audit
         assert audit is not None
@@ -342,7 +342,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         audit = result.valuation_audit
         assert audit is not None
@@ -359,7 +359,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         audit = result.valuation_audit
         assert audit is not None
@@ -400,7 +400,7 @@ class TestPriceTargets:
             period=period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         audit = result.valuation_audit
         assert audit is not None
@@ -422,7 +422,7 @@ class TestPriceTargets:
             period=healthy_period,
             profile=profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.invalid_reason == "shares_outstanding_missing"
         assert result.valuation_audit is None
@@ -438,7 +438,7 @@ class TestDeterminism:
                 period=healthy_period,
                 profile=healthy_profile,
                 price_bars=price_bars,
-                conviction_level=ConvictionLevel.HIGH,
+                conviction_level=CompositeTier.HIGH,
             )
             for _ in range(10)
         ]
@@ -469,7 +469,7 @@ class TestLayer1InputValidation:
             period=healthy_period,
             profile=profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.invalid_reason == "shares_outstanding_out_of_bounds"
 
@@ -486,7 +486,7 @@ class TestLayer1InputValidation:
             period=healthy_period,
             profile=profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.invalid_reason == "shares_outstanding_out_of_bounds"
 
@@ -533,7 +533,7 @@ class TestLayer1InputValidation:
             period=period,
             profile=profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.invalid_reason is None
 
@@ -550,7 +550,7 @@ class TestLayer1InputValidation:
             period=healthy_period,
             profile=profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.invalid_reason is None
 
@@ -578,7 +578,7 @@ class TestLayer1InputValidation:
             period=healthy_period,
             profile=profile,
             price_bars=bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.invalid_reason == "implied_market_cap_unreasonable"
 
@@ -606,7 +606,7 @@ class TestLayer1InputValidation:
             period=healthy_period,
             profile=profile,
             price_bars=bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.invalid_reason == "implied_market_cap_unreasonable"
 
@@ -623,7 +623,7 @@ class TestLayer1InputValidation:
             period=healthy_period,
             profile=profile,
             price_bars=[],
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         # Market cap check skipped because actual_price is None
         # invalid_reason should NOT be "implied_market_cap_unreasonable"
@@ -666,7 +666,7 @@ class TestLayer2PerMethodBounds:
             period=period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         # With 15B shares and tiny cash flows, methods producing < $0.01 are excluded
         if result.valuation_methods:
@@ -715,7 +715,7 @@ class TestLayer2PerMethodBounds:
             period=period,
             profile=profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         # Any surviving method must be <= 20x actual_price ($3,940)
         if result.valuation_methods:
@@ -728,7 +728,7 @@ class TestLayer2PerMethodBounds:
             period=healthy_period,
             profile=healthy_profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.margin_invest_value is not None
         assert result.invalid_reason is None
@@ -1040,7 +1040,7 @@ class TestCurrencyMismatchDetection:
             period=period,
             profile=profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         # Currency mismatch is now a warning, not a hard rejection.
         # The engine proceeds to valuation methods, but with yen-scale
@@ -1091,7 +1091,7 @@ class TestInsufficientDataReason:
             period=period,
             profile=profile,
             price_bars=price_bars,
-            conviction_level=ConvictionLevel.HIGH,
+            conviction_level=CompositeTier.HIGH,
         )
         assert result.invalid_reason == "insufficient_data"
         assert result.margin_invest_value is None

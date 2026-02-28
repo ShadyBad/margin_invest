@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.v3_position_sizing import compute_v3_position_size
 
 
@@ -17,7 +17,7 @@ class V3TrackResult(BaseModel):
 
     track: str  # "compounder" or "mispricing"
     qualifies: bool
-    conviction: ConvictionLevel
+    conviction: CompositeTier
     score: float
     gates_passed: int
     total_gates: int
@@ -28,7 +28,7 @@ class V3Result(BaseModel):
 
     ticker: str
     opportunity_type: str  # "compounder", "mispricing", "both", "neither"
-    conviction: ConvictionLevel
+    conviction: CompositeTier
     track_a: V3TrackResult
     track_b: V3TrackResult
     timing_signal: str
@@ -36,19 +36,19 @@ class V3Result(BaseModel):
 
 
 # Conviction levels considered "strong" for "both" promotion
-_STRONG_CONVICTIONS = frozenset({ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH})
+_STRONG_CONVICTIONS = frozenset({CompositeTier.EXCEPTIONAL, CompositeTier.HIGH})
 
 # Conviction levels that count as qualifying
 _QUALIFYING_CONVICTIONS = frozenset(
-    {ConvictionLevel.EXCEPTIONAL, ConvictionLevel.HIGH, ConvictionLevel.MEDIUM}
+    {CompositeTier.EXCEPTIONAL, CompositeTier.HIGH, CompositeTier.MEDIUM}
 )
 
 # Ordering for conviction comparison (lower index = stronger)
 _CONVICTION_ORDER = {
-    ConvictionLevel.EXCEPTIONAL: 0,
-    ConvictionLevel.HIGH: 1,
-    ConvictionLevel.MEDIUM: 2,
-    ConvictionLevel.NONE: 3,
+    CompositeTier.EXCEPTIONAL: 0,
+    CompositeTier.HIGH: 1,
+    CompositeTier.MEDIUM: 2,
+    CompositeTier.NONE: 3,
 }
 
 
@@ -74,7 +74,7 @@ def orchestrate_v3(
 
     # "Both" promotion: both qualify at HIGH or EXCEPTIONAL
     if a_qualifies and b_qualifies and a_strong and b_strong:
-        conviction = ConvictionLevel.EXCEPTIONAL
+        conviction = CompositeTier.EXCEPTIONAL
         position = compute_v3_position_size("both", conviction)
         return V3Result(
             ticker=ticker,
@@ -104,7 +104,7 @@ def orchestrate_v3(
         conviction = track_b.conviction
         opp_type = "mispricing"
     else:
-        conviction = ConvictionLevel.NONE
+        conviction = CompositeTier.NONE
         opp_type = "neither"
 
     position = compute_v3_position_size(opp_type, conviction)

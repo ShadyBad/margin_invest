@@ -2,7 +2,7 @@
 
 import pytest
 from margin_engine.models.scoring import (
-    ConvictionLevel,
+    CompositeTier,
     FactorScore,
     FilterResult,
     GrowthStage,
@@ -206,8 +206,8 @@ class TestGrowthStageWeights:
 # ---------------------------------------------------------------------------
 
 
-class TestConvictionLevel:
-    """CompositeScore.conviction_level thresholds."""
+class TestCompositeTier:
+    """CompositeScore.composite_tier thresholds."""
 
     def test_exceptional_at_99_95(self):
         """composite >= 99.95 -> exceptional."""
@@ -224,7 +224,7 @@ class TestConvictionLevel:
         )
 
         assert result.composite_percentile == pytest.approx(99.97)
-        assert result.conviction_level == ConvictionLevel.EXCEPTIONAL
+        assert result.composite_tier == CompositeTier.EXCEPTIONAL
 
     def test_high_conviction(self):
         """composite_raw_score >= 72 but < 79 -> high."""
@@ -241,7 +241,7 @@ class TestConvictionLevel:
         )
 
         assert result.composite_raw_score == pytest.approx(75.0)
-        assert result.conviction_level == ConvictionLevel.HIGH
+        assert result.composite_tier == CompositeTier.HIGH
 
     def test_medium_conviction(self):
         """composite_raw_score >= 65 but < 72 -> medium."""
@@ -258,7 +258,7 @@ class TestConvictionLevel:
         )
 
         assert result.composite_raw_score == pytest.approx(68.0)
-        assert result.conviction_level == ConvictionLevel.MEDIUM
+        assert result.composite_tier == CompositeTier.MEDIUM
 
     def test_none_below_65(self):
         """composite_raw_score < 65 -> none."""
@@ -275,7 +275,7 @@ class TestConvictionLevel:
         )
 
         assert result.composite_percentile == pytest.approx(50.0)
-        assert result.conviction_level == ConvictionLevel.NONE
+        assert result.composite_tier == CompositeTier.NONE
 
 
 # ---------------------------------------------------------------------------
@@ -284,7 +284,7 @@ class TestConvictionLevel:
 
 
 class TestSignal:
-    """CompositeScore.signal derived from conviction_level."""
+    """CompositeScore.signal derived from composite_tier."""
 
     def test_buy_for_exceptional(self):
         quality = [_make_factor_score(percentile_rank=100.0)]

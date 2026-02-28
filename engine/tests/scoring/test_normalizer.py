@@ -3,7 +3,7 @@
 import pytest
 from margin_engine.models.scoring import (
     CompositeScore,
-    ConvictionLevel,
+    CompositeTier,
     FactorBreakdown,
     FactorScore,
 )
@@ -325,7 +325,7 @@ class TestRerankComposites:
         result = rerank_composites(composites)
         # Top ticker (T99) should have percentile 100.0 and raw_score=79.7 -> exceptional
         top = max(result, key=lambda c: c.composite_percentile)
-        assert top.conviction_level != ConvictionLevel.NONE
+        assert top.composite_tier != CompositeTier.NONE
         assert top.composite_percentile >= 99.95
 
     def test_preserves_all_fields(self):

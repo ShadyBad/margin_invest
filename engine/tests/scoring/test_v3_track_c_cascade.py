@@ -1,7 +1,7 @@
 """Tests for V3 Track C (Efficient Growth) gate cascade."""
 
 import pytest
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.v3_track_c_cascade import TrackCInputs, run_track_c_cascade
 
 
@@ -24,7 +24,7 @@ class TestTrackCGates:
         assert result.track == "efficient_growth"
         assert result.gates_passed == 4
         assert result.qualifies is True
-        assert result.conviction in {ConvictionLevel.HIGH, ConvictionLevel.EXCEPTIONAL}
+        assert result.conviction in {CompositeTier.HIGH, CompositeTier.EXCEPTIONAL}
 
     def test_exceptional_conviction(self):
         """Exceptional: rule_of_40>=50, inc_ROIC>2*WACC, TAM>5x."""
@@ -41,7 +41,7 @@ class TestTrackCGates:
             tam_headroom=8.0,
         )
         result = run_track_c_cascade(inputs)
-        assert result.conviction == ConvictionLevel.EXCEPTIONAL
+        assert result.conviction == CompositeTier.EXCEPTIONAL
 
     def test_fails_growth_efficiency_gate(self):
         """Low Rule of 40 and no alt rescue."""
@@ -126,7 +126,7 @@ class TestTrackCGates:
             tam_headroom=1.5,
         )
         result = run_track_c_cascade(inputs)
-        assert result.conviction == ConvictionLevel.NONE
+        assert result.conviction == CompositeTier.NONE
         assert result.qualifies is False
 
     def test_score_is_positive_when_gates_pass(self):
@@ -161,7 +161,7 @@ class TestTrackCGates:
             tam_headroom=100.0,
         )
         result = run_track_c_cascade(inputs)
-        assert result.conviction != ConvictionLevel.EXCEPTIONAL
+        assert result.conviction != CompositeTier.EXCEPTIONAL
 
     def test_reasonable_tam_exceptional_eligible(self):
         """TAM=8 is reasonable (<50), should be exceptional eligible."""
@@ -178,7 +178,7 @@ class TestTrackCGates:
             tam_headroom=8.0,
         )
         result = run_track_c_cascade(inputs)
-        assert result.conviction == ConvictionLevel.EXCEPTIONAL
+        assert result.conviction == CompositeTier.EXCEPTIONAL
 
     def test_growth_durability_cap_at_1_5(self):
         """Growth durability TAM factor is capped at 1.5, not 2.0.

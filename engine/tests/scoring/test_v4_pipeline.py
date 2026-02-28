@@ -11,7 +11,7 @@ from margin_engine.models.financial import (
     GICSSector,
     IncomeStatement,
 )
-from margin_engine.models.scoring import ConvictionLevel, InvestmentStyle
+from margin_engine.models.scoring import CompositeTier, InvestmentStyle
 from margin_engine.scoring.v4_pipeline import (
     V4_MAX_POSITIONS,
     TickerV4Data,
@@ -122,10 +122,10 @@ class TestScoreUniverseV4:
         assert len(results) == 5
         # Verify sort order: conviction order should be non-decreasing
         conviction_order = {
-            ConvictionLevel.EXCEPTIONAL: 0,
-            ConvictionLevel.HIGH: 1,
-            ConvictionLevel.MEDIUM: 2,
-            ConvictionLevel.NONE: 3,
+            CompositeTier.EXCEPTIONAL: 0,
+            CompositeTier.HIGH: 1,
+            CompositeTier.MEDIUM: 2,
+            CompositeTier.NONE: 3,
         }
         for i in range(len(results) - 1):
             curr_ord = conviction_order[results[i].conviction]
@@ -182,7 +182,7 @@ class TestScoreUniverseV4:
             # Track C should be a NONE placeholder
             assert r.track_c.track == "efficient_growth"
             assert r.track_c.qualifies is False
-            assert r.track_c.conviction == ConvictionLevel.NONE
+            assert r.track_c.conviction == CompositeTier.NONE
 
     def test_three_tickers_mixed_styles(self):
         """Mix of GROWTH, BLEND, VALUE tickers all score correctly."""

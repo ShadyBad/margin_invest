@@ -13,11 +13,15 @@ class FilterVerdict(StrEnum):
     INCONCLUSIVE = "inconclusive"
 
 
-class ConvictionLevel(StrEnum):
+class CompositeTier(StrEnum):
     EXCEPTIONAL = "exceptional"  # composite_raw_score >= 79
     HIGH = "high"  # composite_raw_score >= 72
     MEDIUM = "medium"  # composite_raw_score >= 65
     NONE = "none"  # < 65
+
+
+# Backward compat alias — use CompositeTier instead
+ConvictionLevel = CompositeTier
 
 
 class Signal(StrEnum):
@@ -145,23 +149,28 @@ class CompositeScore(BaseModel):
     catalyst: FactorBreakdown | None = None
 
     @property
-    def conviction_level(self) -> ConvictionLevel:
+    def composite_tier(self) -> CompositeTier:
         if self.composite_raw_score >= 79.0:
-            return ConvictionLevel.EXCEPTIONAL
+            return CompositeTier.EXCEPTIONAL
         if self.composite_raw_score >= 72.0:
-            return ConvictionLevel.HIGH
+            return CompositeTier.HIGH
         if self.composite_raw_score >= 65.0:
-            return ConvictionLevel.MEDIUM
-        return ConvictionLevel.NONE
+            return CompositeTier.MEDIUM
+        return CompositeTier.NONE
+
+    @property
+    def conviction_level(self) -> CompositeTier:
+        """Backward-compat alias — use composite_tier instead."""
+        return self.composite_tier
 
     @property
     def signal(self) -> Signal:
-        level = self.conviction_level
-        if level == ConvictionLevel.MEDIUM:
+        level = self.composite_tier
+        if level == CompositeTier.MEDIUM:
             return Signal.WATCH
-        if level == ConvictionLevel.NONE:
+        if level == CompositeTier.NONE:
             return Signal.NO_ACTION
-        # High/Exceptional conviction: use price-aware signals if available
+        # High/Exceptional tier: use price-aware signals if available
         if (
             self.actual_price is not None
             and self.sell_price is not None
@@ -174,7 +183,7 @@ class CompositeScore(BaseModel):
             if self.actual_price <= self.buy_price:
                 return Signal.BUY
             return Signal.HOLD
-        # Fallback: conviction-based
+        # Fallback: tier-based
         return Signal.BUY
 
     @property

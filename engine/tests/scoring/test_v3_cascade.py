@@ -11,7 +11,7 @@ from margin_engine.models.financial import (
     GICSSector,
     IncomeStatement,
 )
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.v3_cascade import (
     TrackAInputs,
     TrackBInputs,
@@ -129,7 +129,7 @@ class TestRunTrackACascade:
         )
         result = run_track_a_cascade(inputs)
         assert result.gates_passed <= 2
-        assert result.conviction == ConvictionLevel.NONE
+        assert result.conviction == CompositeTier.NONE
 
     def test_conviction_none_when_single_period(self):
         """Single period -> can't detect moat or compounding -> NONE."""
@@ -150,7 +150,7 @@ class TestRunTrackACascade:
             regime_adjustments=None,
         )
         result = run_track_a_cascade(inputs)
-        assert result.conviction == ConvictionLevel.NONE
+        assert result.conviction == CompositeTier.NONE
         assert result.qualifies is False
 
     def test_regime_adjustments_accepted(self):

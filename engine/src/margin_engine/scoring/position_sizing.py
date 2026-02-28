@@ -6,7 +6,7 @@ Conviction level scales within the asymmetry-determined maximum.
 
 from __future__ import annotations
 
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 
 # Asymmetry tier -> max position %
 _ASYMMETRY_TIERS: list[tuple[float, float]] = [
@@ -17,17 +17,17 @@ _ASYMMETRY_TIERS: list[tuple[float, float]] = [
 _DEFAULT_MAX = 3.0  # < 1.5x -> 3%
 
 # Conviction level -> fraction of max
-_CONVICTION_SCALE: dict[ConvictionLevel, float] = {
-    ConvictionLevel.EXCEPTIONAL: 1.0,
-    ConvictionLevel.HIGH: 0.6,
-    ConvictionLevel.MEDIUM: 0.3,
-    ConvictionLevel.NONE: 0.0,
+_CONVICTION_SCALE: dict[CompositeTier, float] = {
+    CompositeTier.EXCEPTIONAL: 1.0,
+    CompositeTier.HIGH: 0.6,
+    CompositeTier.MEDIUM: 0.3,
+    CompositeTier.NONE: 0.0,
 }
 
 
 def compute_position_size(
     asymmetry_ratio: float,
-    conviction_level: ConvictionLevel,
+    conviction_level: CompositeTier,
 ) -> float:
     """Compute max position size (%) from asymmetry ratio and conviction level.
 

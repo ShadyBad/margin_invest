@@ -1,6 +1,6 @@
 """Tests for gate hysteresis — conviction stability buffer."""
 
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.v3_thresholds import assess_track_a_conviction
 
 
@@ -20,9 +20,9 @@ class TestHysteresisPreventsNeedlessDemotion:
             compounding_power=0.14,  # below 0.15, above 0.135 buffer
             moat_durability=3,
             growth_gap=0.075,  # below 0.08, above 0.072 buffer
-            prior_conviction=ConvictionLevel.EXCEPTIONAL,
+            prior_conviction=CompositeTier.EXCEPTIONAL,
         )
-        assert conviction == ConvictionLevel.EXCEPTIONAL
+        assert conviction == CompositeTier.EXCEPTIONAL
 
     def test_high_not_demoted_to_medium(self):
         """A stock at HIGH should stay HIGH if just slightly below thresholds.
@@ -36,9 +36,9 @@ class TestHysteresisPreventsNeedlessDemotion:
             compounding_power=0.075,  # below 0.08, above 0.072 buffer
             moat_durability=2,
             growth_gap=0.028,  # below 0.03, above 0.027 buffer
-            prior_conviction=ConvictionLevel.HIGH,
+            prior_conviction=CompositeTier.HIGH,
         )
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH
 
 
 class TestDemotionBelowBuffer:
@@ -52,9 +52,9 @@ class TestDemotionBelowBuffer:
             compounding_power=0.09,  # well below 0.135 buffer
             moat_durability=2,  # below moat 3 threshold
             growth_gap=0.04,  # well below 0.072 buffer
-            prior_conviction=ConvictionLevel.EXCEPTIONAL,
+            prior_conviction=CompositeTier.EXCEPTIONAL,
         )
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH
 
     def test_demotion_when_one_metric_below_buffer(self):
         """If any single metric falls below the buffer, demotion proceeds."""
@@ -64,10 +64,10 @@ class TestDemotionBelowBuffer:
             compounding_power=0.14,  # within buffer (> 0.135)
             moat_durability=3,  # meets threshold
             growth_gap=0.06,  # below 0.072 buffer — fails
-            prior_conviction=ConvictionLevel.EXCEPTIONAL,
+            prior_conviction=CompositeTier.EXCEPTIONAL,
         )
         # growth_gap outside buffer => demote to HIGH
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH
 
     def test_demotion_when_moat_below_threshold(self):
         """Moat is an integer threshold — no fractional buffer applies."""
@@ -77,9 +77,9 @@ class TestDemotionBelowBuffer:
             compounding_power=0.14,  # within buffer
             moat_durability=2,  # below EXCEPTIONAL moat of 3
             growth_gap=0.075,  # within buffer
-            prior_conviction=ConvictionLevel.EXCEPTIONAL,
+            prior_conviction=CompositeTier.EXCEPTIONAL,
         )
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH
 
 
 class TestNoHysteresisWithoutPrior:
@@ -94,7 +94,7 @@ class TestNoHysteresisWithoutPrior:
             moat_durability=3,
             growth_gap=0.075,
         )
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH
 
     def test_explicit_none_prior_same_as_default(self):
         """Passing prior_conviction=None behaves identically to omitting it."""
@@ -106,7 +106,7 @@ class TestNoHysteresisWithoutPrior:
             growth_gap=0.075,
             prior_conviction=None,
         )
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH
 
 
 class TestNoUpwardHysteresis:
@@ -120,9 +120,9 @@ class TestNoUpwardHysteresis:
             compounding_power=0.10,
             moat_durability=2,
             growth_gap=0.05,
-            prior_conviction=ConvictionLevel.MEDIUM,
+            prior_conviction=CompositeTier.MEDIUM,
         )
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH
 
     def test_promotion_from_high_to_exceptional(self):
         """A HIGH stock that now qualifies for EXCEPTIONAL should promote."""
@@ -132,9 +132,9 @@ class TestNoUpwardHysteresis:
             compounding_power=0.20,
             moat_durability=3,
             growth_gap=0.10,
-            prior_conviction=ConvictionLevel.HIGH,
+            prior_conviction=CompositeTier.HIGH,
         )
-        assert conviction == ConvictionLevel.EXCEPTIONAL
+        assert conviction == CompositeTier.EXCEPTIONAL
 
     def test_promotion_from_none_to_medium(self):
         """A NONE stock that qualifies for MEDIUM should promote."""
@@ -144,9 +144,9 @@ class TestNoUpwardHysteresis:
             compounding_power=0.06,
             moat_durability=2,
             growth_gap=0.01,
-            prior_conviction=ConvictionLevel.NONE,
+            prior_conviction=CompositeTier.NONE,
         )
-        assert conviction == ConvictionLevel.MEDIUM
+        assert conviction == CompositeTier.MEDIUM
 
 
 class TestHysteresisWithRegimeAdjustment:
@@ -168,9 +168,9 @@ class TestHysteresisWithRegimeAdjustment:
             moat_durability=3,
             growth_gap=0.095,  # below 0.10, above 0.09 buffer
             growth_gap_adjustment=0.02,
-            prior_conviction=ConvictionLevel.EXCEPTIONAL,
+            prior_conviction=CompositeTier.EXCEPTIONAL,
         )
-        assert conviction == ConvictionLevel.EXCEPTIONAL
+        assert conviction == CompositeTier.EXCEPTIONAL
 
 
 class TestSameLevelPrior:
@@ -184,6 +184,6 @@ class TestSameLevelPrior:
             compounding_power=0.10,
             moat_durability=2,
             growth_gap=0.05,
-            prior_conviction=ConvictionLevel.HIGH,
+            prior_conviction=CompositeTier.HIGH,
         )
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH

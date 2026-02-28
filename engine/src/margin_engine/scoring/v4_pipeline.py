@@ -20,7 +20,7 @@ from margin_engine.models.financial import (
     FinancialPeriod,
     GICSSector,
 )
-from margin_engine.models.scoring import ConvictionLevel, InvestmentStyle
+from margin_engine.models.scoring import CompositeTier, InvestmentStyle
 from margin_engine.scoring.market_regime import detect_regime, regime_adjustments
 from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
 from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
@@ -80,8 +80,8 @@ class V4ResultWithML(BaseModel):
 
     ticker: str
     opportunity_type: str
-    conviction: ConvictionLevel  # final, after ML override
-    rules_conviction: ConvictionLevel  # before ML override
+    conviction: CompositeTier  # final, after ML override
+    rules_conviction: CompositeTier  # before ML override
     track_a: Any  # V3TrackResult
     track_b: Any  # V3TrackResult
     track_c: Any  # V3TrackResult
@@ -95,10 +95,10 @@ class V4ResultWithML(BaseModel):
 
 
 _CONVICTION_ORDER = {
-    ConvictionLevel.EXCEPTIONAL: 0,
-    ConvictionLevel.HIGH: 1,
-    ConvictionLevel.MEDIUM: 2,
-    ConvictionLevel.NONE: 3,
+    CompositeTier.EXCEPTIONAL: 0,
+    CompositeTier.HIGH: 1,
+    CompositeTier.MEDIUM: 2,
+    CompositeTier.NONE: 3,
 }
 
 
@@ -188,7 +188,7 @@ def _none_track_c() -> V3TrackResult:
     return V3TrackResult(
         track="efficient_growth",
         qualifies=False,
-        conviction=ConvictionLevel.NONE,
+        conviction=CompositeTier.NONE,
         score=0.0,
         gates_passed=0,
         total_gates=4,

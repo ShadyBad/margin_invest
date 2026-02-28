@@ -31,7 +31,7 @@ from decimal import Decimal
 from pydantic import BaseModel, model_validator
 
 from margin_engine.models.financial import AssetProfile, FinancialPeriod, PriceBar
-from margin_engine.models.scoring import ConvictionLevel, GrowthStage
+from margin_engine.models.scoring import CompositeTier, GrowthStage
 from margin_engine.models.valuation_audit import MethodAudit, ValuationAudit
 
 logger = logging.getLogger(__name__)
@@ -134,7 +134,7 @@ def compute_price_targets(
     period: FinancialPeriod,
     profile: AssetProfile,
     price_bars: list[PriceBar],
-    conviction_level: ConvictionLevel,
+    conviction_level: CompositeTier,
     growth_stage: GrowthStage | None = None,
     growth_rate: float = 0.05,
     discount_rate: float = 0.10,

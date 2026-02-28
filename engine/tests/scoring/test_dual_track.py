@@ -3,7 +3,7 @@
 import pytest
 from margin_engine.models.scoring import (
     CompositeScore,
-    ConvictionLevel,
+    CompositeTier,
     FactorBreakdown,
     FactorScore,
     FilterResult,
@@ -221,7 +221,7 @@ class TestGateFailure:
         )
         assert result.composite_percentile <= 98.0
         assert result.composite_raw_score < 72.0
-        assert result.conviction_level == ConvictionLevel.MEDIUM
+        assert result.composite_tier == CompositeTier.MEDIUM
 
     def test_winning_track_b_gate_fails_caps_to_medium(self):
         """Track B wins but gate fails -> conviction capped at MEDIUM."""
@@ -237,7 +237,7 @@ class TestGateFailure:
         )
         assert result.composite_percentile <= 98.0
         assert result.composite_raw_score < 72.0
-        assert result.conviction_level == ConvictionLevel.MEDIUM
+        assert result.composite_tier == CompositeTier.MEDIUM
 
     def test_gate_pass_preserves_scores(self):
         """Gates pass -> scores not capped."""
@@ -268,7 +268,7 @@ class TestGateFailure:
         )
         # Already 68.0 < 71.9, should stay at 68.0
         assert result.composite_raw_score == pytest.approx(68.0)
-        assert result.conviction_level == ConvictionLevel.MEDIUM
+        assert result.composite_tier == CompositeTier.MEDIUM
 
     def test_gate_failure_caps_high_to_medium(self):
         """A HIGH-conviction stock that fails gates gets capped to MEDIUM."""
@@ -283,7 +283,7 @@ class TestGateFailure:
             gate_result_b=_passing_gate(),
         )
         assert result.composite_raw_score < 72.0
-        assert result.conviction_level == ConvictionLevel.MEDIUM
+        assert result.composite_tier == CompositeTier.MEDIUM
 
 
 # ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ class PortfolioCandidate(BaseModel):
     expected_alpha: float  # Calibrated expected excess return
     uncertainty: float | None = None  # From VAE variance (Phase 5)
     track: str = "unknown"  # "compounder", "mispricing", "both", etc.
-    conviction: str = "none"  # ConvictionLevel value
+    conviction: str = "none"  # CompositeTier value
     sector: str = "unknown"  # GICS sector
 
 

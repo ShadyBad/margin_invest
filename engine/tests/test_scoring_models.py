@@ -4,7 +4,7 @@ import pytest
 from margin_engine.models.scoring import (
     CompositeScore,
     ConsistencyFlag,
-    ConvictionLevel,
+    CompositeTier,
     FactorBreakdown,
     FactorScore,
     FilterResult,
@@ -86,41 +86,41 @@ class TestCompositeScore:
         defaults.update(kwargs)
         return CompositeScore(**defaults)
 
-    def test_conviction_level_exceptional(self):
+    def test_composite_tier_exceptional(self):
         score = self._make_score(composite_raw_score=80.0)
-        assert score.conviction_level == ConvictionLevel.EXCEPTIONAL
+        assert score.composite_tier == CompositeTier.EXCEPTIONAL
         assert score.signal == Signal.BUY
 
-    def test_conviction_level_exceptional_boundary(self):
+    def test_composite_tier_exceptional_boundary(self):
         score = self._make_score(composite_raw_score=79.0)
-        assert score.conviction_level == ConvictionLevel.EXCEPTIONAL
+        assert score.composite_tier == CompositeTier.EXCEPTIONAL
 
-    def test_conviction_level_high(self):
+    def test_composite_tier_high(self):
         score = self._make_score(composite_raw_score=75.0)
-        assert score.conviction_level == ConvictionLevel.HIGH
+        assert score.composite_tier == CompositeTier.HIGH
         assert score.signal == Signal.BUY
 
-    def test_conviction_level_high_boundary(self):
+    def test_composite_tier_high_boundary(self):
         score = self._make_score(composite_raw_score=72.0)
-        assert score.conviction_level == ConvictionLevel.HIGH
+        assert score.composite_tier == CompositeTier.HIGH
 
-    def test_conviction_level_medium(self):
+    def test_composite_tier_medium(self):
         score = self._make_score(composite_raw_score=67.0)
-        assert score.conviction_level == ConvictionLevel.MEDIUM
+        assert score.composite_tier == CompositeTier.MEDIUM
         assert score.signal == Signal.WATCH
 
-    def test_conviction_level_medium_boundary(self):
+    def test_composite_tier_medium_boundary(self):
         score = self._make_score(composite_raw_score=65.0)
-        assert score.conviction_level == ConvictionLevel.MEDIUM
+        assert score.composite_tier == CompositeTier.MEDIUM
 
-    def test_conviction_level_none(self):
+    def test_composite_tier_none(self):
         score = self._make_score(composite_raw_score=64.9)
-        assert score.conviction_level == ConvictionLevel.NONE
+        assert score.composite_tier == CompositeTier.NONE
         assert score.signal == Signal.NO_ACTION
 
-    def test_conviction_level_none_low(self):
+    def test_composite_tier_none_low(self):
         score = self._make_score(composite_raw_score=30.0)
-        assert score.conviction_level == ConvictionLevel.NONE
+        assert score.composite_tier == CompositeTier.NONE
 
     def test_turnaround_uses_same_thresholds(self):
         """No turnaround exception — same thresholds for all growth stages."""
@@ -128,14 +128,14 @@ class TestCompositeScore:
             composite_raw_score=72.0,
             growth_stage=GrowthStage.TURNAROUND,
         )
-        assert score.conviction_level == ConvictionLevel.HIGH
+        assert score.composite_tier == CompositeTier.HIGH
 
     def test_below_high_turnaround_is_medium(self):
         score = self._make_score(
             composite_raw_score=71.9,
             growth_stage=GrowthStage.TURNAROUND,
         )
-        assert score.conviction_level == ConvictionLevel.MEDIUM
+        assert score.composite_tier == CompositeTier.MEDIUM
 
 
 class TestGrowthStage:

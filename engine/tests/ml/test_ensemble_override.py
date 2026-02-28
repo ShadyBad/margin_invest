@@ -1,7 +1,7 @@
 """Tests for ML ensemble override (promote/demote conviction by one level)."""
 
 from margin_engine.ml.ensemble_override import apply_ml_override
-from margin_engine.models.scoring import ConvictionLevel
+from margin_engine.models.scoring import CompositeTier
 
 # Helper: universe where the given value is at a known percentile.
 # 100 values from 0.01 to 1.0 make percentile calculation straightforward.
@@ -14,27 +14,27 @@ class TestApplyMlOverride:
     def test_no_override_when_model_not_qualified(self) -> None:
         """model_qualifies=False -> conviction unchanged, override_type='none'."""
         conviction, override_type = apply_ml_override(
-            rules_conviction=ConvictionLevel.HIGH,
+            rules_conviction=CompositeTier.HIGH,
             ml_alpha=0.95,
             vae_mean=0.90,
             vae_variance=0.10,  # high confidence
             model_qualifies=False,
             universe_ml_alphas=_UNIVERSE,
         )
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH
         assert override_type == "none"
 
     def test_no_override_when_low_confidence(self) -> None:
         """vae_variance=0.50 -> confidence=0.50 < 0.60 -> unchanged."""
         conviction, override_type = apply_ml_override(
-            rules_conviction=ConvictionLevel.MEDIUM,
+            rules_conviction=CompositeTier.MEDIUM,
             ml_alpha=0.95,
             vae_mean=0.90,
             vae_variance=0.50,  # confidence = 1.0 - 0.50 = 0.50 < 0.60
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
         )
-        assert conviction == ConvictionLevel.MEDIUM
+        assert conviction == CompositeTier.MEDIUM
         assert override_type == "none"
 
     def test_promote_when_high_percentile_and_confident(self) -> None:
@@ -45,14 +45,14 @@ class TestApplyMlOverride:
         # ml_percentile = 92/100*100 = 92 >= 85 -> promote
         # confidence = 1.0 - 0.10 = 0.90 >= 0.75
         conviction, override_type = apply_ml_override(
-            rules_conviction=ConvictionLevel.MEDIUM,
+            rules_conviction=CompositeTier.MEDIUM,
             ml_alpha=0.95,
             vae_mean=0.90,
             vae_variance=0.10,
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
         )
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH
         assert override_type == "promoted"
 
     def test_demote_when_low_percentile_and_confident(self) -> None:
@@ -62,40 +62,40 @@ class TestApplyMlOverride:
         # ml_percentile = 4/100*100 = 4 <= 15 -> demote
         # confidence = 1.0 - 0.10 = 0.90 >= 0.75
         conviction, override_type = apply_ml_override(
-            rules_conviction=ConvictionLevel.HIGH,
+            rules_conviction=CompositeTier.HIGH,
             ml_alpha=0.05,
             vae_mean=0.03,
             vae_variance=0.10,
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
         )
-        assert conviction == ConvictionLevel.MEDIUM
+        assert conviction == CompositeTier.MEDIUM
         assert override_type == "demoted"
 
     def test_promote_exceptional_stays_exceptional(self) -> None:
         """Cannot promote above EXCEPTIONAL."""
         conviction, override_type = apply_ml_override(
-            rules_conviction=ConvictionLevel.EXCEPTIONAL,
+            rules_conviction=CompositeTier.EXCEPTIONAL,
             ml_alpha=0.95,
             vae_mean=0.90,
             vae_variance=0.10,
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
         )
-        assert conviction == ConvictionLevel.EXCEPTIONAL
+        assert conviction == CompositeTier.EXCEPTIONAL
         assert override_type == "none"
 
     def test_demote_none_stays_none(self) -> None:
         """Cannot demote below NONE."""
         conviction, override_type = apply_ml_override(
-            rules_conviction=ConvictionLevel.NONE,
+            rules_conviction=CompositeTier.NONE,
             ml_alpha=0.05,
             vae_mean=0.03,
             vae_variance=0.10,
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
         )
-        assert conviction == ConvictionLevel.NONE
+        assert conviction == CompositeTier.NONE
         assert override_type == "none"
 
     def test_no_override_mid_percentile(self) -> None:
@@ -104,14 +104,14 @@ class TestApplyMlOverride:
         # values < 0.50: 0.01..0.49 = 49 values
         # ml_percentile = 49/100*100 = 49 -> no override
         conviction, override_type = apply_ml_override(
-            rules_conviction=ConvictionLevel.HIGH,
+            rules_conviction=CompositeTier.HIGH,
             ml_alpha=0.50,
             vae_mean=0.50,
             vae_variance=0.10,
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
         )
-        assert conviction == ConvictionLevel.HIGH
+        assert conviction == CompositeTier.HIGH
         assert override_type == "none"
 
     def test_no_promote_when_confidence_below_075(self) -> None:
@@ -119,12 +119,12 @@ class TestApplyMlOverride:
         # confidence = 1.0 - 0.30 = 0.70 < 0.75
         # ml_signal high enough for percentile >= 85 but confidence gate blocks
         conviction, override_type = apply_ml_override(
-            rules_conviction=ConvictionLevel.MEDIUM,
+            rules_conviction=CompositeTier.MEDIUM,
             ml_alpha=0.95,
             vae_mean=0.90,
             vae_variance=0.30,
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
         )
-        assert conviction == ConvictionLevel.MEDIUM
+        assert conviction == CompositeTier.MEDIUM
         assert override_type == "none"

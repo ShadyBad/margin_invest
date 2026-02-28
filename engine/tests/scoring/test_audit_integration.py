@@ -1,6 +1,6 @@
 """Integration test: verify new factors are accessible and produce valid scores."""
 
-from margin_engine.models.scoring import ConvictionLevel, ScenarioIV
+from margin_engine.models.scoring import CompositeTier, ScenarioIV
 from margin_engine.scoring.data_quality_gate import apply_data_quality_gate
 from margin_engine.scoring.drift_monitor import check_concentration
 from margin_engine.scoring.quantitative.competitive_dynamics import (
@@ -43,5 +43,5 @@ def test_scenario_iv_model():
 
 def test_data_quality_gate_with_real_conviction():
     """Data quality gate correctly caps EXCEPTIONAL with low coverage."""
-    result = apply_data_quality_gate(ConvictionLevel.EXCEPTIONAL, 0.70)
-    assert result == ConvictionLevel.MEDIUM
+    result = apply_data_quality_gate(CompositeTier.EXCEPTIONAL, 0.70)
+    assert result == CompositeTier.MEDIUM
