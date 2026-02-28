@@ -14,10 +14,10 @@ vi.mock("recharts", () => ({
 }))
 
 const mockData = [
-  { date: "2026-01-01", score: 80, signal: "buy" },
-  { date: "2026-01-08", score: 82, signal: "buy" },
-  { date: "2026-01-15", score: 85, signal: "buy" },
-  { date: "2026-01-22", score: 87, signal: "buy" },
+  { date: "2026-01-01", score: 80, signal: "strong" },
+  { date: "2026-01-08", score: 82, signal: "strong" },
+  { date: "2026-01-15", score: 85, signal: "strong" },
+  { date: "2026-01-22", score: 87, signal: "strong" },
 ]
 
 describe("ScoreChart", () => {

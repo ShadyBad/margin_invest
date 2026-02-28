@@ -44,7 +44,7 @@ const basePick: PickSummary = {
   universe_percentile: 95,
   composite_percentile: 95,
   composite_tier: "exceptional",
-  signal: "buy",
+  signal: "strong",
   quality_percentile: 90,
   value_percentile: 85,
   momentum_percentile: 88,
