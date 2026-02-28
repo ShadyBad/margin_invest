@@ -75,7 +75,7 @@ export function ConvictionEngine({
   return (
     <section data-testid="conviction-engine" className="space-y-4">
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-text-primary">Conviction Engine</h2>
+        <h2 className="text-lg font-semibold text-text-primary">Score Engine</h2>
         {mlOverride === "promoted" && (
           <span className="text-xs font-semibold px-2 py-0.5 rounded bg-bullish/10 text-bullish">
             ML-promoted
@@ -144,7 +144,7 @@ export function ConvictionEngine({
       {/* Conviction tracks */}
       {(capitalAllocation || catalyst) && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-text-secondary">Conviction Tracks</h3>
+          <h3 className="text-sm font-semibold text-text-secondary">Scoring Tracks</h3>
 
           {capitalAllocation && (
             <div

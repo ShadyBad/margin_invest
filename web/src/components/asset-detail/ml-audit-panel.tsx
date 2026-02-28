@@ -5,8 +5,8 @@ interface MLAuditPanelProps {
   mlAlpha: number | null
   mlConfidence: number | null
   mlOverride: string | null
-  rulesConviction: string | null
-  conviction: string | null
+  rulesTier: string | null
+  compositeTier: string | null
 }
 
 const OVERRIDE_GATES = [
@@ -28,8 +28,8 @@ export function MLAuditPanel({
   mlAlpha,
   mlConfidence,
   mlOverride,
-  rulesConviction,
-  conviction,
+  rulesTier,
+  compositeTier,
 }: MLAuditPanelProps) {
   // Render nothing when no ML data at all (v2 fallback)
   if (mlModelQualified == null && mlModelRankIc == null) {
@@ -135,11 +135,11 @@ export function MLAuditPanel({
                 >
                   {isPromoted ? "Promoted" : "Demoted"}
                 </span>
-                {rulesConviction && conviction && (
+                {rulesTier && compositeTier && (
                   <span className="text-xs text-text-tertiary">
-                    <span className="font-mono">{rulesConviction}</span>
+                    <span className="font-mono">{rulesTier}</span>
                     {" \u2192 "}
-                    <span className="font-mono">{conviction}</span>
+                    <span className="font-mono">{compositeTier}</span>
                   </span>
                 )}
               </>
@@ -159,9 +159,9 @@ export function MLAuditPanel({
           <p className="text-xs text-text-secondary">
             {hasOverride
               ? isPromoted
-                ? `ML model detected stronger upside potential than rules alone. Conviction promoted from ${rulesConviction ?? "unknown"} to ${conviction ?? "unknown"}.`
-                : `ML model detected elevated risk not captured by rules. Conviction demoted from ${rulesConviction ?? "unknown"} to ${conviction ?? "unknown"}.`
-              : "ML signal did not meet override thresholds. Rules-based conviction preserved."}
+                ? `ML model detected stronger upside potential than rules alone. Tier promoted from ${rulesTier ?? "unknown"} to ${compositeTier ?? "unknown"}.`
+                : `ML model detected elevated risk not captured by rules. Tier demoted from ${rulesTier ?? "unknown"} to ${compositeTier ?? "unknown"}.`
+              : "ML signal did not meet override thresholds. Rules-based tier preserved."}
           </p>
         </div>
       )}

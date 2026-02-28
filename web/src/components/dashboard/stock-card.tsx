@@ -215,7 +215,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
             className={getScoreClasses(pick.composite_tier)}
           />
           <span className="block text-[11px] font-medium text-text-tertiary tracking-[0.15em] uppercase mt-1">
-            conviction
+            composite
           </span>
         </div>
         <ActionPill

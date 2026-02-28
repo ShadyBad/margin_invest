@@ -11,7 +11,7 @@ interface HeroHeaderProps {
   compositeScore: number
   universePercentile: number
   universeSize?: number
-  convictionLevel: string
+  compositeTier: string
   signal: string
   dataCoverage: number
   scoredAt?: string | null
@@ -78,7 +78,7 @@ export function HeroHeader({
   compositeScore,
   universePercentile,
   universeSize,
-  convictionLevel,
+  compositeTier,
   signal,
   dataCoverage,
   scoredAt,
@@ -91,7 +91,7 @@ export function HeroHeader({
   const coveragePct = Math.round(dataCoverage * 100)
   const pricePositive = (priceChange ?? 0) >= 0
 
-  const convictionColors: Record<string, string> = {
+  const tierColors: Record<string, string> = {
     exceptional: "text-accent",
     high: "text-accent",
     medium: "text-amber-500",
@@ -172,11 +172,11 @@ export function HeroHeader({
         </div>
 
         <div data-testid="metric-conviction" className="terminal-card p-3">
-          <div className="text-xs text-text-tertiary uppercase tracking-wide mb-1">Conviction</div>
+          <div className="text-xs text-text-tertiary uppercase tracking-wide mb-1">Composite Tier</div>
           <div
-            className={`text-xl font-mono font-semibold ${convictionColors[convictionLevel] || "text-text-secondary"}`}
+            className={`text-xl font-mono font-semibold ${tierColors[compositeTier] || "text-text-secondary"}`}
           >
-            {convictionLevel.toUpperCase()}
+            {compositeTier.toUpperCase()}
           </div>
         </div>
 

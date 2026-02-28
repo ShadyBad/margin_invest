@@ -14,7 +14,7 @@ const baseProps = {
   compositeScore: 78.3,
   universePercentile: 96,
   universeSize: 2847,
-  convictionLevel: "high",
+  compositeTier: "high",
   signal: "buy",
   dataCoverage: 0.94,
   scoredAt: "2026-02-23T12:00:00Z",
@@ -85,7 +85,7 @@ describe("HeroHeader", () => {
         name="Microsoft"
         compositeScore={65.0}
         universePercentile={80}
-        convictionLevel="medium"
+        compositeTier="medium"
         signal="hold"
         dataCoverage={0.85}
       />

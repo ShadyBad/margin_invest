@@ -87,9 +87,9 @@ describe("StockCard visual hierarchy", () => {
     expect(screen.getByText("55")).toHaveClass("text-text-secondary")
   })
 
-  it("renders conviction label below score", () => {
+  it("renders composite label below score", () => {
     render(<StockCard pick={{ ...basePick, composite_tier: "exceptional", score: 92 }} />)
-    expect(screen.getByText("conviction")).toBeInTheDocument()
+    expect(screen.getByText("composite")).toBeInTheDocument()
   })
 
   it("renders exceptional card with radial gradient overlay but no top accent stripe", () => {

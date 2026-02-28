@@ -90,7 +90,7 @@ export function ScoreHistoryTable({ history }: ScoreHistoryTableProps) {
             </th>
             <th className="text-right text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2">Delta</th>
             <th className="text-center text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2">Signal</th>
-            <th className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2">Conviction</th>
+            <th className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2">Tier</th>
             <th className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2">Key Change</th>
           </tr>
         </thead>

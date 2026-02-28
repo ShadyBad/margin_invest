@@ -33,8 +33,8 @@ export function PicksGrid({ picks, className = "", totalScored, universeSize }: 
         title="The system is working"
         description={
           hasStats
-            ? `${totalScored.toLocaleString()} of ${universeSize.toLocaleString()} equities were scored. None met the conviction threshold. When high-conviction opportunities emerge, they'll appear here.`
-            : "It found nothing worth your capital right now. When high-conviction opportunities emerge, they'll appear here."
+            ? `${totalScored.toLocaleString()} of ${universeSize.toLocaleString()} equities were scored. None met the scoring threshold. When high-scoring opportunities emerge, they'll appear here.`
+            : "It found nothing worth your capital right now. When high-scoring opportunities emerge, they'll appear here."
         }
         className={className}
       />
