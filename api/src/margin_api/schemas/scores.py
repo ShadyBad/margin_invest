@@ -225,6 +225,28 @@ class ScoreListResponse(BaseModel):
     page_size: int = 50
 
 
+class PublicScoreFactorSummary(BaseModel):
+    """Factor percentiles exposed in the public (ungated) score response."""
+
+    quality_percentile: float
+    value_percentile: float
+    momentum_percentile: float
+
+
+class PublicScoreResponse(BaseModel):
+    """Lightweight score summary for the public endpoint. No forensic detail."""
+
+    ticker: str
+    company_name: str
+    composite_score: float
+    composite_tier: str
+    signal: str
+    factor_summary: PublicScoreFactorSummary
+    eliminated: bool
+    elimination_reason: str | None = None
+    scored_at: str
+
+
 def _breakdown_from_engine(
     breakdown: FactorBreakdown,
 ) -> FactorBreakdownResponse:
