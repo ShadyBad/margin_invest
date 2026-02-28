@@ -8,15 +8,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
+from fastapi.testclient import TestClient
 from margin_api.app import create_app
 from margin_api.config import get_settings
 from margin_api.db.base import Base
 from margin_api.db.models import PipelineApproval, UniverseSnapshot
 from margin_api.routes.admin import stage_universe_activation
-from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 
 # ---------------------------------------------------------------------------
 # Async DB fixtures (real SQLite, same pattern as test_ml_deployment_gate)
@@ -237,7 +236,7 @@ class TestStageUniverseActivation:
             "margin_api.routes.admin.load_universe_config",
             return_value=mock_config,
         ):
-            result = await stage_universe_activation(db_session, config_path)
+            await stage_universe_activation(db_session, config_path)
 
         approvals = (await db_session.execute(select(PipelineApproval))).scalars().all()
         expires = approvals[0].expires_at

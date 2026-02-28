@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import logging
 
+from margin_engine.scoring.data_consistency import validate_data_consistency
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import Asset, FinancialData
 from margin_api.services.scoring import build_financial_history_from_rows
-from margin_engine.scoring.data_consistency import validate_data_consistency
 
 logger = logging.getLogger(__name__)
 

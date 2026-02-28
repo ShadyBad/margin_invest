@@ -153,9 +153,7 @@ async def funnel_seeded_factory(funnel_engine):
     """Session factory with snapshot + 3 assets at exceptional/high/medium."""
     from margin_api.db.models import Asset, Score, UniverseSnapshot
 
-    factory = async_sessionmaker(
-        funnel_engine, class_=AsyncSession, expire_on_commit=False
-    )
+    factory = async_sessionmaker(funnel_engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
         snapshot = UniverseSnapshot(
             version="2026.02.26",
@@ -205,9 +203,7 @@ async def funnel_seeded_factory(funnel_engine):
 @pytest_asyncio.fixture
 async def funnel_empty_factory(funnel_engine):
     """Session factory with no data."""
-    return async_sessionmaker(
-        funnel_engine, class_=AsyncSession, expire_on_commit=False
-    )
+    return async_sessionmaker(funnel_engine, class_=AsyncSession, expire_on_commit=False)
 
 
 class TestComputeFunnel:

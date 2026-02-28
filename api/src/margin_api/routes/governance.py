@@ -64,9 +64,7 @@ async def _enqueue_publish_job(approval: PipelineApproval) -> None:
                 approval.decision_reason,
                 _job_id=f"publish_scores:{uuid.uuid4().hex[:8]}",
             )
-            logger.info(
-                "[governance] Enqueued publish_scores for approval %d", approval.id
-            )
+            logger.info("[governance] Enqueued publish_scores for approval %d", approval.id)
         elif approval.gate_type == "ml_model_deploy":
             await redis.enqueue_job(
                 "promote_ml_model",
@@ -75,9 +73,7 @@ async def _enqueue_publish_job(approval: PipelineApproval) -> None:
                 approval.decision_reason,
                 _job_id=f"promote_ml:{uuid.uuid4().hex[:8]}",
             )
-            logger.info(
-                "[governance] Enqueued promote_ml_model for approval %d", approval.id
-            )
+            logger.info("[governance] Enqueued promote_ml_model for approval %d", approval.id)
         else:
             logger.warning(
                 "[governance] No publish job mapping for gate_type=%s (approval=%d)",
@@ -85,9 +81,7 @@ async def _enqueue_publish_job(approval: PipelineApproval) -> None:
                 approval.id,
             )
     except Exception:
-        logger.exception(
-            "[governance] Failed to enqueue publish job for approval %d", approval.id
-        )
+        logger.exception("[governance] Failed to enqueue publish job for approval %d", approval.id)
     finally:
         if redis is not None:
             await redis.aclose()
@@ -115,9 +109,7 @@ async def list_approvals(
     result = await session.execute(query)
     approvals = result.scalars().all()
 
-    return ApprovalListResponse(
-        approvals=[_approval_to_summary(a) for a in approvals]
-    )
+    return ApprovalListResponse(approvals=[_approval_to_summary(a) for a in approvals])
 
 
 @router.get("/approvals/{approval_id}")
@@ -215,9 +207,9 @@ async def governance_dashboard(
 
     # Count pending (staged) approvals
     pending_result = await session.execute(
-        select(func.count()).select_from(PipelineApproval).where(
-            PipelineApproval.status == "staged"
-        )
+        select(func.count())
+        .select_from(PipelineApproval)
+        .where(PipelineApproval.status == "staged")
     )
     pending_count = pending_result.scalar() or 0
 
@@ -227,8 +219,7 @@ async def governance_dashboard(
         select(
             PipelineApproval.submitted_at,
             PipelineApproval.decided_at,
-        )
-        .where(
+        ).where(
             PipelineApproval.status == "approved",
             PipelineApproval.decided_at.isnot(None),
             PipelineApproval.submitted_at >= thirty_days_ago,
@@ -237,8 +228,7 @@ async def governance_dashboard(
     latency_rows = latency_result.all()
     if latency_rows:
         total_hours = sum(
-            (row.decided_at - row.submitted_at).total_seconds() / 3600.0
-            for row in latency_rows
+            (row.decided_at - row.submitted_at).total_seconds() / 3600.0 for row in latency_rows
         )
         avg_latency = round(total_hours / len(latency_rows), 2)
     else:
@@ -246,16 +236,16 @@ async def governance_dashboard(
 
     # Rejection rate: rejected / (approved + rejected)
     approved_count_result = await session.execute(
-        select(func.count()).select_from(PipelineApproval).where(
-            PipelineApproval.status == "approved"
-        )
+        select(func.count())
+        .select_from(PipelineApproval)
+        .where(PipelineApproval.status == "approved")
     )
     approved_count = approved_count_result.scalar() or 0
 
     rejected_count_result = await session.execute(
-        select(func.count()).select_from(PipelineApproval).where(
-            PipelineApproval.status == "rejected"
-        )
+        select(func.count())
+        .select_from(PipelineApproval)
+        .where(PipelineApproval.status == "rejected")
     )
     rejected_count = rejected_count_result.scalar() or 0
 

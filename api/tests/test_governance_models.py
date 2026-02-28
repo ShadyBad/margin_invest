@@ -1,4 +1,4 @@
-"""Tests for governance data models (PipelineApproval, GovernanceEvent, GovernanceConfig, UserProposal)."""
+"""Tests for governance data models."""
 
 from __future__ import annotations
 
@@ -159,9 +159,7 @@ class TestGovernanceEventModel:
             )
             session.add(event)
             session.commit()
-            result = session.execute(
-                select(GovernanceEvent).where(GovernanceEvent.id == event.id)
-            )
+            result = session.execute(select(GovernanceEvent).where(GovernanceEvent.id == event.id))
             found = result.scalar_one()
             assert found.event_type == "approval.created"
             assert found.source == "api"
@@ -252,9 +250,7 @@ class TestUserProposalModel:
             proposal = UserProposal(user_id=1, proposal_type="watchlist_add")
             session.add(proposal)
             session.commit()
-            result = session.execute(
-                select(UserProposal).where(UserProposal.id == proposal.id)
-            )
+            result = session.execute(select(UserProposal).where(UserProposal.id == proposal.id))
             found = result.scalar_one()
             assert found.status == "pending"
 
@@ -263,9 +259,7 @@ class TestUserProposalModel:
             proposal = UserProposal(user_id=2, proposal_type="alert_config")
             session.add(proposal)
             session.commit()
-            result = session.execute(
-                select(UserProposal).where(UserProposal.id == proposal.id)
-            )
+            result = session.execute(select(UserProposal).where(UserProposal.id == proposal.id))
             found = result.scalar_one()
             assert found.created_at is not None
 
@@ -278,9 +272,7 @@ class TestUserProposalModel:
             )
             session.add(proposal)
             session.commit()
-            result = session.execute(
-                select(UserProposal).where(UserProposal.id == proposal.id)
-            )
+            result = session.execute(select(UserProposal).where(UserProposal.id == proposal.id))
             found = result.scalar_one()
             assert found.payload == {"ticker": "AAPL", "action": "add", "weight": 0.05}
 

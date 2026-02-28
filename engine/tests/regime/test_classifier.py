@@ -10,7 +10,6 @@ from datetime import date
 
 import numpy as np
 import pytest
-
 from margin_engine.regime.classifier import (
     MultiDimensionalRegimeClassifier,
     RegimeClassifierConfig,
@@ -28,7 +27,6 @@ from margin_engine.regime.models import (
     ValuationState,
     VolatilityState,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper — build synthetic history arrays with known percentiles
@@ -466,9 +464,7 @@ class TestMultiDimensionalRegimeClassifier:
                 credit_history=credit,
             )
 
-    def test_minimum_history_enforcement_credit(
-        self, classifier: MultiDimensionalRegimeClassifier
-    ):
+    def test_minimum_history_enforcement_credit(self, classifier: MultiDimensionalRegimeClassifier):
         """Credit history shorter than min_history_months should raise ValueError."""
         vol = np.array([15.0] * 120)
         short_credit = np.array([200.0] * 50)

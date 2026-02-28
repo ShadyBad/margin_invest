@@ -52,9 +52,7 @@ def _v4_detail_with_sector_dist() -> dict:
                 {"name": "price_mom", "raw_value": 0.12, "percentile_rank": 65.0, "detail": ""},
             ],
         },
-        "filters_passed": [
-            {"name": "market_cap", "passed": True, "detail": "", "verdict": "pass"}
-        ],
+        "filters_passed": [{"name": "market_cap", "passed": True, "detail": "", "verdict": "pass"}],
         "data_coverage": 0.95,
         "signal": "buy",
         "composite_percentile": 85.0,

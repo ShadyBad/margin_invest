@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from margin_api.schemas.model_validation import (
     GateCheckResponse,
     MetricDistributionResponse,
@@ -12,7 +10,6 @@ from margin_api.schemas.model_validation import (
     SeedValidationHistoryResponse,
     SeedValidationReportResponse,
 )
-
 
 # ---------------------------------------------------------------------------
 # MetricDistributionResponse
@@ -237,12 +234,24 @@ def test_report_selected_seed_none_when_gate_failed():
 def test_report_multiple_metric_distributions():
     distributions = {
         "rank_ic": MetricDistributionResponse(
-            mean=0.22, median=0.21, std=0.03, min=0.15, max=0.30,
-            ci_lower=0.16, ci_upper=0.28, cv=0.14,
+            mean=0.22,
+            median=0.21,
+            std=0.03,
+            min=0.15,
+            max=0.30,
+            ci_lower=0.16,
+            ci_upper=0.28,
+            cv=0.14,
         ),
         "cluster_stability": MetricDistributionResponse(
-            mean=0.85, median=0.86, std=0.02, min=0.80, max=0.90,
-            ci_lower=0.81, ci_upper=0.89, cv=0.024,
+            mean=0.85,
+            median=0.86,
+            std=0.02,
+            min=0.80,
+            max=0.90,
+            ci_lower=0.81,
+            ci_upper=0.89,
+            cv=0.024,
         ),
     }
     report = _make_report(metric_distributions=distributions)
@@ -262,7 +271,9 @@ def test_report_multiple_gate_checks():
 
 def test_report_multiple_seed_details():
     seeds = [
-        SeedDetailResponse(seed=i, rank_ic=0.15 + i * 0.01, n_clusters=5, n_samples=150, selected=(i == 5))
+        SeedDetailResponse(
+            seed=i, rank_ic=0.15 + i * 0.01, n_clusters=5, n_samples=150, selected=(i == 5)
+        )
         for i in range(30)
     ]
     report = _make_report(seed_details=seeds, n_seeds=30)

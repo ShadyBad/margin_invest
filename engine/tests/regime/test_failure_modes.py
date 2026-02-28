@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from margin_engine.regime.failure_modes import (
     FailureModeReport,
     ProCyclicalityResult,
@@ -19,7 +18,6 @@ from margin_engine.regime.failure_modes import (
     detect_threshold_brittleness,
     detect_universe_collapse,
 )
-
 
 # ---------------------------------------------------------------------------
 # Threshold Brittleness

@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
-
 from margin_api.services.edgar.index_builder import (
     EdgarIndexEntry,
     parse_company_idx,
 )
-
 
 # --- Sample company.idx content ---
 

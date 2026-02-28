@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.db.base import Base
 from margin_api.db.models import Asset, FinancialData
 from margin_api.services.consistency import (
     validate_ticker_consistency,
     validate_universe_consistency,
 )
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
 @pytest_asyncio.fixture()

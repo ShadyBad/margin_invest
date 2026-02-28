@@ -11,7 +11,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from margin_engine.healing.models import HealingConfig, SectorDistribution
+from margin_engine.healing.models import SectorDistribution
 from margin_engine.healing.pipeline import HealingPipeline, HealingResult
 from margin_engine.ingestion.normalizer import (
     normalize_balance_sheet,
@@ -418,9 +418,7 @@ def rank_and_compute_composites(
     }
     gated: list[CompositeScore] = []
     for composite in composites:
-        gated_tier = apply_data_quality_gate(
-            composite.composite_tier, composite.data_coverage
-        )
+        gated_tier = apply_data_quality_gate(composite.composite_tier, composite.data_coverage)
         if gated_tier != composite.composite_tier:
             max_score = tier_score_cap.get(gated_tier, composite.composite_raw_score)
             composite = composite.model_copy(

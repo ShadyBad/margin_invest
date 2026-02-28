@@ -10,15 +10,13 @@ Covers:
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.db.base import Base
 from margin_api.db.models import PITFinancialSnapshot, PITUniverseMembership
-
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -86,9 +84,7 @@ class TestRefreshUniverseIfQuarterEnd:
         """refresh_universe_if_quarter_end should return None mid-quarter."""
         from margin_api.services.edgar.daily_update import refresh_universe_if_quarter_end
 
-        with patch(
-            "margin_api.services.edgar.daily_update.date"
-        ) as mock_date:
+        with patch("margin_api.services.edgar.daily_update.date") as mock_date:
             mock_date.today.return_value = date(2026, 2, 15)
             mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
 
@@ -96,9 +92,7 @@ class TestRefreshUniverseIfQuarterEnd:
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_refresh_universe_calls_assembly_at_quarter_end(
-        self, session_factory
-    ) -> None:
+    async def test_refresh_universe_calls_assembly_at_quarter_end(self, session_factory) -> None:
         """refresh_universe_if_quarter_end should call assemble_universe near quarter end."""
         from margin_api.services.edgar.daily_update import refresh_universe_if_quarter_end
 
@@ -140,9 +134,7 @@ class TestRefreshUniverseIfQuarterEnd:
 
 class TestAppendDailyPrices:
     @pytest.mark.asyncio
-    async def test_append_daily_prices_empty_universe(
-        self, session_factory
-    ) -> None:
+    async def test_append_daily_prices_empty_universe(self, session_factory) -> None:
         """Should handle empty universe gracefully — no active tickers."""
         from margin_api.services.edgar.daily_update import append_daily_prices
 
@@ -152,9 +144,7 @@ class TestAppendDailyPrices:
         assert result["rows_inserted"] == 0
 
     @pytest.mark.asyncio
-    async def test_append_daily_prices_with_active_tickers(
-        self, session, session_factory
-    ) -> None:
+    async def test_append_daily_prices_with_active_tickers(self, session, session_factory) -> None:
         """Should call backfill_prices_for_tickers for active universe tickers."""
         from margin_api.services.edgar.daily_update import append_daily_prices
 
@@ -241,9 +231,7 @@ class TestCheckNewFilings:
         assert result["failed"] == 0
 
     @pytest.mark.asyncio
-    async def test_check_new_filings_skips_existing(
-        self, session, session_factory
-    ) -> None:
+    async def test_check_new_filings_skips_existing(self, session, session_factory) -> None:
         """Should skip filings that already exist in the database."""
         from margin_api.services.edgar.daily_update import check_new_filings
         from margin_api.services.edgar.index_builder import EdgarIndexEntry
@@ -297,9 +285,7 @@ class TestCheckNewFilings:
         assert result["failed"] == 0
 
     @pytest.mark.asyncio
-    async def test_check_new_filings_ingests_new(
-        self, session, session_factory
-    ) -> None:
+    async def test_check_new_filings_ingests_new(self, session, session_factory) -> None:
         """Should fetch and ingest genuinely new filings."""
         from margin_api.services.edgar.daily_update import check_new_filings
         from margin_api.services.edgar.index_builder import EdgarIndexEntry
@@ -351,9 +337,7 @@ class TestCheckNewFilings:
 
 class TestRunDailyPitUpdate:
     @pytest.mark.asyncio
-    async def test_run_daily_pit_update_combines_results(
-        self, session_factory
-    ) -> None:
+    async def test_run_daily_pit_update_combines_results(self, session_factory) -> None:
         """run_daily_pit_update should call all 3 sub-functions and combine results."""
         from margin_api.services.edgar.daily_update import run_daily_pit_update
 
@@ -380,9 +364,7 @@ class TestRunDailyPitUpdate:
         assert result["universe"] is None
 
     @pytest.mark.asyncio
-    async def test_run_daily_pit_update_with_universe_refresh(
-        self, session_factory
-    ) -> None:
+    async def test_run_daily_pit_update_with_universe_refresh(self, session_factory) -> None:
         """run_daily_pit_update should include universe results when near quarter end."""
         from margin_api.services.edgar.daily_update import run_daily_pit_update
 
@@ -397,9 +379,7 @@ class TestRunDailyPitUpdate:
             ),
             patch(
                 "margin_api.services.edgar.daily_update.refresh_universe_if_quarter_end",
-                AsyncMock(
-                    return_value={"quarters_refreshed": 1, "delistings": 0}
-                ),
+                AsyncMock(return_value={"quarters_refreshed": 1, "delistings": 0}),
             ),
         ):
             result = await run_daily_pit_update(session_factory)

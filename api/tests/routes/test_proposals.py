@@ -113,9 +113,7 @@ async def _create_proposal(
 
 class TestListProposals:
     @pytest.mark.asyncio
-    async def test_list_returns_user_proposals_only(
-        self, db_session, session_factory, client_a
-    ):
+    async def test_list_returns_user_proposals_only(self, db_session, session_factory, client_a):
         """GET /proposals returns only the authenticated user's proposals."""
         await _create_proposal(db_session, user_id=_USER_A, proposal_type="rebalance")
         await _create_proposal(db_session, user_id=_USER_A, proposal_type="allocation")
@@ -182,21 +180,15 @@ class TestAcceptProposal:
             assert updated.decided_at is not None
 
     @pytest.mark.asyncio
-    async def test_accept_404_on_missing_proposal(
-        self, db_session, session_factory, client_a
-    ):
+    async def test_accept_404_on_missing_proposal(self, db_session, session_factory, client_a):
         """POST /proposals/999/accept returns 404 for non-existent proposal."""
         resp = await client_a.post("/api/v1/proposals/999/accept")
         assert resp.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_accept_409_on_non_pending(
-        self, db_session, session_factory, client_a
-    ):
+    async def test_accept_409_on_non_pending(self, db_session, session_factory, client_a):
         """POST /proposals/{id}/accept returns 409 if already accepted."""
-        proposal = await _create_proposal(
-            db_session, user_id=_USER_A, status="accepted"
-        )
+        proposal = await _create_proposal(db_session, user_id=_USER_A, status="accepted")
 
         resp = await client_a.post(f"/api/v1/proposals/{proposal.id}/accept")
         assert resp.status_code == 409
@@ -206,9 +198,7 @@ class TestAcceptProposal:
         self, db_session, session_factory, client_a
     ):
         """POST /proposals/{id}/accept returns 404 for another user's proposal."""
-        proposal = await _create_proposal(
-            db_session, user_id=_USER_B, status="pending"
-        )
+        proposal = await _create_proposal(db_session, user_id=_USER_B, status="pending")
 
         resp = await client_a.post(f"/api/v1/proposals/{proposal.id}/accept")
         assert resp.status_code == 404
@@ -244,34 +234,24 @@ class TestDismissProposal:
             assert updated.decided_at is not None
 
     @pytest.mark.asyncio
-    async def test_dismiss_404_on_missing_proposal(
-        self, db_session, session_factory, client_a
-    ):
+    async def test_dismiss_404_on_missing_proposal(self, db_session, session_factory, client_a):
         """POST /proposals/999/dismiss returns 404 for non-existent proposal."""
         resp = await client_a.post("/api/v1/proposals/999/dismiss")
         assert resp.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_dismiss_409_on_non_pending(
-        self, db_session, session_factory, client_a
-    ):
+    async def test_dismiss_409_on_non_pending(self, db_session, session_factory, client_a):
         """POST /proposals/{id}/dismiss returns 409 if already dismissed."""
-        proposal = await _create_proposal(
-            db_session, user_id=_USER_A, status="dismissed"
-        )
+        proposal = await _create_proposal(db_session, user_id=_USER_A, status="dismissed")
 
         resp = await client_a.post(f"/api/v1/proposals/{proposal.id}/dismiss")
         assert resp.status_code == 409
 
     @pytest.mark.asyncio
-    async def test_cannot_dismiss_another_users_proposal(
-        self, db_session, session_factory
-    ):
+    async def test_cannot_dismiss_another_users_proposal(self, db_session, session_factory):
         """POST /proposals/{id}/dismiss returns 404 for another user's proposal."""
         # Create a proposal belonging to USER_A
-        proposal = await _create_proposal(
-            db_session, user_id=_USER_A, status="pending"
-        )
+        proposal = await _create_proposal(db_session, user_id=_USER_A, status="pending")
 
         # Create a client authenticated as USER_B
         app = create_app()

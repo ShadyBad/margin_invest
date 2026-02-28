@@ -13,7 +13,6 @@ import time
 from datetime import date
 
 import numpy as np
-
 from pydantic import BaseModel, Field
 
 from margin_engine.backtesting.factor_registry import FactorRegistry
@@ -277,7 +276,7 @@ class ReplayOrchestrator:
             regime_state_value: RegimeState | None = None
             if self._regime_classifier is not None:
                 # Synthetic volatility proxy: absolute benchmark return (annualised)
-                synthetic_vol = abs(bench_return) * (12.0 ** 0.5) if bench_return != 0.0 else 0.15
+                synthetic_vol = abs(bench_return) * (12.0**0.5) if bench_return != 0.0 else 0.15
                 vol_observations.append(synthetic_vol)
 
                 # Synthetic credit spread proxy: higher when benchmark drops
@@ -288,7 +287,9 @@ class ReplayOrchestrator:
                 min_hist = self._regime_classifier.config.min_history_months
                 if len(vol_observations) >= min_hist:
                     # Trailing 12-month return from snapshots
-                    trailing_returns = portfolio_returns_list[-12:] if portfolio_returns_list else []
+                    trailing_returns = (
+                        portfolio_returns_list[-12:] if portfolio_returns_list else []
+                    )
                     trailing_12m = sum(trailing_returns) if trailing_returns else 0.0
 
                     regime_state_value = self._regime_classifier.classify(
@@ -433,9 +434,7 @@ class ReplayOrchestrator:
                     else:
                         eliminated_count += 1
                         failed = [f.name for f in filter_result.failed_filters]
-                        notable_events.append(
-                            f"{snapshot.ticker} eliminated — {', '.join(failed)}"
-                        )
+                        notable_events.append(f"{snapshot.ticker} eliminated — {', '.join(failed)}")
                 except Exception:
                     logger.warning("Filter error for %s on %s", snapshot.ticker, rebal_date)
                     eliminated_count += 1
@@ -483,9 +482,7 @@ class ReplayOrchestrator:
             portfolio_value -= cost
 
             # 8. Benchmark tracking
-            benchmark_price = self._benchmark_prices.get(
-                rebal_date, 100.0 * (1.0 + 0.005 * i)
-            )
+            benchmark_price = self._benchmark_prices.get(rebal_date, 100.0 * (1.0 + 0.005 * i))
             if initial_benchmark_price is None:
                 initial_benchmark_price = benchmark_price
             if initial_benchmark_price > 0:
@@ -499,9 +496,7 @@ class ReplayOrchestrator:
                 prev_pv = snapshots[-1].portfolio_value
                 prev_bv = snapshots[-1].benchmark_value
                 port_return = (portfolio_value - prev_pv) / prev_pv if prev_pv > 0 else 0.0
-                bench_return = (
-                    (benchmark_value - prev_bv) / prev_bv if prev_bv > 0 else 0.0
-                )
+                bench_return = (benchmark_value - prev_bv) / prev_bv if prev_bv > 0 else 0.0
 
             # 10. Regime classification
             benchmark_peak = max(benchmark_peak, benchmark_value)
@@ -514,9 +509,7 @@ class ReplayOrchestrator:
             # 10b. Multi-dimensional regime classification (optional)
             regime_state_value: RegimeState | None = None
             if self._regime_classifier is not None:
-                synthetic_vol = (
-                    abs(bench_return) * (12.0**0.5) if bench_return != 0.0 else 0.15
-                )
+                synthetic_vol = abs(bench_return) * (12.0**0.5) if bench_return != 0.0 else 0.15
                 vol_observations.append(synthetic_vol)
 
                 base_spread = 150.0

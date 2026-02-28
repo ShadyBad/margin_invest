@@ -119,9 +119,7 @@ async def _compute_funnel(db: AsyncSession) -> UniverseFunnelResponse:
     universe_size = snapshot.ticker_count if snapshot else 0
 
     # Count distinct scored assets (survived filters)
-    survived_result = await db.execute(
-        select(func.count(func.distinct(Score.asset_id)))
-    )
+    survived_result = await db.execute(select(func.count(func.distinct(Score.asset_id))))
     survived_filters = survived_result.scalar() or 0
 
     # Count each conviction level
@@ -133,16 +131,12 @@ async def _compute_funnel(db: AsyncSession) -> UniverseFunnelResponse:
     exceptional_count = exceptional_result.scalar() or 0
 
     high_result = await db.execute(
-        select(func.count(func.distinct(Score.asset_id))).where(
-            Score.conviction_level == "high"
-        )
+        select(func.count(func.distinct(Score.asset_id))).where(Score.conviction_level == "high")
     )
     high_count = high_result.scalar() or 0
 
     medium_result = await db.execute(
-        select(func.count(func.distinct(Score.asset_id))).where(
-            Score.conviction_level == "medium"
-        )
+        select(func.count(func.distinct(Score.asset_id))).where(Score.conviction_level == "medium")
     )
     medium_count = medium_result.scalar() or 0
 

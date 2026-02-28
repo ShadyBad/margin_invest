@@ -7,12 +7,10 @@ from decimal import Decimal
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.db.base import Base
 from margin_api.db.models import PITDailyPrice, PITFinancialSnapshot, PITUniverseMembership
 from margin_api.services.pit_provider import DatabasePITProvider
-
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -254,7 +252,7 @@ class TestGetSnapshot:
 
     @pytest.mark.asyncio
     async def test_get_snapshot_respects_filing_date(self, session: AsyncSession):
-        """Insert filing with filing_date after as_of_date, verify it's NOT returned (lookahead prevention)."""
+        """Filing with filing_date after as_of_date must NOT be returned."""
         session.add(
             _make_filing(
                 ticker="AAPL",
@@ -404,7 +402,9 @@ class TestGetUniverse:
         """Insert members with varying market caps, verify filtering."""
         # Large cap — should be included
         session.add(
-            _make_member(ticker="AAPL", market_cap=2_500_000_000_000.0, quarter_date=date(2024, 9, 30))
+            _make_member(
+                ticker="AAPL", market_cap=2_500_000_000_000.0, quarter_date=date(2024, 9, 30)
+            )
         )
         # Small cap — below default 100M threshold
         session.add(
@@ -477,7 +477,9 @@ class TestGetUniverse:
     async def test_get_universe_uses_nearest_quarter(self, session: AsyncSession):
         """Query date between quarters, verify nearest prior quarter used."""
         session.add(
-            _make_member(ticker="AAPL", quarter_date=date(2024, 6, 30), market_cap=2_000_000_000_000.0)
+            _make_member(
+                ticker="AAPL", quarter_date=date(2024, 6, 30), market_cap=2_000_000_000_000.0
+            )
         )
         session.add(
             _make_member(
@@ -565,9 +567,7 @@ class TestGetDelisting:
     @pytest.mark.asyncio
     async def test_get_delisting_not_found(self, session: AsyncSession):
         """Active member, verify None."""
-        session.add(
-            _make_member(ticker="AAPL", quarter_date=date(2024, 9, 30))
-        )
+        session.add(_make_member(ticker="AAPL", quarter_date=date(2024, 9, 30)))
         await session.commit()
 
         provider = DatabasePITProvider(session)

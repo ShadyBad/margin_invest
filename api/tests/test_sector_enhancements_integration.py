@@ -306,9 +306,7 @@ class TestAllSectorEnhancementsOnEliminatedTicker:
         assert beneish["sector_pass_rate"] == pytest.approx(0.72)
 
         # 3. sector distribution
-        gp = next(
-            s for s in data["quality"]["sub_scores"] if s["name"] == "gross_profitability"
-        )
+        gp = next(s for s in data["quality"]["sub_scores"] if s["name"] == "gross_profitability")
         assert gp["sector_p10"] == pytest.approx(0.12)
         assert gp["sector_p50"] == pytest.approx(0.28)
         assert gp["sector_p90"] == pytest.approx(0.48)
@@ -376,9 +374,7 @@ class TestAllSectorEnhancementsOnPassingTicker:
         assert beneish["sector_pass_rate"] is not None
 
         # 3. sector distribution
-        gp = next(
-            s for s in data["quality"]["sub_scores"] if s["name"] == "gross_profitability"
-        )
+        gp = next(s for s in data["quality"]["sub_scores"] if s["name"] == "gross_profitability")
         assert gp["sector_p10"] is not None
 
         # 4. NO sector champion for passing tickers

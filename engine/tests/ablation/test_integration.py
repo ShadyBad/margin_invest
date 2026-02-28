@@ -196,17 +196,13 @@ class TestAblationStudyEndToEnd:
         """Every filter in ALL_FILTER_NAMES appears in recommendations."""
         report = _get_report()
         for name in ALL_FILTER_NAMES:
-            assert name in report.recommendations, (
-                f"Filter '{name}' missing from recommendations"
-            )
+            assert name in report.recommendations, f"Filter '{name}' missing from recommendations"
 
     def test_recommendations_all_valid_actions(self) -> None:
         """Every recommendation is one of the valid action strings."""
         report = _get_report()
         for name, action in report.recommendations.items():
-            assert action in VALID_ACTIONS, (
-                f"Filter '{name}' has invalid action '{action}'"
-            )
+            assert action in VALID_ACTIONS, f"Filter '{name}' has invalid action '{action}'"
 
     # -- Cross-phase consistency --
 
@@ -248,9 +244,7 @@ class TestAblationPreservesDeterminism:
 
         assert len(report_a.single_baselines) == len(report_b.single_baselines)
 
-        for result_a, result_b in zip(
-            report_a.single_baselines, report_b.single_baselines
-        ):
+        for result_a, result_b in zip(report_a.single_baselines, report_b.single_baselines):
             assert result_a.combination.name == result_b.combination.name
             assert result_a.metrics.sharpe_ratio == result_b.metrics.sharpe_ratio, (
                 f"Sharpe mismatch for '{result_a.combination.name}': "

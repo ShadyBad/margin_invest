@@ -1,14 +1,12 @@
 """Tests for async PIT provider protocol and async replay."""
 
-import pytest
 from datetime import date
 
+import pytest
+from margin_engine.backtesting import FactorRegistry, ReplayConfig, ReplayOrchestrator
 from margin_engine.backtesting.pit_provider import (
     AsyncPointInTimeProvider,
-    PITSnapshot,
-    DelistingEvent,
 )
-from margin_engine.backtesting import ReplayOrchestrator, ReplayConfig, FactorRegistry
 
 
 class FakeAsyncProvider:

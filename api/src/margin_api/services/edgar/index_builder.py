@@ -179,9 +179,7 @@ async def build_full_index(
     ) as client:
         for year in range(start_year, end_year + 1):
             for quarter in range(1, 5):
-                entries = await fetch_quarter_index(
-                    client, year, quarter, form_types=form_types
-                )
+                entries = await fetch_quarter_index(client, year, quarter, form_types=form_types)
                 all_entries.extend(entries)
 
         cik_map = await load_cik_ticker_map(client)

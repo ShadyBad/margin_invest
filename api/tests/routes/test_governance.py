@@ -17,7 +17,6 @@ from margin_api.db.session import get_db
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-
 # ---------------------------------------------------------------------------
 # Async DB fixtures (real SQLite, same pattern as test_universe_gate)
 # ---------------------------------------------------------------------------
@@ -94,6 +93,7 @@ async def _create_approval(
 
 def _make_mock_db_override(mock_session):
     """Build a get_db dependency override that returns the given mock session."""
+
     async def _override():
         return mock_session
 
@@ -617,9 +617,7 @@ class TestGovernanceIntegration:
     async def test_list_all_approvals_from_db(self, db_session, session_factory):
         """List endpoint returns all approvals from the database."""
         await _create_approval(db_session, gate_type="score_publish", status="staged")
-        await _create_approval(
-            db_session, gate_type="ml_model_deploy", status="approved"
-        )
+        await _create_approval(db_session, gate_type="ml_model_deploy", status="approved")
 
         get_settings.cache_clear()
 
@@ -680,8 +678,7 @@ class TestGovernanceDashboard:
         """Dashboard returns correct pending_count for staged approvals."""
         await _create_approval(db_session, status="staged")
         await _create_approval(db_session, status="staged")
-        await _create_approval(db_session, status="approved",
-                               decided_at=datetime.now(UTC))
+        await _create_approval(db_session, status="approved", decided_at=datetime.now(UTC))
 
         get_settings.cache_clear()
 
@@ -752,9 +749,7 @@ class TestGovernanceDashboard:
         assert abs(data["avg_approval_latency_hours"] - 3.0) < 0.5
 
     @pytest.mark.asyncio
-    async def test_dashboard_no_approved_returns_none_latency(
-        self, db_session, session_factory
-    ):
+    async def test_dashboard_no_approved_returns_none_latency(self, db_session, session_factory):
         """Dashboard returns None for avg_approval_latency_hours when no approved."""
         await _create_approval(db_session, status="staged")
 
@@ -826,9 +821,7 @@ class TestGovernanceDashboard:
         assert abs(data["rejection_rate"] - 0.3333) < 0.01
 
     @pytest.mark.asyncio
-    async def test_dashboard_no_decisions_returns_none_rate(
-        self, db_session, session_factory
-    ):
+    async def test_dashboard_no_decisions_returns_none_rate(self, db_session, session_factory):
         """Dashboard returns None for rejection_rate when no decisions exist."""
         await _create_approval(db_session, status="staged")
 
@@ -921,9 +914,7 @@ class TestGovernanceEvents:
         assert len(data["events"]) == 2  # 5 total - 3 offset = 2 remaining
 
     @pytest.mark.asyncio
-    async def test_events_filters_by_event_type_prefix(
-        self, db_session, session_factory
-    ):
+    async def test_events_filters_by_event_type_prefix(self, db_session, session_factory):
         """Events endpoint filters by event_type prefix match."""
         await _create_event(db_session, event_type="score.staged")
         await _create_event(db_session, event_type="score.published")

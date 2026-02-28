@@ -6,7 +6,6 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
-
 from margin_api.services.edgar.price_backfill import build_price_rows
 
 
@@ -77,9 +76,7 @@ class TestBuildPriceRows:
 
     def test_build_price_rows_empty(self) -> None:
         """Empty DataFrame returns empty list."""
-        df = pd.DataFrame(
-            columns=["Open", "High", "Low", "Close", "Adj Close", "Volume"]
-        )
+        df = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Adj Close", "Volume"])
 
         rows = build_price_rows("AAPL", df)
 

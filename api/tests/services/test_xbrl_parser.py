@@ -1,7 +1,6 @@
 """Tests for XBRL parser and US-GAAP tag mapping."""
 
 import pytest
-
 from margin_api.services.edgar.xbrl_parser import (
     GAAP_TAG_MAP,
     XBRLFinancials,

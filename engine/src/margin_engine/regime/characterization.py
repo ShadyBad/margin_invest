@@ -165,8 +165,10 @@ def compute_gate_profiles(
 
         # Step 1: Unconditional metrics (full time series)
         unconditional_sharpe_with = _sharpe(returns_with)
-        unconditional_sharpe_without = _sharpe(returns_without)
-        unconditional_variance = float(np.var(returns_with, ddof=1)) if len(returns_with) >= 2 else 0.0
+        _sharpe(returns_without)  # computed for symmetry, not used directly
+        unconditional_variance = (
+            float(np.var(returns_with, ddof=1)) if len(returns_with) >= 2 else 0.0
+        )
         unconditional_elim_rate = float(np.mean(elim_rates)) if len(elim_rates) > 0 else 0.0
 
         # Step 2: Bucket indices by regime_key

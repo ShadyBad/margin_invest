@@ -5,10 +5,8 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-
 from margin_engine.regime.characterization import (
     GateRegimeStats,
-    GateRegimeProfile,
     RegimeCharacterizationReport,
     compute_gate_profiles,
 )
@@ -20,7 +18,6 @@ from margin_engine.regime.models import (
     ValuationState,
     VolatilityState,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -41,9 +38,7 @@ def _make_regime(
         trend=trend,
         valuation=valuation,
         credit=credit,
-        confidence=RegimeConfidence(
-            volatility=0.8, trend=0.8, valuation=0.8, credit=0.8
-        ),
+        confidence=RegimeConfidence(volatility=0.8, trend=0.8, valuation=0.8, credit=0.8),
     )
 
 
@@ -123,7 +118,12 @@ class TestProfileHasStatsPerRegime:
         regimes = [bull] * 6 + [bear] * 6
         # Bull months: strong returns; Bear months: weak returns
         returns_with = [0.03, 0.04, 0.02, 0.05, 0.03, 0.04] + [
-            -0.01, -0.02, 0.00, -0.03, -0.01, -0.02,
+            -0.01,
+            -0.02,
+            0.00,
+            -0.03,
+            -0.01,
+            -0.02,
         ]
         returns_without = [0.02] * 6 + [-0.02] * 6
         bench = [0.01] * n
@@ -170,8 +170,7 @@ class TestPerformanceDegradationRatio:
         n = 12
         # Use varying returns so Sharpe is non-zero, but only one regime
         # so per-regime == unconditional
-        returns_with = [0.03, 0.01, 0.04, 0.02, 0.05, 0.00,
-                        0.03, 0.01, 0.04, 0.02, 0.05, 0.00]
+        returns_with = [0.03, 0.01, 0.04, 0.02, 0.05, 0.00, 0.03, 0.01, 0.04, 0.02, 0.05, 0.00]
         returns_without = [0.02] * n
         bench = [0.01] * n
         elim_rates = [0.3] * n
@@ -233,9 +232,7 @@ class TestPerformanceDegradationRatio:
         profile = result.profiles["pe_filter"]
 
         # Find the bear regime stats
-        bear_stats = next(
-            s for s in profile.regime_stats if s.regime_key == bear.regime_key
-        )
+        bear_stats = next(s for s in profile.regime_stats if s.regime_key == bear.regime_key)
         # Bear sharpe < unconditional sharpe => PDR < 0
         assert bear_stats.pdr < 0.0
 
@@ -282,9 +279,7 @@ class TestVarianceInflationFactor:
         result = compute_gate_profiles(gate_data=gate_data)
         profile = result.profiles["pe_filter"]
 
-        bear_stats = next(
-            s for s in profile.regime_stats if s.regime_key == bear.regime_key
-        )
+        bear_stats = next(s for s in profile.regime_stats if s.regime_key == bear.regime_key)
         # Bear regime has much higher variance than unconditional
         assert bear_stats.vif > 1.0
 
@@ -342,9 +337,7 @@ class TestEliminationRateRatio:
         result = compute_gate_profiles(gate_data=gate_data)
         profile = result.profiles["pe_filter"]
 
-        bear_stats = next(
-            s for s in profile.regime_stats if s.regime_key == bear.regime_key
-        )
+        bear_stats = next(s for s in profile.regime_stats if s.regime_key == bear.regime_key)
         assert bear_stats.elimination_rate_ratio == pytest.approx(2.0, abs=1e-9)
 
 

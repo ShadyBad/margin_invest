@@ -170,9 +170,7 @@ class TestCorrectionEventRecord:
         await db_session.commit()
 
         result = await db_session.execute(
-            select(CorrectionEventRecord).where(
-                CorrectionEventRecord.correction_id == "corr-json"
-            )
+            select(CorrectionEventRecord).where(CorrectionEventRecord.correction_id == "corr-json")
         )
         loaded = result.scalar_one()
         assert loaded.sector_distribution_snapshot == snapshot
@@ -222,9 +220,7 @@ class TestCorrectionEventRecord:
         await db_session.commit()
 
         result = await db_session.execute(
-            select(CorrectionEventRecord).where(
-                CorrectionEventRecord.correction_id == "corr-fk"
-            )
+            select(CorrectionEventRecord).where(CorrectionEventRecord.correction_id == "corr-fk")
         )
         loaded = result.scalar_one()
         assert loaded.asset_id == asset.id
@@ -351,9 +347,7 @@ class TestCorrectionSchemaConstraints:
     async def test_sector_snapshots_scoring_run_id_indexed(self, async_engine):
         async with async_engine.connect() as conn:
             indexes = await conn.run_sync(
-                lambda sync_conn: inspect(sync_conn).get_indexes(
-                    "sector_distribution_snapshots"
-                )
+                lambda sync_conn: inspect(sync_conn).get_indexes("sector_distribution_snapshots")
             )
         index_columns = [col for idx in indexes for col in idx["column_names"]]
         assert "scoring_run_id" in index_columns

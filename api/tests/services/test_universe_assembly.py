@@ -13,8 +13,6 @@ from datetime import UTC, date, datetime
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.db.base import Base
 from margin_api.db.models import PITDailyPrice, PITFinancialSnapshot, PITUniverseMembership
 from margin_api.services.edgar.universe_assembly import (
@@ -23,7 +21,7 @@ from margin_api.services.edgar.universe_assembly import (
     detect_delistings,
     fill_last_known_prices,
 )
-
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -337,11 +335,7 @@ class TestAssembleUniverse:
         assert len(rows) > 0
 
         # GONE should be inactive in Q4
-        gone_q4 = [
-            r
-            for r in rows
-            if r.ticker == "GONE" and r.quarter_date == date(2020, 12, 31)
-        ]
+        gone_q4 = [r for r in rows if r.ticker == "GONE" and r.quarter_date == date(2020, 12, 31)]
         assert len(gone_q4) == 1
         assert gone_q4[0].is_active is False
         assert gone_q4[0].delist_detected_at is not None
@@ -424,9 +418,7 @@ class TestFillLastKnownPrices:
         # Verify the price was filled
         from sqlalchemy import select
 
-        stmt = select(PITUniverseMembership).where(
-            PITUniverseMembership.ticker == "GONE"
-        )
+        stmt = select(PITUniverseMembership).where(PITUniverseMembership.ticker == "GONE")
         row = (await session.execute(stmt)).scalars().first()
         assert row is not None
         assert row.last_known_price == 42.50

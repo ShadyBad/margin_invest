@@ -142,5 +142,11 @@ def test_all_five_critical_fields_checked():
     history = FinancialHistory(ticker="ALL", periods=periods)
     flags = validate_data_consistency(history)
     checked_fields = {f.field_name for f in flags}
-    expected = {"revenue", "total_assets", "shares_outstanding", "operating_income", "free_cash_flow"}
+    expected = {
+        "revenue",
+        "total_assets",
+        "shares_outstanding",
+        "operating_income",
+        "free_cash_flow",
+    }
     assert checked_fields == expected

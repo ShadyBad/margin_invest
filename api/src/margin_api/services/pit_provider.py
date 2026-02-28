@@ -10,10 +10,6 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from margin_api.db.models import PITDailyPrice, PITFinancialSnapshot, PITUniverseMembership
 from margin_engine.backtesting.pit_provider import DelistingEvent, DelistingType, PITSnapshot
 from margin_engine.models.financial import (
     AssetProfile,
@@ -23,6 +19,10 @@ from margin_engine.models.financial import (
     GICSSector,
     IncomeStatement,
 )
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from margin_api.db.models import PITDailyPrice, PITFinancialSnapshot, PITUniverseMembership
 
 
 class DatabasePITProvider:
@@ -205,9 +205,13 @@ def _build_income_statement(data: dict, shares_outstanding: int) -> IncomeStatem
         revenue=Decimal(str(data.get("revenue", 0))),
         cost_of_revenue=Decimal(str(data.get("cost_of_revenue", 0))),
         gross_profit=Decimal(str(data.get("gross_profit", 0))),
-        sga_expense=Decimal(str(data["sga_expense"])) if data.get("sga_expense") is not None else None,
+        sga_expense=Decimal(str(data["sga_expense"]))
+        if data.get("sga_expense") is not None
+        else None,
         rd_expense=Decimal(str(data["rd_expense"])) if data.get("rd_expense") is not None else None,
-        depreciation=Decimal(str(data["depreciation"])) if data.get("depreciation") is not None else None,
+        depreciation=Decimal(str(data["depreciation"]))
+        if data.get("depreciation") is not None
+        else None,
         ebit=Decimal(str(data.get("ebit", 0))),
         interest_expense=(
             Decimal(str(data["interest_expense"]))
@@ -238,9 +242,7 @@ def _build_balance_sheet(data: dict, shares_outstanding: int) -> BalanceSheet:
         total_liabilities=Decimal(str(data.get("total_liabilities", 0))),
         current_liabilities=Decimal(str(data.get("current_liabilities", 0))),
         long_term_debt=(
-            Decimal(str(data["long_term_debt"]))
-            if data.get("long_term_debt") is not None
-            else None
+            Decimal(str(data["long_term_debt"])) if data.get("long_term_debt") is not None else None
         ),
         short_term_debt=Decimal(str(data.get("short_term_debt", 0))),
         total_equity=Decimal(str(data.get("total_equity", 0))),
@@ -249,9 +251,7 @@ def _build_balance_sheet(data: dict, shares_outstanding: int) -> BalanceSheet:
             if data.get("retained_earnings") is not None
             else None
         ),
-        pp_and_e=(
-            Decimal(str(data["pp_and_e"])) if data.get("pp_and_e") is not None else None
-        ),
+        pp_and_e=(Decimal(str(data["pp_and_e"])) if data.get("pp_and_e") is not None else None),
         shares_outstanding=shares_outstanding,
     )
 
@@ -265,9 +265,7 @@ def _build_cash_flow_statement(data: dict) -> CashFlowStatement:
         operating_cash_flow=Decimal(str(data.get("operating_cash_flow", 0))),
         capital_expenditures=Decimal(str(data.get("capex", 0))),
         dividends_paid=(
-            Decimal(str(data["dividends_paid"]))
-            if data.get("dividends_paid") is not None
-            else None
+            Decimal(str(data["dividends_paid"])) if data.get("dividends_paid") is not None else None
         ),
         share_repurchases=(
             Decimal(str(data["share_repurchases"]))

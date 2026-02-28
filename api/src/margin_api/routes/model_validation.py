@@ -31,9 +31,7 @@ async def _get_seed_details(
 ) -> list[SeedDetailResponse]:
     """Query MlModelRun rows matching run_group_id and build seed detail responses."""
     result = await session.execute(
-        select(MlModelRun)
-        .where(MlModelRun.run_group_id == run_group_id)
-        .order_by(MlModelRun.seed)
+        select(MlModelRun).where(MlModelRun.run_group_id == run_group_id).order_by(MlModelRun.seed)
     )
     runs = result.scalars().all()
 
@@ -128,9 +126,7 @@ async def get_validation_history(
     _verify_admin_key(x_admin_key)
 
     # Total count
-    count_result = await session.execute(
-        select(func.count()).select_from(SeedValidationReport)
-    )
+    count_result = await session.execute(select(func.count()).select_from(SeedValidationReport))
     total = count_result.scalar() or 0
 
     # Paginated reports
@@ -144,9 +140,7 @@ async def get_validation_history(
 
     report_responses = []
     for report in reports:
-        seed_details = await _get_seed_details(
-            session, report.run_group_id, report.selected_seed
-        )
+        seed_details = await _get_seed_details(session, report.run_group_id, report.selected_seed)
         report_responses.append(_report_to_response(report, seed_details))
 
     return SeedValidationHistoryResponse(reports=report_responses, total=total)
@@ -164,9 +158,7 @@ async def get_validation_report(
     _verify_admin_key(x_admin_key)
 
     result = await session.execute(
-        select(SeedValidationReport).where(
-            SeedValidationReport.run_group_id == run_group_id
-        )
+        select(SeedValidationReport).where(SeedValidationReport.run_group_id == run_group_id)
     )
     report = result.scalar_one_or_none()
     if report is None:

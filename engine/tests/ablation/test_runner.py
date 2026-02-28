@@ -8,7 +8,6 @@ from margin_engine.ablation.runner import (
     ALL_FILTER_NAMES,
     AblationConfig,
     AblationRunner,
-    FilterCombination,
 )
 from margin_engine.backtesting.factor_registry import FactorRegistry
 
@@ -98,9 +97,7 @@ class TestAblationResultMetrics:
             assert r.metrics.cagr is not None
 
             # Survivor counts are populated — one entry per rebalance
-            assert len(r.survivor_counts) > 0, (
-                f"Expected survivor_counts for {r.combination.name}"
-            )
+            assert len(r.survivor_counts) > 0, f"Expected survivor_counts for {r.combination.name}"
 
             # Monthly returns match snapshot count
             assert len(r.monthly_returns) == len(r.survivor_counts)

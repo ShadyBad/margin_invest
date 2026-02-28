@@ -2,7 +2,6 @@
 
 from margin_engine.healing.detection import _compute_mad, detect_tier3
 from margin_engine.healing.models import (
-    DetectionResult,
     DetectionSeverity,
     HealingConfig,
     SectorDistribution,

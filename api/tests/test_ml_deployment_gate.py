@@ -101,7 +101,7 @@ class TestStageMlModelImpl:
     async def test_includes_comparison_to_active_model(self, db_session):
         """_stage_ml_model_impl includes previous_rank_ic and delta when active model exists."""
         # Create an existing active model
-        active_model = await _create_ml_model_run(
+        await _create_ml_model_run(
             db_session,
             deployment_status="active",
             overall_rank_ic=0.20,
@@ -174,17 +174,13 @@ class TestPromoteMlModelImpl:
 
         # Verify the candidate is now active
         refreshed_candidate = (
-            await db_session.execute(
-                select(MlModelRun).where(MlModelRun.id == candidate.id)
-            )
+            await db_session.execute(select(MlModelRun).where(MlModelRun.id == candidate.id))
         ).scalar_one()
         assert refreshed_candidate.deployment_status == "active"
 
         # Verify the old active is now retired
         refreshed_active = (
-            await db_session.execute(
-                select(MlModelRun).where(MlModelRun.id == active_model.id)
-            )
+            await db_session.execute(select(MlModelRun).where(MlModelRun.id == active_model.id))
         ).scalar_one()
         assert refreshed_active.deployment_status == "retired"
 

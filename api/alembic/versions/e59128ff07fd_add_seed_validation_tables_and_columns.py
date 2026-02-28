@@ -5,18 +5,19 @@ Revises: a6ad87bfa838
 Create Date: 2026-02-27 17:27:22.806215
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'e59128ff07fd'
-down_revision: Union[str, Sequence[str], None] = 'a6ad87bfa838'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "e59128ff07fd"
+down_revision: str | Sequence[str] | None = "a6ad87bfa838"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 # Portable JSON type: JSONB on PostgreSQL, plain JSON elsewhere
 JSONVariant = sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")

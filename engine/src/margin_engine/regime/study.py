@@ -37,7 +37,6 @@ from margin_engine.regime.metrics import (
     RegimeSegmentedMetrics,
     compute_regime_segmented_metrics,
 )
-from margin_engine.regime.models import RegimeState
 
 # ---------------------------------------------------------------------------
 # Config / report models
@@ -60,9 +59,7 @@ class RegimeStudyReport(BaseModel):
     gate_profiles: dict[str, GateRegimeProfile] = Field(default_factory=dict)
     failure_modes: FailureModeReport = Field(default_factory=FailureModeReport)
     robustness: dict[str, Any] = Field(default_factory=dict)
-    regime_segmented_metrics: dict[str, RegimeSegmentedMetrics] = Field(
-        default_factory=dict
-    )
+    regime_segmented_metrics: dict[str, RegimeSegmentedMetrics] = Field(default_factory=dict)
     observed_regimes: list[str] = Field(default_factory=list)
     duration_seconds: float = 0.0
 
@@ -106,9 +103,7 @@ class RegimeCharacterizationStudy:
         classifier_config = RegimeClassifierConfig(
             min_history_months=max(config.min_regime_months, 2),
         )
-        self._regime_classifier = MultiDimensionalRegimeClassifier(
-            config=classifier_config
-        )
+        self._regime_classifier = MultiDimensionalRegimeClassifier(config=classifier_config)
 
         # Build the ablation config from the study config.
         self._ablation_config = AblationConfig(
@@ -147,15 +142,11 @@ class RegimeCharacterizationStudy:
         leave_one_out: dict[str, AblationResult] = {}
         for gate_name in sorted(ALL_FILTER_NAMES):
             enabled = ALL_FILTER_NAMES - {gate_name}
-            combo = FilterCombination(
-                name=f"without_{gate_name}", enabled_filters=enabled
-            )
+            combo = FilterCombination(name=f"without_{gate_name}", enabled_filters=enabled)
             leave_one_out[gate_name] = self._runner.run_combination(combo)
 
         # Step 4: Collect observed regime keys from full_stack regime_tags
-        observed_regimes = sorted(
-            {rs.regime_key for rs in full_stack.regime_tags}
-        )
+        observed_regimes = sorted({rs.regime_key for rs in full_stack.regime_tags})
 
         # Step 5: Compute regime-segmented metrics for the full stack
         regime_segmented_metrics: dict[str, RegimeSegmentedMetrics] = {}
@@ -170,12 +161,10 @@ class RegimeCharacterizationStudy:
                 len(benchmark_returns),
             )
             if n > 0:
-                regime_segmented_metrics["full_stack"] = (
-                    compute_regime_segmented_metrics(
-                        regime_tags=full_stack.regime_tags[:n],
-                        monthly_returns=full_stack.monthly_returns[:n],
-                        benchmark_returns=benchmark_returns[:n],
-                    )
+                regime_segmented_metrics["full_stack"] = compute_regime_segmented_metrics(
+                    regime_tags=full_stack.regime_tags[:n],
+                    monthly_returns=full_stack.monthly_returns[:n],
+                    benchmark_returns=benchmark_returns[:n],
                 )
 
         # Step 6: Build gate_data and compute gate profiles

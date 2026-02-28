@@ -7,7 +7,6 @@ a ``StudyReport`` with actionable recommendations per filter.
 
 from __future__ import annotations
 
-import itertools
 from statistics import median
 
 from pydantic import BaseModel, Field
@@ -124,9 +123,7 @@ class AblationStudy:
         full_stack = incremental_stacks["default"][-1]
 
         # Phase 4: Shapley values with coalition caching
-        coalition_cache = self._build_coalition_cache(
-            single_baselines, pairwise_results
-        )
+        coalition_cache = self._build_coalition_cache(single_baselines, pairwise_results)
 
         def cached_value_fn(coalition: frozenset[str]) -> float:
             key = coalition
@@ -153,9 +150,7 @@ class AblationStudy:
         # Default stack Sharpe values for negative marginal detection
         default_stack = incremental_stacks["default"]
         default_stack_sharpes = [r.metrics.sharpe_ratio for r in default_stack]
-        negative_marginals = detect_negative_marginal(
-            default_stack_sharpes, orderings["default"]
-        )
+        negative_marginals = detect_negative_marginal(default_stack_sharpes, orderings["default"])
 
         # Pairwise destruction detection
         pair_sharpes: dict[tuple[str, str], float] = {}

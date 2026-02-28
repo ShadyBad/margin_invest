@@ -56,13 +56,19 @@ def test_ablation_custom_args():
     ablation_parser.add_argument("--output", default=None)
     ablation_parser.add_argument("--bootstrap-n", type=int, default=1000)
 
-    args = parser.parse_args([
-        "ablation",
-        "--start-date", "2020-01-01",
-        "--end-date", "2023-12-31",
-        "--output", "/tmp/report.json",
-        "--bootstrap-n", "500",
-    ])
+    args = parser.parse_args(
+        [
+            "ablation",
+            "--start-date",
+            "2020-01-01",
+            "--end-date",
+            "2023-12-31",
+            "--output",
+            "/tmp/report.json",
+            "--bootstrap-n",
+            "500",
+        ]
+    )
     assert args.start_date == "2020-01-01"
     assert args.end_date == "2023-12-31"
     assert args.output == "/tmp/report.json"

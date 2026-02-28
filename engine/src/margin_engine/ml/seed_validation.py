@@ -56,9 +56,7 @@ class SeedValidationResult:
 
     def to_dict(self) -> dict:
         return {
-            "metric_distributions": {
-                k: v.to_dict() for k, v in self.metric_distributions.items()
-            },
+            "metric_distributions": {k: v.to_dict() for k, v in self.metric_distributions.items()},
             "gate_passed": self.gate_passed,
             "gate_details": self.gate_details,
             "selected_seed": self.selected_seed,

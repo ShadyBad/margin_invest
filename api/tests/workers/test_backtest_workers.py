@@ -1,21 +1,19 @@
-"""Tests for precompute_default_backtest, snapshot_shadow_portfolio, and bootstrap_pit_data workers."""
+"""Tests for backtest worker functions."""
 
 from __future__ import annotations
 
 import os
-from datetime import UTC, date, datetime
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-
 from margin_api.config import get_settings
 from margin_api.db.models import (
     BacktestRun,
     JobRun,
     ShadowPortfolioSnapshot,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -99,8 +97,8 @@ async def test_precompute_skips_when_no_pit_data():
     # 3. Job update (scalar_one → job mock object)
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
-            {"scalar_one": 0},              # PIT count → 0
-            {"scalar_one": job_mock},        # job update query → job object
+            {"scalar_one": 0},  # PIT count → 0
+            {"scalar_one": job_mock},  # job update query → job object
         ]
     )
 
@@ -123,10 +121,9 @@ async def test_precompute_skips_when_no_pit_data():
 @pytest.mark.asyncio
 async def test_precompute_runs_with_pit_data():
     """Worker should run the backtest when PIT data exists."""
+    from margin_api.workers import precompute_default_backtest
     from margin_engine.backtesting.models import PerformanceMetrics
     from margin_engine.backtesting.replay_orchestrator import ReplayConfig, ReplayResult
-
-    from margin_api.workers import precompute_default_backtest
 
     # Build a minimal ReplayResult
     metrics = PerformanceMetrics(
@@ -208,8 +205,8 @@ async def test_snapshot_shadow_empty_scores():
     # 3+ job updates
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
-            {"all": []},                        # V4Score query → empty
-            {"scalar_one_or_none": None},        # existing snapshot check → None
+            {"all": []},  # V4Score query → empty
+            {"scalar_one_or_none": None},  # existing snapshot check → None
         ]
     )
 
@@ -246,7 +243,7 @@ async def test_snapshot_shadow_with_published_scores():
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
             {"all": [(v4_1, "AAPL"), (v4_2, "MSFT")]},  # V4Score query
-            {"scalar_one_or_none": None},                 # existing snapshot check → None
+            {"scalar_one_or_none": None},  # existing snapshot check → None
         ]
     )
 
@@ -281,8 +278,8 @@ async def test_snapshot_shadow_idempotent_skip():
 
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
-            {"all": []},                               # V4Score query → empty
-            {"scalar_one_or_none": existing_snap},     # existing snapshot → already exists
+            {"all": []},  # V4Score query → empty
+            {"scalar_one_or_none": existing_snap},  # existing snapshot → already exists
         ]
     )
 
@@ -323,8 +320,7 @@ class TestWorkerRegistration:
         from margin_api.workers import WorkerSettings
 
         func_names = [
-            f.name if hasattr(f, "name") else f.__name__
-            for f in WorkerSettings.functions
+            f.name if hasattr(f, "name") else f.__name__ for f in WorkerSettings.functions
         ]
         assert "bootstrap_pit_data" in func_names
 
@@ -418,7 +414,7 @@ async def test_bootstrap_runs_full_pipeline():
 
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
-            {"scalar_one": 0},       # PIT count → empty
+            {"scalar_one": 0},  # PIT count → empty
             {"all": [("AAPL",), ("MSFT",)]},  # distinct tickers query
         ]
     )

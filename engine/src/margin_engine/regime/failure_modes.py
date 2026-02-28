@@ -17,7 +17,6 @@ import math
 import numpy as np
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # Result models
 # ---------------------------------------------------------------------------
@@ -59,13 +58,9 @@ class UniverseCollapseResult(BaseModel):
 class ProCyclicalityResult(BaseModel):
     """Result of pro-cyclicality detection across time periods."""
 
-    correlation: float = Field(
-        description="Correlation between survivor count and forward returns"
-    )
+    correlation: float = Field(description="Correlation between survivor count and forward returns")
     n_observations: int
-    is_pro_cyclical: bool = Field(
-        default=False, description="True if correlation > 0.3"
-    )
+    is_pro_cyclical: bool = Field(default=False, description="True if correlation > 0.3")
 
 
 class FailureModeReport(BaseModel):
@@ -250,9 +245,7 @@ def detect_universe_collapse(
     universe_collapsed = total_survivors < collapse_threshold
 
     sectors_collapsed = [
-        sector
-        for sector, count in sorted(sector_survivors.items())
-        if count < sector_threshold
+        sector for sector, count in sorted(sector_survivors.items()) if count < sector_threshold
     ]
 
     # Concentration: top 3 sectors as % of total

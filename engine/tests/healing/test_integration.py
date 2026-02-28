@@ -2,8 +2,6 @@
 
 from decimal import Decimal
 
-import pytest
-
 from margin_engine.healing.distributions import compute_sector_distributions
 from margin_engine.healing.models import (
     CorrectionMethod,

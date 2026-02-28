@@ -10,14 +10,11 @@ Covers:
 from __future__ import annotations
 
 import pytest
-
-from margin_engine.healing.correction import apply_corrections, _try_l1, _try_l2, _try_l3
+from margin_engine.healing.correction import _try_l1, _try_l2, _try_l3, apply_corrections
 from margin_engine.healing.models import (
-    CorrectionEvent,
     CorrectionMethod,
     DetectionResult,
     DetectionSeverity,
-    EXCLUDED_FIELDS,
     HealingConfig,
     SectorDistribution,
 )
@@ -137,9 +134,7 @@ class TestL1Substitute:
 class TestL2CarryForward:
     """L2 correction: carry forward from prior valid value."""
 
-    def test_l2_one_quarter_stale(
-        self, outlier_flag: DetectionResult, config: HealingConfig
-    ):
+    def test_l2_one_quarter_stale(self, outlier_flag: DetectionResult, config: HealingConfig):
         """Carry forward 1 quarter → confidence = max(0.3, 1.0 - 1*0.15) = 0.85."""
         prior = {"income_statement.gross_margin": (0.52, 1)}
         result = apply_corrections(
@@ -156,9 +151,7 @@ class TestL2CarryForward:
         assert evt.correction_confidence == pytest.approx(0.85)
         assert evt.correction_source == "self_Q-1"
 
-    def test_l2_four_quarters_stale(
-        self, outlier_flag: DetectionResult, config: HealingConfig
-    ):
+    def test_l2_four_quarters_stale(self, outlier_flag: DetectionResult, config: HealingConfig):
         """Carry forward 4 quarters → confidence = max(0.3, 1.0 - 4*0.15) = 0.40."""
         prior = {"income_statement.gross_margin": (0.48, 4)}
         result = apply_corrections(
@@ -292,9 +285,7 @@ class TestL3SectorMedian:
 class TestNoCorrection:
     """No correction possible → omit from results."""
 
-    def test_no_sources_returns_empty(
-        self, outlier_flag: DetectionResult, config: HealingConfig
-    ):
+    def test_no_sources_returns_empty(self, outlier_flag: DetectionResult, config: HealingConfig):
         """When no secondary, no prior, no sector distribution, result is empty."""
         result = apply_corrections(
             flags=[outlier_flag],

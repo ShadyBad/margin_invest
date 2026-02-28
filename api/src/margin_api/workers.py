@@ -37,8 +37,8 @@ from margin_api.db.models import (
     IngestionTickerStatus,
     JobRun,
     MlModelRun,
-    PITFinancialSnapshot,
     PipelineApproval,
+    PITFinancialSnapshot,
     ReproducibilityAudit,
     Score,
     SeedValidationReport,
@@ -1065,9 +1065,7 @@ async def publish_scores(
 
     try:
         async with session_factory() as session:
-            result = await _publish_scores_impl(
-                session, approval_id, decided_by, decision_reason
-            )
+            result = await _publish_scores_impl(session, approval_id, decided_by, decision_reason)
 
         # If published, emit score change events and broadcast
         if result.get("status") == "published":
@@ -1779,9 +1777,7 @@ async def train_ml_models(ctx: dict) -> dict:
             }
 
             # Train per-cluster LightGBM models
-            models = train_cluster_models(
-                features, forward_returns, cluster_indices, seed=seed_idx
-            )
+            models = train_cluster_models(features, forward_returns, cluster_indices, seed=seed_idx)
 
             # Train FactorVAE (optional)
             vae_bytes = None
@@ -1826,7 +1822,9 @@ async def train_ml_models(ctx: dict) -> dict:
 
             model_qualifies = overall_rank_ic > 0.15
             logger.info(
-                "[ml] Seed %d: rank_ic=%.4f (qualifies=%s)", seed_idx, overall_rank_ic,
+                "[ml] Seed %d: rank_ic=%.4f (qualifies=%s)",
+                seed_idx,
+                overall_rank_ic,
                 model_qualifies,
             )
 
@@ -1867,12 +1865,14 @@ async def train_ml_models(ctx: dict) -> dict:
                 seed_ml_run_ids.append(ml_run.id)
 
             # Collect seed metrics for validation
-            seed_metrics_list.append({
-                "seed": seed_idx,
-                "rank_ic": float(overall_rank_ic),
-                "cluster_labels": cluster_labels,
-                "n_clusters": int(len(models)),
-            })
+            seed_metrics_list.append(
+                {
+                    "seed": seed_idx,
+                    "rank_ic": float(overall_rank_ic),
+                    "cluster_labels": cluster_labels,
+                    "n_clusters": int(len(models)),
+                }
+            )
 
             if overall_rank_ic > best_rank_ic:
                 best_rank_ic = overall_rank_ic
@@ -1914,9 +1914,9 @@ async def train_ml_models(ctx: dict) -> dict:
             report = SeedValidationReport(
                 run_group_id=run_group_id,
                 n_seeds=n_seeds,
-                metric_distributions=_sanitize({
-                    k: v.to_dict() for k, v in validation.metric_distributions.items()
-                }),
+                metric_distributions=_sanitize(
+                    {k: v.to_dict() for k, v in validation.metric_distributions.items()}
+                ),
                 gate_passed=validation.gate_passed,
                 gate_details=_sanitize(validation.gate_details),
                 selected_seed=validation.selected_seed,
@@ -1932,9 +1932,7 @@ async def train_ml_models(ctx: dict) -> dict:
                 pipeline_stage="train_ml_models",
                 config_hash=compute_data_hash(tickers, str(datetime.now(UTC).date())),
                 environment_snapshot=env_snapshot,
-                input_data_hash=compute_data_hash(
-                    sorted(tickers), str(datetime.now(UTC).date())
-                ),
+                input_data_hash=compute_data_hash(sorted(tickers), str(datetime.now(UTC).date())),
             )
             session.add(audit)
             await session.commit()
@@ -1975,19 +1973,19 @@ async def train_ml_models(ctx: dict) -> dict:
                 event = GovernanceEvent(
                     event_type="seed_validation_failed",
                     source="train_ml_models",
-                    detail=_sanitize({
-                        "run_group_id": run_group_id,
-                        "n_seeds": n_seeds,
-                        "gate_details": validation.gate_details,
-                        "best_rank_ic": best_rank_ic,
-                        "best_seed": best_seed_idx,
-                    }),
+                    detail=_sanitize(
+                        {
+                            "run_group_id": run_group_id,
+                            "n_seeds": n_seeds,
+                            "gate_details": validation.gate_details,
+                            "best_rank_ic": best_rank_ic,
+                            "best_seed": best_seed_idx,
+                        }
+                    ),
                 )
                 session.add(event)
                 await session.commit()
-            logger.warning(
-                "[train_ml] Gate FAILED for group %s. No model promoted.", run_group_id
-            )
+            logger.warning("[train_ml] Gate FAILED for group %s. No model promoted.", run_group_id)
 
         # Update JobRun record
         async with session_factory() as session:
@@ -2052,9 +2050,7 @@ async def _stage_ml_model_impl(
     Returns a dict with status and approval_id.
     """
     # Fetch model run
-    result = await session.execute(
-        select(MlModelRun).where(MlModelRun.id == model_run_id)
-    )
+    result = await session.execute(select(MlModelRun).where(MlModelRun.id == model_run_id))
     model = result.scalar_one_or_none()
 
     if model is None:
@@ -2141,9 +2137,7 @@ async def _promote_ml_model_impl(
 
     # Set candidate to active
     await session.execute(
-        update(MlModelRun)
-        .where(MlModelRun.id == model_id)
-        .values(deployment_status="active")
+        update(MlModelRun).where(MlModelRun.id == model_id).values(deployment_status="active")
     )
 
     # Update approval
@@ -2179,9 +2173,7 @@ async def promote_ml_model(
     engine = get_engine()
     session_factory = get_session_factory(engine)
     async with session_factory() as session:
-        return await _promote_ml_model_impl(
-            session, approval_id, decided_by, decision_reason
-        )
+        return await _promote_ml_model_impl(session, approval_id, decided_by, decision_reason)
 
 
 async def live_price_poll(ctx: dict) -> dict:
@@ -2505,19 +2497,13 @@ async def precompute_default_backtest(ctx: dict) -> dict:
     try:
         # Check if PIT tables have any data
         async with session_factory() as session:
-            result = await session.execute(
-                select(func.count()).select_from(PITFinancialSnapshot)
-            )
+            result = await session.execute(select(func.count()).select_from(PITFinancialSnapshot))
             pit_count = result.scalar_one()
 
         if pit_count == 0:
-            logger.info(
-                "[precompute_backtest] No PIT data available, skipping precompute"
-            )
+            logger.info("[precompute_backtest] No PIT data available, skipping precompute")
             async with session_factory() as session:
-                job_result = await session.execute(
-                    select(JobRun).where(JobRun.id == job_id)
-                )
+                job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
                 job = job_result.scalar_one()
                 job.status = "completed"
                 job.progress = 1.0
@@ -2571,9 +2557,7 @@ async def precompute_default_backtest(ctx: dict) -> dict:
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
-            job_result = await session.execute(
-                select(JobRun).where(JobRun.id == job_id)
-            )
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = job_result.scalar_one()
             job.status = "completed"
             job.progress = 1.0
@@ -2598,9 +2582,7 @@ async def precompute_default_backtest(ctx: dict) -> dict:
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
-            job_result = await session.execute(
-                select(JobRun).where(JobRun.id == job_id)
-            )
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = job_result.scalar_one()
             job.status = "failed"
             job.error_message = str(e)[:500]
@@ -2616,7 +2598,6 @@ async def snapshot_shadow_portfolio(ctx: dict) -> dict:
     builds a portfolio snapshot, and appends to shadow_portfolio_snapshots.
     Uses on_conflict_do_nothing on as_of_date for idempotency.
     """
-    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
     logger.info("[shadow_portfolio] Starting snapshot_shadow_portfolio...")
 
@@ -2672,14 +2653,10 @@ async def snapshot_shadow_portfolio(ctx: dict) -> dict:
         async with session_factory() as session:
             # Check if snapshot already exists for today
             existing = await session.execute(
-                select(ShadowPortfolioSnapshot).where(
-                    ShadowPortfolioSnapshot.as_of_date == as_of
-                )
+                select(ShadowPortfolioSnapshot).where(ShadowPortfolioSnapshot.as_of_date == as_of)
             )
             if existing.scalar_one_or_none() is not None:
-                logger.info(
-                    "[shadow_portfolio] Snapshot for %s already exists, skipping", as_of
-                )
+                logger.info("[shadow_portfolio] Snapshot for %s already exists, skipping", as_of)
             else:
                 snapshot = ShadowPortfolioSnapshot(
                     as_of_date=as_of,
@@ -2700,9 +2677,7 @@ async def snapshot_shadow_portfolio(ctx: dict) -> dict:
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
-            job_result = await session.execute(
-                select(JobRun).where(JobRun.id == job_id)
-            )
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = job_result.scalar_one()
             job.status = "completed"
             job.progress = 1.0
@@ -2719,9 +2694,7 @@ async def snapshot_shadow_portfolio(ctx: dict) -> dict:
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
-            job_result = await session.execute(
-                select(JobRun).where(JobRun.id == job_id)
-            )
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = job_result.scalar_one()
             job.status = "failed"
             job.error_message = str(e)[:500]
@@ -2772,9 +2745,7 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
 
     # Log current state for observability
     async with session_factory() as session:
-        result = await session.execute(
-            select(func.count()).select_from(PITFinancialSnapshot)
-        )
+        result = await session.execute(select(func.count()).select_from(PITFinancialSnapshot))
         existing_count = result.scalar_one()
     logger.info("[bootstrap_pit] Current filing count: %d", existing_count)
 
@@ -2803,9 +2774,7 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
         # Phase 2: Price backfill for all tickers found in filings
         logger.info("[bootstrap_pit] Phase 2/4: Price backfill...")
         async with session_factory() as session:
-            result = await session.execute(
-                select(PITFinancialSnapshot.ticker).distinct()
-            )
+            result = await session.execute(select(PITFinancialSnapshot.ticker).distinct())
             tickers = [row[0] for row in result.all()]
 
         if tickers:
@@ -2815,9 +2784,7 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
                 batch_size=500,
                 session_factory=session_factory,
             )
-            logger.info(
-                "[bootstrap_pit] Price backfill complete: %d tickers", len(price_result)
-            )
+            logger.info("[bootstrap_pit] Price backfill complete: %d tickers", len(price_result))
         else:
             price_result = {}
             logger.warning("[bootstrap_pit] No tickers found for price backfill")
@@ -2850,9 +2817,7 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
-            job_result = await session.execute(
-                select(JobRun).where(JobRun.id == job_id)
-            )
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = job_result.scalar_one()
             job.status = "completed"
             job.progress = 1.0
@@ -2874,9 +2839,7 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
-            job_result = await session.execute(
-                select(JobRun).where(JobRun.id == job_id)
-            )
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = job_result.scalar_one()
             job.status = "failed"
             job.error_message = str(e)[:500]
@@ -3017,7 +2980,9 @@ class WorkerSettings:
             minute=0,
             run_at_startup=False,
         ),  # Sunday 3 AM UTC
-        cron(snapshot_shadow_portfolio, hour=22, minute=30, run_at_startup=False),  # Daily 10:30 PM UTC
+        cron(
+            snapshot_shadow_portfolio, hour=22, minute=30, run_at_startup=False
+        ),  # Daily 10:30 PM UTC
         cron(daily_pit_update, hour=23, minute=0, run_at_startup=False),  # Daily 11 PM UTC
     ]
     # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)

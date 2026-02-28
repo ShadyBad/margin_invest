@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from margin_api.app import create_app
 from margin_api.db.base import Base
-from margin_api.db.models import BacktestRun, ShadowPortfolioSnapshot, User, UniverseSnapshot
+from margin_api.db.models import BacktestRun, ShadowPortfolioSnapshot, UniverseSnapshot, User
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
 from margin_api.services.backtest import (
@@ -18,7 +18,6 @@ from margin_api.services.backtest import (
     get_precomputed_default,
 )
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -387,8 +386,8 @@ class TestShadowPortfolioEndpointWiring:
                 await session.commit()
                 return user.id
 
-        user_id = asyncio.get_event_loop_policy().new_event_loop().run_until_complete(
-            _create_data()
+        user_id = (
+            asyncio.get_event_loop_policy().new_event_loop().run_until_complete(_create_data())
         )
 
         app = create_app()

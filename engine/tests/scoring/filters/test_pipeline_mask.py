@@ -82,9 +82,7 @@ class TestDisabledFiltersMask:
         """Passing None (the default) runs all filters."""
         from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024, APPLE_PROFILE
 
-        result = run_elimination_filters(
-            APPLE_PERIOD_2024, APPLE_PROFILE, disabled_filters=None
-        )
+        result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE, disabled_filters=None)
 
         assert len(result.results) == 6
         assert {r.name for r in result.results} == ALL_FILTER_NAMES

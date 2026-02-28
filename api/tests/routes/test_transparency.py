@@ -16,7 +16,6 @@ from margin_api.db.models import IngestionRun, PipelineApproval, UniverseSnapsho
 from margin_api.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-
 # ---------------------------------------------------------------------------
 # Async DB fixtures (real SQLite)
 # ---------------------------------------------------------------------------
@@ -163,9 +162,7 @@ class TestTransparencyEndpoint:
         assert "accumulation_signals" in levels["out_of_the_loop"]
 
     @pytest.mark.asyncio
-    async def test_returns_pipeline_health_with_status_field(
-        self, db_session, session_factory
-    ):
+    async def test_returns_pipeline_health_with_status_field(self, db_session, session_factory):
         """Response includes pipeline_health with status field."""
         client = _make_client(session_factory)
         response = client.get("/api/v1/governance/transparency")
@@ -243,9 +240,7 @@ class TestTransparencyEndpoint:
         assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_empty_database_returns_valid_response(
-        self, db_session, session_factory
-    ):
+    async def test_empty_database_returns_valid_response(self, db_session, session_factory):
         """With no data at all, endpoint returns valid defaults."""
         client = _make_client(session_factory)
         response = client.get("/api/v1/governance/transparency")
@@ -259,9 +254,7 @@ class TestTransparencyEndpoint:
         assert data["pipeline_health"]["last_successful_run"] is None
 
     @pytest.mark.asyncio
-    async def test_only_latest_approval_per_gate_type(
-        self, db_session, session_factory
-    ):
+    async def test_only_latest_approval_per_gate_type(self, db_session, session_factory):
         """When multiple decisions exist, only the most recent is returned."""
         old_time = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
         new_time = datetime(2026, 2, 27, 12, 0, 0, tzinfo=UTC)

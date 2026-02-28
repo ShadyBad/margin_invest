@@ -20,8 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from margin_api.db.models import PITFinancialSnapshot
 from margin_api.services.edgar.index_builder import (
-    EdgarIndexEntry,
     USER_AGENT,
+    EdgarIndexEntry,
     build_full_index,
 )
 from margin_api.services.edgar.xbrl_parser import XBRLFinancials, extract_financials
@@ -157,9 +157,7 @@ async def fetch_and_parse_filing(
         cik_int = entry.cik_int
         accession_clean = entry.accession_number.replace("-", "")
 
-        index_url = (
-            f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
-        )
+        index_url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
 
         # Rate limit: 5 req/sec max
         await asyncio.sleep(0.2)
@@ -267,9 +265,7 @@ async def run_edgar_backfill(
     Returns:
         Summary dict with keys: total, inserted, skipped, failed.
     """
-    logger.info(
-        "[edgar-backfill] Building index for %d-%d...", start_year, end_year
-    )
+    logger.info("[edgar-backfill] Building index for %d-%d...", start_year, end_year)
 
     all_entries, cik_map = await build_full_index(start_year, end_year)
     logger.info(
@@ -280,9 +276,7 @@ async def run_edgar_backfill(
 
     # Filter to entries with a known ticker
     entries_with_ticker = [
-        (entry, cik_map[entry.cik_int])
-        for entry in all_entries
-        if entry.cik_int in cik_map
+        (entry, cik_map[entry.cik_int]) for entry in all_entries if entry.cik_int in cik_map
     ]
     logger.info(
         "[edgar-backfill] %d entries have known tickers (of %d total)",
@@ -301,14 +295,10 @@ async def run_edgar_backfill(
 
     # Query existing accession numbers to skip
     async with session_factory() as session:
-        result = await session.execute(
-            select(PITFinancialSnapshot.accession_number)
-        )
+        result = await session.execute(select(PITFinancialSnapshot.accession_number))
         existing_accessions = {row[0] for row in result.all()}
 
-    logger.info(
-        "[edgar-backfill] %d filings already in DB", len(existing_accessions)
-    )
+    logger.info("[edgar-backfill] %d filings already in DB", len(existing_accessions))
 
     # Filter out already-processed entries
     entries_to_process = [
@@ -380,15 +370,12 @@ async def run_edgar_backfill(
             # Checkpoint every 100 filings
             if checkpoint_file and i % 100 == 0:
                 Path(checkpoint_file).write_text(entry.accession_number)
-                logger.info(
-                    "[edgar-backfill] Checkpoint saved at %s", entry.accession_number
-                )
+                logger.info("[edgar-backfill] Checkpoint saved at %s", entry.accession_number)
 
             # Log progress every 100 filings
             if i % 100 == 0 or i == total:
                 logger.info(
-                    "[edgar-backfill] Processed %d/%d filings "
-                    "(%d inserted, %d skipped, %d failed)",
+                    "[edgar-backfill] Processed %d/%d filings (%d inserted, %d skipped, %d failed)",
                     i,
                     total,
                     inserted,

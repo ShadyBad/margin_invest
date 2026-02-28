@@ -10,7 +10,6 @@ import subprocess
 import sys
 from importlib.metadata import PackageNotFoundError, version
 
-
 _TRACKED_LIBRARIES = (
     "numpy",
     "scikit-learn",

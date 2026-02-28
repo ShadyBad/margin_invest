@@ -3,17 +3,23 @@
 from datetime import date
 
 import pytest
-from margin_engine.backtesting.metrics import run_sensitivity_analysis, PerformanceCalculator
+from margin_engine.backtesting.metrics import PerformanceCalculator, run_sensitivity_analysis
 from margin_engine.backtesting.models import HoldingRecord, MonthlySnapshot
 
 
 def _snap(month, pv, bv, pr, br, tc, gr):
     return MonthlySnapshot(
         date=date(2024, month, 28),
-        holdings=[HoldingRecord(ticker="AAPL", weight=1.0, entry_price=100.0, composite_score=90.0)],
-        portfolio_value=pv, benchmark_value=bv,
-        portfolio_return=pr, benchmark_return=br,
-        turnover=0.1, transaction_costs=tc, gross_return=gr,
+        holdings=[
+            HoldingRecord(ticker="AAPL", weight=1.0, entry_price=100.0, composite_score=90.0)
+        ],
+        portfolio_value=pv,
+        benchmark_value=bv,
+        portfolio_return=pr,
+        benchmark_return=br,
+        turnover=0.1,
+        transaction_costs=tc,
+        gross_return=gr,
     )
 
 

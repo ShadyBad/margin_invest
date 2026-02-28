@@ -12,9 +12,6 @@ import json
 import logging
 from datetime import date
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from margin_engine.backtesting.capacity import run_capacity_analysis
 from margin_engine.backtesting.cost_model import validate_cost_assumptions
 from margin_engine.backtesting.factor_registry import FactorRegistry
@@ -26,6 +23,8 @@ from margin_engine.backtesting.replay_orchestrator import (
     ReplayConfig,
     ReplayResult,
 )
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import BacktestRun
 from margin_api.schemas.backtest import (

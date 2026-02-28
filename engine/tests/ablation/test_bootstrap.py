@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from margin_engine.ablation.bootstrap import (
     block_bootstrap_ci,
     bootstrap_sharpe_difference,
@@ -29,15 +28,11 @@ class TestBlockBootstrapCI:
         data = rng.normal(0.01, 0.05, size=120).tolist()
 
         # 90% CI (alpha=0.10)
-        lo_90, _, hi_90 = block_bootstrap_ci(
-            data, statistic="mean", alpha=0.10, seed=99
-        )
+        lo_90, _, hi_90 = block_bootstrap_ci(data, statistic="mean", alpha=0.10, seed=99)
         width_90 = hi_90 - lo_90
 
         # 99% CI (alpha=0.01)
-        lo_99, _, hi_99 = block_bootstrap_ci(
-            data, statistic="mean", alpha=0.01, seed=99
-        )
+        lo_99, _, hi_99 = block_bootstrap_ci(data, statistic="mean", alpha=0.01, seed=99)
         width_99 = hi_99 - lo_99
 
         assert width_99 > width_90

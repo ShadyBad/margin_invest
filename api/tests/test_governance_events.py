@@ -6,7 +6,6 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from margin_api.services.governance_events import STREAM_KEY, GovernanceEventEmitter
 
 

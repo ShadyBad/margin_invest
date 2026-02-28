@@ -12,10 +12,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
-
 from margin_engine.healing.detection import detect_tier1
-from margin_engine.healing.models import DetectionResult, DetectionSeverity
+from margin_engine.healing.models import DetectionSeverity
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,
@@ -110,9 +108,7 @@ class TestZeroShares:
         period = _make_period(shares_outstanding=0)
         results = detect_tier1(period)
 
-        shares_flags = [
-            r for r in results if r.field_path == "income_statement.shares_outstanding"
-        ]
+        shares_flags = [r for r in results if r.field_path == "income_statement.shares_outstanding"]
         assert len(shares_flags) == 1
         flag = shares_flags[0]
         assert flag.severity == DetectionSeverity.IMPOSSIBLE
@@ -122,9 +118,7 @@ class TestZeroShares:
         period = _make_period(shares_outstanding=-50)
         results = detect_tier1(period)
 
-        shares_flags = [
-            r for r in results if r.field_path == "income_statement.shares_outstanding"
-        ]
+        shares_flags = [r for r in results if r.field_path == "income_statement.shares_outstanding"]
         assert len(shares_flags) == 1
         flag = shares_flags[0]
         assert flag.severity == DetectionSeverity.IMPOSSIBLE
@@ -134,9 +128,7 @@ class TestZeroShares:
         period = _make_period(shares_outstanding=1000)
         results = detect_tier1(period)
 
-        shares_flags = [
-            r for r in results if r.field_path == "income_statement.shares_outstanding"
-        ]
+        shares_flags = [r for r in results if r.field_path == "income_statement.shares_outstanding"]
         assert len(shares_flags) == 0
 
 

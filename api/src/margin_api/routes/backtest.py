@@ -313,9 +313,7 @@ async def get_shadow_portfolio(
     snapshot_responses = [
         ShadowSnapshotResponse(
             as_of_date=(
-                date.fromisoformat(s.as_of_date)
-                if isinstance(s.as_of_date, str)
-                else s.as_of_date
+                date.fromisoformat(s.as_of_date) if isinstance(s.as_of_date, str) else s.as_of_date
             ),
             portfolio_value=s.portfolio_value,
             total_return=s.total_return,

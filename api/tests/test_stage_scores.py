@@ -107,7 +107,11 @@ class TestStageScoresImpl:
         assert approval.expires_at is not None
         # expires_at should be roughly 24 hours from now
         # SQLite returns naive datetimes, so strip tzinfo for comparison
-        expires = approval.expires_at.replace(tzinfo=None) if approval.expires_at.tzinfo else approval.expires_at
+        expires = (
+            approval.expires_at.replace(tzinfo=None)
+            if approval.expires_at.tzinfo
+            else approval.expires_at
+        )
         now_naive = now.replace(tzinfo=None)
         delta = expires - now_naive
         assert timedelta(hours=23) < delta < timedelta(hours=25)
@@ -171,9 +175,7 @@ class TestStageScoresImpl:
 
         asset = await _create_asset(db_session, "GOOG")
         # Already published score at this time
-        await _create_v4_score(
-            db_session, asset, conviction="high", scored_at=now, published=True
-        )
+        await _create_v4_score(db_session, asset, conviction="high", scored_at=now, published=True)
         await db_session.commit()
 
         result = await _stage_scores_impl(db_session, "pipe-test-004", now)

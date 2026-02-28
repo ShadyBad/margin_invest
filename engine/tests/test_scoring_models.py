@@ -3,8 +3,8 @@
 import pytest
 from margin_engine.models.scoring import (
     CompositeScore,
-    ConsistencyFlag,
     CompositeTier,
+    ConsistencyFlag,
     FactorBreakdown,
     FactorScore,
     FilterResult,

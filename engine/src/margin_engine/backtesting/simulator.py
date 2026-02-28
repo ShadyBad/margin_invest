@@ -197,9 +197,7 @@ class WalkForwardSimulator:
                         portfolio_value_after_costs - prev_portfolio_value
                     ) / prev_portfolio_value
                     # Gross return uses pre-cost portfolio_value
-                    gross_return = (
-                        portfolio_value - prev_portfolio_value
-                    ) / prev_portfolio_value
+                    gross_return = (portfolio_value - prev_portfolio_value) / prev_portfolio_value
                 else:
                     portfolio_return = 0.0
                     gross_return = 0.0

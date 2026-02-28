@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from margin_engine.ablation.shapley import compute_shapley_values
 
 

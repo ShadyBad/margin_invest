@@ -49,9 +49,7 @@ def _v4_detail(ticker: str, composite_score: float) -> dict:
                 {"name": "price_mom", "raw_value": 0.1, "percentile_rank": 65.0, "detail": ""}
             ],
         },
-        "filters_passed": [
-            {"name": "market_cap", "passed": True, "detail": "", "verdict": "pass"}
-        ],
+        "filters_passed": [{"name": "market_cap", "passed": True, "detail": "", "verdict": "pass"}],
         "data_coverage": 0.95,
         "signal": "buy",
         "composite_percentile": composite_score,

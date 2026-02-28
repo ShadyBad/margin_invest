@@ -113,9 +113,7 @@ async def trigger_scoring(request: Request, x_admin_key: str = Header()) -> JSON
     )
 
 
-async def stage_universe_activation(
-    session: AsyncSession, config_path: Path
-) -> dict:
+async def stage_universe_activation(session: AsyncSession, config_path: Path) -> dict:
     """Create a staging approval for universe activation instead of activating directly.
 
     Loads the proposed tickers from universe.yaml, diffs against the current active

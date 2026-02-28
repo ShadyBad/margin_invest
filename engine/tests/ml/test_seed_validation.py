@@ -5,8 +5,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from margin_engine.ml.seed_validation import (
-    MetricDistribution,
-    SeedValidationResult,
     SeedValidationThresholds,
     compute_metric_distribution,
     validate_seed_distribution,

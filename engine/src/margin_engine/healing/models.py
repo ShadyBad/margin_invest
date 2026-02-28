@@ -48,19 +48,21 @@ FIELD_CLASS_MAP: dict[str, FieldClass] = {
 }
 """Maps field paths to their FieldClass for threshold lookup."""
 
-EXCLUDED_FIELDS: frozenset[str] = frozenset({
-    "revenue",
-    "net_income",
-    "operating_cash_flow",
-    "free_cash_flow",
-    "total_assets",
-    "total_liabilities",
-    "total_equity",
-    "total_debt",
-    "shares_outstanding",
-    "market_cap",
-    "price_history",
-})
+EXCLUDED_FIELDS: frozenset[str] = frozenset(
+    {
+        "revenue",
+        "net_income",
+        "operating_cash_flow",
+        "free_cash_flow",
+        "total_assets",
+        "total_liabilities",
+        "total_equity",
+        "total_debt",
+        "shares_outstanding",
+        "market_cap",
+        "price_history",
+    }
+)
 """Fields that must never be L3-imputed (cross-sectional sector median).
 
 These are absolute-scale values where a sector median would be meaningless

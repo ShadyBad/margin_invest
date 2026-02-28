@@ -110,9 +110,7 @@ async def check_new_filings(
 
     # Filter to entries with known tickers and 10-K/10-Q forms
     entries_with_ticker = [
-        (entry, cik_map[entry.cik_int])
-        for entry in entries
-        if entry.cik_int in cik_map
+        (entry, cik_map[entry.cik_int]) for entry in entries if entry.cik_int in cik_map
     ]
 
     if not entries_with_ticker:
@@ -121,9 +119,7 @@ async def check_new_filings(
 
     # Check which accession numbers already exist in the database
     async with session_factory() as session:
-        result = await session.execute(
-            select(PITFinancialSnapshot.accession_number)
-        )
+        result = await session.execute(select(PITFinancialSnapshot.accession_number))
         existing_accessions = {row[0] for row in result.all()}
 
     # Filter to new filings only

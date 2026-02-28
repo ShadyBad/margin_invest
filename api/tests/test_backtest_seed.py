@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from margin_engine.backtesting.replay_orchestrator import ReplayConfig
-
 from margin_api.schemas.backtest import ReplayConfigRequest
 from margin_api.services.backtest import compute_config_hash
+from margin_engine.backtesting.replay_orchestrator import ReplayConfig
 
 
 class TestReplayConfigRequestSeed:

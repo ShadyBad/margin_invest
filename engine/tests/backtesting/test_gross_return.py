@@ -10,9 +10,7 @@ class TestMonthlySnapshotGrossReturn:
         snap = MonthlySnapshot(
             date=date(2024, 1, 28),
             holdings=[
-                HoldingRecord(
-                    ticker="AAPL", weight=1.0, entry_price=100.0, composite_score=90.0
-                )
+                HoldingRecord(ticker="AAPL", weight=1.0, entry_price=100.0, composite_score=90.0)
             ],
             portfolio_value=1_000_000,
             benchmark_value=1_000_000,
@@ -28,9 +26,7 @@ class TestMonthlySnapshotGrossReturn:
         snap = MonthlySnapshot(
             date=date(2024, 1, 28),
             holdings=[
-                HoldingRecord(
-                    ticker="AAPL", weight=1.0, entry_price=100.0, composite_score=90.0
-                )
+                HoldingRecord(ticker="AAPL", weight=1.0, entry_price=100.0, composite_score=90.0)
             ],
             portfolio_value=1_000_000,
             benchmark_value=1_000_000,

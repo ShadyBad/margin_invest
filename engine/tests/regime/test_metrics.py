@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import math
 from datetime import date
 
 import numpy as np
 import pytest
-
 from margin_engine.regime.metrics import (
-    RegimePerformanceSlice,
     RegimeSegmentedMetrics,
-    compute_regime_segmented_metrics,
     _compute_max_drawdown,
     _compute_sharpe,
+    compute_regime_segmented_metrics,
 )
 from margin_engine.regime.models import (
     CreditState,
@@ -24,10 +21,10 @@ from margin_engine.regime.models import (
     VolatilityState,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_regime(
     trend: TrendState = TrendState.BULL,
@@ -43,15 +40,14 @@ def _make_regime(
         trend=trend,
         valuation=valuation,
         credit=credit,
-        confidence=RegimeConfidence(
-            volatility=0.8, trend=0.8, valuation=0.8, credit=0.8
-        ),
+        confidence=RegimeConfidence(volatility=0.8, trend=0.8, valuation=0.8, credit=0.8),
     )
 
 
 # ---------------------------------------------------------------------------
 # Test: empty inputs -> empty result
 # ---------------------------------------------------------------------------
+
 
 class TestEmptyInputs:
     def test_empty_inputs_return_empty_result(self):
@@ -65,6 +61,7 @@ class TestEmptyInputs:
 # ---------------------------------------------------------------------------
 # Test: mismatched lengths -> ValueError
 # ---------------------------------------------------------------------------
+
 
 class TestMismatchedLengths:
     def test_mismatched_regime_and_returns_raises(self):
@@ -90,6 +87,7 @@ class TestMismatchedLengths:
 # Test: single regime -> one slice
 # ---------------------------------------------------------------------------
 
+
 class TestSingleRegime:
     def test_single_regime_produces_one_slice(self):
         regimes = [_make_regime(trend=TrendState.BULL) for _ in range(12)]
@@ -112,6 +110,7 @@ class TestSingleRegime:
 # ---------------------------------------------------------------------------
 # Test: two regimes -> two slices
 # ---------------------------------------------------------------------------
+
 
 class TestTwoRegimes:
     def test_two_regimes_produce_two_slices(self):
@@ -136,6 +135,7 @@ class TestTwoRegimes:
 # ---------------------------------------------------------------------------
 # Test: slice has sharpe + drawdown + n_months
 # ---------------------------------------------------------------------------
+
 
 class TestSliceContents:
     def test_slice_has_sharpe_drawdown_n_months(self):
@@ -206,6 +206,7 @@ class TestSliceContents:
 # Test: bull regime has higher Sharpe than bear
 # ---------------------------------------------------------------------------
 
+
 class TestBullBearSharpeComparison:
     def test_bull_sharpe_higher_than_bear(self):
         bull = _make_regime(trend=TrendState.BULL)
@@ -234,6 +235,7 @@ class TestBullBearSharpeComparison:
 # ---------------------------------------------------------------------------
 # Test: win rate computed correctly
 # ---------------------------------------------------------------------------
+
 
 class TestWinRate:
     def test_win_rate_all_positive_excess(self):
@@ -296,6 +298,7 @@ class TestWinRate:
 # Test: private helper functions
 # ---------------------------------------------------------------------------
 
+
 class TestComputeSharpe:
     def test_less_than_two_months_returns_zero(self):
         assert _compute_sharpe(np.array([0.05])) == 0.0
@@ -331,6 +334,7 @@ class TestComputeMaxDrawdown:
 # ---------------------------------------------------------------------------
 # Test: mean_excess_return
 # ---------------------------------------------------------------------------
+
 
 class TestMeanExcessReturn:
     def test_mean_excess_return_computed(self):

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from margin_engine.healing.detection import _get_threshold, _is_monotonic, detect_tier2
 from margin_engine.healing.models import (
     DetectionSeverity,

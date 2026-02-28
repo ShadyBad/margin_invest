@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from margin_engine.ablation.detection import (
     compute_failure_correlation,
     detect_degradation,
     detect_negative_marginal,
     detect_pairwise_destruction,
     detect_universe_collapse,
-    detect_volatility_injection,
 )
 
 
@@ -84,13 +82,11 @@ class TestDetectPairwiseDestruction:
         single_sharpes = {"A": 0.8, "B": 0.7, "C": 0.6}
         pair_sharpes = {
             ("A", "B"): 0.75,  # interaction = 0.75 - 0.8 = -0.05 → flagged
-            ("A", "C"): 0.9,   # interaction = 0.9 - 0.8 = +0.10 → OK
+            ("A", "C"): 0.9,  # interaction = 0.9 - 0.8 = +0.10 → OK
             ("B", "C"): 0.60,  # interaction = 0.60 - 0.7 = -0.10 → flagged
         }
 
-        results = detect_pairwise_destruction(
-            single_sharpes, pair_sharpes, threshold=-0.03
-        )
+        results = detect_pairwise_destruction(single_sharpes, pair_sharpes, threshold=-0.03)
 
         assert len(results) == 2
 
@@ -180,7 +176,7 @@ class TestFailureCorrelation:
     def test_failure_correlation_constant_column(self) -> None:
         """A constant vector (std=0) should produce 0.0 correlation."""
         vec_a = np.ones(100, dtype=int)  # constant — all fail
-        vec_b = np.array([1, 0] * 50)   # non-constant
+        vec_b = np.array([1, 0] * 50)  # non-constant
 
         corr = compute_failure_correlation({"const": vec_a, "vary": vec_b})
 

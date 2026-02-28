@@ -20,7 +20,9 @@ class ShapleyResult(BaseModel):
     """Result of exact Shapley value computation."""
 
     values: dict[str, float]  # per-filter Shapley values
-    coalition_values: dict[str, float]  # frozenset key as comma-joined string, "(empty)" for empty set
+    coalition_values: dict[
+        str, float
+    ]  # frozenset key as comma-joined string, "(empty)" for empty set
     n_coalitions: int
 
 
@@ -56,7 +58,6 @@ def compute_shapley_values(
     and the total number of coalitions evaluated.
     """
     n = len(filters)
-    filter_set = set(filters)
 
     # Pre-compute all 2^N coalition values
     coalition_values: dict[frozenset[str], float] = {}

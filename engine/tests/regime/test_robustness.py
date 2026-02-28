@@ -3,18 +3,14 @@
 from __future__ import annotations
 
 import pytest
-
 from margin_engine.regime.robustness import (
     BoundarySensitivityResult,
     CrisisLeaveOneOutResult,
     RegimeCompletenessResult,
     check_boundary_sensitivity,
-    crisis_leave_one_out,
     check_regime_completeness,
-    _MAX_ACCEPTABLE_RANK_CHANGE,
-    _PDR_CHANGE_THRESHOLD,
+    crisis_leave_one_out,
 )
-
 
 # ---------------------------------------------------------------------------
 # Boundary sensitivity tests

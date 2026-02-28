@@ -40,23 +40,17 @@ def _block_indices(n: int, block_size: int, rng: Generator) -> np.ndarray:
     """
     n_blocks = int(np.ceil(n / block_size))
     starts = rng.integers(0, n, size=n_blocks)
-    indices = np.concatenate(
-        [(start + np.arange(block_size)) % n for start in starts]
-    )
+    indices = np.concatenate([(start + np.arange(block_size)) % n for start in starts])
     return indices[:n]
 
 
-def _draw_block_sample(
-    data: np.ndarray, block_size: int, rng: Generator
-) -> np.ndarray:
+def _draw_block_sample(data: np.ndarray, block_size: int, rng: Generator) -> np.ndarray:
     """Draw a single block-bootstrap resample from *data*."""
     idx = _block_indices(len(data), block_size, rng)
     return data[idx]
 
 
-def _compute_statistic(
-    sample: np.ndarray, statistic: Literal["mean", "median", "std"]
-) -> float:
+def _compute_statistic(sample: np.ndarray, statistic: Literal["mean", "median", "std"]) -> float:
     """Compute a scalar summary statistic on *sample*."""
     if statistic == "mean":
         return float(np.mean(sample))
@@ -68,9 +62,7 @@ def _compute_statistic(
     raise ValueError(msg)
 
 
-def _annualized_sharpe(
-    monthly_returns: np.ndarray, risk_free_annual: float
-) -> float:
+def _annualized_sharpe(monthly_returns: np.ndarray, risk_free_annual: float) -> float:
     """Annualized Sharpe ratio from monthly excess returns.
 
     Sharpe = mean(excess) / std(excess, ddof=1) * sqrt(12)

@@ -110,8 +110,8 @@ class TestPublishScoresImpl:
         now = datetime.now(UTC)
         asset1 = await _create_asset(db_session, "AAPL")
         asset2 = await _create_asset(db_session, "MSFT")
-        s1 = await _create_v4_score(db_session, asset1, scored_at=now, published=False)
-        s2 = await _create_v4_score(db_session, asset2, scored_at=now, published=False)
+        await _create_v4_score(db_session, asset1, scored_at=now, published=False)
+        await _create_v4_score(db_session, asset2, scored_at=now, published=False)
         await db_session.commit()
 
         approval = await _create_approval(db_session, scored_at=now, ticker_count=2)
@@ -223,8 +223,8 @@ class TestPublishScoresImpl:
 
         # Yesterday's score should still be unpublished
         yesterday_scores = (
-            await db_session.execute(
-                select(V4Score).where(V4Score.scored_at == yesterday)
-            )
-        ).scalars().all()
+            (await db_session.execute(select(V4Score).where(V4Score.scored_at == yesterday)))
+            .scalars()
+            .all()
+        )
         assert all(s.published is False for s in yesterday_scores)

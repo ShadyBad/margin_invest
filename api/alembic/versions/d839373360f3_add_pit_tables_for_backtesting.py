@@ -5,18 +5,19 @@ Revises: e59128ff07fd
 Create Date: 2026-02-27 17:50:03.684283
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'd839373360f3'
-down_revision: Union[str, Sequence[str], None] = 'e59128ff07fd'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "d839373360f3"
+down_revision: str | Sequence[str] | None = "e59128ff07fd"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 # Portable JSON type: JSONB on PostgreSQL, plain JSON elsewhere
 JSONVariant = sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")
@@ -102,9 +103,7 @@ def upgrade() -> None:
             sa.Column("delist_detected_at", sa.Date(), nullable=True),
             sa.Column("last_known_price", sa.Float(), nullable=True),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "ticker", "quarter_date", name="uq_pit_universe_ticker_quarter"
-            ),
+            sa.UniqueConstraint("ticker", "quarter_date", name="uq_pit_universe_ticker_quarter"),
         )
         op.create_index(
             op.f("ix_pit_universe_memberships_ticker"),
@@ -134,23 +133,15 @@ def downgrade() -> None:
     op.drop_column("backtest_runs", "pit_data_version")
 
     op.drop_index("ix_pit_universe_quarter_date", table_name="pit_universe_memberships")
-    op.drop_index(
-        op.f("ix_pit_universe_memberships_ticker"), table_name="pit_universe_memberships"
-    )
+    op.drop_index(op.f("ix_pit_universe_memberships_ticker"), table_name="pit_universe_memberships")
     op.drop_table("pit_universe_memberships")
 
     op.drop_table("pit_daily_prices")
 
-    op.drop_index(
-        "ix_pit_financial_ticker_filing_date", table_name="pit_financial_snapshots"
-    )
-    op.drop_index(
-        op.f("ix_pit_financial_snapshots_ticker"), table_name="pit_financial_snapshots"
-    )
+    op.drop_index("ix_pit_financial_ticker_filing_date", table_name="pit_financial_snapshots")
+    op.drop_index(op.f("ix_pit_financial_snapshots_ticker"), table_name="pit_financial_snapshots")
     op.drop_index(
         op.f("ix_pit_financial_snapshots_filing_date"), table_name="pit_financial_snapshots"
     )
-    op.drop_index(
-        op.f("ix_pit_financial_snapshots_cik"), table_name="pit_financial_snapshots"
-    )
+    op.drop_index(op.f("ix_pit_financial_snapshots_cik"), table_name="pit_financial_snapshots")
     op.drop_table("pit_financial_snapshots")

@@ -123,14 +123,10 @@ class TestStudyReportHasRecommendations:
         """Every filter name appears in the recommendations dict."""
         report = _get_report()
         for name in ALL_FILTER_NAMES:
-            assert name in report.recommendations, (
-                f"Filter '{name}' missing from recommendations"
-            )
+            assert name in report.recommendations, f"Filter '{name}' missing from recommendations"
 
     def test_all_actions_are_valid(self) -> None:
         """Every recommendation action is one of the valid action strings."""
         report = _get_report()
         for name, action in report.recommendations.items():
-            assert action in self.VALID_ACTIONS, (
-                f"Filter '{name}' has invalid action '{action}'"
-            )
+            assert action in self.VALID_ACTIONS, f"Filter '{name}' has invalid action '{action}'"

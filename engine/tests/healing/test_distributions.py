@@ -10,8 +10,6 @@ Covers:
 
 from __future__ import annotations
 
-import statistics
-
 import pytest
 from margin_engine.healing.distributions import (
     _compute_mad,
@@ -124,9 +122,7 @@ class TestComputeSectorDistributions:
 
     def test_empty_input_returns_empty_list(self):
         """Empty ticker_field_values should return an empty list."""
-        result = compute_sector_distributions(
-            {}, sector="Information Technology", period="2026-Q1"
-        )
+        result = compute_sector_distributions({}, sector="Information Technology", period="2026-Q1")
         assert result == []
 
     def test_values_used_as_is_raw_data_contract(self):
@@ -160,9 +156,7 @@ class TestComputeSectorDistributions:
         ticker_field_values = {
             "AAPL": {"zebra": 1.0, "alpha": 2.0, "middle": 3.0},
         }
-        result = compute_sector_distributions(
-            ticker_field_values, sector="Test", period="2026-Q1"
-        )
+        result = compute_sector_distributions(ticker_field_values, sector="Test", period="2026-Q1")
 
         field_paths = [d.field_path for d in result]
         assert field_paths == ["alpha", "middle", "zebra"]
@@ -174,9 +168,7 @@ class TestComputeSectorDistributions:
             "MSFT": {"roe": 0.35},  # No ev_fcf
             "GOOG": {"ev_fcf": 22.0},  # No roe
         }
-        result = compute_sector_distributions(
-            ticker_field_values, sector="Tech", period="2026-Q1"
-        )
+        result = compute_sector_distributions(ticker_field_values, sector="Tech", period="2026-Q1")
 
         assert len(result) == 2
         ev_fcf_dist = next(d for d in result if d.field_path == "ev_fcf")

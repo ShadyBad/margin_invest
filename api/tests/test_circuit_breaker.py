@@ -14,7 +14,6 @@ import pytest_asyncio
 from margin_api.db.base import Base
 from margin_api.db.models import Asset, V4Score
 from margin_api.services.circuit_breaker import (
-    CircuitBreakerResult,
     check_ingestion_failure_rate,
     check_ml_regression,
     check_score_drift,
@@ -166,27 +165,21 @@ class TestCheckIngestionFailureRate:
 
     def test_triggers_above_threshold(self):
         """Ingestion failure rate triggers at >20%."""
-        result = check_ingestion_failure_rate(
-            failed_count=25, total_count=100, threshold_pct=0.20
-        )
+        result = check_ingestion_failure_rate(failed_count=25, total_count=100, threshold_pct=0.20)
 
         assert result.triggered is True
         assert result.drift_pct == pytest.approx(0.25)
 
     def test_does_not_trigger_below_threshold(self):
         """Ingestion failure rate does not trigger below threshold."""
-        result = check_ingestion_failure_rate(
-            failed_count=15, total_count=100, threshold_pct=0.20
-        )
+        result = check_ingestion_failure_rate(failed_count=15, total_count=100, threshold_pct=0.20)
 
         assert result.triggered is False
         assert result.drift_pct == pytest.approx(0.15)
 
     def test_zero_total_returns_not_triggered(self):
         """Zero total count returns triggered=False (avoid divide by zero)."""
-        result = check_ingestion_failure_rate(
-            failed_count=0, total_count=0, threshold_pct=0.20
-        )
+        result = check_ingestion_failure_rate(failed_count=0, total_count=0, threshold_pct=0.20)
 
         assert result.triggered is False
         assert result.drift_pct == 0.0
@@ -203,9 +196,7 @@ class TestCheckMlRegression:
     def test_triggers_when_above_threshold(self):
         """ML regression triggers when >50% regression."""
         # Active IC = 0.40, new IC = 0.15 -> regression = (0.40 - 0.15) / 0.40 = 0.625
-        result = check_ml_regression(
-            new_rank_ic=0.15, active_rank_ic=0.40, threshold_pct=0.50
-        )
+        result = check_ml_regression(new_rank_ic=0.15, active_rank_ic=0.40, threshold_pct=0.50)
 
         assert result.triggered is True
         assert result.drift_pct == pytest.approx(0.625)
@@ -213,36 +204,28 @@ class TestCheckMlRegression:
     def test_does_not_trigger_below_threshold(self):
         """ML regression does not trigger when regression is below threshold."""
         # Active IC = 0.40, new IC = 0.30 -> regression = (0.40 - 0.30) / 0.40 = 0.25
-        result = check_ml_regression(
-            new_rank_ic=0.30, active_rank_ic=0.40, threshold_pct=0.50
-        )
+        result = check_ml_regression(new_rank_ic=0.30, active_rank_ic=0.40, threshold_pct=0.50)
 
         assert result.triggered is False
         assert result.drift_pct == pytest.approx(0.25)
 
     def test_handles_none_new_rank_ic(self):
         """ML regression handles None new_rank_ic gracefully."""
-        result = check_ml_regression(
-            new_rank_ic=None, active_rank_ic=0.40, threshold_pct=0.50
-        )
+        result = check_ml_regression(new_rank_ic=None, active_rank_ic=0.40, threshold_pct=0.50)
 
         assert result.triggered is False
         assert result.drift_pct == 0.0
 
     def test_handles_none_active_rank_ic(self):
         """ML regression handles None active_rank_ic gracefully."""
-        result = check_ml_regression(
-            new_rank_ic=0.30, active_rank_ic=None, threshold_pct=0.50
-        )
+        result = check_ml_regression(new_rank_ic=0.30, active_rank_ic=None, threshold_pct=0.50)
 
         assert result.triggered is False
         assert result.drift_pct == 0.0
 
     def test_handles_zero_active_rank_ic(self):
         """ML regression handles zero active_rank_ic gracefully."""
-        result = check_ml_regression(
-            new_rank_ic=0.30, active_rank_ic=0.0, threshold_pct=0.50
-        )
+        result = check_ml_regression(new_rank_ic=0.30, active_rank_ic=0.0, threshold_pct=0.50)
 
         assert result.triggered is False
         assert result.drift_pct == 0.0
@@ -250,9 +233,7 @@ class TestCheckMlRegression:
     def test_improvement_does_not_trigger(self):
         """ML regression does not trigger when new model is better."""
         # Active IC = 0.20, new IC = 0.40 -> regression = (0.20 - 0.40) / 0.20 = -1.0
-        result = check_ml_regression(
-            new_rank_ic=0.40, active_rank_ic=0.20, threshold_pct=0.50
-        )
+        result = check_ml_regression(new_rank_ic=0.40, active_rank_ic=0.20, threshold_pct=0.50)
 
         assert result.triggered is False
         assert result.drift_pct == pytest.approx(-1.0)

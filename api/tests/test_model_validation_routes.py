@@ -12,7 +12,6 @@ from margin_api.config import get_settings
 from margin_api.db.models import MlModelRun, SeedValidationReport
 from margin_api.db.session import get_db
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

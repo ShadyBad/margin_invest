@@ -132,9 +132,7 @@ class AblationRunner:
             results.append(self.run_combination(combo))
         return results
 
-    def run_incremental_stack(
-        self, order: list[str] | None = None
-    ) -> list[AblationResult]:
+    def run_incremental_stack(self, order: list[str] | None = None) -> list[AblationResult]:
         """Run cumulative filter additions in the given order.
 
         Returns N+1 results (7 for the default 6 filters):
@@ -200,9 +198,7 @@ class AblationRunner:
         monthly_returns = [snap.portfolio_return for snap in result.snapshots]
 
         # Extract regime tags from audit records
-        regime_tags = [
-            rec.regime_state for rec in result.audit_log if rec.regime_state is not None
-        ]
+        regime_tags = [rec.regime_state for rec in result.audit_log if rec.regime_state is not None]
 
         return AblationResult(
             combination=combination,

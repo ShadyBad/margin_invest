@@ -8,7 +8,6 @@ from decimal import Decimal
 from sqlalchemy import (
     JSON,
     BigInteger,
-    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -998,9 +997,7 @@ class UserProposal(Base):
     )
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    __table_args__ = (
-        Index("ix_user_proposals_user_status", "user_id", "status"),
-    )
+    __table_args__ = (Index("ix_user_proposals_user_status", "user_id", "status"),)
 
 
 # ---------------------------------------------------------------------------
@@ -1080,9 +1077,7 @@ class PITFinancialSnapshot(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
-    __table_args__ = (
-        Index("ix_pit_financial_ticker_filing_date", "ticker", "filing_date"),
-    )
+    __table_args__ = (Index("ix_pit_financial_ticker_filing_date", "ticker", "filing_date"),)
 
 
 class PITDailyPrice(Base):

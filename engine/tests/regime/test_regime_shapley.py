@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import math
 
-import pytest
-
 from margin_engine.regime.shapley import (
     RegimeShapleyResult,
     _sharpe_from_returns,
     compute_regime_conditioned_shapley,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper: build a coalition_returns_fn from a dict of precomputed data
@@ -48,7 +45,9 @@ class TestSharpeFromReturns:
         returns = [0.05, 0.06, 0.07, 0.08, 0.09]
         rf_monthly = 0.04 / 12
         mean_excess = sum(r - rf_monthly for r in returns) / len(returns)
-        std = (sum((r - sum(returns) / len(returns)) ** 2 for r in returns) / (len(returns) - 1)) ** 0.5
+        std = (
+            sum((r - sum(returns) / len(returns)) ** 2 for r in returns) / (len(returns) - 1)
+        ) ** 0.5
         expected = (mean_excess / std) * math.sqrt(12)
         result = _sharpe_from_returns(returns, risk_free_monthly=rf_monthly)
         assert abs(result - expected) < 1e-10

@@ -34,16 +34,12 @@ def upgrade() -> None:
             sa.Column("pipeline_id", sa.String(length=40), nullable=True),
             sa.Column(
                 "payload_ref",
-                sa.JSON().with_variant(
-                    postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-                ),
+                sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
                 nullable=True,
             ),
             sa.Column(
                 "impact_summary",
-                sa.JSON().with_variant(
-                    postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-                ),
+                sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
                 nullable=True,
             ),
             sa.Column("submitted_at", sa.DateTime(timezone=True), nullable=False),
@@ -53,12 +49,8 @@ def upgrade() -> None:
             sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
             sa.PrimaryKeyConstraint("id"),
         )
-        op.create_index(
-            "ix_pipeline_approvals_status", "pipeline_approvals", ["status"]
-        )
-        op.create_index(
-            "ix_pipeline_approvals_gate_type", "pipeline_approvals", ["gate_type"]
-        )
+        op.create_index("ix_pipeline_approvals_status", "pipeline_approvals", ["status"])
+        op.create_index("ix_pipeline_approvals_gate_type", "pipeline_approvals", ["gate_type"])
         op.create_index(
             op.f("ix_pipeline_approvals_pipeline_id"),
             "pipeline_approvals",
@@ -74,9 +66,7 @@ def upgrade() -> None:
             sa.Column("source", sa.String(length=50), nullable=False),
             sa.Column(
                 "detail",
-                sa.JSON().with_variant(
-                    postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-                ),
+                sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
                 nullable=True,
             ),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -101,9 +91,7 @@ def upgrade() -> None:
             sa.Column("config_key", sa.String(length=100), nullable=False),
             sa.Column(
                 "config_value",
-                sa.JSON().with_variant(
-                    postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-                ),
+                sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
                 nullable=True,
             ),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -122,18 +110,14 @@ def upgrade() -> None:
             sa.Column("status", sa.String(length=20), nullable=False),
             sa.Column(
                 "payload",
-                sa.JSON().with_variant(
-                    postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-                ),
+                sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
                 nullable=True,
             ),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
             sa.Column("decided_at", sa.DateTime(timezone=True), nullable=True),
             sa.PrimaryKeyConstraint("id"),
         )
-        op.create_index(
-            op.f("ix_user_proposals_user_id"), "user_proposals", ["user_id"]
-        )
+        op.create_index(op.f("ix_user_proposals_user_id"), "user_proposals", ["user_id"])
         op.create_index(
             "ix_user_proposals_user_status",
             "user_proposals",
@@ -151,18 +135,14 @@ def upgrade() -> None:
             sa.Column("num_positions", sa.Integer(), nullable=False),
             sa.Column(
                 "positions_json",
-                sa.JSON().with_variant(
-                    postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-                ),
+                sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
                 nullable=True,
             ),
             sa.Column("recorded_at", sa.DateTime(timezone=True), nullable=False),
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint("as_of_date", name="uq_shadow_snapshot_date"),
         )
-        op.create_index(
-            "ix_shadow_snapshot_date", "shadow_portfolio_snapshots", ["as_of_date"]
-        )
+        op.create_index("ix_shadow_snapshot_date", "shadow_portfolio_snapshots", ["as_of_date"])
 
     # -- v4_scores.published --------------------------------------------------
     if inspector.has_table("v4_scores"):
@@ -217,12 +197,8 @@ def downgrade() -> None:
 
     # -- user_proposals -------------------------------------------------------
     if inspector.has_table("user_proposals"):
-        op.drop_index(
-            "ix_user_proposals_user_status", table_name="user_proposals"
-        )
-        op.drop_index(
-            op.f("ix_user_proposals_user_id"), table_name="user_proposals"
-        )
+        op.drop_index("ix_user_proposals_user_status", table_name="user_proposals")
+        op.drop_index(op.f("ix_user_proposals_user_id"), table_name="user_proposals")
         op.drop_table("user_proposals")
 
     # -- governance_configs ---------------------------------------------------
@@ -243,12 +219,8 @@ def downgrade() -> None:
 
     # -- pipeline_approvals ---------------------------------------------------
     if inspector.has_table("pipeline_approvals"):
-        op.drop_index(
-            "ix_pipeline_approvals_status", table_name="pipeline_approvals"
-        )
-        op.drop_index(
-            "ix_pipeline_approvals_gate_type", table_name="pipeline_approvals"
-        )
+        op.drop_index("ix_pipeline_approvals_status", table_name="pipeline_approvals")
+        op.drop_index("ix_pipeline_approvals_gate_type", table_name="pipeline_approvals")
         op.drop_index(
             op.f("ix_pipeline_approvals_pipeline_id"),
             table_name="pipeline_approvals",

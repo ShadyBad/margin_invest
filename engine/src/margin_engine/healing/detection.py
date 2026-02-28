@@ -183,9 +183,7 @@ def detect_tier2(
     5. If trailing_values provided with 3+ monotonic values, widen threshold.
     6. If deviation > threshold, flag as OUTLIER.
     """
-    dist_by_field: dict[str, SectorDistribution] = {
-        d.field_path: d for d in sector_distributions
-    }
+    dist_by_field: dict[str, SectorDistribution] = {d.field_path: d for d in sector_distributions}
 
     results: list[DetectionResult] = []
 

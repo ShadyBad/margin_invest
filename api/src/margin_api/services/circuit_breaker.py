@@ -10,9 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from margin_api.db.models import V4Score
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from margin_api.db.models import V4Score
 
 
 @dataclass

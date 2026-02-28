@@ -146,9 +146,7 @@ async def backfill_prices_for_tickers(
                             summary[ticker] = len(rows)
                             all_rows.extend(rows)
                     except KeyError:
-                        logger.warning(
-                            "[price-backfill] No data returned for %s", ticker
-                        )
+                        logger.warning("[price-backfill] No data returned for %s", ticker)
                         continue
 
             # Insert into database
@@ -156,9 +154,7 @@ async def backfill_prices_for_tickers(
                 async with session_factory() as session:
                     # Use PostgreSQL INSERT ... ON CONFLICT DO NOTHING
                     stmt = pg_insert(PITDailyPrice).values(all_rows)
-                    stmt = stmt.on_conflict_do_nothing(
-                        index_elements=["ticker", "date"]
-                    )
+                    stmt = stmt.on_conflict_do_nothing(index_elements=["ticker", "date"])
                     await session.execute(stmt)
                     await session.commit()
 

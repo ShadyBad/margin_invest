@@ -147,12 +147,14 @@ class TestCleanDataPassthrough:
         assert result.breadth_suspended is False
 
     def test_clean_data_with_custom_config(self) -> None:
-        config = HealingConfig(tier2_mad_thresholds={
-            "margins": 10.0,
-            "growth_rates": 12.0,
-            "leverage_ratios": 11.0,
-            "price_returns": 15.0,
-        })
+        config = HealingConfig(
+            tier2_mad_thresholds={
+                "margins": 10.0,
+                "growth_rates": 12.0,
+                "leverage_ratios": 11.0,
+                "price_returns": 15.0,
+            }
+        )
         pipeline = HealingPipeline(config=config)
         period = _make_period()
         sector_dists = _make_sector_distributions()
@@ -195,9 +197,7 @@ class TestNegativeRevenueDetection:
         )
 
         assert len(result.detections) >= 1
-        revenue_flags = [
-            d for d in result.detections if d.field_path == "income_statement.revenue"
-        ]
+        revenue_flags = [d for d in result.detections if d.field_path == "income_statement.revenue"]
         assert len(revenue_flags) == 1
         assert revenue_flags[0].severity == DetectionSeverity.IMPOSSIBLE
 
@@ -250,8 +250,7 @@ class TestZeroSharesExcluded:
 
         assert result.excluded is True
         shares_flags = [
-            d for d in result.detections
-            if d.field_path == "income_statement.shares_outstanding"
+            d for d in result.detections if d.field_path == "income_statement.shares_outstanding"
         ]
         assert len(shares_flags) == 1
         assert shares_flags[0].severity == DetectionSeverity.IMPOSSIBLE
@@ -275,8 +274,7 @@ class TestZeroSharesExcluded:
         # With a correction available, should not be excluded
         assert result.excluded is False
         shares_corrections = [
-            c for c in result.corrections
-            if c.field_path == "income_statement.shares_outstanding"
+            c for c in result.corrections if c.field_path == "income_statement.shares_outstanding"
         ]
         assert len(shares_corrections) == 1
 
@@ -407,9 +405,7 @@ class TestCorrectionAppliedToPeriod:
         assert period.current_income.revenue == Decimal("-500")
         # Result period should have correction applied
         if result.corrections:
-            rev_corr = [
-                c for c in result.corrections if c.field_path == "income_statement.revenue"
-            ]
+            rev_corr = [c for c in result.corrections if c.field_path == "income_statement.revenue"]
             if rev_corr:
                 # The result period should have the corrected value
                 assert result.period.current_income.revenue != Decimal("-500")

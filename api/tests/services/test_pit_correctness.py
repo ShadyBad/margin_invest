@@ -10,12 +10,10 @@ from datetime import UTC, date, datetime
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.db.base import Base
 from margin_api.db.models import PITDailyPrice, PITFinancialSnapshot, PITUniverseMembership
 from margin_api.services.pit_provider import DatabasePITProvider
-
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -548,9 +546,7 @@ class TestAntiRegressionSentinels:
 
         for as_of in sentinel_dates:
             snap = await provider.get_snapshot("AAPL", as_of)
-            assert snap is None, (
-                f"Poison filing (2099-01-01) leaked into snapshot at as_of={as_of}"
-            )
+            assert snap is None, f"Poison filing (2099-01-01) leaked into snapshot at as_of={as_of}"
 
     @pytest.mark.asyncio
     async def test_survivorship_sentinel(self, session: AsyncSession):

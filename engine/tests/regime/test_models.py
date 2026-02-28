@@ -4,8 +4,6 @@ from datetime import date
 from enum import StrEnum
 
 import pytest
-from pydantic import ValidationError
-
 from margin_engine.regime.models import (
     EXTREME_CONFIDENCE_THRESHOLD,
     CreditState,
@@ -15,7 +13,7 @@ from margin_engine.regime.models import (
     ValuationState,
     VolatilityState,
 )
-
+from pydantic import ValidationError
 
 # ---------------------------------------------------------------------------
 # Enum tests
@@ -210,9 +208,7 @@ class TestRegimeState:
             trend=TrendState.DRAWDOWN,
             valuation=ValuationState.CHEAP,
             credit=CreditState.STRESS,
-            confidence=RegimeConfidence(
-                volatility=0.99, trend=0.95, valuation=0.80, credit=0.92
-            ),
+            confidence=RegimeConfidence(volatility=0.99, trend=0.95, valuation=0.80, credit=0.92),
         )
         assert state.regime_key == "crisis|drawdown|cheap|stress"
 
@@ -228,9 +224,7 @@ class TestRegimeState:
             trend=TrendState.BEAR,
             valuation=ValuationState.CHEAP,
             credit=CreditState.TIGHT,
-            confidence=RegimeConfidence(
-                volatility=0.99, trend=0.50, valuation=0.50, credit=0.50
-            ),
+            confidence=RegimeConfidence(volatility=0.99, trend=0.50, valuation=0.50, credit=0.50),
         )
         assert state.has_extreme_axis is True
 
@@ -242,9 +236,7 @@ class TestRegimeState:
             trend=TrendState.SIDEWAYS,
             valuation=ValuationState.NORMAL,
             credit=CreditState.NORMAL,
-            confidence=RegimeConfidence(
-                volatility=0.98, trend=0.98, valuation=0.98, credit=0.98
-            ),
+            confidence=RegimeConfidence(volatility=0.98, trend=0.98, valuation=0.98, credit=0.98),
         )
         assert state.has_extreme_axis is False
 
@@ -255,9 +247,7 @@ class TestRegimeState:
             trend=TrendState.DRAWDOWN,
             valuation=ValuationState.EUPHORIA,
             credit=CreditState.STRESS,
-            confidence=RegimeConfidence(
-                volatility=0.99, trend=0.99, valuation=0.99, credit=0.99
-            ),
+            confidence=RegimeConfidence(volatility=0.99, trend=0.99, valuation=0.99, credit=0.99),
         )
         assert state.has_extreme_axis is True
 

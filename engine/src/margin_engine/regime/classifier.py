@@ -52,9 +52,7 @@ def compute_confidence(value: float, lower_bound: float, upper_bound: float) -> 
     return float(min(min_dist / half_width, 1.0))
 
 
-def _tail_confidence(
-    value: float, boundary: float, scale: float, *, side: str
-) -> float:
+def _tail_confidence(value: float, boundary: float, scale: float, *, side: str) -> float:
     """Confidence for open-ended tail buckets (only one meaningful boundary).
 
     *side* is ``"above"`` if the bucket extends above the boundary or
@@ -75,9 +73,7 @@ def _tail_confidence(
 # ---------------------------------------------------------------------------
 
 
-def classify_volatility(
-    current: float, history: np.ndarray
-) -> tuple[VolatilityState, float]:
+def classify_volatility(current: float, history: np.ndarray) -> tuple[VolatilityState, float]:
     """Classify volatility using expanding-window percentile thresholds.
 
     Thresholds:
@@ -181,9 +177,7 @@ def classify_valuation(shiller_cape: float) -> tuple[ValuationState, float]:
     return state, conf
 
 
-def classify_credit(
-    current_spread_bps: float, history: np.ndarray
-) -> tuple[CreditState, float]:
+def classify_credit(current_spread_bps: float, history: np.ndarray) -> tuple[CreditState, float]:
     """Classify credit conditions using expanding-window percentile thresholds.
 
     Thresholds:
@@ -272,17 +266,11 @@ class MultiDimensionalRegimeClassifier:
         min_len = self.config.min_history_months
 
         if len(vol_history) < min_len:
-            msg = (
-                f"vol_history has {len(vol_history)} observations, "
-                f"need at least {min_len}"
-            )
+            msg = f"vol_history has {len(vol_history)} observations, need at least {min_len}"
             raise ValueError(msg)
 
         if len(credit_history) < min_len:
-            msg = (
-                f"credit_history has {len(credit_history)} observations, "
-                f"need at least {min_len}"
-            )
+            msg = f"credit_history has {len(credit_history)} observations, need at least {min_len}"
             raise ValueError(msg)
 
         vol_state, vol_conf = classify_volatility(realized_vol, vol_history)

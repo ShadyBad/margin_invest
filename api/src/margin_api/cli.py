@@ -1104,7 +1104,8 @@ def _inject_sector_stats(
 async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = None) -> None:
     """Score tickers using the v4 pipeline with Track C, style, momentum, and ML."""
     from margin_engine.ingestion.normalizer import normalize_earnings_list
-    from margin_engine.models.scoring import FactorScore
+    from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod
+    from margin_engine.models.scoring import CompositeScore, FactorScore
     from margin_engine.scoring.normalizer import compute_percentile_ranks
     from margin_engine.scoring.quantitative.sue import sue_score
     from margin_engine.scoring.style_classifier import classify_investment_style
@@ -2070,9 +2071,7 @@ async def run_price_backfill(
         from margin_api.db.models import PITFinancialSnapshot
 
         async with session_factory() as session:
-            result = await session.execute(
-                select(PITFinancialSnapshot.ticker).distinct()
-            )
+            result = await session.execute(select(PITFinancialSnapshot.ticker).distinct())
             tickers = [row[0] for row in result.all()]
 
         if not tickers:

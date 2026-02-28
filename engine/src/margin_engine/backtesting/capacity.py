@@ -72,9 +72,7 @@ def run_capacity_analysis(
             trade_value = pv * turnover / num_holdings
 
             # Market impact in bps
-            impact_bps = compute_market_impact_bps(
-                trade_value, adv, market_impact_coefficient
-            )
+            impact_bps = compute_market_impact_bps(trade_value, adv, market_impact_coefficient)
             total_impact_bps += impact_bps
 
             # Scale base costs proportionally to AUM
@@ -113,12 +111,14 @@ def run_capacity_analysis(
         # Average impact bps
         avg_impact_bps = total_impact_bps / num_months if num_months > 0 else 0.0
 
-        rows.append({
-            "aum": aum,
-            "cagr": cagr,
-            "sharpe": sharpe,
-            "avg_impact_bps": avg_impact_bps,
-        })
+        rows.append(
+            {
+                "aum": aum,
+                "cagr": cagr,
+                "sharpe": sharpe,
+                "avg_impact_bps": avg_impact_bps,
+            }
+        )
 
         # Track breakeven: first AUM where Sharpe drops below threshold
         if breakeven_aum is None and sharpe < _BREAKEVEN_SHARPE:

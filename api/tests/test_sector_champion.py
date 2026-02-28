@@ -259,7 +259,7 @@ class TestSectorChampionEliminated:
         assert data["sector_champion"] is None
 
     async def test_different_sector_not_used_as_champion(self, async_engine):
-        """Champion must be from the same sector, even if a higher-scoring ticker exists elsewhere."""
+        """Champion must be from the same sector, not a higher-scoring ticker elsewhere."""
 
         async def seed(session: AsyncSession):
             tsla = Asset(

@@ -128,6 +128,7 @@ class TestCompareModelGroups:
         diffs = [c - p for c, p in zip(current, previous)]
         mean_diff = sum(diffs) / len(diffs)
         from statistics import stdev
+
         expected_effect = mean_diff / stdev(diffs)
         assert abs(result.effect_size - expected_effect) < 1e-10
 

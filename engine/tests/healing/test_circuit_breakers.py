@@ -12,6 +12,7 @@ from margin_engine.healing.models import HealingConfig
 # Breadth suspension tests
 # ---------------------------------------------------------------------------
 
+
 class TestCheckSectorBreadth:
     """Test check_sector_breadth with default threshold of 0.15 (15%)."""
 
@@ -66,6 +67,7 @@ class TestCheckSectorBreadth:
 # ---------------------------------------------------------------------------
 # Variance compression tests
 # ---------------------------------------------------------------------------
+
 
 class TestCheckVarianceCompression:
     """Test check_variance_compression with default floor of 0.85."""

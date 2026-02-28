@@ -38,7 +38,6 @@ from margin_engine.regime.models import (
 
 from tests.backtesting.helpers import build_pit_provider_with_tickers
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

@@ -65,9 +65,7 @@ async def accept_proposal(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Accept a pending proposal belonging to the authenticated user."""
-    result = await db.execute(
-        select(UserProposal).where(UserProposal.id == proposal_id)
-    )
+    result = await db.execute(select(UserProposal).where(UserProposal.id == proposal_id))
     proposal = result.scalar_one_or_none()
 
     if proposal is None or proposal.user_id != user_id:
@@ -92,9 +90,7 @@ async def dismiss_proposal(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Dismiss a pending proposal belonging to the authenticated user."""
-    result = await db.execute(
-        select(UserProposal).where(UserProposal.id == proposal_id)
-    )
+    result = await db.execute(select(UserProposal).where(UserProposal.id == proposal_id))
     proposal = result.scalar_one_or_none()
 
     if proposal is None or proposal.user_id != user_id:
