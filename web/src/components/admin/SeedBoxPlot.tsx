@@ -55,7 +55,7 @@ export function SeedBoxPlot({ seedDetails, threshold }: SeedBoxPlotProps) {
             domain={[0, "auto"]}
           />
           <Tooltip
-            formatter={(value: number) => [value.toFixed(4), "Rank IC"]}
+            formatter={(value: number | undefined) => [value?.toFixed(4) ?? "—", "Rank IC"]}
             contentStyle={{
               backgroundColor: "var(--color-bg-elevated)",
               border: "1px solid var(--color-border-primary)",
