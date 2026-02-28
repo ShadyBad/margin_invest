@@ -302,7 +302,14 @@ class TestFullScoreV4:
         assert result["pipeline_id"] == "pipe-v4-abc"
 
         # Verify the JobRun was created with parent_job_id and pipeline_id
-        add_call = mock_session.add.call_args[0][0]
+        # Find the JobRun among all session.add() calls (ReproducibilityAudit may also be added)
+        job_runs = [
+            call[0][0]
+            for call in mock_session.add.call_args_list
+            if hasattr(call[0][0], "parent_job_id")
+        ]
+        assert len(job_runs) >= 1
+        add_call = job_runs[0]
         assert add_call.parent_job_id == 99
         assert add_call.pipeline_id == "pipe-v4-abc"
 
