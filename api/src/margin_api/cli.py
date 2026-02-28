@@ -2053,6 +2053,63 @@ async def run_backfill_13f(start_year: int = 2013, max_managers: int = 300) -> N
     await engine.dispose()
 
 
+async def run_price_backfill(
+    start_date: str = "2009-01-01",
+    end_date: str | None = None,
+    batch_size: int = 500,
+    tickers: list[str] | None = None,
+) -> None:
+    """Backfill daily prices via yfinance into pit_daily_prices."""
+    from margin_api.services.edgar.price_backfill import backfill_prices_for_tickers
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    if tickers is None:
+        # Query all unique tickers from pit_financial_snapshots
+        from margin_api.db.models import PITFinancialSnapshot
+
+        async with session_factory() as session:
+            result = await session.execute(
+                select(PITFinancialSnapshot.ticker).distinct()
+            )
+            tickers = [row[0] for row in result.all()]
+
+        if not tickers:
+            logger.warning("[price-backfill] No tickers found in pit_financial_snapshots")
+            await engine.dispose()
+            return
+
+    logger.info(
+        "[price-backfill] Backfilling prices for %d tickers from %s to %s",
+        len(tickers),
+        start_date,
+        end_date or "today",
+    )
+
+    summary = await backfill_prices_for_tickers(
+        tickers=tickers,
+        start_date=start_date,
+        end_date=end_date,
+        batch_size=batch_size,
+        session_factory=session_factory,
+    )
+
+    total_rows = sum(summary.values())
+    logger.info(
+        "[price-backfill] Done. %d tickers, %d total rows",
+        len(summary),
+        total_rows,
+    )
+
+    # Print summary
+    print(f"\nPrice backfill complete: {len(summary)} tickers, {total_rows} total rows")
+    for ticker, count in sorted(summary.items()):
+        print(f"  {ticker}: {count} rows")
+
+    await engine.dispose()
+
+
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
@@ -2386,6 +2443,34 @@ def main() -> None:
         help="Maximum number of managers to process (default: 300)",
     )
 
+    # price-backfill
+    price_backfill_parser = subparsers.add_parser(
+        "price-backfill",
+        help="Backfill daily OHLCV prices from yfinance into pit_daily_prices",
+    )
+    price_backfill_parser.add_argument(
+        "--start-date",
+        default="2009-01-01",
+        help="Start date for price history (YYYY-MM-DD, default: 2009-01-01)",
+    )
+    price_backfill_parser.add_argument(
+        "--end-date",
+        default=None,
+        help="End date for price history (YYYY-MM-DD, default: today)",
+    )
+    price_backfill_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=500,
+        help="Number of tickers per yfinance download batch (default: 500)",
+    )
+    price_backfill_parser.add_argument(
+        "--tickers",
+        nargs="+",
+        default=None,
+        help="Specific tickers to backfill (default: all from pit_financial_snapshots)",
+    )
+
     # ablation
     ablation_parser = subparsers.add_parser(
         "ablation",
@@ -2475,6 +2560,15 @@ def main() -> None:
             run_backfill_13f(
                 start_year=args.start_year,
                 max_managers=args.max_managers,
+            )
+        )
+    elif args.command == "price-backfill":
+        asyncio.run(
+            run_price_backfill(
+                start_date=args.start_date,
+                end_date=args.end_date,
+                batch_size=args.batch_size,
+                tickers=args.tickers,
             )
         )
     elif args.command == "ablation":
