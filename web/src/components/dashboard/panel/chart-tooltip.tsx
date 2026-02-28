@@ -1,8 +1,15 @@
 "use client"
 
+interface TooltipData {
+  score: number
+  delta?: number
+  signal?: string
+  conviction?: string
+}
+
 interface ChartTooltipProps {
   active?: boolean
-  payload?: Array<{ payload?: Record<string, unknown> }>
+  payload?: Array<{ payload?: TooltipData }>
   label?: string
 }
 
