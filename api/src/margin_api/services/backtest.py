@@ -1,17 +1,23 @@
 """Backtest service layer.
 
-Provides helpers to build API responses from engine replay results
-and a synthetic default result for use before real PIT data is available.
+Provides helpers to build API responses from engine replay results,
+a synthetic default result for fallback, and async functions for
+querying precomputed backtests and running real orchestrator runs.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import date
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_engine.backtesting.capacity import run_capacity_analysis
 from margin_engine.backtesting.cost_model import validate_cost_assumptions
+from margin_engine.backtesting.factor_registry import FactorRegistry
 from margin_engine.backtesting.failure_audit import FailurePeriod
 from margin_engine.backtesting.metrics import run_sensitivity_analysis
 from margin_engine.backtesting.models import MonthlySnapshot, PerformanceMetrics
@@ -21,6 +27,7 @@ from margin_engine.backtesting.replay_orchestrator import (
     ReplayResult,
 )
 
+from margin_api.db.models import BacktestRun
 from margin_api.schemas.backtest import (
     AuditRecordResponse,
     BacktestTeaserResponse,
@@ -38,6 +45,9 @@ from margin_api.schemas.backtest import (
     ReplayConfigRequest,
     SensitivityResponse,
 )
+from margin_api.services.pit_provider import DatabasePITProvider
+
+logger = logging.getLogger(__name__)
 
 
 def compute_config_hash(config: ReplayConfig) -> str:
@@ -401,3 +411,68 @@ def run_custom_backtest(config: ReplayConfig) -> ReplayResult:
     # Apply the custom config
     result = result.model_copy(update={"config": config})
     return result
+
+
+# ---------------------------------------------------------------------------
+# Async DB-backed functions for real PIT backtesting
+# ---------------------------------------------------------------------------
+
+
+async def get_precomputed_default(session: AsyncSession) -> ReplayResult | None:
+    """Query the most recent completed 'default' backtest from the database.
+
+    Returns the deserialized ReplayResult if found, None otherwise.
+    """
+    stmt = (
+        select(BacktestRun)
+        .where(BacktestRun.name == "default")
+        .where(BacktestRun.status == "complete")
+        .order_by(BacktestRun.created_at.desc())
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    run = result.scalar_one_or_none()
+    if run is None:
+        return None
+
+    summary = run.summary_stats
+    if not summary:
+        return None
+
+    try:
+        return ReplayResult.model_validate(summary)
+    except Exception:
+        logger.warning("Failed to deserialize precomputed backtest run %s", run.id, exc_info=True)
+        return None
+
+
+async def run_real_backtest(session: AsyncSession, config: ReplayConfig) -> ReplayResult:
+    """Run a real backtest using DatabasePITProvider and ReplayOrchestrator.
+
+    Instantiates the provider, registry, and orchestrator, then runs
+    the async replay. Returns an empty result gracefully when no PIT
+    data exists (orchestrator returns result with num_months=0).
+    """
+    from margin_engine.backtesting.replay_orchestrator import ReplayOrchestrator
+
+    provider = DatabasePITProvider(session)
+    registry = FactorRegistry.default()
+    orchestrator = ReplayOrchestrator(
+        config=config,
+        pit_provider=provider,
+        factor_registry=registry,
+    )
+    return await orchestrator.run_async()
+
+
+async def get_best_available_result(session: AsyncSession) -> ReplayResult:
+    """Return the best available backtest result.
+
+    Tries precomputed default from the database first, then falls
+    back to the synthetic default. This is the main entry point
+    for endpoints that need a default backtest result.
+    """
+    precomputed = await get_precomputed_default(session)
+    if precomputed is not None:
+        return precomputed
+    return get_default_replay_result()

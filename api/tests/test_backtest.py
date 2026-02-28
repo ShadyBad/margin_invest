@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
 from margin_api.app import create_app
+from margin_api.db.base import Base
+from margin_api.db.session import get_db
 from margin_api.routes import backtest as backtest_module
 from margin_api.schemas.backtest import EquityCurvePoint, PortfolioTeaserResponse
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
 @pytest.fixture(autouse=True)
@@ -21,8 +25,28 @@ def clean_backtest_store():
 
 @pytest.fixture
 def client():
+    """Client with an in-memory SQLite DB override for endpoints needing a session."""
+
+    async def _setup():
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        return engine, factory
+
+    engine, factory = asyncio.get_event_loop_policy().new_event_loop().run_until_complete(_setup())
+
     app = create_app()
-    return TestClient(app)
+
+    async def override_get_db():
+        async with factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    tc = TestClient(app)
+    yield tc
+    asyncio.get_event_loop_policy().new_event_loop().run_until_complete(engine.dispose())
 
 
 def _run_backtest(client: TestClient, config: dict | None = None) -> dict:

@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Path
 from margin_engine.backtesting.replay_orchestrator import ReplayConfig
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from margin_api.db.models import ShadowPortfolioSnapshot
+from margin_api.db.session import get_db
 from margin_api.deps import require_plan
 from margin_api.schemas.backtest import (
     BacktestConfigRequest,
@@ -21,6 +26,7 @@ from margin_api.schemas.backtest import (
     PortfolioTeaserResponse,
     ReplayConfigRequest,
     ShadowPortfolioResponse,
+    ShadowSnapshotResponse,
     ValidationCheckResponse,
     ValidationResponse,
 )
@@ -28,9 +34,12 @@ from margin_api.services.backtest import (
     build_full_response,
     build_portfolio_teaser,
     build_teaser_from_result,
-    get_default_replay_result,
+    get_best_available_result,
     run_custom_backtest,
+    run_real_backtest,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["backtest"])
 
@@ -202,9 +211,10 @@ async def get_metrics(backtest_id: str) -> MetricsResponse:
 )
 async def get_backtest_teaser(
     ticker: str = Path(pattern=r"^[A-Z0-9.]{1,10}$"),
+    session: AsyncSession = Depends(get_db),
 ) -> BacktestTeaserResponse:
     """Teaser metrics for free users -- 3 numbers + CTA."""
-    result = get_default_replay_result()
+    result = await get_best_available_result(session)
     return build_teaser_from_result(result, ticker=ticker)
 
 
@@ -212,9 +222,11 @@ async def get_backtest_teaser(
     "/backtest/portfolio-teaser",
     response_model=PortfolioTeaserResponse,
 )
-async def get_portfolio_teaser() -> PortfolioTeaserResponse:
+async def get_portfolio_teaser(
+    session: AsyncSession = Depends(get_db),
+) -> PortfolioTeaserResponse:
     """Portfolio-level teaser for the landing page. Public (no auth)."""
-    result = get_default_replay_result()
+    result = await get_best_available_result(session)
     return build_portfolio_teaser(result)
 
 
@@ -224,9 +236,10 @@ async def get_portfolio_teaser() -> PortfolioTeaserResponse:
 )
 async def get_default_backtest(
     user_id: int = Depends(require_plan("portfolio")),
+    session: AsyncSession = Depends(get_db),
 ) -> FullBacktestResponse:
     """Pre-computed default backtest for pro users."""
-    result = get_default_replay_result()
+    result = await get_best_available_result(session)
     return build_full_response(result, failure_periods=[])
 
 
@@ -238,13 +251,14 @@ async def get_default_backtest(
 async def run_replay(
     config: ReplayConfigRequest,
     user_id: int = Depends(require_plan("portfolio")),
+    session: AsyncSession = Depends(get_db),
 ) -> FullBacktestResponse:
     """On-demand custom replay backtest.
 
     Validates constrained knobs (<50 parameter combos) and
-    returns a full backtest result. Currently uses the same
-    synthetic default result; will wire to real ReplayOrchestrator
-    when PIT data providers are available.
+    returns a full backtest result. Attempts a real backtest via
+    DatabasePITProvider + ReplayOrchestrator; falls back to
+    synthetic if no PIT data or on error.
     """
     engine_config = ReplayConfig(
         start_date=config.start_date,
@@ -255,7 +269,11 @@ async def run_replay(
         sector_exclusions=config.sector_exclusions,
         transaction_cost_bps=config.transaction_cost_bps,
     )
-    result = run_custom_backtest(engine_config)
+    try:
+        result = await run_real_backtest(session, engine_config)
+    except Exception:
+        logger.warning("Real backtest failed, falling back to synthetic", exc_info=True)
+        result = run_custom_backtest(engine_config)
     return build_full_response(result, failure_periods=[])
 
 
@@ -270,16 +288,62 @@ async def run_replay(
 )
 async def get_shadow_portfolio(
     user_id: int = Depends(require_plan("institutional")),
+    session: AsyncSession = Depends(get_db),
 ) -> ShadowPortfolioResponse:
-    """Get the live shadow portfolio -- provably forward-looking."""
-    # For now, return an empty/placeholder response since
-    # the daily worker job hasn't run yet. When real data
-    # accumulates, this will query ShadowPortfolioSnapshot rows.
+    """Get the live shadow portfolio -- provably forward-looking.
+
+    Queries ShadowPortfolioSnapshot rows from the database.
+    Returns an empty response if no snapshots exist yet.
+    """
+    stmt = select(ShadowPortfolioSnapshot).order_by(ShadowPortfolioSnapshot.as_of_date.asc())
+    result = await session.execute(stmt)
+    snapshots = result.scalars().all()
+
+    if not snapshots:
+        return ShadowPortfolioResponse(
+            start_date=date(2026, 2, 24),
+            snapshots=[],
+            total_return=0.0,
+            max_drawdown=0.0,
+            num_days=0,
+            cannot_be_backdated=True,
+        )
+
+    # Build response from real snapshots
+    snapshot_responses = [
+        ShadowSnapshotResponse(
+            as_of_date=(
+                date.fromisoformat(s.as_of_date)
+                if isinstance(s.as_of_date, str)
+                else s.as_of_date
+            ),
+            portfolio_value=s.portfolio_value,
+            total_return=s.total_return,
+            num_positions=s.num_positions,
+            positions=s.positions_json,
+        )
+        for s in snapshots
+    ]
+
+    first_date = snapshot_responses[0].as_of_date
+    last_date = snapshot_responses[-1].as_of_date
+
+    # Compute max drawdown from portfolio values
+    peak = 0.0
+    max_dd = 0.0
+    for s in snapshots:
+        if s.portfolio_value > peak:
+            peak = s.portfolio_value
+        if peak > 0:
+            dd = (peak - s.portfolio_value) / peak
+            if dd > max_dd:
+                max_dd = dd
+
     return ShadowPortfolioResponse(
-        start_date=date(2026, 2, 24),
-        snapshots=[],
-        total_return=0.0,
-        max_drawdown=0.0,
-        num_days=0,
+        start_date=first_date,
+        snapshots=snapshot_responses,
+        total_return=snapshots[-1].total_return or 0.0,
+        max_drawdown=max_dd,
+        num_days=(last_date - first_date).days + 1,
         cannot_be_backdated=True,
     )
