@@ -7,7 +7,7 @@ const navLinks = [
   { label: "Security", href: "/security" },
   { label: "Legal", href: "/legal" },
   { label: "Status", href: "/status" },
-  { label: "API", href: "/api" },
+  { label: "API", href: "/api-docs" },
   { label: "Contact", href: "/contact" },
 ]
 

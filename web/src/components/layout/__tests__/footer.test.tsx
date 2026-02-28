@@ -2,20 +2,15 @@ import { describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { Footer } from "../footer"
 
-describe("Footer", () => {
-  it("renders Support link", () => {
+describe("Footer (authenticated)", () => {
+  it("renders all navigation links", () => {
     render(<Footer />)
-    expect(screen.getByText("Support").closest("a")).toHaveAttribute("href", "/support")
-  })
-
-  it("renders Methodology link", () => {
-    render(<Footer />)
-    expect(screen.getByText("Methodology").closest("a")).toHaveAttribute("href", "/methodology")
-  })
-
-  it("renders Legal link", () => {
-    render(<Footer />)
-    expect(screen.getByText("Legal").closest("a")).toHaveAttribute("href", "/legal")
+    expect(screen.getByRole("link", { name: "Support" })).toHaveAttribute("href", "/support")
+    expect(screen.getByRole("link", { name: "Methodology" })).toHaveAttribute("href", "/methodology")
+    expect(screen.getByRole("link", { name: "Legal" })).toHaveAttribute("href", "/legal")
+    expect(screen.getByRole("link", { name: "Security" })).toHaveAttribute("href", "/security")
+    expect(screen.getByRole("link", { name: "API" })).toHaveAttribute("href", "/api-docs")
+    expect(screen.getByRole("link", { name: "Contact" })).toHaveAttribute("href", "/contact")
   })
 
   it("renders copyright text", () => {
