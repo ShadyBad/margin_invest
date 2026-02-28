@@ -66,12 +66,23 @@ describe("ProofHistoricalChart", () => {
     expect(screen.getByText(/Excess Return/i)).toBeInTheDocument()
   })
 
-  it("renders disclaimer", async () => {
+  it("renders hypothetical performance disclaimer", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => MOCK_TEASER,
     })
     render(<ProofHistoricalChart />)
-    expect(await screen.findByText(/past performance is not indicative/i)).toBeInTheDocument()
+    expect(await screen.findByTestId("hypothetical-disclaimer")).toBeInTheDocument()
+    expect(screen.getByText(/HYPOTHETICAL PERFORMANCE RESULTS/)).toBeInTheDocument()
+  })
+
+  it("renders hypothetical badge above chart", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => MOCK_TEASER,
+    })
+    render(<ProofHistoricalChart />)
+    expect(await screen.findByTestId("hypothetical-badge")).toBeInTheDocument()
+    expect(screen.getByText(/Simulated Performance/)).toBeInTheDocument()
   })
 })

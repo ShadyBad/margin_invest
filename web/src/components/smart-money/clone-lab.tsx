@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { getManagers, getClonePortfolio } from "@/lib/api/thirteenf"
 import type { ManagerResponse, CloneResponse } from "@/lib/api/thirteenf"
+import { HYPOTHETICAL_DISCLAIMER } from "@/lib/disclaimers"
 
 const STRATEGIES = [
   { id: "equal_weight_top_10", label: "Equal-weight top 10" },
@@ -215,6 +216,9 @@ export function CloneLab() {
 
           {/* Historical performance */}
           <section>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-warning/80 mb-1" data-testid="clone-hypothetical-badge">
+              Hypothetical Performance — Not Actual Trading Results
+            </div>
             <h3 className="text-sm font-semibold text-text-primary mb-3 uppercase tracking-wider">
               Historical Performance
             </h3>
@@ -284,9 +288,15 @@ export function CloneLab() {
 
       {/* Disclaimer footer — always visible */}
       <div data-testid="clone-disclaimer" className="terminal-card p-3">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-warning/80 mb-1 text-center">
+          Hypothetical Performance Disclosure
+        </p>
         <p className="text-xs text-text-tertiary text-center">
           Clone portfolios are based on 13F filings which have a 45-day reporting lag.
           Past performance is not indicative of future results. This is not investment advice.
+        </p>
+        <p className="text-[9px] text-text-tertiary mt-2 text-center leading-relaxed">
+          {HYPOTHETICAL_DISCLAIMER}
         </p>
       </div>
     </div>

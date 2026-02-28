@@ -82,6 +82,9 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
           <p className="text-sm font-mono text-text-primary">
             Every signal recorded · Sector-neutral · Live tracking from day one
           </p>
+          <p className="text-[10px] text-warning/80 font-mono uppercase tracking-wider max-w-md mx-auto">
+            All performance data shown below is hypothetical and simulated
+          </p>
           <p className="text-[10px] text-text-tertiary max-w-md mx-auto">
             Past performance does not guarantee future results. Walk-forward backtesting with
             point-in-time data and transaction costs is in development. Full methodology on
