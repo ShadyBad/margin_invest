@@ -126,6 +126,10 @@ class PerformanceMetrics(BaseModel):
     benchmark_total_return: float
     num_months: int
     avg_turnover: float
+    gross_cagr: float = 0.0
+    gross_sharpe: float = 0.0
+    gross_max_drawdown: float = 0.0
+    cost_drag_bps: float = 0.0
 
 
 class PassThreshold(BaseModel):

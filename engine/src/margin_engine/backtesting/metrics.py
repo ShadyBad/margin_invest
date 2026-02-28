@@ -53,6 +53,10 @@ class PerformanceCalculator:
                 benchmark_total_return=0.0,
                 num_months=0,
                 avg_turnover=0.0,
+                gross_cagr=0.0,
+                gross_sharpe=0.0,
+                gross_max_drawdown=0.0,
+                cost_drag_bps=0.0,
             )
 
         num_months = len(snapshots)
@@ -83,6 +87,22 @@ class PerformanceCalculator:
 
         avg_turnover = sum(s.turnover for s in snapshots) / num_months
 
+        # Gross metrics (from pre-cost returns)
+        gross_returns = [s.gross_return for s in snapshots]
+        gross_total_ratio = math.prod(1.0 + r for r in gross_returns)
+        gross_cagr = self._cagr(gross_total_ratio, years)
+        gross_sharpe = self._sharpe(gross_returns, risk_free_monthly)
+
+        # Gross portfolio values (reconstruct from gross returns for max drawdown)
+        gross_values = [portfolio_values[0]] if portfolio_values else []
+        gv = gross_values[0] if gross_values else 0.0
+        for gr in gross_returns[1:]:
+            gv = gv * (1.0 + gr)
+            gross_values.append(gv)
+        gross_max_dd = self._max_drawdown(gross_values) if len(gross_values) >= 2 else 0.0
+
+        cost_drag = (gross_cagr - portfolio_cagr) * 10_000
+
         return PerformanceMetrics(
             cagr=portfolio_cagr,
             excess_cagr=excess_cagr,
@@ -95,6 +115,10 @@ class PerformanceCalculator:
             benchmark_total_return=benchmark_total_ratio - 1.0,
             num_months=num_months,
             avg_turnover=avg_turnover,
+            gross_cagr=gross_cagr,
+            gross_sharpe=gross_sharpe,
+            gross_max_drawdown=gross_max_dd,
+            cost_drag_bps=max(cost_drag, 0.0),
         )
 
     def validate(

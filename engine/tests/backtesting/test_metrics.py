@@ -630,3 +630,64 @@ class TestEdgeCases:
     def test_default_risk_free_rate(self):
         calc = PerformanceCalculator()
         assert calc._risk_free_rate == 0.04
+
+
+# ---------------------------------------------------------------------------
+# Gross Metrics
+# ---------------------------------------------------------------------------
+
+
+class TestGrossMetrics:
+    """Verify gross metrics are computed from gross_return field."""
+
+    def test_gross_cagr_computed(self):
+        snapshots = [
+            _make_snapshot(1, 1_030_000, 1_020_000, 0.028, 0.02, gross_return=0.03),
+            _make_snapshot(2, 1_060_900, 1_040_400, 0.028, 0.02, gross_return=0.03),
+            _make_snapshot(3, 1_048_191, 1_040_400, -0.012, 0.00, gross_return=-0.01),
+        ]
+        calc = PerformanceCalculator()
+        m = calc.calculate(snapshots)
+        assert m.gross_cagr > m.cagr  # Gross > net
+
+    def test_gross_sharpe_computed(self):
+        snapshots = [
+            _make_snapshot(1, 1_030_000, 1_020_000, 0.028, 0.02, gross_return=0.03),
+            _make_snapshot(2, 1_060_900, 1_040_400, 0.028, 0.02, gross_return=0.03),
+            _make_snapshot(3, 1_048_191, 1_040_400, -0.012, 0.00, gross_return=-0.01),
+        ]
+        calc = PerformanceCalculator()
+        m = calc.calculate(snapshots)
+        assert m.gross_sharpe >= m.sharpe_ratio
+
+    def test_cost_drag_bps(self):
+        snapshots = [
+            _make_snapshot(1, 1_030_000, 1_020_000, 0.028, 0.02, gross_return=0.03),
+            _make_snapshot(2, 1_060_900, 1_040_400, 0.028, 0.02, gross_return=0.03),
+            _make_snapshot(3, 1_048_191, 1_040_400, -0.012, 0.00, gross_return=-0.01),
+        ]
+        calc = PerformanceCalculator()
+        m = calc.calculate(snapshots)
+        expected_drag = (m.gross_cagr - m.cagr) * 10_000
+        assert abs(m.cost_drag_bps - expected_drag) < 0.01
+        assert m.cost_drag_bps >= 0
+
+    def test_gross_max_drawdown(self):
+        snapshots = [
+            _make_snapshot(1, 1_030_000, 1_020_000, 0.028, 0.02, gross_return=0.03),
+            _make_snapshot(2, 1_060_900, 1_040_400, 0.028, 0.02, gross_return=0.03),
+            _make_snapshot(3, 1_048_191, 1_040_400, -0.012, 0.00, gross_return=-0.01),
+        ]
+        calc = PerformanceCalculator()
+        m = calc.calculate(snapshots)
+        assert m.gross_max_drawdown >= 0
+
+    def test_no_cost_difference_means_zero_drag(self):
+        """When gross_return == portfolio_return, cost_drag_bps should be ~0."""
+        snapshots = [
+            _make_snapshot(1, 1_030_000, 1_020_000, 0.03, 0.02, gross_return=0.03),
+            _make_snapshot(2, 1_060_900, 1_040_400, 0.03, 0.02, gross_return=0.03),
+        ]
+        calc = PerformanceCalculator()
+        m = calc.calculate(snapshots)
+        assert m.cost_drag_bps == pytest.approx(0.0, abs=1.0)
