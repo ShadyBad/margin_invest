@@ -455,6 +455,7 @@ class BacktestRun(Base):
     )
     seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
     environment_snapshot: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    pit_data_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     results: Mapped[list[BacktestResult]] = relationship(back_populates="run")
 
@@ -1049,4 +1050,73 @@ class SectorDistributionSnapshot(Base):
     period: Mapped[str] = mapped_column(String(10))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+# ---------------------------------------------------------------------------
+# Point-in-Time (PIT) backtesting data models
+# ---------------------------------------------------------------------------
+
+
+class PITFinancialSnapshot(Base):
+    """One row per SEC filing, storing as-originally-reported financials."""
+
+    __tablename__ = "pit_financial_snapshots"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    cik: Mapped[str] = mapped_column(String(10), index=True)
+    ticker: Mapped[str] = mapped_column(String(10), index=True)
+    filing_date: Mapped[date] = mapped_column(index=True)
+    period_end: Mapped[date]
+    form_type: Mapped[str] = mapped_column(String(10))
+    accession_number: Mapped[str] = mapped_column(String(30), unique=True)
+    income_statement: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    balance_sheet: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    cash_flow: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    shares_outstanding: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    fiscal_year: Mapped[int] = mapped_column(Integer)
+    fiscal_quarter: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ingested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        Index("ix_pit_financial_ticker_filing_date", "ticker", "filing_date"),
+    )
+
+
+class PITDailyPrice(Base):
+    """Daily OHLCV price data for point-in-time backtesting."""
+
+    __tablename__ = "pit_daily_prices"
+
+    ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
+    date: Mapped[date] = mapped_column(primary_key=True)
+    open: Mapped[float] = mapped_column(Float)
+    high: Mapped[float] = mapped_column(Float)
+    low: Mapped[float] = mapped_column(Float)
+    close: Mapped[float] = mapped_column(Float)
+    adj_close: Mapped[float] = mapped_column(Float)
+    volume: Mapped[int] = mapped_column(BigInteger)
+    source: Mapped[str] = mapped_column(String(20), default="yfinance")
+
+
+class PITUniverseMembership(Base):
+    """Quarterly universe membership snapshot for survivorship-bias-free backtesting."""
+
+    __tablename__ = "pit_universe_memberships"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(10), index=True)
+    cik: Mapped[str] = mapped_column(String(10))
+    quarter_date: Mapped[date]
+    is_active: Mapped[bool] = mapped_column(default=True)
+    market_cap: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_filing_date: Mapped[date | None] = mapped_column(nullable=True)
+    delist_detected_at: Mapped[date | None] = mapped_column(nullable=True)
+    last_known_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("ticker", "quarter_date", name="uq_pit_universe_ticker_quarter"),
+        Index("ix_pit_universe_quarter_date", "quarter_date"),
     )
