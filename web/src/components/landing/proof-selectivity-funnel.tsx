@@ -56,9 +56,49 @@ const BARS: {
 
 const LABEL_THRESHOLD = 25
 
+function getTooltipData(
+  data: FunnelData,
+  barIndex: number
+): { stage: string; count: number; pctUniverse: string; pctPrevious: string | null } {
+  const stages = [
+    {
+      stage: "Equities screened",
+      count: data.universe_size,
+      raw: data.universe_size,
+      prevRaw: null as number | null,
+    },
+    {
+      stage: "Survived elimination",
+      count: data.survived_filters,
+      raw: data.survived_filters,
+      prevRaw: data.universe_size,
+    },
+    {
+      stage: "High or Exceptional",
+      count: data.high_count + data.exceptional_count,
+      raw: data.high_count + data.exceptional_count,
+      prevRaw: data.survived_filters,
+    },
+    {
+      stage: "Exceptional candidates",
+      count: data.exceptional_count,
+      raw: data.exceptional_count,
+      prevRaw: data.high_count + data.exceptional_count,
+    },
+  ]
+  const s = stages[barIndex]
+  return {
+    stage: s.stage,
+    count: s.count,
+    pctUniverse: pct(s.raw, data.universe_size),
+    pctPrevious: s.prevRaw !== null ? `${pct(s.raw, s.prevRaw)} of previous` : null,
+  }
+}
+
 export function ProofSelectivityFunnel() {
   const [data, setData] = useState<FunnelData | null>(null)
   const [error, setError] = useState(false)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -122,6 +162,8 @@ export function ProofSelectivityFunnel() {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
             >
               <div
                 data-testid="funnel-bar"
@@ -149,6 +191,27 @@ export function ProofSelectivityFunnel() {
                   <span className="text-[10px] text-text-secondary font-mono shrink-0">
                     {bar.right(data)}
                   </span>
+                </div>
+              )}
+              {hoveredIndex === i && (
+                <div
+                  data-testid="funnel-tooltip"
+                  className="absolute left-0 bottom-full mb-2 z-10 terminal-card px-3 py-2 text-xs font-mono shadow-lg min-w-[200px]"
+                >
+                  {(() => {
+                    const tip = getTooltipData(data, i)
+                    return (
+                      <>
+                        <p className="text-text-primary font-medium">{tip.stage}</p>
+                        <p className="text-text-secondary">
+                          {formatCount(tip.count)} &middot; {tip.pctUniverse} of universe
+                        </p>
+                        {tip.pctPrevious && (
+                          <p className="text-text-tertiary">{tip.pctPrevious}</p>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
               )}
             </motion.div>

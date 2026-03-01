@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, fireEvent } from "@testing-library/react"
 
 vi.mock("framer-motion", () => ({
   motion: {
@@ -105,5 +105,36 @@ describe("ProofSelectivityFunnel", () => {
     const bar = label.closest("[data-testid='funnel-row-universe_size']")
     const coloredBar = bar!.querySelector("[data-testid='funnel-bar']")
     expect(coloredBar!.contains(label)).toBe(true)
+  })
+
+  it("shows tooltip on hover with stage details", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => MOCK_FUNNEL,
+    })
+    render(<ProofSelectivityFunnel />)
+    await screen.findByText(/3,200 equities screened/)
+    const row = screen.getByTestId("funnel-row-exceptional_count")
+    fireEvent.mouseEnter(row)
+    expect(screen.getByTestId("funnel-tooltip")).toBeInTheDocument()
+    expect(screen.getByTestId("funnel-tooltip")).toHaveTextContent("Exceptional candidates")
+    expect(screen.getByTestId("funnel-tooltip")).toHaveTextContent("12")
+    expect(screen.getByTestId("funnel-tooltip")).toHaveTextContent("0.4%")
+    // 12 of (35+12) = 25.5% of previous stage
+    expect(screen.getByTestId("funnel-tooltip")).toHaveTextContent("25.5%")
+  })
+
+  it("hides tooltip on mouse leave", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => MOCK_FUNNEL,
+    })
+    render(<ProofSelectivityFunnel />)
+    await screen.findByText(/3,200 equities screened/)
+    const row = screen.getByTestId("funnel-row-exceptional_count")
+    fireEvent.mouseEnter(row)
+    expect(screen.getByTestId("funnel-tooltip")).toBeInTheDocument()
+    fireEvent.mouseLeave(row)
+    expect(screen.queryByTestId("funnel-tooltip")).not.toBeInTheDocument()
   })
 })
