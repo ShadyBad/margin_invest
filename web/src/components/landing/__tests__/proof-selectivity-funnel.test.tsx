@@ -43,6 +43,19 @@ describe("ProofSelectivityFunnel", () => {
     expect(screen.getByText(/12 Exceptional/)).toBeInTheDocument()
   })
 
+  it("renders error state on failed fetch", async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 502 })
+    render(<ProofSelectivityFunnel />)
+    expect(await screen.findByTestId("funnel-error")).toBeInTheDocument()
+    expect(screen.getByText(/selectivity data unavailable/i)).toBeInTheDocument()
+  })
+
+  it("renders error state on network error", async () => {
+    mockFetch.mockRejectedValue(new Error("Network error"))
+    render(<ProofSelectivityFunnel />)
+    expect(await screen.findByTestId("funnel-error")).toBeInTheDocument()
+  })
+
   it("renders subtitle text", async () => {
     mockFetch.mockResolvedValue({
       ok: true,

@@ -56,18 +56,33 @@ const BARS: {
 
 export function ProofSelectivityFunnel() {
   const [data, setData] = useState<FunnelData | null>(null)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     async function load() {
       try {
         const resp = await fetch("/api/v1/universe/funnel")
-        if (resp.ok) setData(await resp.json())
+        if (resp.ok) {
+          setData(await resp.json())
+        } else {
+          setError(true)
+        }
       } catch {
-        // keep null → skeleton stays
+        setError(true)
       }
     }
     load()
   }, [])
+
+  if (error) {
+    return (
+      <div data-testid="funnel-error" className="text-center py-6">
+        <p className="text-xs text-text-tertiary font-mono">
+          Selectivity data unavailable
+        </p>
+      </div>
+    )
+  }
 
   if (!data) {
     return (
