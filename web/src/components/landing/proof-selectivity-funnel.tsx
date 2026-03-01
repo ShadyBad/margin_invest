@@ -61,37 +61,25 @@ function getTooltipData(
   barIndex: number
 ): { stage: string; count: number; pctUniverse: string; pctPrevious: string | null } {
   const stages = [
-    {
-      stage: "Equities screened",
-      count: data.universe_size,
-      raw: data.universe_size,
-      prevRaw: null as number | null,
-    },
-    {
-      stage: "Survived elimination",
-      count: data.survived_filters,
-      raw: data.survived_filters,
-      prevRaw: data.universe_size,
-    },
+    { stage: "Equities screened", count: data.universe_size, prev: null as number | null },
+    { stage: "Survived elimination", count: data.survived_filters, prev: data.universe_size },
     {
       stage: "High or Exceptional",
       count: data.high_count + data.exceptional_count,
-      raw: data.high_count + data.exceptional_count,
-      prevRaw: data.survived_filters,
+      prev: data.survived_filters,
     },
     {
       stage: "Exceptional candidates",
       count: data.exceptional_count,
-      raw: data.exceptional_count,
-      prevRaw: data.high_count + data.exceptional_count,
+      prev: data.high_count + data.exceptional_count,
     },
   ]
   const s = stages[barIndex]
   return {
     stage: s.stage,
     count: s.count,
-    pctUniverse: pct(s.raw, data.universe_size),
-    pctPrevious: s.prevRaw !== null ? `${pct(s.raw, s.prevRaw)} of previous` : null,
+    pctUniverse: pct(s.count, data.universe_size),
+    pctPrevious: s.prev !== null ? `${pct(s.count, s.prev)} of previous` : null,
   }
 }
 
