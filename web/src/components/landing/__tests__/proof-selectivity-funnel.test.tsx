@@ -75,4 +75,35 @@ describe("ProofSelectivityFunnel", () => {
       await screen.findByText(/insufficient data or failing fundamentals/i)
     ).toBeInTheDocument()
   })
+
+  it("renders labels outside narrow bars", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => MOCK_FUNNEL,
+    })
+    render(<ProofSelectivityFunnel />)
+    // Exceptional bar = 12/3200 = 0.375% → clamped to 4% → labels external
+    const label = await screen.findByText(/12 Exceptional/)
+    // External label should NOT have truncate class
+    expect(label.className).not.toContain("truncate")
+    // External label should be a sibling of the bar, not a child
+    const bar = label.closest("[data-testid='funnel-row-exceptional_count']")
+    expect(bar).toBeInTheDocument()
+    const coloredBar = bar!.querySelector("[data-testid='funnel-bar']")
+    expect(coloredBar).toBeInTheDocument()
+    expect(coloredBar!.contains(label)).toBe(false)
+  })
+
+  it("renders labels inside wide bars", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => MOCK_FUNNEL,
+    })
+    render(<ProofSelectivityFunnel />)
+    // Universe bar = 100% → labels internal
+    const label = await screen.findByText(/3,200 equities screened/)
+    const bar = label.closest("[data-testid='funnel-row-universe_size']")
+    const coloredBar = bar!.querySelector("[data-testid='funnel-bar']")
+    expect(coloredBar!.contains(label)).toBe(true)
+  })
 })

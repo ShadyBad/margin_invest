@@ -99,6 +99,7 @@ export function ProofSelectivityFunnel() {
   }
 
   const maxVal = data.universe_size || 1
+  const LABEL_THRESHOLD = 25
 
   return (
     <div aria-label="Selectivity funnel showing how many equities survive each scoring stage">
@@ -109,26 +110,46 @@ export function ProofSelectivityFunnel() {
               ? data.high_count + data.exceptional_count
               : (data[bar.key] as number)
           const widthPct = Math.max(4, (raw / maxVal) * 100)
+          const isExternal = widthPct < LABEL_THRESHOLD
+
           return (
             <motion.div
               key={bar.key}
-              className="relative"
-              initial={{ width: 0 }}
-              whileInView={{ width: "100%" }}
+              data-testid={`funnel-row-${bar.key}`}
+              className="relative flex items-center gap-3"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
             >
               <div
-                className={`${bar.color} rounded h-8 flex items-center justify-between px-3`}
+                data-testid="funnel-bar"
+                className={`${bar.color} rounded h-8 shrink-0 ${
+                  !isExternal ? "flex items-center justify-between px-3" : ""
+                }`}
                 style={{ width: `${widthPct}%` }}
               >
-                <span className="text-xs text-text-primary font-mono truncate">
-                  {bar.label(data)}
-                </span>
-                <span className="text-[10px] text-text-secondary font-mono ml-2 shrink-0">
-                  {bar.right(data)}
-                </span>
+                {!isExternal && (
+                  <>
+                    <span className="text-xs text-text-primary font-mono truncate">
+                      {bar.label(data)}
+                    </span>
+                    <span className="text-[10px] text-text-secondary font-mono ml-2 shrink-0">
+                      {bar.right(data)}
+                    </span>
+                  </>
+                )}
               </div>
+              {isExternal && (
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs text-text-primary font-mono whitespace-nowrap">
+                    {bar.label(data)}
+                  </span>
+                  <span className="text-[10px] text-text-secondary font-mono shrink-0">
+                    {bar.right(data)}
+                  </span>
+                </div>
+              )}
             </motion.div>
           )
         })}
