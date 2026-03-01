@@ -172,14 +172,20 @@ export function ProofSelectivityFunnel() {
                 )}
               </div>
               {isExternal && (
-                <div className="flex items-center gap-2 min-w-0">
+                <motion.div
+                  className="flex items-center gap-2 min-w-0"
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.3, delay: i * 0.1 + 0.5 }}
+                >
                   <span className="text-xs text-text-primary font-mono whitespace-nowrap">
                     {bar.label(data)}
                   </span>
                   <span className="text-[10px] text-text-secondary font-mono shrink-0">
                     {bar.right(data)}
                   </span>
-                </div>
+                </motion.div>
               )}
               {hoveredIndex === i && (
                 <div
