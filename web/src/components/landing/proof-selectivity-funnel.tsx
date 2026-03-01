@@ -54,6 +54,8 @@ const BARS: {
   },
 ]
 
+const LABEL_THRESHOLD = 25
+
 export function ProofSelectivityFunnel() {
   const [data, setData] = useState<FunnelData | null>(null)
   const [error, setError] = useState(false)
@@ -99,7 +101,6 @@ export function ProofSelectivityFunnel() {
   }
 
   const maxVal = data.universe_size || 1
-  const LABEL_THRESHOLD = 25
 
   return (
     <div aria-label="Selectivity funnel showing how many equities survive each scoring stage">
