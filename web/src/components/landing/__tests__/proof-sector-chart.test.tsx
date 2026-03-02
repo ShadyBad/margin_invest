@@ -28,7 +28,7 @@ vi.mock("recharts", () => ({
   Cell: () => null,
 }))
 
-import { ProofSectorChart } from "../proof-sector-chart"
+import { ProofSectorChart, aggregateBySector } from "../proof-sector-chart"
 import type { CandidateCard } from "../types"
 
 function makeCandidate(overrides: Partial<CandidateCard>): CandidateCard {
@@ -84,5 +84,53 @@ describe("ProofSectorChart", () => {
     ]
     render(<ProofSectorChart candidates={candidates} />)
     expect(screen.getByText(/sector-neutral/i)).toBeInTheDocument()
+  })
+
+  it("includes medium-tier candidates in chart data", () => {
+    const candidates = [
+      makeCandidate({ ticker: "A", sector: "Technology", composite_tier: "exceptional" }),
+      makeCandidate({ ticker: "B", sector: "Technology", composite_tier: "high" }),
+      makeCandidate({ ticker: "C", sector: "Technology", composite_tier: "medium" }),
+      makeCandidate({ ticker: "D", sector: "Healthcare", composite_tier: "medium" }),
+    ]
+    render(<ProofSectorChart candidates={candidates} />)
+    expect(screen.getByTestId("sector-bar-chart")).toBeInTheDocument()
+    expect(screen.getByLabelText(/sector breakdown/i)).toBeInTheDocument()
+  })
+
+  it("aggregateBySector counts all three tiers correctly", () => {
+    const candidates = [
+      makeCandidate({ sector: "Tech", composite_tier: "exceptional" }),
+      makeCandidate({ sector: "Tech", composite_tier: "high" }),
+      makeCandidate({ sector: "Tech", composite_tier: "medium" }),
+      makeCandidate({ sector: "Tech", composite_tier: "medium" }),
+      makeCandidate({ sector: "Health", composite_tier: "high" }),
+    ]
+    const rows = aggregateBySector(candidates)
+    expect(rows).toHaveLength(2)
+
+    const tech = rows.find((r) => r.sector === "Tech")!
+    expect(tech.exceptional).toBe(1)
+    expect(tech.high).toBe(1)
+    expect(tech.medium).toBe(2)
+    expect(tech.total).toBe(4)
+
+    const health = rows.find((r) => r.sector === "Health")!
+    expect(health.exceptional).toBe(0)
+    expect(health.high).toBe(1)
+    expect(health.medium).toBe(0)
+    expect(health.total).toBe(1)
+  })
+
+  it("aggregateBySector sorts by total descending", () => {
+    const candidates = [
+      makeCandidate({ sector: "Small", composite_tier: "high" }),
+      makeCandidate({ sector: "Big", composite_tier: "exceptional" }),
+      makeCandidate({ sector: "Big", composite_tier: "high" }),
+      makeCandidate({ sector: "Big", composite_tier: "medium" }),
+    ]
+    const rows = aggregateBySector(candidates)
+    expect(rows[0].sector).toBe("Big")
+    expect(rows[1].sector).toBe("Small")
   })
 })

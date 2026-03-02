@@ -16,7 +16,7 @@ interface ProofSectorChartProps {
   candidates: CandidateCard[]
 }
 
-interface SectorRow {
+export interface SectorRow {
   sector: string
   exceptional: number
   high: number
@@ -24,7 +24,7 @@ interface SectorRow {
   total: number
 }
 
-function aggregateBySector(candidates: CandidateCard[]): SectorRow[] {
+export function aggregateBySector(candidates: CandidateCard[]): SectorRow[] {
   const map = new Map<string, SectorRow>()
 
   for (const c of candidates) {
@@ -61,6 +61,7 @@ function useIsDark(): boolean {
     const checkDark = () =>
       document.documentElement.classList.contains("dark") ||
       window.matchMedia("(prefers-color-scheme: dark)").matches
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initializing from DOM/matchMedia only available client-side
     setDark(checkDark())
     const observer = new MutationObserver(() => setDark(checkDark()))
     observer.observe(document.documentElement, {
