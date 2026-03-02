@@ -21,6 +21,7 @@ class FilterResultResponse(BaseModel):
     verdict: str  # "pass", "fail", or "inconclusive"
     missing_fields: list[str] | None = None
     sector_pass_rate: float | None = None
+    computed_metrics: dict[str, float | str] | None = None
 
 
 class FactorScoreResponse(BaseModel):
@@ -189,6 +190,7 @@ class ScoreResponse(BaseModel):
                     detail=f.detail,
                     verdict=f.verdict.value,
                     missing_fields=f.missing_fields,
+                    computed_metrics=f.computed_metrics,
                 )
                 for f in score.filters_passed
             ],

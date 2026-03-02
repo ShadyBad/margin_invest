@@ -6,6 +6,7 @@ export interface FilterResultResponse {
   detail: string
   verdict: string
   missing_fields?: string[] | null
+  computed_metrics?: Record<string, number | string> | null
 }
 
 export interface FactorScoreResponse {

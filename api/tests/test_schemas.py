@@ -82,6 +82,41 @@ class TestFilterResultResponse:
         assert data["detail"] == "Market cap sufficient"
         assert data["verdict"] == "pass"
 
+    def test_filter_result_response_with_computed_metrics(self) -> None:
+        """FilterResultResponse should include computed_metrics when present."""
+        result = FilterResultResponse(
+            name="fcf_distress",
+            passed=True,
+            value=4.0,
+            threshold=3.0,
+            detail="PASS: 4/5 positive FCF years",
+            verdict="pass",
+            computed_metrics={
+                "positive_years": 4.0,
+                "total_years": 5.0,
+                "positive_years_required": 3.0,
+                "median_fcf_margin": 0.15,
+                "consecutive_improving_years": 2.0,
+                "sector_fcf_margin_floor": 0.10,
+                "sector_name": "Information Technology",
+            },
+        )
+        data = result.model_dump()
+        assert data["computed_metrics"]["sector_fcf_margin_floor"] == 0.10
+        assert data["computed_metrics"]["sector_name"] == "Information Technology"
+
+    def test_filter_result_response_computed_metrics_optional(self) -> None:
+        """computed_metrics should default to None when not provided."""
+        result = FilterResultResponse(
+            name="altman_z_score",
+            passed=True,
+            value=5.0,
+            threshold=1.1,
+            detail="Healthy",
+            verdict="pass",
+        )
+        assert result.computed_metrics is None
+
     def test_filter_result_response_defaults(self) -> None:
         """Verify optional fields default correctly."""
         result = FilterResultResponse(
