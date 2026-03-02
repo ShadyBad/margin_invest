@@ -190,6 +190,8 @@ def extract_financials(xbrl_content: str) -> XBRLFinancials:
     seen_tags: set[str] = set()
 
     for elem in root.iter():
+        if not isinstance(elem.tag, str):
+            continue
         ns = _namespace(elem.tag)
         local = _localname(elem.tag)
 
