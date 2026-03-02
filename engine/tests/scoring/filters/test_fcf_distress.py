@@ -117,9 +117,15 @@ class TestFcfDistressConfigSectorOverrides:
         """All 9 scoreable GICS sectors should have explicit overrides."""
         config = FcfDistressConfig()
         expected_sectors = {
-            "information technology", "communication services",
-            "health care", "consumer staples", "consumer discretionary",
-            "industrials", "materials", "energy", "utilities",
+            "information technology",
+            "communication services",
+            "health care",
+            "consumer staples",
+            "consumer discretionary",
+            "industrials",
+            "materials",
+            "energy",
+            "utilities",
         }
         assert set(config.sector_margin_overrides.keys()) == expected_sectors
 

@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from margin_engine.config.filter_config import FcfDistressConfig
 from margin_engine.models.financial import (
     BalanceSheet,
     CashFlowStatement,
@@ -9,7 +10,6 @@ from margin_engine.models.financial import (
     FinancialPeriod,
     IncomeStatement,
 )
-from margin_engine.config.filter_config import FcfDistressConfig
 from margin_engine.models.scoring import InvestmentStyle
 from margin_engine.scoring.filters.fcf_distress import fcf_distress_check_v2
 
