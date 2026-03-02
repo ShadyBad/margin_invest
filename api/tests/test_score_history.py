@@ -46,6 +46,7 @@ async def history_client(history_engine):
             score = Score(
                 asset_id=aapl.id,
                 composite_percentile=80.0 + i * 2,
+                composite_raw_score=70.0 + i * 3,  # Different from percentile to catch mixups
                 conviction_level="high",
                 signal="buy",
                 quality_percentile=85.0 + i,
@@ -121,3 +122,11 @@ class TestScoreHistory:
             assert "buy_price" in point
             assert "sell_price" in point
             assert "actual_price" in point
+
+    async def test_score_field_matches_composite_raw_score(self, history_client):
+        resp = await history_client.get("/api/v1/scores/AAPL/history")
+        points = resp.json()["points"]
+        for i, point in enumerate(points):
+            expected_raw = 70.0 + i * 3
+            assert point["score"] == pytest.approx(expected_raw)
+            assert point["score"] == point["composite_raw_score"]
