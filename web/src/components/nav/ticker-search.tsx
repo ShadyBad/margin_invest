@@ -99,7 +99,7 @@ export function TickerSearch() {
             role="dialog"
             aria-label="Ticker search"
             aria-modal="true"
-            className="fixed z-[61] top-3 left-1/2 w-[min(400px,calc(100vw-48px))] search-overlay-enter"
+            className="fixed z-[61] top-[23px] left-1/2 w-[min(400px,calc(100vw-48px))] search-overlay-enter"
           >
             <form onSubmit={handleSubmit} className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">

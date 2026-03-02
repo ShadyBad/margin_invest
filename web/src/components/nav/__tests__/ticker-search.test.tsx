@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { TickerSearch } from "../ticker-search"
 
 const pushMock = vi.fn()
@@ -76,6 +77,14 @@ describe("TickerSearch", () => {
       const dialog = screen.getByRole("dialog")
       expect(dialog).toHaveAttribute("aria-label", "Ticker search")
       expect(dialog).toHaveAttribute("aria-modal", "true")
+    })
+
+    it("positions overlay at top-[23px] to center in navbar", async () => {
+      const user = userEvent.setup()
+      render(<TickerSearch />)
+      await user.click(screen.getByRole("button", { name: /search ticker/i }))
+      const dialog = screen.getByRole("dialog")
+      expect(dialog.className).toContain("top-[23px]")
     })
   })
 
