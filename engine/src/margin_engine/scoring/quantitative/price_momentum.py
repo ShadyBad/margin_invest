@@ -1,18 +1,22 @@
 """Price Momentum (12-1 month) factor (Jegadeesh & Titman).
 
-Measures the trailing 12-month return excluding the most recent month.
+Measures the trailing 12-month return excluding the most recent month,
+normalized by trailing annualized volatility (MSCI Momentum Index style).
+
 The last month is excluded because short-term returns exhibit mean
-reversion rather than momentum.
+reversion rather than momentum. Dividing by volatility prevents
+high-beta stocks from dominating the momentum signal.
 
 Academic reference: Jegadeesh & Titman (1993), "Returns to Buying Winners
 and Selling Losers: Implications for Stock Market Efficiency."
 
-Formula: momentum = (price at T-1 month / price at T-12 months) - 1
+Formula: risk_adjusted = ((price_T-1 / price_T-12) - 1) / annualized_vol
 """
 
 from __future__ import annotations
 
 import datetime
+import statistics
 
 from margin_engine.models.financial import PriceBar
 from margin_engine.models.scoring import FactorScore
@@ -24,6 +28,11 @@ _MIN_HISTORY_DAYS = 300
 # Target lookback offsets in calendar days.
 _T1_OFFSET_DAYS = 30  # ~1 month ago
 _T12_OFFSET_DAYS = 365  # ~12 months ago
+
+# Volatility normalization parameters (MSCI Momentum Index style).
+_MIN_BARS_FOR_VOL = 60  # minimum bars for meaningful vol estimate
+_ANNUALIZATION_FACTOR = 252 ** 0.5  # sqrt of trading days per year
+_MIN_ANNUALIZED_VOL = 0.01  # floor to avoid division by near-zero vol
 
 
 def price_momentum(price_bars: list[PriceBar]) -> FactorScore:
@@ -79,17 +88,31 @@ def price_momentum(price_bars: list[PriceBar]) -> FactorScore:
             detail=(f"Zero price at T-12 ({sorted_bars[idx_t12].date}): price_t12={price_t12}"),
         )
 
-    # 6. Compute momentum.
+    # 6. Compute raw momentum.
     momentum = (price_t1 / price_t12) - 1.0
+
+    # 7. Volatility normalization (MSCI-style).
+    # Use daily returns from the sorted bars for the trailing period.
+    closes = [float(bar.close) for bar in sorted_bars if float(bar.close) > 0]
+    if len(closes) >= _MIN_BARS_FOR_VOL:
+        daily_returns = [(closes[i] / closes[i - 1]) - 1.0 for i in range(1, len(closes))]
+        vol = statistics.pstdev(daily_returns)
+        annualized_vol = vol * _ANNUALIZATION_FACTOR if vol > 0 else 1.0
+        risk_adjusted = momentum / annualized_vol if annualized_vol > _MIN_ANNUALIZED_VOL else momentum
+    else:
+        risk_adjusted = momentum  # fallback to raw if insufficient data
+        annualized_vol = 0.0
 
     return FactorScore(
         name="price_momentum",
-        raw_value=momentum,
+        raw_value=risk_adjusted,
         percentile_rank=0.0,
         detail=(
-            f"price_t1={price_t1:.2f} ({sorted_bars[idx_t1].date})"
+            f"raw_mom={momentum:.4f}"
+            f" | ann_vol={annualized_vol:.4f}"
+            f" | risk_adj={risk_adjusted:.4f}"
+            f" | price_t1={price_t1:.2f} ({sorted_bars[idx_t1].date})"
             f" / price_t12={price_t12:.2f} ({sorted_bars[idx_t12].date})"
-            f" - 1 = {momentum:.4f}"
         ),
     )
 

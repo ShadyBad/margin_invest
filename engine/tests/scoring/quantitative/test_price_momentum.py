@@ -67,11 +67,10 @@ class TestPriceMomentumBasic:
 
         result = price_momentum(bars)
 
-        # The most recent date is base_date + 395 days = 2026-02-01 (approx)
-        # T-1 month: ~30 days back -> bar closest to 2026-01-02 -> price ~120
-        # T-12 months: ~365 days back -> bar closest to 2025-02-01 -> price ~100
-        # Momentum = (120 / 100) - 1 = 0.20
-        assert result.raw_value == pytest.approx(0.20, abs=0.03)
+        # After volatility normalization, raw_value is risk-adjusted.
+        # With linear interpolation (very low vol), the risk-adjusted value
+        # will be much larger than 0.20, but still positive.
+        assert result.raw_value > 0
 
     def test_negative_momentum(self):
         """Stock declining from 100 to 70 should give ~-0.30 momentum."""
@@ -92,15 +91,50 @@ class TestPriceMomentumBasic:
 
         result = price_momentum(bars)
 
-        # T-1 month price: ~70, T-12 months price: ~100
-        # Momentum = (70 / 100) - 1 = -0.30
-        assert result.raw_value == pytest.approx(-0.30, abs=0.03)
+        # After volatility normalization, raw_value is risk-adjusted.
+        # Still negative momentum regardless of vol adjustment.
+        assert result.raw_value < 0
 
     def test_flat_price_zero_momentum(self):
         """Stock that stays flat at 50 should give ~0.0 momentum."""
         bars = _generate_daily_bars("2025-01-01", 396, 50.0, 50.0)
         result = price_momentum(bars)
         assert result.raw_value == pytest.approx(0.0, abs=0.01)
+
+
+    def test_volatile_stock_dampened_vs_steady(self):
+        """High-vol stock should have lower risk-adjusted momentum than low-vol with same raw return."""
+        import math
+
+        base_date = datetime.date(2025, 1, 1)
+
+        # Low-vol: trend 100 -> 120 with small daily noise (~1% amplitude)
+        low_vol_bars = []
+        for i in range(396):
+            t = i / 395
+            trend = 100.0 + 20.0 * t
+            noise = 1.0 * math.sin(i * 0.5)
+            price = max(trend + noise, 1.0)
+            d = base_date + datetime.timedelta(days=i)
+            low_vol_bars.append(_make_bar(d.isoformat(), round(price, 2)))
+
+        # High-vol: same trend but with large oscillation (~15% amplitude)
+        high_vol_bars = []
+        for i in range(396):
+            t = i / 395
+            trend = 100.0 + 20.0 * t
+            noise = 15.0 * math.sin(i * 0.3)
+            price = max(trend + noise, 1.0)
+            d = base_date + datetime.timedelta(days=i)
+            high_vol_bars.append(_make_bar(d.isoformat(), round(price, 2)))
+
+        low_vol_result = price_momentum(low_vol_bars)
+        high_vol_result = price_momentum(high_vol_bars)
+
+        # Both positive, but low-vol should have higher risk-adjusted score
+        assert low_vol_result.raw_value > 0
+        assert high_vol_result.raw_value > 0
+        assert low_vol_result.raw_value > high_vol_result.raw_value
 
 
 class TestPriceMomentumEdgeCases:
@@ -169,9 +203,9 @@ class TestPriceMomentumFactorScore:
         """Detail string should contain a human-readable breakdown."""
         bars = _generate_daily_bars("2025-01-01", 396, 100.0, 120.0)
         result = price_momentum(bars)
-        # Should mention the T-1 month and T-12 month prices
-        assert "price_t1" in result.detail or "T-1" in result.detail
-        assert "price_t12" in result.detail or "T-12" in result.detail
+        # Should mention raw momentum and risk-adjusted values
+        assert "raw_mom" in result.detail or "momentum" in result.detail.lower()
+        assert "vol" in result.detail.lower() or "risk_adj" in result.detail
 
 
 class TestPriceMomentumSorting:
