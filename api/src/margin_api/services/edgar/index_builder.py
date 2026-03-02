@@ -17,6 +17,19 @@ FORM_TYPES: set[str] = {"10-K", "10-Q", "10-K/A", "10-Q/A"}
 
 _ACCESSION_RE = re.compile(r"(\d{10}-\d{2}-\d{6})")
 
+# Regex to parse SEC EDGAR company.idx fixed-width data lines.
+# The format uses a 62-char company name column, followed by form type, CIK,
+# date (YYYY-MM-DD), and filename (always starts with "edgar/").
+# Data values are right-aligned and can overflow header column boundaries,
+# so regex is more reliable than pure fixed-width slicing.
+_IDX_LINE_RE = re.compile(
+    r"^(.{62})"  # Company Name — always 62 chars wide
+    r"(\S+(?:\s+\S+)*?)\s+"  # Form Type — e.g. "10-K", "10-K/A", "NT 10-Q"
+    r"(\d+)\s+"  # CIK — integer
+    r"(\d{4}-\d{2}-\d{2})\s+"  # Date Filed — YYYY-MM-DD
+    r"(edgar/.+?)\s*$"  # Filename — always starts with "edgar/"
+)
+
 
 @dataclass(frozen=True, slots=True)
 class EdgarIndexEntry:
@@ -39,12 +52,14 @@ def parse_company_idx(
     raw: str,
     form_types: set[str] | None = None,
 ) -> list[EdgarIndexEntry]:
-    """Parse pipe-delimited company.idx content into EdgarIndexEntry objects.
+    """Parse SEC EDGAR company.idx fixed-width content into EdgarIndexEntry objects.
 
-    The company.idx format has a header line, a dashes separator, then data lines:
-        CIK|Company Name|Form Type|Date Filed|Filename
-        --------------------------------------------------
-        320193|APPLE INC|10-K|2024-11-01|edgar/data/320193/...
+    The SEC EDGAR company.idx format has metadata headers, a column header line,
+    a dashes separator, then fixed-width data lines::
+
+        Company Name                                                  Form Type   CIK         Date Filed  File Name
+        -------------------------------------------------------------------------------------------
+        APPLE INC                                                     10-K             320193      2024-11-01  edgar/data/320193/...
 
     Args:
         raw: Raw text content of a company.idx file.
@@ -72,26 +87,25 @@ def parse_company_idx(
         return []
 
     for line in lines[data_start:]:
-        line = line.strip()
-        if not line:
+        if not line.strip():
             continue
 
-        parts = line.split("|")
-        if len(parts) < 5:
+        match = _IDX_LINE_RE.match(line)
+        if not match:
             continue
 
-        cik = parts[0].strip()
-        company_name = parts[1].strip()
-        form_type = parts[2].strip()
-        date_filed = parts[3].strip()
-        filename = parts[4].strip()
+        company_name = match.group(1).strip()
+        form_type = match.group(2).strip()
+        cik = match.group(3).strip()
+        date_filed = match.group(4).strip()
+        filename = match.group(5).strip()
 
         if form_type not in target_forms:
             continue
 
         # Extract accession number from filename
-        match = _ACCESSION_RE.search(filename)
-        accession_number = match.group(1) if match else ""
+        acc_match = _ACCESSION_RE.search(filename)
+        accession_number = acc_match.group(1) if acc_match else ""
 
         entries.append(
             EdgarIndexEntry(

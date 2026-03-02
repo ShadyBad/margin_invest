@@ -7,20 +7,37 @@ from margin_api.services.edgar.index_builder import (
     parse_company_idx,
 )
 
-# --- Sample company.idx content ---
+# --- Sample company.idx content (real SEC EDGAR fixed-width format) ---
+# Column positions: Company Name (0), Form Type (62), CIK (74), Date Filed (86), File Name (98)
 
 SAMPLE_IDX = """\
-CIK|Company Name|Form Type|Date Filed|Filename
-----------------------------------------------------------------------
-320193|APPLE INC|10-K|2024-11-01|edgar/data/320193/0000320193-24-000123.txt
-789019|MICROSOFT CORP|10-Q|2024-10-15|edgar/data/789019/0000789019-24-000456.txt
-1018724|AMAZON COM INC|8-K|2024-10-20|edgar/data/1018724/0001018724-24-000789.txt
-1326801|META PLATFORMS INC|10-K/A|2024-09-30|edgar/data/1326801/0001326801-24-001234.txt
+Description:           Master Index of EDGAR Dissemination Feed by Company Name
+Last Data Received:    November 1, 2024
+Comments:              webmaster@sec.gov
+Anonymous FTP:         ftp://ftp.sec.gov/edgar/
+
+
+
+
+Company Name                                                  Form Type   CIK         Date Filed  File Name
+--------------------------------------------------------------------------------------------------------------------------------------
+APPLE INC                                                     10-K             320193      2024-11-01  edgar/data/320193/0000320193-24-000123.txt
+MICROSOFT CORP                                                10-Q             789019      2024-10-15  edgar/data/789019/0000789019-24-000456.txt
+AMAZON COM INC                                                8-K              1018724     2024-10-20  edgar/data/1018724/0001018724-24-000789.txt
+META PLATFORMS INC                                            10-K/A           1326801     2024-09-30  edgar/data/1326801/0001326801-24-001234.txt
 """
 
 SAMPLE_IDX_NO_DATA = """\
-CIK|Company Name|Form Type|Date Filed|Filename
-----------------------------------------------------------------------
+Description:           Master Index of EDGAR Dissemination Feed by Company Name
+Last Data Received:    November 1, 2024
+Comments:              webmaster@sec.gov
+Anonymous FTP:         ftp://ftp.sec.gov/edgar/
+
+
+
+
+Company Name                                                  Form Type   CIK         Date Filed  File Name
+--------------------------------------------------------------------------------------------------------------------------------------
 """
 
 
