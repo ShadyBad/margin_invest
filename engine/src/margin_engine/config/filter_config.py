@@ -97,12 +97,37 @@ class FcfDistressConfig(BaseModel):
 
     positive_years_required: int = 3
     lookback_years: int = 5
-    min_fcf_margin: float = -0.05
+    min_fcf_margin: float = 0.0
     allow_positive_trend_rescue: bool = True
 
     # Style-aware overrides for Growth stocks
     growth_positive_years_required: int = 2
     growth_ocf_rescue_min_gross_margin: float = 0.40
+
+    # Sector-specific FCF margin floors (lowercased GICSSector value -> minimum)
+    sector_margin_overrides: dict[str, float] = Field(
+        default_factory=lambda: {
+            "information technology": 0.10,
+            "communication services": 0.08,
+            "health care": 0.05,
+            "consumer staples": 0.05,
+            "consumer discretionary": 0.03,
+            "industrials": 0.03,
+            "materials": 0.02,
+            "energy": 0.0,
+            "utilities": 0.0,
+        }
+    )
+
+    def get_min_fcf_margin(self, sector: str | None) -> float:
+        """Look up the FCF margin floor for a sector.
+
+        Returns the sector-specific override if available, otherwise
+        falls back to ``min_fcf_margin``.
+        """
+        if sector is None:
+            return self.min_fcf_margin
+        return self.sector_margin_overrides.get(sector.lower(), self.min_fcf_margin)
 
 
 class InterestCoverageConfig(BaseModel):

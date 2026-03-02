@@ -56,7 +56,7 @@ beneish:
         config = FilterConfig()
         assert config.fcf_distress.positive_years_required == 3
         assert config.fcf_distress.lookback_years == 5
-        assert config.fcf_distress.min_fcf_margin == -0.05
+        assert config.fcf_distress.min_fcf_margin == 0.0
 
     def test_market_cap_minimum_defaults(self):
         config = FilterConfig()

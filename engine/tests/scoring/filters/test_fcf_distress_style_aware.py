@@ -9,6 +9,7 @@ from margin_engine.models.financial import (
     FinancialPeriod,
     IncomeStatement,
 )
+from margin_engine.config.filter_config import FcfDistressConfig
 from margin_engine.models.scoring import InvestmentStyle
 from margin_engine.scoring.filters.fcf_distress import fcf_distress_check_v2
 
@@ -57,6 +58,8 @@ def _make_period(
 class TestFcfDistressStyleAware:
     def test_growth_stock_2_of_5_passes(self):
         """Growth stocks need only 2/5 positive FCF years (not 3/5)."""
+        # Use permissive margin floor so test focuses on count logic
+        config = FcfDistressConfig(min_fcf_margin=-0.05, sector_margin_overrides={})
         periods = [
             _make_period(False, year=2020),
             _make_period(False, year=2021),
@@ -67,6 +70,7 @@ class TestFcfDistressStyleAware:
         history = FinancialHistory(ticker="TEST", periods=periods)
         result = fcf_distress_check_v2(
             history,
+            config=config,
             style=InvestmentStyle.GROWTH,
         )
         assert result.passed is True
@@ -92,6 +96,8 @@ class TestFcfDistressStyleAware:
 
         Passes even with 1/5 positive FCF.
         """
+        # Use permissive margin floor so test focuses on OCF rescue logic
+        config = FcfDistressConfig(min_fcf_margin=-0.05, sector_margin_overrides={})
         periods = [
             _make_period(False, gross_margin=0.55, year=2020),
             _make_period(False, gross_margin=0.55, year=2021),
@@ -102,6 +108,7 @@ class TestFcfDistressStyleAware:
         history = FinancialHistory(ticker="TEST", periods=periods)
         result = fcf_distress_check_v2(
             history,
+            config=config,
             style=InvestmentStyle.GROWTH,
         )
         # 1/5 positive < 2 required, but OCF rescue applies (latest has positive OCF + margin > 40%)

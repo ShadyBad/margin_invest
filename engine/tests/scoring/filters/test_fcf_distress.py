@@ -90,6 +90,45 @@ class TestFCFDistress:
         assert result.threshold == 0.0
 
 
+class TestFcfDistressConfigSectorOverrides:
+    """Tests for sector-specific FCF margin overrides in config."""
+
+    def test_default_min_fcf_margin_is_zero(self):
+        """Default min_fcf_margin should be 0.0 (not -0.05)."""
+        config = FcfDistressConfig()
+        assert config.min_fcf_margin == 0.0
+
+    def test_get_min_fcf_margin_returns_sector_override(self):
+        """get_min_fcf_margin returns the sector-specific floor when available."""
+        config = FcfDistressConfig()
+        assert config.get_min_fcf_margin("information technology") == 0.10
+
+    def test_get_min_fcf_margin_returns_default_for_unknown(self):
+        """get_min_fcf_margin falls back to min_fcf_margin for unknown sectors."""
+        config = FcfDistressConfig()
+        assert config.get_min_fcf_margin("unknown sector") == 0.0
+
+    def test_get_min_fcf_margin_returns_default_for_none(self):
+        """get_min_fcf_margin falls back to min_fcf_margin when sector is None."""
+        config = FcfDistressConfig()
+        assert config.get_min_fcf_margin(None) == 0.0
+
+    def test_sector_margin_overrides_all_sectors(self):
+        """All 9 scoreable GICS sectors should have explicit overrides."""
+        config = FcfDistressConfig()
+        expected_sectors = {
+            "information technology", "communication services",
+            "health care", "consumer staples", "consumer discretionary",
+            "industrials", "materials", "energy", "utilities",
+        }
+        assert set(config.sector_margin_overrides.keys()) == expected_sectors
+
+    def test_custom_override_via_config(self):
+        """Custom sector_margin_overrides should work."""
+        config = FcfDistressConfig(sector_margin_overrides={"energy": 0.05})
+        assert config.get_min_fcf_margin("energy") == 0.05
+
+
 class TestFCFDistressWithConfig:
     """Tests for config-driven FCF distress thresholds."""
 
@@ -237,13 +276,15 @@ class TestFCFDistressV2MultiYear:
     def test_fcf_distress_positive_trend_rescue(self):
         """Negative but improving for 2+ years -> WARNING, not FAIL."""
         # FCF values: all negative, but consistently improving
-        # Use high revenue (10000) so median FCF margin stays above -5% floor
+        # Use high revenue (10000) so median FCF margin stays above floor
         # Margins: -200/10000=-2%, -150/10000=-1.5%, -80/10000=-0.8%, etc.
+        # Explicit permissive floor so the margin check doesn't block the trend rescue
+        config = FcfDistressConfig(min_fcf_margin=-0.05, sector_margin_overrides={})
         history = _make_history(
             [-200, -150, -80, -30, -10],
             revenues=[10000, 10000, 10000, 10000, 10000],
         )
-        result = fcf_distress_check_v2(history)
+        result = fcf_distress_check_v2(history, config=config)
         assert result.passed is True
         assert result.warning is True
         assert result.warning_reason is not None
@@ -268,27 +309,34 @@ class TestFCFDistressV2MultiYear:
     def test_fcf_distress_cyclical_relaxed(self):
         """Energy sector uses 2-of-5 instead of 3-of-5."""
         # 2 positive out of 5 — would FAIL for non-cyclical (needs 3), PASS for cyclical (needs 2)
+        # Explicit permissive floor so the margin check doesn't interfere
+        config = FcfDistressConfig(min_fcf_margin=-0.25, sector_margin_overrides={})
         history = _make_history([100, -50, -200, -30, 150])
-        result = fcf_distress_check_v2(history, sector=GICSSector.ENERGY)
+        result = fcf_distress_check_v2(history, config=config, sector=GICSSector.ENERGY)
         assert result.passed is True
         assert result.computed_metrics["positive_years"] == 2
 
     def test_fcf_distress_cyclical_materials(self):
         """Materials sector also uses cyclical relaxation."""
+        config = FcfDistressConfig(min_fcf_margin=-0.25, sector_margin_overrides={})
         history = _make_history([100, -50, -200, -30, 150])
-        result = fcf_distress_check_v2(history, sector=GICSSector.MATERIALS)
+        result = fcf_distress_check_v2(history, config=config, sector=GICSSector.MATERIALS)
         assert result.passed is True
 
     def test_fcf_distress_cyclical_industrials(self):
         """Industrials sector also uses cyclical relaxation."""
+        config = FcfDistressConfig(min_fcf_margin=-0.25, sector_margin_overrides={})
         history = _make_history([100, -50, -200, -30, 150])
-        result = fcf_distress_check_v2(history, sector=GICSSector.INDUSTRIALS)
+        result = fcf_distress_check_v2(history, config=config, sector=GICSSector.INDUSTRIALS)
         assert result.passed is True
 
     def test_fcf_distress_cyclical_consumer_discretionary(self):
         """Consumer Discretionary sector also uses cyclical relaxation."""
+        config = FcfDistressConfig(min_fcf_margin=-0.25, sector_margin_overrides={})
         history = _make_history([100, -50, -200, -30, 150])
-        result = fcf_distress_check_v2(history, sector=GICSSector.CONSUMER_DISCRETIONARY)
+        result = fcf_distress_check_v2(
+            history, config=config, sector=GICSSector.CONSUMER_DISCRETIONARY
+        )
         assert result.passed is True
 
     def test_fcf_distress_cyclical_still_fails_with_1_of_5(self):
@@ -314,13 +362,11 @@ class TestFCFDistressV2MultiYear:
         assert result.computed_metrics["median_fcf_margin"] < -0.05
 
     def test_fcf_margin_floor_borderline_pass(self):
-        """Median FCF margin at exactly -5% should PASS (>=, not >)."""
-        # Need median margin = -0.05 exactly
-        # 5 periods, margins: [-0.10, -0.05, -0.05, 0.02, 0.10]
-        # median (middle value) = -0.05 → should pass (>= -0.05)
-        # FCF values with revenue=1000: [-100, -50, -50, 20, 100]
+        """Median FCF margin at exactly the floor should PASS (>=, not >)."""
+        # Explicitly set floor to -0.05 to test the >= boundary
+        config = FcfDistressConfig(min_fcf_margin=-0.05, sector_margin_overrides={})
         history = _make_history([-100, -50, -50, 20, 100])
-        result = fcf_distress_check_v2(history)
+        result = fcf_distress_check_v2(history, config=config)
         assert result.passed is True
 
     def test_fcf_single_period_backward_compat(self):
