@@ -2786,7 +2786,6 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
             price_result = await backfill_prices_for_tickers(
                 tickers=tickers,
                 start_date="2009-01-01",
-                batch_size=500,
                 session_factory=session_factory,
             )
             logger.info("[bootstrap_pit] Price backfill complete: %d tickers", len(price_result))
