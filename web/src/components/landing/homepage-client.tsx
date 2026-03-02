@@ -14,6 +14,7 @@ import { FaqSection } from "./faq-section"
 import { InfrastructureSection } from "./infrastructure-section"
 import { FooterSection } from "./footer-section"
 import { SectionIndicator } from "./section-indicator"
+import { formatEliminationPct } from "@/lib/format-elimination-pct"
 import type { HomepageData } from "./types"
 
 interface HomepageClientProps {
@@ -31,7 +32,7 @@ export function HomepageClient({ data }: HomepageClientProps) {
       <EliminationVignette
         eliminatedPct={
           data && data.total_scored > 0
-            ? Math.round(((data.total_scored - data.eligible_count) / data.total_scored) * 100)
+            ? formatEliminationPct(data.total_scored - data.eligible_count, data.total_scored)
             : undefined
         }
       />

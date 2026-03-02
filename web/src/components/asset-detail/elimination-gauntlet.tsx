@@ -1,4 +1,5 @@
 import { FilterCard } from "./filter-card"
+import { formatEliminationPct } from "@/lib/format-elimination-pct"
 import type { FilterResultResponse } from "@/lib/api/types"
 
 interface EliminationGauntletProps {
@@ -11,7 +12,7 @@ interface EliminationGauntletProps {
 export function EliminationGauntlet({ filters, eliminated, totalScored, filtersSurvivedCount }: EliminationGauntletProps) {
   const passCount = filters.filter((f) => f.passed).length
   const eliminatedPct = totalScored != null && filtersSurvivedCount != null && totalScored > 0
-    ? Math.round(((totalScored - filtersSurvivedCount) / totalScored) * 100)
+    ? formatEliminationPct(totalScored - filtersSurvivedCount, totalScored)
     : null
 
   // When eliminated, sort failed filters to top

@@ -24,8 +24,8 @@ import { EliminationVignette } from "../elimination-vignette"
 
 describe("EliminationVignette", () => {
   it("renders the elimination narrative", () => {
-    render(<EliminationVignette eliminatedPct={72} />)
-    expect(screen.getByText(/72%/)).toBeInTheDocument()
+    render(<EliminationVignette eliminatedPct="72.45" />)
+    expect(screen.getByText(/72\.45%/)).toBeInTheDocument()
     expect(screen.getByText(/eliminated/i)).toBeInTheDocument()
   })
 

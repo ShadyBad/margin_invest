@@ -47,7 +47,7 @@ describe("EliminationGauntlet", () => {
 
   it("shows elimination rate when context provided", () => {
     render(<EliminationGauntlet filters={allPassing} eliminated={false} totalScored={2847} filtersSurvivedCount={847} />)
-    expect(screen.getByText(/70% of the universe/i)).toBeInTheDocument()
+    expect(screen.getByText(/70\.25% of the universe/i)).toBeInTheDocument()
   })
 
   it("does not show universe context when props are missing", () => {

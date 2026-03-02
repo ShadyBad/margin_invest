@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 
 interface EliminationVignetteProps {
-  eliminatedPct?: number
+  eliminatedPct?: string
 }
 
 export function EliminationVignette({ eliminatedPct }: EliminationVignetteProps) {
@@ -52,7 +52,7 @@ export function EliminationVignette({ eliminatedPct }: EliminationVignetteProps)
     }
   }, [])
 
-  const pct = eliminatedPct ?? 70
+  const pct = eliminatedPct ?? "70"
 
   return (
     <section ref={sectionRef} className="py-16 px-6">
