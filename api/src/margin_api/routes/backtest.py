@@ -31,6 +31,7 @@ from margin_api.schemas.backtest import (
     ValidationResponse,
 )
 from margin_api.services.backtest import (
+    _build_metrics_response,
     build_full_response,
     build_portfolio_teaser,
     build_teaser_from_result,
@@ -130,16 +131,30 @@ def _build_validation(metrics: MetricsResponse) -> ValidationResponse:
 
 
 @router.post("/backtest/run", response_model=BacktestResultResponse, status_code=201)
-async def run_backtest(config: BacktestConfigRequest) -> BacktestResultResponse:
+async def run_backtest(
+    config: BacktestConfigRequest,
+    session: AsyncSession = Depends(get_db),
+) -> BacktestResultResponse:
     """Trigger a backtest with the given configuration.
 
-    Since we don't have real providers yet, create a mock/synthetic result
-    for API testing. The real implementation will use WalkForwardSimulator
-    with actual data providers.
+    Attempts a real backtest via DatabasePITProvider + ReplayOrchestrator.
+    Falls back to synthetic metrics when no PIT data is available or on error.
     """
     start_time = time.monotonic()
 
-    metrics = _build_synthetic_metrics(config)
+    engine_config = ReplayConfig(
+        start_date=config.start_date,
+        end_date=config.end_date or date.today(),
+    )
+    try:
+        replay_result = await run_real_backtest(session, engine_config)
+        if replay_result.metrics.num_months == 0:
+            raise ValueError("No PIT data available")
+        metrics = _build_metrics_response(replay_result.metrics)
+    except Exception:
+        logger.warning("Real backtest failed for /backtest/run, using synthetic", exc_info=True)
+        metrics = _build_synthetic_metrics(config)
+
     validation = _build_validation(metrics)
 
     duration = time.monotonic() - start_time
