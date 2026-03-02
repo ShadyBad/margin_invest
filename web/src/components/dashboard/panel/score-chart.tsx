@@ -25,6 +25,8 @@ export interface ScoreDataPoint {
 
 interface ScoreChartProps {
   data: ScoreDataPoint[]
+  status?: "loading" | "loaded" | "error"
+  onRetry?: () => void
   timeRange: TimeRange
   showBenchmark: boolean
   benchmarkData?: ScoreDataPoint[]
@@ -43,6 +45,8 @@ const RANGE_DAYS: Record<TimeRange, number | null> = {
 
 export function ScoreChart({
   data,
+  status = "loaded",
+  onRetry,
   timeRange,
   showBenchmark,
   benchmarkData,
@@ -51,6 +55,44 @@ export function ScoreChart({
   lastScored,
 }: ScoreChartProps) {
   const gradientId = useId()
+
+  if (status === "loading") {
+    return (
+      <div
+        className="h-[320px] flex items-center justify-center"
+        data-testid="score-chart-loading"
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-[80%] max-w-[400px] space-y-3">
+            <div className="h-3 bg-white/[0.04] rounded animate-pulse" />
+            <div className="h-3 bg-white/[0.04] rounded animate-pulse w-[90%]" />
+            <div className="h-3 bg-white/[0.04] rounded animate-pulse w-[70%]" />
+            <div className="h-3 bg-white/[0.04] rounded animate-pulse w-[85%]" />
+          </div>
+          <span className="text-[11px] text-[#5C5955]/60 mt-2">Loading score history…</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (status === "error") {
+    return (
+      <div
+        className="h-[320px] flex flex-col items-center justify-center gap-3"
+        data-testid="score-chart-error"
+      >
+        <span className="text-[13px] text-[#C74B50]">Unable to load score history</span>
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="text-[12px] text-[#5C5955] hover:text-[#E8E6E3] border border-white/[0.08] rounded px-3 py-1 transition-colors"
+          >
+            Retry
+          </button>
+        )}
+      </div>
+    )
+  }
 
   if (!data || data.length < 2) {
     return (
