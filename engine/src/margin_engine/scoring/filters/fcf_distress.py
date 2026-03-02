@@ -111,6 +111,11 @@ def fcf_distress_check_v2(
     if config is None:
         config = FcfDistressConfig()
 
+    # Sector-specific FCF margin floor lookup
+    sector_value = sector.value if sector is not None else None
+    margin_floor = config.get_min_fcf_margin(sector_value)
+    sector_name = sector.value if sector is not None else ""
+
     # --- Single-period fallback ---
     if isinstance(history_or_period, FinancialPeriod):
         return fcf_distress_check(history_or_period, config=config)
@@ -155,12 +160,12 @@ def fcf_distress_check_v2(
     warning = False
     warning_reason: str | None = None
 
-    # Check 1: FCF margin floor
-    margin_floor_passed = median_fcf_margin >= config.min_fcf_margin
+    # Check 1: FCF margin floor (sector-specific)
+    margin_floor_passed = median_fcf_margin >= margin_floor
     if not margin_floor_passed:
         detail = (
             f"FAIL: median FCF margin {median_fcf_margin:.1%} < "
-            f"floor {config.min_fcf_margin:.1%}. "
+            f"floor {margin_floor:.1%}. "
             f"positive_years={positive_years}/{total_years}, "
             f"required={required}"
         )
@@ -168,7 +173,7 @@ def fcf_distress_check_v2(
             name=_FILTER_NAME,
             passed=False,
             value=median_fcf_margin,
-            threshold=config.min_fcf_margin,
+            threshold=margin_floor,
             detail=detail,
             computed_metrics={
                 "positive_years": float(positive_years),
@@ -176,6 +181,8 @@ def fcf_distress_check_v2(
                 "positive_years_required": float(required),
                 "median_fcf_margin": median_fcf_margin,
                 "consecutive_improving_years": float(consecutive_improving),
+                "sector_fcf_margin_floor": margin_floor,
+                "sector_name": sector_name,
             },
         )
 
@@ -238,6 +245,8 @@ def fcf_distress_check_v2(
             "positive_years_required": float(required),
             "median_fcf_margin": median_fcf_margin,
             "consecutive_improving_years": float(consecutive_improving),
+            "sector_fcf_margin_floor": margin_floor,
+            "sector_name": sector_name,
         },
     )
 

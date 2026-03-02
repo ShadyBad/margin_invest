@@ -2,6 +2,8 @@
 
 from decimal import Decimal
 
+import pytest
+
 from margin_engine.config.filter_config import FcfDistressConfig
 from margin_engine.models.financial import (
     BalanceSheet,
@@ -430,3 +432,75 @@ class TestFCFDistressV2MultiYear:
         assert "positive_years_required" in result.computed_metrics
         assert "median_fcf_margin" in result.computed_metrics
         assert "consecutive_improving_years" in result.computed_metrics
+
+
+class TestFCFDistressSectorMarginFloors:
+    """Tests for sector-specific FCF margin floors in v2."""
+
+    @pytest.mark.parametrize(
+        "sector,floor",
+        [
+            (GICSSector.TECHNOLOGY, 0.10),
+            (GICSSector.COMMUNICATION_SERVICES, 0.08),
+            (GICSSector.HEALTHCARE, 0.05),
+            (GICSSector.CONSUMER_STAPLES, 0.05),
+            (GICSSector.CONSUMER_DISCRETIONARY, 0.03),
+            (GICSSector.INDUSTRIALS, 0.03),
+            (GICSSector.MATERIALS, 0.02),
+            (GICSSector.ENERGY, 0.0),
+            (GICSSector.UTILITIES, 0.0),
+        ],
+    )
+    def test_sector_floor_applied(self, sector, floor):
+        """Each sector should use its specific FCF margin floor."""
+        # Build history with median FCF margin = floor - 0.01 (just below threshold)
+        margin_below = floor - 0.01
+        fcf_values = [margin_below * 1000] * 5  # All same -> median = margin_below
+        history = _make_history(fcf_values)
+        result = fcf_distress_check_v2(history, sector=sector)
+        assert result.passed is False, (
+            f"{sector.value} should fail with margin {margin_below:.2%} < {floor:.0%}"
+        )
+
+    def test_tech_stock_passes_with_adequate_margin(self):
+        """Tech stock with 15% FCF margin should pass the 10% floor."""
+        # FCF margin = 150/1000 = 15% per year, all positive
+        history = _make_history([150, 160, 140, 170, 155])
+        result = fcf_distress_check_v2(history, sector=GICSSector.TECHNOLOGY)
+        assert result.passed is True
+
+    def test_tech_stock_fails_with_8pct_margin(self):
+        """Tech stock with 8% FCF margin should fail the 10% floor."""
+        # FCF margin = 80/1000 = 8% per year, all positive but below 10%
+        history = _make_history([80, 80, 80, 80, 80])
+        result = fcf_distress_check_v2(history, sector=GICSSector.TECHNOLOGY)
+        assert result.passed is False
+
+    def test_energy_stock_passes_with_tiny_margin(self):
+        """Energy stock with 0.5% FCF margin should pass the 0% floor."""
+        history = _make_history([5, 5, 5, 5, 5])
+        result = fcf_distress_check_v2(history, sector=GICSSector.ENERGY)
+        assert result.passed is True
+
+    def test_no_sector_uses_default_floor(self):
+        """When sector is None, use the default min_fcf_margin (0.0)."""
+        # Margin = -1% -- below 0
+        history = _make_history([-10, -10, -10, -10, -10], revenues=[1000] * 5)
+        result = fcf_distress_check_v2(history, sector=None)
+        assert result.passed is False
+
+    def test_computed_metrics_includes_sector_info(self):
+        """computed_metrics should include sector_fcf_margin_floor and sector_name."""
+        history = _make_history([150, 160, 140, 170, 155])
+        result = fcf_distress_check_v2(history, sector=GICSSector.TECHNOLOGY)
+        assert result.computed_metrics is not None
+        assert result.computed_metrics["sector_fcf_margin_floor"] == 0.10
+        assert result.computed_metrics["sector_name"] == "Information Technology"
+
+    def test_computed_metrics_no_sector(self):
+        """When sector is None, sector_name should be empty string and floor is default."""
+        history = _make_history([150, 160, 140, 170, 155])
+        result = fcf_distress_check_v2(history, sector=None)
+        assert result.computed_metrics is not None
+        assert result.computed_metrics["sector_fcf_margin_floor"] == 0.0
+        assert result.computed_metrics["sector_name"] == ""

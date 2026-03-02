@@ -64,7 +64,7 @@ class FilterResult(BaseModel):
     detail: str = ""
     insufficient_data: bool = False
     missing_fields: list[str] | None = None
-    computed_metrics: dict[str, float] | None = None
+    computed_metrics: dict[str, float | str] | None = None
     warning: bool = False
     warning_reason: str | None = None
 
