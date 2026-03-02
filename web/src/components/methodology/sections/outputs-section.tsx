@@ -13,7 +13,7 @@ const exampleOutput = [
 
 const factorBreakdown = [
   { pillar: "Quality", percentile: 82, suffix: "nd", color: "text-accent" },
-  { pillar: "Value", percentile: 64, suffix: "th", color: "text-bullish" },
+  { pillar: "Value", percentile: 64, suffix: "th", color: "text-[var(--color-value)]" },
   { pillar: "Momentum", percentile: 71, suffix: "st", color: "text-warning" },
 ]
 
@@ -117,7 +117,11 @@ export function OutputsSection() {
                   </span>
                   <div className="flex-1 h-2 bg-bg-subtle rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-accent/60 rounded-full"
+                      className={`h-full rounded-full ${
+                        fb.pillar === "Quality" ? "bg-accent/60" :
+                        fb.pillar === "Value" ? "bg-[var(--color-value)]/60" :
+                        "bg-warning/60"
+                      }`}
                       style={{ width: `${fb.percentile}%` }}
                     />
                   </div>
