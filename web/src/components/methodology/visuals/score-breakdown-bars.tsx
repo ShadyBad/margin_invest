@@ -2,11 +2,11 @@
 
 const bars = [
   { label: "Quality", percentile: 78, color: "bg-accent" },
-  { label: "Value", percentile: 64, color: "bg-bullish" },
+  { label: "Value", percentile: 64, color: "bg-[var(--color-value)]" },
   { label: "Momentum", percentile: 88, color: "bg-warning" },
 ]
 
-const composite = { label: "Composite", percentile: 79, color: "bg-accent" }
+const composite = { label: "Composite", percentile: 79, color: "bg-text-secondary" }
 
 export function ScoreBreakdownBars() {
   return (
