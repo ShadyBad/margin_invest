@@ -35,14 +35,21 @@ const MOCK_TEASER = {
 describe("ProofHistoricalChart", () => {
   beforeEach(() => mockFetch.mockReset())
 
-  it("renders skeleton when fetch returns non-ok", async () => {
+  it("renders error message when fetch returns non-ok", async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 500 })
     render(<ProofHistoricalChart />)
-    // Wait for useEffect to settle (non-ok response, data stays null)
-    await vi.waitFor(() => {
-      expect(mockFetch).toHaveBeenCalled()
-    })
-    expect(screen.getByTestId("historical-skeleton")).toBeInTheDocument()
+    expect(await screen.findByTestId("historical-error")).toBeInTheDocument()
+    expect(screen.getByText(/unable to load/i)).toBeInTheDocument()
+  })
+
+  it("renders error message when fetch throws", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    mockFetch.mockRejectedValueOnce(new Error("Network failure"))
+    render(<ProofHistoricalChart />)
+    expect(await screen.findByTestId("historical-error")).toBeInTheDocument()
+    expect(screen.getByText(/unable to load/i)).toBeInTheDocument()
+    vi.restoreAllMocks()
+    global.fetch = mockFetch
   })
 
   it("renders area chart after data loads", async () => {

@@ -69,18 +69,33 @@ function Metric({ label, value, accent, danger }: MetricProps) {
 
 export function ProofHistoricalChart() {
   const [data, setData] = useState<PortfolioTeaser | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       try {
         const resp = await fetch("/api/v1/backtest/portfolio-teaser")
-        if (resp.ok) setData(await resp.json())
-      } catch {
-        // stay null
+        if (resp.ok) {
+          setData(await resp.json())
+        } else {
+          console.error("Portfolio teaser fetch failed:", resp.status)
+          setError("Unable to load historical performance data.")
+        }
+      } catch (err) {
+        console.error("Portfolio teaser network error:", err)
+        setError("Unable to load historical performance data.")
       }
     }
     load()
   }, [])
+
+  if (error) {
+    return (
+      <div data-testid="historical-error" className="text-center py-8">
+        <p className="text-sm text-text-secondary">{error}</p>
+      </div>
+    )
+  }
 
   if (!data) {
     return (
