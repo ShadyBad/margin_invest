@@ -109,7 +109,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
     if (historyData && historyData.points.length > 0) {
       return historyData.points.map((p) => ({
         date: p.scored_at,
-        score: p.composite_percentile,
+        score: p.score ?? p.composite_raw_score ?? 0,
         delta: p.delta ?? 0,
         signal: p.signal,
         conviction: p.composite_tier,
@@ -130,7 +130,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
     if (historyData && historyData.points.length > 0) {
       return historyData.points.map((p) => ({
         date: p.scored_at,
-        score: p.composite_percentile,
+        score: p.score ?? p.composite_raw_score ?? 0,
         signal: p.signal,
         delta: p.delta,
         conviction: p.composite_tier,
