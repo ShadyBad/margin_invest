@@ -23,6 +23,11 @@
   --color-accent-hover: #0B3E2E;
   --color-accent-subtle: rgba(14, 79, 58, 0.08);
 
+  /* Value pillar — teal-blue (distinct from emerald accent/bullish) */
+  --color-value: #1A6B8A;
+  --color-value-hover: #155A74;
+  --color-value-subtle: rgba(26, 107, 138, 0.08);
+
   /* Borders */
   --color-border-primary: #D8D6D0;
   --color-border-subtle: rgba(18, 18, 18, 0.08);
@@ -112,6 +117,11 @@
   --color-accent: #1A7A5A;
   --color-accent-hover: #1F8F6A;
   --color-accent-subtle: rgba(26, 122, 90, 0.10);
+
+  /* Value pillar — teal-blue (distinct from emerald accent/bullish) */
+  --color-value: #3BA5D0;
+  --color-value-hover: #4BB8E0;
+  --color-value-subtle: rgba(59, 165, 208, 0.10);
 
   --color-border-primary: #2A2621;
   --color-border-subtle: rgba(237, 233, 227, 0.06);
