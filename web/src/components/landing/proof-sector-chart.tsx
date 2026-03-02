@@ -55,8 +55,32 @@ function useIsNarrow(): boolean {
   return narrow
 }
 
+function useIsDark(): boolean {
+  const [dark, setDark] = useState(false)
+  useEffect(() => {
+    const checkDark = () =>
+      document.documentElement.classList.contains("dark") ||
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+    setDark(checkDark())
+    const observer = new MutationObserver(() => setDark(checkDark()))
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    })
+    const mql = window.matchMedia("(prefers-color-scheme: dark)")
+    const handler = () => setDark(checkDark())
+    mql.addEventListener("change", handler)
+    return () => {
+      observer.disconnect()
+      mql.removeEventListener("change", handler)
+    }
+  }, [])
+  return dark
+}
+
 export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
   const isNarrow = useIsNarrow()
+  const isDark = useIsDark()
 
   if (candidates.length === 0) {
     return (
@@ -94,6 +118,7 @@ export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
               width={120}
             />
             <Tooltip
+              cursor={false}
               contentStyle={{
                 background: "var(--color-bg-elevated)",
                 border: "1px solid var(--color-border-subtle)",
@@ -108,6 +133,7 @@ export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
               dataKey="exceptional"
               name="Exceptional"
               fill="var(--color-accent)"
+              activeBar={{ fill: isDark ? "#24A070" : "var(--color-accent)" }}
               radius={[0, 4, 4, 0]}
               barSize={isNarrow ? 16 : 8}
               stackId={isNarrow ? "stack" : undefined}
@@ -116,6 +142,11 @@ export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
               dataKey="high"
               name="High"
               fill="color-mix(in srgb, var(--color-accent), transparent 40%)"
+              activeBar={{
+                fill: isDark
+                  ? "color-mix(in srgb, #24A070, transparent 40%)"
+                  : "color-mix(in srgb, var(--color-accent), transparent 40%)",
+              }}
               radius={[0, 4, 4, 0]}
               barSize={isNarrow ? 16 : 8}
               stackId={isNarrow ? "stack" : undefined}
@@ -124,6 +155,11 @@ export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
               dataKey="medium"
               name="Medium"
               fill="color-mix(in srgb, var(--color-warning), transparent 40%)"
+              activeBar={{
+                fill: isDark
+                  ? "color-mix(in srgb, #E0BC5A, transparent 40%)"
+                  : "color-mix(in srgb, var(--color-warning), transparent 40%)",
+              }}
               radius={[0, 4, 4, 0]}
               barSize={isNarrow ? 16 : 8}
               stackId={isNarrow ? "stack" : undefined}
