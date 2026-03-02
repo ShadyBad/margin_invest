@@ -200,6 +200,38 @@ describe("PanelValuation", () => {
     expect(screen.queryByTestId("method-audit-detail")).not.toBeInTheDocument()
   })
 
+  it("shows fallback message when audit fetch fails", async () => {
+    const mockGetAudit = vi.mocked(getValuationAudit)
+    mockGetAudit.mockRejectedValueOnce(new Error("404"))
+
+    render(<PanelValuation {...baseProps} ticker="AAPL" />)
+    fireEvent.click(screen.getByTestId("method-bar-dcf"))
+
+    expect(screen.getByText("Loading audit data...")).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.getByText("No audit data available")).toBeInTheDocument()
+    })
+  })
+
+  it("does not retry fetch after error", async () => {
+    const mockGetAudit = vi.mocked(getValuationAudit)
+    mockGetAudit.mockRejectedValueOnce(new Error("404"))
+
+    render(<PanelValuation {...baseProps} ticker="AAPL" />)
+    fireEvent.click(screen.getByTestId("method-bar-dcf"))
+
+    await waitFor(() => {
+      expect(screen.getByText("No audit data available")).toBeInTheDocument()
+    })
+
+    // Collapse and expand another method — should not retry
+    fireEvent.click(screen.getByTestId("method-bar-dcf"))
+    fireEvent.click(screen.getByTestId("method-bar-ev_fcf"))
+
+    expect(mockGetAudit).toHaveBeenCalledTimes(1)
+  })
+
   it("does not fetch audit data when ticker is not provided", () => {
     const mockGetAudit = vi.mocked(getValuationAudit)
 

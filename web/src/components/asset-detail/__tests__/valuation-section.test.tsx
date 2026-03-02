@@ -1,8 +1,18 @@
-import { describe, it, expect } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { describe, it, expect, vi, beforeEach } from "vitest"
+import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { ValuationSection } from "../valuation-section"
 
+vi.mock("@/lib/api/scores", () => ({
+  getValuationAudit: vi.fn(),
+}))
+
+import { getValuationAudit } from "@/lib/api/scores"
+
 describe("ValuationSection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it("renders price ruler with buy, sell, intrinsic, and current", () => {
     render(
       <ValuationSection
@@ -86,5 +96,66 @@ describe("ValuationSection", () => {
     )
     expect(screen.getByText("DCF Model")).toBeInTheDocument()
     expect(screen.getByText("$158.20")).toBeInTheDocument()
+  })
+
+  it("shows fallback message when audit fetch fails", async () => {
+    const mockGetAudit = vi.mocked(getValuationAudit)
+    mockGetAudit.mockRejectedValueOnce(new Error("404"))
+
+    render(
+      <ValuationSection
+        ticker="AAPL"
+        buyPrice={142}
+        sellPrice={214}
+        intrinsicValue={165}
+        currentPrice={187.42}
+        priceUpside={-0.119}
+        marginOfSafety={-0.136}
+        valuationMethods={{ dcf: 158.2, ev_fcf: 172.4 }}
+      />
+    )
+
+    // Click the audit toggle
+    fireEvent.click(screen.getByText(/Full Valuation Audit/))
+
+    await waitFor(() => {
+      expect(screen.getByText("No audit data available")).toBeInTheDocument()
+    })
+  })
+
+  it("shows audit data when fetch succeeds", async () => {
+    const mockGetAudit = vi.mocked(getValuationAudit)
+    mockGetAudit.mockResolvedValueOnce({
+      margin_invest_value: 165,
+      margin_of_safety: -0.136,
+      buy_price: 142,
+      sell_price: 214,
+      actual_price: 187.42,
+      methods: [],
+      mos_base: 0.3,
+      mos_cv: 0.12,
+      mos_adjustment: -0.04,
+      was_clamped: false,
+      clamp_reason: null,
+    })
+
+    render(
+      <ValuationSection
+        ticker="AAPL"
+        buyPrice={142}
+        sellPrice={214}
+        intrinsicValue={165}
+        currentPrice={187.42}
+        priceUpside={-0.119}
+        marginOfSafety={-0.136}
+        valuationMethods={{ dcf: 158.2, ev_fcf: 172.4 }}
+      />
+    )
+
+    fireEvent.click(screen.getByText(/Full Valuation Audit/))
+
+    await waitFor(() => {
+      expect(screen.getByText(/margin_invest_value/)).toBeInTheDocument()
+    })
   })
 })

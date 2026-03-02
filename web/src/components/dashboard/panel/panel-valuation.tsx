@@ -35,6 +35,7 @@ export function PanelValuation({
   const [expandedMethod, setExpandedMethod] = useState<string | null>(null)
   const [auditData, setAuditData] = useState<ValuationAuditResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [auditError, setAuditError] = useState(false)
 
   const entries = methods ? Object.entries(methods) : []
 
@@ -55,13 +56,13 @@ export function PanelValuation({
       return
     }
     setExpandedMethod(method)
-    if (!auditData && ticker) {
+    if (!auditData && !auditError && ticker) {
       setLoading(true)
       try {
         const data = await getValuationAudit(ticker)
         setAuditData(data)
       } catch {
-        // Silently fail — audit data is optional
+        setAuditError(true)
       } finally {
         setLoading(false)
       }
@@ -138,6 +139,9 @@ export function PanelValuation({
                 )}
                 {isExpanded && loading && (
                   <div className="ml-[123px] py-2 text-[11px] text-[#5C5955]">Loading audit data...</div>
+                )}
+                {isExpanded && !loading && !methodAudit && (
+                  <div className="ml-[123px] py-2 text-[11px] text-[#5C5955]">No audit data available</div>
                 )}
               </div>
             )

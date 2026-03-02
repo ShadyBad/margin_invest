@@ -135,6 +135,7 @@ export function ValuationSection({
   const [showAudit, setShowAudit] = useState(false)
   const [auditData, setAuditData] = useState<ValuationAuditResponse | null>(null)
   const [auditLoading, setAuditLoading] = useState(false)
+  const [auditError, setAuditError] = useState(false)
 
   const isOvervalued =
     currentPrice != null && intrinsicValue != null && currentPrice > intrinsicValue
@@ -142,13 +143,13 @@ export function ValuationSection({
 
   async function handleAuditClick() {
     setShowAudit(!showAudit)
-    if (!auditData && !auditLoading) {
+    if (!auditData && !auditLoading && !auditError) {
       setAuditLoading(true)
       try {
         const data = await getValuationAudit(ticker)
         setAuditData(data)
       } catch {
-        // Audit is optional enrichment
+        setAuditError(true)
       } finally {
         setAuditLoading(false)
       }
@@ -273,6 +274,9 @@ export function ValuationSection({
             <pre className="text-[10px] font-mono text-text-tertiary bg-white/[0.02] rounded p-3 overflow-x-auto max-h-64">
               {JSON.stringify(auditData, null, 2)}
             </pre>
+          )}
+          {showAudit && !auditLoading && !auditData && (
+            <p className="text-xs text-text-tertiary">No audit data available</p>
           )}
         </div>
       )}
