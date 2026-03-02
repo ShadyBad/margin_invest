@@ -91,7 +91,7 @@ export function MfaStatus({
 
         {mfaGraceDeadline && !graceExpired && (
           <div
-            className="rounded-sm border border-amber-500/30 bg-amber-500/5 p-3 mb-3"
+            className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 mb-3"
             role="alert"
           >
             <p className="text-sm text-amber-400">
@@ -102,7 +102,7 @@ export function MfaStatus({
 
         {mfaGraceDeadline && graceExpired && (
           <div
-            className="rounded-sm border border-red-500/30 bg-red-500/5 p-3 mb-3"
+            className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 mb-3"
             role="alert"
           >
             <p className="text-sm text-red-400">
@@ -113,7 +113,7 @@ export function MfaStatus({
 
         <Link
           href="/mfa/setup"
-          className="inline-flex px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-sm hover:bg-accent-hover transition-colors"
+          className="inline-flex px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-lg hover:bg-accent-hover transition-colors"
         >
           Set Up MFA
         </Link>
@@ -130,7 +130,7 @@ export function MfaStatus({
         </h3>
         <div className="flex items-center gap-2 mb-2" role="status">
           <span
-            className="w-2 h-2 rounded-full bg-emerald-500"
+            className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"
             aria-label="MFA status: Enabled"
           />
           <span className="text-sm text-text-primary font-medium">
@@ -145,7 +145,7 @@ export function MfaStatus({
             <button
               onClick={onRegenerateCodes}
               disabled={regenerating}
-              className="px-4 py-2 border border-border-primary text-text-primary font-medium text-sm rounded-sm hover:bg-bg-subtle transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-border-primary text-text-primary font-medium text-sm rounded-lg hover:bg-bg-subtle transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {regenerating ? "Regenerating..." : "Regenerate Recovery Codes"}
             </button>
