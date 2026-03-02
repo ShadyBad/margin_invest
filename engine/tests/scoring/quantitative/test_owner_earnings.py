@@ -150,15 +150,17 @@ class TestOwnerEarningsCyclicalNormalization:
         # Year 5: 160 - 38.5*1.1 = 160 - 42.35 = 117.65
         # Year 6: 140 - 33*1.1 = 140 - 36.3 = 103.7
         # Year 7: 200 - 50*1.1 = 200 - 55 = 145.0
-        history = _make_history([
-            (Decimal("100"), Decimal("22")),
-            (Decimal("150"), Decimal("33")),
-            (Decimal("120"), Decimal("27.5")),
-            (Decimal("180"), Decimal("44")),
-            (Decimal("160"), Decimal("38.5")),
-            (Decimal("140"), Decimal("33")),
-            (Decimal("200"), Decimal("50")),
-        ])
+        history = _make_history(
+            [
+                (Decimal("100"), Decimal("22")),
+                (Decimal("150"), Decimal("33")),
+                (Decimal("120"), Decimal("27.5")),
+                (Decimal("180"), Decimal("44")),
+                (Decimal("160"), Decimal("38.5")),
+                (Decimal("140"), Decimal("33")),
+                (Decimal("200"), Decimal("50")),
+            ]
+        )
         profile = _make_profile(sector=GICSSector.ENERGY)
 
         score = owner_earnings_yield(current, profile, history=history)
@@ -182,15 +184,17 @@ class TestOwnerEarningsCyclicalNormalization:
             depreciation=Decimal("50"),
         )
         # History with much lower OE values (would change result if normalized)
-        history = _make_history([
-            (Decimal("50"), Decimal("10")),
-            (Decimal("60"), Decimal("12")),
-            (Decimal("55"), Decimal("11")),
-            (Decimal("65"), Decimal("13")),
-            (Decimal("70"), Decimal("14")),
-            (Decimal("60"), Decimal("12")),
-            (Decimal("200"), Decimal("50")),
-        ])
+        history = _make_history(
+            [
+                (Decimal("50"), Decimal("10")),
+                (Decimal("60"), Decimal("12")),
+                (Decimal("55"), Decimal("11")),
+                (Decimal("65"), Decimal("13")),
+                (Decimal("70"), Decimal("14")),
+                (Decimal("60"), Decimal("12")),
+                (Decimal("200"), Decimal("50")),
+            ]
+        )
         profile = _make_profile(sector=GICSSector.TECHNOLOGY)
 
         score_with_hist = owner_earnings_yield(current, profile, history=history)
@@ -218,10 +222,12 @@ class TestOwnerEarningsCyclicalNormalization:
             depreciation=Decimal("50"),
         )
         # Only 2 periods — below _MIN_HISTORY=3 threshold
-        history = _make_history([
-            (Decimal("50"), Decimal("10")),
-            (Decimal("200"), Decimal("50")),
-        ])
+        history = _make_history(
+            [
+                (Decimal("50"), Decimal("10")),
+                (Decimal("200"), Decimal("50")),
+            ]
+        )
         profile = _make_profile(sector=GICSSector.ENERGY)
 
         score = owner_earnings_yield(current, profile, history=history)
@@ -237,13 +243,15 @@ class TestOwnerEarningsCyclicalNormalization:
             depreciation=Decimal("50"),
             period_end="2024-12-31",
         )
-        history = _make_history([
-            (Decimal("100"), Decimal("20")),
-            (Decimal("120"), Decimal("25")),
-            (Decimal("130"), Decimal("28")),
-            (Decimal("140"), Decimal("30")),
-            (Decimal("200"), Decimal("50")),
-        ])
+        history = _make_history(
+            [
+                (Decimal("100"), Decimal("20")),
+                (Decimal("120"), Decimal("25")),
+                (Decimal("130"), Decimal("28")),
+                (Decimal("140"), Decimal("30")),
+                (Decimal("200"), Decimal("50")),
+            ]
+        )
         profile = _make_profile(sector=GICSSector.MATERIALS)
 
         score = owner_earnings_yield(current, profile, history=history)

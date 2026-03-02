@@ -1,19 +1,17 @@
 """Tests for beta computation from price history."""
+
 import datetime
 import math
 from decimal import Decimal
 
 import pytest
-
 from margin_engine.models.financial import PriceBar
 from margin_engine.scoring.quantitative.beta import compute_beta
 
 
 def _make_bar(date_str: str, close: float) -> PriceBar:
     price = Decimal(str(close))
-    return PriceBar(
-        date=date_str, open=price, high=price, low=price, close=price, volume=1000000
-    )
+    return PriceBar(date=date_str, open=price, high=price, low=price, close=price, volume=1000000)
 
 
 class TestComputeBeta:

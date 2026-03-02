@@ -84,9 +84,7 @@ def institutional_accumulation(holdings: list[InstitutionalHolding]) -> FactorSc
         shares_changed = h.shares_changed
         # Size weight: ratio of this position to median, capped at 5x
         size_weight = (
-            min(abs(shares_changed) / median_size, _MAX_SIZE_WEIGHT)
-            if shares_changed != 0
-            else 0.0
+            min(abs(shares_changed) / median_size, _MAX_SIZE_WEIGHT) if shares_changed != 0 else 0.0
         )
 
         if h.is_new_position and shares_changed > 0:

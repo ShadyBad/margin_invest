@@ -31,7 +31,7 @@ _T12_OFFSET_DAYS = 365  # ~12 months ago
 
 # Volatility normalization parameters (MSCI Momentum Index style).
 _MIN_BARS_FOR_VOL = 60  # minimum bars for meaningful vol estimate
-_ANNUALIZATION_FACTOR = 252 ** 0.5  # sqrt of trading days per year
+_ANNUALIZATION_FACTOR = 252**0.5  # sqrt of trading days per year
 _MIN_ANNUALIZED_VOL = 0.01  # floor to avoid division by near-zero vol
 
 
@@ -98,7 +98,9 @@ def price_momentum(price_bars: list[PriceBar]) -> FactorScore:
         daily_returns = [(closes[i] / closes[i - 1]) - 1.0 for i in range(1, len(closes))]
         vol = statistics.pstdev(daily_returns)
         annualized_vol = vol * _ANNUALIZATION_FACTOR if vol > 0 else 1.0
-        risk_adjusted = momentum / annualized_vol if annualized_vol > _MIN_ANNUALIZED_VOL else momentum
+        risk_adjusted = (
+            momentum / annualized_vol if annualized_vol > _MIN_ANNUALIZED_VOL else momentum
+        )
     else:
         risk_adjusted = momentum  # fallback to raw if insufficient data
         annualized_vol = 0.0

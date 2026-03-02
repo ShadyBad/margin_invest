@@ -22,6 +22,7 @@ from margin_engine.backtesting.models import (
     MonthlySnapshot,
     PerformanceMetrics,
 )
+from margin_engine.backtesting.pit_adapter import build_ticker_data_from_pit
 from margin_engine.backtesting.pit_provider import AsyncPointInTimeProvider, PointInTimeProvider
 from margin_engine.backtesting.regime_classifier import (
     MarketRegimeHistorical,
@@ -30,7 +31,6 @@ from margin_engine.backtesting.regime_classifier import (
     is_in_recession,
     segment_by_regime,
 )
-from margin_engine.backtesting.pit_adapter import build_ticker_data_from_pit
 from margin_engine.config.filter_config import FilterConfig
 from margin_engine.regime.classifier import MultiDimensionalRegimeClassifier
 from margin_engine.regime.models import RegimeState

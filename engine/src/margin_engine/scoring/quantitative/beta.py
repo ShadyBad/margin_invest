@@ -1,4 +1,5 @@
 """Beta computation from price history (CAPM)."""
+
 from __future__ import annotations
 
 import statistics
@@ -30,9 +31,7 @@ def compute_beta(
     # Align by date
     market_by_date = {b.date: float(b.close) for b in market_sorted}
     aligned = [
-        (float(b.close), market_by_date[b.date])
-        for b in stock_sorted
-        if b.date in market_by_date
+        (float(b.close), market_by_date[b.date]) for b in stock_sorted if b.date in market_by_date
     ]
 
     if len(aligned) < _MIN_BARS:
@@ -53,9 +52,7 @@ def compute_beta(
     mean_s = statistics.mean(stock_returns)
     mean_m = statistics.mean(market_returns)
     n = len(stock_returns)
-    cov = sum(
-        (s - mean_s) * (m - mean_m) for s, m in zip(stock_returns, market_returns)
-    ) / n
+    cov = sum((s - mean_s) * (m - mean_m) for s, m in zip(stock_returns, market_returns)) / n
     var_m = sum((m - mean_m) ** 2 for m in market_returns) / n
 
     if var_m == 0:

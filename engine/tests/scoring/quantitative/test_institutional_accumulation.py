@@ -1,7 +1,6 @@
 """Tests for the Institutional Accumulation (Smart Money) factor."""
 
 import pytest
-
 from margin_engine.models.financial import InstitutionalHolding
 from margin_engine.models.scoring import FactorScore
 from margin_engine.scoring.quantitative.institutional_accumulation import (
@@ -226,12 +225,8 @@ class TestPositionSizeWeighting:
     def test_large_position_amplifies_within_group(self):
         """Within a group, larger positions get higher weight."""
         holdings = [
-            _make_holding(
-                "Small Fund", "2024-Q3", shares_changed=1_000, is_new_position=True
-            ),
-            _make_holding(
-                "Large Fund", "2024-Q3", shares_changed=1_000_000, is_new_position=True
-            ),
+            _make_holding("Small Fund", "2024-Q3", shares_changed=1_000, is_new_position=True),
+            _make_holding("Large Fund", "2024-Q3", shares_changed=1_000_000, is_new_position=True),
         ]
         result = institutional_accumulation(holdings)
         # median = (1_000 + 1_000_000) / 2 = 500_500

@@ -311,7 +311,10 @@ class TestReplayOrchestrator:
         assert mock_score_v3.call_count >= 1
         # Each call should pass shiller_cape=25.0
         for call in mock_score_v3.call_args_list:
-            assert call.kwargs.get("shiller_cape", call.args[1] if len(call.args) > 1 else None) == 25.0
+            assert (
+                call.kwargs.get("shiller_cape", call.args[1] if len(call.args) > 1 else None)
+                == 25.0
+            )
         # Scores should reflect the mocked values (0.75 * 100 = 75.0, 0.60 * 100 = 60.0)
         assert len(result.audit_log) > 0
         # Verify audit log has scored holdings
