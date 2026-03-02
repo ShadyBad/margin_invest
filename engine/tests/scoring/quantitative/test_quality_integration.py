@@ -32,7 +32,7 @@ class TestQualityFactorIntegration:
         fscore = piotroski_f_score(APPLE_PERIOD_2024)
 
         assert gp.raw_value == pytest.approx(0.4951, abs=0.001)
-        assert roic.raw_value == pytest.approx(0.6353, abs=0.01)
+        assert roic.raw_value == pytest.approx(0.6381, abs=0.01)
         assert accrual.raw_value == pytest.approx(-0.0672, abs=0.001)
         assert fscore.raw_value == 6.0
 
@@ -59,8 +59,8 @@ class TestQualityFactorIntegration:
     def test_roic_with_wacc(self):
         """ROIC-WACC spread with a WACC value for Apple."""
         result = roic_wacc_spread(APPLE_PERIOD_2024, wacc=0.11)
-        # ROIC ~63.53%, WACC 11% => spread ~52.53%
-        assert result.raw_value == pytest.approx(0.5253, abs=0.01)
+        # ROIC ~63.81% (avg IC), WACC 11% => spread ~52.81%
+        assert result.raw_value == pytest.approx(0.5281, abs=0.01)
         assert "WACC" in result.detail
         assert "Spread" in result.detail
 
