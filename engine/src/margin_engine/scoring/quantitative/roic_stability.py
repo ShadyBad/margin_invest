@@ -6,39 +6,18 @@ clamped to [0, 1].
 A company with high *and* stable ROIC scores much better than one with
 high but volatile ROIC (which suggests cyclicality or eroding moats).
 
-Per-period ROIC:
-    NOPAT = EBIT * (1 - effective_tax_rate)
-    Invested Capital = Total Equity + Total Debt - Cash
-    ROIC = NOPAT / Invested Capital
+Per-period ROIC is delegated to ``compute_roic()`` in roic_wacc, which
+uses average Invested Capital (beginning + ending) when prior_balance is
+available — the institutional standard (Bloomberg, FactSet, S&P).
 """
 
 from __future__ import annotations
 
 import statistics
-from decimal import Decimal
 
 from margin_engine.models.financial import FinancialHistory
 from margin_engine.models.scoring import FactorScore
-
-
-def _period_roic(period) -> float | None:
-    """Compute ROIC for a single period. Returns None if IC <= 0."""
-    ci = period.current_income
-    cb = period.current_balance
-
-    ebit = float(ci.ebit)
-    tax_rate = ci.effective_tax_rate
-    nopat = ebit * (1.0 - tax_rate)
-
-    cash = float(cb.cash_and_equivalents or Decimal("0"))
-    total_equity = float(cb.total_equity)
-    total_debt = float(cb.total_debt)
-    invested_capital = total_equity + total_debt - cash
-
-    if invested_capital <= 0:
-        return None
-
-    return nopat / invested_capital
+from margin_engine.scoring.quantitative.roic_wacc import compute_roic
 
 
 def roic_stability(history: FinancialHistory) -> FactorScore:
@@ -48,8 +27,8 @@ def roic_stability(history: FinancialHistory) -> FactorScore:
     """
     roics: list[float] = []
     for period in history.periods:
-        r = _period_roic(period)
-        if r is not None:
+        r = compute_roic(period)
+        if r > 0:
             roics.append(r)
 
     if not roics:

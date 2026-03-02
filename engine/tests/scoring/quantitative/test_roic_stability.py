@@ -119,6 +119,29 @@ class TestRoicStability:
         score = roic_stability(history)
         assert score.raw_value == 0.0
 
+    def test_uses_average_ic_when_prior_balance_available(self):
+        """With prior_balance on each period, ROIC should use average IC."""
+        # Period with prior_balance: current IC = 800, prior IC = 600, avg IC = 700
+        # NOPAT = 100 * (1 - 0.21) = 79
+        # ROIC = 79 / 700 = 0.11286
+        period = _make_period(ebit=Decimal("100"))
+        period_with_prior = period.model_copy(
+            update={
+                "prior_balance": BalanceSheet(
+                    total_assets=Decimal("800"),
+                    total_equity=Decimal("300"),
+                    long_term_debt=Decimal("200"),
+                    short_term_debt=Decimal("100"),
+                    cash_and_equivalents=Decimal("0"),
+                    shares_outstanding=100,
+                )
+            }
+        )
+        history = FinancialHistory(ticker="AVG", periods=[period_with_prior] * 3)
+        score = roic_stability(history)
+        # All periods identical → CV=0, score = avg-IC ROIC
+        assert score.raw_value == pytest.approx(0.11286, abs=0.001)
+
     def test_percentile_rank_always_zero(self):
         """Percentile rank is always 0.0 (placeholder)."""
         period = _make_period()
