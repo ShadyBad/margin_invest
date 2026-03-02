@@ -1,11 +1,39 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 
+function SearchIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  )
+}
+
 export function TickerSearch() {
+  const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+
+  const close = useCallback(() => {
+    setIsOpen(false)
+    setQuery("")
+    buttonRef.current?.focus()
+  }, [])
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -13,6 +41,7 @@ export function TickerSearch() {
       const ticker = query.trim().toUpperCase()
       if (ticker) {
         router.push(`/asset/${ticker}`)
+        setIsOpen(false)
         setQuery("")
       }
     },
@@ -20,14 +49,17 @@ export function TickerSearch() {
   )
 
   return (
-    <form onSubmit={handleSubmit} className="relative">
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search any ticker..."
-        className="w-32 sm:w-40 h-8 px-3 text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:border-accent/40 transition-colors"
-      />
-    </form>
+    <>
+      <button
+        ref={buttonRef}
+        onClick={() => setIsOpen(true)}
+        aria-label="Search ticker"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        className="flex items-center justify-center w-8 h-8 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-subtle transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+      >
+        <SearchIcon />
+      </button>
+    </>
   )
 }
