@@ -3,11 +3,11 @@
 Four signatures detected from multi-year financial data:
 1. Scale Economics: ROIC increases as revenue grows (positive slope)
 2. Pricing Power: Gross margins expand over time
-3. Switching Costs: Revenue growth exceeds proportional cost growth (approximation)
+3. Operating Leverage: Revenue growth exceeds proportional cost growth
 4. Capital Efficiency: Incremental ROIC >= trailing ROIC
 
 Signatures are weighted by empirical durability:
-    switching_costs=1.5, pricing_power=1.25, scale_economics=1.0, capital_efficiency=0.75
+    operating_leverage=1.5, pricing_power=1.25, scale_economics=1.0, capital_efficiency=0.75
 raw_value = weighted sum normalized to 0-4 scale.
 """
 
@@ -62,8 +62,8 @@ def _detect_pricing_power(history: FinancialHistory) -> bool:
     return increases / (len(margins) - 1) >= 0.6
 
 
-def _detect_switching_costs(history: FinancialHistory) -> bool:
-    """Revenue retention proxy: revenue growth rate exceeds cost growth rate."""
+def _detect_operating_leverage(history: FinancialHistory) -> bool:
+    """Operating leverage proxy: revenue growth rate exceeds cost growth rate."""
     if len(history.periods) < 3:
         return False
     revenues = [float(p.current_income.revenue) for p in history.periods]
@@ -99,7 +99,7 @@ def _detect_capital_efficiency(history: FinancialHistory) -> bool:
 
 
 _SIGNATURE_WEIGHTS: dict[str, float] = {
-    "switching_costs": 1.5,
+    "operating_leverage": 1.5,
     "pricing_power": 1.25,
     "scale_economics": 1.0,
     "capital_efficiency": 0.75,
@@ -127,8 +127,8 @@ def moat_durability_score(history: FinancialHistory) -> FactorScore:
         signatures.append("scale_economics")
     if _detect_pricing_power(history):
         signatures.append("pricing_power")
-    if _detect_switching_costs(history):
-        signatures.append("switching_costs")
+    if _detect_operating_leverage(history):
+        signatures.append("operating_leverage")
     if _detect_capital_efficiency(history):
         signatures.append("capital_efficiency")
 

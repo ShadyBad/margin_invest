@@ -154,8 +154,8 @@ class TestMoatDurability:
         result = moat_durability_score(history)
         assert "pricing_power" in result.detail
 
-    def test_switching_costs_detected(self):
-        """Revenue growth exceeds cost growth -> switching costs signature."""
+    def test_operating_leverage_detected(self):
+        """Revenue growth exceeds cost growth -> operating leverage signature."""
         periods = [
             _make_period(
                 revenue=Decimal("1000"),
@@ -178,7 +178,7 @@ class TestMoatDurability:
         ]
         history = FinancialHistory(ticker="SWITCH", periods=periods)
         result = moat_durability_score(history)
-        assert "switching_costs" in result.detail
+        assert "operating_leverage" in result.detail
 
     def test_no_moat_signatures(self):
         """Declining ROIC with flat margins -> 0 signatures."""
@@ -222,7 +222,7 @@ class TestMoatDurability:
 class TestWeightedMoatSignatures:
     """Moat signatures weighted by empirical durability.
 
-    Weights: switching_costs=1.5, pricing_power=1.25, scale_economics=1.0, capital_efficiency=0.75
+    Weights: operating_leverage=1.5, pricing_power=1.25, scale_economics=1.0, capital_efficiency=0.75
     Max weighted = 4.5, normalized to 0-4 scale: score = weighted_sum * (4.0 / 4.5)
     """
 
@@ -275,8 +275,8 @@ class TestWeightedMoatSignatures:
         assert result.raw_value == pytest.approx(4.0, rel=0.01)
 
     def test_durable_pair_higher_than_nondurable_pair(self):
-        """switching_costs + pricing_power (2.44) > scale + capital_efficiency (1.56)."""
-        # Durable pair: switching_costs + pricing_power only
+        """operating_leverage + pricing_power (2.44) > scale + capital_efficiency (1.56)."""
+        # Durable pair: operating_leverage + pricing_power only
         # ROIC declines (no scale_economics), incremental ROIC < median (no capital_efficiency)
         durable_periods = [
             _make_period(
@@ -311,7 +311,7 @@ class TestWeightedMoatSignatures:
         durable = moat_durability_score(durable_history)
 
         # Non-durable pair: scale_economics + capital_efficiency only
-        # Gross margin declines (no pricing_power), cost growth > rev growth (no switching_costs)
+        # Gross margin declines (no pricing_power), cost growth > rev growth (no operating_leverage)
         nondurable_periods = [
             _make_period(
                 revenue=Decimal("1000"),
@@ -379,9 +379,9 @@ class TestWeightedMoatSignatures:
         result = moat_durability_score(history)
         assert result.raw_value == pytest.approx(0.0)
 
-    def test_switching_costs_only(self):
+    def test_operating_leverage_only(self):
         """Single most-durable signature -> raw_value = 1.5 * 4/4.5 = 1.333."""
-        # Triggers ONLY switching_costs: rev growth > cost growth,
+        # Triggers ONLY operating_leverage: rev growth > cost growth,
         # but GM flat (no pricing_power), ROIC declining (no scale_economics),
         # incremental ROIC < median (no capital_efficiency).
         periods = [
@@ -412,5 +412,5 @@ class TestWeightedMoatSignatures:
         ]
         history = FinancialHistory(ticker="SWITCHONLY", periods=periods)
         result = moat_durability_score(history)
-        assert "switching_costs" in result.detail
+        assert "operating_leverage" in result.detail
         assert result.raw_value == pytest.approx(1.5 * 4.0 / 4.5, rel=0.01)
