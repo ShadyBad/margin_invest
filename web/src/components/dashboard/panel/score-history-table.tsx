@@ -55,8 +55,9 @@ export function ScoreHistoryTable({ history }: ScoreHistoryTableProps) {
   }
 
   function formatDate(iso: string): string {
-    // Parse as local date to avoid UTC timezone shift
-    const [y, m, d] = iso.split("-").map(Number)
+    // Strip time component if present, then parse as local date to avoid UTC timezone shift
+    const dateOnly = iso.split("T")[0]
+    const [y, m, d] = dateOnly.split("-").map(Number)
     const date = new Date(y, m - 1, d)
     return date.toLocaleDateString("en-US", {
       month: "short",
