@@ -1,7 +1,6 @@
 """Backtesting engine — walk-forward simulation and validation."""
 
 from margin_engine.backtesting.factor_registry import FactorAvailability, FactorRegistry
-from margin_engine.backtesting.pit_adapter import build_ticker_data_from_pit
 from margin_engine.backtesting.failure_audit import FailurePeriod, compute_failure_audit
 from margin_engine.backtesting.metrics import PerformanceCalculator
 from margin_engine.backtesting.models import (
@@ -15,6 +14,7 @@ from margin_engine.backtesting.models import (
     SelectionMode,
     ValidationResult,
 )
+from margin_engine.backtesting.pit_adapter import build_ticker_data_from_pit
 from margin_engine.backtesting.pit_provider import (
     AsyncPointInTimeProvider,
     DelistingEvent,
