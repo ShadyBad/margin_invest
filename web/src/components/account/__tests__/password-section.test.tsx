@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen, fireEvent, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { PasswordSection } from "../password-section"
 
@@ -238,10 +238,9 @@ describe("PasswordSection", () => {
       }))
     })
 
-    it("calls remove-password API when Remove Password clicked", async () => {
+    it("opens confirmation modal and calls remove-password API", async () => {
       const user = userEvent.setup()
       global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
-      vi.spyOn(window, "prompt").mockReturnValue("MyCurrentPass1!")
       render(
         <PasswordSection
           hasPassword={true}
@@ -250,9 +249,20 @@ describe("PasswordSection", () => {
         />
       )
 
+      // Click Remove Password to open the modal
       await user.click(screen.getByRole("button", { name: /remove password/i }))
 
-      expect(window.prompt).toHaveBeenCalled()
+      // Modal should be visible
+      const dialog = screen.getByRole("dialog")
+      expect(dialog).toBeInTheDocument()
+
+      // Fill in the password field in the modal
+      const passwordInput = within(dialog).getByLabelText("Current password")
+      await user.type(passwordInput, "MyCurrentPass1!")
+
+      // Click the Remove confirm button inside the modal
+      await user.click(within(dialog).getByRole("button", { name: /^Remove$/i }))
+
       expect(global.fetch).toHaveBeenCalledWith("/api/v1/auth/remove-password", expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ current_password: "MyCurrentPass1!" }),

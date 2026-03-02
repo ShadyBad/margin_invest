@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { ConfirmationModal } from "./confirmation-modal"
 
 interface PasswordSectionProps {
   hasPassword: boolean
@@ -50,6 +51,8 @@ export function PasswordSection({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [removing, setRemoving] = useState(false)
+  const [removeModalOpen, setRemoveModalOpen] = useState(false)
+  const [modalError, setModalError] = useState<string | null>(null)
 
   const providerLabel =
     oauthProvider && PROVIDER_LABELS[oauthProvider]
@@ -143,30 +146,28 @@ export function PasswordSection({
     }
   }
 
-  async function handleRemovePassword() {
-    const password = window.prompt("Enter your current password to remove it")
+  async function handleRemovePassword(values: Record<string, string>) {
+    const password = values.password
     if (!password) return
-
     setError(null)
     setSuccess(null)
+    setModalError(null)
     setRemoving(true)
-
     try {
       const res = await fetch("/api/v1/auth/remove-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ current_password: password }),
       })
-
       if (!res.ok) {
         const data = await res.json().catch(() => ({ detail: "Failed to remove password" }))
         throw new Error(data.detail ?? data.message ?? "Failed to remove password")
       }
-
       setSuccess("Password removed. You can now sign in with your linked provider only.")
+      setRemoveModalOpen(false)
       resetForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove password")
+      setModalError(err instanceof Error ? err.message : "Failed to remove password")
     } finally {
       setRemoving(false)
     }
@@ -176,9 +177,12 @@ export function PasswordSection({
   if (!hasPassword) {
     return (
       <div>
-        <h3 className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-3">
-          Password
-        </h3>
+        <div className="flex items-center gap-2 mb-3">
+          <span className={`w-2 h-2 rounded-full ${hasPassword ? "bg-emerald-500" : "bg-amber-500"}`} />
+          <h3 className="text-sm font-medium text-text-secondary uppercase tracking-wide">
+            Password
+          </h3>
+        </div>
         <p className="text-sm text-text-secondary mb-3">
           You don&apos;t have a password on this account. Add one to sign in with your email and
           password as an alternative to {providerLabel}.
@@ -200,7 +204,7 @@ export function PasswordSection({
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 minLength={12}
-                className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
+                className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
               />
             </div>
             <div>
@@ -217,14 +221,14 @@ export function PasswordSection({
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={12}
-                className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
+                className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
               />
             </div>
             <div className="flex gap-3">
               <button
                 type="submit"
                 disabled={submitting || !newPassword || !confirmPassword}
-                className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? "Setting..." : "Set Password"}
               </button>
@@ -240,7 +244,7 @@ export function PasswordSection({
         ) : (
           <button
             onClick={() => setMode("set")}
-            className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-sm hover:bg-accent-hover transition-colors"
+            className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-lg hover:bg-accent-hover transition-colors"
           >
             Set Password
           </button>
@@ -252,9 +256,12 @@ export function PasswordSection({
   // Has password state
   return (
     <div>
-      <h3 className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-3">
-        Password
-      </h3>
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`w-2 h-2 rounded-full ${hasPassword ? "bg-emerald-500" : "bg-amber-500"}`} />
+        <h3 className="text-sm font-medium text-text-secondary uppercase tracking-wide">
+          Password
+        </h3>
+      </div>
       {passwordLastChanged && (
         <p className="text-sm text-text-secondary mb-3">
           Password last changed {formatRelativeTime(passwordLastChanged)}.
@@ -279,7 +286,7 @@ export function PasswordSection({
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               required
-              className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
+              className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
             />
           </div>
           <div>
@@ -293,7 +300,7 @@ export function PasswordSection({
               onChange={(e) => setNewPassword(e.target.value)}
               required
               minLength={12}
-              className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
+              className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
             />
           </div>
           <div>
@@ -310,14 +317,14 @@ export function PasswordSection({
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               minLength={12}
-              className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
+              className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-sm text-text-primary placeholder-text-secondary focus:border-accent focus:outline-none"
             />
           </div>
           <div className="flex gap-3">
             <button
               type="submit"
               disabled={submitting || !currentPassword || !newPassword || !confirmPassword}
-              className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? "Updating..." : "Update Password"}
             </button>
@@ -334,13 +341,13 @@ export function PasswordSection({
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setMode("change")}
-            className="px-4 py-2 border border-border-primary text-text-primary font-medium text-sm rounded-sm hover:bg-bg-subtle transition-colors"
+            className="px-4 py-2 border border-border-primary text-text-primary font-medium text-sm rounded-lg hover:bg-bg-subtle transition-colors"
           >
             Change Password
           </button>
           {hasLinkedProviders && (
             <button
-              onClick={handleRemovePassword}
+              onClick={() => setRemoveModalOpen(true)}
               disabled={removing}
               className="px-4 py-2 text-red-400 font-medium text-sm hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -349,6 +356,19 @@ export function PasswordSection({
           )}
         </div>
       )}
+
+      <ConfirmationModal
+        open={removeModalOpen}
+        title="Remove Password"
+        description="Enter your current password to remove it. You'll only be able to sign in with your linked provider."
+        fields={[{ name: "password", label: "Current password", type: "password" }]}
+        onClose={() => { setRemoveModalOpen(false); setModalError(null) }}
+        onConfirm={handleRemovePassword}
+        confirmLabel="Remove"
+        confirmVariant="danger"
+        loading={removing}
+        error={modalError}
+      />
     </div>
   )
 }
