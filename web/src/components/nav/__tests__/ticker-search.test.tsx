@@ -79,12 +79,12 @@ describe("TickerSearch", () => {
       expect(dialog).toHaveAttribute("aria-modal", "true")
     })
 
-    it("positions overlay at top-[23px] to center in navbar", async () => {
+    it("positions overlay at top-[7px] to center in navbar", async () => {
       const user = userEvent.setup()
       render(<TickerSearch />)
       await user.click(screen.getByRole("button", { name: /search ticker/i }))
       const dialog = screen.getByRole("dialog")
-      expect(dialog.className).toContain("top-[23px]")
+      expect(dialog.className).toContain("top-[7px]")
     })
   })
 
