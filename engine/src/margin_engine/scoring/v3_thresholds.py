@@ -2,37 +2,19 @@
 
 Replaces universe-relative percentile thresholds (99.95, 99.3, 98.0).
 Conviction determined by absolute quality of the opportunity, not rank vs peers.
+
+Thresholds are loaded from ``ThresholdConfig`` (YAML-backed with Pydantic
+defaults). All functions accept an optional ``config`` parameter; when
+omitted, a module-level default config is used with values identical to the
+previous hardcoded constants.
 """
 
 from __future__ import annotations
 
+from margin_engine.config.threshold_config import ThresholdConfig
 from margin_engine.models.scoring import CompositeTier
 
-# Track A thresholds
-_A_EXCEPTIONAL_POWER = 0.15
-_A_EXCEPTIONAL_MOAT = 3
-_A_EXCEPTIONAL_GAP = 0.08
-_A_HIGH_POWER = 0.08
-_A_HIGH_MOAT = 2
-_A_HIGH_GAP = 0.03
-_A_MEDIUM_POWER = 0.04
-_A_MEDIUM_MOAT = 2
-_A_MIN_GATES_FULL = 4
-_A_MIN_GATES_MEDIUM = 3
-
-# Hysteresis buffer — 10% relaxation on thresholds to prevent conviction whipsaw
-_HYSTERESIS_BUFFER = 0.10
-
-# Track B thresholds
-_B_EXCEPTIONAL_ASYMMETRY = 5.0
-_B_EXCEPTIONAL_CATALYST = 55.0
-_B_EXCEPTIONAL_CONVERGING = 4
-_B_HIGH_ASYMMETRY = 3.0
-_B_HIGH_CATALYST = 40.0
-_B_HIGH_CONVERGING = 3
-_B_MEDIUM_ASYMMETRY = 1.5
-_B_MIN_GATES_FULL = 4
-_B_MIN_GATES_MEDIUM = 3
+_DEFAULT_CONFIG = ThresholdConfig()
 
 
 def assess_track_a_conviction(
@@ -43,6 +25,7 @@ def assess_track_a_conviction(
     growth_gap: float,
     growth_gap_adjustment: float = 0.0,
     prior_conviction: CompositeTier | None = None,
+    config: ThresholdConfig | None = None,
 ) -> CompositeTier:
     """Determine Track A conviction level from absolute thresholds.
 
@@ -55,7 +38,11 @@ def assess_track_a_conviction(
             applied to the prior tier's thresholds. If the stock's values
             remain within that buffer, the prior conviction is retained.
             Hysteresis only prevents demotion, never prevents promotion.
+        config: Optional threshold configuration. When None, module-level
+            defaults are used (identical to original hardcoded values).
     """
+    cfg = config or _DEFAULT_CONFIG
+
     computed = _compute_track_a(
         gates_passed,
         total_gates,
@@ -63,6 +50,7 @@ def assess_track_a_conviction(
         moat_durability,
         growth_gap,
         growth_gap_adjustment,
+        cfg,
     )
 
     if prior_conviction is None:
@@ -74,7 +62,7 @@ def assess_track_a_conviction(
 
     # Prior is higher than computed — check if within buffer
     if _within_buffer_track_a(
-        prior_conviction, compounding_power, moat_durability, growth_gap, growth_gap_adjustment
+        prior_conviction, compounding_power, moat_durability, growth_gap, growth_gap_adjustment, cfg
     ):
         return prior_conviction
 
@@ -88,28 +76,31 @@ def _compute_track_a(
     moat_durability: int,
     growth_gap: float,
     growth_gap_adjustment: float,
+    cfg: ThresholdConfig,
 ) -> CompositeTier:
     """Core Track A conviction logic without hysteresis."""
-    if gates_passed < _A_MIN_GATES_MEDIUM or moat_durability < _A_MEDIUM_MOAT:
+    ta = cfg.track_a
+
+    if gates_passed < ta.min_gates_medium or moat_durability < ta.medium_moat:
         return CompositeTier.NONE
 
     if (
-        gates_passed >= _A_MIN_GATES_FULL
-        and compounding_power > _A_EXCEPTIONAL_POWER
-        and moat_durability >= _A_EXCEPTIONAL_MOAT
-        and growth_gap > _A_EXCEPTIONAL_GAP + growth_gap_adjustment
+        gates_passed >= ta.min_gates_full
+        and compounding_power > ta.exceptional_power
+        and moat_durability >= ta.exceptional_moat
+        and growth_gap > ta.exceptional_gap + growth_gap_adjustment
     ):
         return CompositeTier.EXCEPTIONAL
 
     if (
-        gates_passed >= _A_MIN_GATES_FULL
-        and compounding_power > _A_HIGH_POWER
-        and moat_durability >= _A_HIGH_MOAT
-        and growth_gap > _A_HIGH_GAP + growth_gap_adjustment
+        gates_passed >= ta.min_gates_full
+        and compounding_power > ta.high_power
+        and moat_durability >= ta.high_moat
+        and growth_gap > ta.high_gap + growth_gap_adjustment
     ):
         return CompositeTier.HIGH
 
-    if compounding_power > _A_MEDIUM_POWER:
+    if compounding_power > ta.medium_power:
         return CompositeTier.MEDIUM
 
     return CompositeTier.NONE
@@ -131,6 +122,7 @@ def _within_buffer_track_a(
     moat_durability: int,
     growth_gap: float,
     growth_gap_adjustment: float,
+    cfg: ThresholdConfig,
 ) -> bool:
     """Check whether values stay within the hysteresis buffer of the prior tier.
 
@@ -138,21 +130,22 @@ def _within_buffer_track_a(
     Integer thresholds (moat, gates) are not buffered — the stock must still
     meet the prior tier's integer requirements exactly.
     """
-    buf = 1.0 - _HYSTERESIS_BUFFER  # 0.90
+    ta = cfg.track_a
+    buf = 1.0 - cfg.hysteresis_buffer  # 0.90
 
     if prior == CompositeTier.EXCEPTIONAL:
-        gap_threshold = (_A_EXCEPTIONAL_GAP + growth_gap_adjustment) * buf
+        gap_threshold = (ta.exceptional_gap + growth_gap_adjustment) * buf
         return (
-            compounding_power > _A_EXCEPTIONAL_POWER * buf
-            and moat_durability >= _A_EXCEPTIONAL_MOAT
+            compounding_power > ta.exceptional_power * buf
+            and moat_durability >= ta.exceptional_moat
             and growth_gap > gap_threshold
         )
 
     if prior == CompositeTier.HIGH:
-        gap_threshold = (_A_HIGH_GAP + growth_gap_adjustment) * buf
+        gap_threshold = (ta.high_gap + growth_gap_adjustment) * buf
         return (
-            compounding_power > _A_HIGH_POWER * buf
-            and moat_durability >= _A_HIGH_MOAT
+            compounding_power > ta.high_power * buf
+            and moat_durability >= ta.high_moat
             and growth_gap > gap_threshold
         )
 
@@ -168,6 +161,7 @@ def assess_track_b_conviction(
     converging_methods: int,
     asymmetry_adjustment: float = 0.0,
     catalyst_percentile_override: float | None = None,
+    config: ThresholdConfig | None = None,
 ) -> CompositeTier:
     """Determine Track B conviction level from absolute thresholds.
 
@@ -176,29 +170,34 @@ def assess_track_b_conviction(
             market regime adjustments. Positive tightens, negative relaxes.
         catalyst_percentile_override: If set, replaces the EXCEPTIONAL catalyst
             percentile threshold (e.g., euphoria regime raises the bar).
+        config: Optional threshold configuration. When None, module-level
+            defaults are used (identical to original hardcoded values).
     """
-    if gates_passed < _B_MIN_GATES_MEDIUM or asymmetry_ratio < _B_MEDIUM_ASYMMETRY:
+    cfg = config or _DEFAULT_CONFIG
+    tb = cfg.track_b
+
+    if gates_passed < tb.min_gates_medium or asymmetry_ratio < tb.medium_asymmetry:
         return CompositeTier.NONE
 
     exceptional_catalyst = (
         catalyst_percentile_override
         if catalyst_percentile_override is not None
-        else _B_EXCEPTIONAL_CATALYST
+        else tb.exceptional_catalyst
     )
 
     if (
-        gates_passed >= _B_MIN_GATES_FULL
-        and asymmetry_ratio > _B_EXCEPTIONAL_ASYMMETRY + asymmetry_adjustment
+        gates_passed >= tb.min_gates_full
+        and asymmetry_ratio > tb.exceptional_asymmetry + asymmetry_adjustment
         and catalyst_percentile > exceptional_catalyst
-        and converging_methods >= _B_EXCEPTIONAL_CONVERGING
+        and converging_methods >= tb.exceptional_converging
     ):
         return CompositeTier.EXCEPTIONAL
 
     if (
-        gates_passed >= _B_MIN_GATES_FULL
-        and asymmetry_ratio > _B_HIGH_ASYMMETRY + asymmetry_adjustment
-        and catalyst_percentile > _B_HIGH_CATALYST
-        and converging_methods >= _B_HIGH_CONVERGING
+        gates_passed >= tb.min_gates_full
+        and asymmetry_ratio > tb.high_asymmetry + asymmetry_adjustment
+        and catalyst_percentile > tb.high_catalyst
+        and converging_methods >= tb.high_converging
     ):
         return CompositeTier.HIGH
 

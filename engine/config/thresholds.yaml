@@ -1,0 +1,35 @@
+# Conviction Threshold Configuration — Margin Invest Engine
+#
+# All conviction thresholds for Track A (Compounder) and Track B (Contrarian).
+# Defaults match the previous hardcoded values in scoring/v3_thresholds.py so
+# behaviour is identical if this file is absent.
+#
+# To tune a threshold, edit the value here and restart the API. No code
+# changes required.
+
+track_a:
+  exceptional_power: 0.15       # Compounding power > 15%
+  exceptional_moat: 3           # Moat durability >= 3
+  exceptional_gap: 0.08         # Growth gap > 8%
+  high_power: 0.08              # Compounding power > 8%
+  high_moat: 2                  # Moat durability >= 2
+  high_gap: 0.03                # Growth gap > 3%
+  medium_power: 0.04            # Compounding power > 4%
+  medium_moat: 2                # Moat durability >= 2 (also min for any tier)
+  min_gates_full: 4             # Gates needed for EXCEPTIONAL/HIGH
+  min_gates_medium: 3           # Gates needed for MEDIUM
+
+track_b:
+  exceptional_asymmetry: 5.0    # Asymmetry ratio > 5x
+  exceptional_catalyst: 55.0    # Catalyst percentile > 55th
+  exceptional_converging: 4     # Converging methods >= 4
+  high_asymmetry: 3.0           # Asymmetry ratio > 3x
+  high_catalyst: 40.0           # Catalyst percentile > 40th
+  high_converging: 3            # Converging methods >= 3
+  medium_asymmetry: 1.5         # Asymmetry ratio > 1.5x (minimum for any tier)
+  min_gates_full: 4             # Gates needed for EXCEPTIONAL/HIGH
+  min_gates_medium: 3           # Gates needed for MEDIUM
+
+# Hysteresis buffer — 10% relaxation on continuous thresholds to prevent
+# conviction whipsaw. Integer thresholds (moat, gates) are not buffered.
+hysteresis_buffer: 0.10
