@@ -15,7 +15,7 @@ const principles = [
   },
   {
     title: "Known limitations",
-    desc: "The engine relies on publicly available data that can be delayed, restated, or incomplete. It cannot capture qualitative factors like management quality, regulatory changes, or geopolitical risk. We document these limitations honestly.",
+    desc: "The engine scores currently-listed equities only — delisted stocks are not included, which introduces survivorship bias in historical comparisons. Data can be delayed, restated, or incomplete. Conviction thresholds are theory-derived pending empirical backtesting validation. The engine cannot capture qualitative factors like management quality, regulatory changes, or geopolitical risk.",
   },
 ]
 
