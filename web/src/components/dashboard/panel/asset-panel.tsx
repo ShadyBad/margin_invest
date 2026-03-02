@@ -81,6 +81,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
   useEffect(() => {
     if (!isOpen || !ticker) return
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset state before async fetch
     setHistoryStatus("loading")
     setHistoryData(null)
     getScoreHistory(ticker)
