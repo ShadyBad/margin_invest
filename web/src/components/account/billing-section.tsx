@@ -106,8 +106,8 @@ export function BillingSection() {
 
   if (loading) {
     return (
-      <section className="bg-bg-elevated border border-border-primary rounded-sm p-6">
-        <h2 className="text-lg font-bold text-text-primary mb-4">Billing</h2>
+      <section id="billing" className="terminal-card p-6 md:p-8">
+        <h2 className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-6">Billing</h2>
         <div className="animate-pulse space-y-3">
           <div className="h-4 bg-bg-subtle rounded w-1/3" />
           <div className="h-4 bg-bg-subtle rounded w-1/4" />
@@ -118,8 +118,8 @@ export function BillingSection() {
 
   if (error || !status) {
     return (
-      <section className="bg-bg-elevated border border-border-primary rounded-sm p-6">
-        <h2 className="text-lg font-bold text-text-primary mb-4">Billing</h2>
+      <section id="billing" className="terminal-card p-6 md:p-8">
+        <h2 className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-6">Billing</h2>
         <p className="text-sm text-text-secondary">
           {error || "Unable to load billing information."}
         </p>
@@ -133,37 +133,40 @@ export function BillingSection() {
   const isPastDue = status.status === "past_due"
 
   return (
-    <section className="bg-bg-elevated border border-border-primary rounded-sm p-6">
-      <h2 className="text-lg font-bold text-text-primary mb-4">Billing</h2>
+    <section id="billing" className="terminal-card p-6 md:p-8">
+      <h2 className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-6">Billing</h2>
 
-      {/* Plan & Status Row */}
-      <div className="flex items-center gap-3 mb-4">
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border ${planBadge.className}`}
-        >
-          {planBadge.label}
-        </span>
-        {statusPill && (
+      {/* Plan & Status Inner Card */}
+      <div className="bg-bg-subtle/50 rounded-lg p-4 mb-4">
+        {/* Plan & Status Row */}
+        <div className="flex items-center gap-3 mb-4">
           <span
-            className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${statusPill.className}`}
+            className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border ${planBadge.className}`}
           >
-            {statusPill.label}
+            {planBadge.label}
           </span>
+          {statusPill && (
+            <span
+              className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${statusPill.className}`}
+            >
+              {statusPill.label}
+            </span>
+          )}
+        </div>
+
+        {/* Renewal / Access Info */}
+        {status.current_period_end && (
+          <p className="text-sm text-text-secondary">
+            {isCanceled
+              ? `Access until ${formatDate(status.current_period_end)}`
+              : `Renews ${formatDate(status.current_period_end)}`}
+          </p>
         )}
       </div>
 
-      {/* Renewal / Access Info */}
-      {status.current_period_end && (
-        <p className="text-sm text-text-secondary mb-4">
-          {isCanceled
-            ? `Access until ${formatDate(status.current_period_end)}`
-            : `Renews ${formatDate(status.current_period_end)}`}
-        </p>
-      )}
-
       {/* Past Due Warning */}
       {isPastDue && status.billing_configured && (
-        <div className="rounded-sm border border-amber-500/30 bg-amber-500/5 p-3 mb-4">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 mb-4">
           <p className="text-sm text-amber-400">
             Your payment method needs updating.{" "}
             <button
@@ -182,14 +185,14 @@ export function BillingSection() {
           <button
             onClick={() => handleCheckout("portfolio")}
             disabled={!status.billing_configured || actionLoading !== null}
-            className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-accent text-bg-primary font-medium text-sm rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {actionLoading === "portfolio" ? "Loading..." : "Upgrade to Portfolio - $29/mo"}
           </button>
           <button
             onClick={() => handleCheckout("institutional")}
             disabled={!status.billing_configured || actionLoading !== null}
-            className="px-4 py-2 bg-amber-500 text-bg-primary font-medium text-sm rounded-sm hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-amber-500 text-bg-primary font-medium text-sm rounded-lg hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {actionLoading === "institutional" ? "Loading..." : "Upgrade to Institutional - $79/mo"}
           </button>
@@ -198,7 +201,7 @@ export function BillingSection() {
         <button
           onClick={handlePortal}
           disabled={!status.billing_configured || actionLoading !== null}
-          className="px-4 py-2 border border-border-primary text-text-primary font-medium text-sm rounded-sm hover:bg-bg-subtle transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 border border-border-primary text-text-primary font-medium text-sm rounded-lg hover:bg-bg-subtle transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {actionLoading === "portal" ? "Loading..." : "Manage subscription"}
         </button>
@@ -211,7 +214,7 @@ export function BillingSection() {
       )}
 
       {actionError && (
-        <div className="rounded-sm border border-red-500/30 bg-red-500/5 p-3 mt-3">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 mt-3">
           <p className="text-sm text-red-400">{actionError}</p>
         </div>
       )}
