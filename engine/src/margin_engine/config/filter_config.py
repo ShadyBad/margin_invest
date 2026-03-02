@@ -104,7 +104,8 @@ class FcfDistressConfig(BaseModel):
     growth_positive_years_required: int = 2
     growth_ocf_rescue_min_gross_margin: float = 0.40
 
-    # Sector-specific FCF margin floors (lowercased GICSSector value -> minimum)
+    # Sector-specific FCF margin floors (lowercased GICSSector value -> minimum).
+    # Financials and Real Estate are excluded from scoring (GICSSector.is_excluded_v1).
     sector_margin_overrides: dict[str, float] = Field(
         default_factory=lambda: {
             "information technology": 0.10,

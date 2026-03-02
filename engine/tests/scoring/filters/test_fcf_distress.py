@@ -129,6 +129,12 @@ class TestFcfDistressConfigSectorOverrides:
         }
         assert set(config.sector_margin_overrides.keys()) == expected_sectors
 
+    def test_get_min_fcf_margin_case_insensitive(self):
+        """Sector lookup should be case-insensitive."""
+        config = FcfDistressConfig()
+        assert config.get_min_fcf_margin("Information Technology") == 0.10
+        assert config.get_min_fcf_margin("INFORMATION TECHNOLOGY") == 0.10
+
     def test_custom_override_via_config(self):
         """Custom sector_margin_overrides should work."""
         config = FcfDistressConfig(sector_margin_overrides={"energy": 0.05})
