@@ -137,9 +137,28 @@ def _build_snapshot_row(
 _XBRL_FILE_RE = re.compile(r'href="([^"]+\.xml)"', re.IGNORECASE)
 
 
+class _RateLimiter:
+    """Token-bucket rate limiter for SEC's 10 req/sec fair access policy."""
+
+    def __init__(self, rate: float = 8.0):
+        self._rate = rate  # requests per second (leave headroom below 10)
+        self._interval = 1.0 / rate
+        self._lock = asyncio.Lock()
+        self._last = 0.0
+
+    async def acquire(self) -> None:
+        async with self._lock:
+            now = asyncio.get_event_loop().time()
+            wait = self._last + self._interval - now
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._last = asyncio.get_event_loop().time()
+
+
 async def fetch_and_parse_filing(
     client: httpx.AsyncClient,
     entry: EdgarIndexEntry,
+    rate_limiter: _RateLimiter | None = None,
 ) -> XBRLFinancials | None:
     """Download an XBRL filing from SEC EDGAR and parse it.
 
@@ -149,6 +168,7 @@ async def fetch_and_parse_filing(
     Args:
         client: An httpx.AsyncClient with User-Agent header set.
         entry: EDGAR index entry with filing metadata.
+        rate_limiter: Optional rate limiter for SEC fair access compliance.
 
     Returns:
         XBRLFinancials if successfully parsed, None on any error.
@@ -159,8 +179,10 @@ async def fetch_and_parse_filing(
 
         index_url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
 
-        # Rate limit: 5 req/sec max
-        await asyncio.sleep(0.2)
+        if rate_limiter:
+            await rate_limiter.acquire()
+        else:
+            await asyncio.sleep(0.2)
 
         resp = await client.get(index_url)
         resp.raise_for_status()
@@ -190,7 +212,10 @@ async def fetch_and_parse_filing(
         else:
             xbrl_url = f"{index_url}{xbrl_file}"
 
-        await asyncio.sleep(0.2)
+        if rate_limiter:
+            await rate_limiter.acquire()
+        else:
+            await asyncio.sleep(0.2)
 
         xbrl_resp = await client.get(xbrl_url)
         xbrl_resp.raise_for_status()
@@ -252,6 +277,7 @@ async def run_edgar_backfill(
     session_factory: async_sessionmaker[AsyncSession],
     checkpoint_file: str | None = None,
     dry_run: bool = False,
+    concurrency: int = 4,
 ) -> dict[str, int]:
     """Run a full EDGAR backfill: index -> filter -> fetch -> parse -> insert.
 
@@ -261,6 +287,8 @@ async def run_edgar_backfill(
         session_factory: Async SQLAlchemy session factory.
         checkpoint_file: Path to checkpoint file for resumable backfills.
         dry_run: If True, only build the index without fetching/parsing.
+        concurrency: Number of concurrent filing downloads (default 4).
+            Kept conservative to stay within SEC's 10 req/sec fair access policy.
 
     Returns:
         Summary dict with keys: total, inserted, skipped, failed.
@@ -335,57 +363,74 @@ async def run_edgar_backfill(
         )
 
     total = len(entries_to_process)
-    inserted = 0
-    skipped = len(existing_accessions)
-    failed = 0
+    counters = {"inserted": 0, "skipped": len(existing_accessions), "failed": 0, "done": 0}
+    lock = asyncio.Lock()
 
-    logger.info("[edgar-backfill] Processing %d filings...", total)
+    logger.info(
+        "[edgar-backfill] Processing %d filings (concurrency=%d)...", total, concurrency
+    )
 
+    # Rate limiter: 8 req/sec leaves headroom below SEC's 10 req/sec limit
+    rate_limiter = _RateLimiter(rate=8.0)
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _process_one(
+        entry: EdgarIndexEntry,
+        ticker: str,
+        client: httpx.AsyncClient,
+    ) -> None:
+        async with semaphore:
+            fiscal_year, fiscal_quarter = _infer_fiscal_info(entry)
+            financials = await fetch_and_parse_filing(client, entry, rate_limiter)
+
+            async with lock:
+                if financials is None:
+                    counters["failed"] += 1
+                else:
+                    async with session_factory() as session:
+                        was_inserted = await insert_pit_snapshot(
+                            session, entry, financials, ticker, fiscal_year, fiscal_quarter
+                        )
+                        await session.commit()
+                        if was_inserted:
+                            counters["inserted"] += 1
+                        else:
+                            counters["skipped"] += 1
+
+                counters["done"] += 1
+                done = counters["done"]
+
+            # Progress logging (outside lock)
+            if done % 100 == 0 or done == total:
+                logger.info(
+                    "[edgar-backfill] Processed %d/%d filings (%d inserted, %d skipped, %d failed)",
+                    done,
+                    total,
+                    counters["inserted"],
+                    counters["skipped"],
+                    counters["failed"],
+                )
+
+    # Process in chunks to allow checkpointing
+    chunk_size = 500
     async with httpx.AsyncClient(
         headers={"User-Agent": USER_AGENT},
         timeout=httpx.Timeout(30.0),
+        limits=httpx.Limits(max_connections=concurrency + 2, max_keepalive_connections=concurrency),
     ) as client:
-        for i, (entry, ticker) in enumerate(entries_to_process, 1):
-            fiscal_year, fiscal_quarter = _infer_fiscal_info(entry)
+        for chunk_start in range(0, total, chunk_size):
+            chunk = entries_to_process[chunk_start : chunk_start + chunk_size]
+            tasks = [_process_one(entry, ticker, client) for entry, ticker in chunk]
+            await asyncio.gather(*tasks)
 
-            financials = await fetch_and_parse_filing(client, entry)
-            if financials is None:
-                failed += 1
-            else:
-                async with session_factory() as session:
-                    was_inserted = await insert_pit_snapshot(
-                        session,
-                        entry,
-                        financials,
-                        ticker,
-                        fiscal_year,
-                        fiscal_quarter,
-                    )
-                    await session.commit()
-                    if was_inserted:
-                        inserted += 1
-                    else:
-                        skipped += 1
-
-            # Checkpoint every 100 filings
-            if checkpoint_file and i % 100 == 0:
-                Path(checkpoint_file).write_text(entry.accession_number)
-                logger.info("[edgar-backfill] Checkpoint saved at %s", entry.accession_number)
-
-            # Log progress every 100 filings
-            if i % 100 == 0 or i == total:
-                logger.info(
-                    "[edgar-backfill] Processed %d/%d filings (%d inserted, %d skipped, %d failed)",
-                    i,
-                    total,
-                    inserted,
-                    skipped,
-                    failed,
-                )
+            # Checkpoint at end of each chunk
+            if checkpoint_file and chunk:
+                last_entry = chunk[-1][0]
+                Path(checkpoint_file).write_text(last_entry.accession_number)
 
     return {
         "total": total,
-        "inserted": inserted,
-        "skipped": skipped,
-        "failed": failed,
+        "inserted": counters["inserted"],
+        "skipped": counters["skipped"],
+        "failed": counters["failed"],
     }
