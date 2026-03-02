@@ -15,15 +15,29 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from margin_engine.models.financial import AssetProfile, FinancialPeriod
+from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod
 from margin_engine.models.scoring import FactorScore
+from margin_engine.scoring.quantitative.cyclical_normalizer import normalize_metric
+
+
+def _compute_owner_earnings(period: FinancialPeriod) -> float:
+    """Compute owner earnings for a single period."""
+    cfo = float(period.current_cash_flow.operating_cash_flow)
+    depreciation = float(period.current_income.depreciation or Decimal("0"))
+    maintenance_capex = depreciation * 1.1
+    return cfo - maintenance_capex
 
 
 def owner_earnings_yield(
     period: FinancialPeriod,
     profile: AssetProfile,
+    history: FinancialHistory | None = None,
 ) -> FactorScore:
     """Compute owner earnings yield from a financial period and asset profile.
+
+    For cyclical sectors, uses 7-year median owner earnings when history
+    is provided (via cyclical_normalizer). Non-cyclical sectors and calls
+    without history use current-period values (backward compatible).
 
     Returns a FactorScore with percentile_rank=0.0 (placeholder).
     """
@@ -31,11 +45,22 @@ def owner_earnings_yield(
     cb = period.current_balance
     ccf = period.current_cash_flow
 
-    # Owner Earnings
+    # Owner Earnings (current period)
     cfo = float(ccf.operating_cash_flow)
     depreciation = float(ci.depreciation or Decimal("0"))
     maintenance_capex = depreciation * 1.1
     owner_earnings = cfo - maintenance_capex
+
+    # Cyclical normalization: use 7-year median owner earnings
+    norm_detail = ""
+    if history is not None and profile.sector.is_cyclical:
+        historical_oe = [_compute_owner_earnings(p) for p in history.periods]
+        owner_earnings, norm_detail = normalize_metric(
+            current_value=owner_earnings,
+            historical_values=historical_oe,
+            is_cyclical=True,
+        )
+        norm_detail = f", norm=[{norm_detail}]"
 
     if owner_earnings <= 0:
         return FactorScore(
@@ -44,7 +69,7 @@ def owner_earnings_yield(
             percentile_rank=0.0,
             detail=(
                 f"CFO={cfo:,.2f}, MaintCapEx={maintenance_capex:,.2f}, "
-                f"OwnerEarnings={owner_earnings:,.2f} (negative)"
+                f"OwnerEarnings={owner_earnings:,.2f} (negative){norm_detail}"
             ),
         )
 
@@ -66,7 +91,7 @@ def owner_earnings_yield(
 
     detail = (
         f"CFO={cfo:,.2f}, MaintCapEx={maintenance_capex:,.2f}, "
-        f"OE={owner_earnings:,.2f}, EV={ev:,.2f}, Yield={raw_value:.4f}"
+        f"OE={owner_earnings:,.2f}, EV={ev:,.2f}, Yield={raw_value:.4f}{norm_detail}"
     )
 
     return FactorScore(
