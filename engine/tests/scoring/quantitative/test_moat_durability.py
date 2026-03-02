@@ -222,7 +222,8 @@ class TestMoatDurability:
 class TestWeightedMoatSignatures:
     """Moat signatures weighted by empirical durability.
 
-    Weights: operating_leverage=1.5, pricing_power=1.25, scale_economics=1.0, capital_efficiency=0.75
+    Weights: operating_leverage=1.5, pricing_power=1.25,
+    scale_economics=1.0, capital_efficiency=0.75
     Max weighted = 4.5, normalized to 0-4 scale: score = weighted_sum * (4.0 / 4.5)
     """
 

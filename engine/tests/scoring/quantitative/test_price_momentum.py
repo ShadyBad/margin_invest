@@ -101,9 +101,9 @@ class TestPriceMomentumBasic:
         result = price_momentum(bars)
         assert result.raw_value == pytest.approx(0.0, abs=0.01)
 
-
     def test_volatile_stock_dampened_vs_steady(self):
-        """High-vol stock should have lower risk-adjusted momentum than low-vol with same raw return."""
+        """High-vol stock should have lower risk-adjusted momentum
+        than low-vol with same raw return."""
         import math
 
         base_date = datetime.date(2025, 1, 1)
