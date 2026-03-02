@@ -20,6 +20,7 @@ from margin_engine.models.financial import (
 from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.market_regime import detect_regime, regime_adjustments
 from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
+from margin_engine.scoring.quantitative.wacc_company import compute_company_wacc
 from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
 from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
 from margin_engine.scoring.v3_cascade import (
@@ -48,6 +49,7 @@ class TickerV3Data(BaseModel):
     sbc_pct: float | None = None
     recent_acquisition_count: int = 0
     sue_percentile: float = 0.0
+    beta: float | None = None
     momentum_percentile: float = 50.0
     dcf_iv: float = 0.0
 
@@ -156,7 +158,12 @@ def score_universe_v3(
     results: list[V3Result] = []
 
     for td in tickers_data:
-        wacc = get_sector_wacc(td.profile.sector)
+        wacc = compute_company_wacc(
+            period=td.latest_period,
+            profile=td.profile,
+            beta=td.beta,
+            sector_fallback=get_sector_wacc(td.profile.sector),
+        )
 
         # Step 3: Owner earnings IV
         oe_per_share = _compute_owner_earnings_per_share(td)

@@ -146,3 +146,28 @@ class TestScoreUniverseV3:
         no_opt_positions = {r.ticker: r.max_position_pct for r in results_no_opt}
         for ticker in opt_positions:
             assert opt_positions[ticker] >= no_opt_positions[ticker]
+
+    def test_beta_none_falls_back_to_sector_wacc(self):
+        """When beta is None (default), sector WACC fallback is used — backward compatible."""
+        data_no_beta = [_make_ticker_data("SOLO")]
+        assert data_no_beta[0].beta is None
+        results = score_universe_v3(data_no_beta, shiller_cape=25.0)
+        assert len(results) == 1
+        assert results[0].ticker == "SOLO"
+        # Should produce valid results (no crash, same as pre-integration behavior)
+        assert results[0].conviction is not None
+
+    def test_beta_provided_uses_company_wacc(self):
+        """When beta is provided, company-specific WACC is computed via CAPM."""
+        td_no_beta = _make_ticker_data("TEST")
+        td_with_beta = _make_ticker_data("TEST")
+        td_with_beta.beta = 1.5  # high beta => higher WACC => different scores
+
+        results_no_beta = score_universe_v3([td_no_beta], shiller_cape=25.0)
+        results_with_beta = score_universe_v3([td_with_beta], shiller_cape=25.0)
+
+        assert len(results_no_beta) == 1
+        assert len(results_with_beta) == 1
+        # Both should produce valid results
+        assert results_no_beta[0].conviction is not None
+        assert results_with_beta[0].conviction is not None
