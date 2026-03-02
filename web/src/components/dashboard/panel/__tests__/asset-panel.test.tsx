@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { AssetPanel } from "../asset-panel"
 import type { ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/types"
+import * as scoresApi from "@/lib/api/scores"
 
 // Mock all child components to isolate orchestration logic
 vi.mock("../panel-backdrop", () => ({
@@ -10,8 +11,14 @@ vi.mock("../panel-backdrop", () => ({
 vi.mock("../executive-header", () => ({
   ExecutiveHeader: (props: { ticker: string }) => <div data-testid="executive-header">{props.ticker}</div>,
 }))
+vi.mock("@/lib/api/scores", () => ({
+  getScoreHistory: vi.fn(),
+}))
+
 vi.mock("../score-chart", () => ({
-  ScoreChart: () => <div data-testid="score-chart" />,
+  ScoreChart: (props: { status?: string; onRetry?: () => void }) => (
+    <div data-testid="score-chart" data-status={props.status ?? "none"} onClick={props.onRetry} />
+  ),
 }))
 vi.mock("../panel-factor-breakdown", () => ({
   PanelFactorBreakdown: () => <div data-testid="panel-factor-breakdown" />,
@@ -31,7 +38,9 @@ vi.mock("../panel-filter-list", () => ({
   PanelFilterList: () => <div data-testid="panel-filter-list" />,
 }))
 vi.mock("../score-history-table", () => ({
-  ScoreHistoryTable: () => <div data-testid="score-history-table" />,
+  ScoreHistoryTable: (props: { status?: string }) => (
+    <div data-testid="score-history-table" data-status={props.status ?? "none"} />
+  ),
 }))
 vi.mock("../../pro-gate", () => ({
   ProGate: ({ children }: { children: React.ReactNode }) => <div data-testid="pro-gate">{children}</div>,
@@ -93,6 +102,15 @@ const mockMetrics: InstitutionalMetricsResponse = {
 }
 
 describe("AssetPanel", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(scoresApi.getScoreHistory).mockResolvedValue({
+      ticker: "AAPL",
+      points: [],
+      total_runs: 0,
+    })
+  })
+
   it("renders nothing when isOpen is false", () => {
     render(<AssetPanel isOpen={false} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     expect(screen.queryByTestId("asset-panel")).not.toBeInTheDocument()
@@ -142,5 +160,76 @@ describe("AssetPanel", () => {
     render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
     const valuation = screen.getByTestId("panel-valuation")
     expect(valuation).toHaveAttribute("data-buy-price", "140")
+  })
+
+  it("passes loading status to ScoreChart while fetching", async () => {
+    // Never-resolving promise simulates in-flight request
+    vi.mocked(scoresApi.getScoreHistory).mockReturnValue(new Promise(() => {}))
+    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
+    expect(screen.getByTestId("score-chart")).toHaveAttribute("data-status", "loading")
+    expect(screen.getByTestId("score-history-table")).toHaveAttribute("data-status", "loading")
+  })
+
+  it("passes loaded status after successful fetch", async () => {
+    const mockHistory = {
+      ticker: "AAPL",
+      points: [
+        { scored_at: "2026-01-01T00:00:00Z", composite_percentile: 80, composite_raw_score: 75, quality_percentile: 85, value_percentile: 80, momentum_percentile: 82, composite_tier: "high", signal: "strong", margin_invest_value: 200, buy_price: 150, sell_price: 250, actual_price: 185, delta: null },
+        { scored_at: "2026-01-08T00:00:00Z", composite_percentile: 82, composite_raw_score: 77, quality_percentile: 86, value_percentile: 81, momentum_percentile: 83, composite_tier: "high", signal: "strong", margin_invest_value: 205, buy_price: 152, sell_price: 252, actual_price: 187, delta: 2 },
+      ],
+      total_runs: 2,
+    }
+    vi.mocked(scoresApi.getScoreHistory).mockResolvedValue(mockHistory)
+    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
+    await vi.waitFor(() => {
+      expect(screen.getByTestId("score-chart")).toHaveAttribute("data-status", "loaded")
+      expect(screen.getByTestId("score-history-table")).toHaveAttribute("data-status", "loaded")
+    })
+  })
+
+  it("passes error status when fetch fails", async () => {
+    vi.mocked(scoresApi.getScoreHistory).mockRejectedValue(new Error("Network error"))
+    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
+    await vi.waitFor(() => {
+      expect(screen.getByTestId("score-chart")).toHaveAttribute("data-status", "error")
+      expect(screen.getByTestId("score-history-table")).toHaveAttribute("data-status", "error")
+    })
+  })
+
+  it("logs error to console when fetch fails", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    vi.mocked(scoresApi.getScoreHistory).mockRejectedValue(new Error("Network error"))
+    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
+    await vi.waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[ScoreHistory]"),
+        expect.any(Error),
+      )
+    })
+    consoleSpy.mockRestore()
+  })
+
+  it("retries fetch when onRetry is triggered after error", async () => {
+    vi.mocked(scoresApi.getScoreHistory).mockRejectedValueOnce(new Error("fail"))
+    render(<AssetPanel isOpen={true} onClose={vi.fn()} ticker="AAPL" scoredResult={mockScore} metrics={mockMetrics} />)
+    await vi.waitFor(() => {
+      expect(screen.getByTestId("score-chart")).toHaveAttribute("data-status", "error")
+    })
+    // Reset to success for retry
+    const mockHistory = {
+      ticker: "AAPL",
+      points: [
+        { scored_at: "2026-01-01T00:00:00Z", composite_percentile: 80, composite_raw_score: 75, quality_percentile: 85, value_percentile: 80, momentum_percentile: 82, composite_tier: "high", signal: "strong", margin_invest_value: 200, buy_price: 150, sell_price: 250, actual_price: 185, delta: null },
+        { scored_at: "2026-01-08T00:00:00Z", composite_percentile: 82, composite_raw_score: 77, quality_percentile: 86, value_percentile: 81, momentum_percentile: 83, composite_tier: "high", signal: "strong", margin_invest_value: 205, buy_price: 152, sell_price: 252, actual_price: 187, delta: 2 },
+      ],
+      total_runs: 2,
+    }
+    vi.mocked(scoresApi.getScoreHistory).mockResolvedValue(mockHistory)
+    // Trigger retry via the ScoreChart mock (onClick = onRetry)
+    screen.getByTestId("score-chart").click()
+    await vi.waitFor(() => {
+      expect(screen.getByTestId("score-chart")).toHaveAttribute("data-status", "loaded")
+    })
+    expect(scoresApi.getScoreHistory).toHaveBeenCalledTimes(2)
   })
 })

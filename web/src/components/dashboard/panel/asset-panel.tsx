@@ -65,6 +65,8 @@ function computeInsights(score: ScoreResponse) {
 export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: AssetPanelProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("3M")
   const [historyData, setHistoryData] = useState<ScoreHistoryResponse | null>(null)
+  const [historyStatus, setHistoryStatus] = useState<"loading" | "loaded" | "error">("loading")
+  const [retryCount, setRetryCount] = useState(0)
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") onClose()
@@ -79,15 +81,25 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
   useEffect(() => {
     if (!isOpen || !ticker) return
     let cancelled = false
+    setHistoryStatus("loading")
+    setHistoryData(null)
     getScoreHistory(ticker)
       .then((data) => {
-        if (!cancelled) setHistoryData(data)
+        if (!cancelled) {
+          setHistoryData(data)
+          setHistoryStatus("loaded")
+        }
       })
-      .catch(() => {
-        // Silently fail — synthetic fallback will be used
+      .catch((err) => {
+        console.error(`[ScoreHistory] Failed to fetch history for ${ticker}:`, err)
+        if (!cancelled) setHistoryStatus("error")
       })
     return () => { cancelled = true }
-  }, [isOpen, ticker])
+  }, [isOpen, ticker, retryCount])
+
+  const retryHistory = useCallback(() => {
+    setRetryCount((c) => c + 1)
+  }, [])
 
   const aiSummary = useMemo(() => composeAiSummary(scoredResult), [scoredResult])
   const insights = useMemo(() => computeInsights(scoredResult), [scoredResult])
@@ -190,6 +202,8 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
               <div className="border-r border-white/[0.06]">
                 <ScoreChart
                   data={scoreChartData}
+                  status={historyStatus}
+                  onRetry={retryHistory}
                   timeRange={timeRange}
                   showBenchmark={false}
                   universeRank={universeRank}
@@ -255,7 +269,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
 
             {/* Full-width bottom */}
             <div className="border-t border-white/[0.06]">
-              <ScoreHistoryTable history={scoreHistory} />
+              <ScoreHistoryTable history={scoreHistory} status={historyStatus} />
             </div>
           </motion.div>
         </div>
