@@ -27,8 +27,8 @@ const pillars = [
     name: "Value",
     count: 7,
     desc: "Measures what you're paying relative to what the business generates — across multiple valuation lenses to avoid single-metric traps.",
-    borderColor: "border-t-bullish",
-    titleColor: "text-bullish",
+    borderColor: "border-t-[var(--color-value)]",
+    titleColor: "text-[var(--color-value)]",
     factors: [
       "DCF Margin of Safety",
       "EV/FCF",
