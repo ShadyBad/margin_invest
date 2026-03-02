@@ -48,6 +48,21 @@ export function TickerSearch() {
     [query, router]
   )
 
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [isOpen])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        close()
+      }
+    },
+    [close]
+  )
+
   return (
     <>
       <button
@@ -60,6 +75,39 @@ export function TickerSearch() {
       >
         <SearchIcon />
       </button>
+
+      {isOpen && (
+        <>
+          <div
+            data-testid="search-backdrop"
+            className="fixed inset-0 z-[60] bg-black/20"
+            onClick={close}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-label="Ticker search"
+            aria-modal="true"
+            className="fixed z-[61] top-3 left-1/2 -translate-x-1/2 w-[min(400px,calc(100vw-48px))] animate-in fade-in zoom-in-95 duration-200"
+          >
+            <form onSubmit={handleSubmit} className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">
+                <SearchIcon />
+              </div>
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Search any ticker..."
+                aria-label="Ticker symbol"
+                className="w-full h-11 pl-10 pr-4 text-sm bg-bg-elevated border border-border-subtle rounded-xl text-text-primary placeholder-text-tertiary shadow-[0_4px_24px_rgba(0,0,0,0.2)] focus:outline-none focus:border-accent/40 transition-colors"
+              />
+            </form>
+          </div>
+        </>
+      )}
     </>
   )
 }
