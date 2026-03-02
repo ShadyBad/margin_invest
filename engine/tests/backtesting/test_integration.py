@@ -557,6 +557,7 @@ class TestExportVerification:
             "haircut_returns",
             "segment_by_regime",
             "signal_significance",
+            "build_ticker_data_from_pit",
         }
         assert set(bt.__all__) == expected
 
