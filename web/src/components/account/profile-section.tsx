@@ -71,31 +71,31 @@ export function ProfileSection() {
   }
 
   return (
-    <section className="bg-bg-elevated border border-border-primary rounded-sm p-6">
-      <h2 className="text-lg font-bold text-text-primary mb-4">Profile</h2>
+    <section id="profile" className="terminal-card p-6 md:p-8">
+      <h2 className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-6">Profile</h2>
       {session?.user ? (
-        <div className="space-y-3">
-          <div className="flex items-center gap-4">
+        <div className="space-y-4">
+          <div className="flex items-center gap-5">
             <Avatar
               name={session.user.name || session.user.email || ""}
               avatarUrl={avatarUrl}
               oauthAvatarUrl={oauthAvatarUrl}
-              size="lg"
+              size="xl"
             />
             <div>
-              <div className="text-text-primary font-medium">
+              <div className="text-xl font-semibold text-text-primary">
                 {session.user.name || "User"}
               </div>
-              <div className="text-sm text-text-secondary">
+              <div className="mt-0.5 text-sm text-text-secondary">
                 {session.user.email}
               </div>
-              <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full bg-bg-subtle text-text-secondary border border-border-primary">
+              <span className="inline-block mt-2 px-2 py-0.5 text-xs font-medium rounded-full bg-bg-subtle text-text-secondary border border-border-primary">
                 {providerLabel}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <input
               ref={fileInputRef}
               type="file"
@@ -108,7 +108,7 @@ export function ProfileSection() {
               disabled={uploading}
               className="text-sm text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
             >
-              {uploading ? "Uploading..." : "Upload Avatar"}
+              {uploading ? "Uploading..." : "Upload photo"}
             </button>
             {avatarUrl && (
               <button
@@ -120,7 +120,7 @@ export function ProfileSection() {
             )}
           </div>
           {error && (
-            <p className="text-sm text-red-400">{error}</p>
+            <p className="text-sm text-bearish">{error}</p>
           )}
         </div>
       ) : (

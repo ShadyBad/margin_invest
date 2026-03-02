@@ -72,10 +72,10 @@ describe("ProfileSection", () => {
     expect(screen.getByText("GitHub")).toBeInTheDocument()
   })
 
-  it('shows "Upload Avatar" button', () => {
+  it('shows "Upload photo" button', () => {
     mockSession()
     render(<ProfileSection />)
-    expect(screen.getByText("Upload Avatar")).toBeInTheDocument()
+    expect(screen.getByText("Upload photo")).toBeInTheDocument()
   })
 
   it('shows "Remove" button when avatarUrl is present', () => {
