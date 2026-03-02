@@ -163,9 +163,10 @@ def fcf_distress_check_v2(
     # Check 1: FCF margin floor (sector-specific)
     margin_floor_passed = median_fcf_margin >= margin_floor
     if not margin_floor_passed:
+        sector_label = f" ({sector_name})" if sector_name else ""
         detail = (
             f"FAIL: median FCF margin {median_fcf_margin:.1%} < "
-            f"floor {margin_floor:.1%}. "
+            f"floor {margin_floor:.1%}{sector_label}. "
             f"positive_years={positive_years}/{total_years}, "
             f"required={required}"
         )
@@ -224,10 +225,12 @@ def fcf_distress_check_v2(
     if warning:
         status = "PASS (warning)"
     cyclical_note = f" (cyclical relaxation: {required} required)" if is_cyclical else ""
+    sector_label = f" ({sector_name})" if sector_name else ""
     detail = (
         f"{status}: {positive_years}/{total_years} positive FCF years "
         f"(required {required}{cyclical_note}). "
         f"median_fcf_margin={median_fcf_margin:.1%}, "
+        f"floor={margin_floor:.1%}{sector_label}, "
         f"improving_streak={consecutive_improving}"
     )
 
