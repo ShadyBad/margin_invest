@@ -421,3 +421,63 @@ class TestBackwardCompatibility:
     def test_old_results_endpoint_still_works(self, client):
         response = client.get("/api/v1/backtest/results")
         assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Real scoring flag tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunRealBacktestUsesRealScoring:
+    """Verify that run_real_backtest passes use_real_scoring=True."""
+
+    @pytest.mark.asyncio
+    async def test_run_real_backtest_uses_real_scoring(self):
+        """run_real_backtest must pass use_real_scoring=True to ReplayOrchestrator."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_engine.backtesting.models import PerformanceMetrics
+        from margin_engine.backtesting.replay_orchestrator import ReplayConfig, ReplayResult
+
+        captured_kwargs: dict = {}
+
+        class MockOrchestrator:
+            def __init__(self, **kwargs):
+                captured_kwargs.update(kwargs)
+
+            async def run_async(self):
+                return ReplayResult(
+                    config=ReplayConfig(),
+                    metrics=PerformanceMetrics(
+                        cagr=0,
+                        excess_cagr=0,
+                        sharpe_ratio=0,
+                        sortino_ratio=0,
+                        max_drawdown=0,
+                        win_rate=0,
+                        information_ratio=0,
+                        total_return=0,
+                        benchmark_total_return=0,
+                        num_months=0,
+                        avg_turnover=0,
+                    ),
+                    snapshots=[],
+                    audit_log=[],
+                    regime_segments={},
+                    factor_timeline=[],
+                    duration_seconds=0.0,
+                )
+
+        mock_session = AsyncMock()
+
+        with patch(
+            "margin_engine.backtesting.replay_orchestrator.ReplayOrchestrator",
+            MockOrchestrator,
+        ):
+            with patch("margin_api.services.backtest.DatabasePITProvider"):
+                with patch("margin_api.services.backtest.FactorRegistry"):
+                    from margin_api.services.backtest import run_real_backtest
+
+                    await run_real_backtest(mock_session, ReplayConfig())
+
+        assert captured_kwargs.get("use_real_scoring") is True

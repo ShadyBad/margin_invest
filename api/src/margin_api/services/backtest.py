@@ -460,6 +460,7 @@ async def run_real_backtest(session: AsyncSession, config: ReplayConfig) -> Repl
         config=config,
         pit_provider=provider,
         factor_registry=registry,
+        use_real_scoring=True,
     )
     return await orchestrator.run_async()
 

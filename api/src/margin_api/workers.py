@@ -2522,7 +2522,12 @@ async def precompute_default_backtest(ctx: dict) -> dict:
         async with session_factory() as session:
             provider = DatabasePITProvider(session)
             registry = FactorRegistry.default()
-            orchestrator = ReplayOrchestrator(config, provider, registry)
+            orchestrator = ReplayOrchestrator(
+                config=config,
+                pit_provider=provider,
+                factor_registry=registry,
+                use_real_scoring=True,
+            )
             replay_result = await orchestrator.run_async()
 
             # Get active universe snapshot for the backtest run record
