@@ -14,39 +14,39 @@ const mockHistory = [
 
 describe("ScoreHistoryTable", () => {
   it("renders table with correct number of rows", () => {
-    render(<ScoreHistoryTable history={mockHistory} />)
+    render(<ScoreHistoryTable history={mockHistory} status="loaded" />)
     expect(screen.getByTestId("score-history-table")).toBeInTheDocument()
     expect(screen.getByText("3 runs")).toBeInTheDocument()
     expect(screen.getAllByRole("row")).toHaveLength(4) // 1 header + 3 data
   })
 
   it("renders score values", () => {
-    render(<ScoreHistoryTable history={mockHistory} />)
+    render(<ScoreHistoryTable history={mockHistory} status="loaded" />)
     expect(screen.getByText("87")).toBeInTheDocument()
     expect(screen.getByText("84")).toBeInTheDocument()
     expect(screen.getByText("85")).toBeInTheDocument()
   })
 
   it("renders positive delta with up arrow", () => {
-    render(<ScoreHistoryTable history={mockHistory} />)
+    render(<ScoreHistoryTable history={mockHistory} status="loaded" />)
     const deltas = screen.getAllByTestId("score-delta")
     expect(deltas[0]).toHaveTextContent("+3")
   })
 
   it("renders negative delta", () => {
-    render(<ScoreHistoryTable history={mockHistory} />)
+    render(<ScoreHistoryTable history={mockHistory} status="loaded" />)
     const deltas = screen.getAllByTestId("score-delta")
     expect(deltas[1]).toHaveTextContent("-1")
   })
 
   it("sorts by date descending by default", () => {
-    render(<ScoreHistoryTable history={mockHistory} />)
+    render(<ScoreHistoryTable history={mockHistory} status="loaded" />)
     const rows = screen.getAllByRole("row")
     expect(rows[1]).toHaveTextContent("Feb 16, 2026")
   })
 
-  it("renders empty state", () => {
-    render(<ScoreHistoryTable history={[]} />)
+  it("renders empty state when status is loaded with no data", () => {
+    render(<ScoreHistoryTable history={[]} status="loaded" />)
     expect(screen.getByText("No scoring history yet")).toBeInTheDocument()
   })
 
@@ -55,9 +55,21 @@ describe("ScoreHistoryTable", () => {
       { date: "2026-02-16T10:30:45+00:00", score: 87, delta: 3, signal: "strong", conviction: "exceptional", keyChange: "+3.0" },
       { date: "2026-02-09T08:15:00+00:00", score: 84, delta: -1, signal: "strong", conviction: "high", keyChange: "-1.0" },
     ]
-    render(<ScoreHistoryTable history={isoHistory} />)
+    render(<ScoreHistoryTable history={isoHistory} status="loaded" />)
     expect(screen.queryByText("Invalid Date")).not.toBeInTheDocument()
     expect(screen.getByText("Feb 16, 2026")).toBeInTheDocument()
     expect(screen.getByText("Feb 9, 2026")).toBeInTheDocument()
+  })
+
+  it("renders loading skeleton when status is loading", () => {
+    render(<ScoreHistoryTable history={[]} status="loading" />)
+    expect(screen.getByTestId("score-history-loading")).toBeInTheDocument()
+    expect(screen.queryByTestId("score-history-table")).not.toBeInTheDocument()
+  })
+
+  it("renders error state when status is error", () => {
+    render(<ScoreHistoryTable history={[]} status="error" />)
+    expect(screen.getByTestId("score-history-error")).toBeInTheDocument()
+    expect(screen.getByText("Unable to load score history")).toBeInTheDocument()
   })
 })

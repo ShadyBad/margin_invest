@@ -15,11 +15,12 @@ export interface ScoreHistoryRow {
 
 interface ScoreHistoryTableProps {
   history: ScoreHistoryRow[]
+  status?: "loading" | "loaded" | "error"
 }
 
 type SortKey = "date" | "score"
 
-export function ScoreHistoryTable({ history }: ScoreHistoryTableProps) {
+export function ScoreHistoryTable({ history, status = "loaded" }: ScoreHistoryTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("date")
   const [sortAsc, setSortAsc] = useState(false)
 
@@ -44,6 +45,30 @@ export function ScoreHistoryTable({ history }: ScoreHistoryTableProps) {
       setSortKey(key)
       setSortAsc(false)
     }
+  }
+
+  if (status === "loading") {
+    return (
+      <div className="px-6 pt-4 pb-6" data-testid="score-history-loading">
+        <div className="flex items-center justify-between mb-3">
+          <div className="h-5 w-32 bg-white/[0.04] rounded animate-pulse" />
+          <div className="h-4 w-16 bg-white/[0.04] rounded animate-pulse" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-[44px] bg-white/[0.02] rounded animate-pulse" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (status === "error") {
+    return (
+      <div className="px-6 py-8 text-center" data-testid="score-history-error">
+        <p className="text-[13px] text-[#C74B50]">Unable to load score history</p>
+      </div>
+    )
   }
 
   if (history.length === 0) {
