@@ -26,13 +26,39 @@ function toCandidateCard(pick: DashboardResponse["picks"][0]): CandidateCard {
   }
 }
 
+function watchlistToCandidateCard(
+  item: DashboardResponse["watchlist"][0],
+): CandidateCard {
+  return {
+    ticker: item.ticker,
+    name: item.name,
+    sector: item.sector ?? "Unknown",
+    actual_price: item.actual_price ?? 0,
+    buy_price: 0,
+    margin_of_safety: 0,
+    score: item.composite_raw_score,
+    composite_percentile: 0,
+    quality_percentile: 0,
+    value_percentile: 0,
+    momentum_percentile: 0,
+    sentiment_percentile: 0,
+    growth_percentile: 0,
+    scored_at: new Date().toISOString(),
+    composite_tier: item.composite_tier,
+    filters_passed: 0,
+    filters_total: 0,
+  }
+}
+
 async function getHomepageData(): Promise<HomepageData | null> {
   try {
     const data = await serverFetch<DashboardResponse>("/api/v1/dashboard")
     if (!data.picks || data.picks.length === 0) return null
-    const allCards = data.picks.map(toCandidateCard)
+    const pickCards = data.picks.map(toCandidateCard)
+    const watchlistCards = (data.watchlist ?? []).map(watchlistToCandidateCard)
+    const allCards = [...pickCards, ...watchlistCards]
     return {
-      candidates: allCards.slice(0, 5),
+      candidates: pickCards.slice(0, 5),
       allPicks: allCards,
       last_updated: data.last_updated,
       universe_size: data.universe?.size ?? 0,
