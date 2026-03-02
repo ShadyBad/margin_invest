@@ -174,8 +174,8 @@ describe("AssetPanel", () => {
     const mockHistory = {
       ticker: "AAPL",
       points: [
-        { scored_at: "2026-01-01T00:00:00Z", composite_percentile: 80, composite_raw_score: 75, quality_percentile: 85, value_percentile: 80, momentum_percentile: 82, composite_tier: "high", signal: "strong", margin_invest_value: 200, buy_price: 150, sell_price: 250, actual_price: 185, delta: null },
-        { scored_at: "2026-01-08T00:00:00Z", composite_percentile: 82, composite_raw_score: 77, quality_percentile: 86, value_percentile: 81, momentum_percentile: 83, composite_tier: "high", signal: "strong", margin_invest_value: 205, buy_price: 152, sell_price: 252, actual_price: 187, delta: 2 },
+        { scored_at: "2026-01-01T00:00:00Z", score: 75, composite_percentile: 80, composite_raw_score: 75, quality_percentile: 85, value_percentile: 80, momentum_percentile: 82, composite_tier: "high", signal: "strong", margin_invest_value: 200, buy_price: 150, sell_price: 250, actual_price: 185, delta: null },
+        { scored_at: "2026-01-08T00:00:00Z", score: 77, composite_percentile: 82, composite_raw_score: 77, quality_percentile: 86, value_percentile: 81, momentum_percentile: 83, composite_tier: "high", signal: "strong", margin_invest_value: 205, buy_price: 152, sell_price: 252, actual_price: 187, delta: 2 },
       ],
       total_runs: 2,
     }
@@ -219,8 +219,8 @@ describe("AssetPanel", () => {
     const mockHistory = {
       ticker: "AAPL",
       points: [
-        { scored_at: "2026-01-01T00:00:00Z", composite_percentile: 80, composite_raw_score: 75, quality_percentile: 85, value_percentile: 80, momentum_percentile: 82, composite_tier: "high", signal: "strong", margin_invest_value: 200, buy_price: 150, sell_price: 250, actual_price: 185, delta: null },
-        { scored_at: "2026-01-08T00:00:00Z", composite_percentile: 82, composite_raw_score: 77, quality_percentile: 86, value_percentile: 81, momentum_percentile: 83, composite_tier: "high", signal: "strong", margin_invest_value: 205, buy_price: 152, sell_price: 252, actual_price: 187, delta: 2 },
+        { scored_at: "2026-01-01T00:00:00Z", score: 75, composite_percentile: 80, composite_raw_score: 75, quality_percentile: 85, value_percentile: 80, momentum_percentile: 82, composite_tier: "high", signal: "strong", margin_invest_value: 200, buy_price: 150, sell_price: 250, actual_price: 185, delta: null },
+        { scored_at: "2026-01-08T00:00:00Z", score: 77, composite_percentile: 82, composite_raw_score: 77, quality_percentile: 86, value_percentile: 81, momentum_percentile: 83, composite_tier: "high", signal: "strong", margin_invest_value: 205, buy_price: 152, sell_price: 252, actual_price: 187, delta: 2 },
       ],
       total_runs: 2,
     }
