@@ -105,10 +105,10 @@ export function ProviderIcons({
 
   return (
     <div>
-      <h3 className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-3">
-        Authentication Methods
+      <h3 className="text-base font-medium text-text-primary mb-4">
+        Connected Accounts
       </h3>
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-3">
         {providers.map((provider) => (
           <ProviderIcon
             key={provider.id}
@@ -145,27 +145,19 @@ function ProviderIcon({
 
   const ariaLabel = `${label} \u2014 ${stateLabel}`
 
-  const borderClass =
-    state === "connected"
-      ? "border-solid border-emerald-500/40"
-      : state === "available"
-        ? "border-dashed border-border-primary"
-        : "border-solid border-border-primary"
-
+  const connectedBorder = state === "connected" ? "border-accent/30" : ""
   const opacityClass = state === "coming_soon" ? "opacity-40" : ""
 
   return (
     <div
-      className={`flex flex-col items-center gap-1.5 ${opacityClass}`}
+      className={`terminal-card p-4 flex flex-col items-center gap-2 min-w-[100px] ${connectedBorder} ${opacityClass}`}
       aria-label={ariaLabel}
       aria-disabled={state === "coming_soon" ? "true" : undefined}
     >
-      <div
-        className={`flex items-center justify-center w-12 h-12 rounded-xl border ${borderClass} bg-bg-primary text-text-primary`}
-      >
+      <div className="text-text-primary">
         {icon}
       </div>
-      <span className="text-xs text-text-secondary">{label}</span>
+      <span className="text-xs font-medium text-text-primary">{label}</span>
       {state === "connected" && (
         <>
           <span className="text-xs text-emerald-400">Connected</span>
