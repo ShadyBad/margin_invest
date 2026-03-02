@@ -18,7 +18,7 @@ interface ConfirmationModalProps {
   confirmLabel: string
   confirmVariant?: "accent" | "danger"
   loading?: boolean
-  error?: string
+  error?: string | null
 }
 
 function toLoadingLabel(label: string): string {
@@ -73,11 +73,32 @@ export function ConfirmationModal({
     }
   }, [open])
 
-  // Escape key handler
+  const dialogContainerRef = useRef<HTMLDivElement>(null)
+
+  // Escape key + focus trap
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose()
+        return
+      }
+
+      if (e.key === "Tab" && dialogContainerRef.current) {
+        const focusable = dialogContainerRef.current.querySelectorAll<HTMLElement>(
+          'input, button, [tabindex]:not([tabindex="-1"])'
+        )
+        if (focusable.length === 0) return
+
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
       }
     },
     [onClose]
@@ -122,6 +143,7 @@ export function ConfirmationModal({
       onClick={handleBackdropClick}
     >
       <div
+        ref={dialogContainerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
