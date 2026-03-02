@@ -401,6 +401,7 @@ async def get_score_history(
         points.append(
             ScoreHistoryPoint(
                 scored_at=scored_at,
+                score=row.composite_raw_score,
                 composite_percentile=row.composite_percentile,
                 composite_raw_score=row.composite_raw_score,
                 quality_percentile=row.quality_percentile,

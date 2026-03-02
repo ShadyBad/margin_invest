@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 class ScoreHistoryPoint(BaseModel):
     scored_at: datetime
+    score: float
     composite_percentile: float
     composite_raw_score: float | None = None
     quality_percentile: float | None = None
