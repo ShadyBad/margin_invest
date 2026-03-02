@@ -11,8 +11,8 @@ const stages = [
   { num: "3", label: "Factor Scoring", detail: "Quality \u00b7 Value \u00b7 Momentum" },
   {
     num: "4",
-    label: "Dual-Track Scoring",
-    detail: "Compounder & Mispricing",
+    label: "Multi-Track Scoring",
+    detail: "Compounder, Mispricing & Efficient Growth",
   },
   { num: "5", label: "ML Refinement", detail: "Cluster models, VAE" },
   {

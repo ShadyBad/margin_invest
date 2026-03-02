@@ -111,7 +111,7 @@ describe("PipelineSection", () => {
     expect(screen.getAllByText("Universe").length).toBeGreaterThan(0)
     expect(screen.getByText("Elimination Filters")).toBeInTheDocument()
     expect(screen.getByText("Factor Scoring")).toBeInTheDocument()
-    expect(screen.getByText("Dual-Track Scoring")).toBeInTheDocument()
+    expect(screen.getByText("Multi-Track Scoring")).toBeInTheDocument()
     expect(screen.getByText("ML Refinement")).toBeInTheDocument()
     expect(screen.getByText("Smart Money Overlay")).toBeInTheDocument()
     expect(screen.getByText("Position Sizing")).toBeInTheDocument()
