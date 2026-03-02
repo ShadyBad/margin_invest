@@ -9,7 +9,7 @@ const ease = [0.22, 1, 0.36, 1] as const
 const pillars = [
   {
     name: "Quality",
-    count: 7,
+    count: 6,
     desc: "Measures the durability and efficiency of a business — how well it converts capital into returns, and whether those returns are real.",
     borderColor: "border-t-accent",
     titleColor: "text-accent",
@@ -20,7 +20,6 @@ const pillars = [
       "Gross Profitability",
       "Piotroski F-Score",
       "Accrual Ratio",
-      "Moat Durability",
     ],
   },
   {
@@ -41,7 +40,7 @@ const pillars = [
   },
   {
     name: "Momentum",
-    count: 6,
+    count: 4,
     desc: "Measures whether the market, insiders, and institutions are confirming what the fundamentals suggest.",
     borderColor: "border-t-warning",
     titleColor: "text-warning",
@@ -50,8 +49,6 @@ const pillars = [
       "Standardized Unexpected Earnings",
       "Insider Cluster Score",
       "Institutional Accumulation",
-      "Sentiment Score",
-      "Runway Score",
     ],
   },
 ]
@@ -88,7 +85,7 @@ export function ScoringSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          20 factors. Three pillars. Sector-neutral ranking.
+          17 factors. Three pillars. Sector-neutral ranking.
         </motion.h2>
 
         <motion.p
@@ -99,8 +96,8 @@ export function ScoringSection() {
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
           AAPL passed all filters. Now it enters multi-factor scoring across
-          three pillars. Each factor is ranked within AAPL&apos;s GICS sector.
-          A percentile of 85 means AAPL scores better than 85% of its
+          three pillars. Each factor is ranked within AAPL&apos;s GICS sector —
+          a percentile of 85 means AAPL scores better than 85% of its
           tech-sector peers on that factor.
         </motion.p>
 
@@ -164,12 +161,11 @@ export function ScoringSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          Factor scores are converted to percentile ranks within each sector,
-          then combined into a pillar average. Pillar weights adjust based on
-          the company&apos;s growth stage — a high-growth company is weighted
-          differently than a mature cash cow. The final composite score is
-          re-ranked across the entire universe to produce a single composite
-          percentile.
+          Factor scores are converted to percentile ranks within each company&apos;s
+          GICS sector, measuring relative strength against sector peers. These
+          factor scores feed into a multi-gate scoring system where each track
+          evaluates a different investment thesis — compounding, mispricing, or
+          efficient growth.
         </motion.p>
 
         {/* Score breakdown visual */}

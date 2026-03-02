@@ -185,7 +185,7 @@ describe("ScoringSection", () => {
   it("renders the headline", () => {
     render(<ScoringSection />)
     expect(
-      screen.getByText(/20 factors\. Three pillars\. Sector-neutral ranking\./)
+      screen.getByText(/17 factors\. Three pillars\. Sector-neutral ranking\./)
     ).toBeInTheDocument()
   })
 
@@ -201,14 +201,15 @@ describe("ScoringSection", () => {
     expect(screen.getAllByText("Quality").length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText("Value").length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText("Momentum").length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText("7 factors").length).toBe(2) // Quality + Value
     expect(screen.getByText("6 factors")).toBeInTheDocument()
+    expect(screen.getByText("7 factors")).toBeInTheDocument()
+    expect(screen.getByText("4 factors")).toBeInTheDocument()
   })
 
   it("renders percentile ranking explanation", () => {
     render(<ScoringSection />)
     expect(
-      screen.getByText(/A percentile of 85 means AAPL scores better than 85%/)
+      screen.getByText(/a percentile of 85 means AAPL scores better than 85%/)
     ).toBeInTheDocument()
   })
 })
