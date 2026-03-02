@@ -18,7 +18,7 @@ const guides = [
   },
   {
     title: "Scoring Factors",
-    desc: "Deep dive into all 20 factors across three pillars",
+    desc: "Deep dive into all 17 factors across three pillars",
     href: "/guides/scoring-factors",
   },
   {
