@@ -61,8 +61,7 @@ export function FilterFunnel() {
           className="h-8 rounded-sm flex items-center px-3"
           style={{
             width: "25%",
-            backgroundColor:
-              "color-mix(in srgb, var(--color-accent) 25%, transparent)",
+            backgroundColor: "rgba(14, 79, 58, 0.25)",
           }}
         >
           <span className="text-[12px] font-mono text-text-primary whitespace-nowrap">
