@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { getInitials, getAvatarColor } from "@/lib/avatar"
 
-const SIZES = { sm: 24, md: 32, lg: 48 } as const
+const SIZES = { sm: 24, md: 32, lg: 48, xl: 80 } as const
 type AvatarSize = keyof typeof SIZES
 
 interface AvatarProps {
