@@ -37,8 +37,19 @@ altman:
 fcf_distress:
   positive_years_required: 3    # Need 3 of lookback_years positive
   lookback_years: 5
-  min_fcf_margin: -0.05         # Allow slight negative FCF margin
+  min_fcf_margin: 0.0           # Default floor when sector unknown
   allow_positive_trend_rescue: true
+  # Sector-specific FCF margin floors (overrides min_fcf_margin per sector)
+  sector_margin_overrides:
+    "information technology": 0.10  # 10% — capital-light, high margins
+    "communication services": 0.08 # 8% — media/telecom
+    "health care": 0.05            # 5% — pharma/biotech mix
+    "consumer staples": 0.05       # 5% — steady, thin-margin
+    "consumer discretionary": 0.03 # 3% — cyclical, capital-intensive
+    "industrials": 0.03            # 3% — CapEx-heavy, cyclical
+    "materials": 0.02              # 2% — commodity-driven
+    "energy": 0.0                  # 0% — highly cyclical
+    "utilities": 0.0               # 0% — regulated, low FCF by design
 
 interest_coverage:
   default: 1.5
