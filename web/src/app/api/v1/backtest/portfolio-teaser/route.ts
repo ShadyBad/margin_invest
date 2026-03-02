@@ -4,9 +4,13 @@ const API_URL = process.env.API_URL || "http://localhost:8000"
 
 export async function GET() {
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8_000)
     const response = await fetch(`${API_URL}/api/v1/backtest/portfolio-teaser`, {
       cache: "no-store",
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
 
     if (!response.ok) {
       try {

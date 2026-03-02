@@ -72,9 +72,14 @@ export function ProofHistoricalChart() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10_000)
+
     async function load() {
       try {
-        const resp = await fetch("/api/v1/backtest/portfolio-teaser")
+        const resp = await fetch("/api/v1/backtest/portfolio-teaser", {
+          signal: controller.signal,
+        })
         if (resp.ok) {
           setData(await resp.json())
         } else {
@@ -82,11 +87,23 @@ export function ProofHistoricalChart() {
           setError("Unable to load historical performance data.")
         }
       } catch (err) {
-        console.error("Portfolio teaser network error:", err)
-        setError("Unable to load historical performance data.")
+        if (err instanceof DOMException && err.name === "AbortError") {
+          console.error("Portfolio teaser fetch timed out after 10s")
+          setError("Request timed out. Please try again later.")
+        } else {
+          console.error("Portfolio teaser network error:", err)
+          setError("Unable to load historical performance data.")
+        }
+      } finally {
+        clearTimeout(timeout)
       }
     }
     load()
+
+    return () => {
+      controller.abort()
+      clearTimeout(timeout)
+    }
   }, [])
 
   if (error) {
@@ -100,12 +117,15 @@ export function ProofHistoricalChart() {
   if (!data) {
     return (
       <div data-testid="historical-skeleton">
-        <div className="h-[200px] bg-bg-subtle animate-pulse rounded" />
+        <div className="h-[200px] bg-border-subtle/30 animate-pulse rounded" />
         <div className="grid grid-cols-4 gap-4 mt-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-10 bg-bg-subtle animate-pulse rounded" />
+            <div key={i} className="h-10 bg-border-subtle/30 animate-pulse rounded" />
           ))}
         </div>
+        <p className="text-xs text-text-tertiary text-center mt-4 animate-pulse">
+          Loading historical data…
+        </p>
       </div>
     )
   }

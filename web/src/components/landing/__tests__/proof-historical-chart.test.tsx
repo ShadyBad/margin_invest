@@ -52,6 +52,33 @@ describe("ProofHistoricalChart", () => {
     global.fetch = mockFetch
   })
 
+  it("renders timeout error when fetch is aborted", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const abortError = new DOMException("The operation was aborted.", "AbortError")
+    mockFetch.mockRejectedValueOnce(abortError)
+    render(<ProofHistoricalChart />)
+    expect(await screen.findByTestId("historical-error")).toBeInTheDocument()
+    expect(screen.getByText(/timed out/i)).toBeInTheDocument()
+    vi.restoreAllMocks()
+    global.fetch = mockFetch
+  })
+
+  it("shows loading text in skeleton state", async () => {
+    // Fetch that resolves after a delay — skeleton shows in the meantime
+    let resolvePromise: (v: unknown) => void
+    mockFetch.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePromise = resolve
+      })
+    )
+    render(<ProofHistoricalChart />)
+    expect(screen.getByTestId("historical-skeleton")).toBeInTheDocument()
+    expect(screen.getByText(/loading historical data/i)).toBeInTheDocument()
+    // Resolve with a successful response to allow cleanup
+    resolvePromise!({ ok: true, json: async () => MOCK_TEASER })
+    await screen.findByTestId("area-chart")
+  })
+
   it("renders area chart after data loads", async () => {
     mockFetch.mockResolvedValue({
       ok: true,

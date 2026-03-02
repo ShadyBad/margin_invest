@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 export interface ModalField {
   name: string
@@ -42,22 +42,28 @@ export function ConfirmationModal({
   loading = false,
   error,
 }: ConfirmationModalProps) {
+  const initialValues = useMemo(() => {
+    const initial: Record<string, string> = {}
+    if (fields) {
+      for (const field of fields) {
+        initial[field.name] = ""
+      }
+    }
+    return initial
+  }, [fields])
+
   const [values, setValues] = useState<Record<string, string>>({})
   const firstInputRef = useRef<HTMLInputElement>(null)
   const confirmBtnRef = useRef<HTMLButtonElement>(null)
 
-  // Reset field values when modal opens
-  useEffect(() => {
+  // Reset field values when modal opens (state adjustment during render)
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (open) {
-      const initial: Record<string, string> = {}
-      if (fields) {
-        for (const field of fields) {
-          initial[field.name] = ""
-        }
-      }
-      setValues(initial)
+      setValues(initialValues)
     }
-  }, [open, fields])
+  }
 
   // Auto-focus first input or confirm button on open
   useEffect(() => {
