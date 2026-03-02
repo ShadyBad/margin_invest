@@ -11,10 +11,11 @@ import type { CandidateCard } from "./types"
 
 interface ProofCardProps {
   title: string
+  className?: string
   children: ReactNode
 }
 
-function ProofCard({ title, children }: ProofCardProps) {
+function ProofCard({ title, className, children }: ProofCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -55,7 +56,7 @@ function ProofCard({ title, children }: ProofCardProps) {
   }, [])
 
   return (
-    <div ref={cardRef} className="terminal-card p-6">
+    <div ref={cardRef} className={`terminal-card p-6 ${className ?? ""}`}>
       <div className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-4">
         {title}
       </div>
@@ -101,11 +102,11 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
           <ProofCard title="Sector Breakdown">
             <ProofSectorChart candidates={candidates} />
           </ProofCard>
-          <ProofCard title="Correlation Heatmap">
-            <ProofHeatmap />
-          </ProofCard>
           <ProofCard title="Historical Application">
             <ProofHistoricalChart />
+          </ProofCard>
+          <ProofCard title="Correlation Heatmap" className="md:col-span-2">
+            <ProofHeatmap />
           </ProofCard>
         </div>
       </div>
