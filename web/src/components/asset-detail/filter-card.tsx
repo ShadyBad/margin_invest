@@ -11,8 +11,18 @@ interface FilterCardProps {
   sectorName?: string | null
 }
 
-function formatValue(value: number | null, name: string): string {
+function formatValue(
+  value: number | null,
+  name: string,
+  metrics?: Record<string, number | string> | null,
+): string {
   if (value == null) return "N/A"
+  if (name === "fcf_distress" && metrics && "positive_years" in metrics) {
+    const posYears = metrics.positive_years as number
+    const totalYears = metrics.total_years as number
+    const margin = metrics.median_fcf_margin as number
+    return `${posYears}/${totalYears} years positive · FCF margin ${(margin * 100).toFixed(1)}%`
+  }
   if (name === "liquidity") {
     if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`
     if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`
@@ -28,8 +38,20 @@ function formatValue(value: number | null, name: string): string {
   return value.toFixed(2)
 }
 
-function formatThreshold(threshold: number | null, name: string): string {
+function formatThreshold(
+  threshold: number | null,
+  name: string,
+  metrics?: Record<string, number | string> | null,
+): string {
   if (threshold == null) return "N/A"
+  if (name === "fcf_distress" && metrics && "positive_years_required" in metrics) {
+    const required = metrics.positive_years_required as number
+    const totalYears = metrics.total_years as number
+    const floor = metrics.sector_fcf_margin_floor as number
+    const sector = metrics.sector_name as string
+    const sectorLabel = sector ? ` (${sector})` : ""
+    return `≥ ${required}/${totalYears} years · margin ≥ ${Math.round(floor * 100)}%${sectorLabel}`
+  }
   if (name === "liquidity") return `$${(threshold / 1e6).toFixed(0)}M`
   if (name === "interest_coverage") return `${threshold.toFixed(1)}x`
   if (name === "fcf_distress") return "Positive"
@@ -87,11 +109,11 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
       <div className="flex items-center gap-6 text-sm font-mono">
         <div>
           <span className="text-text-tertiary text-xs block">Value</span>
-          <span className="text-text-primary">{formatValue(filter.value, filter.name)}</span>
+          <span className="text-text-primary">{formatValue(filter.value, filter.name, filter.computed_metrics)}</span>
         </div>
         <div>
           <span className="text-text-tertiary text-xs block">Threshold</span>
-          <span className="text-text-primary">{formatThreshold(filter.threshold, filter.name)}</span>
+          <span className="text-text-primary">{formatThreshold(filter.threshold, filter.name, filter.computed_metrics)}</span>
         </div>
       </div>
 
