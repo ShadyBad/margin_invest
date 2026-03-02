@@ -218,6 +218,7 @@ export interface HealthResponse {
 
 export interface ScoreHistoryPoint {
   scored_at: string
+  score: number
   composite_percentile: number
   composite_raw_score: number | null
   quality_percentile: number | null
