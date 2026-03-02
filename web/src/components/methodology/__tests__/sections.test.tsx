@@ -218,14 +218,14 @@ describe("ConvictionSection", () => {
   it("renders the stage label", () => {
     render(<ConvictionSection />)
     expect(
-      screen.getByText(/Stage 4 · Dual-Track Scoring/)
+      screen.getByText(/Stage 4 · Multi-Track Scoring/)
     ).toBeInTheDocument()
   })
 
   it("renders the headline", () => {
     render(<ConvictionSection />)
     expect(
-      screen.getByText(/Two independent lenses/)
+      screen.getByText(/Three independent tracks/)
     ).toBeInTheDocument()
   })
 
@@ -236,24 +236,34 @@ describe("ConvictionSection", () => {
     ).toBeInTheDocument()
   })
 
-  it("renders both track cards with gates", () => {
+  it("renders all three track cards with gates", () => {
     render(<ConvictionSection />)
     expect(screen.getByText(/Track A/)).toBeInTheDocument()
     expect(screen.getByText(/Track B/)).toBeInTheDocument()
+    expect(screen.getByText(/Track C/)).toBeInTheDocument()
     expect(screen.getByText("Moat Evidence")).toBeInTheDocument()
     expect(screen.getByText("Reinvestment Engine")).toBeInTheDocument()
     expect(screen.getByText("Capital Allocation")).toBeInTheDocument()
     expect(screen.getByText("Ensemble Valuation")).toBeInTheDocument()
     expect(screen.getByText("Downside Protection")).toBeInTheDocument()
     expect(screen.getByText("Quality Floor")).toBeInTheDocument()
+    expect(screen.getByText("Growth Efficiency")).toBeInTheDocument()
+    expect(screen.getByText("Unit Economics")).toBeInTheDocument()
   })
 
-  it("renders all four conviction levels", () => {
+  it("renders all four conviction levels with correct names", () => {
     render(<ConvictionSection />)
     expect(screen.getByText("EXCEPTIONAL")).toBeInTheDocument()
     expect(screen.getByText("HIGH")).toBeInTheDocument()
-    expect(screen.getByText("WATCHLIST")).toBeInTheDocument()
+    expect(screen.getByText("MEDIUM")).toBeInTheDocument()
     expect(screen.getByText("NONE")).toBeInTheDocument()
+  })
+
+  it("mentions Track C is growth-only", () => {
+    render(<ConvictionSection />)
+    expect(
+      screen.getByText(/growth-style companies only/)
+    ).toBeInTheDocument()
   })
 })
 

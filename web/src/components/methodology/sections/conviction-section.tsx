@@ -57,23 +57,48 @@ const trackB = {
   ],
 }
 
+const trackC = {
+  name: "Track C — Efficient Growth",
+  desc: "Evaluates high-growth companies on unit economics, capital efficiency, and growth durability.",
+  gates: [
+    {
+      label: "Growth Efficiency",
+      detail: "Rule of 40 score or strong revenue growth with high gross margins",
+    },
+    {
+      label: "Unit Economics",
+      detail: "Stable or expanding gross margins with operating leverage",
+    },
+    {
+      label: "Capital Efficiency",
+      detail: "Incremental returns on invested capital exceed cost of capital",
+    },
+    {
+      label: "Growth Durability",
+      detail:
+        "Growth deceleration is manageable and addressable market has headroom",
+    },
+  ],
+}
+
 const convictionLevels = [
   {
     level: "EXCEPTIONAL",
-    meaning: "Qualifies on both tracks simultaneously — strongest composite tier",
+    meaning:
+      "Qualifies strongly on multiple tracks simultaneously — strongest composite tier",
   },
   {
     level: "HIGH",
     meaning:
-      "Strong multi-factor case with clear margin of safety on one track",
+      "Strong multi-factor case with clear margin of safety on at least one track",
   },
   {
-    level: "WATCHLIST",
+    level: "MEDIUM",
     meaning: "Promising alignment but one gate is weak — monitor for improvement",
   },
   {
     level: "NONE",
-    meaning: "Does not meet the threshold on either track",
+    meaning: "Does not meet the threshold on any track",
   },
 ]
 
@@ -97,7 +122,7 @@ export function ConvictionSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.4, ease }}
         >
-          Stage 4 · Dual-Track Scoring
+          Stage 4 · Multi-Track Scoring
         </motion.p>
 
         <motion.h2
@@ -107,7 +132,7 @@ export function ConvictionSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease }}
         >
-          Two independent lenses. Multiplicative scoring.
+          Three independent tracks. Multiplicative scoring.
         </motion.h2>
 
         <motion.p
@@ -117,15 +142,15 @@ export function ConvictionSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
-          With factor scores in hand, AAPL enters the dual-track scoring
-          system. Each track has four gates, and scoring is multiplicative —
-          one weak gate kills the score. A company can&apos;t compensate for a
-          missing moat with cheap valuation.
+          With factor scores in hand, AAPL enters the multi-track scoring
+          system. Each track evaluates a different investment thesis through four gates.
+          Scoring is multiplicative — one weak gate kills the score. A company
+          can&apos;t compensate for a missing moat with cheap valuation.
         </motion.p>
 
         {/* Track cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          {[trackA, trackB].map((track, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {[trackA, trackB, trackC].map((track, i) => (
             <motion.div
               key={track.name}
               className="p-6 border border-border-primary rounded-lg bg-bg-elevated"
@@ -161,6 +186,18 @@ export function ConvictionSection() {
             </motion.div>
           ))}
         </div>
+
+        <motion.p
+          className="text-[12px] text-text-tertiary mb-10"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4, ease }}
+        >
+          The efficient growth track runs for growth-style companies only. Investment
+          style is classified by majority vote across four signals: valuation multiple,
+          revenue growth rate, earnings acceleration, and R&amp;D intensity.
+        </motion.p>
 
         {/* Conviction levels */}
         <motion.div
