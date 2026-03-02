@@ -472,14 +472,19 @@ def build_financial_history_from_rows(
 
     Each row should have: period_end, filing_date, income_statement, balance_sheet, cash_flow.
     """
+    sorted_rows = sorted(rows, key=lambda r: r["period_end"])
     periods = []
-    for row in sorted(rows, key=lambda r: r["period_end"]):
+    for i, row in enumerate(sorted_rows):
+        prior_row = sorted_rows[i - 1] if i > 0 else None
         period = build_financial_period(
             income_raw=row.get("income_statement") or {},
             balance_raw=row.get("balance_sheet") or {},
             cashflow_raw=row.get("cash_flow") or {},
             period_end=row["period_end"],
             filing_date=row.get("filing_date", ""),
+            prior_income_raw=(prior_row.get("income_statement") or {}) if prior_row else None,
+            prior_balance_raw=(prior_row.get("balance_sheet") or {}) if prior_row else None,
+            prior_cashflow_raw=(prior_row.get("cash_flow") or {}) if prior_row else None,
         )
         periods.append(period)
     return FinancialHistory(ticker=ticker, periods=periods)

@@ -60,6 +60,54 @@ def _safe_scalar(value):
         return value
 
 
+def _df_all_columns_to_dicts(df) -> list[tuple[str, dict]]:
+    """Extract all columns of a DataFrame as (period_end_iso, row_dict) pairs.
+
+    Each column in a yfinance financials DataFrame represents a fiscal year.
+    Returns pairs sorted oldest-first by date.
+    """
+    if df is None or df.empty:
+        return []
+    result = []
+    for col in df.columns:
+        col_data = df[col]
+        row_dict = {str(k): _safe_scalar(v) for k, v in col_data.items()}
+        # Column header is a Timestamp representing the fiscal year-end
+        if hasattr(col, "strftime"):
+            period_end = col.strftime("%Y-%m-%d")
+        else:
+            period_end = str(col)
+        result.append((period_end, row_dict))
+    # Sort oldest-first
+    result.sort(key=lambda x: x[0])
+    return result
+
+
+def _build_periods_from_dfs(financials_df, balance_df, cashflow_df) -> list[dict]:
+    """Combine all fiscal years from three statement DataFrames into period dicts.
+
+    Returns a list of dicts sorted oldest-first, each with keys:
+        ``period_end``, ``income_statement``, ``balance_sheet``, ``cash_flow``.
+    """
+    income_by_date = dict(_df_all_columns_to_dicts(financials_df))
+    balance_by_date = dict(_df_all_columns_to_dicts(balance_df))
+    cashflow_by_date = dict(_df_all_columns_to_dicts(cashflow_df))
+
+    all_dates = sorted(set(income_by_date) | set(balance_by_date) | set(cashflow_by_date))
+
+    periods = []
+    for date in all_dates:
+        periods.append(
+            {
+                "period_end": date,
+                "income_statement": income_by_date.get(date, {}),
+                "balance_sheet": balance_by_date.get(date, {}),
+                "cash_flow": cashflow_by_date.get(date, {}),
+            }
+        )
+    return periods
+
+
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -107,7 +155,8 @@ class YFinanceProvider(DataProvider):
     def fetch_fundamentals(self, ticker: str) -> FetchResult:
         """Fetch income statement, balance sheet, and cash flow.
 
-        Returns the most recent annual period for each statement.
+        Returns the most recent annual period for each statement, plus
+        a ``"periods"`` key with all available fiscal years.
         """
         self._acquire_rate_limit()
         try:
@@ -116,6 +165,7 @@ class YFinanceProvider(DataProvider):
                 "income_statement": _df_most_recent_column_to_dict(t.financials),
                 "balance_sheet": _df_most_recent_column_to_dict(t.balance_sheet),
                 "cash_flow": _df_most_recent_column_to_dict(t.cashflow),
+                "periods": _build_periods_from_dfs(t.financials, t.balance_sheet, t.cashflow),
             }
             return FetchResult(
                 provider_name=self.info.name,
@@ -275,6 +325,7 @@ class YFinanceProvider(DataProvider):
                 "income_statement": _df_most_recent_column_to_dict(t.financials),
                 "balance_sheet": _df_most_recent_column_to_dict(t.balance_sheet),
                 "cash_flow": _df_most_recent_column_to_dict(t.cashflow),
+                "periods": _build_periods_from_dfs(t.financials, t.balance_sheet, t.cashflow),
             }
             results["fundamentals"] = FetchResult(
                 provider_name=self.info.name,

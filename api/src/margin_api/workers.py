@@ -274,13 +274,13 @@ async def ingest_batch(
                 )
                 continue
 
-        # Resume check: skip if already seeded today
+        # Resume check: skip if already seeded today (by fetched_at timestamp)
         async with session_factory() as session:
-            today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
+            start_of_today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
             resume_check = await session.execute(
                 select(FinancialData)
                 .join(Asset, FinancialData.asset_id == Asset.id)
-                .where(Asset.ticker == ticker, FinancialData.period_end == today_iso)
+                .where(Asset.ticker == ticker, FinancialData.fetched_at >= start_of_today)
                 .limit(1)
             )
             if resume_check.scalar_one_or_none() is not None:

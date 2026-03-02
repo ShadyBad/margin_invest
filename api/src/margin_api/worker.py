@@ -47,17 +47,20 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
             logger.warning("Asset not found for ticker: %s", ticker)
             return False
 
-        # 2. Load most recent FinancialData
+        # 2. Load two most recent FinancialData rows (current + prior period)
         result = await session.execute(
             select(FinancialData)
             .where(FinancialData.asset_id == asset.id)
-            .order_by(FinancialData.fetched_at.desc())
-            .limit(1)
+            .order_by(FinancialData.period_end.desc())
+            .limit(2)
         )
-        fin_data = result.scalar_one_or_none()
-        if fin_data is None:
+        fin_rows = result.scalars().all()
+        if not fin_rows:
             logger.warning("No financial data found for ticker: %s", ticker)
             return False
+
+        fin_data = fin_rows[0]  # most recent
+        prior_fd = fin_rows[1] if len(fin_rows) > 1 else None
 
         # 3. Build engine models
         period = build_financial_period(
@@ -66,6 +69,9 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
             cashflow_raw=fin_data.cash_flow or {},
             period_end=fin_data.period_end,
             filing_date=fin_data.filing_date,
+            prior_income_raw=(prior_fd.income_statement or {}) if prior_fd else None,
+            prior_balance_raw=(prior_fd.balance_sheet or {}) if prior_fd else None,
+            prior_cashflow_raw=(prior_fd.cash_flow or {}) if prior_fd else None,
         )
 
         # 4. Extract price bars and earnings from JSONB

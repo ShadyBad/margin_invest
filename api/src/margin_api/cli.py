@@ -290,47 +290,87 @@ async def seed_ticker_data(
 
         # Build financial data
         today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
+        now_utc = datetime.now(UTC)
 
-        income_statement = _sanitize_for_json(
-            fundamentals.raw_data.get("income_statement") if fundamentals.success else None
-        )
-        balance_sheet = _sanitize_for_json(
-            fundamentals.raw_data.get("balance_sheet") if fundamentals.success else None
-        )
-        cash_flow = _sanitize_for_json(
-            fundamentals.raw_data.get("cash_flow") if fundamentals.success else None
-        )
         price_data = _sanitize_for_json(price_history.raw_data if price_history.success else None)
         earnings_data = _sanitize_for_json(earnings.raw_data if earnings.success else None)
 
-        # Upsert FinancialData row (by asset_id + period_end)
-        # Uses ON CONFLICT DO UPDATE to avoid race conditions between
-        # concurrent ingest workers hitting the unique constraint.
-        fd_values = dict(
-            asset_id=asset_id,
-            period_end=today_iso,
-            filing_date=today_iso,
-            income_statement=income_statement,
-            balance_sheet=balance_sheet,
-            cash_flow=cash_flow,
-            price_history=price_data,
-            earnings_data=earnings_data,
-            source="yfinance",
-            fetched_at=datetime.now(UTC),
-        )
-        fd_stmt = pg_insert(FinancialData).values(**fd_values)
-        fd_stmt = fd_stmt.on_conflict_do_update(
-            constraint="uq_financial_data_asset_period",
-            set_={
-                "income_statement": fd_stmt.excluded.income_statement,
-                "balance_sheet": fd_stmt.excluded.balance_sheet,
-                "cash_flow": fd_stmt.excluded.cash_flow,
-                "price_history": fd_stmt.excluded.price_history,
-                "earnings_data": fd_stmt.excluded.earnings_data,
-                "fetched_at": fd_stmt.excluded.fetched_at,
-            },
-        )
-        await session.execute(fd_stmt)
+        # Extract multi-year periods if available, otherwise fall back to single-row
+        periods_raw = fundamentals.raw_data.get("periods") if fundamentals.success else None
+
+        if periods_raw:
+            # Store one FinancialData row per fiscal year
+            for idx, period_dict in enumerate(periods_raw):
+                period_end = period_dict.get("period_end", today_iso)
+                income_statement = _sanitize_for_json(period_dict.get("income_statement"))
+                balance_sheet = _sanitize_for_json(period_dict.get("balance_sheet"))
+                cash_flow = _sanitize_for_json(period_dict.get("cash_flow"))
+
+                # Only the most recent period gets price_history and earnings_data
+                is_latest = idx == len(periods_raw) - 1
+
+                fd_values = dict(
+                    asset_id=asset_id,
+                    period_end=period_end,
+                    filing_date=period_end,
+                    income_statement=income_statement,
+                    balance_sheet=balance_sheet,
+                    cash_flow=cash_flow,
+                    price_history=price_data if is_latest else None,
+                    earnings_data=earnings_data if is_latest else None,
+                    source="yfinance",
+                    fetched_at=now_utc,
+                )
+                fd_stmt = pg_insert(FinancialData).values(**fd_values)
+                fd_stmt = fd_stmt.on_conflict_do_update(
+                    constraint="uq_financial_data_asset_period",
+                    set_={
+                        "income_statement": fd_stmt.excluded.income_statement,
+                        "balance_sheet": fd_stmt.excluded.balance_sheet,
+                        "cash_flow": fd_stmt.excluded.cash_flow,
+                        "price_history": fd_stmt.excluded.price_history,
+                        "earnings_data": fd_stmt.excluded.earnings_data,
+                        "fetched_at": fd_stmt.excluded.fetched_at,
+                    },
+                )
+                await session.execute(fd_stmt)
+        else:
+            # Fallback: single-row behavior (no "periods" key from provider)
+            income_statement = _sanitize_for_json(
+                fundamentals.raw_data.get("income_statement") if fundamentals.success else None
+            )
+            balance_sheet = _sanitize_for_json(
+                fundamentals.raw_data.get("balance_sheet") if fundamentals.success else None
+            )
+            cash_flow = _sanitize_for_json(
+                fundamentals.raw_data.get("cash_flow") if fundamentals.success else None
+            )
+
+            fd_values = dict(
+                asset_id=asset_id,
+                period_end=today_iso,
+                filing_date=today_iso,
+                income_statement=income_statement,
+                balance_sheet=balance_sheet,
+                cash_flow=cash_flow,
+                price_history=price_data,
+                earnings_data=earnings_data,
+                source="yfinance",
+                fetched_at=now_utc,
+            )
+            fd_stmt = pg_insert(FinancialData).values(**fd_values)
+            fd_stmt = fd_stmt.on_conflict_do_update(
+                constraint="uq_financial_data_asset_period",
+                set_={
+                    "income_statement": fd_stmt.excluded.income_statement,
+                    "balance_sheet": fd_stmt.excluded.balance_sheet,
+                    "cash_flow": fd_stmt.excluded.cash_flow,
+                    "price_history": fd_stmt.excluded.price_history,
+                    "earnings_data": fd_stmt.excluded.earnings_data,
+                    "fetched_at": fd_stmt.excluded.fetched_at,
+                },
+            )
+            await session.execute(fd_stmt)
 
         await session.commit()
 
@@ -438,13 +478,13 @@ async def run_seed(tickers: list[str] | None = None) -> None:
                 logger.info("  %s SKIPPED (status=%s)", ticker, existing_asset.ingestion_status)
                 continue
 
-        # Resume check: skip if already seeded today
+        # Resume check: skip if already seeded today (by fetched_at timestamp)
         async with session_factory() as session:
-            today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
+            start_of_today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
             resume_check = await session.execute(
                 select(FinancialData)
                 .join(Asset, FinancialData.asset_id == Asset.id)
-                .where(Asset.ticker == ticker, FinancialData.period_end == today_iso)
+                .where(Asset.ticker == ticker, FinancialData.fetched_at >= start_of_today)
                 .limit(1)
             )
             if resume_check.scalar_one_or_none() is not None:
@@ -541,13 +581,16 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
             result = await session.execute(
                 select(FinancialData)
                 .where(FinancialData.asset_id == asset.id)
-                .order_by(FinancialData.fetched_at.desc())
-                .limit(1)
+                .order_by(FinancialData.period_end.desc())
+                .limit(2)
             )
-            fin_data = result.scalar_one_or_none()
-            if fin_data is None:
+            fin_rows = result.scalars().all()
+            if not fin_rows:
                 logger.warning("[%d/%d] SKIP %s — no financial data", i, total, ticker)
                 continue
+
+            fin_data = fin_rows[0]  # most recent
+            prior_fd = fin_rows[1] if len(fin_rows) > 1 else None
 
             try:
                 period = build_financial_period(
@@ -556,6 +599,9 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                     cashflow_raw=fin_data.cash_flow or {},
                     period_end=fin_data.period_end,
                     filing_date=fin_data.filing_date,
+                    prior_income_raw=(prior_fd.income_statement or {}) if prior_fd else None,
+                    prior_balance_raw=(prior_fd.balance_sheet or {}) if prior_fd else None,
+                    prior_cashflow_raw=(prior_fd.cash_flow or {}) if prior_fd else None,
                 )
                 # price_history is stored as {"bars": [...]}
                 price_data = fin_data.price_history or {}

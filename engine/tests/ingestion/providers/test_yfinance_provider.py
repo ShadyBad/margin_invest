@@ -9,7 +9,11 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
+from margin_engine.ingestion.providers.yfinance_provider import (
+    YFinanceProvider,
+    _build_periods_from_dfs,
+    _df_all_columns_to_dicts,
+)
 from margin_engine.ingestion.rate_limiter import RateLimiter
 from margin_engine.ingestion.types import DataCategory, FetchResult
 
@@ -443,3 +447,133 @@ class TestProviderRateLimiting:
         # Should not raise
         result = provider.fetch_fundamentals("AAPL")
         assert result.success is True
+
+
+# ---------------------------------------------------------------------------
+# Multi-year period extraction helpers
+# ---------------------------------------------------------------------------
+
+
+class TestDfAllColumnsToDicts:
+    def test_extracts_all_columns(self):
+        """Each DataFrame column becomes a (period_end, dict) pair."""
+        df = pd.DataFrame(
+            {"2023-09-24": [100, 200], "2024-09-28": [110, 220]},
+            index=["Revenue", "NetIncome"],
+        )
+        # Convert string column names to Timestamps (like real yfinance data)
+        df.columns = pd.to_datetime(df.columns)
+
+        result = _df_all_columns_to_dicts(df)
+
+        assert len(result) == 2
+        # Sorted oldest-first
+        assert result[0][0] == "2023-09-24"
+        assert result[0][1]["Revenue"] == 100
+        assert result[0][1]["NetIncome"] == 200
+        assert result[1][0] == "2024-09-28"
+        assert result[1][1]["Revenue"] == 110
+
+    def test_empty_dataframe_returns_empty(self):
+        assert _df_all_columns_to_dicts(pd.DataFrame()) == []
+
+    def test_none_returns_empty(self):
+        assert _df_all_columns_to_dicts(None) == []
+
+
+class TestBuildPeriodsFromDfs:
+    def test_merges_three_statements_by_date(self):
+        """All three statements for the same date are merged into one period dict."""
+        income = pd.DataFrame(
+            {"2023-09-24": [1000], "2024-09-28": [1100]},
+            index=["Revenue"],
+        )
+        income.columns = pd.to_datetime(income.columns)
+
+        balance = pd.DataFrame(
+            {"2023-09-24": [5000], "2024-09-28": [5500]},
+            index=["TotalAssets"],
+        )
+        balance.columns = pd.to_datetime(balance.columns)
+
+        cashflow = pd.DataFrame(
+            {"2023-09-24": [300], "2024-09-28": [350]},
+            index=["OperatingCashFlow"],
+        )
+        cashflow.columns = pd.to_datetime(cashflow.columns)
+
+        periods = _build_periods_from_dfs(income, balance, cashflow)
+
+        assert len(periods) == 2
+        assert periods[0]["period_end"] == "2023-09-24"
+        assert periods[0]["income_statement"]["Revenue"] == 1000
+        assert periods[0]["balance_sheet"]["TotalAssets"] == 5000
+        assert periods[0]["cash_flow"]["OperatingCashFlow"] == 300
+        assert periods[1]["period_end"] == "2024-09-28"
+        assert periods[1]["income_statement"]["Revenue"] == 1100
+
+    def test_handles_mismatched_dates(self):
+        """Dates present in one statement but not another get empty dicts."""
+        income = pd.DataFrame(
+            {"2023-09-24": [1000], "2024-09-28": [1100]},
+            index=["Revenue"],
+        )
+        income.columns = pd.to_datetime(income.columns)
+
+        # Balance sheet only has one date
+        balance = pd.DataFrame({"2024-09-28": [5500]}, index=["TotalAssets"])
+        balance.columns = pd.to_datetime(balance.columns)
+
+        cashflow = pd.DataFrame()
+
+        periods = _build_periods_from_dfs(income, balance, cashflow)
+
+        assert len(periods) == 2
+        # First period: income present, balance/cashflow empty
+        assert periods[0]["income_statement"]["Revenue"] == 1000
+        assert periods[0]["balance_sheet"] == {}
+        assert periods[0]["cash_flow"] == {}
+
+    def test_all_empty_returns_empty(self):
+        periods = _build_periods_from_dfs(pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
+        assert periods == []
+
+
+class TestFetchFundamentalsIncludesPeriods:
+    @patch("margin_engine.ingestion.providers.yfinance_provider.yf")
+    def test_fundamentals_includes_periods_key(
+        self, mock_yf: MagicMock, provider: YFinanceProvider
+    ) -> None:
+        """fetch_fundamentals should include a 'periods' key with all fiscal years."""
+        income_data = pd.DataFrame(
+            {"2023-09-24": [90_000], "2024-09-28": [100_000]},
+            index=["Total Revenue"],
+        )
+        income_data.columns = pd.to_datetime(income_data.columns)
+
+        balance_data = pd.DataFrame(
+            {"2023-09-24": [450_000], "2024-09-28": [500_000]},
+            index=["Total Assets"],
+        )
+        balance_data.columns = pd.to_datetime(balance_data.columns)
+
+        cashflow_data = pd.DataFrame(
+            {"2023-09-24": [35_000], "2024-09-28": [40_000]},
+            index=["Operating Cash Flow"],
+        )
+        cashflow_data.columns = pd.to_datetime(cashflow_data.columns)
+
+        mock_ticker = MagicMock()
+        mock_ticker.financials = income_data
+        mock_ticker.balance_sheet = balance_data
+        mock_ticker.cashflow = cashflow_data
+        mock_yf.Ticker.return_value = mock_ticker
+
+        result = provider.fetch_fundamentals("AAPL")
+
+        assert result.success is True
+        periods = result.raw_data["periods"]
+        assert len(periods) == 2
+        assert periods[0]["period_end"] == "2023-09-24"
+        assert periods[1]["period_end"] == "2024-09-28"
+        assert periods[1]["income_statement"]["Total Revenue"] == 100_000

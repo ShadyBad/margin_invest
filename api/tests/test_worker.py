@@ -113,7 +113,7 @@ def _mock_session_execute(asset, fin_data):
     """Create an async side_effect for session.execute that returns asset then fin_data.
 
     The first call returns asset (for the Asset query), the second returns
-    fin_data (for the FinancialData query).
+    fin_data (for the FinancialData query via .scalars().all()).
     """
     call_count = 0
 
@@ -124,7 +124,11 @@ def _mock_session_execute(asset, fin_data):
         if call_count == 1:
             mock_result.scalar_one_or_none.return_value = asset
         else:
+            # score_ticker calls .scalars().all() to get up to 2 rows
             mock_result.scalar_one_or_none.return_value = fin_data
+            mock_result.scalars.return_value.all.return_value = (
+                [fin_data] if fin_data is not None else []
+            )
         return mock_result
 
     return _execute
@@ -260,6 +264,9 @@ class TestScoreTickerSuccess:
             cashflow_raw=fin_data.cash_flow,
             period_end=fin_data.period_end,
             filing_date=fin_data.filing_date,
+            prior_income_raw=None,
+            prior_balance_raw=None,
+            prior_cashflow_raw=None,
         )
 
     @pytest.mark.asyncio

@@ -706,3 +706,51 @@ class TestBuildFinancialHistory:
         assert history.ticker == "TEST"
         assert len(history.periods) == 2
         assert history.periods[0].period_end < history.periods[1].period_end
+
+    def test_pairs_prior_period_data(self):
+        """Second period should have prior_income, prior_balance, prior_cash_flow populated."""
+        rows = [
+            {
+                "period_end": "2022-09-24",
+                "filing_date": "2022-10-28",
+                "income_statement": _prior_income_raw(),
+                "balance_sheet": _prior_balance_raw(),
+                "cash_flow": _prior_cashflow_raw(),
+            },
+            {
+                "period_end": "2023-09-30",
+                "filing_date": "2023-10-27",
+                "income_statement": _income_raw(),
+                "balance_sheet": _balance_raw(),
+                "cash_flow": _cashflow_raw(),
+            },
+        ]
+        history = build_financial_history_from_rows("AAPL", rows)
+        assert len(history.periods) == 2
+
+        # First period has no prior data
+        first = history.periods[0]
+        assert first.prior_income is None
+        assert first.prior_balance is None
+        assert first.prior_cash_flow is None
+
+        # Second period has prior data populated from first period
+        second = history.periods[1]
+        assert second.prior_income is not None
+        assert second.prior_balance is not None
+        assert second.prior_cash_flow is not None
+
+    def test_single_row_has_no_prior_data(self):
+        """A single-row history should have no prior data."""
+        rows = [
+            {
+                "period_end": "2023-09-30",
+                "filing_date": "2023-10-27",
+                "income_statement": _income_raw(),
+                "balance_sheet": _balance_raw(),
+                "cash_flow": _cashflow_raw(),
+            },
+        ]
+        history = build_financial_history_from_rows("AAPL", rows)
+        assert len(history.periods) == 1
+        assert history.periods[0].prior_income is None
