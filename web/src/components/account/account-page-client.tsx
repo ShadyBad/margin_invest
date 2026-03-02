@@ -85,17 +85,20 @@ export function AccountPageClient() {
   return (
     <div ref={containerRef}>
       <h1 className="text-4xl font-bold text-text-primary mb-2">Account</h1>
-      <p className="text-sm text-text-secondary mb-6">
+      <p className="text-sm text-text-secondary mb-8">
         Manage your profile, security, and billing settings.
       </p>
 
-      <AccountPillNav
-        sections={[...SECTIONS]}
-        activeSection={activeSection}
-        onNavigate={handleNavigate}
-      />
+      <div className="md:grid md:grid-cols-[160px_1fr] md:gap-8">
+        <div className="hidden md:block">
+          <AccountPillNav
+            sections={[...SECTIONS]}
+            activeSection={activeSection}
+            onNavigate={handleNavigate}
+          />
+        </div>
 
-      <div className="space-y-8 mt-8">
+        <div className="space-y-8">
         <div data-account-section ref={(el) => registerRef("Profile", el)}>
           <ProfileSection />
         </div>
@@ -114,6 +117,7 @@ export function AccountPageClient() {
               Product preferences coming soon.
             </p>
           </section>
+        </div>
         </div>
       </div>
     </div>

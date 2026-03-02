@@ -50,11 +50,11 @@ describe("AccountPillNav", () => {
     expect(nav).toBeInTheDocument()
   })
 
-  it("applies rounded-full to all pills", () => {
+  it("applies rounded-lg to all pills", () => {
     render(<AccountPillNav sections={sections} activeSection="Profile" />)
     for (const section of sections) {
       const button = screen.getByRole("button", { name: section })
-      expect(button.className).toContain("rounded-full")
+      expect(button.className).toContain("rounded-lg")
     }
   })
 
