@@ -18,6 +18,9 @@ from margin_engine.models.financial import EarningsSurprise
 from margin_engine.models.scoring import FactorScore
 
 
+_MIN_QUARTERS = 4
+
+
 def sue_score(surprises: list[EarningsSurprise]) -> FactorScore:
     """Compute the SUE (Standardized Unexpected Earnings) score.
 
@@ -31,15 +34,15 @@ def sue_score(surprises: list[EarningsSurprise]) -> FactorScore:
     - name: "sue"
 
     Edge cases:
-    - Empty list or fewer than 2 surprises: raw_value=0.0
+    - Empty list or fewer than 4 surprises: raw_value=0.0
     - Zero stddev (all surprises identical): raw_value=0.0
     """
-    if len(surprises) < 2:
+    if len(surprises) < _MIN_QUARTERS:
         return FactorScore(
             name="sue",
             raw_value=0.0,
             percentile_rank=0.0,
-            detail=f"insufficient data: {len(surprises)} quarter(s), need at least 2",
+            detail=f"insufficient data: {len(surprises)} quarter(s), need at least {_MIN_QUARTERS}",
         )
 
     # Sort by quarter string (YYYY-QN format sorts chronologically)

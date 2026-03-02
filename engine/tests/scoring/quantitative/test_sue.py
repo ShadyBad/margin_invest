@@ -107,18 +107,26 @@ class TestSUEEdgeCases:
         result = sue_score(surprises)
         assert result.raw_value == 0.0
 
-    def test_two_quarters_minimum(self):
-        """Exactly 2 quarters should compute a valid SUE."""
+    def test_two_quarters_returns_zero(self):
+        """2 quarters is below the new minimum of 4."""
         surprises = [
             _make_surprise("2024-Q3", "1.50", "1.40"),  # +0.10
             _make_surprise("2024-Q4", "1.70", "1.50"),  # +0.20
         ]
         result = sue_score(surprises)
+        assert result.raw_value == 0.0
+        assert "insufficient" in result.detail.lower()
 
-        expected_stddev = pstdev([0.10, 0.20])
-        expected_sue = 0.20 / expected_stddev
-        assert result.raw_value == pytest.approx(expected_sue, rel=1e-4)
-        assert result.raw_value != 0.0
+    def test_three_quarters_returns_zero(self):
+        """3 quarters is below the minimum of 4."""
+        surprises = [
+            _make_surprise("2024-Q1", "1.50", "1.40"),
+            _make_surprise("2024-Q2", "1.60", "1.50"),
+            _make_surprise("2024-Q3", "1.70", "1.55"),
+        ]
+        result = sue_score(surprises)
+        assert result.raw_value == 0.0
+        assert "insufficient" in result.detail.lower()
 
 
 class TestSUEFactorScoreFields:
@@ -129,6 +137,8 @@ class TestSUEFactorScoreFields:
         surprises = [
             _make_surprise("2024-Q1", "1.50", "1.40"),
             _make_surprise("2024-Q2", "1.60", "1.45"),
+            _make_surprise("2024-Q3", "1.55", "1.50"),
+            _make_surprise("2024-Q4", "1.70", "1.55"),
         ]
         result = sue_score(surprises)
         assert result.name == "sue"
@@ -138,6 +148,8 @@ class TestSUEFactorScoreFields:
         surprises = [
             _make_surprise("2024-Q1", "1.50", "1.40"),
             _make_surprise("2024-Q2", "1.60", "1.45"),
+            _make_surprise("2024-Q3", "1.55", "1.50"),
+            _make_surprise("2024-Q4", "1.70", "1.55"),
         ]
         result = sue_score(surprises)
         assert result.percentile_rank == 0.0
