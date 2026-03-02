@@ -78,7 +78,7 @@ async def backfill_prices_for_tickers(
     tickers: list[str],
     start_date: str = "2009-01-01",
     end_date: str | None = None,
-    batch_size: int = 500,
+    batch_size: int = 50,
     session_factory: async_sessionmaker[AsyncSession] | None = None,
 ) -> dict[str, int]:
     """Download daily prices via yfinance and insert into pit_daily_prices.
@@ -121,7 +121,7 @@ async def backfill_prices_for_tickers(
                     end=end_date,
                     group_by="column",
                     progress=False,
-                    threads=True,
+                    threads=False,
                 )
                 # Single ticker: df is already a flat DataFrame
                 all_rows = build_price_rows(batch[0], df)
@@ -134,7 +134,7 @@ async def backfill_prices_for_tickers(
                     end=end_date,
                     group_by="ticker",
                     progress=False,
-                    threads=True,
+                    threads=False,
                 )
                 # Multi-ticker: df has MultiIndex columns (ticker, field)
                 all_rows = []
