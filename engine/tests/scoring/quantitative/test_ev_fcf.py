@@ -4,9 +4,12 @@ from decimal import Decimal
 
 import pytest
 from margin_engine.models.financial import (
+    AssetProfile,
     BalanceSheet,
     CashFlowStatement,
+    FinancialHistory,
     FinancialPeriod,
+    GICSSector,
     IncomeStatement,
 )
 from margin_engine.scoring.quantitative.ev_fcf import ev_fcf
@@ -112,6 +115,97 @@ class TestEvFcf:
         result = ev_fcf(period, Decimal("100"))
         assert result.raw_value == pytest.approx(8.0, rel=1e-3)
 
+    def test_cyclical_company_uses_median_fcf(self):
+        """Cyclical company should use 7-year median FCF, not current.
+
+        History FCFs: [300, 400, 500, 600, 700, 800, 900] -> median=600
+        Current FCF (peak): 900  (from current period)
+        EV = 1000 + 200 - 100 = 1100
+        Using median FCF=600: EV/FCF = 1100/600 ~ 1.8333
+        Using current FCF=900: EV/FCF = 1100/900 ~ 1.2222
+        Normalized ratio should be HIGHER (more expensive apparent).
+        """
+        # Current period has peak FCF=900 (CFO=1000, CapEx=-100)
+        current = _make_period(
+            operating_cash_flow=Decimal("1000"),
+            capital_expenditures=Decimal("-100"),
+            short_term_debt=Decimal("100"),
+            long_term_debt=Decimal("100"),
+            cash_and_equivalents=Decimal("100"),
+        )
+        # Build 7 years of history with ascending FCFs
+        fcf_values = [300, 400, 500, 600, 700, 800, 900]
+        history = _make_history("XOM", fcf_values)
+        profile = _make_profile("XOM", GICSSector.ENERGY, market_cap=Decimal("1000"))
+
+        result = ev_fcf(current, Decimal("1000"), history=history, profile=profile)
+
+        # Median of [300,400,500,600,700,800,900] = 600
+        # EV = 1000 + 200 - 100 = 1100, EV/FCF = 1100/600 ~ 1.8333
+        assert result.raw_value == pytest.approx(1100.0 / 600.0, rel=1e-3)
+        assert "7yr_median" in result.detail
+
+    def test_non_cyclical_ignores_normalization(self):
+        """Non-cyclical company with history should still use current FCF.
+
+        Tech company (not cyclical) with history: should use current FCF=900.
+        EV = 1000 + 200 - 100 = 1100
+        EV/FCF = 1100/900 ~ 1.2222
+        """
+        current = _make_period(
+            operating_cash_flow=Decimal("1000"),
+            capital_expenditures=Decimal("-100"),
+            short_term_debt=Decimal("100"),
+            long_term_debt=Decimal("100"),
+            cash_and_equivalents=Decimal("100"),
+        )
+        fcf_values = [300, 400, 500, 600, 700, 800, 900]
+        history = _make_history("AAPL", fcf_values)
+        profile = _make_profile("AAPL", GICSSector.TECHNOLOGY, market_cap=Decimal("1000"))
+
+        result = ev_fcf(current, Decimal("1000"), history=history, profile=profile)
+
+        # Non-cyclical: uses current FCF=900
+        # EV = 1000 + 200 - 100 = 1100, EV/FCF = 1100/900 ~ 1.2222
+        assert result.raw_value == pytest.approx(1100.0 / 900.0, rel=1e-3)
+
+    def test_no_history_backward_compat(self):
+        """Without history param, original behavior preserved.
+
+        Same current period as cyclical test, but no history/profile.
+        Should use current FCF=900.
+        EV = 1000 + 200 - 100 = 1100, EV/FCF = 1100/900 ~ 1.2222
+        """
+        current = _make_period(
+            operating_cash_flow=Decimal("1000"),
+            capital_expenditures=Decimal("-100"),
+            short_term_debt=Decimal("100"),
+            long_term_debt=Decimal("100"),
+            cash_and_equivalents=Decimal("100"),
+        )
+        result = ev_fcf(current, Decimal("1000"))
+
+        # No history: uses current FCF=900
+        assert result.raw_value == pytest.approx(1100.0 / 900.0, rel=1e-3)
+
+    def test_cyclical_insufficient_history_uses_current(self):
+        """Cyclical company with < 3 periods falls back to current FCF."""
+        current = _make_period(
+            operating_cash_flow=Decimal("1000"),
+            capital_expenditures=Decimal("-100"),
+            short_term_debt=Decimal("100"),
+            long_term_debt=Decimal("100"),
+            cash_and_equivalents=Decimal("100"),
+        )
+        # Only 2 periods -- below the MIN_HISTORY=3 threshold
+        history = _make_history("XOM", [500, 900])
+        profile = _make_profile("XOM", GICSSector.ENERGY, market_cap=Decimal("1000"))
+
+        result = ev_fcf(current, Decimal("1000"), history=history, profile=profile)
+
+        # Fallback to current FCF=900
+        assert result.raw_value == pytest.approx(1100.0 / 900.0, rel=1e-3)
+
 
 def _make_period(
     operating_cash_flow: Decimal,
@@ -119,6 +213,7 @@ def _make_period(
     short_term_debt: Decimal = Decimal("0"),
     long_term_debt: Decimal | None = None,
     cash_and_equivalents: Decimal | None = None,
+    period_end: str = "2024-09-28",
 ) -> FinancialPeriod:
     """Helper to build a minimal FinancialPeriod for testing EV/FCF."""
     income = IncomeStatement(revenue=Decimal("0"))
@@ -133,9 +228,43 @@ def _make_period(
         capital_expenditures=capital_expenditures,
     )
     return FinancialPeriod(
-        period_end="2024-09-28",
+        period_end=period_end,
         filing_date="2024-11-01",
         current_income=income,
         current_balance=balance,
         current_cash_flow=cf,
+    )
+
+
+def _make_history(ticker: str, fcf_values: list[int | float]) -> FinancialHistory:
+    """Build a FinancialHistory with N periods having specified FCF values.
+
+    Each FCF is created via operating_cash_flow = fcf + 100, capital_expenditures = -100.
+    """
+    periods = []
+    for i, fcf in enumerate(fcf_values):
+        year = 2018 + i
+        period = _make_period(
+            operating_cash_flow=Decimal(str(fcf + 100)),
+            capital_expenditures=Decimal("-100"),
+            short_term_debt=Decimal("100"),
+            long_term_debt=Decimal("100"),
+            cash_and_equivalents=Decimal("100"),
+            period_end=f"{year}-12-31",
+        )
+        periods.append(period)
+    return FinancialHistory(ticker=ticker, periods=periods)
+
+
+def _make_profile(
+    ticker: str,
+    sector: GICSSector,
+    market_cap: Decimal = Decimal("1000"),
+) -> AssetProfile:
+    """Build an AssetProfile for testing cyclical normalization."""
+    return AssetProfile(
+        ticker=ticker,
+        name=f"{ticker} Inc.",
+        sector=sector,
+        market_cap=market_cap,
     )
