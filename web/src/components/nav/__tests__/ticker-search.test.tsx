@@ -78,4 +78,62 @@ describe("TickerSearch", () => {
       expect(dialog).toHaveAttribute("aria-modal", "true")
     })
   })
+
+  describe("submit behavior", () => {
+    it("navigates to /asset/{TICKER} on submit", () => {
+      render(<TickerSearch />)
+      fireEvent.click(screen.getByRole("button", { name: /search ticker/i }))
+      const input = screen.getByLabelText(/ticker symbol/i)
+      fireEvent.change(input, { target: { value: "TSLA" } })
+      fireEvent.submit(input.closest("form")!)
+      expect(pushMock).toHaveBeenCalledWith("/asset/TSLA")
+    })
+
+    it("uppercases the ticker before navigating", () => {
+      render(<TickerSearch />)
+      fireEvent.click(screen.getByRole("button", { name: /search ticker/i }))
+      const input = screen.getByLabelText(/ticker symbol/i)
+      fireEvent.change(input, { target: { value: "aapl" } })
+      fireEvent.submit(input.closest("form")!)
+      expect(pushMock).toHaveBeenCalledWith("/asset/AAPL")
+    })
+
+    it("does not navigate on empty input", () => {
+      render(<TickerSearch />)
+      fireEvent.click(screen.getByRole("button", { name: /search ticker/i }))
+      const input = screen.getByLabelText(/ticker symbol/i)
+      fireEvent.change(input, { target: { value: "   " } })
+      fireEvent.submit(input.closest("form")!)
+      expect(pushMock).not.toHaveBeenCalled()
+    })
+
+    it("closes the overlay after successful submit", () => {
+      render(<TickerSearch />)
+      fireEvent.click(screen.getByRole("button", { name: /search ticker/i }))
+      const input = screen.getByLabelText(/ticker symbol/i)
+      fireEvent.change(input, { target: { value: "MSFT" } })
+      fireEvent.submit(input.closest("form")!)
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    })
+  })
+
+  describe("keyboard shortcut", () => {
+    it("opens overlay on Cmd+K", () => {
+      render(<TickerSearch />)
+      fireEvent.keyDown(document, { key: "k", metaKey: true })
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+    })
+
+    it("opens overlay on Ctrl+K", () => {
+      render(<TickerSearch />)
+      fireEvent.keyDown(document, { key: "k", ctrlKey: true })
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+    })
+
+    it("does not open on plain K key", () => {
+      render(<TickerSearch />)
+      fireEvent.keyDown(document, { key: "k" })
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    })
+  })
 })
