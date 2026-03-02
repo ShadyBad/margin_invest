@@ -1,6 +1,7 @@
 """Tests for replay orchestrator."""
 
 from datetime import date
+from unittest.mock import MagicMock, patch
 
 from margin_engine.backtesting.factor_registry import FactorRegistry
 from margin_engine.backtesting.pit_provider import InMemoryPITProvider
@@ -18,6 +19,8 @@ from margin_engine.models.financial import (
     GICSSector,
     IncomeStatement,
 )
+from margin_engine.models.scoring import CompositeTier
+from margin_engine.scoring.v3_orchestrator import V3Result, V3TrackResult
 
 
 def _make_profile(ticker: str, sector: GICSSector = GICSSector.TECHNOLOGY) -> AssetProfile:
@@ -200,3 +203,119 @@ class TestReplayOrchestrator:
         assert isinstance(result, ReplayResult)
         # Quarterly => fewer rebalance dates than monthly
         assert len(result.audit_log) < 6
+
+    def test_use_real_scoring_flag_stored(self):
+        """Verify the use_real_scoring flag is stored on the instance."""
+        provider = InMemoryPITProvider()
+        config = ReplayConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 3, 1),
+        )
+        # Default should be False
+        orch_default = ReplayOrchestrator(
+            config=config,
+            pit_provider=provider,
+            factor_registry=FactorRegistry.default(),
+        )
+        assert orch_default._use_real_scoring is False
+
+        # Explicit True
+        orch_real = ReplayOrchestrator(
+            config=config,
+            pit_provider=provider,
+            factor_registry=FactorRegistry.default(),
+            use_real_scoring=True,
+        )
+        assert orch_real._use_real_scoring is True
+
+    def test_simple_scoring_default(self):
+        """Verify default behavior (use_real_scoring=False) still produces valid results."""
+        provider = _build_provider_with_data(months=3)
+        config = ReplayConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 3, 1),
+            rebalance_frequency="monthly",
+        )
+        orchestrator = ReplayOrchestrator(
+            config=config,
+            pit_provider=provider,
+            factor_registry=FactorRegistry.default(),
+            use_real_scoring=False,
+        )
+        result = orchestrator.run()
+        assert isinstance(result, ReplayResult)
+        assert len(result.audit_log) > 0
+        # Scores should be computed via simple scorer (baseline ~50 + margin + yield)
+        for record in result.audit_log:
+            for holding in record.top_holdings:
+                assert 0.0 <= holding["score"] <= 100.0
+
+    @patch("margin_engine.backtesting.replay_orchestrator.score_universe_v3")
+    @patch("margin_engine.backtesting.replay_orchestrator.run_elimination_filters")
+    def test_score_with_pipeline_calls_v3(self, mock_filters, mock_score_v3):
+        """Verify v3 pipeline is called when use_real_scoring=True."""
+        # Make all filters pass so survivors reach the scoring step
+        mock_filter_result = MagicMock()
+        mock_filter_result.passed = True
+        mock_filter_result.failed_filters = []
+        mock_filters.return_value = mock_filter_result
+
+        # Build mock V3 results for AAPL and MSFT
+        def _make_v3_result(ticker: str, score: float) -> V3Result:
+            track_a = V3TrackResult(
+                track="compounder",
+                qualifies=True,
+                conviction=CompositeTier.HIGH,
+                score=score,
+                gates_passed=3,
+                total_gates=4,
+            )
+            track_b = V3TrackResult(
+                track="mispricing",
+                qualifies=False,
+                conviction=CompositeTier.NONE,
+                score=0.0,
+                gates_passed=1,
+                total_gates=4,
+            )
+            return V3Result(
+                ticker=ticker,
+                opportunity_type="compounder",
+                conviction=CompositeTier.HIGH,
+                track_a=track_a,
+                track_b=track_b,
+                timing_signal="neutral",
+                max_position_pct=5.0,
+            )
+
+        mock_score_v3.return_value = [
+            _make_v3_result("AAPL", 0.75),
+            _make_v3_result("MSFT", 0.60),
+        ]
+
+        provider = _build_provider_with_data(months=3)
+        config = ReplayConfig(
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 3, 1),
+            rebalance_frequency="monthly",
+        )
+        orchestrator = ReplayOrchestrator(
+            config=config,
+            pit_provider=provider,
+            factor_registry=FactorRegistry.default(),
+            use_real_scoring=True,
+        )
+        result = orchestrator.run()
+
+        assert isinstance(result, ReplayResult)
+        assert mock_score_v3.call_count >= 1
+        # Each call should pass shiller_cape=25.0
+        for call in mock_score_v3.call_args_list:
+            assert call.kwargs.get("shiller_cape", call.args[1] if len(call.args) > 1 else None) == 25.0
+        # Scores should reflect the mocked values (0.75 * 100 = 75.0, 0.60 * 100 = 60.0)
+        assert len(result.audit_log) > 0
+        # Verify audit log has scored holdings
+        for record in result.audit_log:
+            assert record.survivor_count == 2
+            for holding in record.top_holdings:
+                assert holding["score"] in [75.0, 60.0]

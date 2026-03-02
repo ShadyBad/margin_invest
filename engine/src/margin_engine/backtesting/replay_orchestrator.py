@@ -30,10 +30,12 @@ from margin_engine.backtesting.regime_classifier import (
     is_in_recession,
     segment_by_regime,
 )
+from margin_engine.backtesting.pit_adapter import build_ticker_data_from_pit
 from margin_engine.config.filter_config import FilterConfig
 from margin_engine.regime.classifier import MultiDimensionalRegimeClassifier
 from margin_engine.regime.models import RegimeState
 from margin_engine.scoring.filters.pipeline import run_elimination_filters
+from margin_engine.scoring.v3_pipeline import score_universe_v3
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +117,7 @@ class ReplayOrchestrator:
         filter_config: FilterConfig | None = None,
         disabled_filters: set[str] | None = None,
         regime_classifier: MultiDimensionalRegimeClassifier | None = None,
+        use_real_scoring: bool = False,
     ) -> None:
         self._config = config
         self._provider = pit_provider
@@ -123,6 +126,7 @@ class ReplayOrchestrator:
         self._filter_config = filter_config
         self._disabled_filters = disabled_filters
         self._regime_classifier = regime_classifier
+        self._use_real_scoring = use_real_scoring
         self._calculator = PerformanceCalculator()
 
     def run(self) -> ReplayResult:
@@ -196,13 +200,11 @@ class ReplayOrchestrator:
                     logger.warning("Filter error for %s on %s", snapshot.ticker, rebal_date)
                     eliminated_count += 1
 
-            # 4. Score survivors (use a deterministic score based on available financials).
-            #    In production, this will call the actual scoring pipeline with
-            #    available factors.
-            scored = []
-            for s in survivors:
-                score = self._compute_simple_score(s)
-                scored.append((s, score))
+            # 4. Score survivors
+            if self._use_real_scoring:
+                scored = self._score_with_pipeline(survivors)
+            else:
+                scored = [(s, self._compute_simple_score(s)) for s in survivors]
 
             scored.sort(key=lambda x: -x[1])
 
@@ -440,10 +442,10 @@ class ReplayOrchestrator:
                     eliminated_count += 1
 
             # 4. Score survivors
-            scored = []
-            for s in survivors:
-                score = self._compute_simple_score(s)
-                scored.append((s, score))
+            if self._use_real_scoring:
+                scored = self._score_with_pipeline(survivors)
+            else:
+                scored = [(s, self._compute_simple_score(s)) for s in survivors]
 
             scored.sort(key=lambda x: -x[1])
 
@@ -596,6 +598,29 @@ class ReplayOrchestrator:
             factor_timeline=factor_timeline,
             duration_seconds=duration,
         )
+
+    def _score_with_pipeline(self, survivors: list) -> list[tuple]:
+        """Score survivors using the real v3 scoring pipeline."""
+        tickers_data = [build_ticker_data_from_pit(s) for s in survivors]
+        if not tickers_data:
+            return []
+
+        try:
+            results = score_universe_v3(tickers_data, shiller_cape=25.0)
+        except Exception:
+            logger.warning("v3 pipeline scoring failed, falling back to simple scorer")
+            return [(s, self._compute_simple_score(s)) for s in survivors]
+
+        # Map results back to (snapshot, score) tuples
+        score_map: dict[str, float] = {}
+        for r in results:
+            best_score = max(
+                r.track_a.score if r.track_a else 0.0,
+                r.track_b.score if r.track_b else 0.0,
+            )
+            score_map[r.ticker] = min(best_score * 100, 100.0)
+
+        return [(s, score_map.get(s.ticker, 0.0)) for s in survivors]
 
     def _compute_simple_score(self, snapshot: object) -> float:
         """Compute a simplified composite score from available financials.
