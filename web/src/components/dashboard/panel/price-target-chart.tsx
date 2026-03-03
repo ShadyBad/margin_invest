@@ -25,9 +25,15 @@ interface ChartPoint {
   sellPrice: number | null
 }
 
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
 function formatDate(dateStr: string): string {
+  // Parse as UTC to avoid timezone offset shifting the day
   const d = new Date(dateStr)
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  const month = MONTHS[d.getUTCMonth()]
+  const day = d.getUTCDate()
+  const year = String(d.getUTCFullYear()).slice(-2)
+  return `${month} ${day} '${year}`
 }
 
 function formatPrice(value: number): string {
