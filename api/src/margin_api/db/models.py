@@ -1115,3 +1115,23 @@ class PITUniverseMembership(Base):
         UniqueConstraint("ticker", "quarter_date", name="uq_pit_universe_ticker_quarter"),
         Index("ix_pit_universe_quarter_date", "quarter_date"),
     )
+
+
+class EdgarIndexCache(Base):
+    """Cache of parsed EDGAR quarter index entries for resumable backfills."""
+
+    __tablename__ = "edgar_index_cache"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    year: Mapped[int] = mapped_column(Integer)
+    quarter: Mapped[int] = mapped_column(Integer)
+    cache_key: Mapped[str] = mapped_column(String(20), unique=True)
+    entries_json: Mapped[dict | list] = mapped_column(JSONVariant)
+    entry_count: Mapped[int] = mapped_column(Integer)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        Index("ix_edgar_index_cache_year_quarter", "year", "quarter", unique=True),
+    )
