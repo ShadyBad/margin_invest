@@ -22,6 +22,7 @@ class ScoreHistoryPoint(BaseModel):
     sell_price: float | None = None
     actual_price: float | None = None
     delta: float | None = None
+    scoring_version: str | None = None
 
 
 class ScoreHistoryResponse(BaseModel):

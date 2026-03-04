@@ -237,7 +237,6 @@ class TestPublicScoreEndpoint:
             "buy_price",
             "sell_price",
             "margin_invest_value",
-            "opportunity_type",
             "track_a",
             "track_b",
             "track_c",

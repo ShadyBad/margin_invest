@@ -293,6 +293,11 @@ def _v4_score_response_from_row(
     if live_price_data:
         detail["actual_price"] = live_price_data["price"]
 
+    # V4 authority fields
+    detail["scoring_version"] = "v4"
+    detail["conviction_source"] = "v4_gate_cascade"
+    detail.setdefault("screening_score", detail.get("score", v4.composite_score))
+
     # Freshness fields
     detail["data_freshness"] = freshness
     detail["price_source"] = price_source

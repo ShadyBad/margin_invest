@@ -106,6 +106,9 @@ class ScoreResponse(BaseModel):
     universe_percentile: float = 0.0  # Universe-level rank (0-100)
     composite_percentile: float  # Kept for backwards compat
     composite_raw_score: float = 0.0  # Kept for backwards compat
+    scoring_version: str = "v4"
+    conviction_source: str = "v4_gate_cascade"
+    screening_score: float = 0.0
     composite_tier: str  # "exceptional", "high", "medium", "none"
     signal: str  # "strong", "emerging", "neutral", "stable", "weak", "failed"
     quality: FactorBreakdownResponse
@@ -246,6 +249,7 @@ class PublicScoreResponse(BaseModel):
     factor_summary: PublicScoreFactorSummary
     eliminated: bool
     elimination_reason: str | None = None
+    opportunity_type: str | None = None
     scored_at: str
 
 
