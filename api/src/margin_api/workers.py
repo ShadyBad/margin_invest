@@ -2992,7 +2992,8 @@ class WorkerSettings:
         precompute_default_backtest,
         snapshot_shadow_portfolio,
         daily_pit_update,
-        arq_func(bootstrap_pit_data, timeout=86400, max_tries=1),  # 24h timeout, no retry
+        # 24h timeout, max_tries=5 to survive deploy-induced cancellations
+        arq_func(bootstrap_pit_data, timeout=86400, max_tries=5),
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
