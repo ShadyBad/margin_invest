@@ -238,9 +238,16 @@ async def redis_health(request: Request, x_admin_key: str = Header()) -> dict:
         # Check ARQ queue for pending jobs
         queued_jobs = await client.zrangebyscore("arq:queue", "-inf", "+inf")
         job_ids = [j.decode() if isinstance(j, bytes) else j for j in queued_jobs]
+        # Check ARQ in-progress jobs
+        in_progress_keys = await client.keys("arq:in-progress:*")
+        in_progress = [
+            (k.decode() if isinstance(k, bytes) else k).removeprefix("arq:in-progress:")
+            for k in in_progress_keys
+        ]
         # Check ARQ results for recent job results
         result_keys = [
-            k.decode() if isinstance(k, bytes) else k for k in await client.keys("arq:result:*")
+            k.decode() if isinstance(k, bytes) else k
+            for k in await client.keys("arq:result:*")
         ]
         await client.aclose()
     except Exception as e:
@@ -255,6 +262,7 @@ async def redis_health(request: Request, x_admin_key: str = Header()) -> dict:
         "redis_url": redacted,
         "queued_jobs": job_ids,
         "queued_count": len(job_ids),
+        "in_progress": in_progress,
         "recent_results": result_keys[:20],
     }
 
