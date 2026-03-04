@@ -35,6 +35,10 @@ logger = logging.getLogger(__name__)
 EDGAR_FILING_TIMEOUT = float(os.environ.get("MARGIN_EDGAR_TIMEOUT", "45"))
 
 
+class NoXBRLAvailableError(Exception):
+    """Raised when a filing has no XBRL file (expected for pre-2011 filings)."""
+
+
 def _is_retryable(exc: BaseException) -> bool:
     """Return True for transient errors worth retrying."""
     if isinstance(exc, (httpx.ReadTimeout, httpx.ConnectTimeout)):
@@ -253,8 +257,11 @@ async def _fetch_filing_with_retry(
             break
 
     if not xbrl_file:
-        logger.warning("No XBRL file found for accession %s", entry.accession_number)
-        return None
+        logger.info(
+            "No XBRL file found for accession %s (pre-XBRL era filing)",
+            entry.accession_number,
+        )
+        raise NoXBRLAvailableError(entry.accession_number)
 
     # Build full URL if relative
     if xbrl_file.startswith("http"):
@@ -290,6 +297,8 @@ async def fetch_and_parse_filing(
     """
     try:
         return await _fetch_filing_with_retry(client, entry, rate_limiter)
+    except NoXBRLAvailableError:
+        return None
     except httpx.HTTPStatusError as exc:
         logger.warning(
             "HTTP %d fetching filing %s: %s",
@@ -466,12 +475,30 @@ async def run_edgar_backfill(
     ) -> None:
         async with semaphore:
             fiscal_year, fiscal_quarter = _infer_fiscal_info(entry)
-            financials = await fetch_and_parse_filing(client, entry, rate_limiter)
+
+            # Call inner function directly to distinguish no-XBRL (expected skip)
+            # from actual errors (HTTP failures, parse errors, etc.)
+            no_xbrl = False
+            try:
+                financials = await _fetch_filing_with_retry(client, entry, rate_limiter)
+            except NoXBRLAvailableError:
+                financials = None
+                no_xbrl = True
+            except Exception:
+                logger.warning(
+                    "Failed to fetch/parse filing %s", entry.accession_number, exc_info=True
+                )
+                financials = None
 
             async with lock:
                 if financials is None:
-                    counters["failed"] += 1
-                    filing_tracker.record_failure()  # May raise EdgarUnavailableError
+                    if no_xbrl:
+                        # No XBRL available — expected for pre-2011 filings, not a failure
+                        counters["skipped"] += 1
+                    else:
+                        # Actual error — counts toward consecutive failure tracker
+                        counters["failed"] += 1
+                        filing_tracker.record_failure()  # May raise EdgarUnavailableError
                 else:
                     filing_tracker.record_success()
                     async with session_factory() as session:
