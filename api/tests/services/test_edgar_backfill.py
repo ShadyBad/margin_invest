@@ -264,4 +264,4 @@ class TestFetchAndParseFilingRetry:
 
         result = await fetch_and_parse_filing(mock_client, entry)
         assert result is None
-        assert mock_client.get.call_count == 5
+        assert mock_client.get.call_count == 8

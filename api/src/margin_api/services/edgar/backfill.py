@@ -39,7 +39,9 @@ def _is_retryable(exc: BaseException) -> bool:
     """Return True for transient errors worth retrying."""
     if isinstance(exc, (httpx.ReadTimeout, httpx.ConnectTimeout)):
         return True
-    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code >= 500:
+    if isinstance(exc, httpx.HTTPStatusError) and (
+        exc.response.status_code == 429 or exc.response.status_code >= 500
+    ):
         return True
     return False
 
@@ -153,13 +155,25 @@ _XBRL_FILE_RE = re.compile(r'href="([^"]+\.xml)"', re.IGNORECASE)
 
 
 class _RateLimiter:
-    """Token-bucket rate limiter for SEC's 10 req/sec fair access policy."""
+    """Sequential rate limiter for SEC's 10 req/sec fair access policy.
 
-    def __init__(self, rate: float = 8.0):
-        self._rate = rate  # requests per second (leave headroom below 10)
+    Uses a simple lock + interval to serialise all HTTP requests.
+    When a 429 is received, a global cooldown pauses everything.
+    """
+
+    def __init__(self, rate: float = 2.0):
         self._interval = 1.0 / rate
         self._lock = asyncio.Lock()
         self._last = 0.0
+        self._cooldown_seconds = 0.0
+
+    async def cooldown(self, retry_after: float | None = None) -> None:
+        """Pause all requests. Uses Retry-After header if available."""
+        wait = retry_after if retry_after and retry_after > 0 else 15.0
+        self._cooldown_seconds = wait
+        logger.warning("[rate-limiter] 429 — pausing all requests for %.0fs", wait)
+        await asyncio.sleep(wait)
+        self._cooldown_seconds = 0.0
 
     async def acquire(self) -> None:
         async with self._lock:
@@ -170,10 +184,42 @@ class _RateLimiter:
             self._last = asyncio.get_event_loop().time()
 
 
+async def _do_get(
+    client: httpx.AsyncClient,
+    url: str,
+    rate_limiter: _RateLimiter | None,
+) -> httpx.Response:
+    """GET with rate limiting and 429 cooldown."""
+    if rate_limiter:
+        await rate_limiter.acquire()
+    else:
+        await asyncio.sleep(0.5)
+
+    resp = await client.get(url)
+
+    if resp.status_code == 429:
+        # Parse Retry-After header (seconds) if provided by SEC
+        retry_after: float | None = None
+        ra_header = resp.headers.get("Retry-After")
+        if ra_header:
+            try:
+                retry_after = float(ra_header)
+            except ValueError:
+                retry_after = None
+        if rate_limiter:
+            await rate_limiter.cooldown(retry_after)
+        else:
+            await asyncio.sleep(retry_after or 15.0)
+        resp.raise_for_status()  # Let tenacity retry
+
+    resp.raise_for_status()
+    return resp
+
+
 @retry(
     retry=retry_if_exception(_is_retryable),
-    stop=stop_after_attempt(5),
-    wait=wait_exponential_jitter(initial=2, max=32, jitter=2),
+    stop=stop_after_attempt(8),
+    wait=wait_exponential_jitter(initial=5, max=120, jitter=5),
     reraise=True,
 )
 async def _fetch_filing_with_retry(
@@ -183,21 +229,15 @@ async def _fetch_filing_with_retry(
 ) -> XBRLFinancials | None:
     """Inner retryable function — downloads and parses a single XBRL filing.
 
-    Raises on transient errors (timeouts, 5xx) so tenacity can retry.
-    Non-retryable errors (4xx, parse errors) propagate immediately.
+    Raises on transient errors (timeouts, 5xx, 429) so tenacity can retry.
+    Non-retryable errors (other 4xx, parse errors) propagate immediately.
     """
     cik_int = entry.cik_int
     accession_clean = entry.accession_number.replace("-", "")
 
     index_url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
 
-    if rate_limiter:
-        await rate_limiter.acquire()
-    else:
-        await asyncio.sleep(0.2)
-
-    resp = await client.get(index_url)
-    resp.raise_for_status()
+    resp = await _do_get(client, index_url, rate_limiter)
 
     # Find XBRL file links (*.xml but skip R*.xml report files)
     matches = _XBRL_FILE_RE.findall(resp.text)
@@ -224,13 +264,7 @@ async def _fetch_filing_with_retry(
     else:
         xbrl_url = f"{index_url}{xbrl_file}"
 
-    if rate_limiter:
-        await rate_limiter.acquire()
-    else:
-        await asyncio.sleep(0.2)
-
-    xbrl_resp = await client.get(xbrl_url)
-    xbrl_resp.raise_for_status()
+    xbrl_resp = await _do_get(client, xbrl_url, rate_limiter)
 
     return extract_financials(xbrl_resp.text)
 
@@ -325,7 +359,7 @@ async def run_edgar_backfill(
     session_factory: async_sessionmaker[AsyncSession],
     checkpoint_file: str | None = None,
     dry_run: bool = False,
-    concurrency: int = 4,
+    concurrency: int = 1,
 ) -> dict[str, int]:
     """Run a full EDGAR backfill: index -> filter -> fetch -> parse -> insert.
 
@@ -335,8 +369,8 @@ async def run_edgar_backfill(
         session_factory: Async SQLAlchemy session factory.
         checkpoint_file: Path to checkpoint file for resumable backfills.
         dry_run: If True, only build the index without fetching/parsing.
-        concurrency: Number of concurrent filing downloads (default 4).
-            Kept conservative to stay within SEC's 10 req/sec fair access policy.
+        concurrency: Number of concurrent filing downloads (default 1).
+            Sequential processing avoids SEC EDGAR 429 rate limiting.
 
     Returns:
         Summary dict with keys: total, inserted, skipped, failed.
@@ -418,8 +452,10 @@ async def run_edgar_backfill(
 
     logger.info("[edgar-backfill] Processing %d filings (concurrency=%d)...", total, concurrency)
 
-    # Rate limiter: 8 req/sec leaves headroom below SEC's 10 req/sec limit
-    rate_limiter = _RateLimiter(rate=8.0)
+    # Rate limiter: 2 req/sec — very conservative to avoid 429s from SEC
+    # Each filing needs 2 requests (index page + XBRL file), so effective
+    # rate is ~1 filing/sec with concurrency=1.
+    rate_limiter = _RateLimiter(rate=2.0)
     semaphore = asyncio.Semaphore(concurrency)
     filing_tracker = ConsecutiveFailureTracker(threshold=10)
 
