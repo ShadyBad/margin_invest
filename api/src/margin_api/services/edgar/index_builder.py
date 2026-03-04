@@ -6,14 +6,20 @@ CIK numbers to tickers using the SEC company_tickers.json endpoint.
 
 from __future__ import annotations
 
+import logging
+import os
 import re
 from dataclasses import dataclass
 
 import httpx
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter
 
 SEC_BASE = "https://www.sec.gov"
 USER_AGENT = "MarginInvest admin@margininvest.com"
 FORM_TYPES: set[str] = {"10-K", "10-Q", "10-K/A", "10-Q/A"}
+
+logger = logging.getLogger(__name__)
+EDGAR_TIMEOUT = float(os.environ.get("MARGIN_EDGAR_TIMEOUT", "60"))
 
 _ACCESSION_RE = re.compile(r"(\d{10}-\d{2}-\d{6})")
 
@@ -121,6 +127,21 @@ def parse_company_idx(
     return entries
 
 
+def _is_retryable(exc: BaseException) -> bool:
+    """Return True for transient errors worth retrying."""
+    if isinstance(exc, (httpx.ReadTimeout, httpx.ConnectTimeout)):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code >= 500:
+        return True
+    return False
+
+
+@retry(
+    retry=retry_if_exception(_is_retryable),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential_jitter(initial=2, max=32, jitter=2),
+    reraise=True,
+)
 async def fetch_quarter_index(
     client: httpx.AsyncClient,
     year: int,
@@ -144,6 +165,12 @@ async def fetch_quarter_index(
     return parse_company_idx(resp.text, form_types=form_types)
 
 
+@retry(
+    retry=retry_if_exception(_is_retryable),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential_jitter(initial=2, max=32, jitter=2),
+    reraise=True,
+)
 async def load_cik_ticker_map(client: httpx.AsyncClient) -> dict[int, str]:
     """Download the SEC company_tickers.json and return a CIK -> ticker mapping.
 
@@ -189,7 +216,7 @@ async def build_full_index(
 
     async with httpx.AsyncClient(
         headers={"User-Agent": USER_AGENT},
-        timeout=httpx.Timeout(30.0),
+        timeout=httpx.Timeout(EDGAR_TIMEOUT),
     ) as client:
         for year in range(start_year, end_year + 1):
             for quarter in range(1, 5):

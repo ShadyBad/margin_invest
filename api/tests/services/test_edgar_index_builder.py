@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
+import httpx
+import pytest
 from margin_api.services.edgar.index_builder import (
     EdgarIndexEntry,
+    fetch_quarter_index,
+    load_cik_ticker_map,
     parse_company_idx,
 )
 
@@ -143,3 +149,110 @@ class TestParseCompanyIdx:
             assert len(parts[0]) == 10
             assert len(parts[1]) == 2
             assert len(parts[2]) == 6
+
+
+class TestFetchQuarterIndexRetry:
+    """Tests for fetch_quarter_index retry behavior."""
+
+    @pytest.mark.asyncio
+    async def test_retries_on_read_timeout(self) -> None:
+        """Should retry on ReadTimeout and succeed on second attempt."""
+        mock_response = MagicMock()
+        mock_response.text = SAMPLE_IDX
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(
+            side_effect=[httpx.ReadTimeout("timeout"), mock_response]
+        )
+
+        entries = await fetch_quarter_index(mock_client, 2024, 1)
+        assert len(entries) == 3  # 10-K, 10-Q, 10-K/A from SAMPLE_IDX
+        assert mock_client.get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retries_on_connect_timeout(self) -> None:
+        """Should retry on ConnectTimeout."""
+        mock_response = MagicMock()
+        mock_response.text = SAMPLE_IDX
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(
+            side_effect=[httpx.ConnectTimeout("timeout"), mock_response]
+        )
+
+        entries = await fetch_quarter_index(mock_client, 2024, 1)
+        assert len(entries) == 3
+        assert mock_client.get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retries_on_server_error(self) -> None:
+        """Should retry on 5xx HTTP errors."""
+        mock_response_ok = MagicMock()
+        mock_response_ok.text = SAMPLE_IDX
+        mock_response_ok.raise_for_status = MagicMock()
+
+        error_request = httpx.Request("GET", "https://sec.gov/test")
+        error_response = httpx.Response(503, request=error_request)
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(
+            side_effect=[
+                httpx.HTTPStatusError("503", request=error_request, response=error_response),
+                mock_response_ok,
+            ]
+        )
+
+        entries = await fetch_quarter_index(mock_client, 2024, 1)
+        assert len(entries) == 3
+        assert mock_client.get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_client_error(self) -> None:
+        """Should NOT retry on 4xx HTTP errors."""
+        error_request = httpx.Request("GET", "https://sec.gov/test")
+        error_response = httpx.Response(404, request=error_request)
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(
+            side_effect=httpx.HTTPStatusError(
+                "404", request=error_request, response=error_response
+            )
+        )
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await fetch_quarter_index(mock_client, 2024, 1)
+        assert mock_client.get.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_raises_after_max_retries(self) -> None:
+        """Should raise after exhausting all retries."""
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.ReadTimeout("timeout"))
+
+        with pytest.raises(httpx.ReadTimeout):
+            await fetch_quarter_index(mock_client, 2024, 1)
+        assert mock_client.get.call_count == 5  # 5 attempts
+
+
+class TestLoadCikTickerMapRetry:
+    """Tests for load_cik_ticker_map retry behavior."""
+
+    @pytest.mark.asyncio
+    async def test_retries_on_timeout(self) -> None:
+        """Should retry on timeout and succeed."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "0": {"cik_str": "320193", "ticker": "AAPL", "title": "Apple Inc"}
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(
+            side_effect=[httpx.ReadTimeout("timeout"), mock_response]
+        )
+
+        result = await load_cik_ticker_map(mock_client)
+        assert result == {320193: "AAPL"}
+        assert mock_client.get.call_count == 2
