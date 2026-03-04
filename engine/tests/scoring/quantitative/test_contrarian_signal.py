@@ -23,3 +23,13 @@ class TestContrarianSignal:
         result = contrarian_signal(momentum_percentile=10.0, quality_percentile=20.0)
         # (100 - 10) * 20 / 100 = 90 * 0.2 = 18.0
         assert result.raw_value == pytest.approx(18.0)
+
+    def test_contrarian_signal_marked_as_stub(self):
+        """Contrarian signal should be marked as a stub factor."""
+        result = contrarian_signal(momentum_percentile=15.0, quality_percentile=90.0)
+        assert result.stub is True
+
+    def test_contrarian_signal_no_fire_still_stub(self):
+        """Even when contrarian doesn't fire (positive momentum), still a stub."""
+        result = contrarian_signal(momentum_percentile=70.0, quality_percentile=90.0)
+        assert result.stub is True

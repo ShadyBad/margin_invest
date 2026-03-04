@@ -24,6 +24,7 @@ def contrarian_signal(
             raw_value=0.0,
             percentile_rank=0.0,
             detail=f"momentum={momentum_percentile:.1f} (>= {_MOMENTUM_THRESHOLD}, not contrarian)",
+            stub=True,
         )
 
     momentum_pain = 100.0 - momentum_percentile
@@ -38,4 +39,5 @@ def contrarian_signal(
             f"momentum={momentum_percentile:.1f}, quality={quality_percentile:.1f}, "
             f"pain={momentum_pain:.1f}, signal={signal:.1f}"
         ),
+        stub=True,
     )

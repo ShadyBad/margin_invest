@@ -148,3 +148,8 @@ class TestSentimentScoreFactorScoreFields:
         """Detail string should not mention contrarian when flag is False."""
         result = sentiment_score(-2.0, has_contrarian_signal=False)
         assert "contrarian" not in result.detail.lower()
+
+    def test_sentiment_score_marked_as_stub(self):
+        """Sentiment score should be marked as a stub factor."""
+        result = sentiment_score(3.0)
+        assert result.stub is True
