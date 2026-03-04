@@ -71,6 +71,53 @@ class TestFactorBreakdown:
         assert breakdown.average_percentile == pytest.approx(97.0)
 
 
+class TestFactorScoreStub:
+    def test_stub_default_false(self):
+        """FactorScore.stub defaults to False."""
+        score = FactorScore(name="test", raw_value=1.0, percentile_rank=50.0)
+        assert score.stub is False
+
+    def test_stub_excluded_from_average(self):
+        """Stub sub-scores are excluded from average_percentile."""
+        breakdown = FactorBreakdown(
+            factor_name="momentum",
+            weight=0.35,
+            sub_scores=[
+                FactorScore(name="real_a", raw_value=1.0, percentile_rank=80.0),
+                FactorScore(name="real_b", raw_value=1.0, percentile_rank=60.0),
+                FactorScore(name="stub_a", raw_value=0.0, percentile_rank=0.0, stub=True),
+                FactorScore(name="stub_b", raw_value=0.0, percentile_rank=0.0, stub=True),
+            ],
+        )
+        # Average of real only: (80 + 60) / 2 = 70
+        assert breakdown.average_percentile == pytest.approx(70.0)
+
+    def test_all_stubs_returns_zero(self):
+        """If all sub-scores are stubs, average_percentile is 0.0."""
+        breakdown = FactorBreakdown(
+            factor_name="momentum",
+            weight=0.35,
+            sub_scores=[
+                FactorScore(name="stub_a", raw_value=0.0, percentile_rank=0.0, stub=True),
+                FactorScore(name="stub_b", raw_value=0.0, percentile_rank=0.0, stub=True),
+            ],
+        )
+        assert breakdown.average_percentile == 0.0
+
+    def test_no_stubs_unchanged(self):
+        """Without stubs, average_percentile works as before."""
+        breakdown = FactorBreakdown(
+            factor_name="quality",
+            weight=0.35,
+            sub_scores=[
+                FactorScore(name="a", raw_value=1.0, percentile_rank=90.0),
+                FactorScore(name="b", raw_value=1.0, percentile_rank=70.0),
+                FactorScore(name="c", raw_value=1.0, percentile_rank=80.0),
+            ],
+        )
+        assert breakdown.average_percentile == pytest.approx(80.0)
+
+
 class TestCompositeScore:
     def _make_score(self, **kwargs):
         defaults = dict(
