@@ -290,6 +290,14 @@ async def flush_redis_jobs(request: Request, x_admin_key: str = Header()) -> dic
         for key in in_progress:
             await client.delete(key)
 
+        # Remove stale result keys so health check shows clean state
+        result_keys = [
+            k.decode() if isinstance(k, bytes) else k
+            for k in await client.keys("arq:result:*")
+        ]
+        for key in result_keys:
+            await client.delete(key)
+
         await client.aclose()
     except Exception as e:
         return {"status": "error", "error": str(e)}
@@ -298,6 +306,7 @@ async def flush_redis_jobs(request: Request, x_admin_key: str = Header()) -> dic
         "status": "flushed",
         "removed_jobs": job_ids,
         "removed_in_progress": in_progress,
+        "removed_results": result_keys,
     }
 
 

@@ -2941,14 +2941,27 @@ class WorkerSettings:
                 pit_count = result.scalar_one()
 
             if pit_count == 0:
-                logger.info("[worker] PIT tables empty — enqueueing bootstrap_pit_data")
                 redis_pool: ArqRedis = ctx.get("redis")  # type: ignore[assignment]
                 if redis_pool is not None:
-                    await redis_pool.enqueue_job(
-                        "bootstrap_pit_data",
-                        _job_id=f"bootstrap_pit:{uuid.uuid4().hex[:8]}",
+                    # Check if a bootstrap job is already queued to avoid duplicates
+                    queued = await redis_pool.zrangebyscore("arq:queue", "-inf", "+inf")
+                    already_queued = any(
+                        b"bootstrap_pit" in (j if isinstance(j, bytes) else j.encode())
+                        for j in queued
                     )
-                    logger.info("[worker] bootstrap_pit_data enqueued")
+                    if already_queued:
+                        logger.info(
+                            "[worker] PIT tables empty but bootstrap job already queued, skipping"
+                        )
+                    else:
+                        job_id = f"bootstrap_pit:{uuid.uuid4().hex[:8]}"
+                        await redis_pool.enqueue_job(
+                            "bootstrap_pit_data", _job_id=job_id
+                        )
+                        logger.info(
+                            "[worker] PIT tables empty — enqueued bootstrap_pit_data: %s",
+                            job_id,
+                        )
             else:
                 logger.info("[worker] PIT tables have %d filings, skipping bootstrap", pit_count)
         except Exception:
