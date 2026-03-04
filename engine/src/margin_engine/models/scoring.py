@@ -142,6 +142,7 @@ class CompositeScore(BaseModel):
     asymmetry_ratio: float | None = None
     max_position_pct: float | None = None
     timing_signal: str | None = None  # "buy_now", "add_on_pullback", "wait_for_catalyst"
+    conviction_override: CompositeTier | None = None
 
     # Capital allocation pillar (Track A)
     capital_allocation: FactorBreakdown | None = None
@@ -150,6 +151,8 @@ class CompositeScore(BaseModel):
 
     @property
     def composite_tier(self) -> CompositeTier:
+        if self.conviction_override is not None:
+            return self.conviction_override
         if self.composite_raw_score >= 76.0:
             return CompositeTier.EXCEPTIONAL
         if self.composite_raw_score >= 71.0:

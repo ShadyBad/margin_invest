@@ -137,6 +137,38 @@ class TestCompositeScore:
         )
         assert score.composite_tier == CompositeTier.MEDIUM
 
+    def test_override_none_uses_threshold(self):
+        """conviction_override=None falls through to threshold logic."""
+        score = self._make_score(composite_raw_score=76.0, conviction_override=None)
+        assert score.composite_tier == CompositeTier.EXCEPTIONAL
+
+    def test_override_set_takes_precedence(self):
+        """Override overrides threshold: raw_score=50 would be NONE, but override=EXCEPTIONAL."""
+        score = self._make_score(
+            composite_raw_score=50.0, conviction_override=CompositeTier.EXCEPTIONAL
+        )
+        assert score.composite_tier == CompositeTier.EXCEPTIONAL
+
+    def test_override_can_downgrade(self):
+        """Override can downgrade: raw_score=80 would be EXCEPTIONAL, but override=MEDIUM."""
+        score = self._make_score(
+            composite_raw_score=80.0, conviction_override=CompositeTier.MEDIUM
+        )
+        assert score.composite_tier == CompositeTier.MEDIUM
+
+    def test_signal_uses_overridden_tier(self):
+        """Signal should use the overridden tier for price-aware logic."""
+        score = self._make_score(
+            composite_raw_score=50.0,
+            conviction_override=CompositeTier.HIGH,
+            actual_price=100.0,
+            buy_price=110.0,
+            sell_price=130.0,
+        )
+        # HIGH tier + actual_price <= buy_price → BUY
+        assert score.composite_tier == CompositeTier.HIGH
+        assert score.signal == Signal.BUY
+
 
 class TestGrowthStage:
     def test_all_stages_exist(self):
