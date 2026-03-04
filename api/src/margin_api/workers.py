@@ -50,6 +50,7 @@ from margin_api.db.models import (
 from margin_api.db.session import get_engine, get_session_factory, reset_engine_cache
 from margin_api.routes.events import add_event, add_notification
 from margin_api.services.edgar.backfill import run_edgar_backfill
+from margin_api.services.edgar.index_builder import EdgarUnavailableError
 from margin_api.services.edgar.price_backfill import backfill_prices_for_tickers
 from margin_api.services.edgar.universe_assembly import assemble_universe, fill_last_known_prices
 from margin_api.services.live_prices import LivePriceService
@@ -2836,6 +2837,20 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
         }
         logger.info("[bootstrap_pit] Bootstrap complete: %s", summary)
         return summary
+
+    except EdgarUnavailableError as e:
+        logger.error("[bootstrap_pit] SEC EDGAR unavailable, aborting: %s", e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "failed"
+            job.error_message = f"SEC EDGAR unavailable: {e}"[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "error", "message": f"SEC EDGAR unavailable: {e}"}
 
     except Exception as e:
         logger.exception("[bootstrap_pit] Bootstrap failed: %s", e)
