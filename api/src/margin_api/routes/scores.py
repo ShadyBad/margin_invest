@@ -432,6 +432,7 @@ async def get_score_history(
                 sell_price=float(row.sell_price) if row.sell_price is not None else None,
                 actual_price=float(row.actual_price) if row.actual_price is not None else None,
                 delta=delta,
+                scoring_version="v2",
             )
         )
 
