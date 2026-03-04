@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,8 +51,8 @@ def _latest_v3_subquery():
 async def list_v3_scores(
     conviction: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-) -> V3ScoreListResponse:
-    """List latest v3 scores, optionally filtered by conviction level."""
+) -> JSONResponse:
+    """List latest v3 scores. DEPRECATED: Use GET /api/v1/scores instead."""
     latest = _latest_v3_subquery()
 
     base = (
@@ -93,15 +94,23 @@ async def list_v3_scores(
             )
         )
 
-    return V3ScoreListResponse(scores=scores, total=len(scores))
+    result_data = V3ScoreListResponse(scores=scores, total=len(scores))
+    return JSONResponse(
+        content=result_data.model_dump(),
+        headers={
+            "Deprecation": "true",
+            "Sunset": "2026-06-01",
+            "Link": '</api/v1/scores>; rel="successor-version"',
+        },
+    )
 
 
 @router.get("/{ticker}", response_model=V3ScoreResponse)
 async def get_v3_score(
     ticker: str,
     db: AsyncSession = Depends(get_db),
-) -> V3ScoreResponse:
-    """Get the latest v3 score for a specific ticker."""
+) -> JSONResponse:
+    """Get the latest v3 score for a specific ticker. DEPRECATED: Use GET /api/v1/scores/{ticker} instead."""
     ticker = ticker.upper()
     query = (
         select(V3Score, Asset.ticker, Asset.name.label("asset_name"))
@@ -121,7 +130,7 @@ async def get_v3_score(
     if scored_at is not None and scored_at.tzinfo is None:
         scored_at = scored_at.replace(tzinfo=UTC)
 
-    return V3ScoreResponse(
+    result_data = V3ScoreResponse(
         ticker=row.ticker,
         name=row.asset_name,
         opportunity_type=v3score.opportunity_type,
@@ -133,4 +142,12 @@ async def get_v3_score(
         regime=v3score.regime,
         composite_score=v3score.composite_score,
         scored_at=scored_at.isoformat() if scored_at else "",
+    )
+    return JSONResponse(
+        content=result_data.model_dump(),
+        headers={
+            "Deprecation": "true",
+            "Sunset": "2026-06-01",
+            "Link": '</api/v1/scores>; rel="successor-version"',
+        },
     )
