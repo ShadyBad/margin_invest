@@ -92,6 +92,7 @@ async def get_public_score(
             eliminated=eliminated,
             elimination_reason=elimination_reason,
             scored_at=scored_at.isoformat() if scored_at else "",
+            opportunity_type=v4.opportunity_type,
         )
         return JSONResponse(
             content=data.model_dump(),
