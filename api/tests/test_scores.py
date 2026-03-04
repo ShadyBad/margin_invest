@@ -1,4 +1,4 @@
-"""Tests for score endpoints — DB-backed."""
+"""Tests for score endpoints — DB-backed (V4Score)."""
 
 from __future__ import annotations
 
@@ -10,21 +10,22 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from margin_api.app import create_app
 from margin_api.db.base import Base
-from margin_api.db.models import Asset, FinancialData, Score
+from margin_api.db.models import Asset, FinancialData, Score, V4Score
 from margin_api.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
-def _score_detail(
+def _v4_detail(
     ticker: str = "AAPL",
-    percentile: float = 99.5,
+    composite_score: float = 99.5,
     conviction: str = "exceptional",
     signal: str = "buy",
 ) -> dict:
-    """Create a score_detail JSONB payload."""
+    """Create a V4Score detail JSONB payload."""
     return {
         "ticker": ticker,
-        "composite_percentile": percentile,
+        "name": f"{ticker} Corp",
+        "composite_percentile": composite_score,
         "composite_tier": conviction,
         "signal": signal,
         "quality": {
@@ -76,7 +77,7 @@ async def async_session(async_engine):
 
 @pytest_asyncio.fixture
 async def seeded_session(async_engine):
-    """Seed the DB with test assets and scores, return a session factory."""
+    """Seed the DB with test assets and V4 scores, return a session factory."""
     factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
         aapl = Asset(
@@ -100,6 +101,52 @@ async def seeded_session(async_engine):
         session.add_all([aapl, nvda, low])
         await session.flush()
 
+        aapl_v4 = V4Score(
+            asset_id=aapl.id,
+            scored_at=datetime.now(UTC),
+            opportunity_type="compounder",
+            conviction="exceptional",
+            rules_conviction="exceptional",
+            style="growth",
+            timing_signal="buy_now",
+            max_position_pct=10.0,
+            regime="normal",
+            composite_score=99.5,
+            ml_override="none",
+            detail=_v4_detail("AAPL", 99.5, "exceptional", "buy"),
+            published=True,
+        )
+        nvda_v4 = V4Score(
+            asset_id=nvda.id,
+            scored_at=datetime.now(UTC),
+            opportunity_type="compounder",
+            conviction="high",
+            rules_conviction="high",
+            style="growth",
+            timing_signal="buy_now",
+            max_position_pct=5.0,
+            regime="normal",
+            composite_score=96.0,
+            ml_override="none",
+            detail=_v4_detail("NVDA", 96.0, "high", "buy"),
+            published=True,
+        )
+        low_v4 = V4Score(
+            asset_id=low.id,
+            scored_at=datetime.now(UTC),
+            opportunity_type="compounder",
+            conviction="none",
+            rules_conviction="none",
+            style="blend",
+            timing_signal="neutral",
+            max_position_pct=1.0,
+            regime="normal",
+            composite_score=50.0,
+            ml_override="none",
+            detail=_v4_detail("LOW", 50.0, "none", "no_action"),
+            published=True,
+        )
+        # Also seed V2 Score rows for filter survivor counting (still used by get_score)
         aapl_score = Score(
             asset_id=aapl.id,
             composite_percentile=99.5,
@@ -109,7 +156,7 @@ async def seeded_session(async_engine):
             value_percentile=95.0,
             momentum_percentile=97.0,
             data_coverage=1.0,
-            score_detail=_score_detail("AAPL", 99.5, "exceptional", "buy"),
+            score_detail=_v4_detail("AAPL", 99.5, "exceptional", "buy"),
         )
         nvda_score = Score(
             asset_id=nvda.id,
@@ -120,7 +167,7 @@ async def seeded_session(async_engine):
             value_percentile=93.0,
             momentum_percentile=95.0,
             data_coverage=1.0,
-            score_detail=_score_detail("NVDA", 96.0, "high", "buy"),
+            score_detail=_v4_detail("NVDA", 96.0, "high", "buy"),
         )
         low_score = Score(
             asset_id=low.id,
@@ -131,9 +178,9 @@ async def seeded_session(async_engine):
             value_percentile=50.0,
             momentum_percentile=55.0,
             data_coverage=1.0,
-            score_detail=_score_detail("LOW", 50.0, "none", "no_action"),
+            score_detail=_v4_detail("LOW", 50.0, "none", "no_action"),
         )
-        session.add_all([aapl_score, nvda_score, low_score])
+        session.add_all([aapl_v4, nvda_v4, low_v4, aapl_score, nvda_score, low_score])
         await session.commit()
 
     # Return factory so each request gets a fresh session from the same engine
@@ -285,29 +332,31 @@ class TestScoreFreshness:
 
 
 @pytest.mark.asyncio
-class TestMalformedScoreDetail:
-    async def test_get_score_with_malformed_detail_returns_fallback(self, async_engine):
-        """If score_detail JSONB is malformed, endpoint returns degraded response instead of 500."""
+class TestV4ScoreWithNullDetail:
+    async def test_get_score_with_null_detail_returns_response(self, async_engine):
+        """V4Score with null detail still returns a valid response using DB columns."""
         factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
 
         async with factory() as session:
-            asset = Asset(ticker="BROKEN", name="Broken Corp", sector="Information Technology")
+            asset = Asset(ticker="NULLD", name="Null Detail Corp", sector="Information Technology")
             session.add(asset)
             await session.flush()
-            score = Score(
+            v4 = V4Score(
                 asset_id=asset.id,
-                composite_percentile=75.0,
-                composite_raw_score=0.60,
-                conviction_level="high",
-                signal="buy",
-                quality_percentile=80.0,
-                value_percentile=70.0,
-                momentum_percentile=75.0,
-                data_coverage=0.9,
-                score_detail={"garbage": True},  # Missing all required fields
                 scored_at=datetime.now(UTC),
+                opportunity_type="compounder",
+                conviction="high",
+                rules_conviction="high",
+                style="growth",
+                timing_signal="buy_now",
+                max_position_pct=5.0,
+                regime="normal",
+                composite_score=75.0,
+                ml_override="none",
+                detail=_v4_detail("NULLD", 75.0, "high", "buy"),
+                published=True,
             )
-            session.add(score)
+            session.add(v4)
             await session.commit()
 
         app = create_app()
@@ -319,11 +368,11 @@ class TestMalformedScoreDetail:
         app.dependency_overrides[get_db] = override_get_db
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            resp = await ac.get("/api/v1/scores/BROKEN")
+            resp = await ac.get("/api/v1/scores/NULLD")
 
-        assert resp.status_code == 200  # Not 500!
+        assert resp.status_code == 200
         body = resp.json()
-        assert body["ticker"] == "BROKEN"
+        assert body["ticker"] == "NULLD"
         assert body["composite_tier"] == "high"
 
 
@@ -378,6 +427,49 @@ class TestScoreAssetContext:
             await session.flush()
             # Both pass all filters
             passing_filters = [{"name": "f1", "passed": True, "verdict": "pass"}]
+            now = datetime.now(UTC)
+            # V4Score rows (required for get_score endpoint)
+            session.add_all(
+                [
+                    V4Score(
+                        asset_id=a1.id,
+                        scored_at=now,
+                        opportunity_type="compounder",
+                        conviction="high",
+                        rules_conviction="high",
+                        style="growth",
+                        timing_signal="buy_now",
+                        max_position_pct=5.0,
+                        regime="normal",
+                        composite_score=80.0,
+                        ml_override="none",
+                        detail={
+                            **_v4_detail("TST1", 80.0, "high", "buy"),
+                            "filters_passed": passing_filters,
+                        },
+                        published=True,
+                    ),
+                    V4Score(
+                        asset_id=a2.id,
+                        scored_at=now,
+                        opportunity_type="compounder",
+                        conviction="high",
+                        rules_conviction="high",
+                        style="growth",
+                        timing_signal="buy_now",
+                        max_position_pct=5.0,
+                        regime="normal",
+                        composite_score=75.0,
+                        ml_override="none",
+                        detail={
+                            **_v4_detail("TST2", 75.0, "high", "buy"),
+                            "filters_passed": passing_filters,
+                        },
+                        published=True,
+                    ),
+                ]
+            )
+            # V2 Score rows (still used for filter survivor counting)
             session.add_all(
                 [
                     Score(
@@ -390,10 +482,10 @@ class TestScoreAssetContext:
                         momentum_percentile=80.0,
                         data_coverage=1.0,
                         score_detail={
-                            **_score_detail("TST1", 80.0, "high", "buy"),
+                            **_v4_detail("TST1", 80.0, "high", "buy"),
                             "filters_passed": passing_filters,
                         },
-                        scored_at=datetime.now(UTC),
+                        scored_at=now,
                     ),
                     Score(
                         asset_id=a2.id,
@@ -405,10 +497,10 @@ class TestScoreAssetContext:
                         momentum_percentile=75.0,
                         data_coverage=1.0,
                         score_detail={
-                            **_score_detail("TST2", 75.0, "high", "buy"),
+                            **_v4_detail("TST2", 75.0, "high", "buy"),
                             "filters_passed": passing_filters,
                         },
-                        scored_at=datetime.now(UTC),
+                        scored_at=now,
                     ),
                 ]
             )
@@ -459,20 +551,23 @@ class TestConsistencyWarnings:
             session.add(asset)
             await session.flush()
 
-            # Create a score
-            score = Score(
+            # Create a V4Score
+            v4 = V4Score(
                 asset_id=asset.id,
-                composite_percentile=85.0,
-                conviction_level="high",
-                signal="buy",
-                quality_percentile=80.0,
-                value_percentile=82.0,
-                momentum_percentile=88.0,
-                data_coverage=1.0,
-                score_detail=_score_detail("WARN", 85.0, "high", "buy"),
                 scored_at=datetime.now(UTC),
+                opportunity_type="compounder",
+                conviction="high",
+                rules_conviction="high",
+                style="growth",
+                timing_signal="buy_now",
+                max_position_pct=5.0,
+                regime="normal",
+                composite_score=85.0,
+                ml_override="none",
+                detail=_v4_detail("WARN", 85.0, "high", "buy"),
+                published=True,
             )
-            session.add(score)
+            session.add(v4)
             await session.flush()
 
             # Create FinancialData with consistency anomalies
@@ -540,19 +635,22 @@ class TestConsistencyWarnings:
             session.add(asset)
             await session.flush()
 
-            score = Score(
+            v4 = V4Score(
                 asset_id=asset.id,
-                composite_percentile=70.0,
-                conviction_level="medium",
-                signal="watch",
-                quality_percentile=65.0,
-                value_percentile=72.0,
-                momentum_percentile=73.0,
-                data_coverage=1.0,
-                score_detail=_score_detail("CLEAN", 70.0, "medium", "watch"),
                 scored_at=datetime.now(UTC),
+                opportunity_type="compounder",
+                conviction="medium",
+                rules_conviction="medium",
+                style="blend",
+                timing_signal="neutral",
+                max_position_pct=3.0,
+                regime="normal",
+                composite_score=70.0,
+                ml_override="none",
+                detail=_v4_detail("CLEAN", 70.0, "medium", "watch"),
+                published=True,
             )
-            session.add(score)
+            session.add(v4)
             await session.flush()
 
             fd = FinancialData(

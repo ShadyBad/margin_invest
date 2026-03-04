@@ -10,7 +10,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from margin_api.app import create_app
 from margin_api.db.base import Base
-from margin_api.db.models import Asset, Score, V4Score
+from margin_api.db.models import Asset, V4Score
 from margin_api.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -94,8 +94,8 @@ async def v4_seeded_session(async_engine):
 
 
 @pytest_asyncio.fixture
-async def v2_seeded_session(async_engine):
-    """Seed the DB with an Asset + Score (v2), return a session factory."""
+async def v4_unpublished_session(async_engine):
+    """Seed the DB with an Asset + unpublished V4Score, return a session factory."""
     factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
         msft = Asset(
@@ -107,19 +107,22 @@ async def v2_seeded_session(async_engine):
         session.add(msft)
         await session.flush()
 
-        score = Score(
+        v4 = V4Score(
             asset_id=msft.id,
-            composite_percentile=88.0,
-            composite_raw_score=0.80,
-            conviction_level="high",
-            signal="buy",
-            quality_percentile=85.0,
-            value_percentile=82.0,
-            momentum_percentile=90.0,
-            data_coverage=1.0,
-            score_detail=_score_detail("MSFT"),
+            scored_at=datetime.now(UTC),
+            opportunity_type="compounder",
+            conviction="high",
+            rules_conviction="high",
+            style="growth",
+            timing_signal="buy_now",
+            max_position_pct=5.0,
+            regime="normal",
+            composite_score=88.0,
+            ml_override="none",
+            detail=_score_detail("MSFT"),
+            published=False,  # unpublished — tests V4 any fallback
         )
-        session.add(score)
+        session.add(v4)
         await session.commit()
     return factory
 
@@ -190,11 +193,11 @@ class TestMarketCapV4Response:
 
 
 @pytest.mark.asyncio
-class TestMarketCapV2Fallback:
-    """Test market_cap is returned via v2 Score fallback path."""
+class TestMarketCapV4UnpublishedFallback:
+    """Test market_cap is returned via unpublished V4Score fallback path."""
 
-    async def test_market_cap_in_v2_response(self, v2_seeded_session):
-        async with _make_client(v2_seeded_session) as client:
+    async def test_market_cap_in_unpublished_v4_response(self, v4_unpublished_session):
+        async with _make_client(v4_unpublished_session) as client:
             response = await client.get("/api/v1/scores/MSFT")
             assert response.status_code == 200
             data = response.json()

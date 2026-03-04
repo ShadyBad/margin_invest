@@ -329,35 +329,46 @@ async def list_scores(
     db: AsyncSession = Depends(get_db),
 ) -> ScoreListResponse:
     """List all scored assets with optional filtering and pagination."""
-    latest = _latest_score_subquery()
+    latest_v4 = (
+        select(
+            V4Score.asset_id,
+            func.max(V4Score.scored_at).label("max_scored_at"),
+        )
+        .group_by(V4Score.asset_id)
+        .subquery()
+    )
 
     base = (
-        select(Score, Asset.ticker, Asset.name.label("asset_name"))
-        .join(Asset, Score.asset_id == Asset.id)
+        select(
+            V4Score,
+            Asset.ticker,
+            Asset.name.label("asset_name"),
+            Asset.sector.label("asset_sector"),
+        )
+        .join(Asset, V4Score.asset_id == Asset.id)
         .join(
-            latest,
-            (Score.asset_id == latest.c.asset_id) & (Score.scored_at == latest.c.max_scored_at),
+            latest_v4,
+            (V4Score.asset_id == latest_v4.c.asset_id)
+            & (V4Score.scored_at == latest_v4.c.max_scored_at),
         )
     )
 
     if min_percentile > 0:
-        base = base.where(Score.composite_percentile >= min_percentile)
+        base = base.where(V4Score.composite_score >= min_percentile)
     if conviction:
-        base = base.where(Score.conviction_level == conviction.lower())
+        base = base.where(V4Score.conviction == conviction.lower())
 
-    # Count
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
 
-    # Paginate
-    base = base.order_by(Score.composite_percentile.desc())
+    base = base.order_by(V4Score.composite_score.desc())
     base = base.offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(base)
     rows = result.all()
 
     return ScoreListResponse(
-        scores=[_score_response_from_row(r) for r in rows],
+        scores=[_v4_score_response_from_row(r) for r in rows],
         total=total,
         page=page,
         page_size=page_size,
@@ -520,27 +531,36 @@ async def get_score(
         # Use v4_row for asset_id reference in include queries below
         row = v4_row
     else:
-        # Fallback to Score table (v2)
-        query = (
+        # No published V4Score — try any V4Score (unpublished/staged)
+        v4_any_query = (
             select(
-                Score,
+                V4Score,
                 Asset.ticker,
                 Asset.name.label("asset_name"),
                 Asset.sector.label("asset_sector"),
                 Asset.market_cap.label("asset_market_cap"),
             )
-            .join(Asset, Score.asset_id == Asset.id)
+            .join(Asset, V4Score.asset_id == Asset.id)
             .where(Asset.ticker == ticker)
-            .order_by(Score.scored_at.desc())
+            .order_by(V4Score.scored_at.desc())
             .limit(1)
         )
-        result = await db.execute(query)
-        row = result.first()
+        v4_any_result = await db.execute(v4_any_query)
+        v4_any_row = v4_any_result.first()
 
-        if row is None:
+        if v4_any_row is not None:
+            ml_model_query = select(MlModelRun).order_by(MlModelRun.created_at.desc()).limit(1)
+            ml_result = await db.execute(ml_model_query)
+            ml_model = ml_result.scalar_one_or_none()
+
+            response = _v4_score_response_from_row(
+                v4_any_row,
+                ml_model=ml_model,
+                live_price_data=live_price_data,
+            )
+            row = v4_any_row
+        else:
             raise HTTPException(status_code=404, detail=f"No score found for {ticker}")
-
-        response = _score_response_from_row(row, live_price_data=live_price_data)
 
     # Populate asset context: sector, universe stats, sector survivors
     sector = row.asset_sector if hasattr(row, "asset_sector") else None

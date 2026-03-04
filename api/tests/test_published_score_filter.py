@@ -150,8 +150,8 @@ class TestPublishedScoreFilter:
             assert data["ml_override"] == "none"
             assert data["style"] == "value"
 
-    async def test_404_when_only_unpublished_v4_and_no_v2(self, session_factory):
-        """When only unpublished V4Scores exist and no v2 Score, returns 404."""
+    async def test_unpublished_v4_served_when_no_published(self, session_factory):
+        """When only unpublished V4Scores exist, serves the unpublished score."""
         async with session_factory() as session:
             asset = Asset(
                 ticker="NOPR",
@@ -185,7 +185,10 @@ class TestPublishedScoreFilter:
 
         async with _make_client(session_factory) as client:
             resp = await client.get("/api/v1/scores/NOPR")
-            assert resp.status_code == 404
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["composite_tier"] == "high"
+            assert data["ml_alpha"] == 0.05
 
     async def test_sector_champion_uses_published_only(self, session_factory):
         """Sector champion query should only consider published V4Scores."""

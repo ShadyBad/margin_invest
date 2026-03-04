@@ -225,8 +225,8 @@ class TestV4ScoreEndpoint:
             assert data["ml_model_rank_ic"] == 0.12
             assert "2026-02-20" in data["ml_model_trained_at"]
 
-    async def test_get_score_falls_back_to_v2(self, session_factory):
-        """When no V4Score exists, falls back to Score table with null ML fields."""
+    async def test_get_score_falls_back_to_unpublished_v4(self, session_factory):
+        """When no published V4Score exists, falls back to unpublished V4Score."""
         async with session_factory() as session:
             asset = Asset(
                 ticker="OLD",
@@ -237,6 +237,47 @@ class TestV4ScoreEndpoint:
             session.add(asset)
             await session.flush()
 
+            v4 = V4Score(
+                asset_id=asset.id,
+                scored_at=datetime.now(UTC),
+                opportunity_type="compounder",
+                conviction="medium",
+                rules_conviction="medium",
+                style="blend",
+                timing_signal="neutral",
+                max_position_pct=3.0,
+                regime="normal",
+                composite_score=60.0,
+                ml_alpha=None,
+                ml_confidence=None,
+                ml_override="none",
+                detail=_v4_detail(),
+                published=False,
+            )
+            session.add(v4)
+            await session.commit()
+
+        async with _make_client(session_factory) as client:
+            resp = await client.get("/api/v1/scores/OLD")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["ml_alpha"] is None
+            assert data["ml_override"] == "none"
+            assert data["composite_tier"] == "medium"
+
+    async def test_get_score_404_when_no_v4_exists(self, session_factory):
+        """When no V4Score exists at all, returns 404 (no V2 fallback)."""
+        async with session_factory() as session:
+            asset = Asset(
+                ticker="NOSCR",
+                name="No Score Corp",
+                sector="Financials",
+                market_cap=Decimal("50000000000"),
+            )
+            session.add(asset)
+            await session.flush()
+
+            # Only a V2 Score — should NOT be served anymore
             score = Score(
                 asset_id=asset.id,
                 composite_percentile=60.0,
@@ -253,12 +294,8 @@ class TestV4ScoreEndpoint:
             await session.commit()
 
         async with _make_client(session_factory) as client:
-            resp = await client.get("/api/v1/scores/OLD")
-            assert resp.status_code == 200
-            data = resp.json()
-            assert data["ml_alpha"] is None
-            assert data["ml_override"] is None
-            assert data["composite_tier"] == "medium"
+            resp = await client.get("/api/v1/scores/NOSCR")
+            assert resp.status_code == 404
 
     async def test_v4_preferred_over_v2(self, session_factory):
         """When both V4Score and Score exist, V4Score is preferred."""
