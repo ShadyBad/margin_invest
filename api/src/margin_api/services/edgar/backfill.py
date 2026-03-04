@@ -20,7 +20,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter
 
-from margin_api.db.models import PITFinancialSnapshot
+from margin_api.db.models import EdgarNoXBRLCache, PITFinancialSnapshot
 from margin_api.services.edgar.index_builder import (
     USER_AGENT,
     ConsecutiveFailureTracker,
@@ -414,18 +414,26 @@ async def run_edgar_backfill(
             "failed": 0,
         }
 
-    # Query existing accession numbers to skip
+    # Query existing accession numbers to skip (both successful parses and known no-XBRL)
     async with session_factory() as session:
         result = await session.execute(select(PITFinancialSnapshot.accession_number))
         existing_accessions = {row[0] for row in result.all()}
 
-    logger.info("[edgar-backfill] %d filings already in DB", len(existing_accessions))
+        result = await session.execute(select(EdgarNoXBRLCache.accession_number))
+        no_xbrl_accessions = {row[0] for row in result.all()}
+
+    skip_accessions = existing_accessions | no_xbrl_accessions
+    logger.info(
+        "[edgar-backfill] %d filings already in DB, %d in no-XBRL cache",
+        len(existing_accessions),
+        len(no_xbrl_accessions),
+    )
 
     # Filter out already-processed entries
     entries_to_process = [
         (entry, ticker)
         for entry, ticker in entries_with_ticker
-        if entry.accession_number not in existing_accessions
+        if entry.accession_number not in skip_accessions
     ]
 
     # Resume from checkpoint if available
@@ -493,7 +501,17 @@ async def run_edgar_backfill(
             async with lock:
                 if financials is None:
                     if no_xbrl:
-                        # No XBRL available — expected for pre-2011 filings, not a failure
+                        # No XBRL available — expected for pre-2011 filings, not a failure.
+                        # Cache the result so future runs skip the HTTP request entirely.
+                        async with session_factory() as session:
+                            stmt = pg_insert(EdgarNoXBRLCache).values(
+                                accession_number=entry.accession_number,
+                            )
+                            stmt = stmt.on_conflict_do_nothing(
+                                index_elements=["accession_number"]
+                            )
+                            await session.execute(stmt)
+                            await session.commit()
                         counters["skipped"] += 1
                     else:
                         # Actual error — counts toward consecutive failure tracker

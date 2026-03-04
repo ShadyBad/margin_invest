@@ -1080,6 +1080,21 @@ class PITFinancialSnapshot(Base):
     __table_args__ = (Index("ix_pit_financial_ticker_filing_date", "ticker", "filing_date"),)
 
 
+class EdgarNoXBRLCache(Base):
+    """Cache of accession numbers checked and found to have no XBRL data.
+
+    Prevents repeated HTTP requests to SEC.gov for pre-XBRL era filings
+    that will never have parseable data.
+    """
+
+    __tablename__ = "edgar_no_xbrl_cache"
+
+    accession_number: Mapped[str] = mapped_column(String(30), primary_key=True)
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
 class PITDailyPrice(Base):
     """Daily OHLCV price data for point-in-time backtesting."""
 
