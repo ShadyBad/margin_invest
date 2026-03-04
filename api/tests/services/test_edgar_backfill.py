@@ -247,9 +247,7 @@ class TestFetchAndParseFilingRetry:
 
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(
-            side_effect=httpx.HTTPStatusError(
-                "404", request=error_request, response=error_response
-            )
+            side_effect=httpx.HTTPStatusError("404", request=error_request, response=error_response)
         )
 
         result = await fetch_and_parse_filing(mock_client, entry)

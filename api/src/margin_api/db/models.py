@@ -1132,6 +1132,4 @@ class EdgarIndexCache(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
-    __table_args__ = (
-        Index("ix_edgar_index_cache_year_quarter", "year", "quarter", unique=True),
-    )
+    __table_args__ = (Index("ix_edgar_index_cache_year_quarter", "year", "quarter", unique=True),)

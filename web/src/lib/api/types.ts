@@ -52,6 +52,9 @@ export interface ScoreResponse {
   composite_percentile: number // Kept for backwards compat
   composite_raw_score: number  // Kept for backwards compat
   composite_tier: string
+  scoring_version: string       // "v4" — which scoring engine produced this
+  conviction_source: string     // "v4_gate_cascade" or "v1_percentile_threshold"
+  screening_score: number       // Additive composite used for sorting (alias for score)
   signal: string
   quality: FactorBreakdownResponse
   value: FactorBreakdownResponse
@@ -121,6 +124,18 @@ export interface ScoreListResponse {
   total: number
   page: number
   page_size: number
+}
+
+export interface CalibrationStatus {
+  pit_data_available: boolean
+  pit_date_range_start: string | null
+  pit_date_range_end: string | null
+  pit_ticker_count: number
+  last_backtest_run: string | null
+  validation_passed: boolean | null
+  validation_details: Record<string, { value: number; threshold: number; passed: boolean }> | null
+  current_thresholds: Record<string, unknown>
+  scoring_version: string
 }
 
 export interface MetricStatus {
@@ -231,6 +246,7 @@ export interface ScoreHistoryPoint {
   sell_price: number | null
   actual_price: number | null
   delta: number | null
+  scoring_version?: string | null
 }
 
 export interface ScoreHistoryResponse {

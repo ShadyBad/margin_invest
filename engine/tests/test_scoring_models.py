@@ -198,9 +198,7 @@ class TestCompositeScore:
 
     def test_override_can_downgrade(self):
         """Override can downgrade: raw_score=80 would be EXCEPTIONAL, but override=MEDIUM."""
-        score = self._make_score(
-            composite_raw_score=80.0, conviction_override=CompositeTier.MEDIUM
-        )
+        score = self._make_score(composite_raw_score=80.0, conviction_override=CompositeTier.MEDIUM)
         assert score.composite_tier == CompositeTier.MEDIUM
 
     def test_signal_uses_overridden_tier(self):

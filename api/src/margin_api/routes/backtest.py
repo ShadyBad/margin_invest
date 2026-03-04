@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from margin_api.db.models import BacktestRun, PITFinancialSnapshot, ShadowPortfolioSnapshot
 from margin_api.db.session import get_db
 from margin_api.deps import require_plan
-from margin_api.schemas.calibration import CalibrationStatusResponse
 from margin_api.schemas.backtest import (
     BacktestConfigRequest,
     BacktestListResponse,
@@ -32,6 +31,7 @@ from margin_api.schemas.backtest import (
     ValidationCheckResponse,
     ValidationResponse,
 )
+from margin_api.schemas.calibration import CalibrationStatusResponse
 from margin_api.services.backtest import (
     _build_metrics_response,
     build_full_response,
@@ -396,11 +396,7 @@ async def get_calibration_status(
     pit_data_available = pit_ticker_count > 0
 
     # Query latest backtest run
-    bt_stmt = (
-        select(BacktestRun)
-        .order_by(BacktestRun.created_at.desc())
-        .limit(1)
-    )
+    bt_stmt = select(BacktestRun).order_by(BacktestRun.created_at.desc()).limit(1)
     bt_result = await session.execute(bt_stmt)
     latest_run = bt_result.scalar_one_or_none()
 
