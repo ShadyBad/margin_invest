@@ -9,12 +9,14 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Path
 from margin_engine.backtesting.replay_orchestrator import ReplayConfig
-from sqlalchemy import select
+from margin_engine.config.threshold_config import ThresholdConfig
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.db.models import ShadowPortfolioSnapshot
+from margin_api.db.models import BacktestRun, PITFinancialSnapshot, ShadowPortfolioSnapshot
 from margin_api.db.session import get_db
 from margin_api.deps import require_plan
+from margin_api.schemas.calibration import CalibrationStatusResponse
 from margin_api.schemas.backtest import (
     BacktestConfigRequest,
     BacktestListResponse,
@@ -359,4 +361,70 @@ async def get_shadow_portfolio(
         max_drawdown=max_dd,
         num_days=(last_date - first_date).days + 1,
         cannot_be_backdated=True,
+    )
+
+
+# -------------------------------------------------------------------
+# Calibration status endpoint (Task 11)
+# -------------------------------------------------------------------
+
+
+@router.get(
+    "/backtest/calibration-status",
+    response_model=CalibrationStatusResponse,
+)
+async def get_calibration_status(
+    session: AsyncSession = Depends(get_db),
+) -> CalibrationStatusResponse:
+    """Return the current calibration state of the scoring engine.
+
+    Queries PIT data availability, latest backtest run, and current
+    threshold configuration. Public endpoint (no auth required).
+    """
+    # Query PIT financial snapshot stats
+    pit_stmt = select(
+        func.count(func.distinct(PITFinancialSnapshot.ticker)),
+        func.min(PITFinancialSnapshot.filing_date),
+        func.max(PITFinancialSnapshot.filing_date),
+    )
+    pit_result = await session.execute(pit_stmt)
+    pit_row = pit_result.one()
+    pit_ticker_count = pit_row[0] or 0
+    pit_min_date = pit_row[1]
+    pit_max_date = pit_row[2]
+
+    pit_data_available = pit_ticker_count > 0
+
+    # Query latest backtest run
+    bt_stmt = (
+        select(BacktestRun)
+        .order_by(BacktestRun.created_at.desc())
+        .limit(1)
+    )
+    bt_result = await session.execute(bt_stmt)
+    latest_run = bt_result.scalar_one_or_none()
+
+    last_backtest_run: str | None = None
+    validation_passed: bool | None = None
+    validation_details: dict | None = None
+
+    if latest_run is not None:
+        last_backtest_run = latest_run.created_at.isoformat() if latest_run.created_at else None
+        if latest_run.summary_stats and isinstance(latest_run.summary_stats, dict):
+            validation_passed = latest_run.summary_stats.get("validation_passed")
+            validation_details = latest_run.summary_stats.get("validation_details")
+
+    # Load current threshold config
+    config = ThresholdConfig()
+    current_thresholds = config.model_dump()
+
+    return CalibrationStatusResponse(
+        pit_data_available=pit_data_available,
+        pit_date_range_start=str(pit_min_date) if pit_min_date else None,
+        pit_date_range_end=str(pit_max_date) if pit_max_date else None,
+        pit_ticker_count=pit_ticker_count,
+        last_backtest_run=last_backtest_run,
+        validation_passed=validation_passed,
+        validation_details=validation_details,
+        current_thresholds=current_thresholds,
     )
