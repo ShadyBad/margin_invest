@@ -110,7 +110,7 @@ async def get_v3_score(
     ticker: str,
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
-    """Get the latest v3 score for a specific ticker. DEPRECATED: Use GET /api/v1/scores/{ticker} instead."""
+    """Get latest v3 score for a ticker. DEPRECATED: Use GET /api/v1/scores/{ticker}."""
     ticker = ticker.upper()
     query = (
         select(V3Score, Asset.ticker, Asset.name.label("asset_name"))
