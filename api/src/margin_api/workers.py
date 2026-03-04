@@ -60,6 +60,7 @@ from margin_api.ws.scores import ScoreChangeMessage, manager
 if TYPE_CHECKING:
     from margin_engine.models.scoring import CompositeScore, FactorBreakdown
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
