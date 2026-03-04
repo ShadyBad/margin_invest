@@ -341,7 +341,9 @@ async def run_edgar_backfill(
     """
     logger.info("[edgar-backfill] Building index for %d-%d...", start_year, end_year)
 
-    all_entries, cik_map = await build_full_index(start_year, end_year)
+    all_entries, cik_map = await build_full_index(
+        start_year, end_year, session_factory=session_factory
+    )
     logger.info(
         "[edgar-backfill] Index built: %d entries, %d CIK mappings",
         len(all_entries),

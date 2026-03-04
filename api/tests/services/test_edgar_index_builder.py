@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -162,9 +163,7 @@ class TestFetchQuarterIndexRetry:
         mock_response.raise_for_status = MagicMock()
 
         mock_client = AsyncMock()
-        mock_client.get = AsyncMock(
-            side_effect=[httpx.ReadTimeout("timeout"), mock_response]
-        )
+        mock_client.get = AsyncMock(side_effect=[httpx.ReadTimeout("timeout"), mock_response])
 
         entries = await fetch_quarter_index(mock_client, 2024, 1)
         assert len(entries) == 3  # 10-K, 10-Q, 10-K/A from SAMPLE_IDX
@@ -178,9 +177,7 @@ class TestFetchQuarterIndexRetry:
         mock_response.raise_for_status = MagicMock()
 
         mock_client = AsyncMock()
-        mock_client.get = AsyncMock(
-            side_effect=[httpx.ConnectTimeout("timeout"), mock_response]
-        )
+        mock_client.get = AsyncMock(side_effect=[httpx.ConnectTimeout("timeout"), mock_response])
 
         entries = await fetch_quarter_index(mock_client, 2024, 1)
         assert len(entries) == 3
@@ -216,9 +213,7 @@ class TestFetchQuarterIndexRetry:
 
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(
-            side_effect=httpx.HTTPStatusError(
-                "404", request=error_request, response=error_response
-            )
+            side_effect=httpx.HTTPStatusError("404", request=error_request, response=error_response)
         )
 
         with pytest.raises(httpx.HTTPStatusError):
@@ -249,10 +244,69 @@ class TestLoadCikTickerMapRetry:
         mock_response.raise_for_status = MagicMock()
 
         mock_client = AsyncMock()
-        mock_client.get = AsyncMock(
-            side_effect=[httpx.ReadTimeout("timeout"), mock_response]
-        )
+        mock_client.get = AsyncMock(side_effect=[httpx.ReadTimeout("timeout"), mock_response])
 
         result = await load_cik_ticker_map(mock_client)
         assert result == {320193: "AAPL"}
         assert mock_client.get.call_count == 2
+
+
+class TestIndexCaching:
+    """Tests for per-quarter index caching helpers."""
+
+    def test_is_cache_fresh_past_quarter_always_fresh(self) -> None:
+        """Past quarters are always fresh (data doesn't change)."""
+        from datetime import datetime
+
+        from margin_api.services.edgar.index_builder import _is_cache_fresh
+
+        old_time = datetime(2020, 1, 1, tzinfo=UTC)
+        assert _is_cache_fresh(old_time, 2020, 1) is True
+
+    def test_is_cache_fresh_current_quarter_under_24h(self) -> None:
+        """Current quarter cache under 24h is fresh."""
+        from datetime import datetime
+
+        from margin_api.services.edgar.index_builder import _is_cache_fresh
+
+        now = datetime.now(UTC)
+        current_quarter = (now.month - 1) // 3 + 1
+        assert _is_cache_fresh(now, now.year, current_quarter) is True
+
+    def test_is_cache_fresh_current_quarter_over_24h(self) -> None:
+        """Current quarter cache over 24h is stale."""
+        from datetime import datetime, timedelta
+
+        from margin_api.services.edgar.index_builder import _is_cache_fresh
+
+        old_time = datetime.now(UTC) - timedelta(hours=25)
+        now = datetime.now(UTC)
+        current_quarter = (now.month - 1) // 3 + 1
+        assert _is_cache_fresh(old_time, now.year, current_quarter) is False
+
+    def test_is_cache_fresh_future_quarter_treated_as_current(self) -> None:
+        """A future quarter (same year) should be treated as current and expire after 24h."""
+        from datetime import datetime, timedelta
+
+        from margin_api.services.edgar.index_builder import _is_cache_fresh
+
+        now = datetime.now(UTC)
+        # Use quarter 4 which is either current or future
+        future_q = 4
+        # If fetched recently, should be fresh
+        assert _is_cache_fresh(now, now.year, future_q) is True
+        # If fetched >24h ago and it's the current quarter, should be stale
+        old_time = now - timedelta(hours=25)
+        current_quarter = (now.month - 1) // 3 + 1
+        if future_q >= current_quarter:
+            assert _is_cache_fresh(old_time, now.year, future_q) is False
+
+    def test_is_cache_fresh_previous_year_always_fresh(self) -> None:
+        """Quarters from previous years are always fresh."""
+        from datetime import datetime
+
+        from margin_api.services.edgar.index_builder import _is_cache_fresh
+
+        # Even with a very old fetched_at, past year quarters are always fresh
+        ancient = datetime(2010, 6, 15, tzinfo=UTC)
+        assert _is_cache_fresh(ancient, 2023, 3) is True

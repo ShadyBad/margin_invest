@@ -9,9 +9,12 @@ from __future__ import annotations
 import logging
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
 
 import httpx
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter
 
 SEC_BASE = "https://www.sec.gov"
@@ -195,20 +198,189 @@ async def load_cik_ticker_map(client: httpx.AsyncClient) -> dict[int, str]:
     return cik_map
 
 
+# ---------------------------------------------------------------------------
+# Per-quarter index caching helpers
+# ---------------------------------------------------------------------------
+
+
+def _is_cache_fresh(fetched_at: datetime, year: int, quarter: int) -> bool:
+    """Determine whether a cached quarter index is still fresh.
+
+    Past quarters (before the current quarter) are always fresh because
+    SEC EDGAR data for completed quarters never changes.
+    The current quarter expires after 24 hours since new filings may appear.
+
+    Args:
+        fetched_at: When the cache entry was fetched (tz-aware UTC).
+        year: The year of the cached quarter.
+        quarter: The quarter number (1-4) of the cached quarter.
+
+    Returns:
+        True if the cache is still fresh, False if it should be re-fetched.
+    """
+    now = datetime.now(UTC)
+    current_year = now.year
+    current_quarter = (now.month - 1) // 3 + 1
+
+    # Past quarters (year < current year, or same year but earlier quarter)
+    if year < current_year or (year == current_year and quarter < current_quarter):
+        return True
+
+    # Current or future quarter: fresh if fetched within last 24 hours
+    return (now - fetched_at) < timedelta(hours=24)
+
+
+async def _get_cached_quarter(
+    session: AsyncSession,
+    year: int,
+    quarter: int,
+) -> list[EdgarIndexEntry] | None:
+    """Retrieve cached quarter index entries if available and fresh.
+
+    Args:
+        session: Async SQLAlchemy session.
+        year: Filing year.
+        quarter: Quarter number (1-4).
+
+    Returns:
+        List of EdgarIndexEntry if cache hit and fresh, None otherwise.
+    """
+    from margin_api.db.models import EdgarIndexCache
+
+    cache_key = f"index:{year}:{quarter}"
+    result = await session.execute(
+        select(EdgarIndexCache).where(EdgarIndexCache.cache_key == cache_key)
+    )
+    row = result.scalar_one_or_none()
+
+    if row is None:
+        return None
+
+    if not _is_cache_fresh(row.fetched_at, year, quarter):
+        return None
+
+    return [EdgarIndexEntry(**entry) for entry in row.entries_json]
+
+
+async def _cache_quarter(
+    session: AsyncSession,
+    year: int,
+    quarter: int,
+    entries: list[EdgarIndexEntry],
+) -> None:
+    """Cache quarter index entries (delete-then-insert for SQLite compat).
+
+    Args:
+        session: Async SQLAlchemy session.
+        year: Filing year.
+        quarter: Quarter number (1-4).
+        entries: List of EdgarIndexEntry to cache.
+    """
+    from margin_api.db.models import EdgarIndexCache
+
+    cache_key = f"index:{year}:{quarter}"
+
+    # Delete existing entry (upsert alternative that works with SQLite)
+    existing = await session.execute(
+        select(EdgarIndexCache).where(EdgarIndexCache.cache_key == cache_key)
+    )
+    old = existing.scalar_one_or_none()
+    if old:
+        await session.delete(old)
+        await session.flush()
+
+    row = EdgarIndexCache(
+        year=year,
+        quarter=quarter,
+        cache_key=cache_key,
+        entries_json=[asdict(e) for e in entries],
+        entry_count=len(entries),
+    )
+    session.add(row)
+    await session.commit()
+
+
+async def _get_cached_cik_map(session: AsyncSession) -> dict[int, str] | None:
+    """Retrieve cached CIK-to-ticker map if available and fresh.
+
+    Uses 24-hour expiry (always treated as "current" for freshness).
+
+    Args:
+        session: Async SQLAlchemy session.
+
+    Returns:
+        Dict mapping CIK ints to ticker strings, or None if cache miss/stale.
+    """
+    from margin_api.db.models import EdgarIndexCache
+
+    cache_key = "cik_ticker_map"
+    result = await session.execute(
+        select(EdgarIndexCache).where(EdgarIndexCache.cache_key == cache_key)
+    )
+    row = result.scalar_one_or_none()
+
+    if row is None:
+        return None
+
+    # CIK map always uses 24h freshness (like current quarter)
+    now = datetime.now(UTC)
+    if (now - row.fetched_at) >= timedelta(hours=24):
+        return None
+
+    # JSON keys are strings — convert back to int
+    return {int(k): v for k, v in row.entries_json.items()}
+
+
+async def _cache_cik_map(session: AsyncSession, cik_map: dict[int, str]) -> None:
+    """Cache CIK-to-ticker map (delete-then-insert for SQLite compat).
+
+    Args:
+        session: Async SQLAlchemy session.
+        cik_map: Dict mapping CIK ints to ticker strings.
+    """
+    from margin_api.db.models import EdgarIndexCache
+
+    cache_key = "cik_ticker_map"
+
+    # Delete existing entry
+    existing = await session.execute(
+        select(EdgarIndexCache).where(EdgarIndexCache.cache_key == cache_key)
+    )
+    old = existing.scalar_one_or_none()
+    if old:
+        await session.delete(old)
+        await session.flush()
+
+    row = EdgarIndexCache(
+        year=0,
+        quarter=0,
+        cache_key=cache_key,
+        entries_json={str(k): v for k, v in cik_map.items()},
+        entry_count=len(cik_map),
+    )
+    session.add(row)
+    await session.commit()
+
+
 async def build_full_index(
     start_year: int,
     end_year: int,
     form_types: set[str] | None = None,
+    session_factory: async_sessionmaker[AsyncSession] | None = None,
 ) -> tuple[list[EdgarIndexEntry], dict[int, str]]:
     """Build a complete EDGAR filing index across multiple years.
 
     Creates an httpx.AsyncClient with the required User-Agent header and
     iterates over all year/quarter combinations to build the index.
+    When a session_factory is provided, uses per-quarter caching to avoid
+    re-downloading data from SEC EDGAR for quarters that haven't changed.
 
     Args:
         start_year: First year to include (inclusive).
         end_year: Last year to include (inclusive).
         form_types: Set of form types to filter. Defaults to FORM_TYPES.
+        session_factory: Optional async session factory for DB caching.
+            When provided, cached quarter data is used when fresh.
 
     Returns:
         Tuple of (all_entries, cik_ticker_map).
@@ -221,9 +393,51 @@ async def build_full_index(
     ) as client:
         for year in range(start_year, end_year + 1):
             for quarter in range(1, 5):
+                # Try cache first if session_factory is available
+                if session_factory is not None:
+                    async with session_factory() as session:
+                        cached = await _get_cached_quarter(session, year, quarter)
+                    if cached is not None:
+                        logger.debug(
+                            "Cache hit for %d-Q%d (%d entries)", year, quarter, len(cached)
+                        )
+                        all_entries.extend(cached)
+                        continue
+
                 entries = await fetch_quarter_index(client, year, quarter, form_types=form_types)
                 all_entries.extend(entries)
 
-        cik_map = await load_cik_ticker_map(client)
+                # Cache the fetched entries
+                if session_factory is not None:
+                    try:
+                        async with session_factory() as session:
+                            await _cache_quarter(session, year, quarter, entries)
+                        logger.debug("Cached %d-Q%d (%d entries)", year, quarter, len(entries))
+                    except Exception:
+                        logger.warning(
+                            "Failed to cache quarter index %d-Q%d",
+                            year,
+                            quarter,
+                            exc_info=True,
+                        )
+
+        # Try CIK map cache
+        cik_map: dict[int, str] | None = None
+        if session_factory is not None:
+            async with session_factory() as session:
+                cik_map = await _get_cached_cik_map(session)
+            if cik_map is not None:
+                logger.debug("Cache hit for CIK ticker map (%d entries)", len(cik_map))
+
+        if cik_map is None:
+            cik_map = await load_cik_ticker_map(client)
+            # Cache the CIK map
+            if session_factory is not None:
+                try:
+                    async with session_factory() as session:
+                        await _cache_cik_map(session, cik_map)
+                    logger.debug("Cached CIK ticker map (%d entries)", len(cik_map))
+                except Exception:
+                    logger.warning("Failed to cache CIK ticker map", exc_info=True)
 
     return all_entries, cik_map
