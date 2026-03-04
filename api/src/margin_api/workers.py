@@ -744,7 +744,7 @@ async def full_score_v4(
         job_id = job.id
 
     try:
-        await run_scoring_v4()
+        scored_at = await run_scoring_v4()
         reset_engine_cache()
 
         engine = get_engine()
@@ -800,7 +800,7 @@ async def full_score_v4(
     # Chain to stage_scores for governance approval before publishing
     redis: ArqRedis | None = ctx.get("redis")
     if redis:
-        scored_at_iso = datetime.now(UTC).isoformat()
+        scored_at_iso = scored_at.isoformat()
         await redis.enqueue_job(
             "stage_scores",
             pipeline_id,

@@ -208,3 +208,34 @@ class TestStageScoresImpl:
         assert result["ticker_count"] == 3
         approvals = (await db_session.execute(select(PipelineApproval))).scalars().all()
         assert approvals[0].impact_summary["conviction_changes"] == 3
+
+    @pytest.mark.asyncio
+    async def test_mismatched_timestamp_finds_zero(self, db_session):
+        """Scores with a different scored_at than the query timestamp are not found.
+
+        Regression test: previously, V4Score rows were inserted with individual
+        timestamps (model default) while stage_scores queried with a separate
+        timestamp captured after scoring completed, causing zero matches.
+        """
+        score_time = datetime.now(UTC)
+        query_time = score_time + timedelta(seconds=5)  # different timestamp
+
+        asset = await _create_asset(db_session, "AAPL")
+        await _create_v4_score(db_session, asset, conviction="high", scored_at=score_time)
+        await db_session.commit()
+
+        result = await _stage_scores_impl(db_session, "pipe-mismatch", query_time)
+        assert result["ticker_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_shared_timestamp_finds_all(self, db_session):
+        """All scores sharing the same scored_at timestamp are found by stage_scores."""
+        shared_time = datetime.now(UTC)
+
+        for ticker in ["AAPL", "MSFT", "GOOG"]:
+            asset = await _create_asset(db_session, ticker)
+            await _create_v4_score(db_session, asset, conviction="high", scored_at=shared_time)
+        await db_session.commit()
+
+        result = await _stage_scores_impl(db_session, "pipe-shared", shared_time)
+        assert result["ticker_count"] == 3

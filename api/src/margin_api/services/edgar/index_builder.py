@@ -160,6 +160,7 @@ async def fetch_quarter_index(
         List of EdgarIndexEntry for the quarter.
     """
     url = f"{SEC_BASE}/Archives/edgar/full-index/{year}/QTR{quarter}/company.idx"
+    logger.debug("Fetching quarter index: %s", url)
     resp = await client.get(url)
     resp.raise_for_status()
     return parse_company_idx(resp.text, form_types=form_types)

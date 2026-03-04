@@ -1147,7 +1147,7 @@ def _inject_sector_stats(
 # ---------------------------------------------------------------------------
 
 
-async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = None) -> None:
+async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = None) -> datetime:
     """Score tickers using the v4 pipeline with Track C, style, momentum, and ML."""
     from margin_engine.ingestion.normalizer import normalize_earnings_list
     from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod
@@ -1620,6 +1620,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
     from margin_engine.scoring.market_regime import detect_regime
 
     regime = detect_regime(cape)
+    scored_at = datetime.now(UTC)
     successes = 0
     async with session_factory() as session:
         for v4r in results:
@@ -1627,6 +1628,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 continue
             score = V4Score(
                 asset_id=asset_ids[v4r.ticker],
+                scored_at=scored_at,
                 opportunity_type=v4r.opportunity_type,
                 conviction=v4r.conviction.value,
                 rules_conviction=v4r.rules_conviction.value,
@@ -1671,6 +1673,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
 
     logger.info("V4 scoring complete: %d scored out of %d tickers", successes, total)
     await engine.dispose()
+    return scored_at
 
 
 # ---------------------------------------------------------------------------
