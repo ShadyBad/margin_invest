@@ -310,3 +310,51 @@ class TestIndexCaching:
         # Even with a very old fetched_at, past year quarters are always fresh
         ancient = datetime(2010, 6, 15, tzinfo=UTC)
         assert _is_cache_fresh(ancient, 2023, 3) is True
+
+
+class TestConsecutiveFailureTracker:
+    """Tests for ConsecutiveFailureTracker."""
+
+    def test_no_trip_below_threshold(self) -> None:
+        from margin_api.services.edgar.index_builder import ConsecutiveFailureTracker
+
+        tracker = ConsecutiveFailureTracker(threshold=3)
+        tracker.record_failure()
+        tracker.record_failure()
+        # 2 failures, threshold is 3 — should not raise
+
+    def test_trips_at_threshold(self) -> None:
+        from margin_api.services.edgar.index_builder import (
+            ConsecutiveFailureTracker,
+            EdgarUnavailableError,
+        )
+
+        tracker = ConsecutiveFailureTracker(threshold=3)
+        tracker.record_failure()
+        tracker.record_failure()
+        with pytest.raises(EdgarUnavailableError, match="3 consecutive"):
+            tracker.record_failure()
+
+    def test_resets_on_success(self) -> None:
+        from margin_api.services.edgar.index_builder import ConsecutiveFailureTracker
+
+        tracker = ConsecutiveFailureTracker(threshold=3)
+        tracker.record_failure()
+        tracker.record_failure()
+        tracker.record_success()  # Reset
+        tracker.record_failure()
+        tracker.record_failure()
+        # Only 2 consecutive failures after reset — should not raise
+
+    def test_trips_after_reset_and_new_failures(self) -> None:
+        from margin_api.services.edgar.index_builder import (
+            ConsecutiveFailureTracker,
+            EdgarUnavailableError,
+        )
+
+        tracker = ConsecutiveFailureTracker(threshold=2)
+        tracker.record_failure()
+        tracker.record_success()
+        tracker.record_failure()
+        with pytest.raises(EdgarUnavailableError):
+            tracker.record_failure()

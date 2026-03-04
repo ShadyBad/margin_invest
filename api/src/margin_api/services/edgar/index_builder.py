@@ -362,6 +362,37 @@ async def _cache_cik_map(session: AsyncSession, cik_map: dict[int, str]) -> None
     await session.commit()
 
 
+class EdgarUnavailableError(Exception):
+    """Raised when SEC EDGAR appears to be down after consecutive failures."""
+
+
+class ConsecutiveFailureTracker:
+    """Tracks consecutive failures and raises EdgarUnavailableError at threshold.
+
+    Resets the counter on any success. This distinguishes "SEC is temporarily
+    slow" (occasional failures mixed with successes) from "SEC is down"
+    (many consecutive failures).
+    """
+
+    def __init__(self, threshold: int = 3) -> None:
+        self._threshold = threshold
+        self._consecutive_failures = 0
+
+    def record_success(self) -> None:
+        """Reset failure counter on success."""
+        self._consecutive_failures = 0
+
+    def record_failure(self) -> None:
+        """Increment failure counter; raise if threshold reached."""
+        self._consecutive_failures += 1
+        if self._consecutive_failures >= self._threshold:
+            raise EdgarUnavailableError(
+                f"SEC EDGAR appears unreachable: {self._consecutive_failures} consecutive "
+                f"quarter fetches failed (threshold={self._threshold}). "
+                f"Aborting to avoid wasting resources."
+            )
+
+
 async def build_full_index(
     start_year: int,
     end_year: int,
@@ -386,6 +417,7 @@ async def build_full_index(
         Tuple of (all_entries, cik_ticker_map).
     """
     all_entries: list[EdgarIndexEntry] = []
+    tracker = ConsecutiveFailureTracker(threshold=3)
 
     async with httpx.AsyncClient(
         headers={"User-Agent": USER_AGENT},
@@ -402,10 +434,28 @@ async def build_full_index(
                             "Cache hit for %d-Q%d (%d entries)", year, quarter, len(cached)
                         )
                         all_entries.extend(cached)
+                        tracker.record_success()
                         continue
 
-                entries = await fetch_quarter_index(client, year, quarter, form_types=form_types)
-                all_entries.extend(entries)
+                try:
+                    entries = await fetch_quarter_index(
+                        client, year, quarter, form_types=form_types
+                    )
+                    all_entries.extend(entries)
+                    tracker.record_success()
+                except (
+                    httpx.ReadTimeout,
+                    httpx.ConnectTimeout,
+                    httpx.HTTPStatusError,
+                ) as exc:
+                    logger.warning(
+                        "Failed to fetch index for %d-Q%d after retries: %s",
+                        year,
+                        quarter,
+                        exc,
+                    )
+                    tracker.record_failure()  # May raise EdgarUnavailableError
+                    continue
 
                 # Cache the fetched entries
                 if session_factory is not None:

@@ -23,7 +23,9 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 from margin_api.db.models import PITFinancialSnapshot
 from margin_api.services.edgar.index_builder import (
     USER_AGENT,
+    ConsecutiveFailureTracker,
     EdgarIndexEntry,
+    EdgarUnavailableError,
     build_full_index,
 )
 from margin_api.services.edgar.xbrl_parser import XBRLFinancials, extract_financials
@@ -419,6 +421,7 @@ async def run_edgar_backfill(
     # Rate limiter: 8 req/sec leaves headroom below SEC's 10 req/sec limit
     rate_limiter = _RateLimiter(rate=8.0)
     semaphore = asyncio.Semaphore(concurrency)
+    filing_tracker = ConsecutiveFailureTracker(threshold=10)
 
     async def _process_one(
         entry: EdgarIndexEntry,
@@ -432,7 +435,9 @@ async def run_edgar_backfill(
             async with lock:
                 if financials is None:
                     counters["failed"] += 1
+                    filing_tracker.record_failure()  # May raise EdgarUnavailableError
                 else:
+                    filing_tracker.record_success()
                     async with session_factory() as session:
                         was_inserted = await insert_pit_snapshot(
                             session, entry, financials, ticker, fiscal_year, fiscal_quarter
@@ -467,7 +472,15 @@ async def run_edgar_backfill(
         for chunk_start in range(0, total, chunk_size):
             chunk = entries_to_process[chunk_start : chunk_start + chunk_size]
             tasks = [_process_one(entry, ticker, client) for entry, ticker in chunk]
-            await asyncio.gather(*tasks)
+            try:
+                await asyncio.gather(*tasks)
+            except EdgarUnavailableError:
+                logger.warning(
+                    "[edgar-backfill] Chunk at offset %d aborted due to consecutive failures, "
+                    "moving to next chunk",
+                    chunk_start,
+                )
+                filing_tracker._consecutive_failures = 0  # Reset for next chunk
 
             # Checkpoint at end of each chunk
             if checkpoint_file and chunk:
