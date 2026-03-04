@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 from datetime import date
 from pathlib import Path
@@ -17,6 +18,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter
 
 from margin_api.db.models import PITFinancialSnapshot
 from margin_api.services.edgar.index_builder import (
@@ -27,6 +29,17 @@ from margin_api.services.edgar.index_builder import (
 from margin_api.services.edgar.xbrl_parser import XBRLFinancials, extract_financials
 
 logger = logging.getLogger(__name__)
+
+EDGAR_FILING_TIMEOUT = float(os.environ.get("MARGIN_EDGAR_TIMEOUT", "45"))
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """Return True for transient errors worth retrying."""
+    if isinstance(exc, (httpx.ReadTimeout, httpx.ConnectTimeout)):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code >= 500:
+        return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +168,71 @@ class _RateLimiter:
             self._last = asyncio.get_event_loop().time()
 
 
+@retry(
+    retry=retry_if_exception(_is_retryable),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential_jitter(initial=2, max=32, jitter=2),
+    reraise=True,
+)
+async def _fetch_filing_with_retry(
+    client: httpx.AsyncClient,
+    entry: EdgarIndexEntry,
+    rate_limiter: _RateLimiter | None = None,
+) -> XBRLFinancials | None:
+    """Inner retryable function — downloads and parses a single XBRL filing.
+
+    Raises on transient errors (timeouts, 5xx) so tenacity can retry.
+    Non-retryable errors (4xx, parse errors) propagate immediately.
+    """
+    cik_int = entry.cik_int
+    accession_clean = entry.accession_number.replace("-", "")
+
+    index_url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
+
+    if rate_limiter:
+        await rate_limiter.acquire()
+    else:
+        await asyncio.sleep(0.2)
+
+    resp = await client.get(index_url)
+    resp.raise_for_status()
+
+    # Find XBRL file links (*.xml but skip R*.xml report files)
+    matches = _XBRL_FILE_RE.findall(resp.text)
+    xbrl_file = None
+    for match in matches:
+        filename = match.rsplit("/", 1)[-1]
+        # Skip R*.xml (report files like R1.xml, R2.xml, etc.)
+        if filename.startswith("R") and filename[1:2].isdigit():
+            continue
+        # Skip non-XBRL-instance files
+        if filename.lower().endswith(".xml"):
+            xbrl_file = match
+            break
+
+    if not xbrl_file:
+        logger.warning("No XBRL file found for accession %s", entry.accession_number)
+        return None
+
+    # Build full URL if relative
+    if xbrl_file.startswith("http"):
+        xbrl_url = xbrl_file
+    elif xbrl_file.startswith("/"):
+        xbrl_url = f"https://www.sec.gov{xbrl_file}"
+    else:
+        xbrl_url = f"{index_url}{xbrl_file}"
+
+    if rate_limiter:
+        await rate_limiter.acquire()
+    else:
+        await asyncio.sleep(0.2)
+
+    xbrl_resp = await client.get(xbrl_url)
+    xbrl_resp.raise_for_status()
+
+    return extract_financials(xbrl_resp.text)
+
+
 async def fetch_and_parse_filing(
     client: httpx.AsyncClient,
     entry: EdgarIndexEntry,
@@ -162,8 +240,9 @@ async def fetch_and_parse_filing(
 ) -> XBRLFinancials | None:
     """Download an XBRL filing from SEC EDGAR and parse it.
 
-    Fetches the filing index page, finds the XBRL instance document,
-    downloads it, and extracts financials.
+    Delegates to _fetch_filing_with_retry which handles transient errors
+    (timeouts, 5xx) via tenacity. This outer function catches permanent
+    failures and returns None.
 
     Args:
         client: An httpx.AsyncClient with User-Agent header set.
@@ -174,54 +253,21 @@ async def fetch_and_parse_filing(
         XBRLFinancials if successfully parsed, None on any error.
     """
     try:
-        cik_int = entry.cik_int
-        accession_clean = entry.accession_number.replace("-", "")
-
-        index_url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
-
-        if rate_limiter:
-            await rate_limiter.acquire()
-        else:
-            await asyncio.sleep(0.2)
-
-        resp = await client.get(index_url)
-        resp.raise_for_status()
-
-        # Find XBRL file links (*.xml but skip R*.xml report files)
-        matches = _XBRL_FILE_RE.findall(resp.text)
-        xbrl_file = None
-        for match in matches:
-            filename = match.rsplit("/", 1)[-1]
-            # Skip R*.xml (report files like R1.xml, R2.xml, etc.)
-            if filename.startswith("R") and filename[1:2].isdigit():
-                continue
-            # Skip non-XBRL-instance files
-            if filename.lower().endswith(".xml"):
-                xbrl_file = match
-                break
-
-        if not xbrl_file:
-            logger.warning("No XBRL file found for accession %s", entry.accession_number)
-            return None
-
-        # Build full URL if relative
-        if xbrl_file.startswith("http"):
-            xbrl_url = xbrl_file
-        elif xbrl_file.startswith("/"):
-            xbrl_url = f"https://www.sec.gov{xbrl_file}"
-        else:
-            xbrl_url = f"{index_url}{xbrl_file}"
-
-        if rate_limiter:
-            await rate_limiter.acquire()
-        else:
-            await asyncio.sleep(0.2)
-
-        xbrl_resp = await client.get(xbrl_url)
-        xbrl_resp.raise_for_status()
-
-        return extract_financials(xbrl_resp.text)
-
+        return await _fetch_filing_with_retry(client, entry, rate_limiter)
+    except httpx.HTTPStatusError as exc:
+        logger.warning(
+            "HTTP %d fetching filing %s: %s",
+            exc.response.status_code,
+            entry.accession_number,
+            exc,
+        )
+        return None
+    except (httpx.ReadTimeout, httpx.ConnectTimeout):
+        logger.warning(
+            "Timeout fetching filing %s after retries exhausted",
+            entry.accession_number,
+        )
+        return None
     except Exception:
         logger.warning(
             "Failed to fetch/parse filing %s",
@@ -366,9 +412,7 @@ async def run_edgar_backfill(
     counters = {"inserted": 0, "skipped": len(existing_accessions), "failed": 0, "done": 0}
     lock = asyncio.Lock()
 
-    logger.info(
-        "[edgar-backfill] Processing %d filings (concurrency=%d)...", total, concurrency
-    )
+    logger.info("[edgar-backfill] Processing %d filings (concurrency=%d)...", total, concurrency)
 
     # Rate limiter: 8 req/sec leaves headroom below SEC's 10 req/sec limit
     rate_limiter = _RateLimiter(rate=8.0)
@@ -415,7 +459,7 @@ async def run_edgar_backfill(
     chunk_size = 500
     async with httpx.AsyncClient(
         headers={"User-Agent": USER_AGENT},
-        timeout=httpx.Timeout(30.0),
+        timeout=httpx.Timeout(EDGAR_FILING_TIMEOUT),
         limits=httpx.Limits(max_connections=concurrency + 2, max_keepalive_connections=concurrency),
     ) as client:
         for chunk_start in range(0, total, chunk_size):

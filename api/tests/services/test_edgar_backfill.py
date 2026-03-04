@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from datetime import date
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
+import pytest
 from margin_api.services.edgar.backfill import (
     _build_snapshot_row,
     _infer_fiscal_info,
     _infer_period_end,
+    fetch_and_parse_filing,
 )
 from margin_api.services.edgar.index_builder import EdgarIndexEntry
 from margin_api.services.edgar.xbrl_parser import XBRLFinancials
@@ -189,3 +193,77 @@ class TestInferFiscalInfo:
 
         assert fiscal_year == 2024
         assert fiscal_quarter == 1
+
+
+class TestFetchAndParseFilingRetry:
+    """Tests for fetch_and_parse_filing retry behavior."""
+
+    def _make_entry(self) -> EdgarIndexEntry:
+        return EdgarIndexEntry(
+            company_name="APPLE INC",
+            form_type="10-K",
+            cik="320193",
+            date_filed="2024-11-01",
+            accession_number="0000320193-24-000123",
+            filename="edgar/data/320193/0000320193-24-000123.txt",
+        )
+
+    @pytest.mark.asyncio
+    async def test_retries_on_read_timeout_then_succeeds(self) -> None:
+        """Should retry on ReadTimeout and succeed if next attempt works."""
+        entry = self._make_entry()
+
+        index_response = MagicMock()
+        index_response.text = '<a href="aapl-20241101.xml">XBRL</a>'
+        index_response.raise_for_status = MagicMock()
+
+        xbrl_response = MagicMock()
+        xbrl_response.text = "<xbrl></xbrl>"
+        xbrl_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(
+            side_effect=[
+                httpx.ReadTimeout("timeout"),
+                index_response,
+                xbrl_response,
+            ]
+        )
+
+        with patch("margin_api.services.edgar.backfill.extract_financials") as mock_extract:
+            mock_extract.return_value = MagicMock()
+            result = await fetch_and_parse_filing(mock_client, entry)
+
+        assert result is not None
+        assert mock_client.get.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_404(self) -> None:
+        """Should NOT retry on 404 — returns None immediately."""
+        entry = self._make_entry()
+
+        error_request = httpx.Request("GET", "https://sec.gov/test")
+        error_response = httpx.Response(404, request=error_request)
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(
+            side_effect=httpx.HTTPStatusError(
+                "404", request=error_request, response=error_response
+            )
+        )
+
+        result = await fetch_and_parse_filing(mock_client, entry)
+        assert result is None
+        assert mock_client.get.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_returns_none_after_max_retries(self) -> None:
+        """Should return None after exhausting retries (not raise)."""
+        entry = self._make_entry()
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.ReadTimeout("timeout"))
+
+        result = await fetch_and_parse_filing(mock_client, entry)
+        assert result is None
+        assert mock_client.get.call_count == 5
