@@ -154,7 +154,7 @@ async def _insert_rows(
 
 async def backfill_prices_for_tickers(
     tickers: list[str],
-    start_date: str = "2009-01-01",
+    start_date: str = "2011-01-01",
     end_date: str | None = None,
     batch_size: int = 50,
     session_factory: async_sessionmaker[AsyncSession] | None = None,
@@ -259,9 +259,7 @@ async def backfill_prices_for_tickers(
             for rb_start in range(0, len(all_failed), RETRY_BATCH_SIZE):
                 retry_batch = all_failed[rb_start : rb_start + RETRY_BATCH_SIZE]
                 try:
-                    rows, failed = _download_and_extract(
-                        retry_batch, start_date, end_date
-                    )
+                    rows, failed = _download_and_extract(retry_batch, start_date, end_date)
                     for row in rows:
                         t = row["ticker"]
                         summary[t] = summary.get(t, 0) + 1

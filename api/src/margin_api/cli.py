@@ -2104,7 +2104,7 @@ async def run_backfill_13f(start_year: int = 2013, max_managers: int = 300) -> N
 
 
 async def run_price_backfill(
-    start_date: str = "2009-01-01",
+    start_date: str = "2011-01-01",
     end_date: str | None = None,
     batch_size: int = 500,
     tickers: list[str] | None = None,
@@ -2534,8 +2534,8 @@ def main() -> None:
     )
     price_backfill_parser.add_argument(
         "--start-date",
-        default="2009-01-01",
-        help="Start date for price history (YYYY-MM-DD, default: 2009-01-01)",
+        default="2011-01-01",
+        help="Start date for price history (YYYY-MM-DD, default: 2011-01-01)",
     )
     price_backfill_parser.add_argument(
         "--end-date",

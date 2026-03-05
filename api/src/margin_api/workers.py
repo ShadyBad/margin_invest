@@ -2787,7 +2787,7 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
         if tickers:
             price_result = await backfill_prices_for_tickers(
                 tickers=tickers,
-                start_date="2009-01-01",
+                start_date="2011-01-01",
                 session_factory=session_factory,
             )
             logger.info("[bootstrap_pit] Price backfill complete: %d tickers", len(price_result))
@@ -2956,9 +2956,7 @@ class WorkerSettings:
                         )
                     else:
                         job_id = f"bootstrap_pit:{uuid.uuid4().hex[:8]}"
-                        await redis_pool.enqueue_job(
-                            "bootstrap_pit_data", _job_id=job_id
-                        )
+                        await redis_pool.enqueue_job("bootstrap_pit_data", _job_id=job_id)
                         logger.info(
                             "[worker] PIT tables empty — enqueued bootstrap_pit_data: %s",
                             job_id,
