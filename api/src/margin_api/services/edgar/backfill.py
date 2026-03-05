@@ -507,9 +507,7 @@ async def run_edgar_backfill(
                             stmt = pg_insert(EdgarNoXBRLCache).values(
                                 accession_number=entry.accession_number,
                             )
-                            stmt = stmt.on_conflict_do_nothing(
-                                index_elements=["accession_number"]
-                            )
+                            stmt = stmt.on_conflict_do_nothing(index_elements=["accession_number"])
                             await session.execute(stmt)
                             await session.commit()
                         counters["skipped"] += 1

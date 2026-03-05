@@ -1,0 +1,162 @@
+# capabilities.yaml
+# Deny-by-default capability manifest.
+# Every privileged action must be explicitly enabled here.
+# The pre-tool-guard hook reads this file before allowing execution.
+
+version: "1"
+
+defaults:
+  deny_all: true
+  require_reason: true
+  audit: true
+
+capabilities:
+
+  # ── File System ──────────────────────────────────────────────
+  file_read:
+    enabled: true
+    allowlist:
+      - "src/**"
+      - "tests/**"
+      - "docs/**"
+      - ".claude/**"
+      - "package.json"
+      - "*.yaml"
+      - "*.yml"
+      - "*.md"
+      - "*.json"
+      - "*.toml"
+      - "*.lock"
+    denylist:
+      - ".env"
+      - ".env.*"
+      - "*.pem"
+      - "*.key"
+      - "id_rsa"
+      - "*.p12"
+      - "secrets.*"
+    budget:
+      max_files_per_run: 500
+
+  file_write:
+    enabled: true
+    allowlist:
+      - "src/**"
+      - "tests/**"
+      - "docs/**"
+      - "runs/**"
+      - ".claude/**"
+    denylist:
+      - ".env"
+      - ".env.*"
+      - "production.*"
+      - "*.pem"
+      - "*.key"
+    budget:
+      max_files_per_run: 200
+
+  # ── Shell / Command Execution ─────────────────────────────────
+  bash:
+    enabled: true
+    allowlist:
+      # Package management
+      - "npm install"
+      - "npm run *"
+      - "pip install *"
+      - "yarn *"
+      # Git operations
+      - "git status"
+      - "git diff *"
+      - "git log *"
+      - "git add *"
+      - "git commit *"
+      - "git checkout *"
+      - "git branch *"
+      - "git push *"
+      - "git pull"
+      - "git fetch"
+      # Testing / linting
+      - "npm test"
+      - "npm run test*"
+      - "npm run lint*"
+      - "npm run type-check"
+      - "pytest *"
+      - "python -m pytest *"
+      - "eslint *"
+      - "tsc *"
+      # Artifact writes
+      - "mkdir -p runs/*"
+      - "echo * > runs/*"
+      # Utilities
+      - "cat *"
+      - "ls *"
+      - "find *"
+      - "grep *"
+      - "jq *"
+    denylist:
+      - "rm -rf /*"
+      - "curl * | bash"
+      - "wget * | bash"
+      - "sudo *"
+      - "chmod 777 *"
+      - "* > .env"
+      - "* > .env.*"
+    budget:
+      max_commands_per_run: 100
+      timeout_seconds: 120
+
+  # ── Browser / Web ─────────────────────────────────────────────
+  browser:
+    enabled: false   # Enable per-project if UI testing needed
+    allowlist: []
+    budget:
+      max_pages_per_run: 20
+      timeout_seconds: 60
+
+  # ── Web Crawling ──────────────────────────────────────────────
+  crawl:
+    enabled: false   # Enable when docs research needed
+    allowlist:
+      - "docs.anthropic.com"
+      - "docs.aws.amazon.com"
+      - "developer.mozilla.org"
+    budget:
+      max_requests_per_run: 30
+
+  # ── Agent Spawning ────────────────────────────────────────────
+  agent_spawn:
+    enabled: true
+    max_concurrent: 3
+    max_total_per_run: 10
+    allowed_roles:
+      - "reviewer"
+      - "security-auditor"
+      - "test-writer"
+      - "doc-writer"
+
+  # ── External API Calls ────────────────────────────────────────
+  external_api:
+    enabled: false   # Must be explicitly enabled with domain allowlist
+    allowlist: []
+
+  # ── CI / CD ───────────────────────────────────────────────────
+  ci_read:
+    enabled: true   # Read CI status only, no write
+    providers:
+      - "github_actions"
+
+secrets:
+  # Secrets are handle-only. Never read, never print, never log.
+  # Inject via environment variable reference only.
+  handling: "handle_only"
+  never_print: true
+  redact_patterns:
+    - "sk-[a-zA-Z0-9]+"
+    - "xoxb-[a-zA-Z0-9-]+"
+    - "Bearer [a-zA-Z0-9._-]+"
+    - "password=[^\\s]+"
+    - "token=[^\\s]+"
+    - "secret=[^\\s]+"
+    - "api_key=[^\\s]+"
+    - "aws_access_key_id=[^\\s]+"
+    - "aws_secret_access_key=[^\\s]+"

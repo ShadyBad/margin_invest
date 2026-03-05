@@ -135,9 +135,7 @@ class TestBuildPriceRows:
         assert rows == []
 
 
-def _make_ticker_df(
-    tickers: list[str], missing: set[str] | None = None
-) -> pd.DataFrame:
+def _make_ticker_df(tickers: list[str], missing: set[str] | None = None) -> pd.DataFrame:
     """Build a fake DataFrame like yfinance group_by='ticker', auto_adjust=False returns.
 
     Returns a MultiIndex-columned DataFrame with (ticker, field) pairs.
@@ -191,13 +189,9 @@ class TestDownloadAndExtract:
     @patch("yfinance.download")
     def test_multi_ticker_partial_failure(self, mock_download: MagicMock) -> None:
         """Multi-ticker download where some tickers are missing from result."""
-        mock_download.return_value = _make_ticker_df(
-            ["AAPL", "MSFT", "GOOG"], missing={"GOOG"}
-        )
+        mock_download.return_value = _make_ticker_df(["AAPL", "MSFT", "GOOG"], missing={"GOOG"})
 
-        rows, failed = _download_and_extract(
-            ["AAPL", "MSFT", "GOOG"], "2024-01-01", "2024-01-05"
-        )
+        rows, failed = _download_and_extract(["AAPL", "MSFT", "GOOG"], "2024-01-01", "2024-01-05")
 
         tickers_in_rows = {r["ticker"] for r in rows}
         assert "AAPL" in tickers_in_rows

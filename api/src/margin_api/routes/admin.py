@@ -246,8 +246,7 @@ async def redis_health(request: Request, x_admin_key: str = Header()) -> dict:
         ]
         # Check ARQ results for recent job results
         result_keys = [
-            k.decode() if isinstance(k, bytes) else k
-            for k in await client.keys("arq:result:*")
+            k.decode() if isinstance(k, bytes) else k for k in await client.keys("arq:result:*")
         ]
         await client.aclose()
     except Exception as e:
@@ -300,8 +299,7 @@ async def flush_redis_jobs(request: Request, x_admin_key: str = Header()) -> dic
 
         # Remove stale result keys so health check shows clean state
         result_keys = [
-            k.decode() if isinstance(k, bytes) else k
-            for k in await client.keys("arq:result:*")
+            k.decode() if isinstance(k, bytes) else k for k in await client.keys("arq:result:*")
         ]
         for key in result_keys:
             await client.delete(key)

@@ -1,0 +1,1 @@
+{"id": "gc-example-001", "input": "example triage input", "expected_behavior": "scope locked, track selected, acceptance criteria defined", "gate": "scope_locked", "source_run": "example"}

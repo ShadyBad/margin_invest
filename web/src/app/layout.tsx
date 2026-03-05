@@ -39,14 +39,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${interTight.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased bg-bg-primary text-text-primary`}
+        className={`${interTight.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased text-text-primary`}
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <SessionProvider>
-            {children}
-            <ConditionalFooter />
-            <MfaRequiredModal />
-            <AnalysisDisclaimerModal />
+            <div className="min-h-screen" style={{ backgroundColor: '#0A0F0D' }}>
+              {children}
+              <ConditionalFooter />
+              <MfaRequiredModal />
+              <AnalysisDisclaimerModal />
+            </div>
           </SessionProvider>
         </ThemeProvider>
       </body>

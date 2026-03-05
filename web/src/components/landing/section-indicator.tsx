@@ -16,6 +16,8 @@ const SECTIONS = [
 
 export function SectionIndicator() {
   const [activeIndex, setActiveIndex] = useState(0)
+
+  if (!process.env.NEXT_PUBLIC_SHOW_DEV_TOOLS) return null
   const observerRef = useRef<IntersectionObserver | null>(null)
 
   useEffect(() => {

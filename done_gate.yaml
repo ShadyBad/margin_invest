@@ -1,0 +1,116 @@
+# done_gate.yaml
+# The completion contract. DONE is blocked until all required checks pass.
+# /verify reads this file and evaluates every gate.
+
+version: "1"
+
+# ── Universal Gates (Both Tracks) ─────────────────────────────────────────────
+universal:
+
+  scope_locked:
+    required: true
+    proof: "runs/<run_id>/intake/scope.md"
+    check: "file_exists"
+    failure_action: "BLOCK — run /triage first"
+
+  acceptance_criteria:
+    required: true
+    proof: "runs/<run_id>/intake/acceptance_criteria.md"
+    check: "file_exists"
+    failure_action: "BLOCK — acceptance criteria must be defined before DONE"
+
+  lint_pass:
+    required: true
+    proof: "runs/<run_id>/final/lint.log"
+    check: "exit_code_zero"
+    failure_action: "Fix lint errors. Re-run /verify."
+
+  type_check_pass:
+    required: true
+    proof: "runs/<run_id>/final/typecheck.log"
+    check: "exit_code_zero"
+    failure_action: "Fix type errors. Re-run /verify."
+
+  unit_tests_pass:
+    required: true
+    proof: "runs/<run_id>/final/unit_tests.log"
+    check: "exit_code_zero"
+    failure_action: "Fix failing tests. Re-run /verify."
+
+  no_secrets_in_artifacts:
+    required: true
+    proof: "runs/<run_id>/final/redaction_scan.json"
+    check: "zero_findings"
+    failure_action: "CRITICAL — redact secrets before proceeding"
+
+  audit_trail_exists:
+    required: true
+    proof: "runs/<run_id>/audit/events.jsonl"
+    check: "file_exists_and_nonempty"
+    failure_action: "Audit log missing — check hook configuration"
+
+  scope_changes_tracked:
+    required: "if_scope_changed"
+    proof: "docs/scope-changes/"
+    check: "directory_not_empty"
+    failure_action: "Document scope changes via /scope-change before DONE"
+
+# ── FULL Track Gates ───────────────────────────────────────────────────────────
+full_track:
+
+  integration_tests_pass:
+    required: true
+    waivable: true
+    waiver_path: "runs/<run_id>/final/integration_test_waiver.md"
+    proof: "runs/<run_id>/final/integration_tests.log"
+    check: "exit_code_zero"
+    failure_action: "Fix integration tests or create documented waiver"
+
+  eval_threshold_met:
+    required: true
+    proof: "runs/<run_id>/evals/eval_report.json"
+    check: "score_gte_threshold"
+    threshold_field: "overall_score"
+    threshold_value: 0.80
+    failure_action: "Eval score below 0.80. Improve and re-run."
+
+  security_scan_clean:
+    required: true
+    proof: "runs/<run_id>/security/scan_results.json"
+    check: "zero_critical_findings"
+    failure_action: "Resolve CRITICAL security findings before DONE"
+
+  threat_model_exists:
+    required: true
+    proof: "runs/<run_id>/security/threat_model.md"
+    check: "file_exists"
+    failure_action: "Create threat model — run security phase"
+
+  observability_artifacts:
+    required: true
+    proof: "runs/<run_id>/final/timeline.json"
+    check: "file_exists"
+    failure_action: "Observability artifacts missing — run observe phase"
+
+  browser_evidence:
+    required: "if_ui_or_auth_touched"
+    proof: "runs/<run_id>/final/evidence/browser/"
+    check: "directory_not_empty"
+    failure_action: "Browser automation evidence required for UI/auth changes"
+
+  legal_compliance:
+    required: "if_data_handling_or_new_deps"
+    proof: "docs/legal/"
+    check: "directory_not_empty"
+    failure_action: "Legal/compliance docs required — run legal phase"
+
+# ── Output ─────────────────────────────────────────────────────────────────────
+output:
+  on_pass: "DONE ✓"
+  on_fail: "NOT_DONE — ranked next actions provided"
+  artifact: "runs/<run_id>/final/done_gate.json"
+  format:
+    status: "DONE | NOT_DONE"
+    failed_gates: []
+    next_actions: []   # Ranked by blocking priority
+    timestamp: "ISO8601"

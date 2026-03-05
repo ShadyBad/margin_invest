@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import type { HomepageData } from "./types"
-import { FALLBACK_CANDIDATES, DEFAULT_UNIVERSE_SIZE, DEFAULT_ELIGIBLE_COUNT } from "./candidate-data"
+import { FALLBACK_CANDIDATES, DEFAULT_UNIVERSE_SIZE, DEFAULT_ELIGIBLE_COUNT, ENGINE_VERSION } from "./candidate-data"
 import { HeroCandidateCard } from "./hero-candidate-card"
 import { HeroSearch } from "./hero-search"
 
@@ -63,22 +63,61 @@ export function HeroSection({ data }: HeroSectionProps) {
     <section
       id="hero"
       ref={sectionRef}
-      className="min-h-screen flex items-center justify-center bg-bg-primary px-6"
+      className="relative flex items-center justify-center overflow-hidden"
+      style={{
+        minHeight: '100svh',
+        background: 'radial-gradient(ellipse 70% 60% at 75% 45%, rgba(26,122,90,0.10) 0%, transparent 65%), #0A0F0D',
+      }}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-12 lg:gap-16 max-w-6xl w-full items-center py-24">
+      {/* Grid overlay for depth */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            `linear-gradient(var(--color-grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px)`,
+          backgroundSize: "64px 64px",
+          opacity: 0.5,
+        }}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-12 lg:gap-16 max-w-6xl w-full items-center pt-16 py-24 relative z-10">
         {/* Left column — headline + CTAs */}
         <div>
-          <h1 data-hero-headline className="font-display text-5xl md:text-7xl lg:text-[80px] leading-[1.05] tracking-tight mb-6">
+          {/* Eyebrow tag */}
+          <div className="flex items-center gap-2 mb-5">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-pulse"
+            />
+            <span className="font-mono text-[11px] uppercase tracking-widest text-accent">
+              Engine {ENGINE_VERSION} &middot; Live
+            </span>
+          </div>
+
+          <h1 data-hero-headline className="font-display leading-[1.05] tracking-tight mb-6" style={{ fontSize: "clamp(56px, 7.5vw, 96px)" }}>
             <span className="block text-text-primary">Discipline.</span>
-            <span className="block text-accent">Engineered.</span>
+            <span className="block" style={{ color: 'var(--color-accent)' }}>Engineered.</span>
           </h1>
 
-          <p data-hero-subtext className="text-lg md:text-xl text-text-secondary max-w-lg mb-10 leading-relaxed">
+          <p data-hero-subtext className="text-lg md:text-xl text-text-secondary max-w-lg mb-8 leading-relaxed">
             A deterministic capital allocation system that replaces narrative with structure.
             Search any ticker — the system shows you the quantitative evidence.
           </p>
 
+          {/* Divider */}
+          <div
+            className="w-16 mb-8"
+            style={{
+              height: "1px",
+              background: `linear-gradient(90deg, var(--color-accent), transparent)`,
+            }}
+          />
+
           <HeroSearch />
+
+          {/* Trust micro-line */}
+          <p className="font-mono text-[11px] text-text-tertiary mt-4 max-w-md">
+            No credit card &middot; Free tier available &middot; 30-day guarantee on paid plans
+          </p>
         </div>
 
         {/* Right column — rotating card */}
@@ -90,6 +129,14 @@ export function HeroSection({ data }: HeroSectionProps) {
           />
         </div>
       </div>
+
+      {/* Bottom fade gradient that bleeds into next section */}
+      <div
+        className="pointer-events-none absolute bottom-0 left-0 right-0 h-32"
+        style={{
+          background: `linear-gradient(to bottom, transparent, var(--color-bg-primary))`,
+        }}
+      />
     </section>
   )
 }
