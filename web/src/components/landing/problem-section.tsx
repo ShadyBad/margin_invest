@@ -85,9 +85,17 @@ export function ProblemSection() {
       className="pt-[120px] pb-20 px-6 border-b border-border-subtle"
     >
       <div className="max-w-3xl mx-auto">
+        {/* Section divider */}
+        <div className="w-full mb-16" style={{ height: '1px', background: 'var(--color-border-subtle)' }} />
+
+        {/* Eyebrow */}
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-tertiary mb-4">
+          The Problem
+        </p>
+
         <h2
           data-problem-headline
-          className="font-display text-4xl md:text-[36px] leading-tight tracking-tight text-text-primary mb-10"
+          className="font-display text-4xl md:text-5xl leading-tight tracking-tight text-text-primary mb-10"
         >
           Most investors react. Few operate with structure.
         </h2>
@@ -97,11 +105,8 @@ export function ProblemSection() {
             <li
               key={bullet}
               data-problem-bullet
-              className="text-lg text-text-secondary flex items-start gap-3"
+              className="text-lg text-text-primary border-l-2 border-accent/30 pl-4"
             >
-              <span className="text-text-tertiary shrink-0" aria-hidden="true">
-                &mdash;
-              </span>
               {bullet}
             </li>
           ))}

@@ -9,6 +9,7 @@ import { EngineSection } from "./engine-section"
 import { ProofSection } from "./proof-section"
 import { PositioningSection } from "./positioning-section"
 import { DifferentiatorSection } from "./differentiator-section"
+import { TestimonialSection } from "./testimonial-section"
 import { PricingSection } from "./pricing-section"
 import { FaqSection } from "./faq-section"
 import { InfrastructureSection } from "./infrastructure-section"
@@ -41,6 +42,7 @@ export function HomepageClient({ data }: HomepageClientProps) {
       <EngineSection onStageChange={handleStageChange} />
       <PositioningSection />
       <DifferentiatorSection />
+      <TestimonialSection />
       <PricingSection />
       <FaqSection />
       <InfrastructureSection />

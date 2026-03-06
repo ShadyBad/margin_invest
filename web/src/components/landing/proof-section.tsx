@@ -84,12 +84,12 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
             Every signal recorded · Sector-neutral · Live tracking from day one
           </p>
           <p className="text-[10px] text-warning/80 font-mono uppercase tracking-wider max-w-md mx-auto">
-            All performance data shown below is hypothetical and simulated
+            Methodology in development · Results are illustrative
           </p>
           <p className="text-[10px] text-text-tertiary max-w-md mx-auto">
-            Past performance does not guarantee future results. Walk-forward backtesting with
-            point-in-time data and transaction costs is in development. Full methodology on
-            the backtesting page.
+            Walk-forward backtesting with point-in-time data is in active development. Every
+            output shown reflects the scoring system&apos;s logic — not a performance guarantee.
+            Full methodology on the backtesting page.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

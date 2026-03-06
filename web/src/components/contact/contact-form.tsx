@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 const subjectOptions = [
   "General",
@@ -12,6 +12,15 @@ const subjectOptions = [
 
 export function ContactForm() {
   const [submitted, setSubmitted] = useState(false)
+  const [subjectOpen, setSubjectOpen] = useState(false)
+  const [selectedSubject, setSelectedSubject] = useState("")
+
+  useEffect(() => {
+    if (!subjectOpen) return
+    const handler = () => setSubjectOpen(false)
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [subjectOpen])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -77,19 +86,51 @@ export function ContactForm() {
         <label htmlFor="contact-subject" className="block text-[13px] font-medium text-text-primary mb-1">
           Subject
         </label>
-        <select
-          id="contact-subject"
-          name="subject"
-          required
-          className="w-full px-3 py-2 bg-bg-elevated border border-border-primary rounded-lg text-[14px] text-text-primary focus:outline-none focus:border-accent transition-colors"
-        >
-          <option value="">Select a topic...</option>
-          {subjectOptions.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+        <input type="hidden" name="subject" value={selectedSubject} required />
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => setSubjectOpen(!subjectOpen)}
+            className="w-full px-3 py-2 bg-bg-elevated border border-border-primary rounded-lg text-[14px] text-left flex items-center justify-between transition-colors focus:outline-none focus:border-accent"
+            style={{ color: selectedSubject ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}
+          >
+            <span>{selectedSubject || 'Select a topic...'}</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
+              stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
+              style={{ transform: subjectOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms' }}>
+              <path d="M2 4l4 4 4-4" />
+            </svg>
+          </button>
+          {subjectOpen && (
+            <div className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden"
+              style={{
+                background: 'var(--color-bg-elevated)',
+                border: '1px solid var(--color-border-primary)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+              }}>
+              {subjectOptions.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => { setSelectedSubject(opt); setSubjectOpen(false) }}
+                  className="w-full px-3 py-2.5 text-left text-[14px] transition-colors"
+                  style={{
+                    color: selectedSubject === opt
+                      ? 'var(--color-accent)'
+                      : 'var(--color-text-primary)',
+                    background: selectedSubject === opt
+                      ? 'var(--color-accent-subtle)'
+                      : 'transparent',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-bg-subtle)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = selectedSubject === opt ? 'var(--color-accent-subtle)' : 'transparent')}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div>

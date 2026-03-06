@@ -120,9 +120,9 @@ export function FaqSection() {
   return (
     <section id="faq" className="py-24 px-6">
       <div className="max-w-3xl mx-auto">
-        <h2 className="font-display text-3xl md:text-4xl text-text-primary text-center mb-16">
-          Questions
-        </h2>
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-tertiary text-center mb-12">
+          Common Questions
+        </p>
         <div>
           {FAQ_ITEMS.map((item) => (
             <FaqItem key={item.question} item={item} />

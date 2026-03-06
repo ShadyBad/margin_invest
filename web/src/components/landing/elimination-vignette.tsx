@@ -56,8 +56,27 @@ export function EliminationVignette({ eliminatedPct }: EliminationVignetteProps)
 
   return (
     <section ref={sectionRef} className="py-16 px-6">
-      <div className="max-w-3xl mx-auto text-center space-y-4">
-        <p data-vignette className="font-mono text-4xl md:text-5xl text-accent font-semibold">
+      <div
+        className="relative mx-auto text-center space-y-4 overflow-hidden"
+        style={{
+          maxWidth: '640px',
+          padding: '48px 32px',
+          background: 'rgba(26,122,90,0.04)',
+          border: '1px solid rgba(26,122,90,0.12)',
+          borderRadius: '16px',
+        }}
+      >
+        {/* Top accent line */}
+        <div
+          className="absolute top-0 left-0 right-0"
+          style={{
+            height: '2px',
+            background: 'linear-gradient(90deg, transparent, rgba(26,122,90,0.6), transparent)',
+            borderRadius: '16px 16px 0 0',
+          }}
+        />
+
+        <p data-vignette className="font-mono text-6xl md:text-7xl text-accent font-semibold">
           {pct}%
         </p>
         <p data-vignette className="text-lg text-text-primary">

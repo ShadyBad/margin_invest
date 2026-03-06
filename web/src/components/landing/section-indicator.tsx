@@ -17,6 +17,7 @@ const SECTIONS = [
 export function SectionIndicator() {
   const [activeIndex, setActiveIndex] = useState(0)
 
+  if (process.env.NODE_ENV === 'production') return null
   if (!process.env.NEXT_PUBLIC_SHOW_DEV_TOOLS) return null
   const observerRef = useRef<IntersectionObserver | null>(null)
 

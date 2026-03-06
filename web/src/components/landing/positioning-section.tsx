@@ -64,26 +64,34 @@ export function PositioningSection() {
           className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16"
         >
           {/* Not for column */}
-          <div className="text-center md:border-r md:border-border-subtle md:pr-12">
-            <div className="text-xs uppercase tracking-[0.2em] text-text-tertiary mb-6">
+          <div className="md:border-r md:border-border-subtle md:pr-12">
+            <div className="text-[11px] uppercase tracking-[0.25em] text-text-tertiary mb-6">
               Not for
             </div>
-            <ul className="space-y-3">
-              {notForItems.map((item) => (
-                <li key={item} className="text-sm text-text-tertiary">
+            <ul>
+              {notForItems.map((item, i) => (
+                <li
+                  key={item}
+                  className={`flex items-start gap-3 py-6 text-sm text-text-tertiary${i < notForItems.length - 1 ? ' border-b border-border-subtle' : ''}`}
+                >
+                  <span className="text-text-tertiary shrink-0" aria-hidden="true">&mdash;</span>
                   {item}
                 </li>
               ))}
             </ul>
           </div>
           {/* For column */}
-          <div className="text-center">
-            <div className="text-xs uppercase tracking-[0.2em] text-accent mb-6">
+          <div style={{ background: 'rgba(26,122,90,0.03)', borderRadius: '12px', padding: '24px' }}>
+            <div className="text-[11px] uppercase tracking-[0.25em] text-accent mb-6">
               For
             </div>
-            <ul className="space-y-3">
-              {forItems.map((item) => (
-                <li key={item} className="text-sm text-accent">
+            <ul>
+              {forItems.map((item, i) => (
+                <li
+                  key={item}
+                  className={`flex items-start gap-3 py-6 text-sm text-text-primary${i < forItems.length - 1 ? ' border-b border-border-subtle' : ''}`}
+                >
+                  <span className="text-accent shrink-0" aria-hidden="true">✓</span>
                   {item}
                 </li>
               ))}

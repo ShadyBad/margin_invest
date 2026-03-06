@@ -108,8 +108,33 @@ export function ProofHistoricalChart() {
 
   if (error) {
     return (
-      <div data-testid="historical-error" className="text-center py-8">
-        <p className="text-sm text-text-secondary">{error}</p>
+      <div data-testid="historical-error" className="py-4">
+        <div
+          className="h-[200px] rounded-lg flex flex-col items-center justify-center gap-3"
+          style={{
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px dashed rgba(255,255,255,0.06)'
+          }}
+        >
+          <div className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(26,122,90,0.1)' }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 12L6 7L9 10L12 5L14 7"
+                stroke="var(--color-accent)"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.5"
+              />
+            </svg>
+          </div>
+          <p className="text-[11px] font-mono text-text-tertiary text-center">
+            Historical application in development
+          </p>
+          <p className="text-[10px] text-text-tertiary text-center max-w-[200px] leading-relaxed">
+            Walk-forward backtesting with point-in-time data coming soon
+          </p>
+        </div>
       </div>
     )
   }

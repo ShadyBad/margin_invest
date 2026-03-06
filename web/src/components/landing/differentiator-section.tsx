@@ -100,30 +100,30 @@ export function DifferentiatorSection() {
           can&apos;t verify.
         </p>
 
-        <div ref={tableRef} className="overflow-x-auto">
+        <div ref={tableRef} className="border border-border-subtle rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border-subtle">
                 <th className="text-left text-xs uppercase tracking-[0.15em] text-text-tertiary py-3 pr-4 w-[20%]">
                   &nbsp;
                 </th>
-                <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary py-3 px-2">
+                <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
                   Motley Fool
                 </th>
-                <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary py-3 px-2">
+                <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
                   Seeking Alpha
                 </th>
-                <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary py-3 px-2">
+                <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
                   Zacks
                 </th>
-                <th className="text-center text-xs uppercase tracking-[0.15em] text-accent py-3 px-2">
+                <th className="text-center text-xs uppercase tracking-[0.15em] text-accent py-3 px-2" style={{ borderTop: '2px solid var(--color-accent)' }}>
                   Margin Invest
                 </th>
               </tr>
             </thead>
             <tbody>
               {ROWS.map((row) => (
-                <tr key={row.feature} className="border-b border-border-subtle">
+                <tr key={row.feature} className="border-b border-border-subtle transition-colors hover:bg-[rgba(255,255,255,0.02)]">
                   <td className="text-left text-text-secondary py-3 pr-4 font-medium">
                     {row.feature}
                   </td>
@@ -136,7 +136,7 @@ export function DifferentiatorSection() {
                   <td className="text-center text-text-tertiary py-3 px-2">
                     {row.zacks}
                   </td>
-                  <td className="text-center text-accent font-medium py-3 px-2">
+                  <td className="text-center text-accent font-medium py-3 px-2" style={{ background: 'rgba(26,122,90,0.06)' }}>
                     {row.marginInvest}
                   </td>
                 </tr>
