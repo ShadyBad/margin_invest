@@ -384,7 +384,7 @@ class TestLivePricePoll:
         ):
             result = await live_price_poll({})
 
-        assert result["status"] == "no_recommendations"
+        assert result["status"] == "no_scored_tickers"
         assert result["updated"] == 0
 
     @pytest.mark.asyncio
@@ -407,6 +407,9 @@ class TestLivePricePoll:
         mock_ticker = MagicMock()
         mock_ticker.fast_info = MagicMock()
         mock_ticker.fast_info.last_price = 185.50
+        import pandas as pd
+
+        mock_ticker.history.return_value = pd.DataFrame()
 
         with (
             patch("margin_api.workers.get_engine"),
@@ -450,9 +453,12 @@ class TestLivePricePoll:
         def mock_ticker_factory(ticker):
             if ticker == "BAD":
                 raise Exception("yfinance error")
+            import pandas as pd
+
             mock_t = MagicMock()
             mock_t.fast_info = MagicMock()
             mock_t.fast_info.last_price = 100.0
+            mock_t.history.return_value = pd.DataFrame()
             return mock_t
 
         with (
@@ -467,6 +473,120 @@ class TestLivePricePoll:
 
         assert result["status"] == "completed"
         assert result["updated"] == 1
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_live_price_poll_stores_bar_data(self):
+        """Stores OHLCV bar in Redis alongside price."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import live_price_poll
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("AAPL",)]
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        mock_ticker = MagicMock()
+        mock_ticker.fast_info = MagicMock()
+        mock_ticker.fast_info.last_price = 191.75
+        mock_ticker.history.return_value = pd.DataFrame(
+            {
+                "Open": [188.50],
+                "High": [192.30],
+                "Low": [187.20],
+                "Close": [191.75],
+                "Volume": [4523000],
+            },
+            index=pd.DatetimeIndex(["2026-03-06"], name="Date"),
+        )
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.Ticker", return_value=mock_ticker),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await live_price_poll({})
+
+        assert result["status"] == "completed"
+
+        from margin_api.services.live_prices import LivePriceService
+
+        service = LivePriceService(fake_redis)
+
+        bar = await service.get_bar("AAPL")
+        assert bar is not None
+        assert bar["date"] == "2026-03-06"
+        assert bar["close"] == 191.75
+        assert bar["volume"] == 4523000
+
+        price = await service.get_price("AAPL")
+        assert price is not None
+        assert price["price"] == 191.75
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_live_price_poll_all_scored_tickers(self):
+        """Polls all scored tickers, not just high conviction."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import live_price_poll
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("AAPL",), ("MSFT",)]
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        def mock_ticker_factory(ticker):
+            mock_t = MagicMock()
+            mock_t.fast_info = MagicMock()
+            mock_t.fast_info.last_price = 100.0
+            mock_t.history.return_value = pd.DataFrame(
+                {
+                    "Open": [99.0],
+                    "High": [101.0],
+                    "Low": [98.0],
+                    "Close": [100.0],
+                    "Volume": [1000],
+                },
+                index=pd.DatetimeIndex(["2026-03-06"], name="Date"),
+            )
+            return mock_t
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.Ticker", side_effect=mock_ticker_factory),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await live_price_poll({})
+
+        assert result["updated"] == 2
+
+        from margin_api.services.live_prices import LivePriceService
+
+        service = LivePriceService(fake_redis)
+        assert await service.get_bar("AAPL") is not None
+        assert await service.get_bar("MSFT") is not None
 
         await fake_redis.aclose()
 

@@ -2180,13 +2180,13 @@ async def promote_ml_model(
 
 
 async def live_price_poll(ctx: dict) -> dict:
-    """Poll live prices for high-conviction tickers and cache in Redis."""
+    """Poll live prices for all scored tickers and cache bars + prices in Redis."""
     settings = get_settings()
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
 
-    # Query DB for tickers with high/exceptional conviction from latest scores
+    # Query DB for ALL tickers with a latest score (no conviction filter)
     async with session_factory() as session:
         latest_subq = (
             select(
@@ -2204,35 +2204,51 @@ async def live_price_poll(ctx: dict) -> dict:
                 (Score.asset_id == latest_subq.c.asset_id)
                 & (Score.scored_at == latest_subq.c.max_scored_at),
             )
-            .where(Score.conviction_level.in_(["exceptional", "high"]))
         )
-        recommended = [row[0] for row in result.all()]
+        scored_tickers = [row[0] for row in result.all()]
 
-    if not recommended:
-        return {"status": "no_recommendations", "updated": 0}
+    if not scored_tickers:
+        return {"status": "no_scored_tickers", "updated": 0}
 
-    logger.info("[prices] Polling prices for %d tickers", len(recommended))
+    logger.info("[prices] Polling prices for %d scored tickers", len(scored_tickers))
 
     redis_client = aioredis.from_url(settings.redis_url)
     service = LivePriceService(redis_client)
 
     try:
-        prices: dict[str, float] = {}
-        for ticker in recommended:
+        updated = 0
+        for ticker in scored_tickers:
             try:
                 t = yf.Ticker(ticker)
+
+                # Fetch last_price for backward-compat actual_price override
                 info = t.fast_info
                 current = getattr(info, "last_price", None)
                 if current and current > 0:
-                    prices[ticker] = float(current)
+                    await service.set_price(ticker, float(current))
+
+                # Fetch today's daily bar for chart injection
+                hist = t.history(period="1d")
+                if hist is not None and not hist.empty:
+                    row = hist.iloc[-1]
+                    bar_date = hist.index[-1].strftime("%Y-%m-%d")
+                    bar = {
+                        "date": bar_date,
+                        "open": float(row["Open"]),
+                        "high": float(row["High"]),
+                        "low": float(row["Low"]),
+                        "close": float(row["Close"]),
+                        "volume": int(row["Volume"]),
+                    }
+                    await service.set_bar(ticker, bar)
+
+                updated += 1
             except Exception:
+                logger.debug("[prices] Failed to fetch %s", ticker, exc_info=True)
                 continue
 
-        if prices:
-            await service.set_prices(prices)
-
-        logger.info("[prices] Updated %d/%d prices", len(prices), len(recommended))
-        return {"status": "completed", "updated": len(prices)}
+        logger.info("[prices] Updated %d/%d tickers", updated, len(scored_tickers))
+        return {"status": "completed", "updated": updated}
     finally:
         await redis_client.aclose()
 
@@ -3009,7 +3025,7 @@ class WorkerSettings:
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
         cron(
             live_price_poll,
-            minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
+            minute={0, 15, 30, 45},
             run_at_startup=False,
         ),
         cron(retry_quarantined, weekday=6, hour=0, run_at_startup=False),  # Sunday midnight
