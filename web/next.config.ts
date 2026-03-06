@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://app.termly.io",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://app.termly.io https://browser.sentry-cdn.com https://us.i.posthog.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://app.termly.io",
   "font-src 'self'",
-  "connect-src 'self' https://api.stripe.com wss: https://app.termly.io https://vitals.termly.io",
+  "connect-src 'self' https://api.stripe.com wss: https://app.termly.io https://vitals.termly.io https://*.ingest.sentry.io https://us.i.posthog.com",
   "frame-src https://js.stripe.com https://hooks.stripe.com https://app.termly.io",
   "worker-src 'self' blob:",
   "object-src 'none'",
@@ -37,4 +38,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+});
