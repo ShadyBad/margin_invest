@@ -2561,6 +2561,30 @@ async def precompute_default_backtest(ctx: dict) -> dict:
             )
             replay_result = await orchestrator.run_async()
 
+            # Debug: log result summary
+            n_snaps = len(replay_result.snapshots)
+            n_audit = len(replay_result.audit_log)
+            first_audit = replay_result.audit_log[0] if replay_result.audit_log else None
+            logger.info(
+                "[precompute_backtest] DEBUG result: %d snapshots, %d audit entries, "
+                "total_return=%.4f, runtime=%.1fs",
+                n_snaps,
+                n_audit,
+                replay_result.metrics.total_return,
+                replay_result.runtime_seconds,
+            )
+            if first_audit:
+                logger.info(
+                    "[precompute_backtest] DEBUG first audit: date=%s, universe=%d, "
+                    "eliminated=%d, survivors=%d, selected=%d, top=%s",
+                    first_audit.rebalance_date,
+                    first_audit.universe_size,
+                    first_audit.eliminated_count,
+                    first_audit.survivor_count,
+                    first_audit.selected_count,
+                    first_audit.top_holdings[:3],
+                )
+
             # Get active universe snapshot for the backtest run record
             active_snap = await get_active_snapshot(session)
             universe_id = active_snap.id if active_snap else 1
