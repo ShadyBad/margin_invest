@@ -21,6 +21,9 @@ class FakeAsyncProvider:
     async def get_price(self, ticker, as_of_date):
         return 100.0
 
+    async def get_prices(self, tickers, as_of_date):
+        return {t: 100.0 for t in tickers}
+
     async def get_delisting(self, ticker):
         return None
 

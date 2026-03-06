@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import math
 import time
+from collections import defaultdict
 from datetime import date
 
 import numpy as np
@@ -64,6 +65,7 @@ class RebalanceAuditRecord(BaseModel):
     eliminated_count: int
     survivor_count: int
     selected_count: int
+    filter_failure_breakdown: dict[str, int] = Field(default_factory=dict)
     top_holdings: list[dict]  # [{ticker, score, price}]
     notable_events: list[str]  # e.g. "LEH eliminated — insufficient earnings quality"
     factor_coverage: float  # 0.0-1.0
@@ -181,6 +183,7 @@ class ReplayOrchestrator:
             survivors = []
             eliminated_count = 0
             notable_events: list[str] = []
+            filter_failures: dict[str, int] = defaultdict(int)
 
             for snapshot in universe:
                 try:
@@ -194,11 +197,26 @@ class ReplayOrchestrator:
                         survivors.append(snapshot)
                     else:
                         eliminated_count += 1
+                        for f in filter_result.failed_filters:
+                            filter_failures[f.name] += 1
                         failed = [f.name for f in filter_result.failed_filters]
                         notable_events.append(f"{snapshot.ticker} eliminated — {', '.join(failed)}")
                 except Exception:
                     logger.warning("Filter error for %s on %s", snapshot.ticker, rebal_date)
                     eliminated_count += 1
+                    filter_failures["_error"] += 1
+
+            if filter_failures:
+                logger.info(
+                    "[replay] %s: %d/%d eliminated — %s",
+                    rebal_date,
+                    eliminated_count,
+                    len(universe),
+                    ", ".join(
+                        f"{k}={v}"
+                        for k, v in sorted(filter_failures.items(), key=lambda x: -x[1])
+                    ),
+                )
 
             # 4. Score survivors
             if self._use_real_scoring:
@@ -227,11 +245,13 @@ class ReplayOrchestrator:
                 for s, score in selected
             ]
 
-            # 6. Calculate portfolio value change
+            # 6. Calculate portfolio value change (batch price lookup)
             if i > 0 and prev_holdings:
+                held_tickers = [h.ticker for h in prev_holdings]
+                current_prices = self._provider.get_prices(held_tickers, rebal_date)
                 total_return = 0.0
                 for h in prev_holdings:
-                    current_price = self._provider.get_price(h.ticker, rebal_date)
+                    current_price = current_prices.get(h.ticker)
                     if current_price and h.entry_price > 0:
                         stock_return = (current_price / h.entry_price) - 1.0
                         total_return += h.weight * stock_return
@@ -335,6 +355,7 @@ class ReplayOrchestrator:
                     eliminated_count=eliminated_count,
                     survivor_count=len(survivors),
                     selected_count=len(selected),
+                    filter_failure_breakdown=dict(filter_failures),
                     top_holdings=top_holdings,
                     notable_events=notable_events[:5],
                     factor_coverage=coverage,
@@ -422,6 +443,7 @@ class ReplayOrchestrator:
             survivors = []
             eliminated_count = 0
             notable_events: list[str] = []
+            filter_failures: dict[str, int] = defaultdict(int)
 
             for snapshot in universe:
                 try:
@@ -435,11 +457,26 @@ class ReplayOrchestrator:
                         survivors.append(snapshot)
                     else:
                         eliminated_count += 1
+                        for f in filter_result.failed_filters:
+                            filter_failures[f.name] += 1
                         failed = [f.name for f in filter_result.failed_filters]
                         notable_events.append(f"{snapshot.ticker} eliminated — {', '.join(failed)}")
                 except Exception:
                     logger.warning("Filter error for %s on %s", snapshot.ticker, rebal_date)
                     eliminated_count += 1
+                    filter_failures["_error"] += 1
+
+            if filter_failures:
+                logger.info(
+                    "[replay] %s: %d/%d eliminated — %s",
+                    rebal_date,
+                    eliminated_count,
+                    len(universe),
+                    ", ".join(
+                        f"{k}={v}"
+                        for k, v in sorted(filter_failures.items(), key=lambda x: -x[1])
+                    ),
+                )
 
             # 4. Score survivors
             if self._use_real_scoring:
@@ -468,11 +505,13 @@ class ReplayOrchestrator:
                 for s, score in selected
             ]
 
-            # 6. Calculate portfolio value change (async price lookups)
+            # 6. Calculate portfolio value change (batch async price lookup)
             if i > 0 and prev_holdings:
+                held_tickers = [h.ticker for h in prev_holdings]
+                current_prices = await self._provider.get_prices(held_tickers, rebal_date)
                 total_return = 0.0
                 for h in prev_holdings:
-                    current_price = await self._provider.get_price(h.ticker, rebal_date)
+                    current_price = current_prices.get(h.ticker)
                     if current_price and h.entry_price > 0:
                         stock_return = (current_price / h.entry_price) - 1.0
                         total_return += h.weight * stock_return
@@ -565,6 +604,7 @@ class ReplayOrchestrator:
                     eliminated_count=eliminated_count,
                     survivor_count=len(survivors),
                     selected_count=len(selected),
+                    filter_failure_breakdown=dict(filter_failures),
                     top_holdings=top_holdings,
                     notable_events=notable_events[:5],
                     factor_coverage=coverage,

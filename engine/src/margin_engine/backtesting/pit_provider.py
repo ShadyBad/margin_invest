@@ -73,6 +73,10 @@ class PointInTimeProvider(Protocol):
         """Return closing price for a ticker at the given date."""
         ...
 
+    def get_prices(self, tickers: list[str], as_of_date: date) -> dict[str, float]:
+        """Return closing prices for multiple tickers. Batch optimization."""
+        ...
+
     def get_delisting(self, ticker: str) -> DelistingEvent | None:
         """Return delisting event for a ticker, or None if still listed."""
         ...
@@ -92,6 +96,10 @@ class AsyncPointInTimeProvider(Protocol):
 
     async def get_price(self, ticker: str, as_of_date: date) -> float | None:
         """Return closing price for a ticker at the given date."""
+        ...
+
+    async def get_prices(self, tickers: list[str], as_of_date: date) -> dict[str, float]:
+        """Return closing prices for multiple tickers. Batch optimization."""
         ...
 
     async def get_delisting(self, ticker: str) -> DelistingEvent | None:
@@ -163,6 +171,15 @@ class InMemoryPITProvider:
         """Return price for a ticker at the given date."""
         snapshot = self.get_snapshot(ticker, as_of_date)
         return snapshot.price if snapshot else None
+
+    def get_prices(self, tickers: list[str], as_of_date: date) -> dict[str, float]:
+        """Return closing prices for multiple tickers. Batch optimization."""
+        result: dict[str, float] = {}
+        for ticker in tickers:
+            price = self.get_price(ticker, as_of_date)
+            if price is not None:
+                result[ticker] = price
+        return result
 
     def get_delisting(self, ticker: str) -> DelistingEvent | None:
         """Return delisting event for a ticker."""

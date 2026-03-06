@@ -61,6 +61,31 @@ class DatabasePITProvider:
         row = result.scalar_one_or_none()
         return float(row) if row is not None else None
 
+    async def get_prices(self, tickers: list[str], as_of_date: date) -> dict[str, float]:
+        """Batch price lookup using window functions.
+
+        Returns a dict mapping ticker -> closing price for the most recent
+        price at or before as_of_date. Tickers with no price data are omitted.
+        """
+        if not tickers:
+            return {}
+
+        from sqlalchemy import func as sa_func
+
+        price_rn = (
+            sa_func.row_number()
+            .over(partition_by=PITDailyPrice.ticker, order_by=PITDailyPrice.date.desc())
+            .label("prn")
+        )
+        price_sub = (
+            select(PITDailyPrice.ticker, PITDailyPrice.close, price_rn)
+            .where(PITDailyPrice.ticker.in_(tickers), PITDailyPrice.date <= as_of_date)
+            .subquery()
+        )
+        stmt = select(price_sub.c.ticker, price_sub.c.close).where(price_sub.c.prn == 1)
+        result = await self._session.execute(stmt)
+        return {row.ticker: float(row.close) for row in result.all()}
+
     async def get_snapshot(self, ticker: str, as_of_date: date) -> PITSnapshot | None:
         """Return point-in-time data for a specific ticker.
 

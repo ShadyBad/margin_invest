@@ -215,6 +215,63 @@ class TestGetPrice:
 
 
 # ---------------------------------------------------------------------------
+# get_prices (batch) tests
+# ---------------------------------------------------------------------------
+
+
+class TestGetPrices:
+    @pytest.mark.asyncio
+    async def test_get_prices_batch(self, session: AsyncSession):
+        """get_prices returns prices for multiple tickers in one call."""
+        session.add_all(
+            [
+                _make_price(ticker="AAPL", price_date=date(2020, 3, 1), close=100.0),
+                _make_price(ticker="MSFT", price_date=date(2020, 3, 1), close=200.0),
+            ]
+        )
+        await session.commit()
+
+        provider = DatabasePITProvider(session)
+        prices = await provider.get_prices(["AAPL", "MSFT", "NOPE"], date(2020, 3, 15))
+        assert prices["AAPL"] == pytest.approx(100.0)
+        assert prices["MSFT"] == pytest.approx(200.0)
+        assert "NOPE" not in prices
+
+    @pytest.mark.asyncio
+    async def test_get_prices_empty_tickers(self, session: AsyncSession):
+        """get_prices with empty ticker list returns empty dict."""
+        provider = DatabasePITProvider(session)
+        prices = await provider.get_prices([], date(2020, 3, 15))
+        assert prices == {}
+
+    @pytest.mark.asyncio
+    async def test_get_prices_uses_most_recent(self, session: AsyncSession):
+        """get_prices returns the most recent price at or before as_of_date."""
+        session.add_all(
+            [
+                _make_price(ticker="AAPL", price_date=date(2020, 2, 1), close=90.0),
+                _make_price(ticker="AAPL", price_date=date(2020, 3, 1), close=100.0),
+                _make_price(ticker="AAPL", price_date=date(2020, 4, 1), close=110.0),
+            ]
+        )
+        await session.commit()
+
+        provider = DatabasePITProvider(session)
+        prices = await provider.get_prices(["AAPL"], date(2020, 3, 15))
+        assert prices["AAPL"] == pytest.approx(100.0)
+
+    @pytest.mark.asyncio
+    async def test_get_prices_excludes_future(self, session: AsyncSession):
+        """get_prices must not return prices after as_of_date."""
+        session.add(_make_price(ticker="AAPL", price_date=date(2020, 4, 1), close=110.0))
+        await session.commit()
+
+        provider = DatabasePITProvider(session)
+        prices = await provider.get_prices(["AAPL"], date(2020, 3, 15))
+        assert "AAPL" not in prices
+
+
+# ---------------------------------------------------------------------------
 # get_snapshot tests
 # ---------------------------------------------------------------------------
 
