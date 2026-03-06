@@ -486,6 +486,62 @@ async def _try_get_live_price(ticker: str) -> dict | None:
         return None
 
 
+async def _try_get_live_bar(ticker: str) -> dict | None:
+    """Try to fetch today's live OHLCV bar from Redis. Returns None if unavailable."""
+    try:
+        import redis.asyncio as aioredis
+
+        from margin_api.services.live_prices import LivePriceService
+
+        client = aioredis.Redis(host="localhost", port=6379, socket_connect_timeout=1)
+        service = LivePriceService(client)
+        try:
+            return await service.get_bar(ticker)
+        finally:
+            await client.aclose()
+    except Exception:
+        return None
+
+
+def _inject_live_bar(
+    existing_bars: list[dict],
+    live_bar: dict | None,
+) -> list[dict]:
+    """Merge today's live bar into the historical bars list.
+
+    - If live_bar is None, return existing bars unchanged.
+    - If the last existing bar has the same date as the live bar, replace it.
+    - Otherwise, append the live bar.
+    """
+    if live_bar is None:
+        return existing_bars
+
+    # Strip metadata keys — only keep OHLCV fields
+    bar = {
+        "date": live_bar["date"],
+        "open": live_bar["open"],
+        "high": live_bar["high"],
+        "low": live_bar["low"],
+        "close": live_bar["close"],
+        "volume": live_bar["volume"],
+    }
+
+    if not existing_bars:
+        return [bar]
+
+    last_date = existing_bars[-1].get("date", "")
+    # Normalize: strip time portion if present (e.g. "2026-03-06T00:00:00")
+    last_date_str = last_date[:10] if last_date else ""
+    live_date_str = bar["date"][:10]
+
+    if last_date_str == live_date_str:
+        # Replace last bar with updated live data
+        return existing_bars[:-1] + [bar]
+    else:
+        # Append new day's bar
+        return existing_bars + [bar]
+
+
 @router.get("/{ticker}", response_model=ScoreResponse)
 @limiter.limit("20/minute")
 async def get_score(
@@ -745,13 +801,17 @@ async def get_score(
 
         try:
             if fd_row and isinstance(fd_row, dict) and "bars" in fd_row:
-                response.price_history = [
-                    PriceBarResponse(**_normalize_bar(bar)) for bar in fd_row["bars"]
-                ]
+                bars = [_normalize_bar(bar) for bar in fd_row["bars"]]
             elif fd_row and isinstance(fd_row, list):
-                response.price_history = [PriceBarResponse(**_normalize_bar(bar)) for bar in fd_row]
+                bars = [_normalize_bar(bar) for bar in fd_row]
             else:
-                response.price_history = []
+                bars = []
+
+            # Inject today's live bar from Redis
+            live_bar = await _try_get_live_bar(ticker)
+            bars = _inject_live_bar(bars, live_bar)
+
+            response.price_history = [PriceBarResponse(**bar) for bar in bars]
         except Exception:
             import logging
 
