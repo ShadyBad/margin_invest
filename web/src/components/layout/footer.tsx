@@ -25,6 +25,13 @@ export function Footer() {
               {link.label}
             </Link>
           ))}
+          <button
+            type="button"
+            className="termly-display-preferences hover:text-text-secondary transition-colors duration-200"
+            aria-label="Cookie Preferences"
+          >
+            Cookies
+          </button>
         </nav>
         <span>&copy; {new Date().getFullYear()} Margin Invest</span>
       </div>

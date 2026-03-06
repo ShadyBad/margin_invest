@@ -22,4 +22,11 @@ describe("Footer (authenticated)", () => {
     render(<Footer />)
     expect(screen.getByRole("contentinfo")).toBeInTheDocument()
   })
+
+  it("renders cookie preferences button", () => {
+    render(<Footer />)
+    const cookieButton = screen.getByRole("button", { name: "Cookie Preferences" })
+    expect(cookieButton).toBeInTheDocument()
+    expect(cookieButton).toHaveClass("termly-display-preferences")
+  })
 })
