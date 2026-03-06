@@ -98,8 +98,6 @@ class DatabasePITProvider:
         filters by is_active=True and market_cap >= min_market_cap, then batch
         loads snapshots for all qualifying tickers.
         """
-        from sqlalchemy import or_
-
         # Find the nearest quarter_date <= as_of_date
         nearest_q_stmt = (
             select(PITUniverseMembership.quarter_date)
@@ -113,15 +111,11 @@ class DatabasePITProvider:
         if nearest_quarter is None:
             return []
 
-        # Get all qualifying members for that quarter
-        # Allow NULL market_cap (not yet computed) — treat as qualifying
-        members_stmt = select(PITUniverseMembership.ticker).where(
+        # Get all tickers for that quarter (skip is_active filter — the delisting
+        # detector is too aggressive with 2-quarter gaps, marking nearly everything
+        # as delisted. The backtest handles delistings via get_delisting() instead.)
+        members_stmt = select(PITUniverseMembership.ticker.distinct()).where(
             PITUniverseMembership.quarter_date == nearest_quarter,
-            PITUniverseMembership.is_active.is_(True),
-            or_(
-                PITUniverseMembership.market_cap >= self._min_market_cap,
-                PITUniverseMembership.market_cap.is_(None),
-            ),
         )
         members_result = await self._session.execute(members_stmt)
         tickers = [row[0] for row in members_result.all()]
