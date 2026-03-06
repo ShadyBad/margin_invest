@@ -2,12 +2,12 @@ import type { NextConfig } from "next";
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://app.termly.io",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
+  "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://app.termly.io",
   "font-src 'self'",
-  "connect-src 'self' https://api.stripe.com wss:",
-  "frame-src https://js.stripe.com https://hooks.stripe.com",
+  "connect-src 'self' https://api.stripe.com wss: https://app.termly.io https://vitals.termly.io",
+  "frame-src https://js.stripe.com https://hooks.stripe.com https://app.termly.io",
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
