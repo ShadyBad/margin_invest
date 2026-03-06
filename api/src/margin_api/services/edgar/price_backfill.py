@@ -145,10 +145,15 @@ async def _insert_rows(
     """Insert price rows into the database with ON CONFLICT DO NOTHING."""
     if not rows:
         return
+    # Batch inserts to stay under asyncpg's 32767 parameter limit.
+    # Each row has 9 columns, so max ~3600 rows per batch.
+    batch_size = 3600
     async with session_factory() as session:
-        stmt = pg_insert(PITDailyPrice).values(rows)
-        stmt = stmt.on_conflict_do_nothing(index_elements=["ticker", "date"])
-        await session.execute(stmt)
+        for i in range(0, len(rows), batch_size):
+            batch = rows[i : i + batch_size]
+            stmt = pg_insert(PITDailyPrice).values(batch)
+            stmt = stmt.on_conflict_do_nothing(index_elements=["ticker", "date"])
+            await session.execute(stmt)
         await session.commit()
 
 
