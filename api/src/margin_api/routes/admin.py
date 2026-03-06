@@ -486,6 +486,42 @@ async def update_job_status(
     return {"job_id": job_id, "old_status": old_status, "new_status": new_status}
 
 
+@router.post("/backtest/precompute")
+@limiter.limit("3/minute")
+async def trigger_precompute_backtest(
+    request: Request, x_admin_key: str = Header()
+) -> JSONResponse:
+    """Enqueue just the precompute_default_backtest job (skips full bootstrap)."""
+    _verify_admin_key(x_admin_key)
+
+    settings = get_settings()
+    from arq.connections import RedisSettings
+
+    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+
+    try:
+        redis: ArqRedis = await create_pool(redis_settings)
+        job = await redis.enqueue_job(
+            "precompute_default_backtest",
+            _job_id=f"precompute_backtest:{uuid.uuid4().hex[:8]}",
+        )
+        await redis.aclose()
+    except Exception as e:
+        logger.exception("Failed to enqueue precompute backtest job")
+        raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
+
+    logger.info("[admin] Enqueued precompute_default_backtest job: %s", job.job_id)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "enqueued",
+            "job": "precompute_default_backtest",
+            "job_id": job.job_id,
+        },
+    )
+
+
 @router.get("/ingestion/quarantined")
 @limiter.limit("3/minute")
 async def get_quarantined_assets(
