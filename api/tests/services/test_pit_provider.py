@@ -8,8 +8,14 @@ from decimal import Decimal
 import pytest
 import pytest_asyncio
 from margin_api.db.base import Base
-from margin_api.db.models import PITDailyPrice, PITFinancialSnapshot, PITUniverseMembership
+from margin_api.db.models import (
+    PITDailyPrice,
+    PITFinancialSnapshot,
+    PITUniverseMembership,
+    SICSectorMap,
+)
 from margin_api.services.pit_provider import DatabasePITProvider
+from margin_engine.models.financial import GICSSector
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ---------------------------------------------------------------------------
@@ -98,6 +104,7 @@ def _make_filing(
     shares_outstanding: int = 15_000_000_000,
     fiscal_year: int = 2024,
     fiscal_quarter: int | None = 4,
+    sic_code: int | None = None,
     **kw,
 ) -> PITFinancialSnapshot:
     return PITFinancialSnapshot(
@@ -113,6 +120,7 @@ def _make_filing(
         shares_outstanding=shares_outstanding,
         fiscal_year=fiscal_year,
         fiscal_quarter=fiscal_quarter,
+        sic_code=sic_code,
         ingested_at=datetime.now(UTC),
     )
 
@@ -424,6 +432,7 @@ class TestGetUniverse:
                 accession_number="0000320193-24-000001",
             )
         )
+        # TINY: shares * price = 10_000_000 * 5.0 = 50M < 100M threshold
         session.add(
             _make_filing(
                 ticker="TINY",
@@ -431,6 +440,7 @@ class TestGetUniverse:
                 filing_date=date(2024, 11, 1),
                 period_end=date(2024, 9, 28),
                 accession_number="0000000001-24-000001",
+                shares_outstanding=10_000_000,
             )
         )
         session.add(_make_price(ticker="AAPL", price_date=date(2024, 11, 15), close=175.0))
@@ -612,3 +622,190 @@ class TestGetDelisting:
         assert event is not None
         assert event.delist_date == date(2024, 10, 15)
         assert event.last_price == 12.50
+
+
+# ---------------------------------------------------------------------------
+# SIC sector mapping tests
+# ---------------------------------------------------------------------------
+
+
+class TestSICSectorMapping:
+    @pytest.mark.asyncio
+    async def test_profile_uses_sic_sector(self, session: AsyncSession):
+        """_build_profile should use SIC->GICS mapping instead of hardcoded sector."""
+        # Seed SIC->GICS mapping
+        session.add(SICSectorMap(sic_code=2830, gics_sector="Health Care"))
+        # Seed snapshot with sic_code
+        session.add(
+            _make_filing(
+                ticker="PFE",
+                cik="0000078003",
+                filing_date=date(2020, 2, 15),
+                period_end=date(2019, 12, 31),
+                accession_number="0000078003-20-000001",
+                shares_outstanding=5_000_000,
+                fiscal_year=2019,
+                sic_code=2830,
+            )
+        )
+        session.add(_make_price(ticker="PFE", price_date=date(2020, 3, 1), close=35.0))
+        await session.commit()
+
+        provider = DatabasePITProvider(session)
+        snapshot = await provider.get_snapshot("PFE", date(2020, 3, 15))
+
+        assert snapshot is not None
+        assert snapshot.profile.sector == GICSSector.HEALTHCARE
+
+    @pytest.mark.asyncio
+    async def test_profile_falls_back_to_industrials_without_sic(self, session: AsyncSession):
+        """Without SIC code, profile should default to INDUSTRIALS (not TECHNOLOGY)."""
+        session.add(
+            _make_filing(
+                ticker="XYZ",
+                cik="0000099999",
+                filing_date=date(2020, 2, 15),
+                period_end=date(2019, 12, 31),
+                accession_number="0000099999-20-000001",
+                shares_outstanding=1_000_000,
+                fiscal_year=2019,
+            )
+        )
+        session.add(_make_price(ticker="XYZ", price_date=date(2020, 3, 1), close=10.0))
+        await session.commit()
+
+        provider = DatabasePITProvider(session)
+        snapshot = await provider.get_snapshot("XYZ", date(2020, 3, 15))
+
+        assert snapshot is not None
+        assert snapshot.profile.sector == GICSSector.INDUSTRIALS
+
+    @pytest.mark.asyncio
+    async def test_profile_falls_back_to_industrials_for_unknown_sic(self, session: AsyncSession):
+        """SIC code not in the mapping table should fall back to INDUSTRIALS."""
+        # No SICSectorMap rows — so sic_code 9999 won't match anything
+        session.add(
+            _make_filing(
+                ticker="UNK",
+                cik="0000088888",
+                filing_date=date(2020, 2, 15),
+                period_end=date(2019, 12, 31),
+                accession_number="0000088888-20-000001",
+                shares_outstanding=1_000_000,
+                fiscal_year=2019,
+                sic_code=9999,
+            )
+        )
+        session.add(_make_price(ticker="UNK", price_date=date(2020, 3, 1), close=10.0))
+        await session.commit()
+
+        provider = DatabasePITProvider(session)
+        snapshot = await provider.get_snapshot("UNK", date(2020, 3, 15))
+
+        assert snapshot is not None
+        assert snapshot.profile.sector == GICSSector.INDUSTRIALS
+
+
+# ---------------------------------------------------------------------------
+# Volume and history enrichment tests
+# ---------------------------------------------------------------------------
+
+
+class TestVolumeAndHistory:
+    @pytest.mark.asyncio
+    async def test_universe_populates_avg_daily_volume(self, session: AsyncSession):
+        """get_universe should populate avg_daily_volume from membership rows."""
+        session.add(
+            PITUniverseMembership(
+                ticker="AAPL",
+                cik="0000320193",
+                quarter_date=date(2024, 9, 30),
+                is_active=True,
+                market_cap=2_500_000_000_000.0,
+                avg_daily_volume=5_000_000.0,
+                last_filing_date=date(2024, 11, 1),
+            )
+        )
+        session.add(
+            _make_filing(
+                ticker="AAPL",
+                filing_date=date(2024, 11, 1),
+                period_end=date(2024, 9, 28),
+                accession_number="0000320193-24-000001",
+            )
+        )
+        session.add(_make_price(ticker="AAPL", price_date=date(2024, 11, 15), close=175.0))
+        await session.commit()
+
+        provider = DatabasePITProvider(session)
+        universe = await provider.get_universe(date(2024, 11, 15))
+
+        assert len(universe) == 1
+        assert universe[0].profile.avg_daily_volume == Decimal("5000000.0")
+
+    @pytest.mark.asyncio
+    async def test_universe_populates_years_of_history(self, session: AsyncSession):
+        """get_universe should compute years_of_history from earliest filing."""
+        session.add(
+            _make_member(
+                ticker="AAPL",
+                quarter_date=date(2024, 9, 30),
+                market_cap=2_500_000_000_000.0,
+            )
+        )
+        # Two filings ~4 years apart
+        session.add(
+            _make_filing(
+                ticker="AAPL",
+                filing_date=date(2020, 11, 1),
+                period_end=date(2020, 9, 28),
+                accession_number="0000320193-20-000001",
+                fiscal_year=2020,
+            )
+        )
+        session.add(
+            _make_filing(
+                ticker="AAPL",
+                filing_date=date(2024, 11, 1),
+                period_end=date(2024, 9, 28),
+                accession_number="0000320193-24-000001",
+                fiscal_year=2024,
+            )
+        )
+        session.add(_make_price(ticker="AAPL", price_date=date(2024, 11, 15), close=175.0))
+        await session.commit()
+
+        provider = DatabasePITProvider(session)
+        universe = await provider.get_universe(date(2024, 11, 15))
+
+        assert len(universe) == 1
+        # Earliest filing was 2020-11-01, as_of_date is 2024-11-15
+        # (2024-11-15 - 2020-11-01).days // 365 = 1475 // 365 = 4
+        assert universe[0].profile.years_of_history == 4
+
+    @pytest.mark.asyncio
+    async def test_universe_zero_volume_when_null(self, session: AsyncSession):
+        """avg_daily_volume should be 0 when membership row has no volume data."""
+        session.add(
+            _make_member(
+                ticker="AAPL",
+                quarter_date=date(2024, 9, 30),
+                market_cap=2_500_000_000_000.0,
+            )
+        )
+        session.add(
+            _make_filing(
+                ticker="AAPL",
+                filing_date=date(2024, 11, 1),
+                period_end=date(2024, 9, 28),
+                accession_number="0000320193-24-000001",
+            )
+        )
+        session.add(_make_price(ticker="AAPL", price_date=date(2024, 11, 15), close=175.0))
+        await session.commit()
+
+        provider = DatabasePITProvider(session)
+        universe = await provider.get_universe(date(2024, 11, 15))
+
+        assert len(universe) == 1
+        assert universe[0].profile.avg_daily_volume == Decimal("0")

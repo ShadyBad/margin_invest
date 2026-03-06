@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from margin_engine.backtesting.pit_provider import DelistingEvent, DelistingType, PITSnapshot
 from margin_engine.models.financial import (
@@ -24,6 +25,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import PITDailyPrice, PITFinancialSnapshot, PITUniverseMembership
 
+if TYPE_CHECKING:
+    from margin_api.services.sic_mapper import SICMapper
+
 
 class DatabasePITProvider:
     """AsyncPointInTimeProvider backed by PostgreSQL PIT tables."""
@@ -31,6 +35,15 @@ class DatabasePITProvider:
     def __init__(self, session: AsyncSession, min_market_cap: float = 100_000_000):
         self._session = session
         self._min_market_cap = min_market_cap
+        self._sic_mapper: SICMapper | None = None
+
+    async def _get_sic_mapper(self) -> SICMapper:
+        """Lazy-load the SIC->GICS mapper from the database."""
+        if self._sic_mapper is None:
+            from margin_api.services.sic_mapper import SICMapper
+
+            self._sic_mapper = await SICMapper.load(self._session)
+        return self._sic_mapper
 
     async def get_price(self, ticker: str, as_of_date: date) -> float | None:
         """Return closing price for a ticker at or before the given date.
@@ -79,8 +92,9 @@ class DatabasePITProvider:
         if price is None:
             return None
 
+        sic_mapper = await self._get_sic_mapper()
         period = _build_period(current_row, prior_row)
-        profile = _build_profile(ticker, current_row, price)
+        profile = _build_profile(ticker, current_row, price, sic_mapper=sic_mapper)
 
         return PITSnapshot(
             ticker=ticker,
@@ -111,14 +125,23 @@ class DatabasePITProvider:
         if nearest_quarter is None:
             return []
 
-        # Get all tickers for that quarter (skip is_active filter — the delisting
-        # detector is too aggressive with 2-quarter gaps, marking nearly everything
-        # as delisted. The backtest handles delistings via get_delisting() instead.)
-        members_stmt = select(PITUniverseMembership.ticker.distinct()).where(
+        # Get all active tickers for that quarter, filtering by market cap
+        members_stmt = select(
+            PITUniverseMembership.ticker,
+            PITUniverseMembership.avg_daily_volume,
+        ).where(
             PITUniverseMembership.quarter_date == nearest_quarter,
+            PITUniverseMembership.is_active.is_(True),
         )
         members_result = await self._session.execute(members_stmt)
-        tickers = [row[0] for row in members_result.all()]
+        member_rows = members_result.all()
+
+        # Build volume lookup and ticker list
+        ticker_volumes: dict[str, float | None] = {}
+        tickers: list[str] = []
+        for mrow in member_rows:
+            tickers.append(mrow.ticker)
+            ticker_volumes[mrow.ticker] = mrow.avg_daily_volume
 
         if not tickers:
             return []
@@ -173,13 +196,28 @@ class DatabasePITProvider:
             )
             .subquery()
         )
-        price_stmt = select(price_sub.c.ticker, price_sub.c.close).where(
-            price_sub.c.prn == 1
-        )
+        price_stmt = select(price_sub.c.ticker, price_sub.c.close).where(price_sub.c.prn == 1)
         price_result = await self._session.execute(price_stmt)
         ticker_prices: dict[str, float] = {
             row.ticker: float(row.close) for row in price_result.all()
         }
+
+        # Compute years_of_history per ticker from earliest filing date
+        earliest_stmt = (
+            select(
+                PITFinancialSnapshot.ticker,
+                sa_func.min(PITFinancialSnapshot.filing_date).label("earliest"),
+            )
+            .where(PITFinancialSnapshot.ticker.in_(tickers))
+            .group_by(PITFinancialSnapshot.ticker)
+        )
+        earliest_result = await self._session.execute(earliest_stmt)
+        earliest_filings: dict[str, date] = {
+            row.ticker: row.earliest for row in earliest_result.all()
+        }
+
+        # Load SIC mapper once for sector resolution
+        sic_mapper = await self._get_sic_mapper()
 
         # Build snapshots
         snapshots: list[PITSnapshot] = []
@@ -199,7 +237,17 @@ class DatabasePITProvider:
 
             # Build a lightweight object that has the same attributes
             period = _build_period_from_row(current_row, prior_row)
-            profile = _build_profile_from_row(ticker, current_row, price)
+            profile = _build_profile_from_row(ticker, current_row, price, sic_mapper=sic_mapper)
+
+            # Populate avg_daily_volume and years_of_history
+            vol = ticker_volumes.get(ticker)
+            profile.avg_daily_volume = Decimal(str(vol or 0))
+            earliest = earliest_filings.get(ticker, as_of_date)
+            profile.years_of_history = max(0, (as_of_date - earliest).days // 365)
+
+            # Apply market cap filter
+            if float(profile.market_cap) < self._min_market_cap:
+                continue
 
             snapshots.append(
                 PITSnapshot(
@@ -358,15 +406,30 @@ def _build_cash_flow_statement(data: dict) -> CashFlowStatement:
     )
 
 
-def _build_profile(ticker: str, row: PITFinancialSnapshot, price: float) -> AssetProfile:
-    """Build AssetProfile from filing data and current price."""
+def _build_profile(
+    ticker: str,
+    row: PITFinancialSnapshot,
+    price: float,
+    sic_mapper: SICMapper | None = None,
+) -> AssetProfile:
+    """Build AssetProfile from filing data and current price.
+
+    If a SICMapper is provided and the filing has a sic_code, the GICS sector
+    is resolved via the mapping table. Otherwise falls back to INDUSTRIALS.
+    """
     shares = row.shares_outstanding or 0
     market_cap = Decimal(str(shares)) * Decimal(str(price))
+    sic_code = getattr(row, "sic_code", None)
+
+    if sic_mapper and sic_code is not None:
+        sector = sic_mapper.to_gics(sic_code)
+    else:
+        sector = GICSSector.INDUSTRIALS  # Default — matches SICMapper fallback
 
     return AssetProfile(
         ticker=ticker,
         name=ticker,  # We don't have company name in PIT table
-        sector=GICSSector.TECHNOLOGY,  # Default — will be refined later
+        sector=sector,
         market_cap=market_cap,
         shares_outstanding=shares,
     )
