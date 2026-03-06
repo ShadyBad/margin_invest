@@ -1073,6 +1073,7 @@ class PITFinancialSnapshot(Base):
     shares_outstanding: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     fiscal_year: Mapped[int] = mapped_column(Integer)
     fiscal_quarter: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sic_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ingested_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -1122,6 +1123,8 @@ class PITUniverseMembership(Base):
     quarter_date: Mapped[date]
     is_active: Mapped[bool] = mapped_column(default=True)
     market_cap: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sic_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    avg_daily_volume: Mapped[float | None] = mapped_column(Float, nullable=True)
     last_filing_date: Mapped[date | None] = mapped_column(nullable=True)
     delist_detected_at: Mapped[date | None] = mapped_column(nullable=True)
     last_known_price: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -1130,6 +1133,16 @@ class PITUniverseMembership(Base):
         UniqueConstraint("ticker", "quarter_date", name="uq_pit_universe_ticker_quarter"),
         Index("ix_pit_universe_quarter_date", "quarter_date"),
     )
+
+
+class SICSectorMap(Base):
+    """Static mapping from SIC codes to GICS sectors."""
+
+    __tablename__ = "sic_sector_map"
+
+    sic_code: Mapped[int] = mapped_column(Integer, primary_key=True)
+    gics_sector: Mapped[str] = mapped_column(String(50))
+    sic_description: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
 class EdgarIndexCache(Base):
