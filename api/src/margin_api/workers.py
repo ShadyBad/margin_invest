@@ -2571,7 +2571,7 @@ async def precompute_default_backtest(ctx: dict) -> dict:
                 n_snaps,
                 n_audit,
                 replay_result.metrics.total_return,
-                replay_result.runtime_seconds,
+                replay_result.duration_seconds,
             )
             if first_audit:
                 logger.info(
