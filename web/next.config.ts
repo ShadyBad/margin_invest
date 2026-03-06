@@ -3,7 +3,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://app.termly.io https://browser.sentry-cdn.com https://us.i.posthog.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://app.termly.io https://browser.sentry-cdn.com https://us.i.posthog.com https://us-assets.i.posthog.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://app.termly.io",
   "font-src 'self'",
