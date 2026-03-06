@@ -1,7 +1,7 @@
 """Tests for the universe assembly service.
 
 Covers:
-- detect_delistings: detecting tickers missing 2+ consecutive quarters
+- detect_delistings: detecting tickers missing 8+ consecutive quarters (default)
 - build_quarterly_membership: building row dicts for pit_universe_memberships
 - assemble_universe: end-to-end integration querying pit_financial_snapshots
 - fill_last_known_prices: backfilling last_known_price for delisted tickers
@@ -16,6 +16,8 @@ import pytest_asyncio
 from margin_api.db.base import Base
 from margin_api.db.models import PITDailyPrice, PITFinancialSnapshot, PITUniverseMembership
 from margin_api.services.edgar.universe_assembly import (
+    _batch_compute_avg_volumes,
+    _batch_compute_market_caps,
     assemble_universe,
     build_quarterly_membership,
     detect_delistings,
@@ -101,7 +103,7 @@ def _make_price(
 
 class TestDetectDelistings:
     def test_detect_delistings_two_missing_quarters(self) -> None:
-        """Ticker missing 2+ consecutive quarters is marked delisted."""
+        """Ticker missing 2+ consecutive quarters is marked delisted (with threshold=2)."""
         filing_quarters = {
             "AAPL": [date(2020, 3, 31), date(2020, 6, 30), date(2020, 9, 30), date(2020, 12, 31)],
             "GONE": [date(2020, 3, 31), date(2020, 6, 30)],
@@ -112,7 +114,7 @@ class TestDetectDelistings:
             date(2020, 9, 30),
             date(2020, 12, 31),
         ]
-        result = detect_delistings(filing_quarters, all_quarters)
+        result = detect_delistings(filing_quarters, all_quarters, consecutive_miss_threshold=2)
         assert "GONE" in result
         assert "AAPL" not in result
 
@@ -136,7 +138,7 @@ class TestDetectDelistings:
         assert result == {}
 
     def test_detect_delistings_delist_detected_at_correct_quarter(self) -> None:
-        """Delist detected at = the quarter after 2 consecutive misses."""
+        """Delist detected at = the quarter where threshold consecutive misses are confirmed."""
         filing_quarters = {
             "GONE": [date(2020, 3, 31)],
         }
@@ -146,13 +148,13 @@ class TestDetectDelistings:
             date(2020, 9, 30),
             date(2020, 12, 31),
         ]
-        result = detect_delistings(filing_quarters, all_quarters)
+        result = detect_delistings(filing_quarters, all_quarters, consecutive_miss_threshold=2)
         assert "GONE" in result
         # Missing Q2 and Q3 → detected at Q3 (the quarter where 2 consecutive misses are confirmed)
         assert result["GONE"] == date(2020, 9, 30)
 
     def test_detect_delistings_missing_at_end(self) -> None:
-        """Ticker missing the last 2 quarters is delisted."""
+        """Ticker missing the last 2 quarters is delisted (with threshold=2)."""
         filing_quarters = {
             "LATE": [date(2020, 3, 31), date(2020, 6, 30)],
         }
@@ -162,12 +164,12 @@ class TestDetectDelistings:
             date(2020, 9, 30),
             date(2020, 12, 31),
         ]
-        result = detect_delistings(filing_quarters, all_quarters)
+        result = detect_delistings(filing_quarters, all_quarters, consecutive_miss_threshold=2)
         assert "LATE" in result
         assert result["LATE"] == date(2020, 12, 31)
 
     def test_detect_delistings_three_missing_uses_first_detection(self) -> None:
-        """With 3+ consecutive misses, detection date is at the 2nd miss."""
+        """With 3+ consecutive misses, detection date is at the threshold-th miss."""
         filing_quarters = {
             "GONE": [date(2020, 3, 31)],
         }
@@ -178,7 +180,7 @@ class TestDetectDelistings:
             date(2020, 12, 31),
             date(2021, 3, 31),
         ]
-        result = detect_delistings(filing_quarters, all_quarters)
+        result = detect_delistings(filing_quarters, all_quarters, consecutive_miss_threshold=2)
         assert "GONE" in result
         # Missing Q2, Q3, Q4, Q1'21 — detected at Q3 (2nd consecutive miss)
         assert result["GONE"] == date(2020, 9, 30)
@@ -202,10 +204,35 @@ class TestDetectDelistings:
             date(2020, 6, 30),
             date(2020, 9, 30),
         ]
-        result = detect_delistings(filing_quarters, all_quarters)
+        result = detect_delistings(filing_quarters, all_quarters, consecutive_miss_threshold=2)
         # Missing all quarters — detected at Q2 (2nd consecutive miss)
         assert "GHOST" in result
         assert result["GHOST"] == date(2020, 6, 30)
+
+    def test_annual_filer_not_delisted_with_8q_threshold(self) -> None:
+        """Annual filers that miss 3-4 quarters between 10-Ks should NOT be marked delisted."""
+        quarters = [date(2020, m, d) for m, d in [(3, 31), (6, 30), (9, 30), (12, 31)]]
+        quarters += [date(2021, m, d) for m, d in [(3, 31), (6, 30), (9, 30), (12, 31)]]
+
+        # Annual filer: files only in Q4 (10-K)
+        filing_quarters = {"ANNUAL": [date(2020, 12, 31), date(2021, 12, 31)]}
+
+        delistings = detect_delistings(filing_quarters, quarters)
+        assert "ANNUAL" not in delistings
+
+    def test_truly_delisted_after_8_quarters(self) -> None:
+        """A ticker missing 8+ consecutive quarters should be delisted."""
+        quarters = [
+            date(2019 + y, m, d)
+            for y in range(4)
+            for m, d in [(3, 31), (6, 30), (9, 30), (12, 31)]
+        ]
+
+        # Filed in Q1 2019 only
+        filing_quarters = {"GONE": [date(2019, 3, 31)]}
+
+        delistings = detect_delistings(filing_quarters, quarters)
+        assert "GONE" in delistings
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +352,8 @@ class TestAssembleUniverse:
 
         assert result["quarters_processed"] == 4
         assert result["tickers_tracked"] >= 2
-        assert result["delistings_detected"] >= 1
+        # With threshold=8, GONE only misses 2 quarters — NOT delisted
+        assert result["delistings_detected"] == 0
 
         # Verify rows were inserted
         from sqlalchemy import select
@@ -334,11 +362,11 @@ class TestAssembleUniverse:
         rows = (await session.execute(stmt)).scalars().all()
         assert len(rows) > 0
 
-        # GONE should be inactive in Q4
+        # GONE still active — only 2 consecutive misses, well below threshold of 8
         gone_q4 = [r for r in rows if r.ticker == "GONE" and r.quarter_date == date(2020, 12, 31)]
         assert len(gone_q4) == 1
-        assert gone_q4[0].is_active is False
-        assert gone_q4[0].delist_detected_at is not None
+        assert gone_q4[0].is_active is True
+        assert gone_q4[0].delist_detected_at is None
 
         # AAPL should be active in all quarters
         aapl_rows = [r for r in rows if r.ticker == "AAPL"]
