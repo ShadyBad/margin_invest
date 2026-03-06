@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 
+import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -73,6 +75,16 @@ class RequestIdMiddleware:
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
+
+    # Sentry error tracking
+    sentry_dsn = os.environ.get("SENTRY_DSN")
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
+            traces_sample_rate=0.1,
+            send_default_pii=False,
+        )
 
     _local_hosts = ("localhost", "127.0.0.1", "0.0.0.0")
     if settings.environment == "production" and any(
@@ -172,6 +184,7 @@ def create_app() -> FastAPI:
     async def unhandled_exception_handler(request: Request, exc: Exception):
         request_id = getattr(request.state, "request_id", "unknown")
         logger.error("[%s] Unhandled exception: %s", request_id, exc, exc_info=True)
+        sentry_sdk.capture_exception(exc)
         return JSONResponse(
             status_code=500,
             content=ErrorResponse(
