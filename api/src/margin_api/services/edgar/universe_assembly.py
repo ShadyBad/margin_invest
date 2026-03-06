@@ -228,11 +228,16 @@ async def assemble_universe(session: AsyncSession) -> dict[str, int]:
             else:
                 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-                stmt_ins = pg_insert(PITUniverseMembership).values(rows)
-                stmt_ins = stmt_ins.on_conflict_do_nothing(
-                    constraint="uq_pit_universe_ticker_quarter"
-                )
-                await session.execute(stmt_ins)
+                # Batch inserts to stay under asyncpg's 32767 parameter limit.
+                # Each row has 8 columns, so max ~4000 rows per batch.
+                batch_size = 4000
+                for i in range(0, len(rows), batch_size):
+                    batch = rows[i : i + batch_size]
+                    stmt_ins = pg_insert(PITUniverseMembership).values(batch)
+                    stmt_ins = stmt_ins.on_conflict_do_nothing(
+                        constraint="uq_pit_universe_ticker_quarter"
+                    )
+                    await session.execute(stmt_ins)
 
             total_rows_inserted += len(rows)
 
