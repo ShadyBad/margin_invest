@@ -1,0 +1,20 @@
+{
+  "run_id": "20260305-142300-hero-visual-elevation",
+  "track": "STANDARD",
+  "status": "DONE",
+  "change_summary": "Elevated hero section visuals for premium dark financial SaaS aesthetic across 3 files",
+  "files_changed": [
+    "src/components/landing/hero-section.tsx",
+    "src/components/landing/hero-candidate-card.tsx",
+    "src/components/landing/hero-search.tsx"
+  ],
+  "gates_passed": [
+    "scope_locked",
+    "acceptance_criteria_met",
+    "lint_passes",
+    "tests_pass_21_of_21",
+    "full_landing_suite_87_of_87",
+    "no_secrets_in_artifacts"
+  ],
+  "timestamp": "2026-03-05T14:25:00Z"
+}

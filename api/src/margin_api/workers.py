@@ -2540,6 +2540,18 @@ async def precompute_default_backtest(ctx: dict) -> dict:
 
         async with session_factory() as session:
             provider = DatabasePITProvider(session)
+
+            # Debug: check what get_universe returns for a sample date
+            sample_dates = [date(2015, 1, 1), date(2020, 1, 1), date(2024, 1, 1)]
+            for sd in sample_dates:
+                universe = await provider.get_universe(sd)
+                logger.info(
+                    "[precompute_backtest] DEBUG universe(%s): %d snapshots, first 5 tickers: %s",
+                    sd,
+                    len(universe),
+                    [s.ticker for s in universe[:5]],
+                )
+
             registry = FactorRegistry.default()
             orchestrator = ReplayOrchestrator(
                 config=config,
