@@ -366,7 +366,7 @@ class TestFullScoreV4:
 class TestLivePricePoll:
     @pytest.mark.asyncio
     async def test_live_price_poll_no_recommendations(self):
-        """Returns no_recommendations when no high-conviction tickers exist."""
+        """Returns no_scored_tickers when no scored tickers exist."""
         from margin_api.workers import live_price_poll
 
         mock_session = AsyncMock()
