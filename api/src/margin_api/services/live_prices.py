@@ -13,6 +13,8 @@ class LivePriceService:
 
     KEY_PREFIX = "live_price:"
     TTL_SECONDS = 600  # 10 minutes
+    BAR_KEY_PREFIX = "live_bar:"
+    BAR_TTL_SECONDS = 86400  # 24 hours
 
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
@@ -46,3 +48,19 @@ class LivePriceService:
         """Cache multiple live prices."""
         for ticker, price in prices.items():
             await self.set_price(ticker, price)
+
+    async def get_bar(self, ticker: str) -> dict | None:
+        """Get today's live OHLCV bar for a ticker. Returns None if not cached."""
+        data = await self.redis.get(f"{self.BAR_KEY_PREFIX}{ticker}")
+        if data is None:
+            return None
+        return json.loads(data)
+
+    async def set_bar(self, ticker: str, bar: dict) -> None:
+        """Cache today's OHLCV bar with 24h TTL."""
+        payload = {**bar, "updated_at": datetime.now(UTC).isoformat()}
+        await self.redis.set(
+            f"{self.BAR_KEY_PREFIX}{ticker}",
+            json.dumps(payload),
+            ex=self.BAR_TTL_SECONDS,
+        )

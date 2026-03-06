@@ -87,3 +87,41 @@ class TestLivePriceService:
         ttl = await redis_client.ttl("live_price:AAPL")
         assert ttl > 0
         assert ttl <= 600
+
+    @pytest.mark.asyncio
+    async def test_get_bar_returns_none_when_not_cached(self, service):
+        result = await service.get_bar("AAPL")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_set_and_get_bar(self, service):
+        bar = {
+            "date": "2026-03-06",
+            "open": 188.50,
+            "high": 192.30,
+            "low": 187.20,
+            "close": 191.75,
+            "volume": 4523000,
+        }
+        await service.set_bar("AAPL", bar)
+        result = await service.get_bar("AAPL")
+        assert result is not None
+        assert result["date"] == "2026-03-06"
+        assert result["close"] == 191.75
+        assert result["volume"] == 4523000
+        assert "updated_at" in result
+
+    @pytest.mark.asyncio
+    async def test_bar_key_prefix(self, service, redis_client):
+        bar = {"date": "2026-03-06", "open": 1, "high": 2, "low": 0.5, "close": 1.5, "volume": 100}
+        await service.set_bar("AAPL", bar)
+        raw = await redis_client.get("live_bar:AAPL")
+        assert raw is not None
+
+    @pytest.mark.asyncio
+    async def test_bar_ttl_is_set(self, service, redis_client):
+        bar = {"date": "2026-03-06", "open": 1, "high": 2, "low": 0.5, "close": 1.5, "volume": 100}
+        await service.set_bar("AAPL", bar)
+        ttl = await redis_client.ttl("live_bar:AAPL")
+        assert ttl > 0
+        assert ttl <= 86400
