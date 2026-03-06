@@ -474,9 +474,10 @@ async def _try_get_live_price(ticker: str) -> dict | None:
     try:
         import redis.asyncio as aioredis
 
+        from margin_api.config import get_settings
         from margin_api.services.live_prices import LivePriceService
 
-        client = aioredis.Redis(host="localhost", port=6379, socket_connect_timeout=1)
+        client = aioredis.from_url(get_settings().redis_url, socket_connect_timeout=1)
         service = LivePriceService(client)
         try:
             return await service.get_price(ticker)
@@ -491,9 +492,10 @@ async def _try_get_live_bar(ticker: str) -> dict | None:
     try:
         import redis.asyncio as aioredis
 
+        from margin_api.config import get_settings
         from margin_api.services.live_prices import LivePriceService
 
-        client = aioredis.Redis(host="localhost", port=6379, socket_connect_timeout=1)
+        client = aioredis.from_url(get_settings().redis_url, socket_connect_timeout=1)
         service = LivePriceService(client)
         try:
             return await service.get_bar(ticker)
