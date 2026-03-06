@@ -2541,17 +2541,6 @@ async def precompute_default_backtest(ctx: dict) -> dict:
         async with session_factory() as session:
             provider = DatabasePITProvider(session)
 
-            # Debug: check what get_universe returns for a sample date
-            sample_dates = [date(2015, 1, 1), date(2020, 1, 1), date(2024, 1, 1)]
-            for sd in sample_dates:
-                universe = await provider.get_universe(sd)
-                logger.info(
-                    "[precompute_backtest] DEBUG universe(%s): %d snapshots, first 5 tickers: %s",
-                    sd,
-                    len(universe),
-                    [s.ticker for s in universe[:5]],
-                )
-
             registry = FactorRegistry.default()
             orchestrator = ReplayOrchestrator(
                 config=config,
@@ -2564,30 +2553,6 @@ async def precompute_default_backtest(ctx: dict) -> dict:
                 disabled_filters={"liquidity"},
             )
             replay_result = await orchestrator.run_async()
-
-            # Debug: log result summary
-            n_snaps = len(replay_result.snapshots)
-            n_audit = len(replay_result.audit_log)
-            first_audit = replay_result.audit_log[0] if replay_result.audit_log else None
-            logger.info(
-                "[precompute_backtest] DEBUG result: %d snapshots, %d audit entries, "
-                "total_return=%.4f, runtime=%.1fs",
-                n_snaps,
-                n_audit,
-                replay_result.metrics.total_return,
-                replay_result.duration_seconds,
-            )
-            if first_audit:
-                logger.info(
-                    "[precompute_backtest] DEBUG first audit: date=%s, universe=%d, "
-                    "eliminated=%d, survivors=%d, selected=%d, top=%s",
-                    first_audit.rebalance_date,
-                    first_audit.universe_size,
-                    first_audit.eliminated_count,
-                    first_audit.survivor_count,
-                    first_audit.selected_count,
-                    first_audit.top_holdings[:3],
-                )
 
             # Get active universe snapshot for the backtest run record
             active_snap = await get_active_snapshot(session)

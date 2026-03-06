@@ -123,13 +123,6 @@ class DatabasePITProvider:
         if not tickers:
             return []
 
-        import logging
-        _logger = logging.getLogger(__name__)
-        _logger.info(
-            "[pit_provider] get_universe(%s): quarter=%s, %d active tickers",
-            as_of_date, nearest_quarter, len(tickers),
-        )
-
         # Batch load: get the 2 most recent filings per ticker in one query
         # Uses a lateral join pattern: for each ticker, get rows ranked by filing_date
         from sqlalchemy import func as sa_func
@@ -162,10 +155,6 @@ class DatabasePITProvider:
         ticker_filings: dict[str, list] = defaultdict(list)
         for row in rows:
             ticker_filings[row.ticker].append(row)
-        _logger.info(
-            "[pit_provider] filings batch: %d rows, %d unique tickers",
-            len(rows), len(ticker_filings),
-        )
 
         # Batch load prices: get latest price per ticker in one query
         price_row_num = (
@@ -191,10 +180,6 @@ class DatabasePITProvider:
         ticker_prices: dict[str, float] = {
             row.ticker: float(row.close) for row in price_result.all()
         }
-        _logger.info(
-            "[pit_provider] prices batch: %d tickers with prices",
-            len(ticker_prices),
-        )
 
         # Build snapshots
         snapshots: list[PITSnapshot] = []
