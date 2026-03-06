@@ -12,11 +12,18 @@ from arq.connections import ArqRedis, create_pool
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from margin_engine.universe.config import load_universe_config
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
-from margin_api.db.models import Asset, PipelineApproval, UniverseSnapshot
+from margin_api.db.models import (
+    Asset,
+    PipelineApproval,
+    PITDailyPrice,
+    PITFinancialSnapshot,
+    PITUniverseMembership,
+    UniverseSnapshot,
+)
 from margin_api.db.session import get_db
 from margin_api.middleware.rate_limit import limiter
 
@@ -393,6 +400,58 @@ async def trigger_pit_backfill(request: Request, x_admin_key: str = Header()) ->
             ),
         },
     )
+
+
+@router.get("/pit/stats")
+@limiter.limit("3/minute")
+async def pit_stats(
+    request: Request,
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Return row counts for PIT tables to verify backfill progress."""
+    _verify_admin_key(x_admin_key)
+
+    snapshots = (
+        await session.execute(select(func.count()).select_from(PITFinancialSnapshot))
+    ).scalar_one()
+    prices = (
+        await session.execute(select(func.count()).select_from(PITDailyPrice))
+    ).scalar_one()
+    memberships = (
+        await session.execute(select(func.count()).select_from(PITUniverseMembership))
+    ).scalar_one()
+
+    return {
+        "pit_financial_snapshots": snapshots,
+        "pit_daily_prices": prices,
+        "pit_universe_memberships": memberships,
+    }
+
+
+@router.post("/pit/assemble-universe")
+@limiter.limit("3/minute")
+async def trigger_universe_assembly(
+    request: Request,
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Run only Phase 3 (universe assembly) of the PIT backfill.
+
+    Useful when EDGAR and price data are already populated but universe
+    assembly failed or needs re-running. Runs synchronously (not via worker).
+    """
+    _verify_admin_key(x_admin_key)
+
+    from margin_api.services.edgar.universe_assembly import (
+        assemble_universe,
+        fill_last_known_prices,
+    )
+
+    result = await assemble_universe(session)
+    updated = await fill_last_known_prices(session)
+    result["last_known_prices_filled"] = updated
+    return result
 
 
 @router.get("/ingestion/quarantined")
