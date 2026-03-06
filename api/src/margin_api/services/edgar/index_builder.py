@@ -198,6 +198,51 @@ async def load_cik_ticker_map(client: httpx.AsyncClient) -> dict[int, str]:
     return cik_map
 
 
+@retry(
+    retry=retry_if_exception(_is_retryable),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential_jitter(initial=2, max=32, jitter=2),
+    reraise=True,
+)
+async def load_cik_ticker_sic_map(client: httpx.AsyncClient) -> dict[int, tuple[str, int | None]]:
+    """Download SEC company_tickers_exchange.json and return CIK -> (ticker, sic_code).
+
+    Uses the exchange endpoint which includes SIC codes alongside tickers.
+
+    Returns:
+        Dictionary mapping CIK integers to (ticker, sic_code) tuples.
+        SIC code is None if not available.
+    """
+    url = f"{SEC_BASE}/files/company_tickers_exchange.json"
+    resp = await client.get(url)
+    resp.raise_for_status()
+    data = resp.json()
+
+    fields = data.get("fields", [])
+    rows = data.get("data", [])
+
+    # Find column indices
+    cik_idx = fields.index("cik")
+    ticker_idx = fields.index("ticker")
+    sic_idx = fields.index("sic") if "sic" in fields else None
+
+    result: dict[int, tuple[str, int | None]] = {}
+    for row in rows:
+        cik = int(row[cik_idx])
+        ticker = str(row[ticker_idx]).upper()
+        sic_code = None
+        if sic_idx is not None:
+            raw_sic = row[sic_idx]
+            if raw_sic and str(raw_sic).strip():
+                try:
+                    sic_code = int(raw_sic)
+                except (ValueError, TypeError):
+                    pass
+        result[cik] = (ticker, sic_code)
+
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Per-quarter index caching helpers
 # ---------------------------------------------------------------------------

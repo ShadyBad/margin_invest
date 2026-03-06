@@ -358,3 +358,49 @@ class TestConsecutiveFailureTracker:
         tracker.record_failure()
         with pytest.raises(EdgarUnavailableError):
             tracker.record_failure()
+
+
+class TestLoadCikTickerMapWithSic:
+    """Tests for load_cik_ticker_sic_map using company_tickers_exchange.json."""
+
+    @pytest.mark.asyncio
+    async def test_returns_ticker_and_sic(self) -> None:
+        """SIC codes are returned alongside tickers."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "fields": ["cik", "name", "ticker", "exchange", "sic"],
+            "data": [
+                [320193, "Apple Inc.", "AAPL", "Nasdaq", "3571"],
+                [789019, "Microsoft Corp", "MSFT", "Nasdaq", "7372"],
+            ],
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        from margin_api.services.edgar.index_builder import load_cik_ticker_sic_map
+
+        result = await load_cik_ticker_sic_map(mock_client)
+        assert result[320193] == ("AAPL", 3571)
+        assert result[789019] == ("MSFT", 7372)
+
+    @pytest.mark.asyncio
+    async def test_missing_sic_defaults_to_none(self) -> None:
+        """Entries without SIC codes get None."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "fields": ["cik", "name", "ticker", "exchange", "sic"],
+            "data": [
+                [12345, "No SIC Corp", "NOSIC", "NYSE", ""],
+            ],
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        from margin_api.services.edgar.index_builder import load_cik_ticker_sic_map
+
+        result = await load_cik_ticker_sic_map(mock_client)
+        assert result[12345] == ("NOSIC", None)
