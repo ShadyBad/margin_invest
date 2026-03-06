@@ -72,6 +72,10 @@
   /* Gold highlight */
   --color-gold-highlight: #8B7330;
 
+  /* Warm accent — muted gold */
+  --color-accent-warm: #A67B2E;
+  --color-accent-warm-muted: rgba(166, 123, 46, 0.10);
+
   /* Elevation shadows */
   --shadow-card: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
   --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.3);
@@ -159,6 +163,10 @@
   --color-sector-comms: #AA72C4;
 
   --color-gold-highlight: #C9A84C;
+
+  /* Warm accent — muted gold */
+  --color-accent-warm: #C9963B;
+  --color-accent-warm-muted: rgba(201, 150, 59, 0.15);
 
   --background: oklch(0.141 0.005 285.823);
 

@@ -76,7 +76,7 @@ export function EliminationVignette({ eliminatedPct }: EliminationVignetteProps)
           }}
         />
 
-        <p data-vignette className="font-mono text-6xl md:text-7xl text-accent font-semibold">
+        <p data-vignette className="font-mono text-6xl md:text-7xl font-semibold" style={{ color: 'var(--color-accent-warm)' }}>
           {pct}%
         </p>
         <p data-vignette className="text-lg text-text-primary">

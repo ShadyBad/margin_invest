@@ -34,7 +34,7 @@ export function NavLogo({ href }: NavLogoProps) {
         className="hidden md:inline font-display opacity-90"
         style={{ fontSize: '15px', color: 'var(--color-text-primary)' }}
       >
-        Margin
+        Margin Invest
       </span>
     </Link>
   )

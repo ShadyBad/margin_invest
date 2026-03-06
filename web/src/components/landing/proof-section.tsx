@@ -71,7 +71,7 @@ interface ProofSectionProps {
 
 export function ProofSection({ candidates = [] }: ProofSectionProps) {
   return (
-    <section id="proof" className="py-24 px-6">
+    <section id="proof" className="py-28 px-6" style={{ background: 'var(--color-bg-elevated)' }}>
       <div className="max-w-5xl mx-auto">
         <h2 className="font-display text-4xl md:text-[36px] text-text-primary text-center mb-4">
           Structure replaces intuition with evidence.
@@ -105,7 +105,7 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
           <ProofCard title="Historical Application">
             <ProofHistoricalChart />
           </ProofCard>
-          <ProofCard title="Correlation Heatmap" className="md:col-span-2">
+          <ProofCard title="Correlation Heatmap">
             <ProofHeatmap />
           </ProofCard>
         </div>

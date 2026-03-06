@@ -51,7 +51,7 @@ const tiers: Tier[] = [
 
 export function PricingSection() {
   return (
-    <section id="pricing" className="py-24 px-6">
+    <section id="pricing" className="py-24 px-6" style={{ background: 'linear-gradient(180deg, transparent 0%, var(--color-accent-warm-muted) 50%, transparent 100%)' }}>
       <div className="max-w-5xl mx-auto">
         <h2 className="font-display text-3xl md:text-4xl text-text-primary text-center mb-3">
           Invest in your process, not another guru.

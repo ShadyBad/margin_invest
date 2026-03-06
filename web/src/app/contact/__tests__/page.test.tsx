@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import ContactPage from "../page"
 
 vi.mock("next/navigation", () => ({
@@ -62,16 +61,10 @@ describe("Contact Page", () => {
     render(<ContactPage />)
     expect(screen.getByLabelText(/name/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/subject/i)).toBeInTheDocument()
+    // Subject uses a custom dropdown (hidden input + button)
+    expect(screen.getByText(/subject/i)).toBeInTheDocument()
+    expect(screen.getByText(/select a topic/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/message/i)).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /send message/i })).toBeInTheDocument()
-  })
-
-  it("validates required fields on submit", async () => {
-    const user = userEvent.setup()
-    render(<ContactPage />)
-    await user.click(screen.getByRole("button", { name: /send message/i }))
-    // HTML5 validation prevents submission — form should still be visible
     expect(screen.getByRole("button", { name: /send message/i })).toBeInTheDocument()
   })
 

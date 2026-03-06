@@ -35,30 +35,30 @@ const MOCK_TEASER = {
 describe("ProofHistoricalChart", () => {
   beforeEach(() => mockFetch.mockReset())
 
-  it("renders error message when fetch returns non-ok", async () => {
+  it("renders error state when fetch returns non-ok", async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 500 })
     render(<ProofHistoricalChart />)
     expect(await screen.findByTestId("historical-error")).toBeInTheDocument()
-    expect(screen.getByText(/unable to load/i)).toBeInTheDocument()
+    expect(screen.getByText(/in development/i)).toBeInTheDocument()
   })
 
-  it("renders error message when fetch throws", async () => {
+  it("renders error state when fetch throws", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {})
     mockFetch.mockRejectedValueOnce(new Error("Network failure"))
     render(<ProofHistoricalChart />)
     expect(await screen.findByTestId("historical-error")).toBeInTheDocument()
-    expect(screen.getByText(/unable to load/i)).toBeInTheDocument()
+    expect(screen.getByText(/in development/i)).toBeInTheDocument()
     vi.restoreAllMocks()
     global.fetch = mockFetch
   })
 
-  it("renders timeout error when fetch is aborted", async () => {
+  it("renders error state when fetch is aborted", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {})
     const abortError = new DOMException("The operation was aborted.", "AbortError")
     mockFetch.mockRejectedValueOnce(abortError)
     render(<ProofHistoricalChart />)
     expect(await screen.findByTestId("historical-error")).toBeInTheDocument()
-    expect(screen.getByText(/timed out/i)).toBeInTheDocument()
+    expect(screen.getByText(/in development/i)).toBeInTheDocument()
     vi.restoreAllMocks()
     global.fetch = mockFetch
   })

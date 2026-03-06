@@ -112,8 +112,8 @@ export function EngineSection({ onStageChange }: EngineSectionProps) {
         scrub: 1,
         onUpdate: (self) => {
           const progress = self.progress
-          const xTop = 30 - progress * 60
-          const xBottom = -30 + progress * 60
+          const xTop = 15 - progress * 30
+          const xBottom = -15 + progress * 30
           gsap.set(topRow, { xPercent: xTop })
           gsap.set(bottomRow, { xPercent: xBottom })
         },
@@ -151,7 +151,7 @@ export function EngineSection({ onStageChange }: EngineSectionProps) {
         <div
           ref={topRowRef}
           className="flex gap-6 mb-6"
-          style={{ transform: "translateX(30%)" }}
+          style={{ transform: "translateX(15%)" }}
         >
           {topRowCards.map((card) => (
             <EngineCard key={card.title} {...card} />
@@ -164,7 +164,7 @@ export function EngineSection({ onStageChange }: EngineSectionProps) {
         <div
           ref={bottomRowRef}
           className="flex gap-6"
-          style={{ transform: "translateX(-30%)" }}
+          style={{ transform: "translateX(-15%)" }}
         >
           {bottomRowCards.map((card) => (
             <EngineCard key={card.title} {...card} />

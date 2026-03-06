@@ -47,7 +47,7 @@ describe("ProofSelectivityFunnel", () => {
     mockFetch.mockResolvedValue({ ok: false, status: 502 })
     render(<ProofSelectivityFunnel />)
     expect(await screen.findByTestId("funnel-error")).toBeInTheDocument()
-    expect(screen.getByText(/selectivity data unavailable/i)).toBeInTheDocument()
+    expect(screen.getByText(/live funnel data updates/i)).toBeInTheDocument()
   })
 
   it("renders error state on network error", async () => {

@@ -27,16 +27,19 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
       style={
         tier.highlighted
           ? {
-              borderColor: "color-mix(in srgb, var(--color-accent), transparent 70%)",
-              boxShadow: "0 0 32px rgba(26,122,90,0.12), 0 8px 24px rgba(0,0,0,0.3)",
+              borderColor: "color-mix(in srgb, var(--color-accent-warm) 50%, var(--color-border-subtle))",
+              boxShadow: "0 0 40px rgba(201,150,59,0.12), 0 8px 24px rgba(0,0,0,0.3)",
+              transform: "scale(1.02)",
             }
-          : undefined
+          : tier.name === "Scout"
+            ? { opacity: 0.85 }
+            : undefined
       }
       whileHover={
         prefersReducedMotion
           ? {}
           : { y: -4, boxShadow: tier.highlighted
-              ? "0 0 40px rgba(26,122,90,0.18), 0 8px 24px rgba(0,0,0,0.3)"
+              ? "0 0 48px rgba(201,150,59,0.20), 0 8px 24px rgba(0,0,0,0.3)"
               : "0 2px 8px rgba(0,0,0,0.3)"
             }
       }
@@ -50,7 +53,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
         prefersReducedMotion
           ? {}
           : { y: -4, boxShadow: tier.highlighted
-              ? "0 0 40px rgba(26,122,90,0.18), 0 8px 24px rgba(0,0,0,0.3)"
+              ? "0 0 48px rgba(201,150,59,0.20), 0 8px 24px rgba(0,0,0,0.3)"
               : "0 2px 8px rgba(0,0,0,0.3)"
             }
       }
@@ -61,7 +64,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
           className="absolute top-0 left-0 right-0"
           style={{
             height: '2px',
-            background: 'linear-gradient(90deg, var(--color-accent), transparent)',
+            background: 'linear-gradient(90deg, var(--color-accent-warm), transparent)',
           }}
         />
       )}
@@ -71,7 +74,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
           {tier.name}
         </span>
         {tier.highlighted && (
-          <span className="text-[10px] text-accent bg-accent/10 px-2 py-0.5 rounded">
+          <span className="text-[10px] px-2 py-0.5 rounded" style={{ color: 'var(--color-accent-warm)', background: 'var(--color-accent-warm-muted)' }}>
             Most Popular
           </span>
         )}
@@ -82,11 +85,16 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
           <span className="text-sm text-text-tertiary ml-1">{tier.period}</span>
         )}
       </div>
-      <p className="text-sm text-text-secondary mb-6">{tier.description}</p>
+      <p className="text-sm text-text-secondary mb-1">{tier.description}</p>
+      {tier.period ? (
+        <p className="text-[10px] text-text-tertiary font-mono mb-5">billed monthly</p>
+      ) : (
+        <div className="mb-6" />
+      )}
       <ul className="space-y-2 mb-8 flex-1">
         {tier.features.map((feature) => (
           <li key={feature} className="flex items-start gap-2 text-sm text-text-secondary">
-            <span className="text-accent text-base">&#10003;</span>
+            <span style={{ color: 'var(--color-accent)' }} className="text-base">&#10003;</span>
             <span>{feature}</span>
           </li>
         ))}

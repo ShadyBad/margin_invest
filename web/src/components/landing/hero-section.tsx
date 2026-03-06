@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import type { HomepageData } from "./types"
-import { FALLBACK_CANDIDATES, DEFAULT_UNIVERSE_SIZE, DEFAULT_ELIGIBLE_COUNT, ENGINE_VERSION } from "./candidate-data"
+import { FALLBACK_CANDIDATES, DEFAULT_UNIVERSE_SIZE, DEFAULT_ELIGIBLE_COUNT } from "./candidate-data"
 import { HeroCandidateCard } from "./hero-candidate-card"
 import { HeroSearch } from "./hero-search"
 
@@ -66,9 +66,19 @@ export function HeroSection({ data }: HeroSectionProps) {
       className="relative flex items-center justify-center overflow-hidden"
       style={{
         minHeight: '100svh',
-        background: 'radial-gradient(ellipse 70% 60% at 75% 45%, rgba(26,122,90,0.10) 0%, transparent 65%), #0A0F0D',
+        background: 'radial-gradient(ellipse 50% 50% at 85% 25%, rgba(201,150,59,0.06) 0%, transparent 60%), radial-gradient(ellipse 70% 60% at 75% 45%, rgba(26,122,90,0.10) 0%, transparent 65%), #0A0F0D',
       }}
     >
+      {/* Noise texture overlay */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: "url('/noise.svg')",
+          backgroundRepeat: "repeat",
+          opacity: 0.4,
+        }}
+      />
+
       {/* Grid overlay for depth */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -89,7 +99,7 @@ export function HeroSection({ data }: HeroSectionProps) {
               className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-pulse"
             />
             <span className="font-mono text-[11px] uppercase tracking-widest text-accent">
-              Engine {ENGINE_VERSION} &middot; Live
+              Live
             </span>
           </div>
 
