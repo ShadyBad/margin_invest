@@ -108,6 +108,7 @@ def build_quarterly_membership(
     quarter_date: date,
     active_tickers: dict[str, tuple[str, date, float | None]],
     delistings: dict[str, date],
+    ticker_to_sic: dict[str, int | None] | None = None,
 ) -> list[dict[str, Any]]:
     """Build row dicts for pit_universe_memberships for a single quarter.
 
@@ -115,6 +116,7 @@ def build_quarterly_membership(
         quarter_date: The quarter end date.
         active_tickers: {ticker: (cik, last_filing_date, market_cap)}
         delistings: {ticker: delist_detected_date}
+        ticker_to_sic: Optional {ticker: sic_code} mapping.
 
     Returns:
         List of row dicts for insertion into pit_universe_memberships.
@@ -125,23 +127,31 @@ def build_quarterly_membership(
         delist_date = delistings.get(ticker)
         is_delisted = delist_date is not None and quarter_date >= delist_date
 
-        rows.append(
-            {
-                "ticker": ticker,
-                "cik": cik,
-                "quarter_date": quarter_date,
-                "is_active": not is_delisted,
-                "market_cap": market_cap,
-                "last_filing_date": last_filing_date,
-                "delist_detected_at": delist_date if is_delisted else None,
-                "last_known_price": None,
-            }
-        )
+        row: dict[str, Any] = {
+            "ticker": ticker,
+            "cik": cik,
+            "quarter_date": quarter_date,
+            "is_active": not is_delisted,
+            "market_cap": market_cap,
+            "last_filing_date": last_filing_date,
+            "delist_detected_at": delist_date if is_delisted else None,
+            "last_known_price": None,
+        }
+
+        if ticker_to_sic:
+            sic = ticker_to_sic.get(ticker)
+            if sic is not None:
+                row["sic_code"] = sic
+
+        rows.append(row)
 
     return rows
 
 
-async def assemble_universe(session: AsyncSession) -> dict[str, int]:
+async def assemble_universe(
+    session: AsyncSession,
+    cik_sic_map: dict[int, int | None] | None = None,
+) -> dict[str, int]:
     """Scan pit_financial_snapshots and populate pit_universe_memberships.
 
     1. Query all unique (ticker, cik, filing_date, period_end) from pit_financial_snapshots
@@ -150,6 +160,11 @@ async def assemble_universe(session: AsyncSession) -> dict[str, int]:
     4. Detect delistings across all quarters
     5. For each quarter: build membership rows and insert with on_conflict_do_nothing
     6. Returns {"quarters_processed": N, "tickers_tracked": M, "delistings_detected": K}
+
+    Args:
+        session: Async SQLAlchemy session.
+        cik_sic_map: Optional mapping from CIK (int) to SIC code (int | None).
+            When provided, SIC codes are populated on membership rows.
     """
     # Step 1: Query all filings
     stmt = select(
@@ -189,6 +204,24 @@ async def assemble_universe(session: AsyncSession) -> dict[str, int]:
 
     all_quarters = sorted(all_quarter_set)
 
+    # Build ticker -> SIC code mapping from cik_sic_map
+    # The ticker_info dict has {ticker: {quarter: (cik, filing_date)}} where cik is a string.
+    # The cik_sic_map maps CIK (int) -> SIC code (int | None).
+    ticker_to_sic: dict[str, int | None] = {}
+    if cik_sic_map:
+        for ticker, quarter_map in ticker_info.items():
+            # Use the CIK from the most recent filing for this ticker
+            if quarter_map:
+                latest_q = max(quarter_map.keys())
+                cik_str, _ = quarter_map[latest_q]
+                try:
+                    cik_int = int(cik_str)
+                    sic = cik_sic_map.get(cik_int)
+                    if sic is not None:
+                        ticker_to_sic[ticker] = sic
+                except (ValueError, TypeError):
+                    pass
+
     # Convert filing_quarters sets to sorted lists for detect_delistings
     filing_quarters_lists: dict[str, list[date]] = {
         ticker: sorted(quarters) for ticker, quarters in filing_quarters.items()
@@ -219,7 +252,9 @@ async def assemble_universe(session: AsyncSession) -> dict[str, int]:
                 cik, filing_date = ticker_info[ticker][best_quarter]
                 active_tickers[ticker] = (cik, filing_date, None)
 
-        rows = build_quarterly_membership(quarter, active_tickers, delistings)
+        rows = build_quarterly_membership(
+            quarter, active_tickers, delistings, ticker_to_sic=ticker_to_sic or None
+        )
 
         if rows:
             if dialect_name == "sqlite":

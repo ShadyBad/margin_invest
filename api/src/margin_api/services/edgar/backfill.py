@@ -118,6 +118,7 @@ def _build_snapshot_row(
     ticker: str,
     fiscal_year: int,
     fiscal_quarter: int | None,
+    sic_code: int | None = None,
 ) -> dict[str, Any]:
     """Build a dict suitable for DB insertion into pit_financial_snapshots.
 
@@ -127,6 +128,7 @@ def _build_snapshot_row(
         ticker: Stock ticker symbol.
         fiscal_year: The fiscal year of the filing.
         fiscal_quarter: The fiscal quarter (None for annual 10-K filings).
+        sic_code: Optional SIC industry code for this company.
 
     Returns:
         Dict with all columns for pit_financial_snapshots.
@@ -134,7 +136,7 @@ def _build_snapshot_row(
     filing_date = date.fromisoformat(entry.date_filed)
     period_end = _infer_period_end(filing_date, entry.form_type, fiscal_year, fiscal_quarter)
 
-    return {
+    row: dict[str, Any] = {
         "cik": entry.cik,
         "ticker": ticker,
         "filing_date": filing_date,
@@ -148,6 +150,9 @@ def _build_snapshot_row(
         "fiscal_year": fiscal_year,
         "fiscal_quarter": fiscal_quarter,
     }
+    if sic_code is not None:
+        row["sic_code"] = sic_code
+    return row
 
 
 # ---------------------------------------------------------------------------
@@ -334,6 +339,7 @@ async def insert_pit_snapshot(
     ticker: str,
     fiscal_year: int,
     fiscal_quarter: int | None = None,
+    sic_code: int | None = None,
 ) -> bool:
     """Insert a parsed filing into pit_financial_snapshots.
 
@@ -346,11 +352,12 @@ async def insert_pit_snapshot(
         ticker: Stock ticker symbol.
         fiscal_year: The fiscal year of the filing.
         fiscal_quarter: The fiscal quarter (None for annual filings).
+        sic_code: Optional SIC industry code for this company.
 
     Returns:
         True if the row was inserted, False if it already existed.
     """
-    row = _build_snapshot_row(entry, financials, ticker, fiscal_year, fiscal_quarter)
+    row = _build_snapshot_row(entry, financials, ticker, fiscal_year, fiscal_quarter, sic_code)
     stmt = pg_insert(PITFinancialSnapshot).values(**row)
     stmt = stmt.on_conflict_do_nothing(index_elements=["accession_number"])
     result = await session.execute(stmt)
@@ -369,6 +376,7 @@ async def run_edgar_backfill(
     checkpoint_file: str | None = None,
     dry_run: bool = False,
     concurrency: int = 1,
+    cik_sic_map: dict[int, int | None] | None = None,
 ) -> dict[str, int]:
     """Run a full EDGAR backfill: index -> filter -> fetch -> parse -> insert.
 
@@ -380,6 +388,8 @@ async def run_edgar_backfill(
         dry_run: If True, only build the index without fetching/parsing.
         concurrency: Number of concurrent filing downloads (default 1).
             Sequential processing avoids SEC EDGAR 429 rate limiting.
+        cik_sic_map: Optional mapping from CIK (int) to SIC code (int | None).
+            When provided, SIC codes are populated on snapshot rows.
 
     Returns:
         Summary dict with keys: total, inserted, skipped, failed.
@@ -517,9 +527,19 @@ async def run_edgar_backfill(
                         filing_tracker.record_failure()  # May raise EdgarUnavailableError
                 else:
                     filing_tracker.record_success()
+                    # Look up SIC code for this entry's CIK
+                    sic = None
+                    if cik_sic_map:
+                        sic = cik_sic_map.get(entry.cik_int)
                     async with session_factory() as session:
                         was_inserted = await insert_pit_snapshot(
-                            session, entry, financials, ticker, fiscal_year, fiscal_quarter
+                            session,
+                            entry,
+                            financials,
+                            ticker,
+                            fiscal_year,
+                            fiscal_quarter,
+                            sic_code=sic,
                         )
                         await session.commit()
                         if was_inserted:

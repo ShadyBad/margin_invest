@@ -17,6 +17,7 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
+import httpx
 import redis.asyncio as aioredis
 import sentry_sdk
 import yfinance as yf
@@ -51,7 +52,11 @@ from margin_api.db.models import (
 from margin_api.db.session import get_engine, get_session_factory, reset_engine_cache
 from margin_api.routes.events import add_event, add_notification
 from margin_api.services.edgar.backfill import run_edgar_backfill
-from margin_api.services.edgar.index_builder import EdgarUnavailableError
+from margin_api.services.edgar.index_builder import (
+    USER_AGENT,
+    EdgarUnavailableError,
+    load_cik_ticker_sic_map,
+)
 from margin_api.services.edgar.price_backfill import backfill_prices_for_tickers
 from margin_api.services.edgar.universe_assembly import assemble_universe, fill_last_known_prices
 from margin_api.services.live_prices import LivePriceService
@@ -2791,12 +2796,32 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
         job_id = job.id
 
     try:
+        # Load CIK → SIC code map for populating sic_code on snapshots and memberships
+        cik_sic_map: dict[int, int | None] | None = None
+        try:
+            async with httpx.AsyncClient(
+                headers={"User-Agent": USER_AGENT},
+                timeout=httpx.Timeout(60),
+            ) as client:
+                full_map = await load_cik_ticker_sic_map(client)
+                # Extract CIK → SIC code (discard the ticker from the tuple)
+                cik_sic_map = {cik: sic for cik, (_ticker, sic) in full_map.items()}
+            logger.info(
+                "[bootstrap_pit] Loaded CIK→SIC map: %d entries", len(cik_sic_map)
+            )
+        except Exception:
+            logger.warning(
+                "[bootstrap_pit] Failed to load CIK→SIC map, proceeding without SIC codes",
+                exc_info=True,
+            )
+
         # Phase 1: EDGAR backfill (2009-present)
         logger.info("[bootstrap_pit] Phase 1/4: EDGAR backfill...")
         edgar_result = await run_edgar_backfill(
             start_year=2009,
             end_year=datetime.now(UTC).year,
             session_factory=session_factory,
+            cik_sic_map=cik_sic_map,
         )
         logger.info("[bootstrap_pit] EDGAR backfill complete: %s", edgar_result)
 
@@ -2820,7 +2845,7 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
         # Phase 3: Universe assembly
         logger.info("[bootstrap_pit] Phase 3/4: Universe assembly...")
         async with session_factory() as session:
-            universe_result = await assemble_universe(session)
+            universe_result = await assemble_universe(session, cik_sic_map=cik_sic_map)
             await fill_last_known_prices(session)
         logger.info("[bootstrap_pit] Universe assembly complete: %s", universe_result)
 
