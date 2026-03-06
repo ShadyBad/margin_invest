@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { Suspense } from "react";
 import { Inter_Tight, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
+import { PostHogProvider } from "@/lib/posthog/provider";
+import { PostHogPageview } from "@/lib/posthog/pageview";
+import { PostHogIdentify } from "@/lib/posthog/identify";
 import { ConditionalFooter } from "@/components/layout/conditional-footer";
 import { MfaRequiredModal } from "@/components/modals/mfa-required-modal";
 import { AnalysisDisclaimerModal } from "@/components/modals/analysis-disclaimer-modal";
@@ -50,12 +54,18 @@ export default function RootLayout({
         )}
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <SessionProvider>
-            <div className="min-h-screen" style={{ backgroundColor: '#0A0F0D' }}>
-              {children}
-              <ConditionalFooter />
-              <MfaRequiredModal />
-              <AnalysisDisclaimerModal />
-            </div>
+            <PostHogProvider>
+              <Suspense fallback={null}>
+                <PostHogPageview />
+              </Suspense>
+              <PostHogIdentify />
+              <div className="min-h-screen" style={{ backgroundColor: '#0A0F0D' }}>
+                {children}
+                <ConditionalFooter />
+                <MfaRequiredModal />
+                <AnalysisDisclaimerModal />
+              </div>
+            </PostHogProvider>
           </SessionProvider>
         </ThemeProvider>
       </body>
