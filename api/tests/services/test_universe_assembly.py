@@ -510,3 +510,190 @@ class TestFillLastKnownPrices:
 
         updated = await fill_last_known_prices(session)
         assert updated == 0
+
+
+# ---------------------------------------------------------------------------
+# _batch_compute_market_caps tests
+# ---------------------------------------------------------------------------
+
+
+class TestBatchComputeMarketCaps:
+    @pytest.mark.asyncio
+    async def test_market_cap_from_shares_and_price(self, session: AsyncSession) -> None:
+        """market_cap = shares_outstanding * close for membership rows with NULL market_cap."""
+        # Create a membership row with NULL market_cap
+        session.add(
+            PITUniverseMembership(
+                ticker="AAPL",
+                cik="0000320193",
+                quarter_date=date(2020, 9, 30),
+                is_active=True,
+                market_cap=None,
+                last_filing_date=date(2020, 9, 30),
+            )
+        )
+        # Filing with shares_outstanding at or before quarter_date
+        session.add(
+            _make_filing(
+                ticker="AAPL",
+                filing_date=date(2020, 8, 1),
+                period_end=date(2020, 6, 30),
+                accession_number="0000320193-20-000001",
+                fiscal_year=2020,
+                fiscal_quarter=2,
+            )
+        )
+        # Price at quarter_date
+        session.add(_make_price(ticker="AAPL", price_date=date(2020, 9, 30), close=115.0))
+        await session.commit()
+
+        updated = await _batch_compute_market_caps(session)
+        assert updated == 1
+
+        from sqlalchemy import select
+
+        row = (
+            await session.execute(
+                select(PITUniverseMembership).where(PITUniverseMembership.ticker == "AAPL")
+            )
+        ).scalars().first()
+        assert row is not None
+        # shares_outstanding=1_000_000_000 (from _make_filing) * close=115.0
+        assert row.market_cap == pytest.approx(1_000_000_000 * 115.0)
+
+    @pytest.mark.asyncio
+    async def test_market_cap_skips_already_filled(self, session: AsyncSession) -> None:
+        """Rows with existing market_cap are not recomputed."""
+        session.add(
+            PITUniverseMembership(
+                ticker="AAPL",
+                cik="0000320193",
+                quarter_date=date(2020, 9, 30),
+                is_active=True,
+                market_cap=2.5e12,
+                last_filing_date=date(2020, 9, 30),
+            )
+        )
+        await session.commit()
+
+        updated = await _batch_compute_market_caps(session)
+        assert updated == 0
+
+    @pytest.mark.asyncio
+    async def test_market_cap_no_price_data(self, session: AsyncSession) -> None:
+        """If there's no price data, market_cap stays NULL."""
+        session.add(
+            PITUniverseMembership(
+                ticker="AAPL",
+                cik="0000320193",
+                quarter_date=date(2020, 9, 30),
+                is_active=True,
+                market_cap=None,
+                last_filing_date=date(2020, 9, 30),
+            )
+        )
+        session.add(
+            _make_filing(
+                ticker="AAPL",
+                filing_date=date(2020, 8, 1),
+                period_end=date(2020, 6, 30),
+                accession_number="0000320193-20-000001",
+            )
+        )
+        # No price data at all
+        await session.commit()
+
+        updated = await _batch_compute_market_caps(session)
+        assert updated == 0
+
+
+# ---------------------------------------------------------------------------
+# _batch_compute_avg_volumes tests
+# ---------------------------------------------------------------------------
+
+
+class TestBatchComputeAvgVolumes:
+    @pytest.mark.asyncio
+    async def test_avg_volume_computed(self, session: AsyncSession) -> None:
+        """avg_daily_volume = mean(close * volume) over trailing trading days."""
+        session.add(
+            PITUniverseMembership(
+                ticker="AAPL",
+                cik="0000320193",
+                quarter_date=date(2020, 9, 30),
+                is_active=True,
+                market_cap=2.5e12,
+                avg_daily_volume=None,
+                last_filing_date=date(2020, 9, 30),
+            )
+        )
+        # Add 5 trading days of price data before quarter_date
+        for i in range(5):
+            d = date(2020, 9, 25 + i)  # Sep 25-29
+            session.add(
+                PITDailyPrice(
+                    ticker="AAPL",
+                    date=d,
+                    open=110.0,
+                    high=120.0,
+                    low=100.0,
+                    close=115.0,
+                    adj_close=115.0,
+                    volume=10_000_000,
+                    source="yfinance",
+                )
+            )
+        await session.commit()
+
+        updated = await _batch_compute_avg_volumes(session)
+        assert updated == 1
+
+        from sqlalchemy import select
+
+        row = (
+            await session.execute(
+                select(PITUniverseMembership).where(PITUniverseMembership.ticker == "AAPL")
+            )
+        ).scalars().first()
+        assert row is not None
+        # All 5 days: close=115, volume=10M => dollar_vol = 1.15B each
+        expected = 115.0 * 10_000_000
+        assert row.avg_daily_volume == pytest.approx(expected)
+
+    @pytest.mark.asyncio
+    async def test_avg_volume_skips_already_filled(self, session: AsyncSession) -> None:
+        """Rows with existing avg_daily_volume are not recomputed."""
+        session.add(
+            PITUniverseMembership(
+                ticker="AAPL",
+                cik="0000320193",
+                quarter_date=date(2020, 9, 30),
+                is_active=True,
+                market_cap=2.5e12,
+                avg_daily_volume=1.5e9,
+                last_filing_date=date(2020, 9, 30),
+            )
+        )
+        await session.commit()
+
+        updated = await _batch_compute_avg_volumes(session)
+        assert updated == 0
+
+    @pytest.mark.asyncio
+    async def test_avg_volume_no_price_data(self, session: AsyncSession) -> None:
+        """If there's no price data, avg_daily_volume stays NULL."""
+        session.add(
+            PITUniverseMembership(
+                ticker="AAPL",
+                cik="0000320193",
+                quarter_date=date(2020, 9, 30),
+                is_active=True,
+                market_cap=2.5e12,
+                avg_daily_volume=None,
+                last_filing_date=date(2020, 9, 30),
+            )
+        )
+        await session.commit()
+
+        updated = await _batch_compute_avg_volumes(session)
+        assert updated == 0

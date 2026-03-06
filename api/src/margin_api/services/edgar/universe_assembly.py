@@ -12,7 +12,7 @@ import logging
 from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import func as sa_func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.db.models import PITDailyPrice, PITFinancialSnapshot, PITUniverseMembership
