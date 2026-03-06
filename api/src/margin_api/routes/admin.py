@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from margin_api.config import get_settings
 from margin_api.db.models import (
     Asset,
+    JobRun,
     PipelineApproval,
     PITDailyPrice,
     PITFinancialSnapshot,
@@ -415,9 +416,7 @@ async def pit_stats(
     snapshots = (
         await session.execute(select(func.count()).select_from(PITFinancialSnapshot))
     ).scalar_one()
-    prices = (
-        await session.execute(select(func.count()).select_from(PITDailyPrice))
-    ).scalar_one()
+    prices = (await session.execute(select(func.count()).select_from(PITDailyPrice))).scalar_one()
     memberships = (
         await session.execute(select(func.count()).select_from(PITUniverseMembership))
     ).scalar_one()
@@ -452,6 +451,39 @@ async def trigger_universe_assembly(
     updated = await fill_last_known_prices(session)
     result["last_known_prices_filled"] = updated
     return result
+
+
+@router.patch("/jobs/{job_id}/status")
+@limiter.limit("10/minute")
+async def update_job_status(
+    job_id: int,
+    request: Request,
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Update the status of a job run (e.g. mark a zombie job as cancelled)."""
+    _verify_admin_key(x_admin_key)
+
+    body = await request.json()
+    new_status = body.get("status")
+    if new_status not in ("completed", "failed", "cancelled"):
+        raise HTTPException(400, "status must be one of: completed, failed, cancelled")
+
+    result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(404, f"Job {job_id} not found")
+
+    old_status = job.status
+    job.status = new_status
+    if new_status in ("failed", "cancelled") and not job.completed_at:
+        job.completed_at = datetime.now(UTC)
+    if error_message := body.get("error_message"):
+        job.error_message = error_message
+    await session.commit()
+
+    logger.info("[admin] Updated job %d status: %s → %s", job_id, old_status, new_status)
+    return {"job_id": job_id, "old_status": old_status, "new_status": new_status}
 
 
 @router.get("/ingestion/quarantined")
