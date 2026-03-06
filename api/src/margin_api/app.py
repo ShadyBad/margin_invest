@@ -38,6 +38,7 @@ from margin_api.routes.transparency import router as transparency_router
 from margin_api.routes.universe import router as universe_router
 from margin_api.routes.v3_scores import router as v3_scores_router
 from margin_api.schemas.errors import ErrorResponse
+from margin_api.services import analytics
 from margin_api.ws.scores import router as ws_router
 
 logger = logging.getLogger(__name__)
@@ -194,5 +195,9 @@ def create_app() -> FastAPI:
                 status_code=500,
             ).model_dump(),
         )
+
+    @app.on_event("shutdown")
+    async def shutdown_analytics():
+        analytics.shutdown()
 
     return app
