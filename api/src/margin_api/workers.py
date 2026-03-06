@@ -18,6 +18,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import redis.asyncio as aioredis
+import sentry_sdk
 import yfinance as yf
 from arq import cron
 from arq import func as arq_func
@@ -2891,6 +2892,17 @@ class WorkerSettings:
     @staticmethod
     async def on_startup(ctx: dict) -> None:
         """Log worker startup info and clean up stale ingestion runs."""
+        # Sentry error tracking
+        sentry_dsn = os.environ.get("SENTRY_DSN")
+        if sentry_dsn:
+            sentry_sdk.init(
+                dsn=sentry_dsn,
+                environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
+                traces_sample_rate=0.1,
+                send_default_pii=False,
+            )
+            logger.info("[worker] Sentry initialized")
+
         settings = get_settings()
         url = settings.redis_url
         # Redact password
