@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Inter_Tight, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
@@ -41,6 +42,12 @@ export default function RootLayout({
       <body
         className={`${interTight.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased text-text-primary`}
       >
+        {process.env.NEXT_PUBLIC_TERMLY_WEBSITE_UUID && (
+          <Script
+            src={`https://app.termly.io/resource-blocker/${process.env.NEXT_PUBLIC_TERMLY_WEBSITE_UUID}?autoBlock=on`}
+            strategy="beforeInteractive"
+          />
+        )}
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <SessionProvider>
             <div className="min-h-screen" style={{ backgroundColor: '#0A0F0D' }}>
