@@ -112,10 +112,16 @@ class DatabasePITProvider:
             return []
 
         # Get all qualifying members for that quarter
+        # Allow NULL market_cap (not yet computed) — treat as qualifying
+        from sqlalchemy import or_
+
         members_stmt = select(PITUniverseMembership.ticker).where(
             PITUniverseMembership.quarter_date == nearest_quarter,
             PITUniverseMembership.is_active.is_(True),
-            PITUniverseMembership.market_cap >= self._min_market_cap,
+            or_(
+                PITUniverseMembership.market_cap >= self._min_market_cap,
+                PITUniverseMembership.market_cap.is_(None),
+            ),
         )
         members_result = await self._session.execute(members_stmt)
         tickers = [row[0] for row in members_result.all()]
