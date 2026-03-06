@@ -307,9 +307,14 @@ class TestWorkerRegistration:
     """Verify both workers are registered in WorkerSettings."""
 
     def test_precompute_default_backtest_in_functions(self):
-        from margin_api.workers import WorkerSettings, precompute_default_backtest
+        from margin_api.workers import WorkerSettings
 
-        assert precompute_default_backtest in WorkerSettings.functions
+        # May be wrapped in arq_func with custom timeout
+        func_names = [
+            f.coroutine.__name__ if hasattr(f, "coroutine") else f.__name__
+            for f in WorkerSettings.functions
+        ]
+        assert "precompute_default_backtest" in func_names
 
     def test_snapshot_shadow_portfolio_in_functions(self):
         from margin_api.workers import WorkerSettings, snapshot_shadow_portfolio

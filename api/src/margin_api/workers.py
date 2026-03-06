@@ -3015,7 +3015,8 @@ class WorkerSettings:
         compute_accumulation_signals,
         expire_stale_approvals,
         rollup_governance_events,
-        precompute_default_backtest,
+        # 4h timeout — real backtest processes 204 months × 5000+ tickers
+        arq_func(precompute_default_backtest, timeout=14400),
         snapshot_shadow_portfolio,
         daily_pit_update,
         # 24h timeout, max_tries=5 to survive deploy-induced cancellations

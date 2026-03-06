@@ -98,6 +98,8 @@ class DatabasePITProvider:
         filters by is_active=True and market_cap >= min_market_cap, then batch
         loads snapshots for all qualifying tickers.
         """
+        from sqlalchemy import or_
+
         # Find the nearest quarter_date <= as_of_date
         nearest_q_stmt = (
             select(PITUniverseMembership.quarter_date)
@@ -113,8 +115,6 @@ class DatabasePITProvider:
 
         # Get all qualifying members for that quarter
         # Allow NULL market_cap (not yet computed) — treat as qualifying
-        from sqlalchemy import or_
-
         members_stmt = select(PITUniverseMembership.ticker).where(
             PITUniverseMembership.quarter_date == nearest_quarter,
             PITUniverseMembership.is_active.is_(True),
@@ -129,12 +129,94 @@ class DatabasePITProvider:
         if not tickers:
             return []
 
-        # Batch load snapshots
+        # Batch load: get the 2 most recent filings per ticker in one query
+        # Uses a lateral join pattern: for each ticker, get rows ranked by filing_date
+        from sqlalchemy import func as sa_func
+
+        # Subquery: rank filings per ticker
+        row_num = (
+            sa_func.row_number()
+            .over(
+                partition_by=PITFinancialSnapshot.ticker,
+                order_by=PITFinancialSnapshot.filing_date.desc(),
+            )
+            .label("rn")
+        )
+        sub = (
+            select(PITFinancialSnapshot, row_num)
+            .where(
+                PITFinancialSnapshot.ticker.in_(tickers),
+                PITFinancialSnapshot.filing_date <= as_of_date,
+            )
+            .subquery()
+        )
+        # Only keep top 2 per ticker
+        ranked_stmt = select(sub).where(sub.c.rn <= 2)
+        ranked_result = await self._session.execute(ranked_stmt)
+        rows = ranked_result.all()
+
+        # Group by ticker: {ticker: [current_row, prior_row]}
+        from collections import defaultdict
+
+        ticker_filings: dict[str, list] = defaultdict(list)
+        for row in rows:
+            ticker_filings[row.ticker].append(row)
+
+        # Batch load prices: get latest price per ticker in one query
+        price_row_num = (
+            sa_func.row_number()
+            .over(
+                partition_by=PITDailyPrice.ticker,
+                order_by=PITDailyPrice.date.desc(),
+            )
+            .label("prn")
+        )
+        price_sub = (
+            select(PITDailyPrice.ticker, PITDailyPrice.close, price_row_num)
+            .where(
+                PITDailyPrice.ticker.in_(tickers),
+                PITDailyPrice.date <= as_of_date,
+            )
+            .subquery()
+        )
+        price_stmt = select(price_sub.c.ticker, price_sub.c.close).where(
+            price_sub.c.prn == 1
+        )
+        price_result = await self._session.execute(price_stmt)
+        ticker_prices: dict[str, float] = {
+            row.ticker: float(row.close) for row in price_result.all()
+        }
+
+        # Build snapshots
         snapshots: list[PITSnapshot] = []
         for ticker in tickers:
-            snap = await self.get_snapshot(ticker, as_of_date)
-            if snap is not None:
-                snapshots.append(snap)
+            filings = ticker_filings.get(ticker, [])
+            if not filings:
+                continue
+
+            price = ticker_prices.get(ticker)
+            if price is None:
+                continue
+
+            # Sort by filing_date desc (should already be, but ensure)
+            filings.sort(key=lambda r: r.filing_date, reverse=True)
+            current_row = filings[0]
+            prior_row = filings[1] if len(filings) > 1 else None
+
+            # Build a lightweight object that has the same attributes
+            period = _build_period_from_row(current_row, prior_row)
+            profile = _build_profile_from_row(ticker, current_row, price)
+
+            snapshots.append(
+                PITSnapshot(
+                    ticker=ticker,
+                    as_of_date=as_of_date,
+                    profile=profile,
+                    period=period,
+                    price=price,
+                    filing_date=current_row.filing_date,
+                )
+            )
 
         return snapshots
 
@@ -294,3 +376,8 @@ def _build_profile(ticker: str, row: PITFinancialSnapshot, price: float) -> Asse
         market_cap=market_cap,
         shares_outstanding=shares,
     )
+
+
+# Aliases for batch-loaded subquery rows (same attribute interface)
+_build_period_from_row = _build_period
+_build_profile_from_row = _build_profile
