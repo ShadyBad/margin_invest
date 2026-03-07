@@ -1,5 +1,4 @@
 import Link from "next/link"
-import { ENGINE_VERSION } from "./candidate-data"
 
 const productLinks = [
   { label: "Dashboard", href: "/dashboard" },
@@ -52,7 +51,7 @@ export function FooterSection() {
               A deterministic capital allocation system. Structure replaces narrative. Math replaces opinion.
             </p>
             <div className="font-mono text-[10px] text-text-tertiary">
-              Engine {ENGINE_VERSION}
+              Deterministic scoring engine
             </div>
           </div>
 

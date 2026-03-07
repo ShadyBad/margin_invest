@@ -70,7 +70,7 @@ interface ProofSectionProps {
 
 export function ProofSection({ candidates = [] }: ProofSectionProps) {
   return (
-    <section id="proof" className="py-28 px-6" style={{ background: 'var(--color-bg-elevated)' }}>
+    <section id="proof" className="py-20 px-6" style={{ background: 'var(--color-bg-elevated)' }}>
       <div className="max-w-5xl mx-auto">
         <h2 className="font-display text-4xl md:text-[36px] text-text-primary text-center mb-4">
           Structure replaces intuition with evidence.

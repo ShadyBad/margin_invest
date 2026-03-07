@@ -55,7 +55,7 @@ export function EliminationVignette({ eliminatedPct }: EliminationVignetteProps)
   const pct = eliminatedPct ?? "70"
 
   return (
-    <section ref={sectionRef} className="py-16 px-6">
+    <section ref={sectionRef} className="py-10 px-6">
       <div
         className="relative mx-auto text-center space-y-4 overflow-hidden"
         style={{

@@ -35,16 +35,21 @@ export function HeroSection({ data }: HeroSectionProps) {
       const ctas = section.querySelector("[data-hero-ctas]")
       const card = section.querySelector("[data-hero-card]")
 
-      const targets = [headline, subtext, ctas, card].filter(Boolean)
+      const textTargets = [headline, subtext, ctas].filter(Boolean)
+      gsap.set(textTargets, { opacity: 0, y: 20 })
 
-      gsap.set(targets, { opacity: 0, y: 20 })
+      // Card loads instantly — no delay on the strongest trust signal
+      if (card) {
+        gsap.set(card, { opacity: 0, y: 12 })
+        gsap.to(card, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" })
+      }
 
-      targets.forEach((target, i) => {
+      textTargets.forEach((target, i) => {
         gsap.to(target, {
           opacity: 1,
           y: 0,
           duration: 0.6,
-          delay: i * 0.15,
+          delay: i * 0.12,
           ease: "power2.out",
         })
       })
@@ -66,7 +71,7 @@ export function HeroSection({ data }: HeroSectionProps) {
       className="relative flex items-center justify-center overflow-hidden"
       style={{
         minHeight: '100svh',
-        background: 'radial-gradient(ellipse 50% 50% at 85% 25%, rgba(201,150,59,0.06) 0%, transparent 60%), radial-gradient(ellipse 70% 60% at 75% 45%, rgba(26,122,90,0.10) 0%, transparent 65%), #0A0F0D',
+        background: 'radial-gradient(ellipse 50% 50% at 85% 25%, rgba(201,150,59,0.06) 0%, transparent 60%), radial-gradient(ellipse 70% 60% at 75% 45%, rgba(26,122,90,0.10) 0%, transparent 65%), var(--color-bg-primary)',
       }}
     >
       {/* Noise texture overlay */}
@@ -86,7 +91,7 @@ export function HeroSection({ data }: HeroSectionProps) {
           backgroundImage:
             `linear-gradient(var(--color-grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px)`,
           backgroundSize: "64px 64px",
-          opacity: 0.5,
+          opacity: 1,
         }}
       />
 
@@ -94,12 +99,18 @@ export function HeroSection({ data }: HeroSectionProps) {
         {/* Left column — headline + CTAs */}
         <div>
           {/* Eyebrow tag */}
-          <div className="flex items-center gap-2 mb-5">
-            <span className="relative inline-flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-50" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+          <div className="flex items-center gap-2.5 mb-5">
+            <span className="relative inline-flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
+              <span
+                className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent"
+                style={{ boxShadow: "0 0 8px var(--color-accent), 0 0 16px rgba(26,122,90,0.3)" }}
+              />
             </span>
-            <span className="font-mono text-[11px] uppercase tracking-widest text-accent">
+            <span
+              className="font-mono text-xs uppercase tracking-widest text-accent font-medium"
+              style={{ textShadow: "0 0 12px rgba(26,122,90,0.4)" }}
+            >
               Live
             </span>
           </div>

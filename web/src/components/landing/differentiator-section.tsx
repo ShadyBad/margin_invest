@@ -89,7 +89,7 @@ export function DifferentiatorSection() {
   }, [])
 
   return (
-    <section id="differentiator" className="py-24 px-6">
+    <section id="differentiator" className="py-16 px-6">
       <div className="max-w-5xl mx-auto">
         <h2 className="font-display text-3xl md:text-4xl text-text-primary text-center mb-4">
           Other platforms have opinions.

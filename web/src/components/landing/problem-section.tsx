@@ -82,7 +82,7 @@ export function ProblemSection() {
     <section
       id="problem"
       ref={sectionRef}
-      className="pt-16 pb-20 px-6 border-b border-border-subtle"
+      className="pt-8 pb-16 px-6 border-b border-border-subtle"
     >
       <div className="max-w-3xl mx-auto">
         {/* Eyebrow */}

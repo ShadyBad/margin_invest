@@ -145,7 +145,7 @@ export function EngineSection({ onStageChange }: EngineSectionProps) {
   }, [onStageChange])
 
   return (
-    <section id="engine" ref={sectionRef} className="py-24 overflow-hidden">
+    <section id="engine" ref={sectionRef} className="py-16 overflow-hidden">
       {/* Desktop: two counter-scrolling rows */}
       <div className="hidden md:block relative">
         {/* Edge fade masks */}

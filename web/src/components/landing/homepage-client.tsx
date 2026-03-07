@@ -15,6 +15,27 @@ import { SectionIndicator } from "./section-indicator"
 import { formatEliminationPct } from "@/lib/format-elimination-pct"
 import type { HomepageData } from "./types"
 
+function SectionGlow() {
+  return (
+    <div
+      className="relative h-px w-full overflow-visible"
+      style={{
+        background: "linear-gradient(90deg, transparent, var(--color-accent), transparent)",
+        opacity: 0.15,
+      }}
+    >
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+        style={{
+          width: "60%",
+          height: "80px",
+          background: "radial-gradient(ellipse, rgba(26,122,90,0.06) 0%, transparent 70%)",
+        }}
+      />
+    </div>
+  )
+}
+
 interface HomepageClientProps {
   data: HomepageData | null
 }
@@ -35,10 +56,13 @@ export function HomepageClient({ data }: HomepageClientProps) {
             : undefined
         }
       />
+      <SectionGlow />
       <ProofSection candidates={data?.allPicks ?? []} />
       <EngineSection onStageChange={handleStageChange} />
+      <SectionGlow />
       <PositioningSection />
       <DifferentiatorSection />
+      <SectionGlow />
       <PricingSection />
       <FaqSection />
       <FooterSection />

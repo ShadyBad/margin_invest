@@ -22,9 +22,9 @@ describe("FooterSection (landing)", () => {
     expect(apiLink).toBeUndefined()
   })
 
-  it("renders engine version", () => {
+  it("renders engine tagline", () => {
     render(<FooterSection />)
-    expect(screen.getByText(/engine v1.3.2/i)).toBeInTheDocument()
+    expect(screen.getByText(/deterministic scoring engine/i)).toBeInTheDocument()
   })
 
   it("renders copyright", () => {

@@ -54,7 +54,7 @@ export function PositioningSection() {
   }, [])
 
   return (
-    <section id="positioning" className="py-24 px-6">
+    <section id="positioning" className="py-16 px-6">
       <div className="max-w-4xl mx-auto">
         <h2 className="font-display text-4xl md:text-[36px] text-text-primary text-center mb-16">
           The system has no opinion. That&apos;s the point.
