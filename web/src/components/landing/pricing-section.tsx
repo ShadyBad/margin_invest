@@ -71,6 +71,9 @@ export function PricingSection() {
           <p className="text-xs text-text-tertiary">
             Founding members lock in this price forever. Pricing increases after launch.
           </p>
+          <p className="text-[11px] font-mono text-accent/70 mt-4">
+            Scoring 3,000+ US equities daily for founding members
+          </p>
         </div>
       </div>
     </section>

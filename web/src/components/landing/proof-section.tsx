@@ -6,7 +6,6 @@ import { ProofFactorBars } from "./proof-factor-bars"
 import { ProofSelectivityFunnel } from "./proof-selectivity-funnel"
 import { ProofSectorChart } from "./proof-sector-chart"
 import { ProofHeatmap } from "./proof-heatmap"
-import { ProofHistoricalChart } from "./proof-historical-chart"
 import type { CandidateCard } from "./types"
 
 interface ProofCardProps {
@@ -101,9 +100,6 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
           </ProofCard>
           <ProofCard title="Sector Breakdown">
             <ProofSectorChart candidates={candidates} />
-          </ProofCard>
-          <ProofCard title="Historical Application">
-            <ProofHistoricalChart />
           </ProofCard>
           <ProofCard title="Correlation Heatmap">
             <ProofHeatmap />

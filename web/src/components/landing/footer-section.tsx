@@ -13,10 +13,28 @@ const navLinks = [
   { label: "Contact", href: "/contact" },
 ]
 
+const trustBadges = [
+  "SEC Filings + Earnings Transcripts",
+  "Daily Market Data Refresh",
+  "Encrypted API Key Storage",
+  "Deterministic Scoring",
+  "No Hidden Heuristics",
+]
+
 export function FooterSection() {
   return (
-    <footer id="footer" className="border-t border-border-subtle py-12">
-      <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between gap-8">
+    <footer id="footer" className="border-t border-border-subtle">
+      {/* Trust strip */}
+      <div className="max-w-6xl mx-auto px-6 py-8 border-b border-border-subtle">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          {trustBadges.map((badge) => (
+            <span key={badge} className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-tertiary">
+              {badge}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col md:flex-row justify-between gap-8">
         <nav className="flex flex-wrap gap-x-6 gap-y-2">
           {navLinks.map((link) => (
             <Link

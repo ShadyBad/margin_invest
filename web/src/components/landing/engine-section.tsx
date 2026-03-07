@@ -148,6 +148,10 @@ export function EngineSection({ onStageChange }: EngineSectionProps) {
     <section id="engine" ref={sectionRef} className="py-24 overflow-hidden">
       {/* Desktop: two counter-scrolling rows */}
       <div className="hidden md:block relative">
+        {/* Edge fade masks */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-24 z-10" style={{ background: 'linear-gradient(to right, var(--color-bg-primary), transparent)' }} />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10" style={{ background: 'linear-gradient(to left, var(--color-bg-primary), transparent)' }} />
+
         <div
           ref={topRowRef}
           className="flex gap-6 mb-6"
@@ -172,17 +176,10 @@ export function EngineSection({ onStageChange }: EngineSectionProps) {
         </div>
       </div>
 
-      {/* Mobile: vertical interleaved stack */}
+      {/* Mobile: sequential pipeline order */}
       <div className="md:hidden space-y-4 px-4">
-        {topRowCards.map((card, i) => (
-          <div key={card.title}>
-            <EngineCard {...card} />
-            {bottomRowCards[i] && (
-              <div className="mt-4">
-                <EngineCard {...bottomRowCards[i]} />
-              </div>
-            )}
-          </div>
+        {[...topRowCards, ...bottomRowCards].map((card) => (
+          <EngineCard key={card.title} {...card} />
         ))}
       </div>
     </section>

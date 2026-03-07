@@ -67,7 +67,7 @@ vi.mock("recharts", () => ({
 import Page from "../../../app/page"
 
 describe("Landing page assembly", () => {
-  it("renders all 9 sections", async () => {
+  it("renders core sections", async () => {
     const jsx = await Page()
     render(jsx)
 
@@ -77,10 +77,6 @@ describe("Landing page assembly", () => {
 
     // Problem
     expect(screen.getByText(/most investors react/i)).toBeInTheDocument()
-
-    // Pipeline
-    expect(screen.getByText("DATA")).toBeInTheDocument()
-    expect(screen.getByText("PORTFOLIO")).toBeInTheDocument()
 
     // Engine cards (appear in both desktop + mobile layouts)
     expect(screen.getAllByText("Raw Market Signal").length).toBeGreaterThanOrEqual(1)
@@ -95,9 +91,6 @@ describe("Landing page assembly", () => {
     // Pricing
     expect(screen.getByText("Scout")).toBeInTheDocument()
     expect(screen.getByText("Portfolio")).toBeInTheDocument()
-
-    // Infrastructure (NEW)
-    expect(screen.getByText(/institutional-grade infrastructure/i)).toBeInTheDocument()
 
     // Footer (engine version also appears in hero card metadata)
     expect(screen.getAllByText(/engine v1\.3\.2/i).length).toBeGreaterThanOrEqual(1)

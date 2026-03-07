@@ -41,6 +41,15 @@ function formatTime(): string {
   return `${h12}:${minutes} ${period} EST`
 }
 
+function useClientTime(): string | null {
+  const [time, setTime] = useState<string | null>(null)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred to avoid SSR hydration mismatch (React #418)
+    setTime(formatTime())
+  }, [])
+  return time
+}
+
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US")
 }
@@ -110,6 +119,7 @@ export function HeroCandidateCard({
   const touchStartRef = useRef<number | null>(null)
   const isTouchDevice = useRef(false)
 
+  const clientTime = useClientTime()
   const candidate = candidates[activeIndex]
   const factors = getFactors(candidate)
   const hasMultiple = candidates.length > 1
@@ -190,7 +200,7 @@ export function HeroCandidateCard({
       {/* Header metadata bar */}
       <div className="flex items-center justify-between mb-3 px-1">
         <MicroMetadata text="Live Engine Output — Today" />
-        <MicroMetadata text={`Updated ${formatTime()} · Engine ${ENGINE_VERSION}`} />
+        <MicroMetadata text={clientTime ? `Updated ${clientTime} · Engine ${ENGINE_VERSION}` : `Engine ${ENGINE_VERSION}`} />
       </div>
 
       {/* Card */}

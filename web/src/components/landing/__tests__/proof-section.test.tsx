@@ -55,13 +55,12 @@ describe("ProofSection", () => {
     ).toBeInTheDocument()
   })
 
-  it("renders all 5 proof card titles", () => {
+  it("renders all 4 proof card titles", () => {
     render(<ProofSection />)
     expect(screen.getByText("Factor Transparency")).toBeInTheDocument()
     expect(screen.getByText("System Selectivity")).toBeInTheDocument()
     expect(screen.getByText("Sector Breakdown")).toBeInTheDocument()
     expect(screen.getByText("Correlation Heatmap")).toBeInTheDocument()
-    expect(screen.getByText("Historical Application")).toBeInTheDocument()
   })
 
   it("does NOT render Growth vs Value Tilt (removed)", () => {

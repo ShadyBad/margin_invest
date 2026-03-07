@@ -61,22 +61,19 @@ vi.mock("recharts", () => ({
 import { HomepageClient } from "../homepage-client"
 
 describe("HomepageClient section order", () => {
-  it("renders proof section before pipeline section", () => {
+  it("renders proof section before engine section", () => {
     const { container } = render(<HomepageClient data={null} />)
     const sections = container.querySelectorAll("section[id]")
     const ids = Array.from(sections).map((s) => s.id)
 
     const proofIdx = ids.indexOf("proof")
-    const pipelineIdx = ids.indexOf("pipeline")
     const engineIdx = ids.indexOf("engine")
 
     // All sections must exist
     expect(proofIdx).toBeGreaterThan(-1)
-    expect(pipelineIdx).toBeGreaterThan(-1)
     expect(engineIdx).toBeGreaterThan(-1)
 
-    // Proof should come before Pipeline and Engine in the DOM
-    expect(proofIdx).toBeLessThan(pipelineIdx)
+    // Proof should come before Engine in the DOM
     expect(proofIdx).toBeLessThan(engineIdx)
   })
 })

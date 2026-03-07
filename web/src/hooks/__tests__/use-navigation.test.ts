@@ -29,11 +29,13 @@ describe("useNavigation", () => {
       expect(result.current.isAuthenticated).toBe(false)
     })
 
-    it("returns Dashboard and Guides as center links", () => {
+    it("returns public nav links", () => {
       const { result } = renderHook(() => useNavigation())
       expect(result.current.links).toEqual([
         { href: "/login", label: "Dashboard", isActive: false },
+        { href: "/methodology", label: "Methodology", isActive: false },
         { href: "/guides", label: "Guides", isActive: false },
+        { href: "/#pricing", label: "Pricing", isActive: false },
       ])
     })
 

@@ -100,49 +100,73 @@ export function DifferentiatorSection() {
           can&apos;t verify.
         </p>
 
-        <div ref={tableRef} className="border border-border-subtle rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border-subtle">
-                <th className="text-left text-xs uppercase tracking-[0.15em] text-text-tertiary py-3 pr-4 w-[20%]">
-                  &nbsp;
-                </th>
-                <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
-                  Motley Fool
-                </th>
-                <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
-                  Seeking Alpha
-                </th>
-                <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
-                  Zacks
-                </th>
-                <th className="text-center text-xs uppercase tracking-[0.15em] text-accent py-3 px-2" style={{ borderTop: '2px solid var(--color-accent)' }}>
-                  Margin Invest
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {ROWS.map((row) => (
-                <tr key={row.feature} className="border-b border-border-subtle transition-colors hover:bg-[rgba(255,255,255,0.02)]">
-                  <td className="text-left text-text-secondary py-3 pr-4 font-medium">
-                    {row.feature}
-                  </td>
-                  <td className="text-center text-text-tertiary py-3 px-2">
-                    {row.motleyFool}
-                  </td>
-                  <td className="text-center text-text-tertiary py-3 px-2">
-                    {row.seekingAlpha}
-                  </td>
-                  <td className="text-center text-text-tertiary py-3 px-2">
-                    {row.zacks}
-                  </td>
-                  <td className="text-center text-accent font-medium py-3 px-2" style={{ background: 'rgba(26,122,90,0.06)' }}>
-                    {row.marginInvest}
-                  </td>
+        {/* Mobile: stacked cards. Desktop: table */}
+        <div ref={tableRef}>
+          {/* Desktop table */}
+          <div className="hidden md:block border border-border-subtle rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border-subtle">
+                  <th className="text-left text-xs uppercase tracking-[0.15em] text-text-tertiary py-3 pr-4 w-[20%]">
+                    &nbsp;
+                  </th>
+                  <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
+                    Motley Fool
+                  </th>
+                  <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
+                    Seeking Alpha
+                  </th>
+                  <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
+                    Zacks
+                  </th>
+                  <th className="text-center text-xs uppercase tracking-[0.15em] text-accent py-3 px-2" style={{ borderTop: '2px solid var(--color-accent)' }}>
+                    Margin Invest
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {ROWS.map((row) => (
+                  <tr key={row.feature} className="border-b border-border-subtle transition-colors hover:bg-[rgba(255,255,255,0.02)]">
+                    <td className="text-left text-text-secondary py-3 pr-4 font-medium">
+                      {row.feature}
+                    </td>
+                    <td className="text-center text-text-tertiary py-3 px-2">
+                      {row.motleyFool}
+                    </td>
+                    <td className="text-center text-text-tertiary py-3 px-2">
+                      {row.seekingAlpha}
+                    </td>
+                    <td className="text-center text-text-tertiary py-3 px-2">
+                      {row.zacks}
+                    </td>
+                    <td className="text-center text-accent font-medium py-3 px-2" style={{ background: 'rgba(26,122,90,0.06)' }}>
+                      {row.marginInvest}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {ROWS.map((row) => (
+              <div key={row.feature} className="border border-border-subtle rounded-lg p-4">
+                <div className="text-xs uppercase tracking-[0.15em] text-text-tertiary mb-3">
+                  {row.feature}
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-accent font-medium text-sm">Margin Invest</span>
+                  <span className="text-accent font-mono text-sm font-medium">{row.marginInvest}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-text-tertiary">
+                  <span className="line-through opacity-50">Motley Fool: {row.motleyFool}</span>
+                  <span className="line-through opacity-50">SA: {row.seekingAlpha}</span>
+                  <span className="line-through opacity-50">Zacks: {row.zacks}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
