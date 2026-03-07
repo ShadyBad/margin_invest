@@ -453,6 +453,30 @@ async def trigger_universe_assembly(
     return result
 
 
+@router.post("/pit/reparse")
+@limiter.limit("1/hour")
+async def trigger_pit_reparse(
+    request: Request,
+    x_admin_key: str = Header(),
+) -> dict:
+    """Re-parse EDGAR filings with empty data using the fixed file selector.
+
+    Finds pit_financial_snapshots where income_statement IS NULL, deletes
+    those rows, and re-downloads + re-parses the filings. This fixes rows
+    where the old file selector picked a linkbase XML instead of _htm.xml.
+
+    Runs synchronously — may take several minutes for large datasets.
+    """
+    _verify_admin_key(x_admin_key)
+
+    from margin_api.db.session import get_session_factory
+    from margin_api.services.edgar.backfill import reparse_empty_filings
+
+    summary = await reparse_empty_filings(session_factory=get_session_factory())
+    logger.info("[admin] EDGAR reparse complete: %s", summary)
+    return summary
+
+
 @router.patch("/jobs/{job_id}/status")
 @limiter.limit("10/minute")
 async def update_job_status(
