@@ -2555,15 +2555,18 @@ async def precompute_default_backtest(ctx: dict) -> dict:
         config_hash = compute_config_hash(config)
 
         async with session_factory() as session:
-            provider = DatabasePITProvider(session)
+            # Use min_market_cap=0 for backtest: most XBRL filings lack
+            # shares_outstanding, so market_cap computes to 0 and the default
+            # $100M floor eliminates ~97% of tickers. The financial filters
+            # (altman, beneish, etc.) provide quality screening instead.
+            provider = DatabasePITProvider(session, min_market_cap=0)
 
             registry = FactorRegistry.default()
-            # Disable liquidity filter for PIT backtest: the provider already
-            # applies a $100M market-cap floor, and the v1 liquidity filter's
-            # years_of_history >= 5 requirement eliminates everything in early
-            # years (EDGAR data starts at 2009). Volume data is also computed
-            # from recent prices, not as-of-date prices, making it unreliable
-            # for historical replay.
+            # Disable liquidity filter for PIT backtest: the v1 liquidity
+            # filter's years_of_history >= 5 requirement eliminates everything
+            # in early years (EDGAR data starts at 2009). Volume data is also
+            # computed from recent prices, not as-of-date prices, making it
+            # unreliable for historical replay.
             orchestrator = ReplayOrchestrator(
                 config=config,
                 pit_provider=provider,
