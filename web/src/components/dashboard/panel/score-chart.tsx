@@ -64,12 +64,12 @@ export function ScoreChart({
       >
         <div className="flex flex-col items-center gap-3">
           <div className="w-[80%] max-w-[400px] space-y-3">
-            <div className="h-3 bg-white/[0.04] rounded animate-pulse" />
-            <div className="h-3 bg-white/[0.04] rounded animate-pulse w-[90%]" />
-            <div className="h-3 bg-white/[0.04] rounded animate-pulse w-[70%]" />
-            <div className="h-3 bg-white/[0.04] rounded animate-pulse w-[85%]" />
+            <div className="h-3 bg-surface-overlay rounded animate-pulse" />
+            <div className="h-3 bg-surface-overlay rounded animate-pulse w-[90%]" />
+            <div className="h-3 bg-surface-overlay rounded animate-pulse w-[70%]" />
+            <div className="h-3 bg-surface-overlay rounded animate-pulse w-[85%]" />
           </div>
-          <span className="text-[11px] text-[#5C5955]/60 mt-2">Loading score history…</span>
+          <span className="text-[11px] text-text-tertiary/60 mt-2">Loading score history…</span>
         </div>
       </div>
     )
@@ -81,11 +81,11 @@ export function ScoreChart({
         className="h-[320px] flex flex-col items-center justify-center gap-3"
         data-testid="score-chart-error"
       >
-        <span className="text-[13px] text-[#C74B50]">Unable to load score history</span>
+        <span className="text-[13px] text-bearish">Unable to load score history</span>
         {onRetry && (
           <button
             onClick={onRetry}
-            className="text-[12px] text-[#5C5955] hover:text-[#E8E6E3] border border-white/[0.08] rounded px-3 py-1 transition-colors"
+            className="text-[12px] text-text-tertiary hover:text-text-primary border border-border-subtle rounded px-3 py-1 transition-colors"
           >
             Retry
           </button>
@@ -100,8 +100,8 @@ export function ScoreChart({
         className="h-[320px] flex flex-col items-center justify-center gap-2"
         data-testid="score-chart-empty"
       >
-        <span className="text-[13px] text-[#5C5955]">Score tracking begins after the next scoring run</span>
-        <span className="text-[11px] text-[#5C5955]/60">Scores are computed weekly</span>
+        <span className="text-[13px] text-text-tertiary">Score tracking begins after the next scoring run</span>
+        <span className="text-[11px] text-text-tertiary/60">Scores are computed weekly</span>
       </div>
     )
   }
@@ -130,8 +130,8 @@ export function ScoreChart({
         <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#1A7A5A" stopOpacity={0.25} />
-              <stop offset="100%" stopColor="#1A7A5A" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.25} />
+              <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid
@@ -141,7 +141,7 @@ export function ScoreChart({
           />
           <XAxis
             dataKey="dateLabel"
-            tick={{ fontSize: 11, fontFamily: "var(--font-geist-mono)", fill: "#5C5955" }}
+            tick={{ fontSize: 11, fontFamily: "var(--font-geist-mono)", fill: "var(--color-text-tertiary)" }}
             axisLine={false}
             tickLine={false}
             interval="preserveStartEnd"
@@ -162,10 +162,10 @@ export function ScoreChart({
           <Line
             type="monotone"
             dataKey="score"
-            stroke="#1A7A5A"
+            stroke="var(--color-accent)"
             strokeWidth={2}
             dot={false}
-            activeDot={{ r: 3, fill: "#fff", stroke: "#1A7A5A", strokeWidth: 2 }}
+            activeDot={{ r: 3, fill: "var(--color-bg-elevated)", stroke: "var(--color-accent)", strokeWidth: 2 }}
             animationDuration={800}
             animationEasing="ease-out"
           />

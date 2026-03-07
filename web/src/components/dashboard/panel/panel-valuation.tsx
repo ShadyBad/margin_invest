@@ -42,8 +42,8 @@ export function PanelValuation({
   if (entries.length === 0 && marginInvestValue == null) {
     return (
       <div data-testid="panel-valuation">
-        <h3 className="text-[14px] font-semibold text-[#E8E6E3] mb-3">Valuation</h3>
-        <p className="text-[13px] text-[#5C5955]">No valuation data</p>
+        <h3 className="text-[14px] font-semibold text-text-primary mb-3">Valuation</h3>
+        <p className="text-[13px] text-text-tertiary">No valuation data</p>
       </div>
     )
   }
@@ -71,27 +71,27 @@ export function PanelValuation({
 
   return (
     <div data-testid="panel-valuation">
-      <h3 className="text-[14px] font-semibold text-[#E8E6E3] mb-3">Valuation</h3>
+      <h3 className="text-[14px] font-semibold text-text-primary mb-3">Valuation</h3>
 
       {/* Header trio: MIV, Current Price, MoS */}
       {marginInvestValue != null && (
         <div className="mb-2">
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <span className="text-[10px] text-[#9A9590] uppercase tracking-wider block">Margin Invest Value</span>
-              <span className="text-[16px] font-mono text-[#E8E6E3] font-medium">${marginInvestValue.toFixed(2)}</span>
+              <span className="text-[10px] text-text-secondary uppercase tracking-wider block">Margin Invest Value</span>
+              <span className="text-[16px] font-mono text-text-primary font-medium">${marginInvestValue.toFixed(2)}</span>
             </div>
             {currentPrice != null && (
               <div>
-                <span className="text-[10px] text-[#9A9590] uppercase tracking-wider block">Current Price</span>
-                <span className="text-[16px] font-mono text-[#E8E6E3]">${currentPrice.toFixed(2)}</span>
+                <span className="text-[10px] text-text-secondary uppercase tracking-wider block">Current Price</span>
+                <span className="text-[16px] font-mono text-text-primary">${currentPrice.toFixed(2)}</span>
               </div>
             )}
             {marginOfSafety != null && (
               <div>
-                <span className="text-[10px] text-[#9A9590] uppercase tracking-wider block">Margin of Safety</span>
+                <span className="text-[10px] text-text-secondary uppercase tracking-wider block">Margin of Safety</span>
                 <span className={`text-[16px] font-mono font-medium ${
-                  marginOfSafety > 0 ? "text-[#1A7A5A]" : "text-[#C74B50]"
+                  marginOfSafety > 0 ? "text-bullish" : "text-bearish"
                 }`}>
                   {Math.round(marginOfSafety * 100)}%
                 </span>
@@ -111,7 +111,7 @@ export function PanelValuation({
 
       {/* Method breakdown bars */}
       {entries.length > 0 && (
-        <div className="space-y-2.5 pt-3 border-t border-white/[0.06]">
+        <div className="space-y-2.5 pt-3 border-t border-border-subtle">
           {entries.map(([key, value]) => {
             const isExpanded = expandedMethod === key
             const methodAudit = auditData?.methods.find((m) => m.method === key)
@@ -119,29 +119,29 @@ export function PanelValuation({
             return (
               <div key={key}>
                 <div
-                  className="flex items-center gap-3 cursor-pointer hover:bg-white/[0.02] rounded px-1 -mx-1 py-0.5"
+                  className="flex items-center gap-3 cursor-pointer hover:bg-surface-overlay rounded px-1 -mx-1 py-0.5"
                   onClick={() => handleMethodClick(key)}
                   data-testid={`method-bar-${key}`}
                 >
-                  <span className="text-[12px] text-[#9A9590] w-[120px] shrink-0">
+                  <span className="text-[12px] text-text-secondary w-[120px] shrink-0">
                     {METHOD_LABELS[key] ?? key}
                   </span>
-                  <div className="flex-1 h-[3px] rounded-full bg-white/[0.06]">
+                  <div className="flex-1 h-[3px] rounded-full bg-border-subtle">
                     <div
-                      className="h-full rounded-full bg-[#1A7A5A]/40"
+                      className="h-full rounded-full bg-accent/40"
                       style={{ width: `${(value / maxValue) * 100}%` }}
                     />
                   </div>
-                  <span className="text-[12px] font-mono text-[#E8E6E3] w-16 text-right">${value.toFixed(2)}</span>
+                  <span className="text-[12px] font-mono text-text-primary w-16 text-right">${value.toFixed(2)}</span>
                 </div>
                 {isExpanded && methodAudit && (
                   <MethodAuditDetail audit={methodAudit} />
                 )}
                 {isExpanded && loading && (
-                  <div className="ml-[123px] py-2 text-[11px] text-[#5C5955]">Loading audit data...</div>
+                  <div className="ml-[123px] py-2 text-[11px] text-text-tertiary">Loading audit data...</div>
                 )}
                 {isExpanded && !loading && !methodAudit && (
-                  <div className="ml-[123px] py-2 text-[11px] text-[#5C5955]">No audit data available</div>
+                  <div className="ml-[123px] py-2 text-[11px] text-text-tertiary">No audit data available</div>
                 )}
               </div>
             )

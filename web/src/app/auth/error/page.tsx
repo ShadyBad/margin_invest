@@ -38,11 +38,11 @@ function AuthErrorContent() {
   const message = getErrorMessage(error, code)
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
+    <div className="min-h-screen flex items-center justify-center bg-bg-primary">
       <div className="flex flex-col items-center gap-6 p-8 w-full max-w-sm">
-        <div className="w-16 h-16 rounded-full bg-red-400/10 flex items-center justify-center">
+        <div className="w-16 h-16 rounded-full bg-danger/10 flex items-center justify-center">
           <svg
-            className="w-8 h-8 text-red-400"
+            className="w-8 h-8 text-danger"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -56,15 +56,15 @@ function AuthErrorContent() {
           </svg>
         </div>
 
-        <h1 className="text-3xl font-bold text-[#E8E4DD]">
+        <h1 className="text-3xl font-bold text-text-primary">
           Authentication Error
         </h1>
 
-        <p className="text-red-400 text-center">{message}</p>
+        <p className="text-danger text-center">{message}</p>
 
         <Link
           href="/login"
-          className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors text-center block"
+          className="w-full px-4 py-3 rounded-sm bg-accent-warm text-white font-semibold hover:opacity-90 transition-opacity text-center block"
         >
           Try again
         </Link>

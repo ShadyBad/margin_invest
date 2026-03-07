@@ -23,22 +23,22 @@ export function MethodAuditDetail({ audit }: MethodAuditDetailProps) {
 
   return (
     <div
-      className="mt-1.5 mb-2 ml-[123px] pl-3 border-l border-white/[0.06] space-y-2"
+      className="mt-1.5 mb-2 ml-[123px] pl-3 border-l border-border-subtle space-y-2"
       data-testid="method-audit-detail"
     >
       {/* Inclusion status */}
       <div className="flex items-center gap-2">
         {audit.included ? (
-          <span className="text-[10px] font-mono text-[#1A7A5A] bg-[#1A7A5A]/10 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] font-mono text-bullish bg-bullish/10 px-1.5 py-0.5 rounded">
             Included
           </span>
         ) : (
-          <span className="text-[10px] font-mono text-[#C74B50] bg-[#C74B50]/10 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] font-mono text-bearish bg-bearish/10 px-1.5 py-0.5 rounded">
             Excluded
           </span>
         )}
         {audit.exclusion_reason && (
-          <span className="text-[10px] font-mono text-[#9A9590]">
+          <span className="text-[10px] font-mono text-text-secondary">
             {audit.exclusion_reason}
           </span>
         )}
@@ -47,15 +47,15 @@ export function MethodAuditDetail({ audit }: MethodAuditDetailProps) {
       {/* Weight and result */}
       <div className="flex gap-4 text-[11px] font-mono">
         {audit.result_per_share != null && (
-          <span className="text-[#E8E6E3]">
+          <span className="text-text-primary">
             Result: ${audit.result_per_share.toFixed(2)}
           </span>
         )}
-        <span className="text-[#9A9590]">
+        <span className="text-text-secondary">
           Weight: {(audit.weight * 100).toFixed(0)}%
         </span>
         {audit.renormalized_weight != null && (
-          <span className="text-[#9A9590]">
+          <span className="text-text-secondary">
             Renorm: {(audit.renormalized_weight * 100).toFixed(1)}%
           </span>
         )}
@@ -66,7 +66,7 @@ export function MethodAuditDetail({ audit }: MethodAuditDetailProps) {
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           {inputEntries.length > 0 && (
             <div>
-              <span className="text-[10px] text-[#5C5955] uppercase tracking-wider">
+              <span className="text-[10px] text-text-tertiary uppercase tracking-wider">
                 Inputs
               </span>
               {inputEntries.map(([key, value]) => (
@@ -74,8 +74,8 @@ export function MethodAuditDetail({ audit }: MethodAuditDetailProps) {
                   key={key}
                   className="flex justify-between text-[10px] font-mono"
                 >
-                  <span className="text-[#9A9590]">{formatKey(key)}</span>
-                  <span className="text-[#E8E6E3]">
+                  <span className="text-text-secondary">{formatKey(key)}</span>
+                  <span className="text-text-primary">
                     {formatLargeNumber(value)}
                   </span>
                 </div>
@@ -84,7 +84,7 @@ export function MethodAuditDetail({ audit }: MethodAuditDetailProps) {
           )}
           {intermediateEntries.length > 0 && (
             <div>
-              <span className="text-[10px] text-[#5C5955] uppercase tracking-wider">
+              <span className="text-[10px] text-text-tertiary uppercase tracking-wider">
                 Intermediates
               </span>
               {intermediateEntries.map(([key, value]) => (
@@ -92,8 +92,8 @@ export function MethodAuditDetail({ audit }: MethodAuditDetailProps) {
                   key={key}
                   className="flex justify-between text-[10px] font-mono"
                 >
-                  <span className="text-[#9A9590]">{formatKey(key)}</span>
-                  <span className="text-[#E8E6E3]">
+                  <span className="text-text-secondary">{formatKey(key)}</span>
+                  <span className="text-text-primary">
                     {formatLargeNumber(value)}
                   </span>
                 </div>

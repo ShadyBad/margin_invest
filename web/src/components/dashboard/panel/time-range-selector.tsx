@@ -21,8 +21,8 @@ export function TimeRangeSelector({ value, onChange }: TimeRangeSelectorProps) {
           }}
           className={`px-2.5 py-1 text-xs font-mono tracking-wide rounded transition-colors ${
             value === r
-              ? "bg-[#1A7A5A] text-white"
-              : "text-[#5C5955] hover:text-[#9A9590]"
+              ? "bg-accent text-white"
+              : "text-text-tertiary hover:text-text-secondary"
           }`}
         >
           {r}

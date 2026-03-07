@@ -26,14 +26,14 @@ export function PanelFilterList({ filters }: PanelFilterListProps) {
   return (
     <div data-testid="panel-filter-list">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[14px] font-semibold text-[#E8E6E3]">Filters</h3>
+        <h3 className="text-[14px] font-semibold text-text-primary">Filters</h3>
         <div className="flex items-center gap-1.5">
           {inconclusiveCount > 0 && (
             <span className="text-[11px] font-mono text-amber-500/70 bg-[rgba(217,167,50,0.06)] px-1.5 py-0.5 rounded">
               {inconclusiveCount} inconclusive
             </span>
           )}
-          <span className="text-[12px] font-mono text-[#9A9590] bg-white/[0.04] px-2 py-0.5 rounded">
+          <span className="text-[12px] font-mono text-text-secondary bg-surface-overlay px-2 py-0.5 rounded">
             {passCount}/{filters.length}
           </span>
         </div>
@@ -46,10 +46,10 @@ export function PanelFilterList({ filters }: PanelFilterListProps) {
           const iconColor = isInconclusive
             ? "text-amber-500"
             : filter.passed
-              ? "text-[#1A7A5A]"
-              : "text-[#C74B50]"
+              ? "text-bullish"
+              : "text-bearish"
           const statusLabel = isInconclusive ? "INCONCLUSIVE" : filter.passed ? "PASS" : "FAIL"
-          const statusColor = isInconclusive ? "text-amber-500/70" : "text-[#5C5955]"
+          const statusColor = isInconclusive ? "text-amber-500/70" : "text-text-tertiary"
           const rowBg = isInconclusive
             ? "bg-[rgba(217,167,50,0.04)]"
             : !filter.passed
@@ -59,12 +59,12 @@ export function PanelFilterList({ filters }: PanelFilterListProps) {
           return (
             <div key={filter.name}>
               <div
-                className={`flex items-center gap-2 h-8 px-2 rounded cursor-pointer transition-colors duration-150 hover:bg-white/[0.03] ${rowBg}`}
+                className={`flex items-center gap-2 h-8 px-2 rounded cursor-pointer transition-colors duration-150 hover:bg-surface-overlay ${rowBg}`}
                 data-testid={`panel-filter-${filter.name}`}
                 onClick={() => toggle(filter.name)}
               >
                 <span className={`text-[14px] shrink-0 ${iconColor}`}>{icon}</span>
-                <span className="text-[13px] text-[#E8E6E3]">
+                <span className="text-[13px] text-text-primary">
                   {formatAttributeLabel(filter.name)}
                 </span>
                 <span className={`text-[11px] font-mono ml-auto ${statusColor}`}>
@@ -93,7 +93,7 @@ export function PanelFilterList({ filters }: PanelFilterListProps) {
                         </p>
                       )}
                     {filter.detail && (
-                      <p className="text-[11px] font-mono text-[#5C5955] px-2 pb-2 pl-7">
+                      <p className="text-[11px] font-mono text-text-tertiary px-2 pb-2 pl-7">
                         {filter.detail}
                       </p>
                     )}

@@ -14,13 +14,13 @@ export function FactorRow({ name, weight, score, interpretation, subScores }: Fa
 
   return (
     <div
-      className="py-4 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.03] transition-colors duration-200 px-6"
+      className="py-4 border-b border-border-subtle last:border-b-0 hover:bg-surface-overlay transition-colors duration-200 px-6"
       data-testid={`factor-row-${name.toLowerCase()}`}
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[14px] font-medium text-[#E8E6E3]">{name}</span>
+        <span className="text-[14px] font-medium text-text-primary">{name}</span>
         <div className="flex items-center gap-3">
-          <span className="text-[12px] font-mono text-[#5C5955]">{weight}%</span>
+          <span className="text-[12px] font-mono text-text-tertiary">{weight}%</span>
           <span
             className="text-[24px] font-display leading-none"
             style={{ color }}
@@ -31,13 +31,13 @@ export function FactorRow({ name, weight, score, interpretation, subScores }: Fa
         </div>
       </div>
       <div className="flex items-center gap-3 mb-2">
-        <div className="flex-1 h-1 rounded-full bg-white/[0.06]" data-testid="factor-progress-bar">
+        <div className="flex-1 h-1 rounded-full bg-border-subtle" data-testid="factor-progress-bar">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{ width: `${score}%`, backgroundColor: color }}
           />
         </div>
-        <span className="text-[12px] text-[#5C5955] shrink-0 max-w-[200px] truncate">
+        <span className="text-[12px] text-text-tertiary shrink-0 max-w-[200px] truncate">
           {interpretation}
         </span>
       </div>

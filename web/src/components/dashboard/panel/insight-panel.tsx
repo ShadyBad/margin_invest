@@ -15,14 +15,14 @@ export function InsightPanel({ strengths, risks, commentary, confidence }: Insig
       <InsightCard variant="commentary" title="Analysis" text={commentary} />
 
       <div className="flex items-center gap-3 pt-1">
-        <span className="text-[11px] text-[#5C5955]">AI Confidence</span>
-        <div className="flex-1 h-[3px] rounded-full bg-white/[0.06]">
+        <span className="text-[11px] text-text-tertiary">AI Confidence</span>
+        <div className="flex-1 h-[3px] rounded-full bg-border-subtle">
           <div
-            className="h-full rounded-full bg-[#1A7A5A] transition-all duration-700 ease-out"
+            className="h-full rounded-full bg-accent transition-all duration-700 ease-out"
             style={{ width: `${confidence}%` }}
           />
         </div>
-        <span className="text-[13px] font-mono text-[#1A7A5A]">{confidence}%</span>
+        <span className="text-[13px] font-mono text-accent">{confidence}%</span>
       </div>
     </div>
   )

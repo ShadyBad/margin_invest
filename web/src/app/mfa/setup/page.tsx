@@ -130,42 +130,42 @@ function MfaSetupContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
-        <p className="text-[#8A8473]">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-bg-primary">
+        <p className="text-text-tertiary">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
+    <div className="min-h-screen flex items-center justify-center bg-bg-primary">
       <div className="flex flex-col items-center gap-8 p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-[#E8E4DD]">Set Up MFA</h1>
-        <p className="text-[#8A8473] text-center">
+        <h1 className="text-3xl font-bold text-text-primary">Set Up MFA</h1>
+        <p className="text-text-tertiary text-center">
           Multi-factor authentication is required to secure your account. Choose
           your preferred method below.
         </p>
 
         {error && (
-          <p className="text-red-400 text-sm w-full text-center">{error}</p>
+          <p className="text-danger text-sm w-full text-center">{error}</p>
         )}
 
         {step === "choose" && (
           <div className="flex flex-col gap-4 w-full">
             <button
               onClick={handleChooseAuthenticator}
-              className="w-full px-4 py-4 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] hover:border-[#D4A843] transition-colors text-left"
+              className="w-full px-4 py-4 rounded-sm bg-bg-elevated border border-border-primary text-text-primary hover:border-accent-warm transition-colors text-left"
             >
               <span className="font-semibold block">Authenticator App</span>
-              <span className="text-sm text-[#8A8473]">
+              <span className="text-sm text-text-tertiary">
                 Google Authenticator, Authy, or 1Password
               </span>
             </button>
             <button
               onClick={handleChooseSecurityKey}
-              className="w-full px-4 py-4 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] hover:border-[#D4A843] transition-colors text-left"
+              className="w-full px-4 py-4 rounded-sm bg-bg-elevated border border-border-primary text-text-primary hover:border-accent-warm transition-colors text-left"
             >
               <span className="font-semibold block">Security Key</span>
-              <span className="text-sm text-[#8A8473]">
+              <span className="text-sm text-text-tertiary">
                 YubiKey, fingerprint, or passkey
               </span>
             </button>
@@ -174,7 +174,7 @@ function MfaSetupContent() {
 
         {step === "totp" && (
           <div className="flex flex-col items-center gap-6 w-full">
-            <p className="text-[#8A8473] text-sm text-center">
+            <p className="text-text-tertiary text-sm text-center">
               Scan this QR code with your authenticator app, then enter the
               verification code below.
             </p>
@@ -188,7 +188,7 @@ function MfaSetupContent() {
               <div className="flex flex-col gap-1">
                 <label
                   htmlFor="verification-code"
-                  className="text-sm text-[#8A8473]"
+                  className="text-sm text-text-tertiary"
                 >
                   Verification Code
                 </label>
@@ -198,7 +198,7 @@ function MfaSetupContent() {
                   inputMode="numeric"
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
-                  className="w-full px-4 py-3 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] placeholder-[#8A8473] focus:border-[#D4A843] focus:outline-none transition-colors text-center text-lg tracking-widest"
+                  className="w-full px-4 py-3 rounded-sm bg-bg-elevated border border-border-primary text-text-primary placeholder-text-tertiary focus:border-accent-warm focus:outline-none transition-colors text-center text-lg tracking-widest"
                   placeholder="000000"
                   maxLength={6}
                   required
@@ -206,7 +206,7 @@ function MfaSetupContent() {
               </div>
               <button
                 type="submit"
-                className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+                className="w-full px-4 py-3 rounded-sm bg-accent-warm text-white font-semibold hover:opacity-90 transition-opacity"
               >
                 Verify &amp; Enable
               </button>
@@ -216,13 +216,13 @@ function MfaSetupContent() {
 
         {step === "webauthn" && (
           <div className="flex flex-col items-center gap-6 w-full">
-            <p className="text-[#8A8473] text-sm text-center">
+            <p className="text-text-tertiary text-sm text-center">
               Register a security key, biometric device, or passkey. You will be
               prompted by your browser to complete registration.
             </p>
             <button
               onClick={handleRegisterSecurityKey}
-              className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+              className="w-full px-4 py-3 rounded-sm bg-accent-warm text-white font-semibold hover:opacity-90 transition-opacity"
             >
               Register Security Key
             </button>

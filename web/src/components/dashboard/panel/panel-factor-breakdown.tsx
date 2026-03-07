@@ -36,12 +36,12 @@ export function PanelFactorBreakdown({
   return (
     <div data-testid="panel-factor-breakdown">
       <div className="flex items-center justify-between px-6 py-3">
-        <h3 className="text-[16px] font-semibold text-[#E8E6E3]">Factor Breakdown</h3>
+        <h3 className="text-[16px] font-semibold text-text-primary">Factor Breakdown</h3>
         {trackLabel && (
           <span
             className={`text-xs px-2 py-0.5 rounded font-medium ${
               winningTrack === "compounder"
-                ? "bg-[#1A7A5A]/10 text-[#1A7A5A]"
+                ? "bg-accent/10 text-accent"
                 : "bg-purple-500/10 text-purple-400"
             }`}
           >

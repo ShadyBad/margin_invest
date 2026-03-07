@@ -142,30 +142,30 @@ function MfaVerifyContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
-        <p className="text-[#8A8473]">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-bg-primary">
+        <p className="text-text-tertiary">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
+    <div className="min-h-screen flex items-center justify-center bg-bg-primary">
       <div className="flex flex-col items-center gap-8 p-8 w-full max-w-sm">
-        <h1 className="text-3xl font-bold text-[#E8E4DD]">
+        <h1 className="text-3xl font-bold text-text-primary">
           Verify Your Identity
         </h1>
 
         {error && (
-          <p className="text-red-400 text-sm w-full text-center">{error}</p>
+          <p className="text-danger text-sm w-full text-center">{error}</p>
         )}
 
-        <div className="flex w-full rounded-sm overflow-hidden border border-[#1E2740]">
+        <div className="flex w-full rounded-sm overflow-hidden border border-border-primary">
           <button
             onClick={() => setMethod("totp")}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
               method === "totp"
-                ? "bg-[#D4A843] text-[#0A0F1C]"
-                : "bg-[#141B2D] text-[#8A8473] hover:text-[#E8E4DD]"
+                ? "bg-accent-warm text-white"
+                : "bg-bg-elevated text-text-tertiary hover:text-text-primary"
             }`}
           >
             Authenticator
@@ -174,8 +174,8 @@ function MfaVerifyContent() {
             onClick={() => setMethod("webauthn")}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
               method === "webauthn"
-                ? "bg-[#D4A843] text-[#0A0F1C]"
-                : "bg-[#141B2D] text-[#8A8473] hover:text-[#E8E4DD]"
+                ? "bg-accent-warm text-white"
+                : "bg-bg-elevated text-text-tertiary hover:text-text-primary"
             }`}
           >
             Security Key
@@ -191,7 +191,7 @@ function MfaVerifyContent() {
               <div className="flex flex-col gap-1">
                 <label
                   htmlFor="verification-code"
-                  className="text-sm text-[#8A8473]"
+                  className="text-sm text-text-tertiary"
                 >
                   Verification Code
                 </label>
@@ -201,7 +201,7 @@ function MfaVerifyContent() {
                   inputMode="numeric"
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
-                  className="w-full px-4 py-3 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] placeholder-[#8A8473] focus:border-[#D4A843] focus:outline-none transition-colors text-center text-lg tracking-widest"
+                  className="w-full px-4 py-3 rounded-sm bg-bg-elevated border border-border-primary text-text-primary placeholder-text-tertiary focus:border-accent-warm focus:outline-none transition-colors text-center text-lg tracking-widest"
                   placeholder="000000"
                   maxLength={6}
                   required
@@ -209,17 +209,17 @@ function MfaVerifyContent() {
               </div>
               <button
                 type="submit"
-                className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+                className="w-full px-4 py-3 rounded-sm bg-accent-warm text-white font-semibold hover:opacity-90 transition-opacity"
               >
                 Verify
               </button>
             </form>
-            <p className="text-sm text-[#8A8473] text-center">
+            <p className="text-sm text-text-tertiary text-center">
               Lost your authenticator?{" "}
               <button
                 type="button"
                 onClick={() => setShowRecovery(true)}
-                className="font-semibold text-[#E8E4DD] hover:text-[#D4A843] transition-colors"
+                className="font-semibold text-text-primary hover:text-accent-warm transition-colors"
               >
                 Use a recovery code
               </button>
@@ -236,7 +236,7 @@ function MfaVerifyContent() {
               <div className="flex flex-col gap-1">
                 <label
                   htmlFor="recovery-code"
-                  className="text-sm text-[#8A8473]"
+                  className="text-sm text-text-tertiary"
                 >
                   Recovery code
                 </label>
@@ -245,32 +245,32 @@ function MfaVerifyContent() {
                   type="text"
                   value={recoveryCode}
                   onChange={(e) => setRecoveryCode(e.target.value)}
-                  className="w-full px-4 py-3 rounded-sm bg-[#141B2D] border border-[#1E2740] text-[#E8E4DD] placeholder-[#8A8473] focus:border-[#D4A843] focus:outline-none transition-colors text-center text-lg tracking-widest font-mono"
+                  className="w-full px-4 py-3 rounded-sm bg-bg-elevated border border-border-primary text-text-primary placeholder-text-tertiary focus:border-accent-warm focus:outline-none transition-colors text-center text-lg tracking-widest font-mono"
                   placeholder="xxxx-xxxx"
                   required
                 />
               </div>
               <button
                 type="submit"
-                className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+                className="w-full px-4 py-3 rounded-sm bg-accent-warm text-white font-semibold hover:opacity-90 transition-opacity"
               >
                 Verify
               </button>
             </form>
-            <p className="text-sm text-[#8A8473] text-center">
+            <p className="text-sm text-text-tertiary text-center">
               <button
                 type="button"
                 onClick={() => setShowRecovery(false)}
-                className="font-semibold text-[#E8E4DD] hover:text-[#D4A843] transition-colors"
+                className="font-semibold text-text-primary hover:text-accent-warm transition-colors"
               >
                 Back to authenticator
               </button>
             </p>
-            <p className="text-sm text-[#8A8473] text-center">
+            <p className="text-sm text-text-tertiary text-center">
               Lost your recovery codes too?{" "}
               <a
                 href="/support?subject=MFA+recovery"
-                className="font-semibold text-[#E8E4DD] hover:text-[#D4A843] transition-colors"
+                className="font-semibold text-text-primary hover:text-accent-warm transition-colors"
               >
                 Contact support
               </a>
@@ -280,13 +280,13 @@ function MfaVerifyContent() {
 
         {method === "webauthn" && (
           <div className="flex flex-col items-center gap-6 w-full">
-            <p className="text-[#8A8473] text-sm text-center">
+            <p className="text-text-tertiary text-sm text-center">
               Use your security key, biometric device, or passkey to verify your
               identity.
             </p>
             <button
               onClick={handleWebAuthnAuthenticate}
-              className="w-full px-4 py-3 rounded-sm bg-[#D4A843] text-[#0A0F1C] font-semibold hover:bg-[#E8B84D] transition-colors"
+              className="w-full px-4 py-3 rounded-sm bg-accent-warm text-white font-semibold hover:opacity-90 transition-opacity"
             >
               Authenticate with Security Key
             </button>

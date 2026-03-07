@@ -51,12 +51,12 @@ export function ScoreHistoryTable({ history, status = "loaded" }: ScoreHistoryTa
     return (
       <div className="px-6 pt-4 pb-6" data-testid="score-history-loading">
         <div className="flex items-center justify-between mb-3">
-          <div className="h-5 w-32 bg-white/[0.04] rounded animate-pulse" />
-          <div className="h-4 w-16 bg-white/[0.04] rounded animate-pulse" />
+          <div className="h-5 w-32 bg-surface-overlay rounded animate-pulse" />
+          <div className="h-4 w-16 bg-surface-overlay rounded animate-pulse" />
         </div>
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-[44px] bg-white/[0.02] rounded animate-pulse" />
+            <div key={i} className="h-[44px] bg-surface-overlay rounded animate-pulse" />
           ))}
         </div>
       </div>
@@ -66,7 +66,7 @@ export function ScoreHistoryTable({ history, status = "loaded" }: ScoreHistoryTa
   if (status === "error") {
     return (
       <div className="px-6 py-8 text-center" data-testid="score-history-error">
-        <p className="text-[13px] text-[#C74B50]">Unable to load score history</p>
+        <p className="text-[13px] text-bearish">Unable to load score history</p>
       </div>
     )
   }
@@ -74,7 +74,7 @@ export function ScoreHistoryTable({ history, status = "loaded" }: ScoreHistoryTa
   if (history.length === 0) {
     return (
       <div className="px-6 py-8 text-center" data-testid="score-history-table">
-        <p className="text-[13px] text-[#5C5955]">No scoring history yet</p>
+        <p className="text-[13px] text-text-tertiary">No scoring history yet</p>
       </div>
     )
   }
@@ -96,37 +96,37 @@ export function ScoreHistoryTable({ history, status = "loaded" }: ScoreHistoryTa
   return (
     <div className="px-6 pt-4 pb-6" data-testid="score-history-table">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[16px] font-semibold text-[#E8E6E3]">Score History</h3>
-        <span className="text-[12px] text-[#5C5955]">{history.length} runs</span>
+        <h3 className="text-[16px] font-semibold text-text-primary">Score History</h3>
+        <span className="text-[12px] text-text-tertiary">{history.length} runs</span>
       </div>
       <table className="w-full">
         <thead>
-          <tr className="border-b border-white/[0.06]">
+          <tr className="border-b border-border-subtle">
             <th
-              className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2 cursor-pointer select-none"
+              className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2 cursor-pointer select-none"
               onClick={() => handleSort("date")}
             >
               Date{sortKey === "date" ? chevron : ""}
             </th>
             <th
-              className="text-right text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2 cursor-pointer select-none"
+              className="text-right text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2 cursor-pointer select-none"
               onClick={() => handleSort("score")}
             >
               Score{sortKey === "score" ? chevron : ""}
             </th>
-            <th className="text-right text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2">Delta</th>
-            <th className="text-center text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2">Signal</th>
-            <th className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2">Tier</th>
-            <th className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-[#5C5955] pb-2">Key Change</th>
+            <th className="text-right text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Delta</th>
+            <th className="text-center text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Signal</th>
+            <th className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Tier</th>
+            <th className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Key Change</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((row, i) => (
             <tr
               key={row.date + i}
-              className="border-b border-white/[0.03] h-[44px] hover:bg-white/[0.03] transition-colors duration-150"
+              className="border-b border-border-subtle h-[44px] hover:bg-surface-overlay transition-colors duration-150"
             >
-              <td className="text-[12px] font-mono text-[#9A9590]">{formatDate(row.date)}</td>
+              <td className="text-[12px] font-mono text-text-secondary">{formatDate(row.date)}</td>
               <td className="text-right">
                 <span
                   className="text-[16px] font-display"
@@ -139,7 +139,7 @@ export function ScoreHistoryTable({ history, status = "loaded" }: ScoreHistoryTa
                 <span
                   data-testid="score-delta"
                   className={`text-[12px] font-mono ${
-                    row.delta > 0 ? "text-[#1A7A5A]" : row.delta < 0 ? "text-[#C74B50]" : "text-[#5C5955]"
+                    row.delta > 0 ? "text-bullish" : row.delta < 0 ? "text-bearish" : "text-text-tertiary"
                   }`}
                 >
                   {row.delta > 0 ? `+${row.delta}` : row.delta === 0 ? "\u2014" : row.delta}
@@ -152,7 +152,7 @@ export function ScoreHistoryTable({ history, status = "loaded" }: ScoreHistoryTa
               <td className="text-[12px]" style={{ color: getPercentileColor(row.score) }}>
                 {row.conviction}
               </td>
-              <td className="text-[12px] text-[#5C5955]">{row.keyChange}</td>
+              <td className="text-[12px] text-text-tertiary">{row.keyChange}</td>
             </tr>
           ))}
         </tbody>

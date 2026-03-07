@@ -83,7 +83,7 @@ export function PriceLadder({ buyPrice, currentPrice, fairValue, sellPrice }: Pr
         {/* Current price marker */}
         {currentPct != null && (
           <div
-            className={`absolute top-[-2px] w-3 h-3 rounded-full border-2 border-[#0B0D10] ${
+            className={`absolute top-[-2px] w-3 h-3 rounded-full border-2 border-bg-primary ${
               zone === "buy" ? "bg-emerald-400" : zone === "sell" ? "bg-red-400" : "bg-blue-400"
             }`}
             style={{ left: `${currentPct}%`, transform: "translateX(-50%)" }}

@@ -108,8 +108,8 @@ function PriceTargetTooltip({ active, payload, label }: { active?: boolean; payl
   }
 
   return (
-    <div className="bg-[rgba(17,17,19,0.95)] backdrop-blur border border-white/[0.08] rounded-lg px-3 py-2 shadow-lg">
-      <p className="text-[10px] font-mono text-[#5C5955] mb-1">{formatDate(String(label))}</p>
+    <div className="bg-bg-elevated/95 backdrop-blur border border-border-subtle rounded-lg px-3 py-2 shadow-lg">
+      <p className="text-[10px] font-mono text-text-tertiary mb-1">{formatDate(String(label))}</p>
       {data.price != null && (
         <p className="text-[14px] font-mono text-blue-400">Price: ${data.price.toFixed(2)}</p>
       )}
@@ -137,10 +137,10 @@ export function PriceTargetChart({ scoreHistory, priceHistory }: PriceTargetChar
 
   if (chartData.length < 2) {
     return (
-      <div className="px-6 py-8 border-t border-white/[0.06]" data-testid="price-target-chart-empty">
+      <div className="px-6 py-8 border-t border-border-subtle" data-testid="price-target-chart-empty">
         <div className="flex flex-col items-center justify-center gap-2 text-center">
-          <span className="text-[13px] text-[#5C5955]">Buy/Sell targets will appear after 2+ scoring runs</span>
-          <span className="text-[11px] text-[#5C5955]/60">Target bands track how valuations evolve over time</span>
+          <span className="text-[13px] text-text-tertiary">Buy/Sell targets will appear after 2+ scoring runs</span>
+          <span className="text-[11px] text-text-tertiary/60">Target bands track how valuations evolve over time</span>
         </div>
       </div>
     )
@@ -161,7 +161,7 @@ export function PriceTargetChart({ scoreHistory, priceHistory }: PriceTargetChar
   ]
 
   return (
-    <div className="px-6 py-4 border-t border-white/[0.06]">
+    <div className="px-6 py-4 border-t border-border-subtle">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
           Price vs Target Band
