@@ -11,6 +11,7 @@ from margin_api.services.edgar.backfill import (
     _build_snapshot_row,
     _infer_fiscal_info,
     _infer_period_end,
+    _select_xbrl_file,
     fetch_and_parse_filing,
 )
 from margin_api.services.edgar.index_builder import EdgarIndexEntry
@@ -193,6 +194,88 @@ class TestInferFiscalInfo:
 
         assert fiscal_year == 2024
         assert fiscal_quarter == 1
+
+
+class TestSelectXbrlFile:
+    """Tests for _select_xbrl_file — picks the right XML from a filing index page."""
+
+    def test_prefers_htm_xml_over_linkbases(self) -> None:
+        """Modern filing: _htm.xml should be chosen over _cal/_def/_lab/_pre.xml."""
+        html = """
+        <a href="aapl-20230930_cal.xml">cal</a>
+        <a href="aapl-20230930_def.xml">def</a>
+        <a href="aapl-20230930_htm.xml">htm</a>
+        <a href="aapl-20230930_lab.xml">lab</a>
+        <a href="aapl-20230930_pre.xml">pre</a>
+        """
+        assert _select_xbrl_file(html) == "aapl-20230930_htm.xml"
+
+    def test_traditional_xbrl_instance(self) -> None:
+        """Older filing: plain .xml instance file (no _htm.xml) should be picked."""
+        html = """
+        <a href="aapl-20140927.xml">instance</a>
+        <a href="aapl-20140927_cal.xml">cal</a>
+        <a href="aapl-20140927_def.xml">def</a>
+        <a href="aapl-20140927_lab.xml">lab</a>
+        <a href="aapl-20140927_pre.xml">pre</a>
+        <a href="FilingSummary.xml">summary</a>
+        """
+        assert _select_xbrl_file(html) == "aapl-20140927.xml"
+
+    def test_skips_r_report_files(self) -> None:
+        """R*.xml report files should never be selected."""
+        html = """
+        <a href="R1.xml">report1</a>
+        <a href="R2.xml">report2</a>
+        <a href="msft-20230630.xml">instance</a>
+        """
+        assert _select_xbrl_file(html) == "msft-20230630.xml"
+
+    def test_skips_filing_summary(self) -> None:
+        """FilingSummary.xml should never be selected."""
+        html = """
+        <a href="FilingSummary.xml">summary</a>
+        <a href="goog-20231231_htm.xml">htm</a>
+        """
+        assert _select_xbrl_file(html) == "goog-20231231_htm.xml"
+
+    def test_returns_none_when_no_xbrl(self) -> None:
+        """Pre-XBRL filing with only HTML files returns None."""
+        html = """
+        <a href="filing.htm">the filing</a>
+        <a href="exhibit1.htm">exhibit</a>
+        """
+        assert _select_xbrl_file(html) is None
+
+    def test_htm_xml_preferred_even_if_plain_xml_exists(self) -> None:
+        """If both _htm.xml and a plain .xml exist, prefer _htm.xml."""
+        html = """
+        <a href="aapl-20230930.xml">instance</a>
+        <a href="aapl-20230930_htm.xml">htm</a>
+        <a href="aapl-20230930_cal.xml">cal</a>
+        """
+        assert _select_xbrl_file(html) == "aapl-20230930_htm.xml"
+
+    def test_returns_none_when_only_linkbases(self) -> None:
+        """If only linkbase XMLs exist (no instance or _htm.xml), return None."""
+        html = """
+        <a href="aapl-20230930_cal.xml">cal</a>
+        <a href="aapl-20230930_def.xml">def</a>
+        <a href="aapl-20230930_lab.xml">lab</a>
+        <a href="aapl-20230930_pre.xml">pre</a>
+        <a href="FilingSummary.xml">summary</a>
+        """
+        assert _select_xbrl_file(html) is None
+
+    def test_full_path_hrefs(self) -> None:
+        """Handles full-path hrefs (starting with /Archives/...)."""
+        html = """
+        <a href="/Archives/edgar/data/320193/000032019323000106/aapl-20230930_htm.xml">htm</a>
+        <a href="/Archives/edgar/data/320193/000032019323000106/aapl-20230930_cal.xml">cal</a>
+        """
+        result = _select_xbrl_file(html)
+        assert result is not None
+        assert result.endswith("_htm.xml")
 
 
 class TestFetchAndParseFilingRetry:

@@ -2194,6 +2194,30 @@ async def run_edgar_backfill_cmd(
     await engine.dispose()
 
 
+async def run_edgar_reparse_cmd() -> None:
+    """Re-parse EDGAR filings that have empty data (income_statement IS NULL).
+
+    Deletes empty rows and re-downloads + re-parses the filings using the
+    fixed file selector that prefers _htm.xml over linkbase XMLs.
+    """
+    from margin_api.services.edgar.backfill import reparse_empty_filings
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    logger.info("[edgar-reparse] Starting re-parse of empty filings...")
+
+    summary = await reparse_empty_filings(session_factory=session_factory)
+
+    print(
+        f"\nEDGAR reparse complete: {summary['total']} empty filings found, "
+        f"{summary['reparsed']} reparsed, {summary['failed']} failed, "
+        f"{summary['still_empty']} still empty"
+    )
+
+    await engine.dispose()
+
+
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
@@ -2583,6 +2607,12 @@ def main() -> None:
         help="Only build index, don't fetch/parse/insert",
     )
 
+    # edgar-reparse
+    subparsers.add_parser(
+        "edgar-reparse",
+        help="Re-parse EDGAR filings with empty data (fixes linkbase selection bug)",
+    )
+
     # ablation
     ablation_parser = subparsers.add_parser(
         "ablation",
@@ -2692,6 +2722,8 @@ def main() -> None:
                 dry_run=args.dry_run,
             )
         )
+    elif args.command == "edgar-reparse":
+        asyncio.run(run_edgar_reparse_cmd())
     elif args.command == "ablation":
         run_ablation(
             start_date=args.start_date,

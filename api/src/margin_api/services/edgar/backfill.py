@@ -159,8 +159,51 @@ def _build_snapshot_row(
 # Filing download + parse
 # ---------------------------------------------------------------------------
 
-# Match XBRL instance files, skip R*.xml report files
-_XBRL_FILE_RE = re.compile(r'href="([^"]+\.xml)"', re.IGNORECASE)
+# Match any .xml href in a filing index page
+_XML_HREF_RE = re.compile(r'href="([^"]+\.xml)"', re.IGNORECASE)
+
+# Linkbase suffixes and metadata files that are NOT XBRL instance documents
+_LINKBASE_SUFFIXES = ("_cal.xml", "_def.xml", "_lab.xml", "_pre.xml")
+
+
+def _select_xbrl_file(index_html: str) -> str | None:
+    """Pick the best XBRL instance file from a filing index page.
+
+    Priority order:
+    1. ``*_htm.xml`` — SEC's flattened XML from inline XBRL (post-~2019 filings)
+    2. A plain ``.xml`` file that isn't a linkbase, report, or summary
+    3. None if no suitable file found
+
+    Returns the href string (may be relative or absolute path).
+    """
+    matches = _XML_HREF_RE.findall(index_html)
+
+    htm_xml: str | None = None
+    plain_xml: str | None = None
+
+    for href in matches:
+        filename = href.rsplit("/", 1)[-1].lower()
+
+        # Skip R*.xml report files (R1.xml, R2.xml, ...)
+        if filename.startswith("r") and len(filename) > 1 and filename[1].isdigit():
+            continue
+
+        # Skip FilingSummary.xml
+        if filename == "filingsummary.xml":
+            continue
+
+        # Skip linkbase files
+        if any(filename.endswith(suffix) for suffix in _LINKBASE_SUFFIXES):
+            continue
+
+        # Categorize
+        if filename.endswith("_htm.xml"):
+            htm_xml = href
+        elif plain_xml is None:
+            plain_xml = href
+
+    # Prefer _htm.xml (modern iXBRL flattened), fall back to plain instance
+    return htm_xml or plain_xml
 
 
 class _RateLimiter:
@@ -248,18 +291,7 @@ async def _fetch_filing_with_retry(
 
     resp = await _do_get(client, index_url, rate_limiter)
 
-    # Find XBRL file links (*.xml but skip R*.xml report files)
-    matches = _XBRL_FILE_RE.findall(resp.text)
-    xbrl_file = None
-    for match in matches:
-        filename = match.rsplit("/", 1)[-1]
-        # Skip R*.xml (report files like R1.xml, R2.xml, etc.)
-        if filename.startswith("R") and filename[1:2].isdigit():
-            continue
-        # Skip non-XBRL-instance files
-        if filename.lower().endswith(".xml"):
-            xbrl_file = match
-            break
+    xbrl_file = _select_xbrl_file(resp.text)
 
     if not xbrl_file:
         logger.info(
@@ -591,4 +623,125 @@ async def run_edgar_backfill(
         "inserted": counters["inserted"],
         "skipped": counters["skipped"],
         "failed": counters["failed"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Re-parse empty filings
+# ---------------------------------------------------------------------------
+
+
+async def reparse_empty_filings(
+    session_factory: async_sessionmaker[AsyncSession],
+    batch_size: int = 100,
+) -> dict[str, int]:
+    """Delete and re-fetch filings that have empty parsed data.
+
+    Targets rows in pit_financial_snapshots where income_statement IS NULL,
+    which indicates the original backfill picked the wrong XML file (e.g.
+    a linkbase instead of the XBRL instance). Deletes those rows and
+    re-downloads + re-parses the filing using the fixed file selector.
+
+    Returns:
+        Summary dict with keys: total, reparsed, failed, still_empty.
+    """
+    from sqlalchemy import delete
+
+    # 1. Find accession numbers with empty income data
+    async with session_factory() as session:
+        stmt = select(
+            PITFinancialSnapshot.accession_number,
+            PITFinancialSnapshot.cik,
+            PITFinancialSnapshot.ticker,
+            PITFinancialSnapshot.filing_date,
+            PITFinancialSnapshot.form_type,
+            PITFinancialSnapshot.fiscal_year,
+            PITFinancialSnapshot.fiscal_quarter,
+            PITFinancialSnapshot.sic_code,
+        ).where(PITFinancialSnapshot.income_statement.is_(None))
+        result = await session.execute(stmt)
+        empty_rows = result.all()
+
+    total = len(empty_rows)
+    logger.info("[edgar-reparse] Found %d filings with empty data", total)
+
+    if total == 0:
+        return {"total": 0, "reparsed": 0, "failed": 0, "still_empty": 0}
+
+    # 2. Delete empty rows so ON CONFLICT DO NOTHING won't block re-insert
+    async with session_factory() as session:
+        accessions = [row.accession_number for row in empty_rows]
+        for i in range(0, len(accessions), batch_size):
+            batch = accessions[i : i + batch_size]
+            await session.execute(
+                delete(PITFinancialSnapshot).where(
+                    PITFinancialSnapshot.accession_number.in_(batch)
+                )
+            )
+        await session.commit()
+    logger.info("[edgar-reparse] Deleted %d empty rows", total)
+
+    # 3. Re-fetch and re-parse each filing
+    rate_limiter = _RateLimiter(rate=2.0)
+    counters = {"reparsed": 0, "failed": 0, "still_empty": 0, "done": 0}
+
+    async with httpx.AsyncClient(
+        headers={"User-Agent": USER_AGENT},
+        timeout=httpx.Timeout(EDGAR_FILING_TIMEOUT),
+    ) as client:
+        for row in empty_rows:
+            cik_int = int(row.cik) if isinstance(row.cik, str) else row.cik
+            accession_clean = row.accession_number.replace("-", "")
+            entry = EdgarIndexEntry(
+                company_name="",
+                form_type=row.form_type,
+                cik=str(row.cik),
+                date_filed=row.filing_date.isoformat(),
+                accession_number=row.accession_number,
+                filename=f"edgar/data/{cik_int}/{accession_clean}.txt",
+            )
+
+            try:
+                financials = await _fetch_filing_with_retry(client, entry, rate_limiter)
+            except (NoXBRLAvailableError, Exception):
+                financials = None
+
+            if financials is None or not financials.income_statement:
+                if financials and not financials.income_statement:
+                    counters["still_empty"] += 1
+                else:
+                    counters["failed"] += 1
+                continue
+
+            async with session_factory() as session:
+                was_inserted = await insert_pit_snapshot(
+                    session,
+                    entry,
+                    financials,
+                    row.ticker,
+                    row.fiscal_year,
+                    row.fiscal_quarter,
+                    sic_code=row.sic_code,
+                )
+                await session.commit()
+                if was_inserted:
+                    counters["reparsed"] += 1
+
+            counters["done"] += 1
+            done = counters["done"]
+            if done % 50 == 0 or done == total:
+                logger.info(
+                    "[edgar-reparse] Progress %d/%d (reparsed=%d, failed=%d, still_empty=%d)",
+                    done,
+                    total,
+                    counters["reparsed"],
+                    counters["failed"],
+                    counters["still_empty"],
+                )
+
+    return {
+        "total": total,
+        "reparsed": counters["reparsed"],
+        "failed": counters["failed"],
+        "still_empty": counters["still_empty"],
     }
