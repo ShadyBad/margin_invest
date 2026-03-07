@@ -2552,10 +2552,6 @@ async def precompute_default_backtest(ctx: dict) -> dict:
                 pit_provider=provider,
                 factor_registry=registry,
                 use_real_scoring=True,
-                # Disable liquidity filter — PIT data doesn't include
-                # avg_daily_volume or years_of_history, so every ticker
-                # would be eliminated by the volume/history checks.
-                disabled_filters={"liquidity"},
             )
             replay_result = await orchestrator.run_async()
 
