@@ -9,6 +9,7 @@ Start the worker with:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import math
@@ -228,6 +229,7 @@ async def ingest_batch(
     from margin_api.cli import seed_ticker_data
     from margin_api.services.ingestion import should_ingest_ticker
     from margin_api.services.redis_rate_limiter import RedisRateLimiter
+    from margin_api.services.seed_result import SeedResult
 
     label = f"[ingest:{run_id}:batch-{batch_num}]"
     logger.info("%s Starting — %d tickers (sweep=%s)", label, len(tickers), is_sweep)
@@ -306,15 +308,24 @@ async def ingest_batch(
         await limiter.wait_and_acquire()
 
         tick_started = datetime.now(UTC)
-        async with session_factory() as session:
-            result = await seed_ticker_data(
-                ticker=ticker,
-                provider=provider,
-                session=session,
-                fallback_provider=(
-                    fmp_provider if (fmp_breaker is None or fmp_breaker.allow_request()) else None
-                ),
-            )
+        try:
+            async with session_factory() as session:
+                result = await asyncio.wait_for(
+                    seed_ticker_data(
+                        ticker=ticker,
+                        provider=provider,
+                        session=session,
+                        fallback_provider=(
+                            fmp_provider
+                            if (fmp_breaker is None or fmp_breaker.allow_request())
+                            else None
+                        ),
+                    ),
+                    timeout=120,  # 2 min per ticker — prevents batch-level hangs
+                )
+        except TimeoutError:
+            logger.warning("%s %s TIMEOUT after 120s", label, ticker)
+            result = SeedResult(status="failed", error_message="Timeout after 120s")
         tick_ended = datetime.now(UTC)
         duration_ms = int((tick_ended - tick_started).total_seconds() * 1000)
 
@@ -2984,6 +2995,24 @@ class WorkerSettings:
                     logger.info("[worker] Cleaned up %d stale ingestion runs", len(stale_runs))
         except Exception:
             logger.exception("[worker] Failed to clean up stale ingestion runs")
+
+        # Clean up orphaned ARQ in-progress keys from previous worker crashes/deploys
+        try:
+            redis: ArqRedis | None = ctx.get("redis")
+            if redis:
+                keys = await redis.keys("arq:in-progress:*")
+                if keys:
+                    await redis.delete(*keys)
+                    key_names = [
+                        k.decode() if isinstance(k, bytes) else k for k in keys
+                    ]
+                    logger.info(
+                        "[worker] Cleared %d orphaned in-progress keys: %s",
+                        len(keys),
+                        key_names,
+                    )
+        except Exception:
+            logger.exception("[worker] Failed to clean up orphaned ARQ keys")
 
         # Auto-bootstrap PIT data if tables are empty
         try:
