@@ -512,8 +512,11 @@ class TestGetUniverse:
         assert "TINY" not in tickers
 
     @pytest.mark.asyncio
-    async def test_get_universe_excludes_inactive(self, session: AsyncSession):
-        """Insert inactive member, verify excluded."""
+    async def test_get_universe_includes_inactive(self, session: AsyncSession):
+        """Inactive tickers are included — delisting detection is unreliable
+        for tickers that started filing after the dataset start date, so
+        is_active is not used as a filter. Delistings are handled downstream
+        via get_delisting() and elimination filters."""
         session.add(
             _make_member(
                 ticker="DEAD",
@@ -538,7 +541,9 @@ class TestGetUniverse:
         provider = DatabasePITProvider(session)
         universe = await provider.get_universe(date(2024, 11, 15))
 
-        assert len(universe) == 0
+        # Inactive tickers ARE returned — filtering happens downstream
+        assert len(universe) == 1
+        assert universe[0].ticker == "DEAD"
 
     @pytest.mark.asyncio
     async def test_get_universe_uses_nearest_quarter(self, session: AsyncSession):

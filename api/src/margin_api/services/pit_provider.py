@@ -134,8 +134,14 @@ class DatabasePITProvider:
         """Return all tradeable stocks at the given date.
 
         Finds the nearest quarter_date <= as_of_date in pit_universe_memberships,
-        filters by is_active=True and market_cap >= min_market_cap, then batch
-        loads snapshots for all qualifying tickers.
+        then batch loads snapshots for all tickers with filings and prices.
+
+        Note: is_active is NOT filtered here because the delisting detector
+        counts consecutive filing misses from the start of the dataset, not
+        from a ticker's first filing. This causes tickers that started filing
+        later (e.g. IPOs in 2015 with data starting in 2009) to be incorrectly
+        marked as delisted. Instead, delistings are handled by the backtest
+        via get_delisting() and the elimination filters.
         """
         # Find the nearest quarter_date <= as_of_date
         nearest_q_stmt = (
@@ -150,13 +156,12 @@ class DatabasePITProvider:
         if nearest_quarter is None:
             return []
 
-        # Get all active tickers for that quarter, filtering by market cap
+        # Get all tickers for that quarter (no is_active filter — see docstring)
         members_stmt = select(
             PITUniverseMembership.ticker,
             PITUniverseMembership.avg_daily_volume,
         ).where(
             PITUniverseMembership.quarter_date == nearest_quarter,
-            PITUniverseMembership.is_active.is_(True),
         )
         members_result = await self._session.execute(members_stmt)
         member_rows = members_result.all()
