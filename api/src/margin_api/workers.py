@@ -2558,13 +2558,29 @@ async def precompute_default_backtest(ctx: dict) -> dict:
             provider = DatabasePITProvider(session)
 
             registry = FactorRegistry.default()
+            # Disable liquidity filter for PIT backtest: the provider already
+            # applies a $100M market-cap floor, and the v1 liquidity filter's
+            # years_of_history >= 5 requirement eliminates everything in early
+            # years (EDGAR data starts at 2009). Volume data is also computed
+            # from recent prices, not as-of-date prices, making it unreliable
+            # for historical replay.
             orchestrator = ReplayOrchestrator(
                 config=config,
                 pit_provider=provider,
                 factor_registry=registry,
                 use_real_scoring=True,
+                disabled_filters={"liquidity"},
             )
             replay_result = await orchestrator.run_async()
+            logger.info(
+                "[precompute_backtest] Replay complete: snapshots=%d, total_return=%.4f, "
+                "cagr=%.4f, sharpe=%.4f, max_dd=%.4f",
+                len(replay_result.snapshots),
+                replay_result.metrics.total_return,
+                replay_result.metrics.cagr,
+                replay_result.metrics.sharpe_ratio,
+                replay_result.metrics.max_drawdown,
+            )
 
             # Get active universe snapshot for the backtest run record
             active_snap = await get_active_snapshot(session)
