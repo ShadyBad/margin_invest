@@ -150,3 +150,58 @@ mediocrity_gate:
         """FCF distress config has trend rescue enabled by default."""
         config = FilterConfig()
         assert config.fcf_distress.allow_positive_trend_rescue is True
+
+
+class TestBacktestFilterConfig:
+    """Tests for backtest_filter_config() factory function."""
+
+    def test_backtest_config_has_relaxed_history(self):
+        """Backtest should require only 1 year of history (not 5)."""
+        from margin_engine.config.filter_config import backtest_filter_config
+
+        config = backtest_filter_config()
+        assert config.liquidity.min_years_of_history == 1
+
+    def test_backtest_config_has_lower_market_cap(self):
+        """Backtest should use $100M market cap floor (not $300M)."""
+        from margin_engine.config.filter_config import backtest_filter_config
+
+        config = backtest_filter_config()
+        assert config.liquidity.market_cap_minimum.default == 100_000_000
+
+    def test_backtest_config_preserves_other_defaults(self):
+        """Backtest config should not change financial health filters."""
+        from margin_engine.config.filter_config import backtest_filter_config
+
+        config = backtest_filter_config()
+        # Financial health filters unchanged
+        assert config.beneish.threshold == -1.78
+        assert config.altman.threshold == 1.1
+        assert config.fcf_distress.positive_years_required == 3
+        assert config.interest_coverage.default == 1.5
+        assert config.current_ratio.default == 0.8
+
+    def test_backtest_config_preserves_sector_exclusions(self):
+        """Backtest config should still exclude Financials and Real Estate."""
+        from margin_engine.config.filter_config import backtest_filter_config
+
+        config = backtest_filter_config()
+        assert "Financials" in config.liquidity.excluded_sectors
+        assert "Real Estate" in config.liquidity.excluded_sectors
+
+    def test_backtest_config_preserves_sector_cap_overrides(self):
+        """Sector-specific market cap overrides should remain proportional."""
+        from margin_engine.config.filter_config import backtest_filter_config
+
+        config = backtest_filter_config()
+        cap = config.liquidity.market_cap_minimum
+        # Sector overrides should still be higher than default
+        assert cap.utilities > cap.default
+        assert cap.energy > cap.default
+
+    def test_backtest_config_returns_filter_config_type(self):
+        """Factory should return a FilterConfig instance."""
+        from margin_engine.config.filter_config import backtest_filter_config
+
+        config = backtest_filter_config()
+        assert isinstance(config, FilterConfig)

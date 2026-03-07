@@ -72,7 +72,7 @@ GAAP_TAG_MAP: dict[str, list[str]] = {
     "shares_outstanding": [
         "CommonStockSharesOutstanding",
         "WeightedAverageNumberOfSharesOutstandingBasic",
-        "EntityCommonStockSharesOutstanding",
+        "CommonStockSharesIssued",
     ],
     "pp_and_e": ["PropertyPlantAndEquipmentNet"],
     "depreciation": [
@@ -124,6 +124,17 @@ _CASHFLOW_FIELDS: set[str] = {
 # Regex to match any US-GAAP taxonomy namespace (varies by year)
 _GAAP_NS_RE = re.compile(r"^http://fasb\.org/us-gaap/\d{4}$")
 
+# Regex to match SEC DEI (Document & Entity Information) namespace
+_DEI_NS_RE = re.compile(r"^http://xbrl\.sec\.gov/dei/\d{4}$")
+
+# DEI-namespace tag mapping. Tags here are checked when no GAAP tag matched.
+# Priority values are offset by 100 so GAAP tags always win.
+DEI_TAG_MAP: dict[str, list[str]] = {
+    "shares_outstanding": [
+        "EntityCommonStockSharesOutstanding",
+    ],
+}
+
 
 # ---------------------------------------------------------------------------
 # Output dataclass
@@ -147,12 +158,20 @@ class XBRLFinancials:
 
 
 def _build_reverse_map() -> dict[str, tuple[str, int]]:
-    """Build a reverse lookup from GAAP tag local name to (field_name, priority)."""
+    """Build a reverse lookup from tag local name to (field_name, priority).
+
+    GAAP tags get priorities 0..N, DEI tags get priorities 100..100+N so
+    GAAP tags always win when both namespaces contain the same field.
+    """
     reverse: dict[str, tuple[str, int]] = {}
     for field_name, tags in GAAP_TAG_MAP.items():
         for priority, tag in enumerate(tags):
             if tag not in reverse:
                 reverse[tag] = (field_name, priority)
+    for field_name, tags in DEI_TAG_MAP.items():
+        for priority, tag in enumerate(tags):
+            if tag not in reverse:
+                reverse[tag] = (field_name, 100 + priority)
     return reverse
 
 
@@ -195,8 +214,8 @@ def extract_financials(xbrl_content: str) -> XBRLFinancials:
         ns = _namespace(elem.tag)
         local = _localname(elem.tag)
 
-        # Only consider US-GAAP namespace elements
-        if ns is None or not _GAAP_NS_RE.match(ns):
+        # Only consider US-GAAP and DEI namespace elements
+        if ns is None or not (_GAAP_NS_RE.match(ns) or _DEI_NS_RE.match(ns)):
             continue
 
         # First occurrence of each tag wins

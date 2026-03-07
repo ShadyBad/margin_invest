@@ -216,6 +216,77 @@ class TestGaapTagMapHasRequiredFields:
                 assert isinstance(tag, str), f"Tag for {field} is not a string: {tag}"
 
 
+class TestExtractFinancialsDEINamespace:
+    """DEI namespace tags (e.g. EntityCommonStockSharesOutstanding) should be extracted."""
+
+    def test_dei_shares_outstanding_extracted(self) -> None:
+        """EntityCommonStockSharesOutstanding lives in DEI namespace, not US-GAAP."""
+        xbrl = """\
+<?xml version="1.0"?>
+<xbrl xmlns="http://www.xbrl.org/2003/instance"
+      xmlns:dei="http://xbrl.sec.gov/dei/2024">
+  <dei:EntityCommonStockSharesOutstanding contextRef="FY2024" decimals="0" unitRef="shares">5000000</dei:EntityCommonStockSharesOutstanding>
+</xbrl>
+"""
+        result = extract_financials(xbrl)
+        assert result.shares_outstanding == 5000000
+
+    def test_dei_shares_with_older_namespace_year(self) -> None:
+        """DEI namespace varies by year, like US-GAAP."""
+        xbrl = """\
+<?xml version="1.0"?>
+<xbrl xmlns="http://www.xbrl.org/2003/instance"
+      xmlns:dei="http://xbrl.sec.gov/dei/2019">
+  <dei:EntityCommonStockSharesOutstanding contextRef="FY2019" decimals="0" unitRef="shares">3000000</dei:EntityCommonStockSharesOutstanding>
+</xbrl>
+"""
+        result = extract_financials(xbrl)
+        assert result.shares_outstanding == 3000000
+
+    def test_gaap_shares_preferred_over_dei(self) -> None:
+        """US-GAAP CommonStockSharesOutstanding should win over DEI tag."""
+        xbrl = """\
+<?xml version="1.0"?>
+<xbrl xmlns="http://www.xbrl.org/2003/instance"
+      xmlns:us-gaap="http://fasb.org/us-gaap/2024"
+      xmlns:dei="http://xbrl.sec.gov/dei/2024">
+  <us-gaap:CommonStockSharesOutstanding contextRef="FY2024" decimals="0" unitRef="shares">8000000</us-gaap:CommonStockSharesOutstanding>
+  <dei:EntityCommonStockSharesOutstanding contextRef="FY2024" decimals="0" unitRef="shares">7500000</dei:EntityCommonStockSharesOutstanding>
+</xbrl>
+"""
+        result = extract_financials(xbrl)
+        assert result.shares_outstanding == 8000000
+
+    def test_gaap_additional_fallback_shares_issued(self) -> None:
+        """CommonStockSharesIssued should work as a last-resort GAAP fallback."""
+        xbrl = """\
+<?xml version="1.0"?>
+<xbrl xmlns="http://www.xbrl.org/2003/instance"
+      xmlns:us-gaap="http://fasb.org/us-gaap/2024">
+  <us-gaap:CommonStockSharesIssued contextRef="FY2024" decimals="0" unitRef="shares">6000000</us-gaap:CommonStockSharesIssued>
+</xbrl>
+"""
+        result = extract_financials(xbrl)
+        assert result.shares_outstanding == 6000000
+
+    def test_mixed_gaap_and_dei_tags(self) -> None:
+        """Filing with GAAP financials and DEI shares should extract both."""
+        xbrl = """\
+<?xml version="1.0"?>
+<xbrl xmlns="http://www.xbrl.org/2003/instance"
+      xmlns:us-gaap="http://fasb.org/us-gaap/2024"
+      xmlns:dei="http://xbrl.sec.gov/dei/2024">
+  <us-gaap:Revenues contextRef="FY2024" decimals="-6" unitRef="USD">1000000000</us-gaap:Revenues>
+  <us-gaap:Assets contextRef="FY2024" decimals="-6" unitRef="USD">5000000000</us-gaap:Assets>
+  <dei:EntityCommonStockSharesOutstanding contextRef="FY2024" decimals="0" unitRef="shares">200000000</dei:EntityCommonStockSharesOutstanding>
+</xbrl>
+"""
+        result = extract_financials(xbrl)
+        assert result.income_statement["revenue"] == 1000000000.0
+        assert result.balance_sheet["total_assets"] == 5000000000.0
+        assert result.shares_outstanding == 200000000
+
+
 class TestExtractFinancialsInvalidXml:
     """Malformed XML returns empty XBRLFinancials."""
 

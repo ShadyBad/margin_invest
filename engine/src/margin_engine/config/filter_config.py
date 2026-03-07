@@ -199,6 +199,25 @@ class FilterConfig(BaseModel):
     mediocrity_gate: MediocGateConfig = Field(default_factory=MediocGateConfig)
 
 
+def backtest_filter_config() -> FilterConfig:
+    """Return a FilterConfig with relaxed thresholds for PIT backtesting.
+
+    Reduces min_years_of_history (5 → 1) and market_cap floor ($300M → $100M)
+    to avoid over-eliminating historical tickers. Financial health filters
+    (beneish, altman, FCF, etc.) remain at production defaults.
+    """
+    return FilterConfig(
+        liquidity=LiquidityConfig(
+            min_years_of_history=1,
+            market_cap_minimum=MarketCapMinimum(
+                default=100_000_000,
+                utilities=500_000_000,
+                energy=250_000_000,
+            ),
+        ),
+    )
+
+
 def load_filter_config(path: Path | None = None) -> FilterConfig:
     """Load filter configuration from a YAML file.
 
