@@ -43,3 +43,9 @@ node_modules/
 
 # GSD Workflow Engine
 /tmp/gsd-tests-passed-*
+
+# Screenshots and run artifacts
+*.png
+runs/
+api/runs/
+web/runs/
