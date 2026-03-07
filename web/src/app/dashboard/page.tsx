@@ -66,10 +66,10 @@ export default async function DashboardPage() {
       <ProposalBanner />
 
       {apiError && (
-        <div className="rounded-lg border border-yellow-600/30 bg-yellow-950/20 p-4 mb-8">
-          <p className="text-sm text-yellow-400">
+        <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 mb-8">
+          <p className="text-sm text-warning">
             Unable to reach the API server. Start it with:{" "}
-            <code className="bg-surface-secondary px-1.5 py-0.5 rounded text-xs">
+            <code className="bg-bg-subtle px-1.5 py-0.5 rounded text-xs">
               uvicorn margin_api.app:create_app --factory
             </code>
           </p>

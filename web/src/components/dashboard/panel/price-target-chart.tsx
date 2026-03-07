@@ -195,12 +195,12 @@ export function PriceTargetChart({ scoreHistory, priceHistory }: PriceTargetChar
       </div>
       <ResponsiveContainer width="100%" height={200}>
         <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-grid-line)" />
           <XAxis
             dataKey="date"
             tickFormatter={formatDate}
             tick={{ fill: "#71717a", fontSize: 10 }}
-            axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+            axisLine={{ stroke: "var(--color-divider)" }}
             tickLine={false}
             minTickGap={40}
           />
@@ -214,7 +214,7 @@ export function PriceTargetChart({ scoreHistory, priceHistory }: PriceTargetChar
           />
           <Tooltip
             content={<PriceTargetTooltip />}
-            cursor={{ stroke: "rgba(255,255,255,0.1)", strokeDasharray: "4 2" }}
+            cursor={{ stroke: "var(--color-divider)", strokeDasharray: "4 2" }}
           />
           {/* Buy price — dashed green */}
           <Line

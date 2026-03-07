@@ -106,7 +106,7 @@ export function ContactForm() {
               style={{
                 background: 'var(--color-bg-elevated)',
                 border: '1px solid var(--color-border-primary)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                boxShadow: 'var(--shadow-modal)',
               }}>
               {subjectOptions.map((opt) => (
                 <button

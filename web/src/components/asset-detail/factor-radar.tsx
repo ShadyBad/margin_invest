@@ -155,7 +155,7 @@ export function FactorRadar({
             <Radar
               name="Sector Top 10%"
               dataKey="sectorP90"
-              stroke="rgba(255,255,255,0.3)"
+              stroke="var(--color-text-tertiary)"
               strokeWidth={1}
               strokeDasharray="4 4"
               fill="none"
@@ -164,7 +164,7 @@ export function FactorRadar({
             <Radar
               name="Sector Median"
               dataKey="sectorMedian"
-              stroke="rgba(255,255,255,0.4)"
+              stroke="var(--color-text-secondary)"
               strokeWidth={1.5}
               fill="none"
               fillOpacity={0}

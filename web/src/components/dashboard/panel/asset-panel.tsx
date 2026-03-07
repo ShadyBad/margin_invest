@@ -175,7 +175,7 @@ export function AssetPanel({ isOpen, onClose, ticker, scoredResult, metrics }: A
             role="dialog"
             aria-modal="true"
             aria-label={`${ticker} analysis panel`}
-            className="fixed top-0 right-0 bottom-0 w-[70vw] min-w-[900px] max-w-[1200px] bg-[#0B0D10] shadow-[0_0_80px_rgba(0,0,0,0.6)] overflow-y-auto z-50"
+            className="fixed top-0 right-0 bottom-0 w-[70vw] min-w-[900px] max-w-[1200px] bg-bg-primary shadow-[0_0_80px_rgba(0,0,0,0.3)] overflow-y-auto z-50"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}

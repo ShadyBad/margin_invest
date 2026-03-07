@@ -137,7 +137,7 @@ export function ScoreChart({
           <CartesianGrid
             horizontal
             vertical={false}
-            stroke="rgba(255,255,255,0.04)"
+            stroke="var(--color-grid-line)"
           />
           <XAxis
             dataKey="dateLabel"
@@ -149,7 +149,7 @@ export function ScoreChart({
           <YAxis domain={[0, 100]} hide />
           <Tooltip
             content={<ChartTooltip />}
-            cursor={{ stroke: "rgba(255,255,255,0.15)", strokeDasharray: "4 2", strokeWidth: 1 }}
+            cursor={{ stroke: "var(--color-divider)", strokeDasharray: "4 2", strokeWidth: 1 }}
           />
           <Area
             type="monotone"
@@ -174,7 +174,7 @@ export function ScoreChart({
               type="monotone"
               data={benchmarkData}
               dataKey="score"
-              stroke="rgba(255,255,255,0.2)"
+              stroke="var(--color-text-tertiary)"
               strokeWidth={1}
               strokeDasharray="4 2"
               dot={false}

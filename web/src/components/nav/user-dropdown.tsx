@@ -56,7 +56,7 @@ export function UserDropdown({ user }: UserDropdownProps) {
       {isOpen && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 w-48 bg-bg-elevated border border-border-subtle rounded-xl py-1 shadow-[0_4px_24px_rgba(0,0,0,0.4)] animate-in fade-in zoom-in-95 duration-150 ease-out"
+          className="absolute right-0 top-full mt-2 w-48 bg-bg-elevated border border-border-primary rounded-xl py-1 shadow-modal animate-in fade-in zoom-in-95 duration-150 ease-out"
         >
           {user.dropdownItems.map((item, i) => {
             if (item.type === "divider") {

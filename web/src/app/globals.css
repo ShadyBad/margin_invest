@@ -15,39 +15,39 @@
   /* Backgrounds */
   --color-bg-primary: #F5F2EC;
   --color-bg-elevated: #FEFDFB;
-  --color-bg-subtle: #EBE7DF;
+  --color-bg-subtle: #E2DED4;
 
   /* Text */
   --color-text-primary: #121212;
   --color-text-secondary: #4A4A4A;
-  --color-text-tertiary: #8A8A86;
+  --color-text-tertiary: #706E6A;
 
   /* Accent — muted emerald */
   --color-accent: #0E4F3A;
   --color-accent-hover: #0B3E2E;
-  --color-accent-subtle: rgba(14, 79, 58, 0.08);
+  --color-accent-subtle: rgba(14, 79, 58, 0.12);
 
   /* Value pillar — teal-blue (distinct from emerald accent/bullish) */
   --color-value: #1A6B8A;
   --color-value-hover: #155A74;
-  --color-value-subtle: rgba(26, 107, 138, 0.08);
+  --color-value-subtle: rgba(26, 107, 138, 0.12);
 
   /* Borders */
-  --color-border-primary: #D8D6D0;
-  --color-border-subtle: rgba(18, 18, 18, 0.08);
+  --color-border-primary: #C5C2BA;
+  --color-border-subtle: rgba(18, 18, 18, 0.15);
 
   /* Semantic */
   --color-bullish: #0E4F3A;
   --color-bearish: #C74B50;
-  --color-warning: #B8860B;
+  --color-warning: #7D5A00;
   --color-danger: #C74B50;
 
   /* Surface overlay (geometric grids) */
-  --color-surface-overlay: rgba(18, 18, 18, 0.03);
+  --color-surface-overlay: rgba(18, 18, 18, 0.05);
 
   /* Grid & dividers */
-  --color-grid-line: rgba(18, 18, 18, 0.04);
-  --color-divider: rgba(18, 18, 18, 0.06);
+  --color-grid-line: rgba(18, 18, 18, 0.07);
+  --color-divider: rgba(18, 18, 18, 0.10);
 
   /* 5-tier percentile encoding */
   --color-percentile-exceptional: #10B981;
@@ -77,9 +77,9 @@
   --color-accent-warm-muted: rgba(166, 123, 46, 0.10);
 
   /* Elevation shadows */
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
-  --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.3);
-  --shadow-modal: 0 8px 32px rgba(0,0,0,0.5);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-card-hover: 0 4px 16px rgba(0,0,0,0.14);
+  --shadow-modal: 0 8px 32px rgba(0,0,0,0.2);
 
   /* Warm surface wash */
   --color-surface-warm: rgba(180, 160, 130, 0.03);
@@ -92,7 +92,7 @@
   --color-bg-surface-rgb: 244, 243, 239;
   --color-accent-glow: rgba(14, 79, 58, 0.15);
   --color-warm-under: #3A3228;
-  --color-caustic: rgba(18, 18, 18, 0.08);
+  --color-caustic: rgba(18, 18, 18, 0.12);
 
   /* Motion tokens */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -394,8 +394,8 @@ body {
 }
 
 .terminal-card:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border-subtle));
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border-primary));
+  box-shadow: var(--shadow-card-hover);
 }
 
 .terminal-card-accent {

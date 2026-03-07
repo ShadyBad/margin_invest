@@ -37,7 +37,7 @@ export function CapacityChart({ rows, breakevenAum }: CapacityChartProps) {
           <CartesianGrid
             horizontal
             vertical={false}
-            stroke="rgba(255,255,255,0.04)"
+            stroke="var(--color-grid-line)"
           />
           <XAxis
             dataKey="aum"

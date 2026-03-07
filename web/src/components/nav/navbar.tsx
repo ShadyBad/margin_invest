@@ -19,7 +19,7 @@ export function Navbar() {
       className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-[900px]"
       aria-label="Main navigation"
     >
-      <div className="relative flex items-center justify-between bg-bg-elevated border rounded-2xl px-6 py-3 backdrop-blur-md shadow-[0_2px_16px_rgba(0,0,0,0.3)]" style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
+      <div className="relative flex items-center justify-between bg-bg-elevated border border-border-primary rounded-2xl px-6 py-3 backdrop-blur-md shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
         <NavLogo href={nav.logoHref} />
 
         <div className="hidden md:flex absolute left-1/2 -translate-x-1/2">
