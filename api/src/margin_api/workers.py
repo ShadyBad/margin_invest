@@ -2784,6 +2784,26 @@ async def daily_pit_update(ctx: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# PIT Reparse Empty Filings
+# ---------------------------------------------------------------------------
+
+
+async def reparse_pit_filings(ctx: dict) -> dict:
+    """Re-parse EDGAR filings that have empty data (income_statement IS NULL).
+
+    Deletes empty rows and re-downloads using the fixed file selector that
+    prefers _htm.xml over linkbase XMLs. Triggered via admin endpoint.
+    """
+    from margin_api.services.edgar.backfill import reparse_empty_filings
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+    result = await reparse_empty_filings(session_factory=session_factory)
+    logger.info("[reparse_pit] Complete: %s", result)
+    return result
+
+
+# ---------------------------------------------------------------------------
 # PIT Data Bootstrap
 # ---------------------------------------------------------------------------
 
@@ -3095,6 +3115,8 @@ class WorkerSettings:
         daily_pit_update,
         # 24h timeout, max_tries=5 to survive deploy-induced cancellations
         arq_func(bootstrap_pit_data, timeout=86400, max_tries=5),
+        # 2h timeout — re-downloads filings from SEC EDGAR
+        arq_func(reparse_pit_filings, timeout=7200),
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET

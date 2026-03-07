@@ -458,23 +458,44 @@ async def trigger_universe_assembly(
 async def trigger_pit_reparse(
     request: Request,
     x_admin_key: str = Header(),
-) -> dict:
-    """Re-parse EDGAR filings with empty data using the fixed file selector.
+) -> JSONResponse:
+    """Enqueue re-parse of EDGAR filings with empty data.
 
     Finds pit_financial_snapshots where income_statement IS NULL, deletes
-    those rows, and re-downloads + re-parses the filings. This fixes rows
-    where the old file selector picked a linkbase XML instead of _htm.xml.
+    those rows, and re-downloads + re-parses using the fixed file selector
+    that prefers _htm.xml over linkbase XMLs.
 
-    Runs synchronously — may take several minutes for large datasets.
+    Runs as a background worker job (may take minutes for large datasets).
     """
     _verify_admin_key(x_admin_key)
 
-    from margin_api.db.session import get_session_factory
-    from margin_api.services.edgar.backfill import reparse_empty_filings
+    settings = get_settings()
+    from arq.connections import RedisSettings
 
-    summary = await reparse_empty_filings(session_factory=get_session_factory())
-    logger.info("[admin] EDGAR reparse complete: %s", summary)
-    return summary
+    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+
+    try:
+        redis: ArqRedis = await create_pool(redis_settings)
+        job = await redis.enqueue_job(
+            "reparse_pit_filings",
+            _job_id=f"reparse_pit:{uuid.uuid4().hex[:8]}",
+        )
+        await redis.aclose()
+    except Exception as e:
+        logger.exception("Failed to enqueue reparse job")
+        raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
+
+    logger.info("[admin] Enqueued reparse_pit_filings job: %s", job.job_id)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "enqueued",
+            "job": "reparse_pit_filings",
+            "job_id": job.job_id,
+            "message": "Re-parse enqueued: deletes empty rows, re-downloads with fixed selector",
+        },
+    )
 
 
 @router.patch("/jobs/{job_id}/status")
