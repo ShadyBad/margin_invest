@@ -23,8 +23,7 @@ export default async function GuidesPage() {
           <div className="max-w-2xl mb-12">
             <h1 className="heading-2 text-text-primary mb-4">Guides</h1>
             <p className="body-text text-text-secondary">
-              Everything you need to understand how Margin Invest works and how
-              to get the most from it.
+              The methodology is open. Every filter, factor, and formula — documented.
             </p>
           </div>
 

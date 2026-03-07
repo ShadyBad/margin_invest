@@ -119,7 +119,13 @@ export function DifferentiatorSection() {
                   <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
                     Zacks
                   </th>
-                  <th className="text-center text-xs uppercase tracking-[0.15em] text-accent py-3 px-2" style={{ borderTop: '2px solid var(--color-accent)' }}>
+                  <th
+                    className="text-center text-xs uppercase tracking-[0.15em] text-accent py-3 px-2"
+                    style={{
+                      borderTop: '2px solid var(--color-accent)',
+                      background: 'rgba(26,122,90,0.08)',
+                    }}
+                  >
                     Margin Invest
                   </th>
                 </tr>
@@ -139,7 +145,13 @@ export function DifferentiatorSection() {
                     <td className="text-center text-text-tertiary py-3 px-2">
                       {row.zacks}
                     </td>
-                    <td className="text-center text-accent font-medium py-3 px-2" style={{ background: 'rgba(26,122,90,0.06)' }}>
+                    <td
+                      className="text-center text-accent font-medium py-3 px-2"
+                      style={{
+                        background: 'rgba(26,122,90,0.08)',
+                        borderLeft: '1px solid rgba(26,122,90,0.15)',
+                      }}
+                    >
                       {row.marginInvest}
                     </td>
                   </tr>

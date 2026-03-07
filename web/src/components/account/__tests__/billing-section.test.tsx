@@ -106,7 +106,7 @@ describe("BillingSection", () => {
     })
     render(<BillingSection />)
     await waitFor(() => {
-      expect(screen.getByText("Manage subscription")).toBeInTheDocument()
+      expect(screen.getByText("Manage subscription →")).toBeInTheDocument()
     })
   })
 
@@ -187,7 +187,7 @@ describe("BillingSection", () => {
     })
     render(<BillingSection />)
     await waitFor(() => {
-      expect(screen.getByText("Manage subscription")).toBeInTheDocument()
+      expect(screen.getByText("Manage subscription →")).toBeInTheDocument()
     })
     expect(screen.queryByText(/Billing is not yet available/)).not.toBeInTheDocument()
   })
@@ -216,10 +216,10 @@ describe("BillingSection", () => {
 
     render(<BillingSection />)
     await waitFor(() => {
-      expect(screen.getByText("Manage subscription")).toBeInTheDocument()
+      expect(screen.getByText("Manage subscription →")).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText("Manage subscription"))
+    await user.click(screen.getByText("Manage subscription →"))
 
     await waitFor(() => {
       expect(screen.getByText("No Stripe customer found")).toBeInTheDocument()
@@ -245,10 +245,10 @@ describe("BillingSection", () => {
 
     render(<BillingSection />)
     await waitFor(() => {
-      expect(screen.getByText("Manage subscription")).toBeInTheDocument()
+      expect(screen.getByText("Manage subscription →")).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText("Manage subscription"))
+    await user.click(screen.getByText("Manage subscription →"))
 
     await waitFor(() => {
       expect(screen.getByText("Failed to fetch")).toBeInTheDocument()
@@ -317,17 +317,17 @@ describe("BillingSection", () => {
 
     render(<BillingSection />)
     await waitFor(() => {
-      expect(screen.getByText("Manage subscription")).toBeInTheDocument()
+      expect(screen.getByText("Manage subscription →")).toBeInTheDocument()
     })
 
     // First click — error
-    await user.click(screen.getByText("Manage subscription"))
+    await user.click(screen.getByText("Manage subscription →"))
     await waitFor(() => {
       expect(screen.getByText("Internal error")).toBeInTheDocument()
     })
 
     // Second click — error should clear
-    await user.click(screen.getByText("Manage subscription"))
+    await user.click(screen.getByText("Manage subscription →"))
     await waitFor(() => {
       expect(screen.queryByText("Internal error")).not.toBeInTheDocument()
     })

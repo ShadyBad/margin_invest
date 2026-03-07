@@ -19,6 +19,9 @@ export function ProfileSection() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState("")
+  const [savingName, setSavingName] = useState(false)
 
   const providerLabel =
     authMethod === "oauth" && oauthProvider
@@ -56,6 +59,33 @@ export function ProfileSection() {
     }
   }
 
+  async function handleSaveName() {
+    const trimmed = nameValue.trim()
+    if (!trimmed || trimmed === (session?.user?.name || "")) {
+      setEditingName(false)
+      return
+    }
+    setSavingName(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/v1/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.detail ?? data?.message ?? "Update failed")
+      }
+      await update()
+      setEditingName(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed")
+    } finally {
+      setSavingName(false)
+    }
+  }
+
   async function handleRemove() {
     setError(null)
     try {
@@ -83,9 +113,49 @@ export function ProfileSection() {
               size="xl"
             />
             <div>
-              <div className="text-xl font-semibold text-text-primary">
-                {session.user.name || "User"}
-              </div>
+              {editingName ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={nameValue}
+                    onChange={(e) => setNameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveName()
+                      if (e.key === "Escape") setEditingName(false)
+                    }}
+                    autoFocus
+                    className="px-2 py-1 bg-bg-primary border border-border-primary rounded text-lg font-semibold text-text-primary focus:border-accent focus:outline-none"
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    disabled={savingName}
+                    className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                  >
+                    {savingName ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    onClick={() => setEditingName(false)}
+                    className="text-xs text-text-secondary hover:text-text-primary transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <span className="text-xl font-semibold text-text-primary">
+                    {session.user.name || "User"}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setNameValue(session.user?.name || "")
+                      setEditingName(true)
+                    }}
+                    className="text-xs text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-accent transition-all"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
               <div className="mt-0.5 text-sm text-text-secondary">
                 {session.user.email}
               </div>

@@ -12,24 +12,24 @@ describe("MarketRegimeLabel", () => {
     expect(screen.getByText(/Overheated/i)).toBeInTheDocument()
   })
 
-  it("shows Concentrated when 3 picks", () => {
+  it("shows Selective when 3 picks", () => {
     render(<MarketRegimeLabel pickCount={3} />)
-    expect(screen.getByText(/Concentrated/i)).toBeInTheDocument()
+    expect(screen.getByText(/Selective/i)).toBeInTheDocument()
   })
 
-  it("shows Concentrated when 5 picks", () => {
+  it("shows Selective when 5 picks", () => {
     render(<MarketRegimeLabel pickCount={5} />)
-    expect(screen.getByText(/Concentrated/i)).toBeInTheDocument()
+    expect(screen.getByText(/Selective/i)).toBeInTheDocument()
   })
 
-  it("shows Normal when 6 picks", () => {
+  it("shows Broad Opportunity when 6 picks", () => {
     render(<MarketRegimeLabel pickCount={6} />)
-    expect(screen.getByText(/Normal/i)).toBeInTheDocument()
+    expect(screen.getByText(/Broad Opportunity/i)).toBeInTheDocument()
   })
 
-  it("shows Normal when 8 picks", () => {
+  it("shows Broad Opportunity when 8 picks", () => {
     render(<MarketRegimeLabel pickCount={8} />)
-    expect(screen.getByText(/Normal/i)).toBeInTheDocument()
+    expect(screen.getByText(/Broad Opportunity/i)).toBeInTheDocument()
   })
 
   it("has the market-regime test id", () => {

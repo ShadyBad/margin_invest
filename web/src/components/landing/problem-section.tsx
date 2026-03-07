@@ -82,12 +82,9 @@ export function ProblemSection() {
     <section
       id="problem"
       ref={sectionRef}
-      className="pt-[120px] pb-20 px-6 border-b border-border-subtle"
+      className="pt-16 pb-20 px-6 border-b border-border-subtle"
     >
       <div className="max-w-3xl mx-auto">
-        {/* Section divider */}
-        <div className="w-full mb-16" style={{ height: '1px', background: 'var(--color-border-subtle)' }} />
-
         {/* Eyebrow */}
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-tertiary mb-4">
           The Problem

@@ -10,18 +10,24 @@ interface BillingStatus {
   billing_configured: boolean
 }
 
-const PLAN_BADGES: Record<string, { label: string; className: string }> = {
+const PLAN_BADGES: Record<string, { label: string; className: string; price: string; features: string }> = {
   analyst: {
     label: "Analyst",
     className: "bg-bg-subtle text-text-secondary border-border-primary",
+    price: "Free",
+    features: "Top picks, basic scoring, daily updates",
   },
   portfolio: {
     label: "Portfolio",
     className: "bg-accent/10 text-accent border-accent/30",
+    price: "$29/mo",
+    features: "Full scoring, watchlist, backtesting, factor breakdowns",
   },
   institutional: {
     label: "Institutional",
     className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+    price: "$79/mo",
+    features: "Everything in Portfolio plus 13F tracking, API access, priority support",
   },
 }
 
@@ -154,6 +160,14 @@ export function BillingSection() {
           )}
         </div>
 
+        {/* Plan price & features */}
+        <p className="text-sm text-text-primary font-medium mb-1">
+          {planBadge.price}
+        </p>
+        <p className="text-xs text-text-tertiary mb-3">
+          {planBadge.features}
+        </p>
+
         {/* Renewal / Access Info */}
         {status.current_period_end && (
           <p className="text-sm text-text-secondary">
@@ -203,7 +217,7 @@ export function BillingSection() {
           disabled={!status.billing_configured || actionLoading !== null}
           className="px-4 py-2 border border-border-primary text-text-primary font-medium text-sm rounded-lg hover:bg-bg-subtle transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {actionLoading === "portal" ? "Loading..." : "Manage subscription"}
+          {actionLoading === "portal" ? "Loading..." : "Manage subscription →"}
         </button>
       )}
 

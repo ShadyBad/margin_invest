@@ -33,14 +33,6 @@ function GoogleIcon() {
   )
 }
 
-function AppleIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.32 2.32-2.11 4.45-3.74 4.25z" />
-    </svg>
-  )
-}
-
 function GitHubIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -213,7 +205,7 @@ export function LoginCard({ initialMode = "signin", authError, authCode, resetSu
         {mode === "signin" ? "Sign in to Margin Invest" : "Create your account"}
       </h1>
       <p className="text-[13px] text-text-secondary text-center mb-8">
-        {mode === "signin" ? "Secure login with bank-grade encryption" : "Start analyzing investments today"}
+        {mode === "signin" ? "Access your investment analysis" : "Start analyzing investments today"}
       </p>
 
       {/* Segmented Control */}
@@ -250,14 +242,6 @@ export function LoginCard({ initialMode = "signin", authError, authCode, resetSu
           aria-label="Sign in with Google"
         >
           <GoogleIcon />
-        </button>
-        <button
-          disabled
-          className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/[0.04] border border-white/[0.06] text-text-primary opacity-40 cursor-not-allowed"
-          aria-label="Sign in with Apple (coming soon)"
-          aria-disabled="true"
-        >
-          <AppleIcon />
         </button>
         <button
           onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
@@ -425,9 +409,9 @@ export function LoginCard({ initialMode = "signin", authError, authCode, resetSu
       <button
         type="button"
         onClick={() => setShowCredentials(!showCredentials)}
-        className="w-full text-center text-[13px] font-medium text-text-secondary hover:text-text-primary transition-colors duration-200 mb-6"
+        className="w-full text-center text-[13px] font-medium text-text-secondary hover:text-text-primary transition-colors duration-200 mb-6 py-2.5 border border-border-primary rounded-lg hover:bg-bg-subtle"
       >
-        {showCredentials ? "Back to social login" : "Continue with email"}
+        {showCredentials ? "← Back to social login" : "Continue with email →"}
       </button>
 
     </div>

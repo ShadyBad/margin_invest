@@ -149,8 +149,8 @@ export function EngineSection({ onStageChange }: EngineSectionProps) {
       {/* Desktop: two counter-scrolling rows */}
       <div className="hidden md:block relative">
         {/* Edge fade masks */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-24 z-10" style={{ background: 'linear-gradient(to right, var(--color-bg-primary), transparent)' }} />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10" style={{ background: 'linear-gradient(to left, var(--color-bg-primary), transparent)' }} />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-32 lg:w-48 z-10" style={{ background: 'linear-gradient(to right, var(--color-bg-primary) 30%, transparent)' }} />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-32 lg:w-48 z-10" style={{ background: 'linear-gradient(to left, var(--color-bg-primary) 30%, transparent)' }} />
 
         <div
           ref={topRowRef}

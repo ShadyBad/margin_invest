@@ -4,13 +4,10 @@ import userEvent from "@testing-library/user-event"
 import { ProviderIcons } from "../provider-icons"
 
 describe("ProviderIcons", () => {
-  it("renders all five provider icons", () => {
+  it("renders Google and GitHub provider icons", () => {
     render(<ProviderIcons linkedProviders={[]} />)
     expect(screen.getByText("Google")).toBeInTheDocument()
     expect(screen.getByText("GitHub")).toBeInTheDocument()
-    expect(screen.getByText("Apple")).toBeInTheDocument()
-    expect(screen.getByText("Amazon")).toBeInTheDocument()
-    expect(screen.getByText("Facebook")).toBeInTheDocument()
   })
 
   it("shows connected state for linked providers", () => {
@@ -28,32 +25,11 @@ describe("ProviderIcons", () => {
     expect(githubIcon).toBeInTheDocument()
   })
 
-  it("shows coming soon state for unavailable providers", () => {
-    render(<ProviderIcons linkedProviders={[]} />)
-    const appleIcon = screen.getByLabelText("Apple \u2014 Coming soon")
-    expect(appleIcon).toBeInTheDocument()
-    expect(appleIcon).toHaveAttribute("aria-disabled", "true")
-
-    const amazonIcon = screen.getByLabelText("Amazon \u2014 Coming soon")
-    expect(amazonIcon).toHaveAttribute("aria-disabled", "true")
-
-    const facebookIcon = screen.getByLabelText("Facebook \u2014 Coming soon")
-    expect(facebookIcon).toHaveAttribute("aria-disabled", "true")
-  })
-
   it("renders connect buttons for available providers", () => {
     const onConnect = vi.fn()
     render(<ProviderIcons linkedProviders={[]} onConnect={onConnect} />)
     expect(screen.getByLabelText("Connect Google account")).toBeInTheDocument()
     expect(screen.getByLabelText("Connect GitHub account")).toBeInTheDocument()
-  })
-
-  it("does not render connect buttons for coming soon providers", () => {
-    const onConnect = vi.fn()
-    render(<ProviderIcons linkedProviders={[]} onConnect={onConnect} />)
-    expect(screen.queryByLabelText("Connect Apple account")).not.toBeInTheDocument()
-    expect(screen.queryByLabelText("Connect Amazon account")).not.toBeInTheDocument()
-    expect(screen.queryByLabelText("Connect Facebook account")).not.toBeInTheDocument()
   })
 
   it("calls onConnect when connect button is clicked", async () => {
@@ -106,9 +82,10 @@ describe("ProviderIcons", () => {
     expect(screen.getByLabelText("GitHub \u2014 Connected")).toBeInTheDocument()
   })
 
-  it("applies opacity to coming soon providers", () => {
+  it("only renders Google and GitHub providers", () => {
     render(<ProviderIcons linkedProviders={[]} />)
-    const appleIcon = screen.getByLabelText("Apple \u2014 Coming soon")
-    expect(appleIcon.className).toContain("opacity-40")
+    expect(screen.queryByText("Apple")).not.toBeInTheDocument()
+    expect(screen.queryByText("Amazon")).not.toBeInTheDocument()
+    expect(screen.queryByText("Facebook")).not.toBeInTheDocument()
   })
 })

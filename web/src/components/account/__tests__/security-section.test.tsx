@@ -63,14 +63,11 @@ describe("SecuritySection", () => {
     expect(container.innerHTML).toBe("")
   })
 
-  it("renders all five provider icons", () => {
+  it("renders Google and GitHub provider icons", () => {
     mockSession()
     render(<SecuritySection />)
     expect(screen.getByText("Google")).toBeInTheDocument()
     expect(screen.getByText("GitHub")).toBeInTheDocument()
-    expect(screen.getByText("Apple")).toBeInTheDocument()
-    expect(screen.getByText("Amazon")).toBeInTheDocument()
-    expect(screen.getByText("Facebook")).toBeInTheDocument()
   })
 
   it("shows OAuth-only message for OAuth user without password", () => {

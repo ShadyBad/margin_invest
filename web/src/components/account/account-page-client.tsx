@@ -6,7 +6,7 @@ import { ProfileSection } from "./profile-section"
 import { SecuritySection } from "./security-section"
 import { BillingSection } from "./billing-section"
 
-const SECTIONS = ["Profile", "Security", "Billing", "Preferences"] as const
+const SECTIONS = ["Profile", "Security", "Billing"] as const
 
 export function AccountPageClient() {
   const [activeSection, setActiveSection] = useState<string>("Profile")
@@ -107,16 +107,6 @@ export function AccountPageClient() {
         </div>
         <div data-account-section ref={(el) => registerRef("Billing", el)}>
           <BillingSection />
-        </div>
-        <div data-account-section ref={(el) => registerRef("Preferences", el)}>
-          <section id="preferences" className="terminal-card p-6 md:p-8">
-            <h2 className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-6">
-              Preferences
-            </h2>
-            <p className="text-sm text-text-secondary">
-              Product preferences coming soon.
-            </p>
-          </section>
         </div>
         </div>
       </div>

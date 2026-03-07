@@ -58,9 +58,10 @@ function getScoreClasses(convictionLevel: string): string {
 interface StockCardProps {
   pick: PickSummary
   className?: string
+  rank?: number
 }
 
-export function StockCard({ pick, className = "" }: StockCardProps) {
+export function StockCard({ pick, className = "", rank }: StockCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [scoreData, setScoreData] = useState<ScoreResponse | null>(null)
   const [metricsData, setMetricsData] = useState<InstitutionalMetricsResponse | null>(null)
@@ -136,6 +137,21 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
       )}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
+          {rank != null && rank <= 3 && (
+            <span
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold"
+              style={{
+                background: rank === 1
+                  ? 'var(--color-accent)'
+                  : 'var(--color-border-subtle)',
+                color: rank === 1
+                  ? 'var(--color-bg-primary)'
+                  : 'var(--color-text-secondary)',
+              }}
+            >
+              {rank}
+            </span>
+          )}
           <h3 className="text-lg font-bold text-text-primary">{pick.ticker}</h3>
           <Link
             href={`/asset/${pick.ticker}`}
@@ -144,20 +160,12 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
           >
             Full report &rarr;
           </Link>
-          {pick.data_freshness && pick.data_freshness !== "fresh" && (
+          {pick.data_freshness === "expired" && (
             <span
-              className={`text-xs px-1.5 py-0.5 rounded ${
-                pick.data_freshness === "expired"
-                  ? "bg-danger/10 text-danger"
-                  : "bg-warning/10 text-warning"
-              }`}
+              className="text-xs px-1.5 py-0.5 rounded bg-danger/10 text-danger"
               data-testid={`freshness-${pick.ticker}`}
             >
-              {pick.data_freshness === "expired"
-                ? "Expired"
-                : pick.price_updated_at
-                  ? `Updated ${formatTimeAgo(pick.price_updated_at)}`
-                  : "Stale"}
+              Expired
             </span>
           )}
         </div>
@@ -206,7 +214,7 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
           )}
       </div>
 
-      <p className="text-sm text-text-secondary mb-4 truncate">{pick.name}</p>
+      <p className="text-sm text-text-secondary mb-4 line-clamp-2">{pick.name}</p>
 
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -269,7 +277,14 @@ export function StockCard({ pick, className = "" }: StockCardProps) {
           {pick.margin_of_safety != null && (
             <span className="text-text-secondary">
               MoS:{" "}
-              <span className="text-bullish font-medium">
+              <span
+                className="font-medium"
+                style={{
+                  color: pick.margin_of_safety >= 1
+                    ? 'var(--color-accent)'
+                    : 'var(--color-bullish)',
+                }}
+              >
                 {(pick.margin_of_safety * 100).toFixed(0)}%
               </span>
             </span>

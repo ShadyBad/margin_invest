@@ -95,9 +95,10 @@ export function HeroSection({ data }: HeroSectionProps) {
         <div>
           {/* Eyebrow tag */}
           <div className="flex items-center gap-2 mb-5">
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-pulse"
-            />
+            <span className="relative inline-flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-50" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+            </span>
             <span className="font-mono text-[11px] uppercase tracking-widest text-accent">
               Live
             </span>
@@ -123,11 +124,6 @@ export function HeroSection({ data }: HeroSectionProps) {
           />
 
           <HeroSearch />
-
-          {/* Trust micro-line */}
-          <p className="font-mono text-[11px] text-text-tertiary mt-4 max-w-md">
-            No credit card &middot; Free tier available &middot; 30-day guarantee on paid plans
-          </p>
         </div>
 
         {/* Right column — rotating card */}

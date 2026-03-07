@@ -4,12 +4,9 @@
 const PROVIDER_LABELS: Record<string, string> = {
   google: "Google",
   github: "GitHub",
-  apple: "Apple",
-  amazon: "Amazon",
-  facebook: "Facebook",
 }
 
-type ProviderState = "connected" | "available" | "coming_soon"
+type ProviderState = "connected" | "available"
 
 interface ProviderConfig {
   id: string
@@ -37,42 +34,13 @@ function GitHubIcon() {
   )
 }
 
-function AppleIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.32 2.32-2.11 4.45-3.74 4.25z" />
-    </svg>
-  )
-}
-
-function AmazonIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#FF9900" d="M13.96 14.37c-1.8 1.33-4.41 2.04-6.66 2.04-3.15 0-5.99-1.17-8.14-3.11-.17-.15-.02-.36.18-.24 2.32 1.35 5.18 2.16 8.13 2.16 1.99 0 4.19-.41 6.2-1.27.3-.13.56.2.29.42z" />
-      <path fill="#FF9900" d="M14.68 13.53c-.23-.29-1.5-.14-2.07-.07-.17.02-.2-.13-.04-.24 1.01-.71 2.68-.51 2.87-.27.19.24-.05 1.92-.99 2.73-.15.12-.29.06-.22-.1.22-.54.7-1.76.45-2.05z" />
-      <path fill="currentColor" d="M12.66 9.18V8.5c0-.1.08-.17.17-.17h3.02c.1 0 .17.07.17.17v.58c0 .1-.08.22-.22.41l-1.57 2.24c.58-.01 1.2.07 1.73.37.12.07.15.17.16.26v.73c0 .1-.11.22-.22.16-.93-.49-2.16-.54-3.19.01-.1.06-.22-.06-.22-.16v-.7c0-.11 0-.29.11-.45l1.82-2.61h-1.58c-.1 0-.17-.07-.17-.17z" />
-    </svg>
-  )
-}
-
-function FacebookIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-    </svg>
-  )
-}
 
 const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   google: <GoogleIcon />,
   github: <GitHubIcon />,
-  apple: <AppleIcon />,
-  amazon: <AmazonIcon />,
-  facebook: <FacebookIcon />,
 }
 
 const AVAILABLE_PROVIDERS = ["google", "github"]
-const COMING_SOON_PROVIDERS = ["apple", "amazon", "facebook"]
 
 interface ProviderIconsProps {
   linkedProviders: string[]
@@ -88,15 +56,11 @@ export function ProviderIcons({
   connecting = null,
 }: ProviderIconsProps) {
   function getState(providerId: string): ProviderState {
-    if (COMING_SOON_PROVIDERS.includes(providerId)) return "coming_soon"
     if (linkedProviders.includes(providerId)) return "connected"
     return "available"
   }
 
-  const providers: ProviderConfig[] = [
-    ...AVAILABLE_PROVIDERS,
-    ...COMING_SOON_PROVIDERS,
-  ].map((id) => ({
+  const providers: ProviderConfig[] = AVAILABLE_PROVIDERS.map((id) => ({
     id,
     label: PROVIDER_LABELS[id] || id,
     state: getState(id),
@@ -136,23 +100,16 @@ function ProviderIcon({
 }) {
   const { id, label, state, icon } = provider
 
-  const stateLabel =
-    state === "connected"
-      ? "Connected"
-      : state === "available"
-        ? "Not connected"
-        : "Coming soon"
+  const stateLabel = state === "connected" ? "Connected" : "Not connected"
 
   const ariaLabel = `${label} \u2014 ${stateLabel}`
 
   const connectedBorder = state === "connected" ? "border-accent/30" : ""
-  const opacityClass = state === "coming_soon" ? "opacity-40" : ""
 
   return (
     <div
-      className={`terminal-card p-4 flex flex-col items-center gap-2 min-w-[100px] ${connectedBorder} ${opacityClass}`}
+      className={`terminal-card p-4 flex flex-col items-center gap-2 min-w-[100px] ${connectedBorder}`}
       aria-label={ariaLabel}
-      aria-disabled={state === "coming_soon" ? "true" : undefined}
     >
       <div className="text-text-primary">
         {icon}
@@ -186,9 +143,6 @@ function ProviderIcon({
             </button>
           )}
         </>
-      )}
-      {state === "coming_soon" && (
-        <span className="text-xs text-text-secondary">Coming soon</span>
       )}
     </div>
   )

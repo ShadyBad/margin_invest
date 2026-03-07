@@ -66,7 +66,7 @@ export function PricingSection() {
         </div>
         <div className="text-center space-y-3">
           <p className="text-sm text-text-secondary">
-            30-day money-back guarantee on all paid plans. No questions.
+            No credit card required &middot; 30-day money-back guarantee on all paid plans.
           </p>
           <p className="text-xs text-text-tertiary">
             Founding members lock in this price forever. Pricing increases after launch.

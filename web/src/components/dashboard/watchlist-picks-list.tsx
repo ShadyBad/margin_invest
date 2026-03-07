@@ -84,6 +84,7 @@ function WatchlistRow({ item }: { item: WatchlistItem }) {
         <span
           className="h-2 w-2 rounded-full flex-shrink-0"
           style={{ backgroundColor: sectorColor }}
+          title={item.sector ?? "Unknown sector"}
         />
 
         {/* Ticker + name */}
@@ -179,6 +180,8 @@ function WatchlistRow({ item }: { item: WatchlistItem }) {
 }
 
 export function WatchlistPicksList({ items, className = "" }: WatchlistPicksListProps) {
+  const [search, setSearch] = useState("")
+
   if (items.length === 0) {
     return (
       <p className="text-sm text-text-secondary" data-testid="watchlist-empty">
@@ -187,14 +190,52 @@ export function WatchlistPicksList({ items, className = "" }: WatchlistPicksList
     )
   }
 
+  const filtered = search
+    ? items.filter(
+        (item) =>
+          item.ticker.toLowerCase().includes(search.toLowerCase()) ||
+          item.name.toLowerCase().includes(search.toLowerCase()),
+      )
+    : items
+
   return (
     <div
       className={`bg-bg-elevated border border-border-primary rounded-sm overflow-hidden ${className}`}
       data-testid="watchlist-picks-list"
     >
-      {items.map((item) => (
+      {/* Search bar */}
+      {items.length > 10 && (
+        <div className="px-5 py-2.5 border-b border-border-primary">
+          <input
+            type="text"
+            placeholder="Search ticker or name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
+            data-testid="watchlist-search"
+          />
+        </div>
+      )}
+
+      {/* Column headers */}
+      <div className="flex items-center gap-4 px-5 py-2 text-[10px] font-mono uppercase tracking-[0.15em] text-text-tertiary border-b border-border-primary sticky top-0 bg-bg-elevated z-10">
+        <span className="w-2" />
+        <span className="flex-1">Ticker / Name</span>
+        <span>Tier</span>
+        <span className="w-8 text-right">Score</span>
+        <span className="w-28 text-right">Price / Upside</span>
+        <span className="w-4" />
+      </div>
+
+      {filtered.map((item) => (
         <WatchlistRow key={item.ticker} item={item} />
       ))}
+
+      {search && filtered.length === 0 && (
+        <div className="px-5 py-8 text-center text-sm text-text-tertiary">
+          No matches for &ldquo;{search}&rdquo;
+        </div>
+      )}
     </div>
   )
 }

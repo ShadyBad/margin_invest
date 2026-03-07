@@ -53,8 +53,9 @@ export function PicksGrid({ picks, className = "", totalScored, universeSize }: 
           initial="hidden"
           animate="visible"
           variants={cardVariants}
+          className={index === 0 && sorted.length > 3 ? "md:col-span-2 lg:col-span-1" : ""}
         >
-          <StockCard pick={pick} />
+          <StockCard pick={pick} rank={index + 1} />
         </motion.div>
       ))}
     </div>

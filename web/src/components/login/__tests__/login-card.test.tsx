@@ -28,9 +28,9 @@ describe("LoginCard", () => {
       expect(screen.getByRole("heading", { name: /sign in to margin invest/i })).toBeInTheDocument()
     })
 
-    it("renders the security subtext", () => {
+    it("renders the sign-in subtext", () => {
       render(<LoginCard />)
-      expect(screen.getByText(/secure login with bank-grade encryption/i)).toBeInTheDocument()
+      expect(screen.getByText(/access your investment analysis/i)).toBeInTheDocument()
     })
 
     it("does not render the old register link (replaced by segmented control)", () => {
@@ -40,10 +40,9 @@ describe("LoginCard", () => {
   })
 
   describe("OAuth icons", () => {
-    it("renders Google, Apple, and GitHub buttons", () => {
+    it("renders Google and GitHub buttons", () => {
       render(<LoginCard />)
       expect(screen.getByLabelText("Sign in with Google")).toBeInTheDocument()
-      expect(screen.getByLabelText(/sign in with apple/i)).toBeInTheDocument()
       expect(screen.getByLabelText("Sign in with GitHub")).toBeInTheDocument()
     })
 
@@ -61,46 +60,37 @@ describe("LoginCard", () => {
       expect(mockSignIn).toHaveBeenCalledWith("github", { callbackUrl: "/dashboard" })
     })
 
-    it("Apple button is disabled", () => {
+    it("does not render Apple button", () => {
       render(<LoginCard />)
-      const appleBtn = screen.getByLabelText(/sign in with apple/i)
-      expect(appleBtn).toBeDisabled()
-      expect(appleBtn).toHaveAttribute("aria-disabled", "true")
-    })
-
-    it("Apple button does not call signIn", async () => {
-      const user = userEvent.setup()
-      render(<LoginCard />)
-      await user.click(screen.getByLabelText(/sign in with apple/i))
-      expect(mockSignIn).not.toHaveBeenCalled()
+      expect(screen.queryByLabelText(/sign in with apple/i)).not.toBeInTheDocument()
     })
   })
 
   describe("credentials form", () => {
-    it("shows 'Continue with email' toggle by default", () => {
+    it("shows 'Continue with email →' toggle by default", () => {
       render(<LoginCard />)
-      expect(screen.getByText("Continue with email")).toBeInTheDocument()
+      expect(screen.getByText("Continue with email →")).toBeInTheDocument()
     })
 
-    it("shows credentials form when 'Continue with email' is clicked", async () => {
+    it("shows credentials form when 'Continue with email →' is clicked", async () => {
       const user = userEvent.setup()
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.getByLabelText("Email")).toBeInTheDocument()
       expect(screen.getByLabelText("Password", { selector: "input" })).toBeInTheDocument()
     })
 
-    it("toggles text to 'Back to social login' when expanded", async () => {
+    it("toggles text to '← Back to social login' when expanded", async () => {
       const user = userEvent.setup()
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
-      expect(screen.getByText("Back to social login")).toBeInTheDocument()
+      await user.click(screen.getByText("Continue with email →"))
+      expect(screen.getByText("← Back to social login")).toBeInTheDocument()
     })
 
     it("submits credentials with signIn", async () => {
       const user = userEvent.setup()
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.type(screen.getByLabelText("Email"), "testuser")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "testpass123")
       // Find the form submit button (type="submit"), not the segmented control tab
@@ -117,7 +107,7 @@ describe("LoginCard", () => {
     it("toggles password visibility", async () => {
       const user = userEvent.setup()
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       const passwordInput = screen.getByLabelText("Password", { selector: "input" })
       expect(passwordInput).toHaveAttribute("type", "password")
       await user.click(screen.getByLabelText("Show password"))
@@ -133,14 +123,14 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.getByLabelText("Confirm Password")).toBeInTheDocument()
     })
 
     it("does not show confirm password in sign-in mode", async () => {
       const user = userEvent.setup()
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.queryByLabelText("Confirm Password")).not.toBeInTheDocument()
     })
 
@@ -149,7 +139,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.getByText("At least 12 characters")).toBeInTheDocument()
       expect(screen.getByText("One uppercase letter")).toBeInTheDocument()
       expect(screen.getByText("One lowercase letter")).toBeInTheDocument()
@@ -160,7 +150,7 @@ describe("LoginCard", () => {
     it("does not show password checklist in sign-in mode", async () => {
       const user = userEvent.setup()
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.queryByText("At least 12 characters")).not.toBeInTheDocument()
     })
 
@@ -169,7 +159,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.getByRole("button", { name: /create account/i })).toBeInTheDocument()
     })
 
@@ -178,7 +168,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.getByLabelText("Email")).toHaveAttribute("type", "email")
     })
   })
@@ -226,7 +216,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "short")
       await user.type(screen.getByLabelText("Confirm Password"), "short")
@@ -240,7 +230,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
       await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!x")
@@ -254,7 +244,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
       await user.type(screen.getByLabelText("Confirm Password"), "different")
       await user.tab()
@@ -310,7 +300,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.getByTestId("tos-checkbox")).toBeInTheDocument()
       expect(screen.getByText(/Terms of Service/)).toBeInTheDocument()
       expect(screen.getByText(/Privacy Policy/)).toBeInTheDocument()
@@ -319,7 +309,7 @@ describe("LoginCard", () => {
     it("does not show ToS checkbox in signin mode", async () => {
       const user = userEvent.setup()
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.queryByTestId("tos-checkbox")).not.toBeInTheDocument()
     })
 
@@ -328,7 +318,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.getByRole("button", { name: /create account/i })).toBeDisabled()
     })
 
@@ -337,7 +327,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.click(screen.getByTestId("tos-checkbox"))
       expect(screen.getByRole("button", { name: /create account/i })).not.toBeDisabled()
     })
@@ -347,7 +337,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       const termsLink = screen.getByRole("link", { name: /terms of service/i })
       const privacyLink = screen.getByRole("link", { name: /privacy policy/i })
       expect(termsLink).toHaveAttribute("href", "/terms")
@@ -366,7 +356,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
       await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!!")
@@ -405,7 +395,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
       await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!!")
@@ -424,7 +414,7 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.type(screen.getByLabelText("Password", { selector: "input" }), "MyPassword1!!")
       await user.type(screen.getByLabelText("Confirm Password"), "MyPassword1!!")
@@ -441,7 +431,7 @@ describe("LoginCard", () => {
     it("shows 'Forgot password?' link in sign-in mode when credentials visible", async () => {
       const user = userEvent.setup()
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.getByText("Forgot password?")).toBeInTheDocument()
     })
 
@@ -450,14 +440,14 @@ describe("LoginCard", () => {
       render(<LoginCard />)
       const segmented = screen.getByTestId("segmented-control")
       await user.click(within(segmented).getByRole("button", { name: "Sign Up" }))
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       expect(screen.queryByText("Forgot password?")).not.toBeInTheDocument()
     })
 
     it("switches to reset request form when clicked", async () => {
       const user = userEvent.setup()
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.click(screen.getByText("Forgot password?"))
       expect(screen.getByText("Send reset link")).toBeInTheDocument()
       // Password field should be gone
@@ -467,7 +457,7 @@ describe("LoginCard", () => {
     it("returns to sign-in form when 'Back to sign in' clicked", async () => {
       const user = userEvent.setup()
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.click(screen.getByText("Forgot password?"))
       await user.click(screen.getByText("Back to sign in"))
       expect(screen.getByLabelText("Password", { selector: "input" })).toBeInTheDocument()
@@ -478,7 +468,7 @@ describe("LoginCard", () => {
       global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
       render(<LoginCard />)
-      await user.click(screen.getByText("Continue with email"))
+      await user.click(screen.getByText("Continue with email →"))
       await user.click(screen.getByText("Forgot password?"))
       await user.type(screen.getByLabelText("Email"), "test@example.com")
       await user.click(screen.getByText("Send reset link"))
