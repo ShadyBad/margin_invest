@@ -567,6 +567,97 @@ async def trigger_precompute_backtest(
     )
 
 
+@router.get("/pit/data-quality")
+@limiter.limit("5/minute")
+async def pit_data_quality(
+    request: Request,
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Diagnostic: check PIT financial snapshot data quality."""
+    _verify_admin_key(x_admin_key)
+
+    total = (await session.execute(
+        select(func.count()).select_from(PITFinancialSnapshot)
+    )).scalar_one()
+
+    null_bs = (await session.execute(
+        select(func.count()).select_from(PITFinancialSnapshot).where(
+            PITFinancialSnapshot.balance_sheet.is_(None)
+        )
+    )).scalar_one()
+
+    null_is = (await session.execute(
+        select(func.count()).select_from(PITFinancialSnapshot).where(
+            PITFinancialSnapshot.income_statement.is_(None)
+        )
+    )).scalar_one()
+
+    null_cf = (await session.execute(
+        select(func.count()).select_from(PITFinancialSnapshot).where(
+            PITFinancialSnapshot.cash_flow.is_(None)
+        )
+    )).scalar_one()
+
+    null_shares = (await session.execute(
+        select(func.count()).select_from(PITFinancialSnapshot).where(
+            PITFinancialSnapshot.shares_outstanding.is_(None)
+        )
+    )).scalar_one()
+
+    # Filing year distribution
+    year_dist = (await session.execute(
+        select(
+            PITFinancialSnapshot.fiscal_year,
+            func.count().label("cnt"),
+        )
+        .group_by(PITFinancialSnapshot.fiscal_year)
+        .order_by(PITFinancialSnapshot.fiscal_year)
+    )).all()
+
+    # Sample: 5 rows with NULL balance_sheet
+    sample_null_bs = (await session.execute(
+        select(
+            PITFinancialSnapshot.ticker,
+            PITFinancialSnapshot.fiscal_year,
+            PITFinancialSnapshot.form_type,
+            PITFinancialSnapshot.accession_number,
+        )
+        .where(PITFinancialSnapshot.balance_sheet.is_(None))
+        .limit(5)
+    )).all()
+
+    # Sample: 5 rows WITH balance_sheet — check if total_assets present
+    sample_with_bs = (await session.execute(
+        select(
+            PITFinancialSnapshot.ticker,
+            PITFinancialSnapshot.fiscal_year,
+            PITFinancialSnapshot.balance_sheet,
+        )
+        .where(PITFinancialSnapshot.balance_sheet.isnot(None))
+        .limit(5)
+    )).all()
+
+    return {
+        "total_snapshots": total,
+        "null_income_statement": null_is,
+        "null_balance_sheet": null_bs,
+        "null_cash_flow": null_cf,
+        "null_shares_outstanding": null_shares,
+        "year_distribution": {str(r.fiscal_year): r.cnt for r in year_dist},
+        "sample_null_bs": [
+            {"ticker": r.ticker, "year": r.fiscal_year, "form": r.form_type,
+             "accession": r.accession_number}
+            for r in sample_null_bs
+        ],
+        "sample_with_bs": [
+            {"ticker": r.ticker, "year": r.fiscal_year,
+             "bs_keys": list(r.balance_sheet.keys()) if r.balance_sheet else []}
+            for r in sample_with_bs
+        ],
+    }
+
+
 @router.get("/ingestion/quarantined")
 @limiter.limit("3/minute")
 async def get_quarantined_assets(
