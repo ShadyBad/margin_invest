@@ -2860,10 +2860,10 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
                 exc_info=True,
             )
 
-        # Phase 1: EDGAR backfill (2009-present)
+        # Phase 1: EDGAR backfill (2011-present, pre-2011 uses unsupported xbrl.us namespace)
         logger.info("[bootstrap_pit] Phase 1/4: EDGAR backfill...")
         edgar_result = await run_edgar_backfill(
-            start_year=2009,
+            start_year=2011,
             end_year=datetime.now(UTC).year,
             session_factory=session_factory,
             cik_sic_map=cik_sic_map,

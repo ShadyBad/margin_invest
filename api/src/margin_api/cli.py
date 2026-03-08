@@ -2159,7 +2159,7 @@ async def run_price_backfill(
 
 
 async def run_edgar_backfill_cmd(
-    start_year: int = 2009,
+    start_year: int = 2011,
     end_year: int = 2026,
     checkpoint_file: str = ".edgar_checkpoint",
     dry_run: bool = False,
@@ -2587,8 +2587,8 @@ def main() -> None:
     edgar_backfill_parser.add_argument(
         "--start-year",
         type=int,
-        default=2009,
-        help="Earliest year to backfill from (default: 2009)",
+        default=2011,
+        help="Earliest year to backfill from (default: 2011)",
     )
     edgar_backfill_parser.add_argument(
         "--end-year",
