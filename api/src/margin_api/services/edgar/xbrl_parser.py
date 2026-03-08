@@ -121,11 +121,14 @@ _CASHFLOW_FIELDS: set[str] = {
     "share_repurchases",
 }
 
-# Regex to match any US-GAAP taxonomy namespace (varies by year)
-_GAAP_NS_RE = re.compile(r"^http://fasb\.org/us-gaap/\d{4}$")
+# Regex to match any US-GAAP taxonomy namespace (varies by year).
+# Pre-2019 filings use a full-date suffix (e.g. /2013-01-31),
+# post-2019 use just a year (e.g. /2024).
+_GAAP_NS_RE = re.compile(r"^http://fasb\.org/us-gaap/\d{4}(-\d{2}-\d{2})?$")
 
-# Regex to match SEC DEI (Document & Entity Information) namespace
-_DEI_NS_RE = re.compile(r"^http://xbrl\.sec\.gov/dei/\d{4}$")
+# Regex to match SEC DEI (Document & Entity Information) namespace.
+# Same date suffix variation as GAAP.
+_DEI_NS_RE = re.compile(r"^http://xbrl\.sec\.gov/dei/\d{4}(-\d{2}-\d{2})?$")
 
 # DEI-namespace tag mapping. Tags here are checked when no GAAP tag matched.
 # Priority values are offset by 100 so GAAP tags always win.

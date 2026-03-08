@@ -2562,19 +2562,17 @@ async def precompute_default_backtest(ctx: dict) -> dict:
             provider = DatabasePITProvider(session, min_market_cap=0)
 
             registry = FactorRegistry.default()
-            # Disable liquidity + altman_z_score for PIT backtest:
-            # - liquidity: years_of_history >= 5 eliminates everything in early
-            #   years; volume data is unreliable for historical replay
-            # - altman_z_score: requires total_assets > 0 from balance sheet,
-            #   but most EDGAR XBRL filings store balance_sheet as NULL (the
-            #   parser extracts income_statement successfully but balance sheet
-            #   tags are often missing), causing 100% elimination
+            # Disable liquidity filter for PIT backtest: the v1 liquidity
+            # filter's years_of_history >= 5 requirement eliminates everything
+            # in early years (EDGAR data starts at 2009). Volume data is also
+            # computed from recent prices, not as-of-date prices, making it
+            # unreliable for historical replay.
             orchestrator = ReplayOrchestrator(
                 config=config,
                 pit_provider=provider,
                 factor_registry=registry,
                 use_real_scoring=True,
-                disabled_filters={"liquidity", "altman_z_score"},
+                disabled_filters={"liquidity"},
             )
             replay_result = await orchestrator.run_async()
             logger.info(
