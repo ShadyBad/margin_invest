@@ -637,17 +637,21 @@ async def reparse_empty_filings(
 ) -> dict[str, int]:
     """Delete and re-fetch filings that have empty parsed data.
 
-    Targets rows in pit_financial_snapshots where income_statement IS NULL,
-    which indicates the original backfill picked the wrong XML file (e.g.
-    a linkbase instead of the XBRL instance). Deletes those rows and
-    re-downloads + re-parses the filing using the fixed file selector.
+    Targets rows in pit_financial_snapshots where:
+    - income_statement IS NULL, OR
+    - shares_outstanding IS NULL (indicates parser couldn't extract data,
+      typically due to namespace mismatch for pre-2019 filings or the
+      balance_sheet/income_statement stored as empty JSONB dicts)
+
+    Deletes those rows and re-downloads + re-parses the filing using
+    the fixed file selector and namespace-aware parser.
 
     Returns:
         Summary dict with keys: total, reparsed, failed, still_empty.
     """
-    from sqlalchemy import delete
+    from sqlalchemy import delete, or_
 
-    # 1. Find accession numbers with empty income data
+    # 1. Find rows with missing/empty data
     async with session_factory() as session:
         stmt = select(
             PITFinancialSnapshot.accession_number,
@@ -658,7 +662,12 @@ async def reparse_empty_filings(
             PITFinancialSnapshot.fiscal_year,
             PITFinancialSnapshot.fiscal_quarter,
             PITFinancialSnapshot.sic_code,
-        ).where(PITFinancialSnapshot.income_statement.is_(None))
+        ).where(
+            or_(
+                PITFinancialSnapshot.income_statement.is_(None),
+                PITFinancialSnapshot.shares_outstanding.is_(None),
+            )
+        )
         result = await session.execute(stmt)
         empty_rows = result.all()
 

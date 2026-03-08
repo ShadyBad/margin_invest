@@ -2555,11 +2555,10 @@ async def precompute_default_backtest(ctx: dict) -> dict:
         config_hash = compute_config_hash(config)
 
         async with session_factory() as session:
-            # Use min_market_cap=0 for backtest: most XBRL filings lack
-            # shares_outstanding, so market_cap computes to 0 and the default
-            # $100M floor eliminates ~97% of tickers. The financial filters
-            # (altman, beneish, etc.) provide quality screening instead.
-            provider = DatabasePITProvider(session, min_market_cap=0)
+            # Market cap filter: $100M floor screens out tickers with
+            # missing shares_outstanding (market_cap=0). After XBRL namespace
+            # fix + reparse, most tickers will have shares data and survive.
+            provider = DatabasePITProvider(session, min_market_cap=100_000_000)
 
             registry = FactorRegistry.default()
             # Disable liquidity filter for PIT backtest: the v1 liquidity
@@ -3116,7 +3115,7 @@ class WorkerSettings:
         # 24h timeout, max_tries=5 to survive deploy-induced cancellations
         arq_func(bootstrap_pit_data, timeout=86400, max_tries=5),
         # 2h timeout — re-downloads filings from SEC EDGAR
-        arq_func(reparse_pit_filings, timeout=7200),
+        arq_func(reparse_pit_filings, timeout=259200),  # 72h for full reparse
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
