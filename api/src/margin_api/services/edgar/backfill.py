@@ -143,13 +143,19 @@ def _build_snapshot_row(
         "period_end": period_end,
         "form_type": entry.form_type,
         "accession_number": entry.accession_number,
-        "income_statement": financials.income_statement or None,
-        "balance_sheet": financials.balance_sheet or None,
-        "cash_flow": financials.cash_flow or None,
         "shares_outstanding": financials.shares_outstanding,
         "fiscal_year": fiscal_year,
         "fiscal_quarter": fiscal_quarter,
     }
+    # Omit empty/None JSONB values so INSERT uses SQL NULL (column default).
+    # Python None passed to a JSONB column via pg_insert becomes JSON null
+    # (not SQL NULL) because SQLAlchemy JSON defaults to none_as_null=False.
+    if financials.income_statement:
+        row["income_statement"] = financials.income_statement
+    if financials.balance_sheet:
+        row["balance_sheet"] = financials.balance_sheet
+    if financials.cash_flow:
+        row["cash_flow"] = financials.cash_flow
     if sic_code is not None:
         row["sic_code"] = sic_code
     return row
@@ -164,6 +170,10 @@ _XML_HREF_RE = re.compile(r'href="([^"]+\.xml)"', re.IGNORECASE)
 
 # Linkbase suffixes and metadata files that are NOT XBRL instance documents
 _LINKBASE_SUFFIXES = ("_cal.xml", "_def.xml", "_lab.xml", "_pre.xml")
+
+# XBRL instance files always contain a date pattern like YYYYMMDD in their name
+# (e.g., aapl-20230930.xml). Generic files like edgar.xml, primary_doc.xml don't.
+_INSTANCE_DATE_RE = re.compile(r"\d{8}")
 
 
 def _select_xbrl_file(index_html: str) -> str | None:
@@ -199,7 +209,10 @@ def _select_xbrl_file(index_html: str) -> str | None:
         # Categorize
         if filename.endswith("_htm.xml"):
             htm_xml = href
-        elif plain_xml is None:
+        elif plain_xml is None and _INSTANCE_DATE_RE.search(filename):
+            # Only accept plain XML if it contains a YYYYMMDD date pattern,
+            # which distinguishes real XBRL instances (e.g., aapl-20230930.xml)
+            # from generic metadata files (e.g., edgar.xml, primary_doc.xml).
             plain_xml = href
 
     # Prefer _htm.xml (modern iXBRL flattened), fall back to plain instance
@@ -638,20 +651,34 @@ async def reparse_empty_filings(
     """Delete and re-fetch filings that have empty parsed data.
 
     Targets rows in pit_financial_snapshots where:
-    - income_statement IS NULL, OR
-    - shares_outstanding IS NULL (indicates parser couldn't extract data,
-      typically due to namespace mismatch for pre-2019 filings or the
-      balance_sheet/income_statement stored as empty JSONB dicts)
+    - income_statement IS NULL or contains JSON null, OR
+    - shares_outstanding IS NULL
+    Only considers filings from 2011-01-01 onward (pre-2011 XBRL uses
+    unsupported xbrl.us GAAP namespace).
 
-    Deletes those rows and re-downloads + re-parses the filing using
-    the fixed file selector and namespace-aware parser.
+    Also performs a one-time cleanup: deletes all pre-2011 snapshot rows.
 
     Returns:
         Summary dict with keys: total, reparsed, failed, still_empty.
     """
-    from sqlalchemy import delete, or_
+    from sqlalchemy import delete, func, or_
 
-    # 1. Find rows with missing/empty data
+    # 0. One-time cleanup: delete pre-2011 snapshots (unsupported GAAP namespace)
+    pre_2011_cutoff = date(2011, 1, 1)
+    async with session_factory() as session:
+        del_result = await session.execute(
+            delete(PITFinancialSnapshot).where(
+                PITFinancialSnapshot.filing_date < pre_2011_cutoff
+            )
+        )
+        pre_2011_deleted = del_result.rowcount
+        await session.commit()
+    if pre_2011_deleted:
+        logger.info("[edgar-reparse] Deleted %d pre-2011 snapshots", pre_2011_deleted)
+
+    # 1. Find rows with missing/empty data (filing_date >= 2011)
+    # Check both SQL NULL (IS NULL) and JSON null (jsonb_typeof = 'null')
+    # because SQLAlchemy JSON(none_as_null=False) stores Python None as JSON null.
     async with session_factory() as session:
         stmt = select(
             PITFinancialSnapshot.accession_number,
@@ -663,10 +690,12 @@ async def reparse_empty_filings(
             PITFinancialSnapshot.fiscal_quarter,
             PITFinancialSnapshot.sic_code,
         ).where(
+            PITFinancialSnapshot.filing_date >= pre_2011_cutoff,
             or_(
                 PITFinancialSnapshot.income_statement.is_(None),
+                func.jsonb_typeof(PITFinancialSnapshot.income_statement) == "null",
                 PITFinancialSnapshot.shares_outstanding.is_(None),
-            )
+            ),
         )
         result = await session.execute(stmt)
         empty_rows = result.all()

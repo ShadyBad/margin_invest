@@ -13,6 +13,7 @@ from margin_api.services.edgar.backfill import (
     _infer_period_end,
     _select_xbrl_file,
     fetch_and_parse_filing,
+    reparse_empty_filings,
 )
 from margin_api.services.edgar.index_builder import EdgarIndexEntry
 from margin_api.services.edgar.xbrl_parser import XBRLFinancials
@@ -267,6 +268,24 @@ class TestSelectXbrlFile:
         """
         assert _select_xbrl_file(html) is None
 
+    def test_skips_generic_metadata_xml(self) -> None:
+        """Generic XML files like edgar.xml should not be selected as XBRL instances."""
+        html = """
+        <a href="edgar.xml">metadata</a>
+        <a href="jnj-20120701.xml">instance</a>
+        <a href="jnj-20120701_cal.xml">cal</a>
+        """
+        assert _select_xbrl_file(html) == "jnj-20120701.xml"
+
+    def test_returns_none_when_only_generic_xml(self) -> None:
+        """If only generic XML files exist (no ticker-date pattern), return None."""
+        html = """
+        <a href="edgar.xml">metadata</a>
+        <a href="primary_doc.xml">doc</a>
+        <a href="FilingSummary.xml">summary</a>
+        """
+        assert _select_xbrl_file(html) is None
+
     def test_full_path_hrefs(self) -> None:
         """Handles full-path hrefs (starting with /Archives/...)."""
         html = """
@@ -348,3 +367,137 @@ class TestFetchAndParseFilingRetry:
         result = await fetch_and_parse_filing(mock_client, entry)
         assert result is None
         assert mock_client.get.call_count == 8
+
+
+class TestBuildSnapshotRowNullHandling:
+    """Tests for _build_snapshot_row omitting empty JSONB values for SQL NULL storage.
+
+    SQLAlchemy JSON(none_as_null=False) converts Python None → JSON null.
+    To get SQL NULL, we omit keys from the row dict so INSERT uses column default.
+    """
+
+    def test_empty_dict_income_statement_omitted(self) -> None:
+        """Empty dict {} for income_statement should be omitted from row dict."""
+        entry = _make_entry()
+        financials = XBRLFinancials(
+            income_statement={},
+            balance_sheet={"total_assets": 100.0},
+            cash_flow={"operating_cash_flow": 50.0},
+            shares_outstanding=1000,
+        )
+
+        row = _build_snapshot_row(entry, financials, "AAPL", 2024, 2)
+
+        assert "income_statement" not in row
+
+    def test_empty_dict_balance_sheet_omitted(self) -> None:
+        """Empty dict {} for balance_sheet should be omitted from row dict."""
+        entry = _make_entry()
+        financials = XBRLFinancials(
+            income_statement={"revenue": 100.0},
+            balance_sheet={},
+            cash_flow={"operating_cash_flow": 50.0},
+            shares_outstanding=1000,
+        )
+
+        row = _build_snapshot_row(entry, financials, "AAPL", 2024, 2)
+
+        assert "balance_sheet" not in row
+
+    def test_empty_dict_cash_flow_omitted(self) -> None:
+        """Empty dict {} for cash_flow should be omitted from row dict."""
+        entry = _make_entry()
+        financials = XBRLFinancials(
+            income_statement={"revenue": 100.0},
+            balance_sheet={"total_assets": 100.0},
+            cash_flow={},
+            shares_outstanding=1000,
+        )
+
+        row = _build_snapshot_row(entry, financials, "AAPL", 2024, 2)
+
+        assert "cash_flow" not in row
+
+    def test_none_financials_omitted(self) -> None:
+        """None values should also be omitted (not stored as JSON null)."""
+        entry = _make_entry()
+        financials = XBRLFinancials(
+            income_statement=None,
+            balance_sheet=None,
+            cash_flow=None,
+            shares_outstanding=None,
+        )
+
+        row = _build_snapshot_row(entry, financials, "AAPL", 2024, 2)
+
+        assert "income_statement" not in row
+        assert "balance_sheet" not in row
+        assert "cash_flow" not in row
+
+    def test_populated_dicts_preserved(self) -> None:
+        """Non-empty dicts should be stored as-is."""
+        entry = _make_entry()
+        financials = _make_financials()
+
+        row = _build_snapshot_row(entry, financials, "AAPL", 2024, 2)
+
+        assert row["income_statement"] == {"revenue": 94930000000.0, "net_income": 23636000000.0}
+        assert row["balance_sheet"] == {
+            "total_assets": 352583000000.0,
+            "total_equity": 56727000000.0,
+        }
+        assert row["cash_flow"] == {"operating_cash_flow": 26438000000.0}
+
+
+class TestReparseEmptyFilings:
+    """Tests for reparse_empty_filings query and filtering."""
+
+    def _make_mock_factory(self) -> MagicMock:
+        """Create a mock session factory that returns no rows."""
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_session.execute.return_value = mock_result
+
+        mock_factory = MagicMock()
+        mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+        return mock_factory
+
+    @pytest.mark.asyncio
+    async def test_reparse_query_catches_json_null(self) -> None:
+        """WHERE clause should match JSON null values, not just SQL NULL."""
+        mock_factory = self._make_mock_factory()
+
+        await reparse_empty_filings(mock_factory)
+
+        # Extract the compiled SQL to verify it checks for JSON null
+        mock_session = mock_factory.return_value.__aenter__.return_value
+        executed_stmt = mock_session.execute.call_args[0][0]
+        compiled = str(executed_stmt.compile(compile_kwargs={"literal_binds": True}))
+        # Should contain jsonb_typeof check for catching JSON null values
+        assert "jsonb_typeof" in compiled.lower() or "cast" in compiled.lower(), (
+            f"WHERE clause should detect JSON null values, got: {compiled}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_reparse_excludes_pre_2011_filings(self) -> None:
+        """WHERE clause should filter out filings before 2011-01-01."""
+        mock_factory = self._make_mock_factory()
+
+        await reparse_empty_filings(mock_factory)
+
+        mock_session = mock_factory.return_value.__aenter__.return_value
+        executed_stmt = mock_session.execute.call_args[0][0]
+        compiled = str(executed_stmt.compile(compile_kwargs={"literal_binds": True}))
+        assert "filing_date" in compiled
+        assert "2011" in compiled
+
+    @pytest.mark.asyncio
+    async def test_reparse_returns_zero_counts_when_no_rows(self) -> None:
+        """When no empty rows found, should return all-zero counts."""
+        mock_factory = self._make_mock_factory()
+
+        result = await reparse_empty_filings(mock_factory)
+
+        assert result == {"total": 0, "reparsed": 0, "failed": 0, "still_empty": 0}
