@@ -369,6 +369,77 @@ class TestFetchAndParseFilingRetry:
         assert mock_client.get.call_count == 8
 
 
+class TestXBRLParserNamespaces:
+    """Tests for XBRL parser namespace support across taxonomy eras."""
+
+    def test_fasb_org_namespace_2024(self) -> None:
+        """Modern fasb.org namespace (2024) should parse correctly."""
+        from margin_api.services.edgar.xbrl_parser import extract_financials
+
+        xml = """<?xml version="1.0"?>
+        <xbrl xmlns="http://www.xbrl.org/2003/instance"
+              xmlns:us-gaap="http://fasb.org/us-gaap/2024">
+          <us-gaap:Revenues contextRef="c1" unitRef="u1" decimals="-6">100000000</us-gaap:Revenues>
+          <us-gaap:Assets contextRef="c1" unitRef="u1" decimals="-6">500000000</us-gaap:Assets>
+        </xbrl>"""
+        result = extract_financials(xml)
+        assert result.income_statement["revenue"] == 100000000.0
+        assert result.balance_sheet["total_assets"] == 500000000.0
+
+    def test_fasb_org_namespace_2013(self) -> None:
+        """Pre-2019 fasb.org namespace with date suffix should parse correctly."""
+        from margin_api.services.edgar.xbrl_parser import extract_financials
+
+        gaap = "http://fasb.org/us-gaap/2013-01-31"
+        xml = f"""<?xml version="1.0"?>
+        <xbrl xmlns="http://www.xbrl.org/2003/instance"
+              xmlns:g="{gaap}">
+          <g:Revenues contextRef="c1" unitRef="u1">200000000</g:Revenues>
+          <g:NetIncomeLoss contextRef="c1" unitRef="u1">50000000</g:NetIncomeLoss>
+        </xbrl>"""
+        result = extract_financials(xml)
+        assert result.income_statement["revenue"] == 200000000.0
+        assert result.income_statement["net_income"] == 50000000.0
+
+    def test_xbrl_us_namespace_2009(self) -> None:
+        """Pre-2012 xbrl.us namespace (2011 and earlier filings)."""
+        from margin_api.services.edgar.xbrl_parser import extract_financials
+
+        gaap = "http://xbrl.us/us-gaap/2009-01-31"
+        dei = "http://xbrl.us/dei/2009-01-31"
+        xml = f"""<?xml version="1.0"?>
+        <xbrl xmlns="http://www.xbrl.org/2003/instance"
+              xmlns:g="{gaap}" xmlns:d="{dei}">
+          <g:Revenues contextRef="c1" unitRef="u1">15683000000</g:Revenues>
+          <g:Assets contextRef="c1" unitRef="u1">86742000000</g:Assets>
+          <g:NetIncomeLoss contextRef="c1" unitRef="u1">3378000000</g:NetIncomeLoss>
+          <d:EntityCommonStockSharesOutstanding contextRef="c1"
+            unitRef="u2">921035475</d:EntityCommonStockSharesOutstanding>
+        </xbrl>"""
+        result = extract_financials(xml)
+        assert result.income_statement["revenue"] == 15683000000.0
+        assert result.balance_sheet["total_assets"] == 86742000000.0
+        assert result.income_statement["net_income"] == 3378000000.0
+        assert result.shares_outstanding == 921035475
+
+    def test_xbrl_us_dei_ent_namespace(self) -> None:
+        """The dei-ent variant namespace from pre-2012 filings."""
+        from margin_api.services.edgar.xbrl_parser import extract_financials
+
+        gaap = "http://xbrl.us/us-gaap/2009-01-31"
+        dei = "http://xbrl.us/dei-ent/2009-01-31"
+        xml = f"""<?xml version="1.0"?>
+        <xbrl xmlns="http://www.xbrl.org/2003/instance"
+              xmlns:g="{gaap}" xmlns:d="{dei}">
+          <g:Revenues contextRef="c1" unitRef="u1">1000000</g:Revenues>
+          <d:EntityCommonStockSharesOutstanding contextRef="c1"
+            unitRef="u2">500000</d:EntityCommonStockSharesOutstanding>
+        </xbrl>"""
+        result = extract_financials(xml)
+        assert result.income_statement["revenue"] == 1000000.0
+        assert result.shares_outstanding == 500000
+
+
 class TestBuildSnapshotRowNullHandling:
     """Tests for _build_snapshot_row omitting empty JSONB values for SQL NULL storage.
 
