@@ -16,9 +16,6 @@ const SECTIONS = [
 
 export function SectionIndicator() {
   const [activeIndex, setActiveIndex] = useState(0)
-
-  if (process.env.NODE_ENV === 'production') return null
-  if (!process.env.NEXT_PUBLIC_SHOW_DEV_TOOLS) return null
   const observerRef = useRef<IntersectionObserver | null>(null)
 
   useEffect(() => {
@@ -40,6 +37,9 @@ export function SectionIndicator() {
     for (const el of elements) observerRef.current.observe(el)
     return () => observerRef.current?.disconnect()
   }, [])
+
+  if (process.env.NODE_ENV === 'production') return null
+  if (!process.env.NEXT_PUBLIC_SHOW_DEV_TOOLS) return null
 
   function handleNavigate(index: number) {
     const id = SECTIONS[index]?.id
