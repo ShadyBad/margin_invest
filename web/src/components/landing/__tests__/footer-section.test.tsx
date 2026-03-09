@@ -1,5 +1,12 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
+
+vi.mock("gsap", () => ({
+  default: { registerPlugin: vi.fn(), to: vi.fn(), set: vi.fn(), fromTo: vi.fn() },
+}))
+vi.mock("gsap/ScrollTrigger", () => ({
+  default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
+}))
 
 import { FooterSection } from "../footer-section"
 
@@ -30,5 +37,11 @@ describe("FooterSection (landing)", () => {
   it("renders copyright", () => {
     render(<FooterSection />)
     expect(screen.getByText(/2026 margin invest/i)).toBeInTheDocument()
+  })
+
+  it("renders horizontal rule divider", () => {
+    const { container } = render(<FooterSection />)
+    const hr = container.querySelector("hr")
+    expect(hr).toBeInTheDocument()
   })
 })

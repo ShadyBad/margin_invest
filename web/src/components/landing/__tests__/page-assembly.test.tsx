@@ -82,8 +82,9 @@ describe("Landing page assembly", () => {
     expect(screen.getByText("Scout")).toBeInTheDocument()
     expect(screen.getByText("Portfolio")).toBeInTheDocument()
 
-    // Hero search
-    expect(screen.getByPlaceholderText(/search any ticker/i)).toBeInTheDocument()
+    // Hero search (appears in hero + FAQ closing CTA)
+    const searchInputs = screen.getAllByPlaceholderText(/search any ticker/i)
+    expect(searchInputs.length).toBeGreaterThanOrEqual(1)
   })
 
   it("renders the navbar", async () => {
