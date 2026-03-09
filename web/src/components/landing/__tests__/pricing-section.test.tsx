@@ -20,10 +20,6 @@ vi.mock("gsap", () => ({
 vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
-// Mock scroll-canvas context — default: not smooth scrolling (mobile path)
-vi.mock("../scroll-canvas", () => ({
-  useScrollCanvas: vi.fn(() => ({ ready: false, isSmoothScrolling: false })),
-}))
 
 import { PricingSection } from "../pricing-section"
 
