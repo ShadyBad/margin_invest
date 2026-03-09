@@ -2,7 +2,20 @@ import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 
 vi.mock("gsap", () => ({
-  default: { registerPlugin: vi.fn(), to: vi.fn(), set: vi.fn(), fromTo: vi.fn() },
+  default: {
+    registerPlugin: vi.fn(),
+    to: vi.fn(() => ({ kill: vi.fn() })),
+    set: vi.fn(),
+    fromTo: vi.fn(() => ({ kill: vi.fn() })),
+    timeline: vi.fn(() => ({
+      to: vi.fn().mockReturnThis(),
+      fromTo: vi.fn().mockReturnThis(),
+      play: vi.fn(),
+      pause: vi.fn(),
+      kill: vi.fn(),
+      scrollTrigger: null,
+    })),
+  },
 }))
 vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
