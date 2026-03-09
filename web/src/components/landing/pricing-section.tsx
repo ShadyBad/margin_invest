@@ -72,6 +72,17 @@ export function PricingSection() {
             Scoring 3,056 US equities daily
           </p>
         </div>
+        <div className="mt-10 pt-6 border-t border-border-subtle text-center">
+          <p className="text-sm text-text-secondary">
+            Need API access or custom integration?{" "}
+            <a
+              href="/contact"
+              className="text-accent hover:text-accent/80 transition-colors"
+            >
+              Contact us →
+            </a>
+          </p>
+        </div>
       </div>
     </section>
   )
