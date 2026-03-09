@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { motion, useReducedMotion } from "framer-motion"
 
 export interface Tier {
   name: string
@@ -22,14 +21,10 @@ interface PricingTierCardProps {
   tier: Tier
 }
 
-const spring = { stiffness: 400, damping: 25 }
-
 export function PricingTierCard({ tier }: PricingTierCardProps) {
-  const prefersReducedMotion = useReducedMotion()
-
   const card = (
-    <motion.div
-      className="terminal-card rounded-xl p-6 md:p-8 flex flex-col h-full relative overflow-hidden focus-visible:outline-2 focus-visible:outline-accent/40 focus-visible:outline-offset-2 hover:-translate-y-0.5 hover:border-[var(--color-accent-medium)] transition-all duration-200"
+    <div
+      className={`terminal-card rounded-xl p-6 md:p-8 flex flex-col h-full relative overflow-hidden focus-visible:outline-2 focus-visible:outline-accent/40 focus-visible:outline-offset-2 hover:-translate-y-0.5 hover:border-[var(--color-accent-medium)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all duration-200${tier.highlighted ? " hover:shadow-[0_0_48px_rgba(201,150,59,0.20),0_8px_24px_rgba(0,0,0,0.3)]" : ""}`}
       style={
         tier.highlighted
           ? {
@@ -40,28 +35,6 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
           : tier.name === "Scout"
             ? { opacity: 0.85 }
             : undefined
-      }
-      whileHover={
-        prefersReducedMotion
-          ? {}
-          : { boxShadow: tier.highlighted
-              ? "0 0 48px rgba(201,150,59,0.20), 0 8px 24px rgba(0,0,0,0.3)"
-              : "0 2px 8px rgba(0,0,0,0.3)"
-            }
-      }
-      whileTap={
-        prefersReducedMotion
-          ? {}
-          : { y: -1, scale: 0.995 }
-      }
-      transition={spring}
-      whileFocus={
-        prefersReducedMotion
-          ? {}
-          : { boxShadow: tier.highlighted
-              ? "0 0 48px rgba(201,150,59,0.20), 0 8px 24px rgba(0,0,0,0.3)"
-              : "0 2px 8px rgba(0,0,0,0.3)"
-            }
       }
     >
       {/* Top accent bar for highlighted card */}
@@ -108,14 +81,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
       {tier.highlighted ? (
         <Link
           href="/onboarding"
-          className="block text-center text-sm font-medium rounded-lg py-2.5 transition-colors"
-          style={{
-            background: 'var(--color-accent)',
-            color: 'var(--color-bg-primary)',
-            border: 'none',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)' }}
+          className="block text-center text-sm font-medium rounded-lg py-2.5 transition-colors bg-accent text-bg-primary border-none hover:bg-accent-hover"
         >
           {CTA_TEXT[tier.name] ?? "Get Started"}
         </Link>
@@ -127,7 +93,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
           {CTA_TEXT[tier.name] ?? "Get Started"}
         </Link>
       )}
-    </motion.div>
+    </div>
   )
 
   if (tier.highlighted) {
