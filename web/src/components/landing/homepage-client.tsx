@@ -6,6 +6,7 @@ import { EvidenceSection } from "./evidence-section"
 import { PricingSection } from "./pricing-section"
 import { FaqSection } from "./faq-section"
 import { FooterSection } from "./footer-section"
+import { ScrollCanvas } from "./scroll-canvas"
 import type { HomepageData } from "./types"
 
 interface HomepageClientProps {
@@ -14,13 +15,13 @@ interface HomepageClientProps {
 
 export function HomepageClient({ data }: HomepageClientProps) {
   return (
-    <div className="relative z-10">
+    <ScrollCanvas>
       <HeroSection data={data} />
       <AuthorityStrip />
       <EvidenceSection candidates={data?.allPicks ?? []} />
       <PricingSection />
       <FaqSection />
       <FooterSection />
-    </div>
+    </ScrollCanvas>
   )
 }
