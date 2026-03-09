@@ -107,7 +107,7 @@ export function DifferentiatorSection() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border-subtle">
-                  <th className="text-left text-xs uppercase tracking-[0.15em] text-text-tertiary py-3 pr-4 w-[20%]">
+                  <th className="text-left text-xs uppercase tracking-[0.15em] text-text-tertiary py-3 pl-5 pr-4 w-[20%]">
                     &nbsp;
                   </th>
                   <th className="text-center text-xs uppercase tracking-[0.15em] text-text-tertiary line-through opacity-40 py-3 px-2">
@@ -133,7 +133,7 @@ export function DifferentiatorSection() {
               <tbody>
                 {ROWS.map((row) => (
                   <tr key={row.feature} className="border-b border-border-subtle transition-colors hover:bg-[rgba(255,255,255,0.02)]">
-                    <td className="text-left text-text-secondary py-3 pr-4 font-medium">
+                    <td className="text-left text-text-secondary py-3 pl-5 pr-4 font-medium">
                       {row.feature}
                     </td>
                     <td className="text-center text-text-tertiary py-3 px-2">
