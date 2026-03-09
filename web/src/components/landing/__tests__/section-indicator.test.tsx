@@ -22,7 +22,7 @@ describe("SectionIndicator", () => {
     const nav = screen.getByRole("navigation", { name: /page sections/i })
     expect(nav).toBeInTheDocument()
     const buttons = nav.querySelectorAll("button")
-    expect(buttons.length).toBe(9)
+    expect(buttons.length).toBe(4)
   })
 
   it("returns null when NEXT_PUBLIC_SHOW_DEV_TOOLS is not set", () => {

@@ -61,19 +61,17 @@ vi.mock("recharts", () => ({
 import { HomepageClient } from "../homepage-client"
 
 describe("HomepageClient section order", () => {
-  it("renders proof section before engine section", () => {
+  it("renders hero, pricing, faq, and footer sections", () => {
     const { container } = render(<HomepageClient data={null} />)
     const sections = container.querySelectorAll("section[id]")
     const ids = Array.from(sections).map((s) => s.id)
 
-    const proofIdx = ids.indexOf("proof")
-    const engineIdx = ids.indexOf("engine")
+    expect(ids).toContain("hero")
+    expect(ids).toContain("pricing")
+    expect(ids).toContain("faq")
 
-    // All sections must exist
-    expect(proofIdx).toBeGreaterThan(-1)
-    expect(engineIdx).toBeGreaterThan(-1)
-
-    // Proof should come before Engine in the DOM
-    expect(proofIdx).toBeLessThan(engineIdx)
+    // Footer uses <footer> tag, not <section>
+    const footer = container.querySelector("footer#footer")
+    expect(footer).toBeInTheDocument()
   })
 })

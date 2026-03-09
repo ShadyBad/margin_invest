@@ -4,13 +4,8 @@ import { useEffect, useRef, useState } from "react"
 
 const SECTIONS = [
   { id: "hero", label: "Hero" },
-  { id: "problem", label: "Problem" },
-  { id: "pipeline", label: "Pipeline" },
-  { id: "engine", label: "Engine" },
-  { id: "proof", label: "Proof" },
-  { id: "positioning", label: "Positioning" },
   { id: "pricing", label: "Pricing" },
-  { id: "infrastructure", label: "Infrastructure" },
+  { id: "faq", label: "FAQ" },
   { id: "footer", label: "Footer" },
 ]
 

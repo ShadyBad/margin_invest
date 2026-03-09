@@ -75,19 +75,6 @@ describe("Landing page assembly", () => {
     expect(screen.getByText("Discipline.")).toBeInTheDocument()
     expect(screen.getByText("Engineered.")).toBeInTheDocument()
 
-    // Problem
-    expect(screen.getByText(/most investors react/i)).toBeInTheDocument()
-
-    // Engine cards (appear in both desktop + mobile layouts)
-    expect(screen.getAllByText("Raw Market Signal").length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText("Portfolio Correlation Mapping").length).toBeGreaterThanOrEqual(1)
-
-    // Proof
-    expect(screen.getByText(/structure replaces intuition with evidence/i)).toBeInTheDocument()
-
-    // Positioning
-    expect(screen.getByText(/system has no opinion/i)).toBeInTheDocument()
-
     // Pricing
     expect(screen.getByText("Scout")).toBeInTheDocument()
     expect(screen.getByText("Portfolio")).toBeInTheDocument()
