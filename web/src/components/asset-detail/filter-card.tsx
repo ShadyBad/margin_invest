@@ -58,6 +58,20 @@ function formatThreshold(
   return threshold.toFixed(2)
 }
 
+function formatMetricValue(value: number | string): string {
+  if (typeof value === "string") return value
+  if (Number.isInteger(value)) return String(value)
+  if (Math.abs(value) >= 1e9) return `${(value / 1e9).toFixed(1)}B`
+  if (Math.abs(value) >= 1e6) return `${(value / 1e6).toFixed(0)}M`
+  return value.toFixed(2)
+}
+
+function formatMetricLabel(key: string): string {
+  return key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: FilterCardProps) {
   const meta = FILTER_METADATA[filter.name]
   const passed = filter.passed
@@ -82,6 +96,9 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
       ? "text-bullish"
       : "text-bearish"
 
+  const metrics = filter.computed_metrics
+  const hasMetrics = metrics != null && Object.keys(metrics).length > 0
+
   return (
     <div
       className={`border rounded-lg ${borderColor} ${bgColor} px-4 py-3 space-y-2`}
@@ -105,17 +122,63 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
         )}
       </div>
 
-      {/* Value vs threshold */}
-      <div className="flex items-center gap-6 text-sm font-mono">
-        <div>
-          <span className="text-text-tertiary text-xs block">Value</span>
-          <span className="text-text-primary">{formatValue(filter.value, filter.name, filter.computed_metrics)}</span>
+      {/* Structured diagnostics table */}
+      {hasMetrics ? (
+        <div data-testid={`filter-diagnostics-${filter.name}`}>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-white/[0.06]">
+                <th className="text-left py-1 pr-2 text-text-tertiary font-medium uppercase tracking-wider">Metric</th>
+                <th className="text-right py-1 px-2 text-text-tertiary font-medium uppercase tracking-wider">Value</th>
+                <th className="text-right py-1 px-2 text-text-tertiary font-medium uppercase tracking-wider">Threshold</th>
+                <th className="text-right py-1 pl-2 text-text-tertiary font-medium uppercase tracking-wider">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Primary value vs threshold row */}
+              <tr className="border-b border-white/[0.04]">
+                <td className="py-1.5 pr-2 text-text-secondary">{meta?.displayName ?? filter.name}</td>
+                <td className="py-1.5 px-2 text-right font-mono text-text-primary">
+                  {formatValue(filter.value, filter.name, metrics)}
+                </td>
+                <td className="py-1.5 px-2 text-right font-mono text-text-primary">
+                  {formatThreshold(filter.threshold, filter.name, metrics)}
+                </td>
+                <td className={`py-1.5 pl-2 text-right font-mono ${isInconclusive ? "text-warning" : passed ? "text-bullish" : "text-bearish"}`}>
+                  {isInconclusive ? "INCONCLUSIVE" : passed ? "PASS" : "FAIL"}
+                </td>
+              </tr>
+              {/* Additional computed metrics rows */}
+              {Object.entries(metrics!).map(([key, val]) => (
+                <tr key={key} className="border-b border-white/[0.04] last:border-b-0">
+                  <td className="py-1 pr-2 text-text-tertiary">{formatMetricLabel(key)}</td>
+                  <td className="py-1 px-2 text-right font-mono text-text-secondary" colSpan={3}>
+                    {formatMetricValue(val)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div>
-          <span className="text-text-tertiary text-xs block">Threshold</span>
-          <span className="text-text-primary">{formatThreshold(filter.threshold, filter.name, filter.computed_metrics)}</span>
+      ) : (
+        /* Fallback: simple value vs threshold display */
+        <div className="flex items-center gap-6 text-sm font-mono">
+          <div>
+            <span className="text-text-tertiary text-xs block">Value</span>
+            <span className="text-text-primary">{formatValue(filter.value, filter.name, filter.computed_metrics)}</span>
+          </div>
+          <div>
+            <span className="text-text-tertiary text-xs block">Threshold</span>
+            <span className="text-text-primary">{formatThreshold(filter.threshold, filter.name, filter.computed_metrics)}</span>
+          </div>
+          <div>
+            <span className="text-text-tertiary text-xs block">Result</span>
+            <span className={`font-mono ${isInconclusive ? "text-warning" : passed ? "text-bullish" : "text-bearish"}`}>
+              {isInconclusive ? "INCONCLUSIVE" : passed ? "PASS" : "FAIL"}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Sector context — only for failed filters when data available */}
       {!passed && sectorPassRate != null && sectorName && (

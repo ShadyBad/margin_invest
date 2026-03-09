@@ -148,6 +148,8 @@ describe("FilterCard FCF display", () => {
     }
     render(<FilterCard filter={cyclicalFilter} expanded={false} />)
     expect(screen.getByText(/≥ 2\/5 years/)).toBeInTheDocument()
-    expect(screen.getByText(/Energy/)).toBeInTheDocument()
+    // "Energy" appears in both the threshold display and the computed metrics table
+    const energyMatches = screen.getAllByText(/Energy/)
+    expect(energyMatches.length).toBeGreaterThanOrEqual(1)
   })
 })
