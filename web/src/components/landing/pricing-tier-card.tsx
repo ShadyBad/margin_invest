@@ -29,7 +29,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
 
   const card = (
     <motion.div
-      className="terminal-card rounded-2xl p-6 md:p-8 flex flex-col h-full relative overflow-hidden focus-visible:outline-2 focus-visible:outline-accent/40 focus-visible:outline-offset-2 hover:-translate-y-0.5 hover:border-[var(--color-accent-medium)] transition-all duration-200"
+      className="terminal-card rounded-xl p-6 md:p-8 flex flex-col h-full relative overflow-hidden focus-visible:outline-2 focus-visible:outline-accent/40 focus-visible:outline-offset-2 hover:-translate-y-0.5 hover:border-[var(--color-accent-medium)] transition-all duration-200"
       style={
         tier.highlighted
           ? {

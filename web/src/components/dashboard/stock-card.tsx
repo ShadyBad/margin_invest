@@ -15,11 +15,11 @@ import type { PickSummary, ScoreResponse, InstitutionalMetricsResponse } from "@
 function getCardTierClasses(convictionLevel: string): string {
   switch (convictionLevel) {
     case "exceptional":
-      return "rounded-lg"
+      return "rounded-xl"
     case "high":
-      return "rounded-lg"
+      return "rounded-xl"
     default:
-      return "rounded-lg"
+      return "rounded-xl"
   }
 }
 
@@ -121,7 +121,7 @@ export function StockCard({ pick, className = "", rank }: StockCardProps) {
       aria-expanded={expanded}
     >
       {pick.composite_tier === "exceptional" && (
-        <div className="absolute inset-0 rounded-lg pointer-events-none bg-[radial-gradient(ellipse_at_top_left,rgba(180,160,130,0.04),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(26,122,90,0.03),transparent_50%)]" />
+        <div className="absolute inset-0 rounded-xl pointer-events-none bg-[radial-gradient(ellipse_at_top_left,rgba(180,160,130,0.04),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(26,122,90,0.03),transparent_50%)]" />
       )}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">

@@ -55,10 +55,10 @@ const basePick: PickSummary = {
 }
 
 describe("StockCard visual hierarchy", () => {
-  it("renders exceptional card with rounded-lg and sector bar", () => {
+  it("renders exceptional card with rounded-xl and sector bar", () => {
     render(<StockCard pick={{ ...basePick, composite_tier: "exceptional", score: 92 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
-    expect(card.className).toContain("rounded-lg")
+    expect(card.className).toContain("rounded-xl")
     expect(card.className).toContain("border-l-2")
   })
 
@@ -66,14 +66,14 @@ describe("StockCard visual hierarchy", () => {
     render(<StockCard pick={{ ...basePick, composite_tier: "high", score: 80 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
     expect(card.className).toContain("border-l-2")
-    expect(card.className).toContain("rounded-lg")
+    expect(card.className).toContain("rounded-xl")
   })
 
   it("renders watchlist card with sector bar and no conviction glow", () => {
     render(<StockCard pick={{ ...basePick, composite_tier: "watchlist", score: 55 }} />)
     const card = screen.getByTestId("stock-card-AAPL")
     expect(card.className).toContain("border-l-2")
-    expect(card.className).toContain("rounded-lg")
+    expect(card.className).toContain("rounded-xl")
   })
 
   it("renders exceptional score in accent color with display font", () => {
