@@ -27,7 +27,7 @@ const trustBadges = [
 
 export function FooterSection() {
   return (
-    <footer id="footer" className="border-t border-border-subtle">
+    <footer id="footer">
       {/* Trust strip */}
       <div className="max-w-6xl mx-auto px-6 py-8 border-b border-border-subtle">
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">

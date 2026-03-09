@@ -109,7 +109,7 @@ export function InfrastructureSection() {
   }, [])
 
   return (
-    <section id="infrastructure" className="py-[100px] px-6">
+    <section id="infrastructure" className="py-[100px] px-6" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
       <div className="max-w-5xl mx-auto">
         <h2 className="font-display text-4xl md:text-[36px] text-center mb-4" style={{ color: 'var(--color-accent-warm)' }}>
           Institutional-Grade Infrastructure

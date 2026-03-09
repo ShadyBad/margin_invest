@@ -240,7 +240,7 @@ export function HeroCandidateCard({
             </div>
 
             {/* Composite Score Ring */}
-            <div className="text-center">
+            <div className="flex flex-col items-center">
               <ScoreRing score={candidate.score} />
               <div className="text-[10px] uppercase tracking-widest text-text-tertiary mt-1">
                 Composite Score
