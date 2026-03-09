@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react"
 import { motion } from "framer-motion"
 import { ActionPill, Sparkline, PercentileBar, ConvictionBadge, AnimatedScore } from "@/components/ui"
+import { ScoreDelta } from "@/components/ui/score-delta"
 import { AssetPanel } from "./panel"
 import { PanelErrorBoundary } from "./panel/panel-error-boundary"
 import { getScore, getMetrics } from "@/lib/api/scores"
@@ -207,10 +208,16 @@ export function StockCard({ pick, className = "", rank }: StockCardProps) {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <AnimatedScore
-            value={pick.score ?? pick.composite_percentile}
-            className={getScoreClasses(pick.composite_tier)}
-          />
+          <div className="flex items-end gap-2">
+            <AnimatedScore
+              value={pick.score ?? pick.composite_percentile}
+              className={getScoreClasses(pick.composite_tier)}
+            />
+            <ScoreDelta
+              current={pick.score ?? pick.composite_percentile}
+              previous={pick.previous_score ?? null}
+            />
+          </div>
           <span className="block text-xs font-medium text-text-tertiary tracking-[0.15em] uppercase mt-1">
             composite
           </span>

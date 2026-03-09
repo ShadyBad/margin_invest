@@ -190,6 +190,8 @@ export interface PickSummary {
   // V4 / ML fields
   ml_override?: string | null
   style?: string | null
+  // Score change tracking
+  previous_score?: number | null
 }
 
 export interface WatchlistItem {
