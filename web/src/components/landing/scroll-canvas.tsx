@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
+import { useIsMobile } from "@/hooks/use-media-query"
 
 interface ScrollCanvasContextValue {
   ready: boolean
@@ -25,8 +26,16 @@ export function ScrollCanvas({ children }: ScrollCanvasProps) {
   const [isSmoothScrolling, setIsSmoothScrolling] = useState(false)
   const gradientRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
+    // On mobile, skip ScrollSmoother entirely — just mark ready with static layers
+    if (isMobile) {
+      setIsSmoothScrolling(false)
+      setReady(true)
+      return
+    }
+
     let cancelled = false
     let smoother: { kill: () => void } | null = null
     const scrollTriggers: Array<{ kill: () => void }> = []
@@ -159,7 +168,7 @@ export function ScrollCanvas({ children }: ScrollCanvasProps) {
       smoother?.kill()
       setIsSmoothScrolling(false)
     }
-  }, [])
+  }, [isMobile])
 
   return (
     <ScrollCanvasContext.Provider value={{ ready, isSmoothScrolling }}>

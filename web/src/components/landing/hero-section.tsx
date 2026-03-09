@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import type { HomepageData } from "./types"
 import { HeroSearch } from "./hero-search"
+import { useScrollCanvas } from "./scroll-canvas"
 
 interface HeroSectionProps {
   data: HomepageData | null
@@ -21,6 +22,8 @@ export function HeroSection({ data, totalUniverse, survivingCount }: HeroSection
   // Use data-driven universe size if available, otherwise fall back to props
   const universeSize = data?.total_universe ?? totalUniverse
   const survivors = data?.surviving_count ?? survivingCount
+
+  const { isSmoothScrolling } = useScrollCanvas()
 
   const eliminationPct =
     universeSize > 0 ? Math.round((1 - survivors / universeSize) * 100) : 94
@@ -46,6 +49,64 @@ export function HeroSection({ data, totalUniverse, survivingCount }: HeroSection
       const indicator = indicatorRef.current
 
       if (!section) return
+
+      // ── Mobile / no-smooth path: simple fade-in, all content visible ──
+      if (!isSmoothScrolling) {
+        // Make brand + search visible immediately (they start with opacity:0 in JSX)
+        if (brand) gsap.set(brand, { opacity: 1 })
+        if (searchWrapper) gsap.set(searchWrapper, { opacity: 1 })
+
+        // Simple fade-in for indictment
+        if (indictment) {
+          tweens.push(
+            gsap.from(indictment, {
+              opacity: 0,
+              y: 20,
+              duration: 0.6,
+              delay: 0.2,
+              ease: "power2.out",
+            })
+          )
+        }
+        if (subtext) {
+          tweens.push(
+            gsap.from(subtext, {
+              opacity: 0,
+              y: 12,
+              duration: 0.6,
+              delay: 0.3,
+              ease: "power2.out",
+            })
+          )
+        }
+        // Brand fade-in
+        if (brand) {
+          tweens.push(
+            gsap.from(brand, {
+              opacity: 0,
+              y: 20,
+              duration: 0.6,
+              delay: 0.4,
+              ease: "power2.out",
+            })
+          )
+        }
+        // Search fade-in
+        if (searchWrapper) {
+          tweens.push(
+            gsap.from(searchWrapper, {
+              opacity: 0,
+              y: 12,
+              duration: 0.6,
+              delay: 0.5,
+              ease: "power2.out",
+            })
+          )
+        }
+        return
+      }
+
+      // ── Desktop / smooth-scroll path: multi-phase scroll-driven animation ──
 
       // Phase 1: Fade in indictment on load
       if (indictment) {
@@ -126,7 +187,7 @@ export function HeroSection({ data, totalUniverse, survivingCount }: HeroSection
       tweens.forEach((t) => t.kill())
       scrollTriggers.forEach((st) => st.kill())
     }
-  }, [])
+  }, [isSmoothScrolling])
 
   return (
     <section

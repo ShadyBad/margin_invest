@@ -6,6 +6,7 @@ import { ProofSelectivityFunnel } from "./proof-selectivity-funnel"
 import { ProofSectorChart } from "./proof-sector-chart"
 import { ProofHeatmap } from "./proof-heatmap"
 import type { CandidateCard } from "./types"
+import { useScrollCanvas } from "./scroll-canvas"
 
 interface EvidenceSectionProps {
   candidates?: CandidateCard[]
@@ -14,6 +15,7 @@ interface EvidenceSectionProps {
 const HEADER_TEXT = "SYSTEM OUTPUT — Current Scoring Cycle"
 
 export function EvidenceSection({ candidates = [] }: EvidenceSectionProps) {
+  const { isSmoothScrolling } = useScrollCanvas()
   const sectionRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLSpanElement>(null)
@@ -45,6 +47,45 @@ export function EvidenceSection({ candidates = [] }: EvidenceSectionProps) {
       const div1 = divider1Ref.current
       const div2 = divider2Ref.current
       if (!panel || !header || !col1 || !col2 || !col3 || !div1 || !div2) return
+
+      // ── Mobile / no-smooth path: simple viewport-enter fade-in ──
+      if (!isSmoothScrolling) {
+        // Show everything immediately with a batch fade-in on viewport enter
+        const charSpans = header.querySelectorAll<HTMLSpanElement>(".char-span")
+        gsap.set(charSpans, { opacity: 1 })
+        gsap.set(div1, { scaleY: 1 })
+        gsap.set(div2, { scaleY: 1 })
+
+        // Simple fade-in for the entire panel when it enters viewport
+        gsap.set(panel, { opacity: 0, y: 30 })
+
+        const st = ScrollTrigger.create({
+          trigger: sectionRef.current,
+          start: "top 80%",
+          once: true,
+          onEnter: () => {
+            gsap.to(panel, {
+              opacity: 1,
+              y: 0,
+              duration: 0.8,
+              ease: "power2.out",
+            })
+            // Stagger the columns slightly
+            gsap.to([col1, col2, col3], {
+              opacity: 1,
+              duration: 0.6,
+              stagger: 0.15,
+              delay: 0.3,
+              ease: "power2.out",
+            })
+          },
+        })
+
+        cleanups.push(() => st.kill())
+        return
+      }
+
+      // ── Desktop / smooth-scroll path: pinned sequential reveal ──
 
       // Initial states
       gsap.set(panel, { opacity: 0 })
@@ -111,7 +152,7 @@ export function EvidenceSection({ candidates = [] }: EvidenceSectionProps) {
       cancelled = true
       cleanups.forEach((fn) => fn())
     }
-  }, [])
+  }, [isSmoothScrolling])
 
   return (
     <section ref={sectionRef} id="evidence" className="px-6">

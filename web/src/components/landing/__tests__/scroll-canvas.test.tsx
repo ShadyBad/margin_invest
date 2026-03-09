@@ -23,6 +23,10 @@ vi.mock("gsap/ScrollTrigger", () => ({
 vi.mock("gsap/ScrollSmoother", () => ({
   default: { create: vi.fn(() => ({ kill: vi.fn() })) },
 }))
+vi.mock("@/hooks/use-media-query", () => ({
+  useMediaQuery: vi.fn(() => false),
+  useIsMobile: vi.fn(() => false),
+}))
 
 import { ScrollCanvas, useScrollCanvas } from "../scroll-canvas"
 

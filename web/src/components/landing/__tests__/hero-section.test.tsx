@@ -21,6 +21,10 @@ vi.mock("gsap", () => ({
 vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
+// Mock scroll-canvas context — default: not smooth scrolling (mobile path)
+vi.mock("../scroll-canvas", () => ({
+  useScrollCanvas: vi.fn(() => ({ ready: false, isSmoothScrolling: false })),
+}))
 // Mock apiFetch for HeroSearch
 vi.mock("@/lib/api/client", () => ({
   apiFetch: vi.fn(),

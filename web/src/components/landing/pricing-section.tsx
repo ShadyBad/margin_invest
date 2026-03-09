@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { PricingTierCard, type Tier } from "./pricing-tier-card"
+import { useScrollCanvas } from "./scroll-canvas"
 
 const tiers: Tier[] = [
   {
@@ -51,6 +52,7 @@ const tiers: Tier[] = [
 ]
 
 export function PricingSection() {
+  const { isSmoothScrolling } = useScrollCanvas()
   const sectionRef = useRef<HTMLElement>(null)
   const headlineRef = useRef<HTMLDivElement>(null)
   const cardsContainerRef = useRef<HTMLDivElement>(null)
@@ -80,6 +82,49 @@ export function PricingSection() {
       const contact = contactRef.current
       if (!section || !headline || !cardsContainer || cards.length !== 3 || !bottom || !contact)
         return
+
+      // ── Mobile / no-smooth path: simple viewport-enter fade-in ──
+      if (!isSmoothScrolling) {
+        // Show all content immediately — no pinning, no split animation
+        gsap.set(cards, { opacity: 0, y: 20 })
+        gsap.set(bottom, { opacity: 0, y: 20 })
+        gsap.set(contact, { opacity: 0, y: 20 })
+
+        const st = ScrollTrigger.create({
+          trigger: section,
+          start: "top 80%",
+          once: true,
+          onEnter: () => {
+            // Headline is already visible; fade in cards with stagger
+            gsap.to(cards, {
+              opacity: 1,
+              y: 0,
+              duration: 0.6,
+              stagger: 0.12,
+              ease: "power2.out",
+            })
+            gsap.to(bottom, {
+              opacity: 1,
+              y: 0,
+              duration: 0.6,
+              delay: 0.5,
+              ease: "power2.out",
+            })
+            gsap.to(contact, {
+              opacity: 1,
+              y: 0,
+              duration: 0.6,
+              delay: 0.6,
+              ease: "power2.out",
+            })
+          },
+        })
+
+        cleanups.push(() => st.kill())
+        return
+      }
+
+      // ── Desktop / smooth-scroll path: pinned sequential reveal ──
 
       const h2 = headline.querySelector("h2")
       const subtitle = headline.querySelector("p")
@@ -204,7 +249,7 @@ export function PricingSection() {
       cancelled = true
       cleanups.forEach((fn) => fn())
     }
-  }, [])
+  }, [isSmoothScrolling])
 
   return (
     <section ref={sectionRef} id="pricing" className="px-6">
