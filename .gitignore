@@ -46,6 +46,7 @@ node_modules/
 
 # Screenshots and run artifacts
 *.png
+!web/src/app/apple-icon.png
 runs/
 api/runs/
 web/runs/
