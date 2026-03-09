@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useKeyboardNav } from "@/hooks/use-keyboard-nav"
 
 function SearchIcon({ size = 16 }: { size?: number }) {
   return (
@@ -54,16 +55,12 @@ export function TickerSearch() {
     }
   }, [isOpen])
 
-  useEffect(() => {
-    function handleGlobalKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault()
-        setIsOpen(true)
-      }
-    }
-    document.addEventListener("keydown", handleGlobalKeyDown)
-    return () => document.removeEventListener("keydown", handleGlobalKeyDown)
-  }, [])
+  const openSearch = useCallback(() => setIsOpen(true), [])
+
+  useKeyboardNav({
+    onCmdK: openSearch,
+    onEscape: isOpen ? close : undefined,
+  })
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -82,9 +79,12 @@ export function TickerSearch() {
         aria-label="Search ticker"
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        className="flex items-center justify-center w-8 h-8 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-subtle transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+        className="flex items-center gap-1.5 justify-center h-8 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-subtle transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary px-2"
       >
         <SearchIcon />
+        <kbd className="hidden md:inline-flex items-center gap-0.5 text-xs text-text-tertiary border border-border-subtle rounded px-1 font-mono leading-relaxed">
+          <span className="text-[11px]">&#8984;</span>K
+        </kbd>
       </button>
 
       {isOpen && (
