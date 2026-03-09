@@ -80,7 +80,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
           {tier.name}
         </span>
         {tier.highlighted && (
-          <span className="text-[10px] px-2 py-0.5 rounded" style={{ color: 'var(--color-accent-warm)', background: 'var(--color-accent-warm-muted)' }}>
+          <span className="text-xs px-2 py-0.5 rounded" style={{ color: 'var(--color-accent-warm)', background: 'var(--color-accent-warm-muted)' }}>
             Most Popular
           </span>
         )}
@@ -93,7 +93,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
       </div>
       <p className="text-sm text-text-secondary mb-1">{tier.description}</p>
       {tier.period ? (
-        <p className="text-[10px] text-text-tertiary font-mono mb-5">billed monthly</p>
+        <p className="text-xs text-text-tertiary font-mono mb-5">billed monthly</p>
       ) : (
         <div className="mb-6" />
       )}

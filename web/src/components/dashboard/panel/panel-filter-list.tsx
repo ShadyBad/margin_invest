@@ -29,7 +29,7 @@ export function PanelFilterList({ filters }: PanelFilterListProps) {
         <h3 className="text-[14px] font-semibold text-text-primary">Filters</h3>
         <div className="flex items-center gap-1.5">
           {inconclusiveCount > 0 && (
-            <span className="text-[11px] font-mono text-amber-500/70 bg-[rgba(217,167,50,0.06)] px-1.5 py-0.5 rounded">
+            <span className="text-xs font-mono text-amber-500/70 bg-[rgba(217,167,50,0.06)] px-1.5 py-0.5 rounded">
               {inconclusiveCount} inconclusive
             </span>
           )}
@@ -67,7 +67,7 @@ export function PanelFilterList({ filters }: PanelFilterListProps) {
                 <span className="text-[13px] text-text-primary">
                   {formatAttributeLabel(filter.name)}
                 </span>
-                <span className={`text-[11px] font-mono ml-auto ${statusColor}`}>
+                <span className={`text-xs font-mono ml-auto ${statusColor}`}>
                   {statusLabel}
                 </span>
               </div>
@@ -81,19 +81,19 @@ export function PanelFilterList({ filters }: PanelFilterListProps) {
                     className="overflow-hidden"
                   >
                     {isInconclusive && (
-                      <p className="text-[11px] font-mono text-amber-500/70 px-2 pb-1 pl-7">
+                      <p className="text-xs font-mono text-amber-500/70 px-2 pb-1 pl-7">
                         Cannot assess — insufficient data
                       </p>
                     )}
                     {isInconclusive &&
                       filter.missing_fields &&
                       filter.missing_fields.length > 0 && (
-                        <p className="text-[10px] font-mono text-amber-500/50 px-2 pb-1 pl-7">
+                        <p className="text-xs font-mono text-amber-500/50 px-2 pb-1 pl-7">
                           Missing: {filter.missing_fields.join(", ")}
                         </p>
                       )}
                     {filter.detail && (
-                      <p className="text-[11px] font-mono text-text-tertiary px-2 pb-2 pl-7">
+                      <p className="text-xs font-mono text-text-tertiary px-2 pb-2 pl-7">
                         {filter.detail}
                       </p>
                     )}

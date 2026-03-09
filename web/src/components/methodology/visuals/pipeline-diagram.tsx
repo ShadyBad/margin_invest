@@ -33,16 +33,16 @@ export function PipelineDiagram() {
         {stages.map((stage, i) => (
           <div key={stage.label} className="flex items-center gap-2">
             <div className="flex flex-col items-center text-center min-w-[80px]">
-              <span className="text-[11px] font-mono font-bold text-accent">
+              <span className="text-xs font-mono font-bold text-accent">
                 {stage.num}
               </span>
               <span className="text-[13px] font-semibold text-text-primary mt-1">
                 {stage.label}
               </span>
-              <span className="text-[11px] text-text-tertiary mt-0.5">
+              <span className="text-xs text-text-tertiary mt-0.5">
                 {stage.desc}
               </span>
-              <span className="text-[10px] font-mono text-text-tertiary mt-1">
+              <span className="text-xs font-mono text-text-tertiary mt-1">
                 {stage.metric}
               </span>
             </div>
@@ -55,17 +55,17 @@ export function PipelineDiagram() {
       <div className="flex flex-col gap-4 sm:hidden">
         {stages.map((stage) => (
           <div key={stage.label} className="flex items-start gap-3">
-            <span className="text-[11px] font-mono font-bold text-accent w-5 flex-shrink-0 mt-0.5">
+            <span className="text-xs font-mono font-bold text-accent w-5 flex-shrink-0 mt-0.5">
               {stage.num}
             </span>
             <div>
               <span className="text-[13px] font-semibold text-text-primary">
                 {stage.label}
               </span>
-              <span className="text-[11px] text-text-tertiary ml-2">
+              <span className="text-xs text-text-tertiary ml-2">
                 {stage.desc}
               </span>
-              <p className="text-[10px] font-mono text-text-tertiary mt-0.5">
+              <p className="text-xs font-mono text-text-tertiary mt-0.5">
                 {stage.metric}
               </p>
             </div>

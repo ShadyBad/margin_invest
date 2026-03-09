@@ -9,7 +9,7 @@ export function PortfolioConviction({ score, label, className = "" }: PortfolioC
 
   return (
     <div className={`flex flex-col items-end ${className}`} data-testid="portfolio-conviction">
-      <span className="text-[11px] font-medium text-text-secondary tracking-[0.2px] uppercase mb-1">
+      <span className="text-xs font-medium text-text-secondary tracking-[0.2px] uppercase mb-1">
         Portfolio Score
       </span>
       <div className="flex items-baseline gap-2">

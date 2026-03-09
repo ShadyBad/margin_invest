@@ -128,7 +128,7 @@ export function StockCard({ pick, className = "", rank }: StockCardProps) {
         <div className="flex items-center gap-2">
           {rank != null && rank <= 3 && (
             <span
-              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold"
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
               style={{
                 background: rank === 1
                   ? 'var(--color-accent)'
@@ -211,7 +211,7 @@ export function StockCard({ pick, className = "", rank }: StockCardProps) {
             value={pick.score ?? pick.composite_percentile}
             className={getScoreClasses(pick.composite_tier)}
           />
-          <span className="block text-[11px] font-medium text-text-tertiary tracking-[0.15em] uppercase mt-1">
+          <span className="block text-xs font-medium text-text-tertiary tracking-[0.15em] uppercase mt-1">
             composite
           </span>
         </div>

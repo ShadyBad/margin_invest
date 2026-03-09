@@ -69,7 +69,7 @@ export function ScoreChart({
             <div className="h-3 bg-surface-overlay rounded animate-pulse w-[70%]" />
             <div className="h-3 bg-surface-overlay rounded animate-pulse w-[85%]" />
           </div>
-          <span className="text-[11px] text-text-tertiary/60 mt-2">Loading score history…</span>
+          <span className="text-xs text-text-tertiary/60 mt-2">Loading score history…</span>
         </div>
       </div>
     )
@@ -101,7 +101,7 @@ export function ScoreChart({
         data-testid="score-chart-empty"
       >
         <span className="text-[13px] text-text-tertiary">Score tracking begins after the next scoring run</span>
-        <span className="text-[11px] text-text-tertiary/60">Scores are computed weekly</span>
+        <span className="text-xs text-text-tertiary/60">Scores are computed weekly</span>
       </div>
     )
   }

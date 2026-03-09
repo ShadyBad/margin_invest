@@ -113,7 +113,7 @@ export function BillingSection() {
   if (loading) {
     return (
       <section id="billing" className="terminal-card p-6 md:p-8">
-        <h2 className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-6">Billing</h2>
+        <h2 className="text-xs uppercase tracking-[0.2em] text-text-tertiary mb-6">Billing</h2>
         <div className="animate-pulse space-y-3">
           <div className="h-4 bg-bg-subtle rounded w-1/3" />
           <div className="h-4 bg-bg-subtle rounded w-1/4" />
@@ -125,7 +125,7 @@ export function BillingSection() {
   if (error || !status) {
     return (
       <section id="billing" className="terminal-card p-6 md:p-8">
-        <h2 className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-6">Billing</h2>
+        <h2 className="text-xs uppercase tracking-[0.2em] text-text-tertiary mb-6">Billing</h2>
         <p className="text-sm text-text-secondary">
           {error || "Unable to load billing information."}
         </p>
@@ -140,7 +140,7 @@ export function BillingSection() {
 
   return (
     <section id="billing" className="terminal-card p-6 md:p-8">
-      <h2 className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-6">Billing</h2>
+      <h2 className="text-xs uppercase tracking-[0.2em] text-text-tertiary mb-6">Billing</h2>
 
       {/* Plan & Status Inner Card */}
       <div className="bg-bg-subtle/50 rounded-lg p-4 mb-4">

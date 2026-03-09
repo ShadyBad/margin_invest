@@ -78,18 +78,18 @@ export function PanelValuation({
         <div className="mb-2">
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <span className="text-[10px] text-text-secondary uppercase tracking-wider block">Margin Invest Value</span>
+              <span className="text-xs text-text-secondary uppercase tracking-wider block">Margin Invest Value</span>
               <span className="text-[16px] font-mono text-text-primary font-medium">${marginInvestValue.toFixed(2)}</span>
             </div>
             {currentPrice != null && (
               <div>
-                <span className="text-[10px] text-text-secondary uppercase tracking-wider block">Current Price</span>
+                <span className="text-xs text-text-secondary uppercase tracking-wider block">Current Price</span>
                 <span className="text-[16px] font-mono text-text-primary">${currentPrice.toFixed(2)}</span>
               </div>
             )}
             {marginOfSafety != null && (
               <div>
-                <span className="text-[10px] text-text-secondary uppercase tracking-wider block">Margin of Safety</span>
+                <span className="text-xs text-text-secondary uppercase tracking-wider block">Margin of Safety</span>
                 <span className={`text-[16px] font-mono font-medium ${
                   marginOfSafety > 0 ? "text-bullish" : "text-bearish"
                 }`}>
@@ -138,10 +138,10 @@ export function PanelValuation({
                   <MethodAuditDetail audit={methodAudit} />
                 )}
                 {isExpanded && loading && (
-                  <div className="ml-[123px] py-2 text-[11px] text-text-tertiary">Loading audit data...</div>
+                  <div className="ml-[123px] py-2 text-xs text-text-tertiary">Loading audit data...</div>
                 )}
                 {isExpanded && !loading && !methodAudit && (
-                  <div className="ml-[123px] py-2 text-[11px] text-text-tertiary">No audit data available</div>
+                  <div className="ml-[123px] py-2 text-xs text-text-tertiary">No audit data available</div>
                 )}
               </div>
             )

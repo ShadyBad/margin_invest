@@ -48,7 +48,7 @@ export function PriceLadder({ buyPrice, currentPrice, fairValue, sellPrice }: Pr
   return (
     <div className="mt-3 mb-1">
       {/* Price labels */}
-      <div className="relative h-5 text-[10px] font-mono">
+      <div className="relative h-5 text-xs font-mono">
         <span className="absolute text-emerald-400/70" style={{ left: `${buyPct}%`, transform: "translateX(-50%)" }}>
           {formatPrice(buyPrice)}
         </span>
@@ -95,7 +95,7 @@ export function PriceLadder({ buyPrice, currentPrice, fairValue, sellPrice }: Pr
       {currentPct != null && currentPrice != null && (
         <div className="relative h-4 mt-1">
           <span
-            className={`absolute text-[10px] font-mono font-medium ${zoneColors[zone]}`}
+            className={`absolute text-xs font-mono font-medium ${zoneColors[zone]}`}
             style={{ left: `${currentPct}%`, transform: "translateX(-50%)" }}
           >
             {formatPrice(currentPrice)}

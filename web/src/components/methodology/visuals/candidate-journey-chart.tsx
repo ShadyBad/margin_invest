@@ -34,7 +34,7 @@ export function CandidateJourneyChart() {
         <p className="text-[13px] font-medium text-text-secondary tracking-[0.5px] uppercase">
           Example candidate journey
         </p>
-        <span className="text-[11px] font-mono text-text-tertiary">7-stage pipeline</span>
+        <span className="text-xs font-mono text-text-tertiary">7-stage pipeline</span>
       </div>
 
       <div className="h-[240px]">
@@ -98,7 +98,7 @@ export function CandidateJourneyChart() {
                 borderTop: `1px dashed ${band.color}`,
               }}
             />
-            <span className="text-[11px] text-text-tertiary">{band.label}</span>
+            <span className="text-xs text-text-tertiary">{band.label}</span>
           </div>
         ))}
       </div>

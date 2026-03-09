@@ -78,7 +78,7 @@ export function PillarCard({ pillar }: PillarCardProps) {
           >
             <div className="border-t border-white/[0.06] px-4 py-3 space-y-2">
               {/* Table header */}
-              <div className="grid grid-cols-[1fr_80px_60px_60px] gap-2 text-[10px] uppercase tracking-wider text-text-tertiary">
+              <div className="grid grid-cols-[1fr_80px_60px_60px] gap-2 text-xs uppercase tracking-wider text-text-tertiary">
                 <span>Factor</span>
                 <span className="text-right">Raw</span>
                 <span className="text-right">Pctile</span>
@@ -120,7 +120,7 @@ export function PillarCard({ pillar }: PillarCardProps) {
                       </span>
                     </div>
                     {isSubExpanded && formulaData && (
-                      <div className="text-[10px] text-text-tertiary pl-2 py-1 border-l-2 border-accent/30 ml-1 mb-1">
+                      <div className="text-xs text-text-tertiary pl-2 py-1 border-l-2 border-accent/30 ml-1 mb-1">
                         <span className="font-mono">{formulaData.formula}</span>
                         <span className="italic ml-2">&mdash; {formulaData.source}</span>
                       </div>
@@ -128,7 +128,7 @@ export function PillarCard({ pillar }: PillarCardProps) {
                   </div>
                 )
               })}
-              <p className="text-[10px] text-text-tertiary pt-2 border-t border-white/[0.04]">
+              <p className="text-xs text-text-tertiary pt-2 border-t border-white/[0.04]">
                 Each sub-factor is ranked within the stock&apos;s GICS sector first (sector-neutral),
                 then combined.
               </p>

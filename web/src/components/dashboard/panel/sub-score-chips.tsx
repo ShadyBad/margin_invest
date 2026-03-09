@@ -13,7 +13,7 @@ export function SubScoreChips({ subScores }: SubScoreChipsProps) {
       {subScores.map((sub) => (
         <span
           key={sub.label}
-          className="text-[11px] font-mono text-text-secondary bg-surface-overlay rounded-md px-2 py-0.5"
+          className="text-xs font-mono text-text-secondary bg-surface-overlay rounded-md px-2 py-0.5"
         >
           {sub.label}: {Math.round(sub.value)}
         </span>

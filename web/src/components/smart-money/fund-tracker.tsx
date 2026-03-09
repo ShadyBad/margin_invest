@@ -27,19 +27,19 @@ function PortfolioDetail({ portfolio }: { portfolio: ManagerPortfolioResponse })
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-border-subtle">
-              <th className="pb-2 pr-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
+              <th className="pb-2 pr-3 text-xs uppercase tracking-wider text-text-tertiary font-medium">
                 Ticker
               </th>
-              <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+              <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                 Shares
               </th>
-              <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+              <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                 Value ($M)
               </th>
-              <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+              <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                 % Portfolio
               </th>
-              <th className="pb-2 pl-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+              <th className="pb-2 pl-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                 Change
               </th>
             </tr>
@@ -61,7 +61,7 @@ function PortfolioDetail({ portfolio }: { portfolio: ManagerPortfolioResponse })
                   <td className="py-2 pr-3 text-sm text-text-primary font-medium">
                     {h.ticker ?? h.cusip}
                     {h.is_new_position && (
-                      <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent font-medium">
+                      <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent font-medium">
                         NEW
                       </span>
                     )}
@@ -88,7 +88,7 @@ function PortfolioDetail({ portfolio }: { portfolio: ManagerPortfolioResponse })
       {/* Changes summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="terminal-card p-3 space-y-1">
-          <span className="text-[10px] uppercase tracking-wider text-text-tertiary">
+          <span className="text-xs uppercase tracking-wider text-text-tertiary">
             New Positions
           </span>
           <div className="flex flex-wrap gap-1">
@@ -107,7 +107,7 @@ function PortfolioDetail({ portfolio }: { portfolio: ManagerPortfolioResponse })
           </div>
         </div>
         <div className="terminal-card p-3 space-y-1">
-          <span className="text-[10px] uppercase tracking-wider text-text-tertiary">
+          <span className="text-xs uppercase tracking-wider text-text-tertiary">
             Exited Positions
           </span>
           <div className="flex flex-wrap gap-1">
@@ -126,7 +126,7 @@ function PortfolioDetail({ portfolio }: { portfolio: ManagerPortfolioResponse })
           </div>
         </div>
         <div className="terminal-card p-3 space-y-1">
-          <span className="text-[10px] uppercase tracking-wider text-text-tertiary">
+          <span className="text-xs uppercase tracking-wider text-text-tertiary">
             Increased
           </span>
           <span className="text-lg font-mono text-[var(--color-bullish)] block">
@@ -134,7 +134,7 @@ function PortfolioDetail({ portfolio }: { portfolio: ManagerPortfolioResponse })
           </span>
         </div>
         <div className="terminal-card p-3 space-y-1">
-          <span className="text-[10px] uppercase tracking-wider text-text-tertiary">
+          <span className="text-xs uppercase tracking-wider text-text-tertiary">
             Decreased
           </span>
           <span className="text-lg font-mono text-[var(--color-bearish)] block">
@@ -208,7 +208,7 @@ export function FundTracker() {
   return (
     <div data-testid="fund-tracker" className="space-y-1">
       {/* Table header */}
-      <div className="grid grid-cols-[1fr_100px_120px_80px_auto] gap-3 px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
+      <div className="grid grid-cols-[1fr_100px_120px_80px_auto] gap-3 px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium">
         <span>Manager</span>
         <span>Tier</span>
         <span className="text-right">AUM</span>
@@ -231,7 +231,7 @@ export function FundTracker() {
               {m.name}
             </span>
             <span>
-              <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
                 m.tier === "curated"
                   ? "bg-accent/10 text-accent"
                   : "bg-white/[0.06] text-text-secondary"
@@ -249,7 +249,7 @@ export function FundTracker() {
               {m.top_positions.slice(0, 5).map((ticker) => (
                 <span
                   key={ticker}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] text-text-secondary font-mono"
+                  className="text-xs px-1.5 py-0.5 rounded bg-white/[0.06] text-text-secondary font-mono"
                 >
                   {ticker}
                 </span>

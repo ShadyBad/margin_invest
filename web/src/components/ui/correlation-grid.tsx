@@ -83,20 +83,20 @@ export function CorrelationGrid({
                   onMouseEnter={() => showTooltip && setHover({ i, j })}
                   onMouseLeave={() => setHover(null)}
                 >
-                  <span className={`text-[10px] font-mono ${textClass(value, isDiag)}`}>
+                  <span className={`text-xs font-mono ${textClass(value, isDiag)}`}>
                     {formatValue(value)}
                   </span>
                   {/* Tooltip */}
                   {showTooltip && hover?.i === i && hover?.j === j && !isDiag && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10 bg-bg-elevated border border-border-primary rounded px-2 py-1 shadow-card whitespace-nowrap pointer-events-none">
-                      <div className="text-[10px] font-mono text-text-primary">
+                      <div className="text-xs font-mono text-text-primary">
                         {tickers[i]} &times; {tickers[j]}
                       </div>
-                      <div className="text-[10px] font-mono text-text-secondary">
+                      <div className="text-xs font-mono text-text-secondary">
                         &rho; = {formatValue(value)}
                       </div>
                       {sampleSizes && (
-                        <div className="text-[10px] font-mono text-text-tertiary">
+                        <div className="text-xs font-mono text-text-tertiary">
                           N = {sampleSizes[i][j]} days
                         </div>
                       )}

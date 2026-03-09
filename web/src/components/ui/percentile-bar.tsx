@@ -19,7 +19,7 @@ export function PercentileBar({ value, label, showValue = true, className = "" }
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       {label && (
-        <span className="text-[11px] text-text-tertiary w-40 shrink-0 truncate uppercase tracking-[0.1em]" title={label}>
+        <span className="text-xs text-text-tertiary w-40 shrink-0 truncate uppercase tracking-[0.1em]" title={label}>
           {label}
         </span>
       )}

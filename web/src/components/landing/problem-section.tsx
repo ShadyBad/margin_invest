@@ -86,7 +86,7 @@ export function ProblemSection() {
     >
       <div className="max-w-3xl mx-auto">
         {/* Eyebrow */}
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-tertiary mb-4">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-text-tertiary mb-4">
           The Problem
         </p>
 

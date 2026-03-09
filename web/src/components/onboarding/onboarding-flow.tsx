@@ -41,7 +41,7 @@ export function OnboardingFlow() {
             <div className="flex items-center gap-3 mb-6">
               {["Data", "Filter", "Score", "Rank"].map((step, i) => (
                 <div key={step} className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full border border-accent/40 flex items-center justify-center text-[11px] font-mono text-accent animate-pulse">
+                  <div className="w-8 h-8 rounded-full border border-accent/40 flex items-center justify-center text-xs font-mono text-accent animate-pulse">
                     {i + 1}
                   </div>
                   <span className="text-[12px] text-text-secondary">{step}</span>

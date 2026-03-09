@@ -20,7 +20,7 @@ export function AuthorityStrip() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           {COLUMNS.map((col) => (
             <div key={col.label}>
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-2">
+              <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-2">
                 {col.label}
               </div>
               <div className="space-y-1">

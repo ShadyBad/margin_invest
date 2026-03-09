@@ -56,7 +56,7 @@ function ProofCard({ title, className, children }: ProofCardProps) {
 
   return (
     <div ref={cardRef} className={`terminal-card p-6 ${className ?? ""}`}>
-      <div className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-4">
+      <div className="text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
         {title}
       </div>
       {children}

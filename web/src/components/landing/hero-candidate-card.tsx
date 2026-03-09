@@ -232,7 +232,7 @@ export function HeroCandidateCard({
                 <span className="font-mono text-xl font-bold text-text-primary">
                   {candidate.ticker}
                 </span>
-                <span className="text-[10px] uppercase tracking-widest text-text-tertiary px-2 py-0.5 rounded border border-border-subtle">
+                <span className="text-xs uppercase tracking-widest text-text-tertiary px-2 py-0.5 rounded border border-border-subtle">
                   {candidate.sector}
                 </span>
               </div>
@@ -242,7 +242,7 @@ export function HeroCandidateCard({
             {/* Composite Score Ring */}
             <div className="flex flex-col items-center">
               <ScoreRing score={candidate.score} />
-              <div className="text-[10px] uppercase tracking-widest text-text-tertiary mt-1">
+              <div className="text-xs uppercase tracking-widest text-text-tertiary mt-1">
                 Composite Score
               </div>
             </div>
@@ -257,7 +257,7 @@ export function HeroCandidateCard({
             }}
           >
             <div>
-              <div className="text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+              <div className="text-xs uppercase tracking-widest text-text-tertiary mb-1">
                 Price
               </div>
               <div className="font-mono text-sm font-semibold text-text-primary">
@@ -265,7 +265,7 @@ export function HeroCandidateCard({
               </div>
             </div>
             <div>
-              <div className="text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+              <div className="text-xs uppercase tracking-widest text-text-tertiary mb-1">
                 Target
               </div>
               <div className="font-mono text-sm font-semibold text-accent">
@@ -273,7 +273,7 @@ export function HeroCandidateCard({
               </div>
             </div>
             <div>
-              <div className="text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+              <div className="text-xs uppercase tracking-widest text-text-tertiary mb-1">
                 Margin of Safety
               </div>
               <div className="font-mono text-sm font-semibold text-text-primary">

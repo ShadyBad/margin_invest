@@ -103,7 +103,7 @@ export function ConvictionEngine({
         {asymmetryRatio != null && (
           <div className="terminal-card p-4 space-y-1">
             <FormulaTooltip metricKey="asymmetry_ratio">
-              <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+              <span className="text-xs uppercase tracking-wider text-text-tertiary">
                 Asymmetry Ratio
               </span>
             </FormulaTooltip>
@@ -119,7 +119,7 @@ export function ConvictionEngine({
         {maxPositionPct != null && (
           <div className="terminal-card p-4 space-y-1">
             <FormulaTooltip metricKey="max_position_pct">
-              <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+              <span className="text-xs uppercase tracking-wider text-text-tertiary">
                 Max Position
               </span>
             </FormulaTooltip>
@@ -132,7 +132,7 @@ export function ConvictionEngine({
 
         {timing && (
           <div className="terminal-card p-4 space-y-1">
-            <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+            <span className="text-xs uppercase tracking-wider text-text-tertiary">
               Timing
             </span>
             <span className="text-base font-semibold text-text-primary block">{timing.label}</span>
@@ -157,7 +157,7 @@ export function ConvictionEngine({
                   Compounder Track
                 </span>
                 {winningTrack === "compounder" && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent font-medium">
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent font-medium">
                     winning
                   </span>
                 )}
@@ -185,7 +185,7 @@ export function ConvictionEngine({
                   Mispricing Track
                 </span>
                 {winningTrack === "mispricing" && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 font-medium">
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 font-medium">
                     winning
                   </span>
                 )}
@@ -219,7 +219,7 @@ export function ConvictionEngine({
             {institutionalAccumulation.topFunds.map((fund) => (
               <span
                 key={fund}
-                className="text-[10px] font-mono px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/20"
+                className="text-xs font-mono px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/20"
               >
                 {fund}
               </span>

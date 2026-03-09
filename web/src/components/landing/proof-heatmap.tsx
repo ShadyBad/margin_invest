@@ -72,7 +72,7 @@ export function ProofHeatmap() {
         showTooltip={false}
       />
       {interpretation && (
-        <p className="text-[10px] text-text-secondary mt-3 text-center font-mono">
+        <p className="text-xs text-text-secondary mt-3 text-center font-mono">
           {interpretation}
         </p>
       )}

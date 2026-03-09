@@ -29,23 +29,23 @@ export function MethodAuditDetail({ audit }: MethodAuditDetailProps) {
       {/* Inclusion status */}
       <div className="flex items-center gap-2">
         {audit.included ? (
-          <span className="text-[10px] font-mono text-bullish bg-bullish/10 px-1.5 py-0.5 rounded">
+          <span className="text-xs font-mono text-bullish bg-bullish/10 px-1.5 py-0.5 rounded">
             Included
           </span>
         ) : (
-          <span className="text-[10px] font-mono text-bearish bg-bearish/10 px-1.5 py-0.5 rounded">
+          <span className="text-xs font-mono text-bearish bg-bearish/10 px-1.5 py-0.5 rounded">
             Excluded
           </span>
         )}
         {audit.exclusion_reason && (
-          <span className="text-[10px] font-mono text-text-secondary">
+          <span className="text-xs font-mono text-text-secondary">
             {audit.exclusion_reason}
           </span>
         )}
       </div>
 
       {/* Weight and result */}
-      <div className="flex gap-4 text-[11px] font-mono">
+      <div className="flex gap-4 text-xs font-mono">
         {audit.result_per_share != null && (
           <span className="text-text-primary">
             Result: ${audit.result_per_share.toFixed(2)}
@@ -66,13 +66,13 @@ export function MethodAuditDetail({ audit }: MethodAuditDetailProps) {
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           {inputEntries.length > 0 && (
             <div>
-              <span className="text-[10px] text-text-tertiary uppercase tracking-wider">
+              <span className="text-xs text-text-tertiary uppercase tracking-wider">
                 Inputs
               </span>
               {inputEntries.map(([key, value]) => (
                 <div
                   key={key}
-                  className="flex justify-between text-[10px] font-mono"
+                  className="flex justify-between text-xs font-mono"
                 >
                   <span className="text-text-secondary">{formatKey(key)}</span>
                   <span className="text-text-primary">
@@ -84,13 +84,13 @@ export function MethodAuditDetail({ audit }: MethodAuditDetailProps) {
           )}
           {intermediateEntries.length > 0 && (
             <div>
-              <span className="text-[10px] text-text-tertiary uppercase tracking-wider">
+              <span className="text-xs text-text-tertiary uppercase tracking-wider">
                 Intermediates
               </span>
               {intermediateEntries.map(([key, value]) => (
                 <div
                   key={key}
-                  className="flex justify-between text-[10px] font-mono"
+                  className="flex justify-between text-xs font-mono"
                 >
                   <span className="text-text-secondary">{formatKey(key)}</span>
                   <span className="text-text-primary">

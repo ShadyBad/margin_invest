@@ -14,7 +14,7 @@ export function SectorNeutralBanner({ sectorName, sectorCode }: SectorNeutralBan
   return (
     <div
       data-testid="sector-neutral-banner"
-      className="flex items-start px-3 py-2 rounded border border-white/[0.06] bg-white/[0.02] text-[10px] text-text-secondary"
+      className="flex items-start px-3 py-2 rounded border border-white/[0.06] bg-white/[0.02] text-xs text-text-secondary"
     >
       <span className="text-accent mr-1.5">○</span>
       <span>
@@ -42,7 +42,7 @@ export function SectorNeutralBanner({ sectorName, sectorCode }: SectorNeutralBan
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.15 }}
-                className="absolute left-0 top-full mt-1 z-50 w-72 p-2.5 text-[10px] text-text-secondary rounded-lg border border-border-primary shadow-lg"
+                className="absolute left-0 top-full mt-1 z-50 w-72 p-2.5 text-xs text-text-secondary rounded-lg border border-border-primary shadow-lg"
                 style={{ background: "var(--color-bg-elevated)" }}
                 role="tooltip"
               >

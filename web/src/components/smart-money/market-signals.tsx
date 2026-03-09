@@ -86,16 +86,16 @@ export function MarketSignals() {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-border-subtle">
-                  <th className="px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
+                  <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium">
                     Ticker
                   </th>
-                  <th className="px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                  <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                     Total Holders
                   </th>
-                  <th className="px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                  <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                     Curated
                   </th>
-                  <th className="px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium w-1/3">
+                  <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium w-1/3">
                     Concentration
                   </th>
                 </tr>
@@ -156,7 +156,7 @@ export function MarketSignals() {
                   {pos.managers.map((name) => (
                     <span
                       key={name}
-                      className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent"
+                      className="text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent"
                     >
                       {name}
                     </span>
@@ -188,13 +188,13 @@ export function MarketSignals() {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-border-subtle">
-                  <th className="px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
+                  <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium">
                     Ticker
                   </th>
-                  <th className="px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                  <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                     New Positions
                   </th>
-                  <th className="px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                  <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                     % Funds Adding
                   </th>
                 </tr>

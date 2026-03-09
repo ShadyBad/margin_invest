@@ -119,7 +119,7 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
 
       {/* Sector context — only for failed filters when data available */}
       {!passed && sectorPassRate != null && sectorName && (
-        <p className="text-[10px] text-tertiary mt-1.5">
+        <p className="text-xs text-tertiary mt-1.5">
           {Math.round(sectorPassRate * 100)}% of {sectorName} stocks pass this filter.
         </p>
       )}
@@ -133,7 +133,7 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
 
       {/* Academic citation */}
       {meta?.citation && expanded && (
-        <p className="text-[10px] text-text-tertiary italic">
+        <p className="text-xs text-text-tertiary italic">
           Source: {meta.citation}
         </p>
       )}
@@ -146,7 +146,7 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
       {/* WHY THIS MATTERS — only for failed or inconclusive, when expanded */}
       {expanded && !passed && meta?.whyItMatters && (
         <div className="border-t border-white/[0.06] pt-2 mt-2">
-          <span className="text-[10px] uppercase tracking-wider text-text-tertiary font-semibold block mb-1">
+          <span className="text-xs uppercase tracking-wider text-text-tertiary font-semibold block mb-1">
             Why This Matters
           </span>
           <p className="text-xs text-text-secondary leading-relaxed">{meta.whyItMatters}</p>

@@ -101,7 +101,7 @@ export function EliminatedHero({
 
       {/* Hypothetical teaser */}
       {hypotheticalPercentile != null && (
-        <p className="text-[10px] font-mono text-text-tertiary mt-2">
+        <p className="text-xs font-mono text-text-tertiary mt-2">
           If it passed: Would have scored in the{" "}
           <span className="text-text-secondary">
             {ordinalSuffix(Math.round(hypotheticalPercentile))} percentile

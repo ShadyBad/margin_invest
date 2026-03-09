@@ -59,7 +59,7 @@ function Metric({ label, value, accent, danger }: MetricProps) {
       : "text-text-primary"
   return (
     <div className="text-center">
-      <div className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
+      <div className="text-xs text-text-tertiary uppercase tracking-wider mb-1">
         {label}
       </div>
       <div className={`font-mono text-sm ${colorClass}`}>{value}</div>
@@ -128,10 +128,10 @@ export function ProofHistoricalChart() {
               />
             </svg>
           </div>
-          <p className="text-[11px] font-mono text-text-tertiary text-center">
+          <p className="text-xs font-mono text-text-tertiary text-center">
             Historical application in development
           </p>
-          <p className="text-[10px] text-text-tertiary text-center max-w-[200px] leading-relaxed">
+          <p className="text-xs text-text-tertiary text-center max-w-[200px] leading-relaxed">
             Walk-forward backtesting with point-in-time data coming soon
           </p>
         </div>

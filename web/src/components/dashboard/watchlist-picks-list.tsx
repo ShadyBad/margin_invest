@@ -218,7 +218,7 @@ export function WatchlistPicksList({ items, className = "" }: WatchlistPicksList
       )}
 
       {/* Column headers */}
-      <div className="flex items-center gap-4 px-5 py-2 text-[10px] font-mono uppercase tracking-[0.15em] text-text-tertiary border-b border-border-primary sticky top-0 bg-bg-elevated z-10">
+      <div className="flex items-center gap-4 px-5 py-2 text-xs font-mono uppercase tracking-[0.15em] text-text-tertiary border-b border-border-primary sticky top-0 bg-bg-elevated z-10">
         <span className="w-2" />
         <span className="flex-1">Ticker / Name</span>
         <span>Tier</span>

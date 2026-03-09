@@ -64,7 +64,7 @@ function HolderRow({ holder }: { holder: HolderResponse }) {
       <td className="py-2 pr-3 text-sm text-text-primary truncate max-w-[180px]">
         {holder.manager_name}
         {holder.is_new_position && (
-          <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent font-medium">
+          <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent font-medium">
             NEW
           </span>
         )}
@@ -184,7 +184,7 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
               Institutional Positioning
             </h2>
             {periodLabel && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-accent/10 text-accent uppercase tracking-wider">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-accent/10 text-accent uppercase tracking-wider">
                 {periodLabel}
               </span>
             )}
@@ -197,7 +197,7 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
           {/* Summary bar */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="terminal-card p-4 space-y-1">
-              <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+              <span className="text-xs uppercase tracking-wider text-text-tertiary">
                 Total Holders
               </span>
               <span className="text-2xl font-display text-text-primary block">
@@ -207,7 +207,7 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
             </div>
 
             <div className="terminal-card p-4 space-y-1">
-              <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+              <span className="text-xs uppercase tracking-wider text-text-tertiary">
                 Curated Holders
               </span>
               <span className="text-2xl font-display text-text-primary block">
@@ -217,7 +217,7 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
             </div>
 
             <div className="terminal-card p-4 space-y-1">
-              <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+              <span className="text-xs uppercase tracking-wider text-text-tertiary">
                 Net Accumulation
               </span>
               <div className="flex items-center gap-2">
@@ -257,7 +257,7 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
             {/* Holder count trend chart */}
             {chartData.length > 1 && (
               <div className="terminal-card p-4 space-y-2">
-                <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+                <span className="text-xs uppercase tracking-wider text-text-tertiary">
                   Holder Trend
                 </span>
                 <div className="h-32">
@@ -302,26 +302,26 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
             {/* Curated holders table */}
             {holdings.curated_holders.length > 0 && (
               <div className="terminal-card p-4 space-y-2">
-                <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+                <span className="text-xs uppercase tracking-wider text-text-tertiary">
                   Curated Holders
                 </span>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-border-subtle">
-                        <th className="pb-2 pr-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
+                        <th className="pb-2 pr-3 text-xs uppercase tracking-wider text-text-tertiary font-medium">
                           Fund
                         </th>
-                        <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                        <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                           Shares
                         </th>
-                        <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                        <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                           Change
                         </th>
-                        <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                        <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                           % Portfolio
                         </th>
-                        <th className="pb-2 pl-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                        <th className="pb-2 pl-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                           Qtrs Held
                         </th>
                       </tr>
@@ -344,7 +344,7 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
                   onClick={() => setShowOtherHolders((prev) => !prev)}
                   className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.02] transition-colors"
                 >
-                  <span className="text-[11px] uppercase tracking-wider text-text-tertiary font-medium">
+                  <span className="text-xs uppercase tracking-wider text-text-tertiary font-medium">
                     All Tracked Holders ({holdings.other_holders.length})
                   </span>
                   <span className="text-text-tertiary text-sm">
@@ -357,19 +357,19 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
                       <table className="w-full text-left">
                         <thead>
                           <tr className="border-b border-border-subtle">
-                            <th className="pb-2 pr-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
+                            <th className="pb-2 pr-3 text-xs uppercase tracking-wider text-text-tertiary font-medium">
                               Fund
                             </th>
-                            <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                            <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                               Shares
                             </th>
-                            <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                            <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                               Change
                             </th>
-                            <th className="pb-2 px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                            <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                               % Portfolio
                             </th>
-                            <th className="pb-2 pl-3 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right">
+                            <th className="pb-2 pl-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
                               Qtrs Held
                             </th>
                           </tr>

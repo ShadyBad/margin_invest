@@ -47,7 +47,7 @@ export function MLAuditPanel({
         <h2 className="text-lg font-semibold text-text-primary">Machine Learning Audit</h2>
         {hasOverride && (
           <span
-            className={`text-[10px] font-semibold px-2 py-0.5 rounded uppercase tracking-wider ${
+            className={`text-xs font-semibold px-2 py-0.5 rounded uppercase tracking-wider ${
               isPromoted
                 ? "bg-bullish/10 text-bullish"
                 : "bg-bearish/10 text-bearish"
@@ -99,7 +99,7 @@ export function MLAuditPanel({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* ML Alpha */}
           <div className="terminal-card p-4 space-y-1">
-            <span className="text-[11px] uppercase tracking-wider text-text-tertiary">ML Alpha</span>
+            <span className="text-xs uppercase tracking-wider text-text-tertiary">ML Alpha</span>
             <span
               className={`text-2xl font-display block ${
                 mlAlpha != null && mlAlpha > 0
@@ -116,7 +116,7 @@ export function MLAuditPanel({
 
           {/* Confidence */}
           <div className="terminal-card p-4 space-y-1">
-            <span className="text-[11px] uppercase tracking-wider text-text-tertiary">Confidence</span>
+            <span className="text-xs uppercase tracking-wider text-text-tertiary">Confidence</span>
             <span className="text-2xl font-display text-text-primary block">
               {mlConfidence != null ? `${Math.round(mlConfidence * 100)}%` : "N/A"}
             </span>
@@ -125,7 +125,7 @@ export function MLAuditPanel({
 
           {/* Override */}
           <div className="terminal-card p-4 space-y-1">
-            <span className="text-[11px] uppercase tracking-wider text-text-tertiary">Override</span>
+            <span className="text-xs uppercase tracking-wider text-text-tertiary">Override</span>
             {hasOverride ? (
               <>
                 <span
@@ -169,7 +169,7 @@ export function MLAuditPanel({
       {/* Override gates checklist — only for overrides */}
       {isQualified && hasOverride && (
         <div className="terminal-card p-4 space-y-2">
-          <span className="text-[11px] uppercase tracking-wider text-text-tertiary">
+          <span className="text-xs uppercase tracking-wider text-text-tertiary">
             Override Gates Passed
           </span>
           <div className="space-y-1">

@@ -216,7 +216,7 @@ export function FactorRadar({
 
       {/* Hint text */}
       {onAxisClick && (
-        <p className="text-[10px] text-text-tertiary mt-3 text-center">
+        <p className="text-xs text-text-tertiary mt-3 text-center">
           Click any axis for sub-factor breakdown
         </p>
       )}

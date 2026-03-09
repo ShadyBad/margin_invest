@@ -35,7 +35,7 @@ export function ActiveIncidents({ incidents }: { incidents: Incident[] }) {
           >
             <div className="flex items-start justify-between gap-4 mb-2">
               <h3 className="text-[15px] font-semibold text-text-primary">{incident.title}</h3>
-              <span className="text-[11px] font-medium text-text-tertiary uppercase tracking-wide shrink-0">
+              <span className="text-xs font-medium text-text-tertiary uppercase tracking-wide shrink-0">
                 {incident.status}
               </span>
             </div>

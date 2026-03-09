@@ -109,21 +109,21 @@ function PriceTargetTooltip({ active, payload, label }: { active?: boolean; payl
 
   return (
     <div className="bg-bg-elevated/95 backdrop-blur border border-border-subtle rounded-lg px-3 py-2 shadow-lg">
-      <p className="text-[10px] font-mono text-text-tertiary mb-1">{formatDate(String(label))}</p>
+      <p className="text-xs font-mono text-text-tertiary mb-1">{formatDate(String(label))}</p>
       {data.price != null && (
         <p className="text-[14px] font-mono text-blue-400">Price: ${data.price.toFixed(2)}</p>
       )}
       {data.buyPrice != null && (
-        <p className="text-[11px] font-mono text-emerald-400/70">Buy: ${data.buyPrice.toFixed(2)}</p>
+        <p className="text-xs font-mono text-emerald-400/70">Buy: ${data.buyPrice.toFixed(2)}</p>
       )}
       {data.fairValue != null && (
-        <p className="text-[11px] font-mono text-zinc-500">MIV: ${data.fairValue.toFixed(2)}</p>
+        <p className="text-xs font-mono text-zinc-500">MIV: ${data.fairValue.toFixed(2)}</p>
       )}
       {data.sellPrice != null && (
-        <p className="text-[11px] font-mono text-red-400/70">Sell: ${data.sellPrice.toFixed(2)}</p>
+        <p className="text-xs font-mono text-red-400/70">Sell: ${data.sellPrice.toFixed(2)}</p>
       )}
       {zone && (
-        <p className={`text-[10px] font-mono mt-1 ${zoneColor}`}>{zone}</p>
+        <p className={`text-xs font-mono mt-1 ${zoneColor}`}>{zone}</p>
       )}
     </div>
   )
@@ -140,7 +140,7 @@ export function PriceTargetChart({ scoreHistory, priceHistory }: PriceTargetChar
       <div className="px-6 py-8 border-t border-border-subtle" data-testid="price-target-chart-empty">
         <div className="flex flex-col items-center justify-center gap-2 text-center">
           <span className="text-[13px] text-text-tertiary">Buy/Sell targets will appear after 2+ scoring runs</span>
-          <span className="text-[11px] text-text-tertiary/60">Target bands track how valuations evolve over time</span>
+          <span className="text-xs text-text-tertiary/60">Target bands track how valuations evolve over time</span>
         </div>
       </div>
     )
@@ -166,7 +166,7 @@ export function PriceTargetChart({ scoreHistory, priceHistory }: PriceTargetChar
         <h3 className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
           Price vs Target Band
         </h3>
-        <div className="flex items-center gap-4 text-[10px] text-zinc-500">
+        <div className="flex items-center gap-4 text-xs text-zinc-500">
           <span className="flex items-center gap-1">
             <span className="w-3 h-px bg-blue-400 inline-block" /> Price
           </span>

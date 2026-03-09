@@ -15,7 +15,7 @@ export function ScoreBreakdownBars() {
         <p className="text-[13px] font-medium text-text-secondary tracking-[0.5px] uppercase">
           Example: ACME Corp
         </p>
-        <span className="text-[11px] font-mono text-text-tertiary">Technology</span>
+        <span className="text-xs font-mono text-text-tertiary">Technology</span>
       </div>
 
       <div className="space-y-4">

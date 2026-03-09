@@ -64,7 +64,7 @@ export function EvidenceSection({ candidates = [] }: EvidenceSectionProps) {
             className="px-6 py-3 border-b border-border-subtle"
             style={{ background: "var(--color-bg-subtle)" }}
           >
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-tertiary">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary">
               System Output — Current Scoring Cycle
             </span>
           </div>
@@ -72,19 +72,19 @@ export function EvidenceSection({ candidates = [] }: EvidenceSectionProps) {
           {/* 3-column content */}
           <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border-subtle">
             <div className="p-6">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-4">
+              <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
                 Selectivity Funnel
               </div>
               <ProofSelectivityFunnel />
             </div>
             <div className="p-6">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-4">
+              <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
                 Sector Breakdown
               </div>
               <ProofSectorChart candidates={candidates} />
             </div>
             <div className="p-6">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-4">
+              <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
                 Factor Correlation
               </div>
               <ProofHeatmap />

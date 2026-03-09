@@ -53,7 +53,7 @@ export function FailedComparison({ ticker, failedFilters }: FailedComparisonProp
               <span className="w-12 text-xs font-mono text-text-tertiary truncate">{ticker}</span>
               <div className="flex-1 h-5 rounded bg-bearish/50" />
               <span className="text-xs font-mono text-text-primary">{formatValue(filter.stockValue)}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-bearish">
+              <span className="text-xs font-semibold uppercase tracking-wide text-bearish">
                 FAIL
               </span>
             </div>
@@ -68,7 +68,7 @@ export function FailedComparison({ ticker, failedFilters }: FailedComparisonProp
                 <span className="text-xs font-mono text-text-primary">
                   {formatValue(filter.championValue)}
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-bullish">
+                <span className="text-xs font-semibold uppercase tracking-wide text-bullish">
                   PASS
                 </span>
               </div>
@@ -91,7 +91,7 @@ export function FailedComparison({ ticker, failedFilters }: FailedComparisonProp
 
       {/* Attribution line */}
       {championTicker && (
-        <p className="text-[10px] text-text-tertiary mt-4 pt-3 border-t border-white/[0.06]">
+        <p className="text-xs text-text-tertiary mt-4 pt-3 border-t border-white/[0.06]">
           Comparison stock: {championTicker} (highest-scoring in same sector)
         </p>
       )}

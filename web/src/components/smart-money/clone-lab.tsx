@@ -94,7 +94,7 @@ export function CloneLab() {
         <div className="flex-1">
           <label
             htmlFor="manager-select"
-            className="block text-[10px] uppercase tracking-wider text-text-tertiary font-medium mb-1"
+            className="block text-xs uppercase tracking-wider text-text-tertiary font-medium mb-1"
           >
             Manager
           </label>
@@ -117,7 +117,7 @@ export function CloneLab() {
 
         {/* Strategy selector */}
         <div>
-          <span className="block text-[10px] uppercase tracking-wider text-text-tertiary font-medium mb-1">
+          <span className="block text-xs uppercase tracking-wider text-text-tertiary font-medium mb-1">
             Strategy
           </span>
           <div className="flex gap-2">
@@ -174,13 +174,13 @@ export function CloneLab() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-border-subtle">
-                    <th className="px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium">
+                    <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium">
                       Ticker
                     </th>
-                    <th className="px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium text-right w-24">
+                    <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right w-24">
                       Weight
                     </th>
-                    <th className="px-4 py-2 text-[10px] uppercase tracking-wider text-text-tertiary font-medium w-1/3">
+                    <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium w-1/3">
                       Allocation
                     </th>
                   </tr>
@@ -216,7 +216,7 @@ export function CloneLab() {
 
           {/* Historical performance */}
           <section>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-warning/80 mb-1" data-testid="clone-hypothetical-badge">
+            <div className="text-xs font-mono uppercase tracking-widest text-warning/80 mb-1" data-testid="clone-hypothetical-badge">
               Hypothetical Performance — Not Actual Trading Results
             </div>
             <h3 className="text-sm font-semibold text-text-primary mb-3 uppercase tracking-wider">
@@ -225,7 +225,7 @@ export function CloneLab() {
             {perf ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="terminal-card p-4 space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider text-text-tertiary">
+                  <span className="text-xs uppercase tracking-wider text-text-tertiary">
                     1Y Return
                   </span>
                   <span
@@ -241,7 +241,7 @@ export function CloneLab() {
                   </span>
                 </div>
                 <div className="terminal-card p-4 space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider text-text-tertiary">
+                  <span className="text-xs uppercase tracking-wider text-text-tertiary">
                     3Y CAGR
                   </span>
                   <span
@@ -257,7 +257,7 @@ export function CloneLab() {
                   </span>
                 </div>
                 <div className="terminal-card p-4 space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider text-text-tertiary">
+                  <span className="text-xs uppercase tracking-wider text-text-tertiary">
                     Max Drawdown
                   </span>
                   <span className="text-lg font-mono text-[var(--color-bearish)] block">
@@ -267,7 +267,7 @@ export function CloneLab() {
                   </span>
                 </div>
                 <div className="terminal-card p-4 space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider text-text-tertiary">
+                  <span className="text-xs uppercase tracking-wider text-text-tertiary">
                     Sharpe
                   </span>
                   <span className="text-lg font-mono text-text-primary block">
@@ -288,7 +288,7 @@ export function CloneLab() {
 
       {/* Disclaimer footer — always visible */}
       <div data-testid="clone-disclaimer" className="terminal-card p-3">
-        <p className="text-[10px] font-mono uppercase tracking-wider text-warning/80 mb-1 text-center">
+        <p className="text-xs font-mono uppercase tracking-wider text-warning/80 mb-1 text-center">
           Hypothetical Performance Disclosure
         </p>
         <p className="text-xs text-text-tertiary text-center">

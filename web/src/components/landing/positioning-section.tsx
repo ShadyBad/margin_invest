@@ -65,7 +65,7 @@ export function PositioningSection() {
         >
           {/* Not for column */}
           <div className="md:border-r md:border-border-subtle md:pr-12">
-            <div className="text-[11px] uppercase tracking-[0.25em] text-text-tertiary mb-6">
+            <div className="text-xs uppercase tracking-[0.25em] text-text-tertiary mb-6">
               Not for
             </div>
             <ul>
@@ -82,7 +82,7 @@ export function PositioningSection() {
           </div>
           {/* For column */}
           <div style={{ background: 'rgba(26,122,90,0.03)', borderRadius: '12px', padding: '24px' }}>
-            <div className="text-[11px] uppercase tracking-[0.25em] text-accent mb-6">
+            <div className="text-xs uppercase tracking-[0.25em] text-accent mb-6">
               For
             </div>
             <ul>

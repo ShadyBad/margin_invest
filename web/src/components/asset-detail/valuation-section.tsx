@@ -66,7 +66,7 @@ function PriceRuler({
         {/* Buy marker */}
         {buyPrice != null && (
           <div className="absolute -top-6" style={{ left: `${pct(buyPrice)}%` }}>
-            <span className="text-[10px] font-mono text-bullish block text-center transform -translate-x-1/2">
+            <span className="text-xs font-mono text-bullish block text-center transform -translate-x-1/2">
               Buy
             </span>
             <span className="text-xs font-mono text-text-secondary block text-center transform -translate-x-1/2">
@@ -78,7 +78,7 @@ function PriceRuler({
         {/* Sell marker */}
         {sellPrice != null && (
           <div className="absolute -top-6" style={{ left: `${pct(sellPrice)}%` }}>
-            <span className="text-[10px] font-mono text-bearish block text-center transform -translate-x-1/2">
+            <span className="text-xs font-mono text-bearish block text-center transform -translate-x-1/2">
               Sell
             </span>
             <span className="text-xs font-mono text-text-secondary block text-center transform -translate-x-1/2">
@@ -93,10 +93,10 @@ function PriceRuler({
             className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent"
             style={{ left: `${pct(intrinsicValue)}%` }}
           >
-            <span className="absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-accent whitespace-nowrap">
+            <span className="absolute top-5 left-1/2 -translate-x-1/2 text-xs text-accent whitespace-nowrap">
               Intrinsic
             </span>
-            <span className="absolute top-8 left-1/2 -translate-x-1/2 text-[10px] font-mono text-accent whitespace-nowrap">
+            <span className="absolute top-8 left-1/2 -translate-x-1/2 text-xs font-mono text-accent whitespace-nowrap">
               ${intrinsicValue.toFixed(2)}
             </span>
           </div>
@@ -108,10 +108,10 @@ function PriceRuler({
             className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-text-primary border-2 border-bg-primary transform -translate-x-1/2"
             style={{ left: `${pct(currentPrice)}%` }}
           >
-            <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[10px] text-text-primary whitespace-nowrap">
+            <span className="absolute top-4 left-1/2 -translate-x-1/2 text-xs text-text-primary whitespace-nowrap">
               Current
             </span>
-            <span className="absolute top-7 left-1/2 -translate-x-1/2 text-[10px] font-mono text-text-primary whitespace-nowrap">
+            <span className="absolute top-7 left-1/2 -translate-x-1/2 text-xs font-mono text-text-primary whitespace-nowrap">
               ${currentPrice.toFixed(2)}
             </span>
           </div>
@@ -187,7 +187,7 @@ export function ValuationSection({
           <div className="flex items-center gap-6 text-sm font-mono mt-2">
             {priceUpside != null && (
               <div>
-                <span className="text-[10px] text-text-tertiary uppercase tracking-wider block">
+                <span className="text-xs text-text-tertiary uppercase tracking-wider block">
                   Price Upside
                 </span>
                 <span className={priceUpside >= 0 ? "text-bullish" : "text-bearish"}>
@@ -198,7 +198,7 @@ export function ValuationSection({
             )}
             {marginOfSafety != null && (
               <div>
-                <span className="text-[10px] text-text-tertiary uppercase tracking-wider block">
+                <span className="text-xs text-text-tertiary uppercase tracking-wider block">
                   Margin of Safety
                 </span>
                 <span className={marginOfSafety >= 0 ? "text-bullish" : "text-bearish"}>
@@ -232,7 +232,7 @@ export function ValuationSection({
         <div className="terminal-card p-4 space-y-3">
           <h3 className="text-sm font-semibold text-text-secondary">Valuation Methods</h3>
           <div className="space-y-2">
-            <div className="grid grid-cols-[1fr_100px_60px] gap-2 text-[10px] uppercase tracking-wider text-text-tertiary">
+            <div className="grid grid-cols-[1fr_100px_60px] gap-2 text-xs uppercase tracking-wider text-text-tertiary">
               <span>Method</span>
               <span className="text-right">Implied Value</span>
               <span className="text-right">Status</span>
@@ -271,7 +271,7 @@ export function ValuationSection({
             <p className="text-xs text-text-tertiary">Loading audit data...</p>
           )}
           {showAudit && auditData && (
-            <pre className="text-[10px] font-mono text-text-tertiary bg-white/[0.02] rounded p-3 overflow-x-auto max-h-64">
+            <pre className="text-xs font-mono text-text-tertiary bg-white/[0.02] rounded p-3 overflow-x-auto max-h-64">
               {JSON.stringify(auditData, null, 2)}
             </pre>
           )}

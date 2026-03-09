@@ -43,7 +43,7 @@ export function FilterFunnel() {
                   backgroundColor: "var(--color-accent-subtle)",
                 }}
               >
-                <span className="text-[11px] font-mono text-text-primary whitespace-nowrap">
+                <span className="text-xs font-mono text-text-primary whitespace-nowrap">
                   {filter.pass}
                 </span>
               </div>

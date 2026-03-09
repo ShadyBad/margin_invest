@@ -80,7 +80,7 @@ export function FaqSection() {
   return (
     <section id="faq" className="py-16 px-6">
       <div className="max-w-3xl mx-auto">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-tertiary text-center mb-12">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-text-tertiary text-center mb-12">
           Common Questions
         </p>
         <div>

@@ -443,7 +443,7 @@ export default function BacktestingPage() {
               className="terminal-card p-4"
               data-testid="backtest-disclosure"
             >
-              <p className="text-[10px] font-mono uppercase tracking-wider text-warning/80 mb-2">
+              <p className="text-xs font-mono uppercase tracking-wider text-warning/80 mb-2">
                 Hypothetical Performance Disclosure
               </p>
               <p className="text-xs text-text-tertiary">

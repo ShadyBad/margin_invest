@@ -84,13 +84,13 @@ export function PipelineSection() {
               key={stage.num}
               className="p-4 border border-border-primary rounded-lg bg-bg-elevated"
             >
-              <span className="text-[11px] font-mono font-bold text-accent">
+              <span className="text-xs font-mono font-bold text-accent">
                 {stage.num}
               </span>
               <h3 className="text-[13px] font-semibold text-text-primary mt-1">
                 {stage.label}
               </h3>
-              <p className="text-[11px] text-text-tertiary mt-0.5">
+              <p className="text-xs text-text-tertiary mt-0.5">
                 {stage.detail}
               </p>
             </div>

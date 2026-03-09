@@ -123,13 +123,13 @@ export function ProofSelectivityFunnel() {
             }}
           >
             {i === 0 && (
-              <span className="text-[10px] font-mono text-text-tertiary">
+              <span className="text-xs font-mono text-text-tertiary">
                 Universe &middot; &mdash;
               </span>
             )}
           </div>
         ))}
-        <p className="text-[10px] text-text-tertiary mt-3 text-center font-mono">
+        <p className="text-xs text-text-tertiary mt-3 text-center font-mono">
           Live funnel data updates after each scoring run
         </p>
       </div>
@@ -187,7 +187,7 @@ export function ProofSelectivityFunnel() {
                     <span className="text-xs text-text-primary font-mono truncate">
                       {bar.label(data)}
                     </span>
-                    <span className="text-[10px] text-text-secondary font-mono ml-2 shrink-0">
+                    <span className="text-xs text-text-secondary font-mono ml-2 shrink-0">
                       {bar.right(data)}
                     </span>
                   </>
@@ -204,7 +204,7 @@ export function ProofSelectivityFunnel() {
                   <span className="text-xs text-text-primary font-mono whitespace-nowrap">
                     {bar.label(data)}
                   </span>
-                  <span className="text-[10px] text-text-secondary font-mono shrink-0">
+                  <span className="text-xs text-text-secondary font-mono shrink-0">
                     {bar.right(data)}
                   </span>
                 </motion.div>
@@ -234,7 +234,7 @@ export function ProofSelectivityFunnel() {
           )
         })}
       </div>
-      <p className="text-[10px] text-text-tertiary mt-3 text-center">
+      <p className="text-xs text-text-tertiary mt-3 text-center">
         Most equities are eliminated before scoring begins.
       </p>
       <p className="text-[9px] text-text-tertiary mt-1 text-center italic">

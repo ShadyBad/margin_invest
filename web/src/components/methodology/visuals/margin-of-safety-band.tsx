@@ -19,21 +19,21 @@ export function MarginOfSafetyBand() {
         {/* Zone labels */}
         <div className="absolute inset-y-0 left-0 right-0 flex items-center">
           <div className="flex-[25] flex items-center justify-center">
-            <span className="text-[11px] font-medium text-bullish">Discount</span>
+            <span className="text-xs font-medium text-bullish">Discount</span>
           </div>
           <div className="flex-[20] flex items-center justify-center">
-            <span className="text-[11px] font-medium text-accent">Buy Below</span>
+            <span className="text-xs font-medium text-accent">Buy Below</span>
           </div>
           <div className="flex-[30] flex items-center justify-center">
-            <span className="text-[11px] font-medium text-text-tertiary">Fair Value</span>
+            <span className="text-xs font-medium text-text-tertiary">Fair Value</span>
           </div>
           <div className="flex-[25] flex items-center justify-center">
-            <span className="text-[11px] font-medium text-bearish">Overvalued</span>
+            <span className="text-xs font-medium text-bearish">Overvalued</span>
           </div>
         </div>
 
         {/* Price markers */}
-        <div className="absolute bottom-0 left-0 right-0 flex text-[10px] font-mono text-text-tertiary">
+        <div className="absolute bottom-0 left-0 right-0 flex text-xs font-mono text-text-tertiary">
           <div className="flex-[25] text-center">$120</div>
           <div className="flex-[20] text-center">$145</div>
           <div className="flex-[30] text-center">$175</div>
@@ -47,12 +47,12 @@ export function MarginOfSafetyBand() {
 
         {/* Current price indicator */}
         <div className="absolute top-1 left-[32%] flex flex-col items-center">
-          <span className="text-[10px] font-mono text-accent mb-0.5">$138</span>
+          <span className="text-xs font-mono text-accent mb-0.5">$138</span>
           <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-accent" />
         </div>
       </div>
 
-      <div className="flex justify-between text-[11px] text-text-tertiary mt-2">
+      <div className="flex justify-between text-xs text-text-tertiary mt-2">
         <span>Buy Below</span>
         <span>Current Price</span>
         <span>Margin Invest Value</span>

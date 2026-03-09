@@ -103,21 +103,21 @@ export function ScoreHistoryTable({ history, status = "loaded" }: ScoreHistoryTa
         <thead>
           <tr className="border-b border-border-subtle">
             <th
-              className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2 cursor-pointer select-none"
+              className="text-left text-xs font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2 cursor-pointer select-none"
               onClick={() => handleSort("date")}
             >
               Date{sortKey === "date" ? chevron : ""}
             </th>
             <th
-              className="text-right text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2 cursor-pointer select-none"
+              className="text-right text-xs font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2 cursor-pointer select-none"
               onClick={() => handleSort("score")}
             >
               Score{sortKey === "score" ? chevron : ""}
             </th>
-            <th className="text-right text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Delta</th>
-            <th className="text-center text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Signal</th>
-            <th className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Tier</th>
-            <th className="text-left text-[11px] font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Key Change</th>
+            <th className="text-right text-xs font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Delta</th>
+            <th className="text-center text-xs font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Signal</th>
+            <th className="text-left text-xs font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Tier</th>
+            <th className="text-left text-xs font-normal uppercase tracking-[0.05em] text-text-tertiary pb-2">Key Change</th>
           </tr>
         </thead>
         <tbody>

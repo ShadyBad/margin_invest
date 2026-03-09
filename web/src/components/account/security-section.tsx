@@ -131,7 +131,7 @@ export function SecuritySection() {
 
   return (
     <section id="security" className="terminal-card p-6 md:p-8">
-      <h2 className="text-[10px] uppercase tracking-[0.2em] text-text-tertiary mb-6">Security</h2>
+      <h2 className="text-xs uppercase tracking-[0.2em] text-text-tertiary mb-6">Security</h2>
 
       {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
 

@@ -168,7 +168,7 @@ export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <p className="text-[10px] text-text-tertiary mt-3 text-center">
+      <p className="text-xs text-text-tertiary mt-3 text-center">
         Candidates by sector and composite tier
       </p>
       <p className="text-[9px] text-text-tertiary mt-1 text-center italic">
