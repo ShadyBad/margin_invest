@@ -79,8 +79,8 @@ describe("Landing page assembly", () => {
     expect(screen.getByText("Scout")).toBeInTheDocument()
     expect(screen.getByText("Portfolio")).toBeInTheDocument()
 
-    // Footer (engine version also appears in hero card metadata)
-    expect(screen.getAllByText(/engine v1\.3\.2/i).length).toBeGreaterThanOrEqual(1)
+    // Hero search
+    expect(screen.getByPlaceholderText(/search any ticker/i)).toBeInTheDocument()
   })
 
   it("renders the navbar", async () => {

@@ -53,9 +53,11 @@ describe("HeroSection", () => {
     expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument()
   })
 
-  it("shows AAPL from fallback when data is null", () => {
+  it("shows ticker suggestion chips in idle state", () => {
     render(<HeroSection data={null} />)
     expect(screen.getByText("AAPL")).toBeInTheDocument()
+    expect(screen.getByText("TSLA")).toBeInTheDocument()
+    expect(screen.getByText("Try:")).toBeInTheDocument()
   })
 
   it("renders search-one call to action in subtext", () => {

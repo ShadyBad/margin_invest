@@ -83,7 +83,7 @@ export function HeroSearch() {
 
   return (
     <div data-hero-ctas>
-      <form onSubmit={handleSubmit} className="flex gap-2 max-w-md">
+      <form onSubmit={handleSubmit} className="flex gap-2 max-w-md mx-auto">
         {/* Input container with focus ring */}
         <div
           ref={containerRef}
@@ -137,10 +137,45 @@ export function HeroSearch() {
         </button>
       </form>
 
+      {/* Ticker suggestion chips */}
+      {state === "idle" && (
+        <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
+          <span className="text-xs text-text-tertiary">Try:</span>
+          {["AAPL", "TSLA", "JNJ", "COST", "ETSY"].map((ticker) => (
+            <button
+              key={ticker}
+              type="button"
+              onClick={() => {
+                setQuery(ticker)
+                setState("loading")
+                setError("")
+                setResult(null)
+                apiFetch<PublicScoreResult>(`/api/v1/public/score/${ticker}`)
+                  .then((data) => {
+                    setResult(data)
+                    setState("result")
+                  })
+                  .catch((err) => {
+                    if (err instanceof ApiError && err.status === 404) {
+                      setError("Ticker not found. Check the symbol and try again.")
+                    } else {
+                      setError("Something went wrong. Please try again.")
+                    }
+                    setState("error")
+                  })
+              }}
+              className="font-mono text-xs text-accent hover:text-accent/80 transition-colors px-2 py-1 rounded border border-border-subtle hover:border-accent/30"
+            >
+              {ticker}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Result card */}
       {state === "result" && result && (
         <div
-          className="relative overflow-hidden rounded-xl bg-bg-elevated mt-4 max-w-md animate-in fade-in duration-200"
+          className="relative overflow-hidden rounded-xl bg-bg-elevated mt-4 max-w-md mx-auto animate-in fade-in duration-200"
           style={{
             border: "1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border-subtle))",
             boxShadow: "0 0 24px 0 color-mix(in srgb, var(--color-accent) 6%, transparent)",
@@ -223,10 +258,10 @@ export function HeroSearch() {
 
             {/* CTA with arrow */}
             <Link
-              href="/onboarding"
+              href={`/asset/${result.ticker}`}
               className="inline-flex items-center gap-1.5 text-sm text-accent hover:text-accent/80 transition-colors"
             >
-              See the full forensic report
+              View full forensic report
               <svg
                 width={14}
                 height={14}
@@ -249,7 +284,7 @@ export function HeroSearch() {
 
       {/* Error state */}
       {state === "error" && (
-        <p className="text-sm text-[var(--color-bearish)] mt-3 max-w-md">
+        <p className="text-sm text-[var(--color-bearish)] mt-3 max-w-md mx-auto text-center">
           {error}
         </p>
       )}

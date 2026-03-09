@@ -127,7 +127,7 @@ describe("HeroSearch", () => {
     })
   })
 
-  it("CTA links to /onboarding", async () => {
+  it("CTA links to asset detail page", async () => {
     mockApiFetch.mockResolvedValueOnce(MOCK_RESULT)
     render(<HeroSearch />)
     const input = screen.getByPlaceholderText(/search any ticker/i)
@@ -135,7 +135,29 @@ describe("HeroSearch", () => {
     fireEvent.submit(input.closest("form")!)
     await waitFor(() => {
       const link = screen.getByRole("link", { name: /full forensic report/i })
-      expect(link).toHaveAttribute("href", "/onboarding")
+      expect(link).toHaveAttribute("href", "/asset/AAPL")
     })
+  })
+
+  it("shows suggestion chips in idle state", () => {
+    render(<HeroSearch />)
+    expect(screen.getByText("Try:")).toBeInTheDocument()
+    expect(screen.getByText("AAPL")).toBeInTheDocument()
+    expect(screen.getByText("TSLA")).toBeInTheDocument()
+    expect(screen.getByText("JNJ")).toBeInTheDocument()
+    expect(screen.getByText("COST")).toBeInTheDocument()
+    expect(screen.getByText("ETSY")).toBeInTheDocument()
+  })
+
+  it("hides suggestion chips when not idle", async () => {
+    mockApiFetch.mockResolvedValueOnce(MOCK_RESULT)
+    render(<HeroSearch />)
+    const input = screen.getByPlaceholderText(/search any ticker/i)
+    fireEvent.change(input, { target: { value: "AAPL" } })
+    fireEvent.submit(input.closest("form")!)
+    await waitFor(() => {
+      expect(screen.getByText("Apple Inc")).toBeInTheDocument()
+    })
+    expect(screen.queryByText("Try:")).not.toBeInTheDocument()
   })
 })
