@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import Link from "next/link"
 import { ProofSelectivityFunnel } from "./proof-selectivity-funnel"
 import { ProofSectorChart } from "./proof-sector-chart"
 import { ProofHeatmap } from "./proof-heatmap"
@@ -92,13 +93,13 @@ export function EvidenceSection({ candidates = [] }: EvidenceSectionProps) {
 
           {/* Footer */}
           <div className="px-6 py-4 border-t border-border-subtle text-center">
-            <a
+            <Link
               href="/methodology"
               className="text-sm text-text-secondary hover:text-accent transition-colors"
             >
               Structure replaces intuition with evidence.{" "}
               <span className="text-accent">See full methodology →</span>
-            </a>
+            </Link>
           </div>
         </div>
       </div>
