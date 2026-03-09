@@ -83,7 +83,12 @@ function getTooltipData(
   }
 }
 
-export function ProofSelectivityFunnel() {
+interface ProofSelectivityFunnelProps {
+  /** When false, disables internal framer-motion entrance animations (parent controls visibility). */
+  autoAnimate?: boolean
+}
+
+export function ProofSelectivityFunnel({ autoAnimate = true }: ProofSelectivityFunnelProps) {
   const [data, setData] = useState<FunnelData | null>(null)
   const [error, setError] = useState(false)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -168,10 +173,9 @@ export function ProofSelectivityFunnel() {
               key={bar.key}
               data-testid={`funnel-row-${bar.key}`}
               className="relative flex items-center gap-3"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
+              initial={autoAnimate ? { opacity: 0 } : { opacity: 1 }}
+              {...(autoAnimate ? { whileInView: { opacity: 1 }, viewport: { once: true } } : {})}
+              transition={autoAnimate ? { duration: 0.5, delay: i * 0.1 } : { duration: 0 }}
               onMouseEnter={() => setHoveredIndex(i)}
               onMouseLeave={() => setHoveredIndex(null)}
             >
@@ -196,10 +200,9 @@ export function ProofSelectivityFunnel() {
               {isExternal && (
                 <motion.div
                   className="flex items-center gap-2 min-w-0"
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3, delay: i * 0.1 + 0.5 }}
+                  initial={autoAnimate ? { opacity: 0 } : { opacity: 1 }}
+                  {...(autoAnimate ? { whileInView: { opacity: 1 }, viewport: { once: true } } : {})}
+                  transition={autoAnimate ? { duration: 0.3, delay: i * 0.1 + 0.5 } : { duration: 0 }}
                 >
                   <span className="text-xs text-text-primary font-mono whitespace-nowrap">
                     {bar.label(data)}
