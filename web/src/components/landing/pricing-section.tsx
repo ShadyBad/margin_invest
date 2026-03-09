@@ -174,29 +174,19 @@ export function PricingSection() {
       if (h2) tl.to(h2, { opacity: 0.3, y: -30, duration: 12, ease: "power2.inOut" }, 20)
       if (subtitle) tl.to(subtitle, { opacity: 0, y: -20, duration: 8, ease: "power2.inOut" }, 20)
 
+      // Set initial card positions before defining tweens
+      gsap.set(cards[0], { x: 80, opacity: 0 })
+      gsap.set(cards[1], { y: 40, opacity: 0 })
+      gsap.set(cards[2], { x: -80, opacity: 0 })
+
       // Scout slides left
-      tl.to(
-        cards[0],
-        { opacity: 1, x: 0, duration: 15, ease: "power2.out" },
-        22
-      )
-      gsap.set(cards[0], { x: 80 })
+      tl.to(cards[0], { opacity: 1, x: 0, duration: 15, ease: "power2.out" }, 22)
 
       // Analyst rises center (100ms stagger = +1 unit)
-      tl.to(
-        cards[1],
-        { opacity: 1, y: 0, duration: 15, ease: "power2.out" },
-        23
-      )
-      gsap.set(cards[1], { y: 40 })
+      tl.to(cards[1], { opacity: 1, y: 0, duration: 15, ease: "power2.out" }, 23)
 
       // Portfolio slides right (200ms stagger = +2 units)
-      tl.to(
-        cards[2],
-        { opacity: 1, x: 0, duration: 15, ease: "power2.out" },
-        24
-      )
-      gsap.set(cards[2], { x: -80 })
+      tl.to(cards[2], { opacity: 1, x: 0, duration: 15, ease: "power2.out" }, 24)
 
       // ── Phase 3 (50-85%): Features fill in sequentially ──
       const featureStart = 50

@@ -20,6 +20,9 @@ vi.mock("gsap", () => ({
 vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
+vi.mock("../scroll-canvas", () => ({
+  useScrollCanvas: () => ({ ready: false, isSmoothScrolling: false }),
+}))
 
 import { AuthorityStrip } from "../authority-strip"
 

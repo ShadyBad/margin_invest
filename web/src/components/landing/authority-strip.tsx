@@ -1,15 +1,32 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { useScrollCanvas } from "./scroll-canvas"
 
 const FACTS = ["SEC EDGAR filings", "11 GICS sectors", "Scored daily"]
 
 export function AuthorityStrip() {
   const sectionRef = useRef<HTMLElement>(null)
   const factRefs = useRef<(HTMLSpanElement | null)[]>([])
+  const { isSmoothScrolling } = useScrollCanvas()
 
   useEffect(() => {
     if (!sectionRef.current) return
+
+    // On mobile, show facts immediately with a simple fade-in
+    if (!isSmoothScrolling) {
+      let cancelled = false
+      async function simpleFade() {
+        const gsapModule = await import("gsap")
+        if (cancelled) return
+        const gsap = gsapModule.default
+        factRefs.current.forEach((el) => {
+          if (el) gsap.to(el, { opacity: 1, duration: 0.5, ease: "power2.out" })
+        })
+      }
+      simpleFade().catch(() => {})
+      return () => { cancelled = true }
+    }
 
     let cancelled = false
     const scrollTriggers: { kill: () => void }[] = []
@@ -51,7 +68,7 @@ export function AuthorityStrip() {
       cancelled = true
       scrollTriggers.forEach((st) => st.kill())
     }
-  }, [])
+  }, [isSmoothScrolling])
 
   return (
     <section ref={sectionRef} className="relative" style={{ minHeight: "50vh" }}>
