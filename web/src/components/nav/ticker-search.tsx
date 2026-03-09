@@ -83,7 +83,7 @@ export function TickerSearch() {
       >
         <SearchIcon />
         <kbd className="hidden md:inline-flex items-center gap-0.5 text-xs text-text-tertiary border border-border-subtle rounded px-1 font-mono leading-relaxed">
-          <span className="text-[11px]">&#8984;</span>K
+          <span className="text-xs">&#8984;</span>K
         </kbd>
       </button>
 
