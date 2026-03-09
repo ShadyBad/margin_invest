@@ -28,8 +28,9 @@ vi.mock("next/navigation", () => ({
 vi.mock("gsap", () => ({
   default: {
     registerPlugin: vi.fn(),
-    to: vi.fn(),
-    fromTo: vi.fn(),
+    to: vi.fn(() => ({ kill: vi.fn() })),
+    from: vi.fn(() => ({ kill: vi.fn() })),
+    fromTo: vi.fn(() => ({ kill: vi.fn() })),
     set: vi.fn(),
     timeline: vi.fn(() => ({
       to: vi.fn().mockReturnThis(),
@@ -37,6 +38,7 @@ vi.mock("gsap", () => ({
       play: vi.fn(),
       pause: vi.fn(),
       kill: vi.fn(),
+      scrollTrigger: null,
     })),
   },
 }))

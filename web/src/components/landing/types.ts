@@ -25,4 +25,6 @@ export interface HomepageData {
   universe_size: number
   eligible_count: number
   total_scored: number
+  total_universe: number
+  surviving_count: number
 }
