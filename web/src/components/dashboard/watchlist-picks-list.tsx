@@ -67,7 +67,7 @@ function WatchlistRow({ item }: { item: WatchlistItem }) {
   return (
     <>
       <div
-        className="flex items-center gap-4 px-5 py-3.5 cursor-pointer transition-colors hover:bg-bg-primary/50 border-b border-border-primary last:border-b-0"
+        className="flex items-center gap-4 px-5 py-3.5 cursor-pointer transition-colors duration-100 hover:bg-[var(--color-accent-wash)] border-b border-border-primary last:border-b-0"
         onClick={handleClick}
         role="button"
         tabIndex={0}

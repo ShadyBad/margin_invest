@@ -29,7 +29,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
 
   const card = (
     <motion.div
-      className="terminal-card rounded-2xl p-6 md:p-8 flex flex-col h-full relative overflow-hidden focus-visible:outline-2 focus-visible:outline-accent/40 focus-visible:outline-offset-2"
+      className="terminal-card rounded-2xl p-6 md:p-8 flex flex-col h-full relative overflow-hidden focus-visible:outline-2 focus-visible:outline-accent/40 focus-visible:outline-offset-2 hover:-translate-y-0.5 hover:border-[var(--color-accent-medium)] transition-all duration-200"
       style={
         tier.highlighted
           ? {
@@ -44,7 +44,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
       whileHover={
         prefersReducedMotion
           ? {}
-          : { y: -4, boxShadow: tier.highlighted
+          : { boxShadow: tier.highlighted
               ? "0 0 48px rgba(201,150,59,0.20), 0 8px 24px rgba(0,0,0,0.3)"
               : "0 2px 8px rgba(0,0,0,0.3)"
             }
@@ -58,7 +58,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
       whileFocus={
         prefersReducedMotion
           ? {}
-          : { y: -4, boxShadow: tier.highlighted
+          : { boxShadow: tier.highlighted
               ? "0 0 48px rgba(201,150,59,0.20), 0 8px 24px rgba(0,0,0,0.3)"
               : "0 2px 8px rgba(0,0,0,0.3)"
             }

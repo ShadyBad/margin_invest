@@ -46,7 +46,7 @@ export function FooterSection() {
                 <Link
                   key={link.label}
                   href={link.href}
-                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors duration-100"
                 >
                   {link.label}
                 </Link>
@@ -64,7 +64,7 @@ export function FooterSection() {
                 <Link
                   key={link.label}
                   href={link.href}
-                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors duration-100"
                 >
                   {link.label}
                 </Link>

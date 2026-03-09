@@ -12,8 +12,6 @@ import { getSectorColor } from "@/lib/sector-colors"
 import Link from "next/link"
 import type { PickSummary, ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/types"
 
-const INTERACTION_EASE = "cubic-bezier(0.19, 1, 0.22, 1)"
-
 function getCardTierClasses(convictionLevel: string): string {
   switch (convictionLevel) {
     case "exceptional":
@@ -105,10 +103,10 @@ export function StockCard({ pick, className = "", rank }: StockCardProps) {
   return (
     <>
     <div
-      className={`relative bg-bg-elevated border border-border-primary border-l-2 cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/20 p-6 ${getCardTierClasses(pick.composite_tier)} ${getCardShadow(pick.composite_tier)} ${className}`}
+      className={`relative bg-bg-elevated border border-border-primary border-l-2 cursor-pointer hover:border-[var(--color-accent-medium)] hover:shadow-card-hover p-6 ${getCardTierClasses(pick.composite_tier)} ${getCardShadow(pick.composite_tier)} ${className}`}
       style={{
         borderLeftColor: getSectorColor(pick.sector),
-        transition: `transform 200ms ${INTERACTION_EASE}, box-shadow 200ms ${INTERACTION_EASE}, border-color 200ms ${INTERACTION_EASE}`,
+        transition: `box-shadow 150ms var(--ease-out-expo), border-color 150ms var(--ease-out-expo)`,
       }}
       data-testid={`stock-card-${pick.ticker}`}
       onClick={handleClick}
