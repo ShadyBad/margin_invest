@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { AppShell } from "@/components/layout"
-import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction } from "@/components/dashboard"
+import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction, MarketContextSidebar } from "@/components/dashboard"
 import { DashboardGreeting } from "@/components/dashboard/dashboard-greeting"
 import { ProposalBanner } from "@/components/dashboard/proposal-banner"
 import { serverFetch } from "@/lib/api/server"
@@ -46,49 +46,60 @@ export default async function DashboardPage() {
         })()}
       </div>
 
-      <ProposalBanner />
-
-      {apiError && (
-        <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 mb-8">
-          <p className="text-sm text-warning">
-            Unable to reach the API server. Start it with:{" "}
-            <code className="bg-bg-subtle px-1.5 py-0.5 rounded text-xs">
-              uvicorn margin_api.app:create_app --factory
-            </code>
-          </p>
-        </div>
-      )}
-
-      {data?.universe && (
-        <IngestionBanner universe={data.universe} warnings={data.warnings} />
-      )}
-
-      <section className="mb-10">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">
-          Top Picks
-        </h2>
-        {(data?.picks?.length ?? 0) > 0 && (data?.picks?.length ?? 0) <= 5 && data?.total_scored && (
-          <p className="text-xs text-text-tertiary mb-4">
-            Only {data.picks.length} stock{data.picks.length !== 1 ? "s" : ""} survived
-            all filters and scored above the conviction threshold.{" "}
-            {data.total_scored} stocks were evaluated.
-          </p>
-        )}
-        <PicksGrid
-          picks={data?.picks ?? []}
-          totalScored={data?.total_scored}
-          universeSize={data?.universe?.size}
+      <div className="flex gap-8">
+        <MarketContextSidebar
+          pickCount={data?.picks?.length ?? 0}
+          totalScored={data?.total_scored ?? null}
+          universeSize={data?.universe?.size ?? null}
+          engineVersion={data?.universe?.version}
+          lastScoringRun={data?.universe?.last_scoring_run}
         />
-      </section>
+        <div className="flex-1 min-w-0">
+          <ProposalBanner />
 
-      {(data?.watchlist?.length ?? 0) > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-text-primary mb-4">
-            Watchlist Picks
-          </h2>
-          <WatchlistPicksList items={data!.watchlist} />
-        </section>
-      )}
+          {apiError && (
+            <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 mb-8">
+              <p className="text-sm text-warning">
+                Unable to reach the API server. Start it with:{" "}
+                <code className="bg-bg-subtle px-1.5 py-0.5 rounded text-xs">
+                  uvicorn margin_api.app:create_app --factory
+                </code>
+              </p>
+            </div>
+          )}
+
+          {data?.universe && !data.universe.is_complete && (
+            <IngestionBanner universe={data.universe} warnings={data.warnings} />
+          )}
+
+          <section className="mb-10">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
+              Top Picks
+            </h2>
+            {(data?.picks?.length ?? 0) > 0 && (data?.picks?.length ?? 0) <= 5 && data?.total_scored && (
+              <p className="text-xs text-text-tertiary mb-4">
+                Only {data.picks.length} stock{data.picks.length !== 1 ? "s" : ""} survived
+                all filters and scored above the conviction threshold.{" "}
+                {data.total_scored} stocks were evaluated.
+              </p>
+            )}
+            <PicksGrid
+              picks={data?.picks ?? []}
+              totalScored={data?.total_scored}
+              universeSize={data?.universe?.size}
+            />
+          </section>
+
+          {(data?.watchlist?.length ?? 0) > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
+                Watchlist Picks
+              </h2>
+              <WatchlistPicksList items={data!.watchlist} />
+            </section>
+          )}
+        </div>
+      </div>
     </AppShell>
   )
 }
