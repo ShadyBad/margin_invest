@@ -59,7 +59,6 @@ export function HomepageClient({ data }: HomepageClientProps) {
       <SectionGlow />
       <ProofSection candidates={data?.allPicks ?? []} />
       <EngineSection onStageChange={handleStageChange} />
-      <SectionGlow />
       <PositioningSection />
       <DifferentiatorSection />
       <SectionGlow />

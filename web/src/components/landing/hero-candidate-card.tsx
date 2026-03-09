@@ -100,7 +100,7 @@ function ScoreRing({ score }: { score: number }) {
           style={{ transition: "stroke-dashoffset 700ms cubic-bezier(0.4, 0, 0.2, 1)" }}
         />
       </svg>
-      <span className="absolute font-mono text-2xl font-bold text-text-primary">
+      <span className="absolute inset-0 flex items-center justify-center font-mono text-2xl font-bold text-text-primary">
         {Math.round(score)}
       </span>
     </div>
