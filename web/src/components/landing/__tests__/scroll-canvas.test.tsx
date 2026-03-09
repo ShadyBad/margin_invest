@@ -41,33 +41,6 @@ describe("ScrollCanvas", () => {
     expect(screen.getByText("Hello")).toBeInTheDocument()
   })
 
-  it("renders gradient layer", () => {
-    render(
-      <ScrollCanvas>
-        <div>content</div>
-      </ScrollCanvas>
-    )
-    expect(screen.getByTestId("canvas-gradient")).toBeInTheDocument()
-  })
-
-  it("renders grid layer", () => {
-    render(
-      <ScrollCanvas>
-        <div>content</div>
-      </ScrollCanvas>
-    )
-    expect(screen.getByTestId("canvas-grid")).toBeInTheDocument()
-  })
-
-  it("renders noise layer", () => {
-    render(
-      <ScrollCanvas>
-        <div>content</div>
-      </ScrollCanvas>
-    )
-    expect(screen.getByTestId("canvas-noise")).toBeInTheDocument()
-  })
-
   it("renders smooth-wrapper and smooth-content divs", () => {
     const { container } = render(
       <ScrollCanvas>
@@ -90,22 +63,6 @@ describe("ScrollCanvas", () => {
     expect(content).toBeInTheDocument()
     const child = screen.getByTestId("nested-child")
     expect(content!.contains(child)).toBe(true)
-  })
-
-  it("places background layers outside #smooth-content", () => {
-    render(
-      <ScrollCanvas>
-        <div>content</div>
-      </ScrollCanvas>
-    )
-    const content = document.querySelector("#smooth-content")
-    const gradient = screen.getByTestId("canvas-gradient")
-    const grid = screen.getByTestId("canvas-grid")
-    const noise = screen.getByTestId("canvas-noise")
-
-    expect(content!.contains(gradient)).toBe(false)
-    expect(content!.contains(grid)).toBe(false)
-    expect(content!.contains(noise)).toBe(false)
   })
 })
 

@@ -16,14 +16,10 @@ interface HomepageClientProps {
 export function HomepageClient({ data }: HomepageClientProps) {
   return (
     <ScrollCanvas>
-      <HeroSection
-        data={data}
-        totalUniverse={data?.total_universe ?? 3056}
-        survivingCount={data?.surviving_count ?? 0}
-      />
+      <HeroSection data={data} />
       <AuthorityStrip />
       <EvidenceSection candidates={data?.allPicks ?? []} />
-      <PricingSection />
+      <PricingSection totalUniverse={data?.total_universe} />
       <FaqSection />
       <FooterSection />
     </ScrollCanvas>

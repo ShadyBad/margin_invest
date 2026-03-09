@@ -68,11 +68,16 @@ function FaqItem({ item }: { item: FaqEntry }) {
           +
         </span>
       </button>
-      {open && (
-        <p className="text-sm text-text-secondary pb-5 pr-8 leading-relaxed">
-          {item.answer}
-        </p>
-      )}
+      <div
+        className="grid transition-[grid-template-rows] duration-200 ease-out"
+        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+      >
+        <div className="overflow-hidden">
+          <p className="text-sm text-text-secondary pb-5 pr-8 leading-relaxed">
+            {item.answer}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

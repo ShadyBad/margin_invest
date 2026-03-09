@@ -41,12 +41,7 @@ export function interpretCorrelation(matrix: (number | null)[][]): string {
   return `${lowPairs} of ${totalPairs} pairs show |ρ| < 0.3 — strong diversification.`
 }
 
-interface ProofHeatmapProps {
-  /** When false, disables internal entrance animations (parent controls visibility). */
-  autoAnimate?: boolean
-}
-
-export function ProofHeatmap({ autoAnimate: _autoAnimate = true }: ProofHeatmapProps = {}) {
+export function ProofHeatmap() {
   const [data, setData] = useState<ShowcaseData>({
     tickers: FALLBACK_TICKERS,
     matrix: FALLBACK_MATRIX,

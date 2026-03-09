@@ -10,9 +10,9 @@
 
 @theme {
   /* Backgrounds */
-  --color-bg-primary: #0A0F0D;
-  --color-bg-elevated: #111A15;
-  --color-bg-subtle: #1A2420;
+  --color-bg-primary: #0C1A13;
+  --color-bg-elevated: #12221A;
+  --color-bg-subtle: #1A2E22;
 
   /* Text */
   --color-text-primary: #EDE9E3;
@@ -45,8 +45,8 @@
   --color-surface-overlay: rgba(237, 233, 227, 0.03);
 
   /* Grid & dividers */
-  --color-grid-line: rgba(255, 255, 255, 0.04);
-  --color-divider: rgba(255, 255, 255, 0.06);
+  --color-grid-line: rgba(255, 255, 255, 0.06);
+  --color-divider: rgba(255, 255, 255, 0.08);
 
   /* 5-tier percentile encoding */
   --color-percentile-exceptional: #10B981;
@@ -202,7 +202,7 @@
 
 /* Base body styles */
 body {
-  background-color: transparent;
+  background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   background-image: url('/noise.svg');
@@ -304,7 +304,7 @@ body {
 /* shadcn dark-mode oklch variables (dark-only, set as defaults) */
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.141 0.005 285.823);
+  --background: oklch(0.141 0.015 155);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);
   --card-foreground: oklch(0.985 0 0);

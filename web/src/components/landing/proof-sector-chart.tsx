@@ -14,8 +14,6 @@ import type { CandidateCard } from "./types"
 
 interface ProofSectorChartProps {
   candidates: CandidateCard[]
-  /** When false, disables internal entrance animations (parent controls visibility). */
-  autoAnimate?: boolean
 }
 
 export interface SectorRow {
@@ -81,7 +79,7 @@ function useIsDark(): boolean {
   return dark
 }
 
-export function ProofSectorChart({ candidates, autoAnimate: _autoAnimate = true }: ProofSectorChartProps) {
+export function ProofSectorChart({ candidates }: ProofSectorChartProps) {
   const isNarrow = useIsNarrow()
   const isDark = useIsDark()
 

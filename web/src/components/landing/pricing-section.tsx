@@ -51,7 +51,11 @@ const tiers: Tier[] = [
   },
 ]
 
-export function PricingSection() {
+interface PricingSectionProps {
+  totalUniverse?: number
+}
+
+export function PricingSection({ totalUniverse }: PricingSectionProps) {
   const { isSmoothScrolling } = useScrollCanvas()
   const sectionRef = useRef<HTMLElement>(null)
   const headlineRef = useRef<HTMLDivElement>(null)
@@ -281,7 +285,7 @@ export function PricingSection() {
             paid plans.
           </p>
           <p className="text-xs font-mono text-accent/70 mt-4">
-            Scoring 3,056 US equities daily
+            Scoring {(totalUniverse ?? 3056).toLocaleString()} US equities daily
           </p>
         </div>
 
