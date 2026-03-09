@@ -22,7 +22,9 @@
   /* Accent — muted emerald */
   --color-accent: #1A7A5A;
   --color-accent-hover: #1F8F6A;
-  --color-accent-subtle: rgba(26, 122, 90, 0.10);
+  --color-accent-subtle: rgba(26, 122, 90, 0.08);
+  --color-accent-wash: rgba(26, 122, 90, 0.03);
+  --color-accent-medium: rgba(26, 122, 90, 0.15);
 
   /* Value pillar — teal-blue (distinct from emerald accent/bullish) */
   --color-value: #3BA5D0;
@@ -34,7 +36,7 @@
   --color-border-subtle: rgba(237, 233, 227, 0.06);
 
   /* Semantic */
-  --color-bullish: #1A7A5A;
+  --color-bullish: #22C55E;
   --color-bearish: #D45A5F;
   --color-warning: #D4A843;
   --color-danger: #D45A5F;
@@ -96,8 +98,9 @@
   --ease-in-out-smooth: cubic-bezier(0.45, 0, 0.55, 1);
   --ease-out-back: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-micro: 150ms;
-  --duration-reveal: 600ms;
-  --duration-transition: 1000ms;
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
   --duration-ambient: calc(10000ms * var(--dna-tempo, 1));
   --stagger-base: 80ms;
 
