@@ -8,6 +8,7 @@ interface HeroSectionProps {
   data: HomepageData | null
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- data reserved for future server-side injection
 export function HeroSection({ data }: HeroSectionProps) {
   const sectionRef = useRef<HTMLElement>(null)
 
