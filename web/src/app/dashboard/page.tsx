@@ -1,22 +1,11 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { AppShell } from "@/components/layout"
-import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction, MarketRegimeLabel } from "@/components/dashboard"
+import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction } from "@/components/dashboard"
+import { DashboardGreeting } from "@/components/dashboard/dashboard-greeting"
 import { ProposalBanner } from "@/components/dashboard/proposal-banner"
 import { serverFetch } from "@/lib/api/server"
 import type { DashboardResponse, PickSummary } from "@/lib/api/types"
-
-function formatLastUpdated(isoString: string): string {
-  const date = new Date(isoString)
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  })
-}
 
 function computePortfolioConviction(picks: PickSummary[]): { score: number; label: string } | null {
   if (picks.length === 0) return null
@@ -44,17 +33,11 @@ export default async function DashboardPage() {
   return (
     <AppShell>
       <div className="mb-10 pt-12 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-          {data?.last_updated && (
-            <p className="text-sm text-text-secondary mt-1">
-              Last updated: {formatLastUpdated(data.last_updated)}
-            </p>
-          )}
-          {data?.picks != null && (
-            <MarketRegimeLabel pickCount={data.picks.length} />
-          )}
-        </div>
+        <DashboardGreeting
+          userName={session.user?.name?.split(" ")[0] ?? ""}
+          changesCount={0}
+          lastUpdated={data?.last_updated ?? new Date().toISOString()}
+        />
         {data?.picks && (() => {
           const conviction = computePortfolioConviction(data.picks)
           return conviction ? (

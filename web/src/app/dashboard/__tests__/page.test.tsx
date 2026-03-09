@@ -124,7 +124,8 @@ describe("Dashboard Page (Server Component)", () => {
     const jsx = await DashboardPage()
     render(jsx)
 
-    expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
+    expect(screen.getByTestId("dashboard-greeting")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument()
     expect(screen.getByTestId("picks-grid")).toBeInTheDocument()
     expect(screen.getByTestId("stock-card-AAPL")).toBeInTheDocument()
     expect(screen.getByTestId("stock-card-MSFT")).toBeInTheDocument()
