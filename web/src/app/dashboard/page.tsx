@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { AppShell } from "@/components/layout"
-import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction, MarketContextSidebar } from "@/components/dashboard"
+import { PicksGrid, WatchlistPicksList, IngestionBanner, PortfolioConviction, MarketContextSidebar, RecentChanges } from "@/components/dashboard"
 import { DashboardGreeting } from "@/components/dashboard/dashboard-greeting"
 import { ProposalBanner } from "@/components/dashboard/proposal-banner"
 import { serverFetch } from "@/lib/api/server"
@@ -88,6 +88,15 @@ export default async function DashboardPage() {
               totalScored={data?.total_scored}
               universeSize={data?.universe?.size}
             />
+          </section>
+
+          <section className="mb-10">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
+              Recent Changes
+            </h2>
+            <div className="border border-border-subtle rounded-lg bg-bg-elevated p-4">
+              <RecentChanges changes={[]} />
+            </div>
           </section>
 
           {(data?.watchlist?.length ?? 0) > 0 && (
