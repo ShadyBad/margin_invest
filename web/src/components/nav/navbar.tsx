@@ -6,7 +6,6 @@ import { NavLogo } from "./nav-logo"
 import { NavLinks } from "./nav-links"
 import { NavCTA } from "./nav-cta"
 import { UserDropdown } from "./user-dropdown"
-import { ThemeToggle } from "./theme-toggle"
 import { MobileMenu } from "./mobile-menu"
 import { TickerSearch } from "./ticker-search"
 
@@ -32,7 +31,6 @@ export function Navbar() {
           {nav.user && (
             <UserDropdown user={nav.user} />
           )}
-          <ThemeToggle />
         </div>
 
         <button

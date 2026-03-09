@@ -4,13 +4,6 @@ import userEvent from "@testing-library/user-event"
 import { MobileMenu } from "../mobile-menu"
 import type { NavigationState } from "@/hooks/use-navigation"
 
-vi.mock("next-themes", () => ({
-  useTheme: () => ({
-    resolvedTheme: "dark",
-    setTheme: vi.fn(),
-  }),
-}))
-
 const publicNav: NavigationState = {
   isAuthenticated: false,
   links: [],
@@ -77,8 +70,4 @@ describe("MobileMenu", () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it("renders theme toggle when menu is open", () => {
-    render(<MobileMenu nav={publicNav} isOpen={true} onClose={vi.fn()} />)
-    expect(screen.getByRole("button", { name: /switch to (light|dark) mode/i })).toBeInTheDocument()
-  })
 })

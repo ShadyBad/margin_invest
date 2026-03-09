@@ -11,13 +11,6 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }))
 
-vi.mock("next-themes", () => ({
-  useTheme: () => ({
-    resolvedTheme: "dark",
-    setTheme: vi.fn(),
-  }),
-}))
-
 vi.mock("@/hooks/use-navigation", () => ({
   useNavigation: () => {
     if (mockIsAuthenticated) {
@@ -145,8 +138,4 @@ describe("Navbar", () => {
     })
   })
 
-  it("renders theme toggle button", () => {
-    render(<Navbar />)
-    expect(screen.getByRole("button", { name: /switch to (light|dark) mode/i })).toBeInTheDocument()
-  })
 })

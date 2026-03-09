@@ -77,7 +77,7 @@ export default function RootLayout({
             strategy="beforeInteractive"
           />
         )}
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeProvider attribute="class" forcedTheme="dark">
           <SessionProvider>
             <PostHogProvider>
               <Suspense fallback={null}>
