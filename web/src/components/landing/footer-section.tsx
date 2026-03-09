@@ -27,6 +27,7 @@ export function FooterSection() {
     if (!footerRef.current) return
 
     let cancelled = false
+    let trigger: { kill: () => void } | null = null
 
     async function animate() {
       const gsapModule = await import("gsap")
@@ -43,7 +44,7 @@ export function FooterSection() {
       if (!content) return
 
       gsap.set(content, { opacity: 0 })
-      ScrollTrigger.create({
+      trigger = ScrollTrigger.create({
         trigger: el,
         start: "top 90%",
         once: true,
@@ -61,6 +62,7 @@ export function FooterSection() {
 
     return () => {
       cancelled = true
+      trigger?.kill()
     }
   }, [])
 

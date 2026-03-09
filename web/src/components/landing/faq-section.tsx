@@ -84,6 +84,7 @@ export function FaqSection() {
     if (!sectionRef.current) return
 
     let cancelled = false
+    const triggers: { kill: () => void }[] = []
 
     async function animate() {
       const gsapModule = await import("gsap")
@@ -100,58 +101,64 @@ export function FaqSection() {
       const label = el.querySelector("[data-faq-label]")
       if (label) {
         gsap.set(label, { opacity: 0, y: 20 })
-        ScrollTrigger.create({
-          trigger: label,
-          start: "top 90%",
-          once: true,
-          onEnter: () => {
-            gsap.to(label, {
-              opacity: 1,
-              y: 0,
-              duration: 0.5,
-              ease: "power2.out",
-            })
-          },
-        })
+        triggers.push(
+          ScrollTrigger.create({
+            trigger: label,
+            start: "top 90%",
+            once: true,
+            onEnter: () => {
+              gsap.to(label, {
+                opacity: 1,
+                y: 0,
+                duration: 0.5,
+                ease: "power2.out",
+              })
+            },
+          })
+        )
       }
 
       // Staggered FAQ item reveals
       const items = el.querySelectorAll("[data-faq-item]")
       gsap.set(items, { opacity: 0, y: 12 })
       items.forEach((item, i) => {
-        ScrollTrigger.create({
-          trigger: item,
-          start: `top ${90 - i * 0}%`,
-          once: true,
-          onEnter: () => {
-            gsap.to(item, {
-              opacity: 1,
-              y: 0,
-              duration: 0.4,
-              delay: i * 0.08,
-              ease: "power2.out",
-            })
-          },
-        })
+        triggers.push(
+          ScrollTrigger.create({
+            trigger: item,
+            start: "top 90%",
+            once: true,
+            onEnter: () => {
+              gsap.to(item, {
+                opacity: 1,
+                y: 0,
+                duration: 0.4,
+                delay: i * 0.08,
+                ease: "power2.out",
+              })
+            },
+          })
+        )
       })
 
       // Closing CTA fade-in
       const cta = el.querySelector("[data-faq-cta]")
       if (cta) {
         gsap.set(cta, { opacity: 0, y: 16 })
-        ScrollTrigger.create({
-          trigger: cta,
-          start: "top 90%",
-          once: true,
-          onEnter: () => {
-            gsap.to(cta, {
-              opacity: 1,
-              y: 0,
-              duration: 0.5,
-              ease: "power2.out",
-            })
-          },
-        })
+        triggers.push(
+          ScrollTrigger.create({
+            trigger: cta,
+            start: "top 90%",
+            once: true,
+            onEnter: () => {
+              gsap.to(cta, {
+                opacity: 1,
+                y: 0,
+                duration: 0.5,
+                ease: "power2.out",
+              })
+            },
+          })
+        )
       }
     }
 
@@ -159,6 +166,7 @@ export function FaqSection() {
 
     return () => {
       cancelled = true
+      triggers.forEach((t) => t.kill())
     }
   }, [])
 
