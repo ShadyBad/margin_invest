@@ -7,7 +7,6 @@ import { EliminationVignette } from "./elimination-vignette"
 import { EngineSection } from "./engine-section"
 import { ProofSection } from "./proof-section"
 import { PositioningSection } from "./positioning-section"
-import { DifferentiatorSection } from "./differentiator-section"
 import { PricingSection } from "./pricing-section"
 import { FaqSection } from "./faq-section"
 import { FooterSection } from "./footer-section"
@@ -60,7 +59,6 @@ export function HomepageClient({ data }: HomepageClientProps) {
       <ProofSection candidates={data?.allPicks ?? []} />
       <EngineSection onStageChange={handleStageChange} />
       <PositioningSection />
-      <DifferentiatorSection />
       <SectionGlow />
       <PricingSection />
       <FaqSection />

@@ -97,11 +97,6 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
             <ProofHeatmap />
           </ProofCard>
         </div>
-        <p className="text-[10px] text-text-tertiary text-center mt-8 max-w-lg mx-auto leading-relaxed">
-          Methodology in development · Results are illustrative.
-          Walk-forward backtesting with point-in-time data is in active development.
-          Every output shown reflects the scoring system&apos;s logic — not a performance guarantee.
-        </p>
       </div>
     </section>
   )

@@ -42,9 +42,9 @@ describe("HeroSection", () => {
     expect(screen.getByText("Engineered.")).toBeInTheDocument()
   })
 
-  it("renders subheadline about deterministic capital allocation", () => {
+  it("renders subheadline about deterministic scoring engine", () => {
     render(<HeroSection data={null} />)
-    expect(screen.getByText(/deterministic capital allocation/)).toBeInTheDocument()
+    expect(screen.getByText(/deterministic scoring engine/)).toBeInTheDocument()
   })
 
   it("renders search input instead of old CTAs", () => {
@@ -58,9 +58,8 @@ describe("HeroSection", () => {
     expect(screen.getByText("AAPL")).toBeInTheDocument()
   })
 
-  it("renders search-any-ticker call to action in subtext", () => {
+  it("renders search-one call to action in subtext", () => {
     render(<HeroSection data={null} />)
-    expect(screen.getByText(/search any ticker/i)).toBeInTheDocument()
-    expect(screen.getByText(/quantitative evidence/i)).toBeInTheDocument()
+    expect(screen.getByText(/No opinions\. No overrides\. Search one\./)).toBeInTheDocument()
   })
 })

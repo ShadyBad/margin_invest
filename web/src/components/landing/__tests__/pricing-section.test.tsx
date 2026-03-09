@@ -14,7 +14,7 @@ describe("PricingSection", () => {
   it("renders headline", () => {
     render(<PricingSection />)
     expect(
-      screen.getByText(/Invest in your process/)
+      screen.getByText(/Start free\. Full access/)
     ).toBeInTheDocument()
   })
 

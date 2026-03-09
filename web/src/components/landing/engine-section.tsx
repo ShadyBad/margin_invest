@@ -175,6 +175,9 @@ export function EngineSection({ onStageChange }: EngineSectionProps) {
           ))}
         </div>
       </div>
+      <p className="hidden md:block text-center text-xs text-text-tertiary mt-4 font-mono opacity-60">
+        Scroll to explore the engine pipeline
+      </p>
 
       {/* Mobile: sequential pipeline order */}
       <div className="md:hidden space-y-4 px-4">

@@ -12,6 +12,12 @@ export interface Tier {
   highlighted?: boolean
 }
 
+const CTA_TEXT: Record<string, string> = {
+  Scout: "Search Any Ticker",
+  Analyst: "Start Analyzing",
+  Portfolio: "Start Building",
+}
+
 interface PricingTierCardProps {
   tier: Tier
 }
@@ -111,14 +117,14 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)' }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)' }}
         >
-          Get Started
+          {CTA_TEXT[tier.name] ?? "Get Started"}
         </Link>
       ) : (
         <Link
           href="/onboarding"
           className="block text-center text-sm font-medium text-accent border border-accent/30 rounded-lg py-2.5 hover:bg-accent/5 transition-colors opacity-70"
         >
-          Get Started
+          {CTA_TEXT[tier.name] ?? "Get Started"}
         </Link>
       )}
     </motion.div>

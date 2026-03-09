@@ -98,31 +98,13 @@ export function HeroSection({ data }: HeroSectionProps) {
       <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-12 lg:gap-16 max-w-6xl w-full items-center pt-16 py-24 relative z-10">
         {/* Left column — headline + CTAs */}
         <div>
-          {/* Eyebrow tag */}
-          <div className="flex items-center gap-2.5 mb-5">
-            <span className="relative inline-flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
-              <span
-                className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent"
-                style={{ boxShadow: "0 0 8px var(--color-accent), 0 0 16px rgba(26,122,90,0.3)" }}
-              />
-            </span>
-            <span
-              className="font-mono text-xs uppercase tracking-widest text-accent font-medium"
-              style={{ textShadow: "0 0 12px rgba(26,122,90,0.4)" }}
-            >
-              Live
-            </span>
-          </div>
-
           <h1 data-hero-headline className="font-display leading-[1.05] tracking-tight mb-6" style={{ fontSize: "clamp(56px, 7.5vw, 96px)" }}>
             <span className="block text-text-primary">Discipline.</span>
             <span className="block" style={{ color: 'var(--color-accent)' }}>Engineered.</span>
           </h1>
 
           <p data-hero-subtext className="text-lg md:text-xl text-text-secondary max-w-lg mb-8 leading-relaxed">
-            A deterministic capital allocation system that replaces narrative with structure.
-            Search any ticker — the system shows you the quantitative evidence.
+            A deterministic scoring engine for 3,056 US equities. No opinions. No overrides. Search one.
           </p>
 
           {/* Divider */}

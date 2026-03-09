@@ -54,10 +54,10 @@ export function PricingSection() {
     <section id="pricing" className="py-16 px-6" style={{ background: 'linear-gradient(180deg, transparent 0%, var(--color-accent-warm-muted) 50%, transparent 100%)' }}>
       <div className="max-w-5xl mx-auto">
         <h2 className="font-display text-3xl md:text-4xl text-text-primary text-center mb-3">
-          Invest in your process, not another guru.
+          Start free. Full access from $19/month.
         </h2>
         <p className="text-base text-text-secondary text-center mb-16 max-w-md mx-auto">
-          Start free. Upgrade when the data changes how you think.
+          Upgrade when the data changes how you think.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {tiers.map((tier) => (
@@ -68,11 +68,8 @@ export function PricingSection() {
           <p className="text-sm text-text-secondary">
             No credit card required &middot; 30-day money-back guarantee on all paid plans.
           </p>
-          <p className="text-xs text-text-tertiary">
-            Founding members lock in this price forever. Pricing increases after launch.
-          </p>
-          <p className="text-[11px] font-mono text-accent/70 mt-4">
-            Scoring 3,000+ US equities daily for founding members
+          <p className="text-xs font-mono text-accent/70 mt-4">
+            Scoring 3,056 US equities daily
           </p>
         </div>
       </div>
