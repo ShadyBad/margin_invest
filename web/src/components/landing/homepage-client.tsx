@@ -2,6 +2,7 @@
 
 import { HeroSection } from "./hero-section"
 import { AuthorityStrip } from "./authority-strip"
+import { EvidenceSection } from "./evidence-section"
 import { PricingSection } from "./pricing-section"
 import { FaqSection } from "./faq-section"
 import { FooterSection } from "./footer-section"
@@ -16,6 +17,7 @@ export function HomepageClient({ data }: HomepageClientProps) {
     <div className="relative z-10">
       <HeroSection data={data} />
       <AuthorityStrip />
+      <EvidenceSection candidates={data?.allPicks ?? []} />
       <PricingSection />
       <FaqSection />
       <FooterSection />
