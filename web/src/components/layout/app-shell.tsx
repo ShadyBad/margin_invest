@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useCallback, useSyncExternalStore } from "react"
+import { useState, useCallback, useRef, useSyncExternalStore } from "react"
 import { MfaEnforcementBanner } from "@/components/banners/mfa-enforcement-banner"
 import { ScoreNotificationStack } from "@/components/ScoreNotificationStack"
+import { useKeyboardNav } from "@/hooks/use-keyboard-nav"
 import { TopBar } from "./top-bar"
 import { Sidebar } from "./sidebar"
 
@@ -32,6 +33,7 @@ function subscribe(callback: () => void): () => void {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const storedExpanded = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
   const [sidebarExpanded, setSidebarExpanded] = useState(storedExpanded)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const handleToggle = useCallback(() => {
     setSidebarExpanded((prev) => {
@@ -45,9 +47,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  useKeyboardNav({ searchInputRef })
+
   return (
     <div className="min-h-screen bg-bg-primary">
-      <TopBar onMenuToggle={handleToggle} />
+      <TopBar ref={searchInputRef} onMenuToggle={handleToggle} />
       <Sidebar expanded={sidebarExpanded} onToggle={handleToggle} />
       <main
         className="transition-[margin-left] duration-300 ease-in-out pt-14"
