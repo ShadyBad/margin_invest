@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
@@ -17,8 +18,11 @@ from margin_api.schemas.dashboard import (
     WatchlistItem,
 )
 from margin_api.schemas.universe import UniverseSummary, Warning
+from margin_api.services.analytics import track_event
 from margin_api.services.freshness import compute_freshness
 from margin_api.services.universe import get_active_snapshot
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
@@ -32,16 +36,23 @@ def _pick_summary_from_row(row) -> PickSummary:
     detail = s.score_detail or {}
     sentiment_pct = None
     growth_pct = None
-    for factor_key in ("sentiment", "growth"):
-        factor_data = detail.get(factor_key)
-        if isinstance(factor_data, dict):
-            sub_scores = factor_data.get("sub_scores", [])
-            if sub_scores:
-                total = sum(ss.get("percentile_rank", 0) for ss in sub_scores)
-                if factor_key == "sentiment":
-                    sentiment_pct = round(total / len(sub_scores), 1)
-                else:
-                    growth_pct = round(total / len(sub_scores), 1)
+
+    # Growth is a top-level FactorBreakdown (like quality/value/momentum)
+    growth_data = detail.get("growth")
+    if isinstance(growth_data, dict):
+        sub_scores = growth_data.get("sub_scores", [])
+        active = [ss for ss in sub_scores if not ss.get("stub", False)]
+        if active:
+            total = sum(ss.get("percentile_rank", 0) for ss in active)
+            growth_pct = round(total / len(active), 1)
+
+    # Sentiment is a sub-factor within momentum's sub_scores
+    momentum_data = detail.get("momentum")
+    if isinstance(momentum_data, dict):
+        for ss in momentum_data.get("sub_scores", []):
+            if isinstance(ss, dict) and ss.get("name") == "sentiment":
+                sentiment_pct = round(ss.get("percentile_rank", 0), 1)
+                break
 
     return PickSummary(
         score_id=s.id,
@@ -413,6 +424,11 @@ async def get_dashboard(
                 )
             )
 
+    # ── Autonomous-org PostHog events ────────────────────────────────
+    # Fire events that the autonomous-org webhook handler maps to agents.
+    # PostHog deduplicates by distinct_id + event within its pipeline.
+    _fire_dashboard_events(picks, universe)
+
     return DashboardResponse(
         picks=picks,
         watchlist=watchlist,
@@ -421,6 +437,51 @@ async def get_dashboard(
         universe=universe,
         warnings=warnings,
     )
+
+
+def _fire_dashboard_events(
+    picks: list[PickSummary],
+    universe: UniverseSummary | None,
+) -> None:
+    """Fire PostHog events consumed by the autonomous-org engine."""
+    org_id = "margin_invest"
+
+    # north_star_drop — portfolio conviction below "Moderate" threshold
+    if picks:
+        avg_score = sum(p.score or p.composite_percentile for p in picks) / len(picks)
+        if avg_score < 30:
+            track_event(org_id, "north_star_drop", {
+                "avg_score": round(avg_score, 1),
+                "pick_count": len(picks),
+                "label": "Weak",
+            })
+
+    # pql_threshold_crossed — universe fully scored (product-qualified)
+    if universe and universe.scoring_coverage >= 0.95:
+        track_event(org_id, "pql_threshold_crossed", {
+            "scoring_coverage": universe.scoring_coverage,
+            "universe_size": universe.size,
+            "version": universe.version,
+        })
+
+    # churn_risk_threshold_crossed — expired data signals product failure
+    expired_picks = [p for p in picks if p.data_freshness == "expired"]
+    if expired_picks:
+        expired_ratio = len(expired_picks) / len(picks) if picks else 0
+        if expired_ratio >= 0.5:
+            track_event(org_id, "churn_risk_threshold_crossed", {
+                "expired_count": len(expired_picks),
+                "total_picks": len(picks),
+                "expired_ratio": round(expired_ratio, 2),
+            })
+
+    # feature_flag_stale — any pick with expired data freshness
+    for p in expired_picks[:3]:  # cap to avoid noise
+        track_event(org_id, "feature_flag_stale", {
+            "ticker": p.ticker,
+            "data_freshness": p.data_freshness,
+            "scored_at": p.scored_at,
+        })
 
 
 @router.get("/dashboard/status")

@@ -60,6 +60,7 @@ from margin_api.schemas.auth import (
     WebAuthnOptionsRequest,
     WebAuthnOptionsResponse,
 )
+from margin_api.services.analytics import track_event
 from margin_api.services.audit import audit_log
 from margin_api.services.auth import AuthService, _hasher
 from margin_api.services.email import EmailService
@@ -121,9 +122,18 @@ async def register(
     try:
         user = await auth.register_user(db, body.username, body.email, body.password)
     except ValueError as exc:
+        track_event(body.email, "activation_failed", {
+            "error_type": "validation",
+            "error_message": str(exc),
+            "username": body.username,
+        })
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except IntegrityError as exc:
         logger.warning("Registration IntegrityError for %s: %s", body.username, exc)
+        track_event(body.email, "activation_failed", {
+            "error_type": "duplicate_account",
+            "username": body.username,
+        })
         await db.rollback()
         raise HTTPException(
             status_code=409,
