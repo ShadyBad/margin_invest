@@ -20,7 +20,7 @@ export function HomepageClient({ data }: HomepageClientProps) {
   return (
     <ScrollCanvas>
       <HeroSection data={data} />
-      <AuthorityStrip />
+      <AuthorityStrip data={data} />
       <EvidenceSection candidates={data?.allPicks ?? []} />
       <HowItWorksSection data={data} />
       <ResultsShowcaseSection data={data} />
