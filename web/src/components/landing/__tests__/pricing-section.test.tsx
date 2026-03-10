@@ -21,7 +21,7 @@ vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
 
-import { PricingSection } from "../pricing-section"
+import { PricingSection } from "../sections/pricing-section"
 
 describe("PricingSection", () => {
   it("renders headline", () => {

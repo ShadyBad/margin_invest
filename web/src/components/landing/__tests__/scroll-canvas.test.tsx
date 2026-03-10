@@ -28,7 +28,7 @@ vi.mock("@/hooks/use-media-query", () => ({
   useIsMobile: vi.fn(() => false),
 }))
 
-import { ScrollCanvas, useScrollCanvas } from "../scroll-canvas"
+import { ScrollCanvas, useScrollCanvas } from "../shared/scroll-canvas"
 
 describe("ScrollCanvas", () => {
   it("renders its children", () => {

@@ -6,7 +6,7 @@ import { ProofFactorBars } from "./proof-factor-bars"
 import { ProofSelectivityFunnel } from "./proof-selectivity-funnel"
 import { ProofSectorChart } from "./proof-sector-chart"
 import { ProofHeatmap } from "./proof-heatmap"
-import type { CandidateCard } from "./types"
+import type { CandidateCard } from "./shared/types"
 
 interface ProofCardProps {
   title: string

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { HeroSearch } from "./hero-search"
+import { HeroSearch } from "../hero-search"
 
 interface FaqEntry {
   question: string

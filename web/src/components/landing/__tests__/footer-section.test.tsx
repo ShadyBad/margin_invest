@@ -8,7 +8,7 @@ vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
 
-import { FooterSection } from "../footer-section"
+import { FooterSection } from "../sections/footer-section"
 
 describe("FooterSection (landing)", () => {
   it("renders all navigation links", () => {

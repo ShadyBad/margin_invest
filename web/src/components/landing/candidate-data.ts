@@ -1,4 +1,4 @@
-import type { CandidateCard } from "./types"
+import type { CandidateCard } from "./shared/types"
 
 export type { CandidateCard }
 

@@ -60,7 +60,7 @@ vi.mock("framer-motion", () => ({
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-import { EvidenceSection } from "../evidence-section"
+import { EvidenceSection } from "../sections/evidence-section"
 
 describe("EvidenceSection", () => {
   beforeEach(() => {

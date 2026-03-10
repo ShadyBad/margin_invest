@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import type { HomepageData, CandidateCard } from "./types"
+import type { HomepageData, CandidateCard } from "../shared/types"
 
 interface PillarsSectionProps {
   data: HomepageData | null

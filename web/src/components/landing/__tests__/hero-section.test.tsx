@@ -35,7 +35,7 @@ vi.mock("@/lib/api/client", () => ({
   },
 }))
 
-import { HeroSection } from "../hero-section"
+import { HeroSection } from "../sections/hero-section"
 
 describe("HeroSection", () => {
   it("renders Discipline. and Engineered.", () => {

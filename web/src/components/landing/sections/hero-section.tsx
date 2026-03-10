@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import type { HomepageData } from "./types"
-import { HeroSearch } from "./hero-search"
+import type { HomepageData } from "../shared/types"
+import { HeroSearch } from "../hero-search"
 
 interface HeroSectionProps {
   data: HomepageData | null

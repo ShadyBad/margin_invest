@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import type { HomepageData } from "./types"
+import type { HomepageData } from "../shared/types"
 
 interface HowItWorksSectionProps {
   data: HomepageData | null

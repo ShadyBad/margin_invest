@@ -2,7 +2,7 @@ import { Navbar } from "@/components/nav/navbar"
 import { serverFetch } from "@/lib/api/server"
 import { HomepageClient } from "@/components/landing/homepage-client"
 import type { DashboardResponse } from "@/lib/api/types"
-import type { HomepageData, CandidateCard } from "@/components/landing/types"
+import type { HomepageData, CandidateCard } from "@/components/landing/shared/types"
 
 function toCandidateCard(pick: DashboardResponse["picks"][0]): CandidateCard {
   return {

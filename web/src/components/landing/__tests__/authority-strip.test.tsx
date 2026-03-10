@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
-import { AuthorityStrip } from "../authority-strip"
+import { AuthorityStrip } from "../sections/authority-strip"
 
 describe("AuthorityStrip", () => {
   it("renders the section", () => {

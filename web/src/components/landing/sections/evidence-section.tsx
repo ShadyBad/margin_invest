@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from "react"
 import Link from "next/link"
-import { ProofSelectivityFunnel } from "./proof-selectivity-funnel"
-import { ProofSectorChart } from "./proof-sector-chart"
-import { ProofHeatmap } from "./proof-heatmap"
-import type { CandidateCard } from "./types"
+import { ProofSelectivityFunnel } from "../proof-selectivity-funnel"
+import { ProofSectorChart } from "../proof-sector-chart"
+import { ProofHeatmap } from "../proof-heatmap"
+import type { CandidateCard } from "../shared/types"
 
 interface EvidenceSectionProps {
   candidates?: CandidateCard[]
