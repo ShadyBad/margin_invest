@@ -3,9 +3,8 @@
 import { HeroSection } from "./sections/hero-section"
 import { AuthorityStrip } from "./sections/authority-strip"
 import { EvidenceSection } from "./sections/evidence-section"
-import { HowItWorksSection } from "./sections/how-it-works-section"
+import { PipelineSection } from "./sections/pipeline-section"
 import { ResultsShowcaseSection } from "./sections/results-showcase-section"
-import { PillarsSection } from "./sections/pillars-section"
 import { PricingSection } from "./sections/pricing-section"
 import { FaqSection } from "./sections/faq-section"
 import { FooterSection } from "./sections/footer-section"
@@ -28,9 +27,8 @@ export function HomepageClient({ data }: HomepageClientProps) {
         totalScored={data?.total_scored}
         survivingCount={data?.surviving_count}
       />
-      <HowItWorksSection data={data} />
+      <PipelineSection data={data} />
       <ResultsShowcaseSection data={data} />
-      <PillarsSection data={data} />
       <PricingSection totalUniverse={data?.total_universe} />
       <FaqSection />
       <FooterSection />
