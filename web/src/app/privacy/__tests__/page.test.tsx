@@ -71,7 +71,7 @@ describe("Privacy Policy Page", () => {
 
   it("renders Children's Privacy section", () => {
     render(<PrivacyPage />)
-    expect(screen.getByText(/Children/)).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /Children/ })).toBeInTheDocument()
     expect(screen.getByText(/not directed to individuals under 18/i)).toBeInTheDocument()
   })
 })

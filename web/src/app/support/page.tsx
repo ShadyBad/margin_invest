@@ -1,12 +1,19 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Navbar } from "@/components/nav/navbar"
-import { TopicCards, FaqAccordion, ContactSection, faqCategories, contactCards } from "@/components/support"
+import { PageHeader } from "@/components/shared/page-header"
+import {
+  TopicCards,
+  FaqAccordion,
+  ContactSection,
+  faqCategories,
+  contactCards,
+} from "@/components/support"
 
 export const metadata: Metadata = {
   title: "Support | Margin Invest",
   description:
-    "Get help with Margin Invest — account access, scoring questions, billing, security, and contact information.",
+    "Get help with Margin Invest -- account access, scoring questions, billing, security, and contact information.",
 }
 
 export default function SupportPage() {
@@ -16,12 +23,11 @@ export default function SupportPage() {
         <Navbar />
 
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-          <div className="text-center mb-12">
-            <h1 className="heading-2 text-text-primary mb-3">How can we help?</h1>
-            <p className="body-text text-text-secondary">
-              Find answers to common questions or reach out to our team directly.
-            </p>
-          </div>
+          <PageHeader
+            category="SUPPORT"
+            title="How can we help?"
+            description="Find answers to common questions or reach out to our team directly."
+          />
 
           <div className="mb-16">
             <TopicCards categories={faqCategories} />

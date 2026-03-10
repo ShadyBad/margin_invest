@@ -49,7 +49,7 @@ export function TopicCards({ categories }: { categories: FaqCategory[] }) {
         <a
           key={category.id}
           href={`#faq-${category.id}`}
-          className="p-5 border border-border-primary rounded-lg bg-bg-elevated hover:border-accent/40 transition-colors group"
+          className="terminal-card p-5 group"
         >
           <div className="mb-3">{icons[category.icon]}</div>
           <h3 className="text-[15px] font-semibold text-text-primary mb-1 group-hover:text-accent transition-colors">
