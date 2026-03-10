@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react"
 
-interface FactorSignatureProps {
+export interface FactorSignatureProps {
   factors: {
     quality: number | null
     value: number | null
