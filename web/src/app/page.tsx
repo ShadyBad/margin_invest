@@ -3,6 +3,7 @@ import { serverFetch } from "@/lib/api/server"
 import { HomepageClient } from "@/components/landing/homepage-client"
 import type { DashboardResponse } from "@/lib/api/types"
 import type { HomepageData, CandidateCard } from "@/components/landing/shared/types"
+import fallbackSnapshot from "@/data/fallback-scoring-snapshot.json"
 
 function toCandidateCard(pick: DashboardResponse["picks"][0]): CandidateCard {
   return {
@@ -70,7 +71,10 @@ async function getHomepageData(): Promise<HomepageData | null> {
         : data.picks.length,
     }
   } catch {
-    return null
+    return {
+      ...(fallbackSnapshot as unknown as HomepageData),
+      isFallback: true,
+    }
   }
 }
 

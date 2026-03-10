@@ -27,4 +27,5 @@ export interface HomepageData {
   total_scored: number
   total_universe: number
   surviving_count: number
+  isFallback?: boolean
 }
