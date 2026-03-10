@@ -6,7 +6,6 @@ import { EvidenceSection } from "./sections/evidence-section"
 import { PipelineSection } from "./sections/pipeline-section"
 import { ResultsShowcaseSection } from "./sections/results-showcase-section"
 import { PricingSection } from "./sections/pricing-section"
-import { FaqSection } from "./sections/faq-section"
 import { FooterSection } from "./sections/footer-section"
 import { ScrollCanvas } from "./shared/scroll-canvas"
 import type { HomepageData } from "./shared/types"
@@ -30,7 +29,6 @@ export function HomepageClient({ data }: HomepageClientProps) {
       <PipelineSection data={data} />
       <ResultsShowcaseSection data={data} />
       <PricingSection totalUniverse={data?.total_universe} />
-      <FaqSection />
       <FooterSection />
     </ScrollCanvas>
   )

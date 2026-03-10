@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react"
 import { HeroSearch } from "../hero-search"
 
-interface FaqEntry {
+export interface FaqEntry {
   question: string
   answer: string
 }
 
-const FAQ_ITEMS: FaqEntry[] = [
+export const FAQ_ITEMS: FaqEntry[] = [
   {
     question: "What is Margin Invest?",
     answer:
@@ -46,7 +46,7 @@ const FAQ_ITEMS: FaqEntry[] = [
   },
 ]
 
-function FaqItem({ item }: { item: FaqEntry }) {
+export function FaqItem({ item }: { item: FaqEntry }) {
   const [open, setOpen] = useState(false)
 
   return (

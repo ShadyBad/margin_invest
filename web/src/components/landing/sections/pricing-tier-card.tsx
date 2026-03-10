@@ -32,9 +32,9 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
               boxShadow: "0 0 40px rgba(201,150,59,0.12), 0 8px 24px rgba(0,0,0,0.3)",
               transform: "scale(1.02)",
             }
-          : tier.name === "Scout"
-            ? { opacity: 0.85 }
-            : undefined
+          : {
+              borderColor: "color-mix(in srgb, var(--color-border-subtle) 60%, transparent)",
+            }
       }
     >
       {/* Top accent bar for highlighted card */}
@@ -66,7 +66,9 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
       </div>
       <p className="text-sm text-text-secondary mb-1">{tier.description}</p>
       {tier.period ? (
-        <p className="text-xs text-text-tertiary font-mono mb-5">billed monthly</p>
+        <p className="text-xs text-text-tertiary font-mono mb-5">
+          billed {tier.period === "/year" ? "annually" : "monthly"}
+        </p>
       ) : (
         <div className="mb-6" />
       )}

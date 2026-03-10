@@ -1,13 +1,20 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PricingTierCard, type Tier } from "./pricing-tier-card"
 
-const tiers: Tier[] = [
+interface TierBase {
+  name: string
+  monthlyPrice: number | null
+  description: string
+  features: string[]
+  highlighted: boolean
+}
+
+const TIER_DATA: TierBase[] = [
   {
     name: "Scout",
-    price: "Free",
-    period: "",
+    monthlyPrice: null,
     description: "Search any ticker. See what survives.",
     features: [
       "Unlimited ticker searches",
@@ -20,8 +27,7 @@ const tiers: Tier[] = [
   },
   {
     name: "Analyst",
-    price: "$19",
-    period: "/mo",
+    monthlyPrice: 19,
     description: "Full forensic access for serious investors.",
     features: [
       "Everything in Scout",
@@ -35,8 +41,7 @@ const tiers: Tier[] = [
   },
   {
     name: "Portfolio",
-    price: "$49",
-    period: "/mo",
+    monthlyPrice: 49,
     description: "The system that runs your portfolio.",
     features: [
       "Everything in Analyst",
@@ -50,15 +55,52 @@ const tiers: Tier[] = [
   },
 ]
 
+function buildTiers(annual: boolean): Tier[] {
+  return TIER_DATA.map((t) => {
+    if (t.monthlyPrice === null) {
+      return {
+        name: t.name,
+        price: "Free",
+        period: "",
+        description: t.description,
+        features: t.features,
+        highlighted: t.highlighted,
+      }
+    }
+    if (annual) {
+      const annualPrice = t.monthlyPrice * 10
+      return {
+        name: t.name,
+        price: `$${annualPrice}`,
+        period: "/year",
+        description: t.description,
+        features: t.features,
+        highlighted: t.highlighted,
+      }
+    }
+    return {
+      name: t.name,
+      price: `$${t.monthlyPrice}`,
+      period: "/mo",
+      description: t.description,
+      features: t.features,
+      highlighted: t.highlighted,
+    }
+  })
+}
+
 interface PricingSectionProps {
   totalUniverse?: number
 }
 
 export function PricingSection({ totalUniverse }: PricingSectionProps) {
+  const [annual, setAnnual] = useState(false)
   const sectionRef = useRef<HTMLElement>(null)
   const cardRefs = useRef<(HTMLDivElement | null)[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const contactRef = useRef<HTMLDivElement>(null)
+
+  const tiers = buildTiers(annual)
 
   useEffect(() => {
     if (!sectionRef.current) return
@@ -128,9 +170,9 @@ export function PricingSection({ totalUniverse }: PricingSectionProps) {
 
   return (
     <section ref={sectionRef} id="pricing" className="px-6">
-      <div className="max-w-5xl mx-auto flex flex-col justify-center py-20">
+      <div className="max-w-6xl mx-auto flex flex-col justify-center py-20">
         {/* Headline block */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-12">
           <h2
             className="font-display text-text-primary text-center mb-3"
             style={{ fontSize: "clamp(36px, 5vw, 48px)" }}
@@ -140,6 +182,43 @@ export function PricingSection({ totalUniverse }: PricingSectionProps) {
           <p className="text-base text-text-secondary text-center max-w-md mx-auto">
             Upgrade when the data changes how you think.
           </p>
+        </div>
+
+        {/* Billing toggle */}
+        <div className="flex items-center justify-center gap-3 mb-10" data-billing-toggle>
+          <button
+            type="button"
+            onClick={() => setAnnual(false)}
+            className={`text-sm font-medium px-4 py-1.5 rounded-lg transition-colors ${
+              !annual
+                ? "bg-bg-elevated text-text-primary"
+                : "text-text-tertiary hover:text-text-secondary"
+            }`}
+            aria-pressed={!annual}
+          >
+            Monthly
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnnual(true)}
+            className={`text-sm font-medium px-4 py-1.5 rounded-lg transition-colors inline-flex items-center gap-2 ${
+              annual
+                ? "bg-bg-elevated text-text-primary"
+                : "text-text-tertiary hover:text-text-secondary"
+            }`}
+            aria-pressed={annual}
+          >
+            Annual
+            <span
+              className="text-xs px-1.5 py-0.5 rounded font-mono"
+              style={{
+                color: "var(--color-bullish)",
+                background: "color-mix(in srgb, var(--color-bullish) 12%, transparent)",
+              }}
+            >
+              2 months free
+            </span>
+          </button>
         </div>
 
         {/* Cards container */}

@@ -2,6 +2,8 @@
 
 import Link from "next/link"
 import { useEffect, useRef } from "react"
+import { FAQ_ITEMS, FaqItem } from "./faq-section"
+import { HeroSearch } from "../hero-search"
 
 const productLinks = [
   { label: "Dashboard", href: "/dashboard" },
@@ -70,6 +72,29 @@ export function FooterSection() {
     <footer id="footer" ref={footerRef}>
       <hr className="border-border-subtle" />
       <div data-footer-content>
+        {/* CTA section */}
+        <div className="max-w-3xl mx-auto px-6 pt-16 pb-12 text-center" data-footer-cta>
+          <h2
+            className="font-display text-text-primary mb-8"
+            style={{ fontSize: "clamp(28px, 4vw, 40px)" }}
+          >
+            Score your first position.
+          </h2>
+          <HeroSearch />
+        </div>
+
+        {/* FAQ accordion */}
+        <div className="max-w-3xl mx-auto px-6 pb-12" data-footer-faq>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-text-tertiary text-center mb-8">
+            Common Questions
+          </p>
+          <div>
+            {FAQ_ITEMS.map((item) => (
+              <FaqItem key={item.question} item={item} />
+            ))}
+          </div>
+        </div>
+
         {/* Main footer */}
         <div className="max-w-6xl mx-auto px-6 py-12">
           <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-10">
