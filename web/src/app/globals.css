@@ -112,52 +112,23 @@
   --dna-tempo: 1;
 }
 
-/* Responsive typography utilities */
-.heading-1 {
-  font-size: 48px;
-  font-weight: 700;
-  line-height: 1.0;
-  letter-spacing: -0.5px;
-}
+/* Typography Scale — enforced, not suggested */
+.text-display-1 { font-family: var(--font-display); font-size: clamp(44px, 7vw, 72px); line-height: 1.05; font-weight: 400; }
+.text-display-2 { font-family: var(--font-display); font-size: clamp(32px, 5vw, 48px); line-height: 1.1; font-weight: 400; }
+.text-title-1 { font-family: var(--font-sans); font-size: clamp(22px, 2.5vw, 28px); line-height: 1.2; font-weight: 600; }
+.text-title-2 { font-family: var(--font-sans); font-size: clamp(17px, 1.8vw, 20px); line-height: 1.3; font-weight: 600; }
+.text-body { font-family: var(--font-sans); font-size: clamp(16px, 1.2vw, 17px); line-height: 1.6; font-weight: 400; }
+.text-caption { font-family: var(--font-sans); font-size: clamp(13px, 1vw, 14px); line-height: 1.5; font-weight: 400; }
+.text-mono-label { font-family: var(--font-mono); font-size: 11px; line-height: 1.2; letter-spacing: 0.2em; text-transform: uppercase; }
+.text-mono-data { font-family: var(--font-mono); font-size: clamp(24px, 3vw, 32px); line-height: 1.1; }
 
-.heading-2 {
-  font-size: 36px;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.3px;
-}
-
-.heading-3 {
-  font-size: 24px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.body-text {
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-.caption-text {
-  font-size: 13px;
-  line-height: 1.4;
-  letter-spacing: 0.2px;
-}
-
-@media (min-width: 768px) {
-  .heading-1 { font-size: 56px; }
-  .heading-2 { font-size: 40px; }
-  .heading-3 { font-size: 28px; }
-  .body-text { font-size: 17px; }
-}
-
-@media (min-width: 1024px) {
-  .heading-1 { font-size: 72px; }
-  .heading-2 { font-size: 48px; }
-  .heading-3 { font-size: 32px; }
-  .body-text { font-size: 18px; }
-  .caption-text { font-size: 14px; }
-}
+/* Legacy typography aliases — heading-1 = text-display-1, heading-2 = text-display-2,
+   heading-3 = text-title-1, body-text = text-body, caption-text = text-caption */
+.heading-1 { font-size: clamp(44px, 7vw, 72px); line-height: 1.05; font-weight: 700; }
+.heading-2 { font-size: clamp(32px, 5vw, 48px); line-height: 1.1; font-weight: 700; }
+.heading-3 { font-family: var(--font-sans); font-size: clamp(22px, 2.5vw, 28px); line-height: 1.2; font-weight: 600; }
+.body-text { font-family: var(--font-sans); font-size: clamp(16px, 1.2vw, 17px); line-height: 1.6; font-weight: 400; }
+.caption-text { font-family: var(--font-sans); font-size: clamp(13px, 1vw, 14px); line-height: 1.5; font-weight: 400; }
 
 /* Font tokens — set by next/font, consumed via @theme inline */
 @theme inline {
@@ -301,47 +272,38 @@ body {
   }
 }
 
-/* shadcn dark-mode oklch variables (dark-only, set as defaults) */
+/* shadcn compatibility — minimal variables referenced by @theme inline and components */
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.141 0.015 155);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+  --background: var(--color-bg-primary);
+  --foreground: var(--color-text-primary);
+  --card: var(--color-bg-elevated);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-bg-elevated);
+  --popover-foreground: var(--color-text-primary);
+  --primary: var(--color-text-primary);
+  --primary-foreground: var(--color-bg-primary);
+  --secondary: var(--color-bg-subtle);
+  --secondary-foreground: var(--color-text-primary);
+  --muted: var(--color-bg-subtle);
+  --muted-foreground: var(--color-text-secondary);
+  --accent: var(--color-accent);
+  --accent-foreground: var(--color-text-primary);
+  --destructive: var(--color-danger);
+  --border: var(--color-border-primary);
+  --input: var(--color-border-primary);
+  --ring: var(--color-accent);
+  --chart-1: var(--color-accent);
+  --chart-2: var(--color-bullish);
+  --chart-3: var(--color-warning);
+  --chart-4: var(--color-value);
+  --chart-5: var(--color-bearish);
+  --sidebar: var(--color-bg-elevated);
+  --sidebar-foreground: var(--color-text-primary);
+  --sidebar-primary: var(--color-accent);
+  --sidebar-primary-foreground: var(--color-text-primary);
+  --sidebar-accent: var(--color-bg-subtle);
+  --sidebar-accent-foreground: var(--color-text-primary);
+  --sidebar-border: var(--color-border-primary);
+  --sidebar-ring: var(--color-accent);
 }
