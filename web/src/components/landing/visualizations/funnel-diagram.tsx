@@ -68,7 +68,7 @@ export function FunnelDiagram({
         const nextStage = stages[i + 1]
 
         return (
-          <g key={stage.label} data-funnel-stage={stage.label}>
+          <g key={stage.label} data-funnel-stage={stage.label} className="cursor-default transition-all duration-200 hover:brightness-125 [&:hover_rect]:brightness-125 [&:hover_text]:fill-white">
             {/* Bar rectangle */}
             <rect
               x={x}
@@ -78,6 +78,7 @@ export function FunnelDiagram({
               rx={4}
               fill="var(--color-accent, #1A7A5A)"
               fillOpacity={stage.opacity}
+              className="transition-all duration-200"
             />
 
             {/* Stage label (left-aligned inside bar) */}
@@ -85,7 +86,7 @@ export function FunnelDiagram({
               x={centerX}
               y={y + BAR_HEIGHT / 2 - 6}
               textAnchor="middle"
-              className="fill-text-primary"
+              className="fill-text-primary transition-all duration-200"
               style={{
                 fontSize: 10,
                 fontFamily: "var(--font-mono, monospace)",
@@ -101,7 +102,7 @@ export function FunnelDiagram({
               x={centerX}
               y={y + BAR_HEIGHT / 2 + 8}
               textAnchor="middle"
-              className="fill-text-primary"
+              className="fill-text-primary transition-all duration-200"
               style={{
                 fontSize: 13,
                 fontFamily: "var(--font-mono, monospace)",

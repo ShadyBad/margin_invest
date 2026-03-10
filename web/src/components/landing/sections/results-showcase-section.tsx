@@ -43,7 +43,7 @@ function getTierColor(tier: string): string {
 
 function CandidateCardItem({ candidate }: { candidate: CandidateCard }) {
   return (
-    <div className="terminal-card p-5 flex flex-col gap-3">
+    <div className="terminal-card p-5 flex flex-col gap-3 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(26,122,90,0.12)] hover:border-accent/30">
       {/* Ticker + Name */}
       <div>
         <div className="text-title-1 font-bold text-text-primary">
@@ -56,7 +56,7 @@ function CandidateCardItem({ candidate }: { candidate: CandidateCard }) {
 
       {/* Composite score — color-encoded by tier */}
       <div
-        className="text-mono-data font-bold"
+        className="text-mono-data font-bold transition-transform duration-200 hover:scale-105 origin-left cursor-default"
         style={{ color: getTierColor(candidate.composite_tier) }}
       >
         {candidate.score}

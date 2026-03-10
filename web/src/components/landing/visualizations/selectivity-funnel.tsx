@@ -53,15 +53,15 @@ export function SelectivityFunnel({
         const widthPct = Math.max(6, (count / max) * 100)
 
         return (
-          <div key={stage.key} data-testid={`funnel-stage-${stage.key}`}>
+          <div key={stage.key} data-testid={`funnel-stage-${stage.key}`} className="group/funnel cursor-default">
             <div className="flex items-center justify-between mb-0.5">
-              <span className="text-mono-label text-text-tertiary">{stage.label}</span>
-              <span className="font-mono text-xs text-text-secondary tabular-nums">
+              <span className="text-mono-label text-text-tertiary transition-colors duration-200 group-hover/funnel:text-text-secondary">{stage.label}</span>
+              <span className="font-mono text-xs text-text-secondary tabular-nums transition-colors duration-200 group-hover/funnel:text-text-primary">
                 {count.toLocaleString()}
               </span>
             </div>
             <div
-              className="h-5 rounded-sm"
+              className="h-5 rounded-sm transition-all duration-200 group-hover/funnel:brightness-125 group-hover/funnel:shadow-[0_0_8px_rgba(26,122,90,0.2)]"
               data-testid={`funnel-bar-${stage.key}`}
               style={{
                 width: `${widthPct}%`,

@@ -44,26 +44,26 @@ export function FactorBars({ factors, compact = false }: FactorBarsProps) {
         const color = getPercentileColor(value)
 
         return (
-          <div key={key} className="flex items-center gap-3">
+          <div key={key} className="group/bar flex items-center gap-3 cursor-default">
             {/* Label */}
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-tertiary w-[72px] shrink-0">
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-tertiary w-[72px] shrink-0 transition-colors duration-200 group-hover/bar:text-text-secondary">
               {key.toUpperCase()}
             </span>
 
             {/* Bar track */}
             <div
-              className={`relative flex-1 rounded-full bg-white/5 overflow-hidden ${compact ? "h-1" : "h-1.5"}`}
+              className={`relative flex-1 rounded-full bg-white/5 overflow-hidden ${compact ? "h-1" : "h-1.5"} transition-all duration-200 group-hover/bar:bg-white/10`}
               data-factor-track
             >
               <div
-                className="h-full rounded-full transition-all duration-500"
+                className="h-full rounded-full transition-all duration-500 group-hover/bar:brightness-125"
                 style={{ width: `${value}%`, backgroundColor: color }}
                 data-factor-bar
               />
             </div>
 
             {/* Numeric value */}
-            <span className="font-mono text-[11px] text-text-secondary w-7 text-right tabular-nums">
+            <span className="font-mono text-[11px] text-text-secondary w-7 text-right tabular-nums transition-colors duration-200 group-hover/bar:text-text-primary">
               {value}
             </span>
           </div>

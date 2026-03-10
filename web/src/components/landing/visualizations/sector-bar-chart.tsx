@@ -71,13 +71,13 @@ export function SectorBarChart({ candidates }: SectorBarChartProps) {
       {groups.map((g) => {
         const widthPct = Math.max(8, (g.count / maxCount) * 100)
         return (
-          <div key={g.sector} data-testid={`sector-row-${g.sector}`} className="flex items-center gap-2">
-            <span className="text-mono-label text-text-tertiary w-[100px] shrink-0 truncate" title={g.sector}>
+          <div key={g.sector} data-testid={`sector-row-${g.sector}`} className="group/sector flex items-center gap-2 cursor-default">
+            <span className="text-mono-label text-text-tertiary w-[100px] shrink-0 truncate transition-colors duration-200 group-hover/sector:text-text-secondary" title={g.sector}>
               {g.sector}
             </span>
             <div className="flex-1 flex items-center gap-2">
               <div
-                className="h-4 rounded-sm"
+                className="h-4 rounded-sm transition-all duration-200 group-hover/sector:brightness-125 group-hover/sector:shadow-[0_0_8px_rgba(26,122,90,0.15)]"
                 data-testid={`sector-bar-${g.sector}`}
                 style={{
                   width: `${widthPct}%`,
@@ -85,7 +85,7 @@ export function SectorBarChart({ candidates }: SectorBarChartProps) {
                   opacity: 0.8,
                 }}
               />
-              <span className="font-mono text-xs text-text-secondary tabular-nums shrink-0">
+              <span className="font-mono text-xs text-text-secondary tabular-nums shrink-0 transition-colors duration-200 group-hover/sector:text-text-primary">
                 {g.count}
               </span>
             </div>

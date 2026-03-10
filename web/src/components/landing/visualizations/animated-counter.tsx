@@ -78,6 +78,6 @@ export function AnimatedCounter({
   }, [target, duration])
 
   return (
-    <span className={className}>{formatNumber(displayValue, separator)}</span>
+    <span className={`${className ?? ""} transition-transform duration-200 hover:scale-105 inline-block origin-left cursor-default`}>{formatNumber(displayValue, separator)}</span>
   )
 }

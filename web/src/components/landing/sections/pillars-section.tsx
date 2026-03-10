@@ -27,15 +27,15 @@ interface FactorBarProps {
 
 function FactorBar({ label, value }: FactorBarProps) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-text-tertiary w-24 shrink-0">{label}</span>
-      <div className="relative flex-1 h-1.5 bg-bg-subtle rounded-full overflow-hidden">
+    <div className="group/bar flex items-center gap-3 cursor-default">
+      <span className="text-xs text-text-tertiary w-24 shrink-0 transition-colors duration-200 group-hover/bar:text-text-secondary">{label}</span>
+      <div className="relative flex-1 h-1.5 bg-bg-subtle rounded-full overflow-hidden transition-all duration-200 group-hover/bar:bg-white/10">
         <div
-          className="h-full bg-accent rounded-full"
+          className="h-full bg-accent rounded-full transition-all duration-200 group-hover/bar:brightness-125"
           style={{ width: `${value}%` }}
         />
       </div>
-      <span className="font-mono text-xs w-8 text-right text-text-secondary">
+      <span className="font-mono text-xs w-8 text-right text-text-secondary transition-colors duration-200 group-hover/bar:text-text-primary">
         {value}
       </span>
     </div>
@@ -63,13 +63,13 @@ function buildSectorCounts(picks: CandidateCard[]): SectorCount[] {
 function SectorBar({ sector, count, maxCount }: SectorCount & { maxCount: number }) {
   const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-text-tertiary w-28 shrink-0 truncate">
+    <div className="group/sector flex items-center gap-3 cursor-default">
+      <span className="text-xs text-text-tertiary w-28 shrink-0 truncate transition-colors duration-200 group-hover/sector:text-text-secondary">
         {sector}
       </span>
-      <div className="relative flex-1 h-1.5 bg-bg-subtle rounded-full overflow-hidden">
+      <div className="relative flex-1 h-1.5 bg-bg-subtle rounded-full overflow-hidden transition-all duration-200 group-hover/sector:bg-white/10">
         <div
-          className="h-full rounded-full"
+          className="h-full rounded-full transition-all duration-200 group-hover/sector:brightness-125"
           style={{
             width: `${pct}%`,
             background: "var(--color-accent)",
@@ -77,7 +77,7 @@ function SectorBar({ sector, count, maxCount }: SectorCount & { maxCount: number
           }}
         />
       </div>
-      <span className="font-mono text-xs w-6 text-right text-text-secondary">
+      <span className="font-mono text-xs w-6 text-right text-text-secondary transition-colors duration-200 group-hover/sector:text-text-primary">
         {count}
       </span>
     </div>
@@ -172,7 +172,7 @@ export function PillarsSection({ data }: PillarsSectionProps) {
           {/* ── Pillar 1: Elimination Filters ── */}
           <div
             data-pillar-card
-            className="bg-bg-elevated border border-border-subtle rounded-xl overflow-hidden"
+            className="bg-bg-elevated border border-border-subtle rounded-xl overflow-hidden transition-all duration-300 hover:border-accent/25 hover:shadow-[0_4px_20px_rgba(26,122,90,0.06)]"
           >
             <div className="grid grid-cols-1 md:grid-cols-2">
               {/* Text column */}
@@ -205,7 +205,7 @@ export function PillarsSection({ data }: PillarsSectionProps) {
                     <div className="font-mono text-sm text-text-secondary">
                       Elimination Rate
                     </div>
-                    <div className="font-mono text-3xl text-text-primary">
+                    <div className="font-mono text-3xl text-text-primary transition-transform duration-200 hover:scale-[1.03] origin-left cursor-default">
                       {eliminationRate}% eliminated
                     </div>
                     <div className="text-xs text-text-tertiary">
@@ -234,7 +234,7 @@ export function PillarsSection({ data }: PillarsSectionProps) {
           {/* ── Pillar 2: Multi-Factor Scoring ── */}
           <div
             data-pillar-card
-            className="bg-bg-elevated border border-border-subtle rounded-xl overflow-hidden"
+            className="bg-bg-elevated border border-border-subtle rounded-xl overflow-hidden transition-all duration-300 hover:border-accent/25 hover:shadow-[0_4px_20px_rgba(26,122,90,0.06)]"
           >
             <div className="grid grid-cols-1 md:grid-cols-2">
               {/* Data column (left on desktop) */}
@@ -249,7 +249,7 @@ export function PillarsSection({ data }: PillarsSectionProps) {
                         {topCandidate.name}
                       </div>
                     </div>
-                    <div className="font-mono text-3xl text-accent">
+                    <div className="font-mono text-3xl text-accent transition-transform duration-200 hover:scale-[1.03] origin-left cursor-default">
                       {topCandidate.score}
                     </div>
                     <div className="space-y-2.5">
@@ -299,7 +299,7 @@ export function PillarsSection({ data }: PillarsSectionProps) {
           {/* ── Pillar 3: Sector-Neutral Ranking ── */}
           <div
             data-pillar-card
-            className="bg-bg-elevated border border-border-subtle rounded-xl overflow-hidden"
+            className="bg-bg-elevated border border-border-subtle rounded-xl overflow-hidden transition-all duration-300 hover:border-accent/25 hover:shadow-[0_4px_20px_rgba(26,122,90,0.06)]"
           >
             <div className="grid grid-cols-1 md:grid-cols-2">
               {/* Text column */}

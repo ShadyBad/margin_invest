@@ -71,7 +71,7 @@ export function Sparkline({
       viewBox={`0 0 ${width} ${height}`}
       width={width}
       height={height}
-      className={className}
+      className={`${className ?? ""} transition-[filter] duration-200 hover:brightness-125 cursor-default`}
       aria-hidden="true"
     >
       <defs>

@@ -36,7 +36,7 @@ export function MiniCandidateStack({ candidates, className }: MiniCandidateStack
           <div
             key={card.ticker}
             data-candidate-card={card.ticker}
-            className="border border-border-subtle rounded-lg bg-bg-elevated p-4"
+            className="border border-border-subtle rounded-lg bg-bg-elevated p-4 transition-all duration-200 hover:border-accent/40 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(26,122,90,0.1)]"
             style={{
               marginLeft: `${i * 12}px`,
               opacity: i === 0 ? 1 : 0.85 - i * 0.1,

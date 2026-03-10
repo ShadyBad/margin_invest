@@ -55,7 +55,7 @@ export function SystemReportCard({ candidate }: SystemReportCardProps) {
   return (
     <div
       data-hero-card
-      className="terminal-card w-full max-w-sm"
+      className="terminal-card w-full max-w-sm transition-shadow duration-300 hover:shadow-[0_0_60px_rgba(26,122,90,0.15)]"
       style={{
         boxShadow: "0 0 40px rgba(26,122,90,0.08)",
       }}
@@ -95,7 +95,7 @@ export function SystemReportCard({ candidate }: SystemReportCardProps) {
         {/* Composite score */}
         <div className="mb-5">
           <span
-            className="text-mono-data font-bold"
+            className="text-mono-data font-bold transition-transform duration-200 hover:scale-105 inline-block origin-left cursor-default"
             style={{
               color: hasCand
                 ? getTierColor(candidate.composite_tier)
