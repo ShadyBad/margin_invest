@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import type { HomepageData, CandidateCard } from "../shared/types"
+import { FactorBars } from "../visualizations/factor-bars"
 
 interface ResultsShowcaseSectionProps {
   data: HomepageData | null
@@ -20,60 +21,66 @@ function timeAgo(iso: string): string {
   return `${days}d ago`
 }
 
-interface FactorBarProps {
-  label: string
-  value: number
+/**
+ * Returns the CSS color variable for a given composite tier.
+ */
+function getTierColor(tier: string): string {
+  switch (tier) {
+    case "exceptional":
+      return "var(--color-percentile-exceptional)"
+    case "high":
+      return "var(--color-percentile-strong)"
+    case "moderate":
+      return "var(--color-percentile-average)"
+    case "low":
+      return "var(--color-percentile-below)"
+    case "very_low":
+      return "var(--color-percentile-weak)"
+    default:
+      return "var(--color-text-secondary)"
+  }
 }
 
-function FactorBar({ label, value }: FactorBarProps) {
+function CandidateCardItem({ candidate }: { candidate: CandidateCard }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-text-tertiary w-20">{label}</span>
-      <div className="relative flex-1 h-1.5 bg-bg-subtle rounded-full overflow-hidden">
-        <div
-          className="h-full bg-accent rounded-full"
-          style={{ width: `${value}%` }}
-        />
-      </div>
-      <span className="font-mono text-xs w-8 text-right text-text-secondary">
-        {value}
-      </span>
-    </div>
-  )
-}
-
-function CandidateColumn({ candidate }: { candidate: CandidateCard }) {
-  return (
-    <div className="p-5 flex flex-col gap-3">
+    <div className="terminal-card p-5 flex flex-col gap-3">
       {/* Ticker + Name */}
       <div>
-        <div className="font-mono text-lg font-bold text-text-primary">
+        <div className="text-title-1 font-bold text-text-primary">
           {candidate.ticker}
         </div>
-        <div className="text-xs text-text-secondary truncate">
+        <div className="text-caption text-text-secondary truncate">
           {candidate.name}
         </div>
       </div>
 
-      {/* Composite score */}
-      <div className="font-mono text-3xl text-accent">
+      {/* Composite score — color-encoded by tier */}
+      <div
+        className="text-mono-data font-bold"
+        style={{ color: getTierColor(candidate.composite_tier) }}
+      >
         {candidate.score}
       </div>
 
-      {/* Factor bars */}
-      <div className="space-y-2">
-        <FactorBar label="Quality" value={candidate.quality_percentile} />
-        <FactorBar label="Value" value={candidate.value_percentile} />
-        <FactorBar label="Momentum" value={candidate.momentum_percentile} />
-      </div>
+      {/* 5 factor bars (compact) */}
+      <FactorBars
+        factors={{
+          quality: candidate.quality_percentile,
+          value: candidate.value_percentile,
+          momentum: candidate.momentum_percentile,
+          sentiment: candidate.sentiment_percentile,
+          growth: candidate.growth_percentile,
+        }}
+        compact
+      />
 
-      {/* Sector + timestamp */}
+      {/* Sector pill + freshness timestamp */}
       <div className="flex items-center gap-2 mt-auto pt-2">
-        <span className="text-[10px] font-mono uppercase tracking-wider bg-bg-subtle text-text-tertiary px-2 py-0.5 rounded">
+        <span className="text-mono-label bg-white/5 text-text-tertiary px-2 py-0.5 rounded">
           {candidate.sector}
         </span>
-        <span className="text-[10px] text-text-tertiary">
-          scored {timeAgo(candidate.scored_at)}
+        <span className="text-caption text-text-tertiary">
+          {timeAgo(candidate.scored_at)}
         </span>
       </div>
     </div>
@@ -81,10 +88,10 @@ function CandidateColumn({ candidate }: { candidate: CandidateCard }) {
 }
 
 export function ResultsShowcaseSection({ data }: ResultsShowcaseSectionProps) {
-  const panelRef = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!panelRef.current) return
+    if (!sectionRef.current) return
 
     let cancelled = false
     let trigger: { kill: () => void } | null = null
@@ -97,17 +104,26 @@ export function ResultsShowcaseSection({ data }: ResultsShowcaseSectionProps) {
       const gsap = gsapModule.default
       gsap.registerPlugin(ScrollTrigger)
 
-      const el = panelRef.current
+      const el = sectionRef.current
       if (!el) return
 
-      gsap.set(el, { opacity: 0, y: 24 })
+      const cards = el.querySelectorAll("[data-result-card]")
+      if (cards.length === 0) return
+
+      gsap.set(cards, { opacity: 0, y: 24 })
 
       trigger = ScrollTrigger.create({
         trigger: el,
         start: "top 85%",
         once: true,
         onEnter: () => {
-          gsap.to(el, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" })
+          gsap.to(cards, {
+            opacity: 1,
+            y: 0,
+            duration: 0.6,
+            ease: "power2.out",
+            stagger: 0.12,
+          })
         },
       })
     }
@@ -123,8 +139,8 @@ export function ResultsShowcaseSection({ data }: ResultsShowcaseSectionProps) {
   // Null data — engine hasn't run yet
   if (!data) {
     return (
-      <section id="results" className="py-20 px-6">
-        <div className="max-w-5xl mx-auto text-center text-text-secondary text-sm">
+      <section id="results" className="bg-bg-subtle py-20 px-6">
+        <div className="max-w-6xl mx-auto text-center text-text-secondary text-sm">
           Scoring data loads after the engine completes a cycle.
         </div>
       </section>
@@ -134,8 +150,8 @@ export function ResultsShowcaseSection({ data }: ResultsShowcaseSectionProps) {
   // Empty candidates — cycle in progress
   if (data.candidates.length === 0) {
     return (
-      <section id="results" className="py-20 px-6">
-        <div className="max-w-5xl mx-auto text-center text-text-secondary text-sm">
+      <section id="results" className="bg-bg-subtle py-20 px-6">
+        <div className="max-w-6xl mx-auto text-center text-text-secondary text-sm">
           Scoring in progress — results appear after each cycle.
         </div>
       </section>
@@ -143,44 +159,42 @@ export function ResultsShowcaseSection({ data }: ResultsShowcaseSectionProps) {
   }
 
   const top3 = data.candidates.slice(0, 3)
-  const eliminated = data.total_scored - data.surviving_count
-  const lastCycle = timeAgo(data.last_updated)
+  const eliminated = data.total_universe - data.eligible_count
+  const totalUniverse = data.total_universe
+  const totalScored = data.total_scored
+  const survivingCount = data.surviving_count
 
   return (
-    <section id="results" className="py-20 px-6">
-      <div className="max-w-5xl mx-auto">
-        <div
-          ref={panelRef}
-          className="border border-border-subtle rounded-xl overflow-hidden"
-          style={{ background: "var(--color-bg-elevated)" }}
-        >
-          {/* Terminal-style header */}
-          <div
-            className="px-6 py-3 border-b border-border-subtle"
-            style={{ background: "var(--color-bg-subtle)" }}
-          >
-            <span className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary">
-              Current Cycle Results
-            </span>
-          </div>
+    <section id="results" ref={sectionRef} className="bg-bg-subtle py-20 px-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Monospace header with status dot */}
+        <div className="flex items-center gap-2 mb-8">
+          <span className="inline-block w-2 h-2 rounded-full bg-accent animate-pulse" />
+          <span className="text-mono-label text-text-tertiary">
+            CURRENT CYCLE RESULTS
+          </span>
+        </div>
 
-          {/* 3-column candidate grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border-subtle">
-            {top3.map((candidate) => (
-              <CandidateColumn key={candidate.ticker} candidate={candidate} />
-            ))}
-          </div>
+        {/* 3 candidate cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {top3.map((candidate) => (
+            <div key={candidate.ticker} data-result-card>
+              <CandidateCardItem candidate={candidate} />
+            </div>
+          ))}
+        </div>
 
-          {/* Footer stats line */}
-          <div className="px-6 py-3 border-t border-border-subtle font-mono text-xs text-text-tertiary text-center">
-            {data.total_scored.toLocaleString("en-US")} stocks scored
+        {/* Summary stat line */}
+        <div className="mt-8 text-center">
+          <span className="text-mono-label text-text-tertiary">
+            {totalUniverse.toLocaleString("en-US")} scanned
             {" · "}
             {eliminated.toLocaleString("en-US")} eliminated
             {" · "}
-            {data.surviving_count.toLocaleString("en-US")} survived
+            {totalScored.toLocaleString("en-US")} scored
             {" · "}
-            Last cycle: {lastCycle}
-          </div>
+            {survivingCount.toLocaleString("en-US")} survived
+          </span>
         </div>
       </div>
     </section>
