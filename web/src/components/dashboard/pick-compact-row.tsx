@@ -26,7 +26,7 @@ interface PickCompactRowProps {
   rank: number
 }
 
-export function PickCompactRow({ pick, rank }: PickCompactRowProps) {
+export function PickCompactRow({ pick }: PickCompactRowProps) {
   return (
     <Link
       href={`/asset/${pick.ticker}`}

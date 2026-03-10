@@ -128,9 +128,9 @@ describe("Dashboard Page (Server Component)", () => {
 
     expect(screen.getByTestId("dashboard-greeting")).toBeInTheDocument()
     expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument()
-    expect(screen.getByTestId("picks-grid")).toBeInTheDocument()
-    expect(screen.getByTestId("stock-card-AAPL")).toBeInTheDocument()
-    expect(screen.getByTestId("stock-card-MSFT")).toBeInTheDocument()
+    expect(screen.getByTestId("tiered-picks-list")).toBeInTheDocument()
+    expect(screen.getByTestId("pick-hero-AAPL")).toBeInTheDocument()
+    expect(screen.getByTestId("pick-medium-MSFT")).toBeInTheDocument()
     expect(screen.getByText("Apple Inc.")).toBeInTheDocument()
   })
 
@@ -142,10 +142,10 @@ describe("Dashboard Page (Server Component)", () => {
     const jsx = await DashboardPage()
     render(jsx)
 
-    const grid = screen.getByTestId("picks-grid")
-    const cards = grid.querySelectorAll("[data-testid^='stock-card-']")
-    expect(cards[0]).toHaveAttribute("data-testid", "stock-card-AAPL")
-    expect(cards[1]).toHaveAttribute("data-testid", "stock-card-MSFT")
+    const list = screen.getByTestId("tiered-picks-list")
+    // AAPL (92 percentile) should be hero, MSFT (85) should be medium
+    expect(list.querySelector("[data-testid='pick-hero-AAPL']")).toBeInTheDocument()
+    expect(list.querySelector("[data-testid='pick-medium-MSFT']")).toBeInTheDocument()
   })
 
   it("renders watchlist section", async () => {
@@ -238,7 +238,7 @@ describe("Dashboard Page (Server Component)", () => {
     expect(screen.getByText(/cached data/i)).toBeInTheDocument()
 
     // Should still render picks from fallback data
-    expect(screen.getByTestId("picks-grid")).toBeInTheDocument()
+    expect(screen.getByTestId("tiered-picks-list")).toBeInTheDocument()
   })
 
   it("shows system offline in status strip when using fallback", async () => {
