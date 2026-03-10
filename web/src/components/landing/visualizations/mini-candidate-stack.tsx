@@ -29,45 +29,32 @@ export function MiniCandidateStack({ candidates, className }: MiniCandidateStack
     )
   }
 
-  // Render back-to-front: last card first in DOM, first card last (highest z via later DOM order).
-  // Cards offset 8px right and 8px down from each other to create depth.
-  const reversed = [...cards].reverse()
-
   return (
     <div className={className}>
-      <div className="relative" style={{ minHeight: `${120 + (cards.length - 1) * 8}px` }}>
-        {reversed.map((card, i) => {
-          // i=0 is the back-most card, i=reversed.length-1 is the front card
-          const zIndex = i + 1
-          // Back cards have higher offset (peeking out behind), front card at 0
-          const offset = (reversed.length - 1 - i) * 8
-
-          return (
-            <div
-              key={card.ticker}
-              data-candidate-card={card.ticker}
-              className="absolute border border-border-subtle rounded-lg bg-bg-elevated p-4 w-full max-w-[240px]"
-              style={{
-                top: `${offset}px`,
-                left: `${offset}px`,
-                zIndex,
-                opacity: i === reversed.length - 1 ? 1 : 0.7 + i * 0.1,
-              }}
-            >
-              <div className="flex items-baseline justify-between mb-2">
-                <span className="font-mono text-sm font-bold text-text-primary">
-                  {card.ticker}
-                </span>
-                <span className="font-mono text-sm text-accent">
-                  {card.score.toFixed(1)}
-                </span>
-              </div>
-              <span className="inline-block text-[10px] font-mono uppercase tracking-wider text-text-tertiary bg-bg-subtle px-2 py-0.5 rounded">
-                {card.sector}
+      <div className="flex flex-col gap-3">
+        {cards.map((card, i) => (
+          <div
+            key={card.ticker}
+            data-candidate-card={card.ticker}
+            className="border border-border-subtle rounded-lg bg-bg-elevated p-4"
+            style={{
+              marginLeft: `${i * 12}px`,
+              opacity: i === 0 ? 1 : 0.85 - i * 0.1,
+            }}
+          >
+            <div className="flex items-baseline justify-between mb-2">
+              <span className="font-mono text-sm font-bold text-text-primary">
+                {card.ticker}
+              </span>
+              <span className="font-mono text-sm text-accent">
+                {card.score.toFixed(1)}
               </span>
             </div>
-          )
-        })}
+            <span className="inline-block text-[10px] font-mono uppercase tracking-wider text-text-tertiary bg-bg-subtle px-2 py-0.5 rounded">
+              {card.sector}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   )

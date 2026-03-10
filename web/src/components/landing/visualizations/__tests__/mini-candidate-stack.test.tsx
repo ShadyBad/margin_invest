@@ -79,12 +79,13 @@ describe("MiniCandidateStack", () => {
     expect(wrapper.classList.contains("my-stack")).toBe(true)
   })
 
-  test("front card has highest z-index", () => {
+  test("cards have increasing left margin for cascade effect", () => {
     const { container } = render(<MiniCandidateStack candidates={candidates} />)
     const aaplCard = container.querySelector("[data-candidate-card='AAPL']") as HTMLElement
+    const msftCard = container.querySelector("[data-candidate-card='MSFT']") as HTMLElement
     const jnjCard = container.querySelector("[data-candidate-card='JNJ']") as HTMLElement
-    const aaplZ = parseInt(aaplCard.style.zIndex)
-    const jnjZ = parseInt(jnjCard.style.zIndex)
-    expect(aaplZ).toBeGreaterThan(jnjZ)
+    expect(aaplCard.style.marginLeft).toBe("0px")
+    expect(parseInt(msftCard.style.marginLeft)).toBeGreaterThan(0)
+    expect(parseInt(jnjCard.style.marginLeft)).toBeGreaterThan(parseInt(msftCard.style.marginLeft))
   })
 })

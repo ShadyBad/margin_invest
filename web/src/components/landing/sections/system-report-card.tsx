@@ -122,11 +122,11 @@ export function SystemReportCard({ candidate }: SystemReportCardProps) {
             compact
           />
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2.5">
             {["QUALITY", "VALUE", "MOMENTUM", "SENTIMENT", "GROWTH"].map(
               (label) => (
                 <div key={label} className="flex items-center gap-3">
-                  <span className="text-mono-label text-text-tertiary w-[72px] shrink-0">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-tertiary w-[72px] shrink-0">
                     {label}
                   </span>
                   <div className="relative flex-1 rounded-full bg-white/5 overflow-hidden h-1" />

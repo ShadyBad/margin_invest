@@ -37,7 +37,7 @@ function clamp(value: number, min: number, max: number): number {
 
 export function FactorBars({ factors, compact = false }: FactorBarsProps) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className={`flex flex-col ${compact ? "gap-2.5" : "gap-3"}`}>
       {FACTOR_ORDER.map((key) => {
         const raw = factors[key]
         const value = clamp(Math.round(raw), 0, 100)
@@ -46,7 +46,7 @@ export function FactorBars({ factors, compact = false }: FactorBarsProps) {
         return (
           <div key={key} className="flex items-center gap-3">
             {/* Label */}
-            <span className="text-mono-label text-text-tertiary w-[72px] shrink-0">
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-tertiary w-[72px] shrink-0">
               {key.toUpperCase()}
             </span>
 
