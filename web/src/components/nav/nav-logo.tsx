@@ -1,22 +1,5 @@
 import Link from "next/link"
-
-function LogoIcon() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 20 20"
-      fill="none"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      stroke="currentColor"
-      aria-hidden="true"
-    >
-      <polyline points="2,16 6,6 10,12 14,4 18,16" />
-    </svg>
-  )
-}
+import { LogoIcon } from "@/components/ui/logo-icon"
 
 interface NavLogoProps {
   href: string

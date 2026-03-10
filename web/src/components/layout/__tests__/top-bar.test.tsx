@@ -26,14 +26,19 @@ describe("TopBar", () => {
     expect(onMenuToggle).toHaveBeenCalledTimes(1)
   })
 
+  it("renders logo link", () => {
+    renderTopBar({ sidebarExpanded: true })
+    expect(screen.getByLabelText("Margin Invest home")).toBeInTheDocument()
+  })
+
   it("renders wordmark when sidebar is expanded", () => {
     renderTopBar({ sidebarExpanded: true })
-    expect(screen.getByText("margin")).toBeInTheDocument()
+    expect(screen.getByText("Margin Invest")).toBeInTheDocument()
   })
 
   it("hides wordmark when sidebar is collapsed", () => {
     renderTopBar({ sidebarExpanded: false })
-    expect(screen.queryByText("margin")).not.toBeInTheDocument()
+    expect(screen.queryByText("Margin Invest")).not.toBeInTheDocument()
   })
 
   it("renders keyboard shortcut badge", () => {

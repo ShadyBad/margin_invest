@@ -1,6 +1,8 @@
 "use client"
 
 import { forwardRef } from "react"
+import Link from "next/link"
+import { LogoIcon } from "@/components/ui/logo-icon"
 
 export interface TopBarProps {
   sidebarExpanded: boolean
@@ -25,11 +27,21 @@ export const TopBar = forwardRef<HTMLInputElement, TopBarProps>(
               <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          {sidebarExpanded && (
-            <span className="text-text-primary font-semibold text-lg tracking-tight select-none">
-              margin
-            </span>
-          )}
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-text-primary hover:text-accent transition-colors"
+            aria-label="Margin Invest home"
+          >
+            <LogoIcon size={22} />
+            {sidebarExpanded && (
+              <span
+                className="font-display opacity-90 select-none"
+                style={{ fontSize: '15px' }}
+              >
+                Margin Invest
+              </span>
+            )}
+          </Link>
         </div>
 
         {/* Content section — search + actions */}
