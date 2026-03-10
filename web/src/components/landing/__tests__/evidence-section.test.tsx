@@ -28,39 +28,38 @@ vi.mock("gsap", () => ({
 vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(() => ({ kill: vi.fn() })), getAll: () => [], refresh: vi.fn() },
 }))
-vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  BarChart: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="bar-chart">{children}</div>
-  ),
-  Bar: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-  Legend: () => null,
-  Cell: () => null,
-}))
 vi.mock("@/components/ui/correlation-grid", () => ({
   CorrelationGrid: () => <div data-testid="correlation-grid" />,
-}))
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({
-      children,
-      ...props
-    }: Record<string, unknown> & { children?: React.ReactNode }) => (
-      <div {...(props as React.HTMLAttributes<HTMLDivElement>)}>{children}</div>
-    ),
-  },
 }))
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
 import { EvidenceSection } from "../sections/evidence-section"
+import type { CandidateCard } from "../shared/types"
+
+function makeCandidate(overrides: Partial<CandidateCard> = {}): CandidateCard {
+  return {
+    ticker: "AAPL",
+    name: "Apple Inc",
+    sector: "Technology",
+    actual_price: 180,
+    buy_price: 150,
+    margin_of_safety: 20,
+    score: 85,
+    composite_percentile: 90,
+    composite_tier: "exceptional",
+    quality_percentile: 85,
+    value_percentile: 72,
+    momentum_percentile: 65,
+    sentiment_percentile: 58,
+    growth_percentile: 90,
+    scored_at: "2026-03-01",
+    filters_passed: 8,
+    filters_total: 8,
+    ...overrides,
+  }
+}
 
 describe("EvidenceSection", () => {
   beforeEach(() => {
@@ -68,11 +67,11 @@ describe("EvidenceSection", () => {
     mockFetch.mockResolvedValue({ ok: false })
   })
 
-  it("renders the terminal header text", () => {
+  it("renders the System Panel header with status dot", () => {
     render(<EvidenceSection />)
-    expect(
-      screen.getByText("System Output — Current Scoring Cycle")
-    ).toBeInTheDocument()
+    expect(screen.getByTestId("evidence-header")).toHaveTextContent(
+      "System Output — Cycle Results"
+    )
   })
 
   it("renders all three column labels", () => {
@@ -80,6 +79,21 @@ describe("EvidenceSection", () => {
     expect(screen.getByText("Selectivity Funnel")).toBeInTheDocument()
     expect(screen.getByText("Sector Breakdown")).toBeInTheDocument()
     expect(screen.getByText("Factor Correlation")).toBeInTheDocument()
+  })
+
+  it("renders the factor density curves row", () => {
+    render(
+      <EvidenceSection
+        candidates={[makeCandidate()]}
+        totalUniverse={3056}
+        eligibleCount={1842}
+        totalScored={500}
+        survivingCount={143}
+      />
+    )
+    expect(
+      screen.getByText("Factor Distribution — All Candidates")
+    ).toBeInTheDocument()
   })
 
   it("renders the methodology link with correct href", () => {
@@ -101,5 +115,33 @@ describe("EvidenceSection", () => {
     const { container } = render(<EvidenceSection />)
     const panel = container.querySelector(".border.border-border-subtle.rounded-xl")
     expect(panel).toBeInTheDocument()
+  })
+
+  it("passes pipeline counts to the selectivity funnel", () => {
+    render(
+      <EvidenceSection
+        totalUniverse={3056}
+        eligibleCount={1842}
+        totalScored={500}
+        survivingCount={143}
+      />
+    )
+    // Funnel should display formatted counts
+    expect(screen.getByText("3,056")).toBeInTheDocument()
+    expect(screen.getByText("1,842")).toBeInTheDocument()
+    expect(screen.getByText("143")).toBeInTheDocument()
+  })
+
+  it("renders sector data when candidates are provided", () => {
+    render(
+      <EvidenceSection
+        candidates={[
+          makeCandidate({ sector: "Technology" }),
+          makeCandidate({ sector: "Financials" }),
+        ]}
+      />
+    )
+    expect(screen.getByTestId("sector-row-Technology")).toBeInTheDocument()
+    expect(screen.getByTestId("sector-row-Financials")).toBeInTheDocument()
   })
 })

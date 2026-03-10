@@ -21,7 +21,13 @@ export function HomepageClient({ data }: HomepageClientProps) {
     <ScrollCanvas>
       <HeroSection data={data} />
       <AuthorityStrip data={data} />
-      <EvidenceSection candidates={data?.allPicks ?? []} />
+      <EvidenceSection
+        candidates={data?.allPicks ?? []}
+        totalUniverse={data?.total_universe}
+        eligibleCount={data?.eligible_count}
+        totalScored={data?.total_scored}
+        survivingCount={data?.surviving_count}
+      />
       <HowItWorksSection data={data} />
       <ResultsShowcaseSection data={data} />
       <PillarsSection data={data} />
