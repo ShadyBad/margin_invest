@@ -45,7 +45,7 @@ export function SelectivityFunnel({
 
   return (
     <div
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-3"
       aria-label="Selectivity funnel showing how equities are filtered at each stage"
     >
       {STAGES.map((stage, i) => {
@@ -61,7 +61,7 @@ export function SelectivityFunnel({
               </span>
             </div>
             <div
-              className="h-5 rounded-sm transition-all duration-200 group-hover/funnel:brightness-125 group-hover/funnel:shadow-[0_0_8px_rgba(26,122,90,0.2)]"
+              className="h-7 rounded-sm transition-all duration-200 group-hover/funnel:brightness-125 group-hover/funnel:shadow-[0_0_8px_rgba(26,122,90,0.2)]"
               data-testid={`funnel-bar-${stage.key}`}
               style={{
                 width: `${widthPct}%`,

@@ -81,7 +81,7 @@ export function EvidenceSection({
 
   return (
     <section id="evidence" className="py-20 px-6">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div
           ref={panelRef}
           className="border border-border-subtle rounded-xl overflow-hidden"
@@ -104,30 +104,31 @@ export function EvidenceSection({
             </span>
           </div>
 
-          {/* Row 1: 3-column grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border-subtle">
-            {/* Column 1: Selectivity Funnel */}
-            <div className="p-6" data-evidence-item>
-              <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
-                Selectivity Funnel
+          {/* Row 1: stacked funnel+sector on left, correlation on right */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border-subtle">
+            {/* Left: Funnel + Sector stacked — each vertically centered in its half */}
+            <div className="divide-y divide-border-subtle flex flex-col">
+              <div className="p-6 flex-1 flex flex-col justify-center" data-evidence-item>
+                <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
+                  Selectivity Funnel
+                </div>
+                <SelectivityFunnel
+                  universeCount={totalUniverse}
+                  eligibleCount={eligibleCount}
+                  scoredCount={totalScored}
+                  survivingCount={survivingCount}
+                />
               </div>
-              <SelectivityFunnel
-                universeCount={totalUniverse}
-                eligibleCount={eligibleCount}
-                scoredCount={totalScored}
-                survivingCount={survivingCount}
-              />
+
+              <div className="p-6 flex-1 flex flex-col justify-center" data-evidence-item>
+                <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
+                  Sector Breakdown
+                </div>
+                <SectorBarChart candidates={candidates} />
+              </div>
             </div>
 
-            {/* Column 2: Sector Bar Chart */}
-            <div className="p-6" data-evidence-item>
-              <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
-                Sector Breakdown
-              </div>
-              <SectorBarChart candidates={candidates} />
-            </div>
-
-            {/* Column 3: Factor Correlation */}
+            {/* Right: Factor Correlation */}
             <div className="p-6" data-evidence-item>
               <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
                 Factor Correlation

@@ -36,8 +36,9 @@ describe("TopBar", () => {
     expect(screen.getByText("Margin Invest")).toBeInTheDocument()
   })
 
-  it("hides wordmark when sidebar is collapsed", () => {
+  it("hides logo link and wordmark when sidebar is collapsed", () => {
     renderTopBar({ sidebarExpanded: false })
+    expect(screen.queryByLabelText("Margin Invest home")).not.toBeInTheDocument()
     expect(screen.queryByText("Margin Invest")).not.toBeInTheDocument()
   })
 

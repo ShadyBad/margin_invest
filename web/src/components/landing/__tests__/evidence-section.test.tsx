@@ -105,9 +105,9 @@ describe("EvidenceSection", () => {
     expect(link).toHaveAttribute("href", "/methodology")
   })
 
-  it("renders the 3-column grid layout", () => {
+  it("renders the two-panel grid layout", () => {
     const { container } = render(<EvidenceSection />)
-    const grid = container.querySelector(".grid.grid-cols-1.md\\:grid-cols-3")
+    const grid = container.querySelector(".grid.grid-cols-1.lg\\:grid-cols-2")
     expect(grid).toBeInTheDocument()
   })
 

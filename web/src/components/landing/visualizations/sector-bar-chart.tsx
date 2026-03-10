@@ -65,7 +65,7 @@ export function SectorBarChart({ candidates }: SectorBarChartProps) {
 
   return (
     <div
-      className="flex flex-col gap-1.5"
+      className="flex flex-col gap-3"
       aria-label="Sector distribution of surviving candidates"
     >
       {groups.map((g) => {
@@ -77,7 +77,7 @@ export function SectorBarChart({ candidates }: SectorBarChartProps) {
             </span>
             <div className="flex-1 flex items-center gap-2">
               <div
-                className="h-4 rounded-sm transition-all duration-200 group-hover/sector:brightness-125 group-hover/sector:shadow-[0_0_8px_rgba(26,122,90,0.15)]"
+                className="h-6 rounded-sm transition-all duration-200 group-hover/sector:brightness-125 group-hover/sector:shadow-[0_0_8px_rgba(26,122,90,0.15)]"
                 data-testid={`sector-bar-${g.sector}`}
                 style={{
                   width: `${widthPct}%`,

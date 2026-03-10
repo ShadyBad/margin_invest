@@ -15,7 +15,9 @@ export const TopBar = forwardRef<HTMLInputElement, TopBarProps>(
       <header className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center bg-bg-primary border-b border-border-subtle">
         {/* Left section — matches sidebar width for column alignment */}
         <div
-          className="shrink-0 flex items-center gap-3 px-4 h-full transition-[width] duration-300 ease-in-out border-r border-border-subtle"
+          className={`shrink-0 flex items-center h-full transition-[width] duration-300 ease-in-out border-r border-border-subtle ${
+            sidebarExpanded ? "gap-3 px-4" : "justify-center"
+          }`}
           style={{ width: sidebarExpanded ? 240 : 64 }}
         >
           <button
@@ -27,21 +29,21 @@ export const TopBar = forwardRef<HTMLInputElement, TopBarProps>(
               <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-text-primary hover:text-accent transition-colors"
-            aria-label="Margin Invest home"
-          >
-            <LogoIcon size={22} />
-            {sidebarExpanded && (
+          {sidebarExpanded && (
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-text-primary hover:text-accent transition-colors"
+              aria-label="Margin Invest home"
+            >
+              <LogoIcon size={22} />
               <span
                 className="font-display opacity-90 select-none"
                 style={{ fontSize: '15px' }}
               >
                 Margin Invest
               </span>
-            )}
-          </Link>
+            </Link>
+          )}
         </div>
 
         {/* Content section — search + actions */}
