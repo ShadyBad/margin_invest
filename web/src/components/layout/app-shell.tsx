@@ -51,7 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-bg-primary">
-      <TopBar ref={searchInputRef} onMenuToggle={handleToggle} />
+      <TopBar ref={searchInputRef} sidebarExpanded={sidebarExpanded} onMenuToggle={handleToggle} />
       <Sidebar expanded={sidebarExpanded} onToggle={handleToggle} />
       <main
         className="transition-[margin-left] duration-300 ease-in-out pt-14"

@@ -130,8 +130,8 @@ export function Sidebar({ expanded, onToggle }: SidebarProps) {
       className="fixed top-14 left-0 bottom-0 z-40 flex flex-col bg-bg-primary border-r border-border-subtle transition-all duration-300 ease-in-out"
       style={{ width: expanded ? 240 : 64 }}
     >
-      {/* Navigation groups */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2" aria-label="Sidebar navigation">
+      {/* Navigation groups — items start at top */}
+      <nav className="flex-1 overflow-y-auto pt-3 pb-2 px-2" aria-label="Sidebar navigation">
         {navGroups.map((group) => (
           <div key={group.title} className="mb-4">
             {expanded && (
