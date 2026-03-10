@@ -3,12 +3,12 @@
 import { useEffect, useRef } from "react"
 import type { HomepageData } from "../shared/types"
 import { HeroSearch } from "../hero-search"
+import { SystemReportCard } from "./system-report-card"
 
 interface HeroSectionProps {
   data: HomepageData | null
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- data reserved for future server-side injection
 export function HeroSection({ data }: HeroSectionProps) {
   const sectionRef = useRef<HTMLElement>(null)
 
@@ -25,6 +25,7 @@ export function HeroSection({ data }: HeroSectionProps) {
       const section = sectionRef.current
       if (!section) return
 
+      // Left column: sequential text fade-in
       const headline = section.querySelector("[data-hero-headline]")
       const subtext = section.querySelector("[data-hero-subtext]")
       const search = section.querySelector("[data-hero-ctas]")
@@ -41,6 +42,19 @@ export function HeroSection({ data }: HeroSectionProps) {
           ease: "power2.out",
         })
       })
+
+      // Right column: card scale entrance
+      const card = section.querySelector("[data-hero-card]")
+      if (card) {
+        gsap.set(card, { opacity: 0, scale: 0.95 })
+        gsap.to(card, {
+          opacity: 1,
+          scale: 1,
+          duration: 0.7,
+          delay: 0.3,
+          ease: "power2.out",
+        })
+      }
     }
 
     animate().catch(() => {})
@@ -50,13 +64,15 @@ export function HeroSection({ data }: HeroSectionProps) {
     }
   }, [])
 
+  const topCandidate = data?.candidates?.[0] ?? null
+
   return (
     <section
       id="hero"
       ref={sectionRef}
       className="relative flex items-center justify-center overflow-hidden"
       style={{
-        minHeight: "100svh",
+        minHeight: "90svh",
         background:
           "radial-gradient(ellipse 70% 55% at 50% 30%, rgba(26,122,90,0.18) 0%, transparent 60%), var(--color-bg-primary)",
       }}
@@ -81,27 +97,36 @@ export function HeroSection({ data }: HeroSectionProps) {
         }}
       />
 
-      <div className="max-w-3xl w-full text-center pt-16 py-24 px-6 relative z-10">
-        <h1
-          data-hero-headline
-          className="font-display leading-[1.05] tracking-tight mb-6"
-          style={{ fontSize: "clamp(48px, 7vw, 72px)" }}
-        >
-          <span className="block text-text-primary">Discipline.</span>
-          <span className="block" style={{ color: "var(--color-accent)" }}>
-            Engineered.
-          </span>
-        </h1>
+      {/* Two-column editorial layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-10 lg:gap-6 max-w-7xl w-full items-center pt-16 py-24 px-6 relative z-10">
+        {/* Left column — headline + search */}
+        <div className="flex flex-col justify-center">
+          <h1
+            data-hero-headline
+            className="text-display-1 tracking-tight mb-6"
+          >
+            <span className="block text-text-primary">Discipline.</span>
+            <span className="block" style={{ color: "var(--color-accent)" }}>
+              Engineered.
+            </span>
+          </h1>
 
-        <p
-          data-hero-subtext
-          className="text-lg md:text-xl text-text-secondary max-w-xl mx-auto mb-10 leading-relaxed"
-        >
-          A deterministic scoring engine for 3,056 US equities. No opinions. No
-          overrides. Search one.
-        </p>
+          <p
+            data-hero-subtext
+            className="text-body text-text-secondary max-w-xl mb-10 leading-relaxed"
+          >
+            Systematic equity analysis. Five factors. Zero emotion.
+          </p>
 
-        <HeroSearch />
+          <div data-hero-ctas className="max-w-md">
+            <HeroSearch />
+          </div>
+        </div>
+
+        {/* Right column — SystemReportCard */}
+        <div className="flex items-center justify-center lg:justify-end">
+          <SystemReportCard candidate={topCandidate} />
+        </div>
       </div>
 
       {/* Bottom fade gradient */}

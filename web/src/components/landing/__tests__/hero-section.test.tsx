@@ -44,10 +44,10 @@ describe("HeroSection", () => {
     expect(screen.getByText("Engineered.")).toBeInTheDocument()
   })
 
-  it("renders subheadline about deterministic scoring engine", () => {
+  it("renders subheadline about systematic equity analysis", () => {
     render(<HeroSection data={null} />)
     expect(
-      screen.getByText(/deterministic scoring engine/)
+      screen.getByText(/Systematic equity analysis/)
     ).toBeInTheDocument()
   })
 
@@ -66,10 +66,10 @@ describe("HeroSection", () => {
     expect(screen.getByText("Try:")).toBeInTheDocument()
   })
 
-  it("renders search-one call to action in subtext", () => {
+  it("renders five factors and zero emotion tagline", () => {
     render(<HeroSection data={null} />)
     expect(
-      screen.getByText(/No opinions\. No overrides\. Search one\./)
+      screen.getByText(/Five factors\. Zero emotion\./)
     ).toBeInTheDocument()
   })
 })
