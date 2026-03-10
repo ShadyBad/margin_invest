@@ -4,7 +4,7 @@ import { ScoreDelta } from "../score-delta"
 
 describe("ScoreDelta", () => {
   it("renders up arrow and positive delta with bullish color", () => {
-    const { container } = render(<ScoreDelta current={85} previous={83} />)
+    render(<ScoreDelta current={85} previous={83} />)
     const el = screen.getByTestId("score-delta")
     expect(el).toBeInTheDocument()
     expect(el.textContent).toContain("\u25B2")

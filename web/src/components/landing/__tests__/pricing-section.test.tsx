@@ -47,7 +47,7 @@ describe("PricingSection", () => {
   })
 
   it("does not apply opacity to Scout tier card", () => {
-    const { container } = render(<PricingSection />)
+    render(<PricingSection />)
     // Find the Scout card by its name label
     const scoutLabel = screen.getByText("Scout")
     const card = scoutLabel.closest(".terminal-card")

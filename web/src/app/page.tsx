@@ -66,9 +66,10 @@ async function getHomepageData(): Promise<HomepageData | null> {
       eligible_count: data.picks.length,
       total_scored: data.total_scored,
       total_universe: data.universe?.size ?? 3056,
-      surviving_count: (data.universe as Record<string, unknown>)?.surviving
-        ? Number((data.universe as Record<string, unknown>).surviving)
-        : data.picks.length,
+      surviving_count:
+        (data.universe && "surviving" in data.universe)
+          ? Number((data.universe as unknown as Record<string, unknown>).surviving)
+          : data.picks.length,
     }
   } catch {
     return {
