@@ -31,7 +31,10 @@ export function PipelineSection({ data }: PipelineSectionProps) {
       if (!el) return
 
       const spreads = el.querySelectorAll<HTMLElement>("[data-editorial-spread]")
-      spreads.forEach((spread) => gsap.set(spread, { opacity: 0, y: 24 }))
+      spreads.forEach((spread, i) => {
+        const fromX = i % 2 === 0 ? -40 : 40
+        gsap.set(spread, { opacity: 0, x: fromX })
+      })
 
       spreads.forEach((spread, i) => {
         const trigger = ScrollTrigger.create({
@@ -41,9 +44,9 @@ export function PipelineSection({ data }: PipelineSectionProps) {
           onEnter: () => {
             gsap.to(spread, {
               opacity: 1,
-              y: 0,
+              x: 0,
               duration: 0.6,
-              delay: i * 0.15,
+              delay: i * 0.2,
               ease: "power2.out",
             })
           },

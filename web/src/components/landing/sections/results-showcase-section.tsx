@@ -110,7 +110,7 @@ export function ResultsShowcaseSection({ data }: ResultsShowcaseSectionProps) {
       const cards = el.querySelectorAll("[data-result-card]")
       if (cards.length === 0) return
 
-      gsap.set(cards, { opacity: 0, y: 24 })
+      gsap.set(cards, { opacity: 0, y: 30 })
 
       trigger = ScrollTrigger.create({
         trigger: el,
@@ -120,9 +120,9 @@ export function ResultsShowcaseSection({ data }: ResultsShowcaseSectionProps) {
           gsap.to(cards, {
             opacity: 1,
             y: 0,
-            duration: 0.6,
+            duration: 0.5,
             ease: "power2.out",
-            stagger: 0.12,
+            stagger: 0.15,
           })
         },
       })

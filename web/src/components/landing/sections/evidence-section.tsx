@@ -42,14 +42,31 @@ export function EvidenceSection({
       const el = panelRef.current
       if (!el) return
 
-      gsap.set(el, { opacity: 0, y: 24 })
+      // Panel border/container fades in
+      gsap.set(el, { opacity: 0 })
+
+      // Content items stagger in
+      const items = el.querySelectorAll("[data-evidence-item]")
+      if (items.length > 0) {
+        gsap.set(items, { opacity: 0, y: 16 })
+      }
 
       trigger = ScrollTrigger.create({
         trigger: el,
         start: "top 85%",
         once: true,
         onEnter: () => {
-          gsap.to(el, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" })
+          gsap.to(el, { opacity: 1, duration: 0.5, ease: "power2.out" })
+          if (items.length > 0) {
+            gsap.to(items, {
+              opacity: 1,
+              y: 0,
+              duration: 0.5,
+              stagger: 0.1,
+              delay: 0.15,
+              ease: "power2.out",
+            })
+          }
         },
       })
     }
@@ -90,7 +107,7 @@ export function EvidenceSection({
           {/* Row 1: 3-column grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border-subtle">
             {/* Column 1: Selectivity Funnel */}
-            <div className="p-6">
+            <div className="p-6" data-evidence-item>
               <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
                 Selectivity Funnel
               </div>
@@ -103,7 +120,7 @@ export function EvidenceSection({
             </div>
 
             {/* Column 2: Sector Bar Chart */}
-            <div className="p-6">
+            <div className="p-6" data-evidence-item>
               <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
                 Sector Breakdown
               </div>
@@ -111,7 +128,7 @@ export function EvidenceSection({
             </div>
 
             {/* Column 3: Factor Correlation */}
-            <div className="p-6">
+            <div className="p-6" data-evidence-item>
               <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
                 Factor Correlation
               </div>
@@ -120,7 +137,7 @@ export function EvidenceSection({
           </div>
 
           {/* Row 2: Full-width factor density curves */}
-          <div className="px-6 py-5 border-t border-border-subtle">
+          <div className="px-6 py-5 border-t border-border-subtle" data-evidence-item>
             <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
               Factor Distribution — All Candidates
             </div>

@@ -43,14 +43,15 @@ export function HeroSection({ data }: HeroSectionProps) {
         })
       })
 
-      // Right column: card scale entrance
+      // Right column: card scale + rotation entrance
       const card = section.querySelector("[data-hero-card]")
       if (card) {
-        gsap.set(card, { opacity: 0, scale: 0.95 })
+        gsap.set(card, { opacity: 0, scale: 0.95, rotation: -2 })
         gsap.to(card, {
           opacity: 1,
           scale: 1,
-          duration: 0.7,
+          rotation: 0,
+          duration: 0.8,
           delay: 0.3,
           ease: "power2.out",
         })

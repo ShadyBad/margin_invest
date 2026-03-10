@@ -1,3 +1,6 @@
+"use client"
+
+import { useEffect, useRef } from "react"
 import type { HomepageData } from "../shared/types"
 import { StalenessIndicator } from "../shared/staleness-indicator"
 
@@ -25,10 +28,49 @@ function formatNumber(n: number | undefined): string {
 }
 
 export function AuthorityStrip({ data }: { data: HomepageData | null }) {
+  const stripRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!stripRef.current) return
+
+    let cancelled = false
+    let trigger: { kill: () => void } | null = null
+
+    async function animate() {
+      const gsapModule = await import("gsap")
+      const { default: ScrollTrigger } = await import("gsap/ScrollTrigger")
+      if (cancelled) return
+
+      const gsap = gsapModule.default
+      gsap.registerPlugin(ScrollTrigger)
+
+      const el = stripRef.current
+      if (!el) return
+
+      gsap.set(el, { opacity: 0, y: 30 })
+
+      trigger = ScrollTrigger.create({
+        trigger: el,
+        start: "top 85%",
+        once: true,
+        onEnter: () => {
+          gsap.to(el, { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" })
+        },
+      })
+    }
+
+    animate().catch(() => {})
+
+    return () => {
+      cancelled = true
+      trigger?.kill()
+    }
+  }, [])
+
   return (
     <section className="px-6 py-8">
       <div className="max-w-6xl mx-auto">
-        <div className="bg-bg-elevated border border-border-subtle rounded-xl p-6 md:p-8">
+        <div ref={stripRef} className="bg-bg-elevated border border-border-subtle rounded-xl p-6 md:p-8">
           <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-text-tertiary mb-4 flex items-center gap-2">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent/50 animate-pulse" />
             SYSTEM PROFILE

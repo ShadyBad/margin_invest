@@ -122,8 +122,8 @@ export function PricingSection({ totalUniverse }: PricingSectionProps) {
       const contact = contactRef.current
       if (!section || cards.length !== 3 || !bottom || !contact) return
 
-      // Simple viewport-enter fade-in with stagger
-      gsap.set(cards, { opacity: 0, y: 20 })
+      // Cards fan up with scale + y offset
+      gsap.set(cards, { opacity: 0, y: 20, scale: 0.97 })
       gsap.set(bottom, { opacity: 0, y: 20 })
       gsap.set(contact, { opacity: 0, y: 20 })
 
@@ -132,11 +132,11 @@ export function PricingSection({ totalUniverse }: PricingSectionProps) {
         start: "top 80%",
         once: true,
         onEnter: () => {
-          // Headline is already visible; fade in cards with stagger
           gsap.to(cards, {
             opacity: 1,
             y: 0,
-            duration: 0.6,
+            scale: 1,
+            duration: 0.5,
             stagger: 0.12,
             ease: "power2.out",
           })
