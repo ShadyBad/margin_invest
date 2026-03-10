@@ -78,22 +78,22 @@ describe("HeroSection", () => {
     expect(screen.getByTestId("hero-search")).toBeInTheDocument()
   })
 
-  it("renders SystemReportCard with top candidate", () => {
+  it("renders InstrumentPanel with top candidate", () => {
     render(<HeroSection data={mockData} />)
-    expect(screen.getByText("SYSTEM REPORT")).toBeInTheDocument()
+    expect(screen.getByText(/live score/i)).toBeInTheDocument()
     expect(screen.getByText("AAPL")).toBeInTheDocument()
   })
 
-  it("renders SystemReportCard in placeholder mode when data is null", () => {
+  it("renders InstrumentPanel in placeholder mode when data is null", () => {
     render(<HeroSection data={null} />)
-    expect(screen.getByText("SYSTEM REPORT")).toBeInTheDocument()
+    expect(screen.getByText(/live score/i)).toBeInTheDocument()
     expect(screen.getByText("No data available")).toBeInTheDocument()
   })
 
-  it("uses 90svh min-height (Authority Strip peek)", () => {
+  it("uses 80svh min-height", () => {
     const { container } = render(<HeroSection data={mockData} />)
     const section = container.querySelector("#hero")
-    expect(section).toHaveStyle({ minHeight: "90svh" })
+    expect(section).toHaveStyle({ minHeight: "80svh" })
   })
 
   it("has two-column grid on lg breakpoint", () => {

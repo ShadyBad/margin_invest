@@ -1,21 +1,22 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
-import { PicksGrid } from "../picks-grid"
 
-// Mock StockCard to avoid transitive dependency resolution
-vi.mock("../stock-card", () => ({
-  StockCard: ({ pick }: { pick: { ticker: string } }) => <div data-testid={`stock-card-${pick.ticker}`} />,
+vi.mock("gsap", () => ({
+  default: { set: vi.fn(), to: vi.fn(), timeline: vi.fn(() => ({ to: vi.fn().mockReturnThis(), play: vi.fn(), kill: vi.fn() })) },
 }))
 
-// Mock @/components/ui — provide real EmptyState so we can test its rendered output
+vi.mock("next/link", () => ({
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
+}))
+
 vi.mock("@/components/ui", () => ({
   EmptyState: ({ title, description, className }: { title: string; description?: string; className?: string }) => (
-    <div className={className}>
-      <h3>{title}</h3>
-      {description && <p>{description}</p>}
-    </div>
+    <div className={className}><h3>{title}</h3>{description && <p>{description}</p>}</div>
   ),
+  ConvictionBadge: ({ level }: { level: string }) => <span>{level}</span>,
 }))
+
+import { PicksGrid } from "../picks-grid"
 
 describe("PicksGrid", () => {
   it("renders purposeful empty state when no picks", () => {

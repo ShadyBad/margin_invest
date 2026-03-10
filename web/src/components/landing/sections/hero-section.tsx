@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import type { HomepageData } from "../shared/types"
 import { HeroSearch } from "../hero-search"
-import { SystemReportCard } from "./system-report-card"
+import { InstrumentPanel } from "./instrument-panel"
 
 interface HeroSectionProps {
   data: HomepageData | null
@@ -73,7 +73,7 @@ export function HeroSection({ data }: HeroSectionProps) {
       ref={sectionRef}
       className="relative flex items-center justify-center overflow-hidden"
       style={{
-        minHeight: "90svh",
+        minHeight: "80svh",
         background:
           "radial-gradient(ellipse 70% 55% at 50% 30%, rgba(26,122,90,0.18) 0%, transparent 60%), var(--color-bg-primary)",
       }}
@@ -124,9 +124,9 @@ export function HeroSection({ data }: HeroSectionProps) {
           </div>
         </div>
 
-        {/* Right column — SystemReportCard */}
+        {/* Right column — InstrumentPanel */}
         <div className="flex items-center justify-center lg:justify-end">
-          <SystemReportCard candidate={topCandidate} />
+          <InstrumentPanel candidate={topCandidate} />
         </div>
       </div>
 
