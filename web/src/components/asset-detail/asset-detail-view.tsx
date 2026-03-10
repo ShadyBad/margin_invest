@@ -43,6 +43,16 @@ interface AssetDetailViewProps {
   sectorName?: string
 }
 
+/** Re-derive composite tier from raw score — mirrors the dashboard endpoint's
+ *  _derive_composite_tier() thresholds so the detail page matches the picks list. */
+function deriveCompositeTier(rawScore: number | null | undefined): string {
+  if (rawScore == null) return "none"
+  if (rawScore >= 76.0) return "exceptional"
+  if (rawScore >= 71.0) return "high"
+  if (rawScore >= 66.0) return "medium"
+  return "none"
+}
+
 function formatGrowthStage(stage: string): string {
   return stage
     .split("_")
@@ -120,6 +130,13 @@ export function AssetDetailView({
   // --- Derived data ---
   const allFiltersPassed = scoreData.filters_passed.every((f) => f.passed)
   const failedCount = scoreData.filters_passed.filter((f) => !f.passed).length
+  // The score endpoint may return composite_tier "none" for stocks that failed
+  // filters, even when the score is high enough for a real tier. Re-derive the
+  // tier from the raw score to match the dashboard endpoint's logic.
+  const derivedTier = deriveCompositeTier(scoreData.score)
+  const TOP_TIERS = ["exceptional", "high", "medium"]
+  const isTopTier = TOP_TIERS.includes(derivedTier)
+  const showScoreView = allFiltersPassed || isTopTier
   const scoreHistoryValues = historyData?.points
     ?.map((p) => p.composite_raw_score)
     .filter((v): v is number => v != null)
@@ -197,12 +214,12 @@ export function AssetDetailView({
       <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-6" data-testid="detail-grid">
         {/* ---- Left column (60%) ---- */}
         <div className="space-y-6 min-w-0">
-          {/* Score header (passed) or eliminated hero */}
-          {allFiltersPassed ? (
+          {/* Score header (passed or top-tier) or eliminated hero */}
+          {showScoreView ? (
             <>
               <ScoreHeader
                 score={scoreData.score}
-                tier={scoreData.composite_tier}
+                tier={derivedTier}
                 percentile={scoreData.universe_percentile}
               />
 
@@ -254,25 +271,25 @@ export function AssetDetailView({
 
           <EliminationGauntlet
             filters={scoreData.filters_passed}
-            eliminated={!allFiltersPassed}
+            eliminated={!showScoreView}
             totalScored={totalScored}
             filtersSurvivedCount={filtersSurvivedCount}
           />
 
-          {!allFiltersPassed && failedFilterComparisons.length > 0 && (
+          {!allFiltersPassed && !isTopTier && failedFilterComparisons.length > 0 && (
             <FailedComparison
               ticker={ticker}
               failedFilters={failedFilterComparisons}
             />
           )}
 
-          {allFiltersPassed && (
+          {showScoreView && (
             <SectorNeutralBanner
               sectorName={scoreData.sector || "Unknown"}
             />
           )}
 
-          {allFiltersPassed && (
+          {showScoreView && (
             <ScoringPillars
               quality={scoreData.quality}
               value={scoreData.value}
@@ -281,7 +298,7 @@ export function AssetDetailView({
             />
           )}
 
-          {allFiltersPassed && (
+          {showScoreView && (
             <ConvictionEngine
               opportunityType={scoreData.opportunity_type ?? null}
               winningTrack={scoreData.winning_track ?? null}
@@ -306,7 +323,7 @@ export function AssetDetailView({
             />
           )}
 
-          {allFiltersPassed && (
+          {showScoreView && (
             <MLAuditPanel
               mlModelQualified={scoreData.ml_model_qualified ?? null}
               mlModelRankIc={scoreData.ml_model_rank_ic ?? null}
@@ -319,11 +336,11 @@ export function AssetDetailView({
             />
           )}
 
-          {allFiltersPassed && (
+          {showScoreView && (
             <InstitutionalPositioning ticker={ticker} />
           )}
 
-          {allFiltersPassed && (
+          {showScoreView && (
             <ValuationSection
               ticker={scoreData.ticker}
               buyPrice={scoreData.buy_price}
@@ -339,7 +356,7 @@ export function AssetDetailView({
             />
           )}
 
-          {allFiltersPassed && teaserData && (
+          {showScoreView && teaserData && (
             <BacktestTeaser
               modelReturn={teaserData.model_return}
               benchmarkReturn={teaserData.benchmark_return}
@@ -349,7 +366,7 @@ export function AssetDetailView({
             />
           )}
 
-          {!allFiltersPassed && (
+          {!showScoreView && (
             <HypotheticalScores
               ticker={scoreData.ticker}
               compositeScore={scoreData.score}
@@ -362,7 +379,7 @@ export function AssetDetailView({
             />
           )}
 
-          {!allFiltersPassed &&
+          {!showScoreView &&
             sectorSurvivorCount != null &&
             sectorSurvivorCount > 0 &&
             sectorName && (
@@ -384,11 +401,11 @@ export function AssetDetailView({
 
         {/* ---- Right column (40%) ---- */}
         <div className="space-y-6">
-          {allFiltersPassed && (
+          {showScoreView && (
             <FactorPanel factors={factorPercentiles} />
           )}
 
-          {allFiltersPassed && (
+          {showScoreView && (
             <FactorRadar
               quality={scoreData.quality}
               value={scoreData.value}

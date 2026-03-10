@@ -113,8 +113,11 @@ describe("AssetDetailView", () => {
     })
   })
 
-  it("renders eliminated view for a failing ticker", () => {
+  it("renders eliminated view for a low-tier failing ticker", () => {
     const data = makeScoreResponse({
+      score: 45.0,
+      composite_tier: "low",
+      signal: "weak",
       filters_passed: [
         { name: "liquidity", passed: true, value: 782000, threshold: 200000000, detail: "", verdict: "pass", missing_fields: null },
         { name: "beneish_m_score", passed: true, value: -2.45, threshold: -2.22, detail: "", verdict: "pass", missing_fields: null },
@@ -142,6 +145,37 @@ describe("AssetDetailView", () => {
     expect(screen.queryByTestId("conviction-engine")).not.toBeInTheDocument()
     expect(screen.queryByTestId("valuation-section")).not.toBeInTheDocument()
     expect(screen.queryByTestId("hero-header")).not.toBeInTheDocument()
+  })
+
+  it("renders score view for top-tier ticker with failed filters", () => {
+    // API returns composite_tier "none" for eliminated stocks, but the raw
+    // score (78.3 default) derives to "exceptional" — matches dashboard logic.
+    const data = makeScoreResponse({
+      composite_tier: "none",
+      filters_passed: [
+        { name: "liquidity", passed: true, value: 782000, threshold: 200000000, detail: "", verdict: "pass", missing_fields: null },
+        { name: "beneish_m_score", passed: true, value: -2.45, threshold: -2.22, detail: "", verdict: "pass", missing_fields: null },
+        { name: "altman_z_score", passed: false, value: 1.6, threshold: 1.1, detail: "", verdict: "fail", missing_fields: null },
+        { name: "current_ratio", passed: true, value: 1.2, threshold: 0.8, detail: "", verdict: "pass", missing_fields: null },
+        { name: "fcf_distress", passed: true, value: 50000, threshold: 0, detail: "", verdict: "pass", missing_fields: null },
+        { name: "interest_coverage", passed: true, value: 8.5, threshold: 3.0, detail: "", verdict: "pass", missing_fields: null },
+      ],
+    })
+    render(
+      <AssetDetailView
+        ticker="AAPL"
+        scoreData={data}
+        historyData={null}
+        apiError={null}
+      />
+    )
+    // Top-tier shows score view, not eliminated
+    expect(screen.getByTestId("hero-header")).toBeInTheDocument()
+    expect(screen.getByTestId("scoring-pillars")).toBeInTheDocument()
+    expect(screen.queryByTestId("eliminated-hero")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("hypothetical-scores")).not.toBeInTheDocument()
+    // Filter gauntlet still shows
+    expect(screen.getByTestId("elimination-gauntlet")).toBeInTheDocument()
   })
 
   it("shows error state when apiError is provided", () => {
@@ -176,6 +210,9 @@ describe("AssetDetailView", () => {
 
   it("renders sector survivor CTA when eliminated and sector provided", () => {
     const data = makeScoreResponse({
+      score: 40.0,
+      composite_tier: "minimal",
+      signal: "failed",
       filters_passed: [
         { name: "liquidity", passed: true, value: 8e11, threshold: 2e8, detail: "", verdict: "pass", missing_fields: null },
         { name: "altman_z_score", passed: false, value: 1.6, threshold: 1.1, detail: "", verdict: "fail", missing_fields: null },

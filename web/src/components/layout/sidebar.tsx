@@ -32,41 +32,6 @@ function IconGrid() {
   )
 }
 
-function IconStar() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z" />
-    </svg>
-  )
-}
-
-function IconSearch() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-      <circle cx="11" cy="11" r="7" />
-      <path strokeLinecap="round" d="M20 20l-4.35-4.35" />
-    </svg>
-  )
-}
-
-function IconTrending() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6" />
-    </svg>
-  )
-}
-
-function IconChart() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-      <rect x="3" y="12" width="4" height="9" rx="1" />
-      <rect x="10" y="6" width="4" height="15" rx="1" />
-      <rect x="17" y="3" width="4" height="18" rx="1" />
-    </svg>
-  )
-}
-
 function IconBook() {
   return (
     <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -100,15 +65,6 @@ const navGroups: NavGroup[] = [
     title: "CORE",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: <IconGrid /> },
-      { href: "/watchlist", label: "Watchlist", icon: <IconStar /> },
-      { href: "/search", label: "Search", icon: <IconSearch /> },
-    ],
-  },
-  {
-    title: "TOOLS",
-    items: [
-      { href: "/smart-money", label: "Smart Money", icon: <IconTrending /> },
-      { href: "/backtesting", label: "Backtesting", icon: <IconChart /> },
     ],
   },
   {
