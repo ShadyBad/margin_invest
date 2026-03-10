@@ -8,9 +8,9 @@ vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
 
-import { ResultsShowcaseSection } from "../results-showcase-section"
-import type { HomepageData } from "../types"
-import type { CandidateCard } from "../types"
+import { ResultsShowcaseSection } from "../sections/results-showcase-section"
+import type { HomepageData } from "../shared/types"
+import type { CandidateCard } from "../shared/types"
 
 function makeCandidate(overrides: Partial<CandidateCard>): CandidateCard {
   return {
@@ -54,7 +54,7 @@ const mockData: HomepageData = {
 }
 
 describe("ResultsShowcaseSection", () => {
-  it("renders top 3 candidate tickers and scores", () => {
+  it("renders candidate cards with scores", () => {
     render(<ResultsShowcaseSection data={mockData} />)
     expect(screen.getByText("AAPL")).toBeInTheDocument()
     expect(screen.getByText("MSFT")).toBeInTheDocument()
@@ -66,11 +66,43 @@ describe("ResultsShowcaseSection", () => {
     expect(screen.queryByText("EXTRA")).not.toBeInTheDocument()
   })
 
-  it("renders cycle stats line with live numbers", () => {
+  it("renders summary stat line", () => {
     render(<ResultsShowcaseSection data={mockData} />)
-    expect(screen.getByText(/842 stocks scored/)).toBeInTheDocument()
-    expect(screen.getByText(/830 eliminated/)).toBeInTheDocument()
+    expect(screen.getByText(/scanned/i)).toBeInTheDocument()
+    expect(screen.getByText(/survived/i)).toBeInTheDocument()
+  })
+
+  it("uses bg-bg-subtle background", () => {
+    const { container } = render(<ResultsShowcaseSection data={mockData} />)
+    expect(container.firstChild).toHaveClass("bg-bg-subtle")
+  })
+
+  it("renders summary stats with correct calculations", () => {
+    render(<ResultsShowcaseSection data={mockData} />)
+    // eliminated = total_universe - eligible_count = 3056 - 842 = 2,214
+    expect(screen.getByText(/3,056 scanned/)).toBeInTheDocument()
+    expect(screen.getByText(/2,214 eliminated/)).toBeInTheDocument()
+    expect(screen.getByText(/842 scored/)).toBeInTheDocument()
     expect(screen.getByText(/12 survived/)).toBeInTheDocument()
+  })
+
+  it("renders monospace header with status dot", () => {
+    render(<ResultsShowcaseSection data={mockData} />)
+    expect(screen.getByText("CURRENT CYCLE RESULTS")).toBeInTheDocument()
+  })
+
+  it("renders 5 factor bars per candidate (compact mode)", () => {
+    const { container } = render(<ResultsShowcaseSection data={mockData} />)
+    // 3 cards x 5 factors = 15 factor bars
+    const factorBars = container.querySelectorAll("[data-factor-bar]")
+    expect(factorBars).toHaveLength(15)
+  })
+
+  it("renders sector badges for each candidate", () => {
+    render(<ResultsShowcaseSection data={mockData} />)
+    // All mock candidates have "Technology" sector; displayed in uppercase via text-mono-label
+    const sectorBadges = screen.getAllByText("Technology")
+    expect(sectorBadges).toHaveLength(3)
   })
 
   it("shows placeholder when data is null", () => {
@@ -78,6 +110,11 @@ describe("ResultsShowcaseSection", () => {
     expect(
       screen.getByText("Scoring data loads after the engine completes a cycle.")
     ).toBeInTheDocument()
+  })
+
+  it("null state uses bg-bg-subtle background", () => {
+    const { container } = render(<ResultsShowcaseSection data={null} />)
+    expect(container.firstChild).toHaveClass("bg-bg-subtle")
   })
 
   it("shows in-progress message when candidates array is empty", () => {

@@ -37,7 +37,7 @@ export function FaqAccordion({ categories }: { categories: FaqCategory[] }) {
     <div className="space-y-12">
       {categories.map((category) => (
         <section key={category.id} id={`faq-${category.id}`}>
-          <h2 className="heading-3 text-text-primary mb-4">{category.title}</h2>
+          <h2 className="text-title-1 text-text-primary mb-4">{category.title}</h2>
           <div className="border border-border-primary rounded-lg divide-y divide-border-subtle overflow-hidden">
             {category.items.map((item, index) => {
               const isOpen = openItems[category.id] === index

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 
 vi.mock("gsap", () => ({
   default: { registerPlugin: vi.fn(), to: vi.fn(), set: vi.fn(), fromTo: vi.fn() },
@@ -7,8 +8,11 @@ vi.mock("gsap", () => ({
 vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
+vi.mock("../hero-search", () => ({
+  HeroSearch: () => <div data-testid="hero-search" />,
+}))
 
-import { FooterSection } from "../footer-section"
+import { FooterSection } from "../sections/footer-section"
 
 describe("FooterSection (landing)", () => {
   it("renders all navigation links", () => {
@@ -31,7 +35,9 @@ describe("FooterSection (landing)", () => {
 
   it("renders engine tagline", () => {
     render(<FooterSection />)
-    expect(screen.getByText(/deterministic scoring engine/i)).toBeInTheDocument()
+    // Use getAllByText since FAQ answer also contains similar text
+    const matches = screen.getAllByText(/deterministic scoring engine/i)
+    expect(matches.length).toBeGreaterThanOrEqual(1)
   })
 
   it("renders copyright", () => {
@@ -43,5 +49,55 @@ describe("FooterSection (landing)", () => {
     const { container } = render(<FooterSection />)
     const hr = container.querySelector("hr")
     expect(hr).toBeInTheDocument()
+  })
+
+  // FAQ accordion within footer
+  it("renders FAQ accordion with all 7 questions", () => {
+    render(<FooterSection />)
+    expect(screen.getByText("What is Margin Invest?")).toBeInTheDocument()
+    expect(screen.getByText("Is this investment advice?")).toBeInTheDocument()
+    expect(screen.getByText("How is this different from Zacks or Morningstar?")).toBeInTheDocument()
+    expect(screen.getByText("What are the elimination filters?")).toBeInTheDocument()
+    expect(screen.getByText(/What does .sector-neutral. mean\?/)).toBeInTheDocument()
+    expect(screen.getByText("Do you have a track record?")).toBeInTheDocument()
+    expect(screen.getByText("Can I cancel anytime?")).toBeInTheDocument()
+  })
+
+  it("FAQ accordion expand/collapse works within footer", async () => {
+    const user = userEvent.setup()
+    render(<FooterSection />)
+
+    const button = screen.getByText("What is Margin Invest?").closest("button")!
+    expect(button).toHaveAttribute("aria-expanded", "false")
+
+    await user.click(button)
+    expect(button).toHaveAttribute("aria-expanded", "true")
+  })
+
+  it("renders Common Questions label", () => {
+    render(<FooterSection />)
+    expect(screen.getByText("Common Questions")).toBeInTheDocument()
+  })
+
+  it("renders CTA headline 'Score your first position.'", () => {
+    render(<FooterSection />)
+    expect(screen.getByText("Score your first position.")).toBeInTheDocument()
+  })
+
+  it("renders HeroSearch in CTA section", () => {
+    render(<FooterSection />)
+    expect(screen.getByTestId("hero-search")).toBeInTheDocument()
+  })
+
+  it("has data-footer-faq attribute on FAQ section", () => {
+    const { container } = render(<FooterSection />)
+    const faqSection = container.querySelector("[data-footer-faq]")
+    expect(faqSection).toBeInTheDocument()
+  })
+
+  it("has data-footer-cta attribute on CTA section", () => {
+    const { container } = render(<FooterSection />)
+    const ctaSection = container.querySelector("[data-footer-cta]")
+    expect(ctaSection).toBeInTheDocument()
   })
 })

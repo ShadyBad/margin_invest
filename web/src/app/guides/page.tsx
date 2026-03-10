@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Navbar } from "@/components/nav/navbar"
-import { GuideCategoryTabs } from "@/components/guides/guide-category-tabs"
+import { PageHeader } from "@/components/shared/page-header"
+import { GuidesContent } from "@/components/guides/guides-content"
 import { groupGuidesByCategory } from "@/lib/guides"
 import { getAllGuides } from "@/lib/guides.server"
 
@@ -20,14 +21,13 @@ export default async function GuidesPage() {
         <Navbar />
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
-          <div className="max-w-2xl mb-12">
-            <h1 className="heading-2 text-text-primary mb-4">Guides</h1>
-            <p className="body-text text-text-secondary">
-              The methodology is open. Every filter, factor, and formula — documented.
-            </p>
-          </div>
+          <PageHeader
+            category="GUIDES"
+            title="The methodology is open."
+            description="Every filter, factor, and formula — documented. Search or browse by category."
+          />
 
-          <GuideCategoryTabs grouped={grouped} />
+          <GuidesContent grouped={grouped} allGuides={guides} />
         </div>
       </div>
     </main>

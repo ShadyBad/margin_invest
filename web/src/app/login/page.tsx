@@ -16,15 +16,18 @@ export default async function LoginPage({
   const initialMode = params.mode === "signup" ? "signup" : "signin"
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-bg-primary overflow-hidden">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-bg-primary overflow-hidden">
       <LoginScene />
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col items-center">
         <LoginCard
           initialMode={initialMode}
           authError={params.error}
           authCode={params.code}
           resetSuccess={params.resetSuccess === "true"}
         />
+        <p className="text-mono-label text-text-tertiary mt-6">
+          Scoring 3,056 US equities daily
+        </p>
       </div>
     </div>
   )

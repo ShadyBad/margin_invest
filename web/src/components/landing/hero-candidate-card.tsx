@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import type { CandidateCard } from "./types"
+import type { CandidateCard } from "./shared/types"
 import { ENGINE_VERSION } from "./candidate-data"
 import { MicroMetadata } from "./micro-metadata"
 

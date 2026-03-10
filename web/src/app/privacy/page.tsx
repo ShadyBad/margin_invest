@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Navbar } from "@/components/nav/navbar"
+import { PageHeader } from "@/components/shared/page-header"
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Margin Invest",
@@ -8,218 +9,262 @@ export const metadata: Metadata = {
     "Privacy Policy describing how Margin Invest collects, uses, shares, and protects your personal information.",
 }
 
+const sections = [
+  { id: "introduction", label: "Introduction" },
+  { id: "information-collected", label: "Information We Collect" },
+  { id: "how-we-use", label: "How We Use It" },
+  { id: "how-we-share", label: "How We Share It" },
+  { id: "your-rights", label: "Your Rights" },
+  { id: "cookies", label: "Cookies & Tracking" },
+  { id: "data-security", label: "Data Security" },
+  { id: "data-retention", label: "Data Retention" },
+  { id: "children", label: "Children's Privacy" },
+  { id: "changes", label: "Policy Changes" },
+  { id: "contact", label: "Contact" },
+]
+
 export default function PrivacyPage() {
   return (
     <main className="relative bg-bg-primary min-h-screen">
       <div className="relative z-10">
         <Navbar />
 
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-          <h1 className="heading-2 text-text-primary mb-4">Privacy Policy</h1>
-          <p className="text-sm text-text-tertiary mb-12">
-            Last updated: February 27, 2026
-          </p>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+          <PageHeader
+            category="LEGAL"
+            title="Privacy Policy"
+            description="Last updated: February 27, 2026"
+          />
 
-          <div className="space-y-12 text-text-secondary body-text">
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">1. Introduction</h2>
-              <p className="mb-4">
-                Margin Invest (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is
-                committed to protecting your privacy. This Privacy Policy explains how we collect,
-                use, disclose, and safeguard your information when you use our platform and services
-                (collectively, the &ldquo;Service&rdquo;).
-              </p>
-              <p>
-                By using the Service, you consent to the data practices described in this policy. If
-                you do not agree, please do not use the Service.
-              </p>
-            </section>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_200px] gap-8">
+            <div className="space-y-8 text-text-secondary text-body">
+              <section id="introduction">
+                <h2 className="text-title-1 text-text-primary mb-4">1. Introduction</h2>
+                <p className="mb-4">
+                  Margin Invest (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is
+                  committed to protecting your privacy. This Privacy Policy explains how we collect,
+                  use, disclose, and safeguard your information when you use our platform and services
+                  (collectively, the &ldquo;Service&rdquo;).
+                </p>
+                <p>
+                  By using the Service, you consent to the data practices described in this policy. If
+                  you do not agree, please do not use the Service.
+                </p>
+              </section>
 
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">2. Information We Collect</h2>
-              <p className="mb-4 font-medium text-text-primary">Information you provide:</p>
-              <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
-                <li>Account information (name, email address) via OAuth or email registration</li>
-                <li>Billing information (processed by Stripe; we do not store full card numbers)</li>
-                <li>Watchlist tickers and portfolio preferences</li>
-                <li>Support inquiries and correspondence</li>
-              </ul>
-              <p className="mb-4 font-medium text-text-primary">
-                Information collected automatically:
-              </p>
-              <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
-                <li>Usage data (pages visited, features used, timestamps)</li>
-                <li>Device and browser information (type, operating system, screen resolution)</li>
-                <li>IP address and approximate geolocation</li>
-                <li>Cookies and similar tracking technologies</li>
-              </ul>
-            </section>
+              <section id="information-collected">
+                <h2 className="text-title-1 text-text-primary mb-4">2. Information We Collect</h2>
+                <p className="mb-4 font-medium text-text-primary">Information you provide:</p>
+                <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
+                  <li>Account information (name, email address) via OAuth or email registration</li>
+                  <li>
+                    Billing information (processed by Stripe; we do not store full card numbers)
+                  </li>
+                  <li>Watchlist tickers and portfolio preferences</li>
+                  <li>Support inquiries and correspondence</li>
+                </ul>
+                <p className="mb-4 font-medium text-text-primary">
+                  Information collected automatically:
+                </p>
+                <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
+                  <li>Usage data (pages visited, features used, timestamps)</li>
+                  <li>Device and browser information (type, operating system, screen resolution)</li>
+                  <li>IP address and approximate geolocation</li>
+                  <li>Cookies and similar tracking technologies</li>
+                </ul>
+              </section>
 
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">3. How We Use Your Information</h2>
-              <p className="mb-4">We use the information we collect to:</p>
-              <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
-                <li>Provide, operate, and maintain the Service</li>
-                <li>Process subscriptions and payments</li>
-                <li>Personalize your experience (watchlists, preferences)</li>
-                <li>Send transactional communications (receipts, security alerts)</li>
-                <li>Analyze usage patterns to improve the Service</li>
-                <li>Detect and prevent fraud, abuse, and security incidents</li>
-                <li>Comply with legal obligations</li>
-              </ul>
-              <p>
-                We do not use your personal information to provide personalized investment
-                recommendations. All scoring and analytical outputs are generated by deterministic
-                models that do not incorporate individual user data.
-              </p>
-            </section>
+              <section id="how-we-use">
+                <h2 className="text-title-1 text-text-primary mb-4">
+                  3. How We Use Your Information
+                </h2>
+                <p className="mb-4">We use the information we collect to:</p>
+                <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
+                  <li>Provide, operate, and maintain the Service</li>
+                  <li>Process subscriptions and payments</li>
+                  <li>Personalize your experience (watchlists, preferences)</li>
+                  <li>Send transactional communications (receipts, security alerts)</li>
+                  <li>Analyze usage patterns to improve the Service</li>
+                  <li>Detect and prevent fraud, abuse, and security incidents</li>
+                  <li>Comply with legal obligations</li>
+                </ul>
+                <p>
+                  We do not use your personal information to provide personalized investment
+                  recommendations. All scoring and analytical outputs are generated by deterministic
+                  models that do not incorporate individual user data.
+                </p>
+              </section>
 
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">
-                4. How We Share Your Information
-              </h2>
-              <p className="mb-4">We do not sell your personal information to third parties.</p>
-              <p className="mb-4">We may share your information with:</p>
-              <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
-                <li>
-                  <strong>Service providers:</strong> Stripe (payments), authentication providers
-                  (OAuth), hosting and infrastructure providers, analytics services
-                </li>
-                <li>
-                  <strong>Legal compliance:</strong> When required by law, subpoena, court order, or
-                  government request
-                </li>
-                <li>
-                  <strong>Business transfers:</strong> In connection with a merger, acquisition, or
-                  sale of assets, subject to standard confidentiality agreements
-                </li>
-              </ul>
-              <p>
-                Aggregated, de-identified data that cannot reasonably be used to identify you may be
-                used for analytical and product improvement purposes.
-              </p>
-            </section>
+              <section id="how-we-share">
+                <h2 className="text-title-1 text-text-primary mb-4">
+                  4. How We Share Your Information
+                </h2>
+                <p className="mb-4">We do not sell your personal information to third parties.</p>
+                <p className="mb-4">We may share your information with:</p>
+                <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
+                  <li>
+                    <strong>Service providers:</strong> Stripe (payments), authentication providers
+                    (OAuth), hosting and infrastructure providers, analytics services
+                  </li>
+                  <li>
+                    <strong>Legal compliance:</strong> When required by law, subpoena, court order, or
+                    government request
+                  </li>
+                  <li>
+                    <strong>Business transfers:</strong> In connection with a merger, acquisition, or
+                    sale of assets, subject to standard confidentiality agreements
+                  </li>
+                </ul>
+                <p>
+                  Aggregated, de-identified data that cannot reasonably be used to identify you may be
+                  used for analytical and product improvement purposes.
+                </p>
+              </section>
 
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">5. Your Rights</h2>
-              <p className="mb-4">
-                Depending on your jurisdiction, you may have the following rights regarding your
-                personal information:
-              </p>
-              <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
-                <li>
-                  <strong>Access:</strong> Request a copy of the personal information we hold about
-                  you
-                </li>
-                <li>
-                  <strong>Correction:</strong> Request correction of inaccurate or incomplete
-                  information
-                </li>
-                <li>
-                  <strong>Deletion:</strong> Request deletion of your personal information, subject
-                  to legal retention requirements
-                </li>
-                <li>
-                  <strong>Portability:</strong> Request a machine-readable copy of your data
-                </li>
-                <li>
-                  <strong>Opt-out:</strong> Opt out of marketing communications at any time
-                </li>
-              </ul>
-              <p className="mb-4">
-                <strong>California residents (CCPA/CPRA):</strong> You have the right to know what
-                personal information is collected, request its deletion, and opt out of its sale. We
-                do not sell personal information. To exercise your rights, contact us at the email
-                below.
-              </p>
-              <p>
-                To exercise any of these rights, email{" "}
-                <a
-                  href="mailto:legal@margin-invest.com"
-                  className="text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
-                >
-                  legal@margin-invest.com
-                </a>
-                . We will respond within 30 days (or as required by applicable law).
-              </p>
-            </section>
+              <section id="your-rights">
+                <h2 className="text-title-1 text-text-primary mb-4">5. Your Rights</h2>
+                <p className="mb-4">
+                  Depending on your jurisdiction, you may have the following rights regarding your
+                  personal information:
+                </p>
+                <ul className="list-disc list-inside mb-4 space-y-1 text-text-tertiary">
+                  <li>
+                    <strong>Access:</strong> Request a copy of the personal information we hold about
+                    you
+                  </li>
+                  <li>
+                    <strong>Correction:</strong> Request correction of inaccurate or incomplete
+                    information
+                  </li>
+                  <li>
+                    <strong>Deletion:</strong> Request deletion of your personal information, subject
+                    to legal retention requirements
+                  </li>
+                  <li>
+                    <strong>Portability:</strong> Request a machine-readable copy of your data
+                  </li>
+                  <li>
+                    <strong>Opt-out:</strong> Opt out of marketing communications at any time
+                  </li>
+                </ul>
+                <p className="mb-4">
+                  <strong>California residents (CCPA/CPRA):</strong> You have the right to know what
+                  personal information is collected, request its deletion, and opt out of its sale. We
+                  do not sell personal information. To exercise your rights, contact us at the email
+                  below.
+                </p>
+                <p>
+                  To exercise any of these rights, email{" "}
+                  <a
+                    href="mailto:legal@margin-invest.com"
+                    className="text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
+                  >
+                    legal@margin-invest.com
+                  </a>
+                  . We will respond within 30 days (or as required by applicable law).
+                </p>
+              </section>
 
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">6. Cookies and Tracking</h2>
-              <p className="mb-4">
-                We use cookies and similar technologies to maintain session state, remember
-                preferences, and analyze usage. You can control cookies through your browser
-                settings, though disabling cookies may affect the functionality of the Service.
-              </p>
-              <p>We use the following types of cookies:</p>
-              <ul className="list-disc list-inside mt-2 space-y-1 text-text-tertiary">
-                <li>
-                  <strong>Essential cookies:</strong> Required for authentication and core
-                  functionality
-                </li>
-                <li>
-                  <strong>Analytics cookies:</strong> Help us understand how the Service is used
-                </li>
-              </ul>
-            </section>
+              <section id="cookies">
+                <h2 className="text-title-1 text-text-primary mb-4">6. Cookies and Tracking</h2>
+                <p className="mb-4">
+                  We use cookies and similar technologies to maintain session state, remember
+                  preferences, and analyze usage. You can control cookies through your browser
+                  settings, though disabling cookies may affect the functionality of the Service.
+                </p>
+                <p>We use the following types of cookies:</p>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-text-tertiary">
+                  <li>
+                    <strong>Essential cookies:</strong> Required for authentication and core
+                    functionality
+                  </li>
+                  <li>
+                    <strong>Analytics cookies:</strong> Help us understand how the Service is used
+                  </li>
+                </ul>
+              </section>
 
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">7. Data Security</h2>
-              <p className="mb-4">
-                We implement industry-standard security measures to protect your personal
-                information, including encryption in transit (TLS), secure authentication (OAuth,
-                JWT), and access controls.
-              </p>
-              <p>
-                No method of electronic storage or transmission is 100% secure. While we strive to
-                protect your information, we cannot guarantee its absolute security.
-              </p>
-            </section>
+              <section id="data-security">
+                <h2 className="text-title-1 text-text-primary mb-4">7. Data Security</h2>
+                <p className="mb-4">
+                  We implement industry-standard security measures to protect your personal
+                  information, including encryption in transit (TLS), secure authentication (OAuth,
+                  JWT), and access controls.
+                </p>
+                <p>
+                  No method of electronic storage or transmission is 100% secure. While we strive to
+                  protect your information, we cannot guarantee its absolute security.
+                </p>
+              </section>
 
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">8. Data Retention</h2>
-              <p className="mb-4">
-                We retain your personal information for as long as your account is active or as
-                needed to provide the Service. Upon account deletion, we will delete or anonymize
-                your personal information within 90 days, except where retention is required by law
-                or for legitimate business purposes (e.g., fraud prevention, legal compliance).
-              </p>
-              <p>
-                Aggregated, de-identified data may be retained indefinitely for analytical purposes.
-              </p>
-            </section>
+              <section id="data-retention">
+                <h2 className="text-title-1 text-text-primary mb-4">8. Data Retention</h2>
+                <p className="mb-4">
+                  We retain your personal information for as long as your account is active or as
+                  needed to provide the Service. Upon account deletion, we will delete or anonymize
+                  your personal information within 90 days, except where retention is required by law
+                  or for legitimate business purposes (e.g., fraud prevention, legal compliance).
+                </p>
+                <p>
+                  Aggregated, de-identified data may be retained indefinitely for analytical purposes.
+                </p>
+              </section>
 
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">9. Children&apos;s Privacy</h2>
-              <p>
-                The Service is not directed to individuals under 18 years of age. We do not
-                knowingly collect personal information from children. If you believe we have
-                collected information from a child, please contact us and we will promptly delete it.
-              </p>
-            </section>
+              <section id="children">
+                <h2 className="text-title-1 text-text-primary mb-4">
+                  9. Children&apos;s Privacy
+                </h2>
+                <p>
+                  The Service is not directed to individuals under 18 years of age. We do not
+                  knowingly collect personal information from children. If you believe we have
+                  collected information from a child, please contact us and we will promptly delete it.
+                </p>
+              </section>
 
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">10. Changes to This Policy</h2>
-              <p>
-                We may update this Privacy Policy from time to time. We will notify you of material
-                changes by posting the updated policy on this page with a revised &ldquo;Last
-                updated&rdquo; date. Continued use of the Service after changes are posted
-                constitutes acceptance of the revised policy.
-              </p>
-            </section>
+              <section id="changes">
+                <h2 className="text-title-1 text-text-primary mb-4">
+                  10. Changes to This Policy
+                </h2>
+                <p>
+                  We may update this Privacy Policy from time to time. We will notify you of material
+                  changes by posting the updated policy on this page with a revised &ldquo;Last
+                  updated&rdquo; date. Continued use of the Service after changes are posted
+                  constitutes acceptance of the revised policy.
+                </p>
+              </section>
 
-            <section>
-              <h2 className="heading-3 text-text-primary mb-4">11. Contact</h2>
-              <p>
-                For privacy-related questions, data requests, or concerns, contact:{" "}
-                <a
-                  href="mailto:legal@margin-invest.com"
-                  className="text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
-                >
-                  legal@margin-invest.com
-                </a>
-              </p>
-            </section>
+              <section id="contact">
+                <h2 className="text-title-1 text-text-primary mb-4">11. Contact</h2>
+                <p>
+                  For privacy-related questions, data requests, or concerns, contact:{" "}
+                  <a
+                    href="mailto:legal@margin-invest.com"
+                    className="text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
+                  >
+                    legal@margin-invest.com
+                  </a>
+                </p>
+              </section>
+            </div>
+
+            {/* Desktop TOC sidebar */}
+            <aside className="hidden lg:block" aria-label="Table of contents">
+              <nav className="sticky top-20">
+                <p className="text-mono-label text-text-tertiary mb-4">On this page</p>
+                <ul className="space-y-2">
+                  {sections.map((s) => (
+                    <li key={s.id}>
+                      <a
+                        href={`#${s.id}`}
+                        className="text-xs text-text-tertiary hover:text-text-primary transition-colors"
+                      >
+                        {s.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            </aside>
           </div>
 
           <div className="mt-16 pt-8 border-t border-border-subtle">

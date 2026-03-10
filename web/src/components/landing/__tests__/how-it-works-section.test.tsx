@@ -8,8 +8,8 @@ vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
 
-import { HowItWorksSection } from "../how-it-works-section"
-import type { HomepageData } from "../types"
+import { HowItWorksSection } from "../sections/how-it-works-section"
+import type { HomepageData } from "../shared/types"
 
 const mockData: HomepageData = {
   candidates: [],

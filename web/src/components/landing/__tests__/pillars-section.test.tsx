@@ -8,8 +8,8 @@ vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
 }))
 
-import { PillarsSection } from "../pillars-section"
-import type { HomepageData, CandidateCard } from "../types"
+import { PillarsSection } from "../sections/pillars-section"
+import type { HomepageData, CandidateCard } from "../shared/types"
 
 function makeCandidate(overrides: Partial<CandidateCard>): CandidateCard {
   return {

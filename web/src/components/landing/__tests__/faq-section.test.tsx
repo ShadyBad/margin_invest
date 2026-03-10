@@ -12,7 +12,7 @@ vi.mock("../hero-search", () => ({
   HeroSearch: () => <div data-testid="hero-search" />,
 }))
 
-import { FaqSection } from "../faq-section"
+import { FaqSection } from "../sections/faq-section"
 
 describe("FaqSection", () => {
   it("renders all 7 FAQ questions", () => {

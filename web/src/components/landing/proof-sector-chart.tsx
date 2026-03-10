@@ -10,7 +10,7 @@ import {
   Legend,
   Tooltip,
 } from "recharts"
-import type { CandidateCard } from "./types"
+import type { CandidateCard } from "./shared/types"
 
 interface ProofSectorChartProps {
   candidates: CandidateCard[]

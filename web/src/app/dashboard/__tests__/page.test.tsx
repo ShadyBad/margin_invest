@@ -43,6 +43,7 @@ import type { DashboardResponse } from "@/lib/api/types"
 const mockDashboardData: DashboardResponse = {
   picks: [
     {
+      score_id: 1,
       ticker: "AAPL",
       name: "Apple Inc.",
       score: 82,
@@ -59,6 +60,7 @@ const mockDashboardData: DashboardResponse = {
       price_upside: 13.2,
     },
     {
+      score_id: 2,
       ticker: "MSFT",
       name: "Microsoft Corporation",
       score: 75,
@@ -193,5 +195,60 @@ describe("Dashboard Page (Server Component)", () => {
     await DashboardPage()
 
     expect(mockServerFetch).toHaveBeenCalledWith("/api/v1/dashboard")
+  })
+
+  it("renders system status strip", async () => {
+    mockAuth.mockResolvedValue({ userId: "user-123" })
+    mockServerFetch.mockResolvedValue(mockDashboardData)
+
+    const DashboardPage = (await import("../page")).default
+    const jsx = await DashboardPage()
+    render(jsx)
+
+    expect(screen.getByTestId("system-status-strip")).toBeInTheDocument()
+    expect(screen.getByText(/SCORED 500/)).toBeInTheDocument()
+  })
+
+  it("renders market context panel", async () => {
+    mockAuth.mockResolvedValue({ userId: "user-123" })
+    mockServerFetch.mockResolvedValue(mockDashboardData)
+
+    const DashboardPage = (await import("../page")).default
+    const jsx = await DashboardPage()
+    render(jsx)
+
+    expect(screen.getByTestId("market-context-panel")).toBeInTheDocument()
+    expect(screen.getByText("Market Context")).toBeInTheDocument()
+  })
+
+  it("uses fallback data when API fails — no raw error messages shown", async () => {
+    mockAuth.mockResolvedValue({ userId: "user-123", user: { name: "Test" } })
+    mockServerFetch.mockRejectedValue(new Error("Connection refused"))
+
+    const DashboardPage = (await import("../page")).default
+    const jsx = await DashboardPage()
+    render(jsx)
+
+    // Should NOT show raw developer-facing error messages
+    expect(screen.queryByText(/uvicorn/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Connection refused/i)).not.toBeInTheDocument()
+
+    // Should show fallback notice
+    expect(screen.getByTestId("fallback-notice")).toBeInTheDocument()
+    expect(screen.getByText(/cached data/i)).toBeInTheDocument()
+
+    // Should still render picks from fallback data
+    expect(screen.getByTestId("picks-grid")).toBeInTheDocument()
+  })
+
+  it("shows system offline in status strip when using fallback", async () => {
+    mockAuth.mockResolvedValue({ userId: "user-123", user: { name: "Test" } })
+    mockServerFetch.mockRejectedValue(new Error("Connection refused"))
+
+    const DashboardPage = (await import("../page")).default
+    const jsx = await DashboardPage()
+    render(jsx)
+
+    expect(screen.getByText(/SYSTEM OFFLINE/)).toBeInTheDocument()
   })
 })

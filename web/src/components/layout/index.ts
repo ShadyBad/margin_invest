@@ -1,3 +1,5 @@
 export { AppShell } from "./app-shell"
+export { Sidebar } from "./sidebar"
+export { TopBar } from "./top-bar"
 export { ConditionalFooter } from "./conditional-footer"
 export { Footer } from "./footer"

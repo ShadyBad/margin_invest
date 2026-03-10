@@ -195,9 +195,14 @@ export function LoginCard({ initialMode = "signin", authError, authCode, resetSu
 
   return (
     <div className="login-card-enter w-[calc(100%-32px)] max-w-[420px] rounded-3xl border border-white/[0.06] bg-[rgba(17,17,19,0.6)] px-8 py-10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-[16px] backdrop-saturate-[1.2] max-md:px-6 max-md:py-8">
-      {/* Logo */}
-      <div className="flex justify-center mb-6 text-text-primary opacity-80">
-        <LogoIcon />
+      {/* Logo + Wordmark */}
+      <div className="flex flex-col items-center mb-6">
+        <div className="text-text-primary opacity-80 mb-2">
+          <LogoIcon />
+        </div>
+        <span className="text-[13px] font-semibold tracking-[0.15em] uppercase text-text-secondary">
+          margin
+        </span>
       </div>
 
       {/* Heading */}
@@ -209,7 +214,7 @@ export function LoginCard({ initialMode = "signin", authError, authCode, resetSu
       </p>
 
       {/* Segmented Control */}
-      <div data-testid="segmented-control" className="flex rounded-xl bg-white/[0.04] border border-white/[0.06] p-1 mb-6">
+      <div data-testid="segmented-control" className="flex rounded-xl bg-white/[0.04] border border-border-primary p-1 mb-6">
         <button
           type="button"
           onClick={() => { setMode("signin"); resetForm(); setSuccessMessage("") }}
@@ -238,14 +243,14 @@ export function LoginCard({ initialMode = "signin", authError, authCode, resetSu
       <div className="flex justify-center gap-4 mb-6">
         <button
           onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-          className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/[0.04] border border-white/[0.06] text-text-primary hover:bg-white/[0.08] hover:scale-105 transition-all duration-200 ease-out"
+          className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/[0.04] border border-border-primary text-text-primary hover:bg-white/[0.08] hover:scale-105 transition-all duration-200 ease-out"
           aria-label="Sign in with Google"
         >
           <GoogleIcon />
         </button>
         <button
           onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
-          className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/[0.04] border border-white/[0.06] text-text-primary hover:bg-white/[0.08] hover:scale-105 transition-all duration-200 ease-out"
+          className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/[0.04] border border-border-primary text-text-primary hover:bg-white/[0.08] hover:scale-105 transition-all duration-200 ease-out"
           aria-label="Sign in with GitHub"
         >
           <GitHubIcon />

@@ -66,17 +66,40 @@ vi.mock("recharts", () => ({
 import { HomepageClient } from "../homepage-client"
 
 describe("HomepageClient section order", () => {
-  it("renders hero, pricing, faq, and footer sections", () => {
+  it("renders 7 sections: hero, authority, evidence, pipeline, results, pricing, footer", () => {
     const { container } = render(<HomepageClient data={null} />)
+
+    // Sections with id attributes
     const sections = container.querySelectorAll("section[id]")
     const ids = Array.from(sections).map((s) => s.id)
 
     expect(ids).toContain("hero")
     expect(ids).toContain("pricing")
-    expect(ids).toContain("faq")
 
     // Footer uses <footer> tag, not <section>
     const footer = container.querySelector("footer#footer")
     expect(footer).toBeInTheDocument()
+  })
+
+  it("does NOT render standalone FaqSection", () => {
+    const { container } = render(<HomepageClient data={null} />)
+    const faqSection = container.querySelector("section#faq")
+    expect(faqSection).not.toBeInTheDocument()
+  })
+
+  it("renders sections in correct order", () => {
+    const { container } = render(<HomepageClient data={null} />)
+
+    // Collect all top-level section/footer elements within the scroll canvas
+    const allSections = container.querySelectorAll("section[id], footer[id]")
+    const orderedIds = Array.from(allSections).map((s) => s.id)
+
+    // hero comes before pricing
+    const heroIdx = orderedIds.indexOf("hero")
+    const pricingIdx = orderedIds.indexOf("pricing")
+    const footerIdx = orderedIds.indexOf("footer")
+
+    expect(heroIdx).toBeLessThan(pricingIdx)
+    expect(pricingIdx).toBeLessThan(footerIdx)
   })
 })

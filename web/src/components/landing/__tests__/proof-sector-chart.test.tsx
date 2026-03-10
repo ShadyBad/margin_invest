@@ -29,7 +29,7 @@ vi.mock("recharts", () => ({
 }))
 
 import { ProofSectorChart, aggregateBySector } from "../proof-sector-chart"
-import type { CandidateCard } from "../types"
+import type { CandidateCard } from "../shared/types"
 
 function makeCandidate(overrides: Partial<CandidateCard>): CandidateCard {
   return {
