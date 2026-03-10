@@ -153,7 +153,8 @@ describe("AssetDetailView", () => {
         apiError="Not found"
       />
     )
-    expect(screen.getByText("Not found")).toBeInTheDocument()
+    expect(screen.getByTestId("error-state")).toBeInTheDocument()
+    expect(screen.getByText("Score data unavailable")).toBeInTheDocument()
     // No data sections should render
     expect(screen.queryByTestId("hero-header")).not.toBeInTheDocument()
     expect(screen.queryByTestId("eliminated-hero")).not.toBeInTheDocument()
@@ -169,7 +170,8 @@ describe("AssetDetailView", () => {
         apiError={null}
       />
     )
-    expect(screen.getByText("No data available for XYZA.")).toBeInTheDocument()
+    expect(screen.getByTestId("error-state")).toBeInTheDocument()
+    expect(screen.getByText(/scored in the next cycle/i)).toBeInTheDocument()
   })
 
   it("renders sector survivor CTA when eliminated and sector provided", () => {
