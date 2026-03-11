@@ -524,10 +524,11 @@ async def run_edgar_backfill(
 
     logger.info("[edgar-backfill] Processing %d filings (concurrency=%d)...", total, concurrency)
 
-    # Rate limiter: 2 req/sec — very conservative to avoid 429s from SEC
+    # Rate limiter: 8 req/sec — SEC allows 10 req/sec, leaving headroom.
     # Each filing needs 2 requests (index page + XBRL file), so effective
-    # rate is ~1 filing/sec with concurrency=1.
-    rate_limiter = _RateLimiter(rate=2.0)
+    # rate is ~4 filings/sec with concurrency=1.
+    # If SEC returns 429, _RateLimiter.cooldown() auto-pauses for Retry-After.
+    rate_limiter = _RateLimiter(rate=8.0)
     semaphore = asyncio.Semaphore(concurrency)
     filing_tracker = ConsecutiveFailureTracker(threshold=10)
 
@@ -667,9 +668,7 @@ async def reparse_empty_filings(
     pre_2011_cutoff = date(2011, 1, 1)
     async with session_factory() as session:
         del_result = await session.execute(
-            delete(PITFinancialSnapshot).where(
-                PITFinancialSnapshot.filing_date < pre_2011_cutoff
-            )
+            delete(PITFinancialSnapshot).where(PITFinancialSnapshot.filing_date < pre_2011_cutoff)
         )
         pre_2011_deleted = del_result.rowcount
         await session.commit()
@@ -712,15 +711,13 @@ async def reparse_empty_filings(
         for i in range(0, len(accessions), batch_size):
             batch = accessions[i : i + batch_size]
             await session.execute(
-                delete(PITFinancialSnapshot).where(
-                    PITFinancialSnapshot.accession_number.in_(batch)
-                )
+                delete(PITFinancialSnapshot).where(PITFinancialSnapshot.accession_number.in_(batch))
             )
         await session.commit()
     logger.info("[edgar-reparse] Deleted %d empty rows", total)
 
     # 3. Re-fetch and re-parse each filing
-    rate_limiter = _RateLimiter(rate=2.0)
+    rate_limiter = _RateLimiter(rate=8.0)
     counters = {"reparsed": 0, "failed": 0, "still_empty": 0, "done": 0}
 
     async with httpx.AsyncClient(
