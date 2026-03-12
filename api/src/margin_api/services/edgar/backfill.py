@@ -283,8 +283,8 @@ async def _do_get(
 
 @retry(
     retry=retry_if_exception(_is_retryable),
-    stop=stop_after_attempt(8),
-    wait=wait_exponential_jitter(initial=5, max=120, jitter=5),
+    stop=stop_after_attempt(4),
+    wait=wait_exponential_jitter(initial=1, max=30, jitter=2),
     reraise=True,
 )
 async def _fetch_filing_with_retry(
@@ -420,7 +420,7 @@ async def run_edgar_backfill(
     session_factory: async_sessionmaker[AsyncSession],
     checkpoint_file: str | None = None,
     dry_run: bool = False,
-    concurrency: int = 1,
+    concurrency: int = 4,
     cik_sic_map: dict[int, int | None] | None = None,
 ) -> dict[str, int]:
     """Run a full EDGAR backfill: index -> filter -> fetch -> parse -> insert.

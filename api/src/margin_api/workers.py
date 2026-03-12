@@ -2851,9 +2851,7 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
                 full_map = await load_cik_ticker_sic_map(client)
                 # Extract CIK → SIC code (discard the ticker from the tuple)
                 cik_sic_map = {cik: sic for cik, (_ticker, sic) in full_map.items()}
-            logger.info(
-                "[bootstrap_pit] Loaded CIK→SIC map: %d entries", len(cik_sic_map)
-            )
+            logger.info("[bootstrap_pit] Loaded CIK→SIC map: %d entries", len(cik_sic_map))
         except Exception:
             logger.warning(
                 "[bootstrap_pit] Failed to load CIK→SIC map, proceeding without SIC codes",
@@ -2866,6 +2864,7 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
             start_year=2011,
             end_year=datetime.now(UTC).year,
             session_factory=session_factory,
+            concurrency=4,
             cik_sic_map=cik_sic_map,
         )
         logger.info("[bootstrap_pit] EDGAR backfill complete: %s", edgar_result)
@@ -3041,9 +3040,7 @@ class WorkerSettings:
                 keys = await redis.keys("arq:in-progress:*")
                 if keys:
                     await redis.delete(*keys)
-                    key_names = [
-                        k.decode() if isinstance(k, bytes) else k for k in keys
-                    ]
+                    key_names = [k.decode() if isinstance(k, bytes) else k for k in keys]
                     logger.info(
                         "[worker] Cleared %d orphaned in-progress keys: %s",
                         len(keys),
