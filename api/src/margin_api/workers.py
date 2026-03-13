@@ -1650,30 +1650,32 @@ async def train_ml_models(ctx: dict) -> dict:
         job_id = job.id
 
     try:
-        # Load latest scores with JSONB detail
+        # Load latest V4 scores with JSONB detail (V4Score.detail has full
+        # CompositeScore breakdowns; Score.score_detail is only populated by
+        # the legacy v2 pipeline and is often stale/empty).
         async with session_factory() as session:
             latest_subq = (
                 select(
-                    Score.asset_id,
-                    func.max(Score.scored_at).label("max_scored_at"),
+                    V4Score.asset_id,
+                    func.max(V4Score.scored_at).label("max_scored_at"),
                 )
-                .group_by(Score.asset_id)
+                .group_by(V4Score.asset_id)
                 .subquery()
             )
             result = await session.execute(
-                select(Score, Asset.ticker)
-                .join(Asset, Score.asset_id == Asset.id)
+                select(V4Score, Asset.ticker)
+                .join(Asset, V4Score.asset_id == Asset.id)
                 .join(
                     latest_subq,
-                    (Score.asset_id == latest_subq.c.asset_id)
-                    & (Score.scored_at == latest_subq.c.max_scored_at),
+                    (V4Score.asset_id == latest_subq.c.asset_id)
+                    & (V4Score.scored_at == latest_subq.c.max_scored_at),
                 )
             )
             rows = result.all()
 
         if len(rows) < settings.ml_train_min_samples:
             logger.warning(
-                "[ml] Only %d scores, need %d for training",
+                "[ml] Only %d V4 scores, need %d for training",
                 len(rows),
                 settings.ml_train_min_samples,
             )
@@ -1687,11 +1689,11 @@ async def train_ml_models(ctx: dict) -> dict:
                 await session.commit()
             return {"status": "completed", "message": "Insufficient training data"}
 
-        # Reconstruct CompositeScore objects from real JSONB data
+        # Reconstruct CompositeScore objects from V4Score.detail JSONB
         composites: list[CompositeScore] = []
         skipped = 0
         for score, ticker in rows:
-            composite = _composite_from_score_detail(ticker, score.score_detail or {})
+            composite = _composite_from_score_detail(ticker, score.detail or {})
             if composite is None:
                 skipped += 1
                 continue
@@ -1699,7 +1701,7 @@ async def train_ml_models(ctx: dict) -> dict:
 
         if skipped:
             logger.info(
-                "[ml] Skipped %d/%d scores with malformed or missing score_detail",
+                "[ml] Skipped %d/%d V4 scores with malformed or missing detail",
                 skipped,
                 len(rows),
             )
