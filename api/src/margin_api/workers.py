@@ -1637,6 +1637,21 @@ async def train_ml_models(ctx: dict) -> dict:
     engine = get_engine()
     session_factory = get_session_factory(engine)
 
+    # Prevent concurrent training — OOMs the worker if multiple run at once
+    async with session_factory() as session:
+        running_result = await session.execute(
+            select(func.count(JobRun.id)).where(
+                JobRun.job_type == "train_ml_models",
+                JobRun.status == "running",
+            )
+        )
+        running_count = running_result.scalar() or 0
+        if running_count > 0:
+            logger.warning(
+                "[ml] Skipping: %d train_ml_models job(s) already running", running_count
+            )
+            return {"status": "skipped", "reason": f"{running_count} already running"}
+
     # Create JobRun record
     async with session_factory() as session:
         job = JobRun(
@@ -1946,6 +1961,13 @@ async def train_ml_models(ctx: dict) -> dict:
             if overall_rank_ic > best_rank_ic:
                 best_rank_ic = overall_rank_ic
                 best_seed_idx = seed_idx
+
+            # Free per-seed memory to avoid OOM on constrained containers
+            del clusters, cluster_indices, models, cluster_model_data
+            del vae_bytes, vae_model_data, all_preds
+            import gc
+
+            gc.collect()
 
         # --- Post-loop: validate seed distribution ---
         logger.info(
