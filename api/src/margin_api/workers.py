@@ -1638,17 +1638,22 @@ async def train_ml_models(ctx: dict) -> dict:
     session_factory = get_session_factory(engine)
 
     # Prevent concurrent training — OOMs the worker if multiple run at once
+    # Only consider jobs started in the last 2 hours as "running" — older ones are zombies
+    cutoff = datetime.now(UTC) - timedelta(hours=2)
     async with session_factory() as session:
         running_result = await session.execute(
             select(func.count(JobRun.id)).where(
                 JobRun.job_type == "train_ml_models",
                 JobRun.status == "running",
+                JobRun.started_at >= cutoff,
             )
         )
         running_count = running_result.scalar() or 0
         if running_count > 0:
             logger.warning(
-                "[ml] Skipping: %d train_ml_models job(s) already running", running_count
+                "[ml] Skipping: %d train_ml_models job(s) already running (started after %s)",
+                running_count,
+                cutoff.isoformat(),
             )
             return {"status": "skipped", "reason": f"{running_count} already running"}
 
