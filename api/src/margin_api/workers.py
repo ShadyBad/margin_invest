@@ -3199,8 +3199,7 @@ class WorkerSettings:
             run_at_startup=False,
         ),
         cron(retry_quarantined, weekday=6, hour=0, run_at_startup=False),  # Sunday midnight
-        # TEMP DISABLED: re-enable after manual training succeeds
-        # cron(train_ml_models, weekday=5, hour=2, run_at_startup=False),  # Saturday 2 AM UTC
+        cron(train_ml_models, weekday=5, hour=2, run_at_startup=False),  # Saturday 2 AM UTC
         cron(full_13f_ingest, hour=22, minute=0, run_at_startup=False),  # 5 PM ET
         cron(expire_stale_approvals, hour={0, 6, 12, 18}, run_at_startup=False),
         cron(rollup_governance_events, hour={3, 9, 15, 21}, run_at_startup=False),
