@@ -1673,6 +1673,11 @@ async def train_ml_models(ctx: dict) -> dict:
             )
             rows = result.all()
 
+        logger.info(
+            "[ml] V4Score query returned %d rows (source=V4Score, fix=70aad86)",
+            len(rows),
+        )
+
         if len(rows) < settings.ml_train_min_samples:
             logger.warning(
                 "[ml] Only %d V4 scores, need %d for training",
@@ -1692,19 +1697,62 @@ async def train_ml_models(ctx: dict) -> dict:
         # Reconstruct CompositeScore objects from V4Score.detail JSONB
         composites: list[CompositeScore] = []
         skipped = 0
+        skip_reasons: dict[str, int] = {}
         for score, ticker in rows:
-            composite = _composite_from_score_detail(ticker, score.detail or {})
+            detail = score.detail or {}
+            if not detail:
+                skip_reasons["empty_detail"] = skip_reasons.get("empty_detail", 0) + 1
+                skipped += 1
+                continue
+            composite = _composite_from_score_detail(ticker, detail)
             if composite is None:
+                # Log first few skip reasons for debugging
+                if skipped < 3:
+                    q = detail.get("quality")
+                    v = detail.get("value")
+                    m = detail.get("momentum")
+                    logger.warning(
+                        "[ml] Skipped %s: quality=%s, value=%s, momentum=%s",
+                        ticker,
+                        type(q).__name__ if q else "MISSING",
+                        type(v).__name__ if v else "MISSING",
+                        type(m).__name__ if m else "MISSING",
+                    )
+                skip_reasons["parse_failed"] = skip_reasons.get("parse_failed", 0) + 1
                 skipped += 1
                 continue
             composites.append(composite)
 
         if skipped:
             logger.info(
-                "[ml] Skipped %d/%d V4 scores with malformed or missing detail",
+                "[ml] Skipped %d/%d V4 scores: reasons=%s",
                 skipped,
                 len(rows),
+                skip_reasons,
             )
+
+        logger.info(
+            "[ml] Composites built: %d valid, %d skipped out of %d V4Score rows",
+            len(composites),
+            skipped,
+            len(rows),
+        )
+
+        if len(composites) < 2:
+            msg = (
+                f"Only {len(composites)} valid composites from {len(rows)} V4Score rows "
+                f"(skipped={skipped}, reasons={skip_reasons}). "
+                f"Need at least 2 for ML training."
+            )
+            logger.error("[ml] %s", msg)
+            async with session_factory() as session:
+                result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+                job = result.scalar_one()
+                job.status = "failed"
+                job.error_message = msg
+                job.completed_at = datetime.now(UTC)
+                await session.commit()
+            return {"status": "failed", "message": msg}
 
         # Build feature matrix
         registry = default_registry()
