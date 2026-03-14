@@ -24,6 +24,7 @@ from margin_api.db.models import (
     PITFinancialSnapshot,
     PITUniverseMembership,
     UniverseSnapshot,
+    V4Score,
 )
 from margin_api.db.session import get_db
 from margin_api.middleware.rate_limit import limiter
@@ -577,66 +578,80 @@ async def pit_data_quality(
     """Diagnostic: check PIT financial snapshot data quality."""
     _verify_admin_key(x_admin_key)
 
-    total = (await session.execute(
-        select(func.count()).select_from(PITFinancialSnapshot)
-    )).scalar_one()
+    total = (
+        await session.execute(select(func.count()).select_from(PITFinancialSnapshot))
+    ).scalar_one()
 
-    null_bs = (await session.execute(
-        select(func.count()).select_from(PITFinancialSnapshot).where(
-            PITFinancialSnapshot.balance_sheet.is_(None)
+    null_bs = (
+        await session.execute(
+            select(func.count())
+            .select_from(PITFinancialSnapshot)
+            .where(PITFinancialSnapshot.balance_sheet.is_(None))
         )
-    )).scalar_one()
+    ).scalar_one()
 
-    null_is = (await session.execute(
-        select(func.count()).select_from(PITFinancialSnapshot).where(
-            PITFinancialSnapshot.income_statement.is_(None)
+    null_is = (
+        await session.execute(
+            select(func.count())
+            .select_from(PITFinancialSnapshot)
+            .where(PITFinancialSnapshot.income_statement.is_(None))
         )
-    )).scalar_one()
+    ).scalar_one()
 
-    null_cf = (await session.execute(
-        select(func.count()).select_from(PITFinancialSnapshot).where(
-            PITFinancialSnapshot.cash_flow.is_(None)
+    null_cf = (
+        await session.execute(
+            select(func.count())
+            .select_from(PITFinancialSnapshot)
+            .where(PITFinancialSnapshot.cash_flow.is_(None))
         )
-    )).scalar_one()
+    ).scalar_one()
 
-    null_shares = (await session.execute(
-        select(func.count()).select_from(PITFinancialSnapshot).where(
-            PITFinancialSnapshot.shares_outstanding.is_(None)
+    null_shares = (
+        await session.execute(
+            select(func.count())
+            .select_from(PITFinancialSnapshot)
+            .where(PITFinancialSnapshot.shares_outstanding.is_(None))
         )
-    )).scalar_one()
+    ).scalar_one()
 
     # Filing year distribution
-    year_dist = (await session.execute(
-        select(
-            PITFinancialSnapshot.fiscal_year,
-            func.count().label("cnt"),
+    year_dist = (
+        await session.execute(
+            select(
+                PITFinancialSnapshot.fiscal_year,
+                func.count().label("cnt"),
+            )
+            .group_by(PITFinancialSnapshot.fiscal_year)
+            .order_by(PITFinancialSnapshot.fiscal_year)
         )
-        .group_by(PITFinancialSnapshot.fiscal_year)
-        .order_by(PITFinancialSnapshot.fiscal_year)
-    )).all()
+    ).all()
 
     # Sample: 5 rows with NULL balance_sheet
-    sample_null_bs = (await session.execute(
-        select(
-            PITFinancialSnapshot.ticker,
-            PITFinancialSnapshot.fiscal_year,
-            PITFinancialSnapshot.form_type,
-            PITFinancialSnapshot.accession_number,
+    sample_null_bs = (
+        await session.execute(
+            select(
+                PITFinancialSnapshot.ticker,
+                PITFinancialSnapshot.fiscal_year,
+                PITFinancialSnapshot.form_type,
+                PITFinancialSnapshot.accession_number,
+            )
+            .where(PITFinancialSnapshot.balance_sheet.is_(None))
+            .limit(5)
         )
-        .where(PITFinancialSnapshot.balance_sheet.is_(None))
-        .limit(5)
-    )).all()
+    ).all()
 
     # Sample: 5 rows WITH balance_sheet — check if total_assets present
-    sample_with_bs = (await session.execute(
-        select(
-            PITFinancialSnapshot.ticker,
-            PITFinancialSnapshot.fiscal_year,
-            PITFinancialSnapshot.balance_sheet,
+    sample_with_bs = (
+        await session.execute(
+            select(
+                PITFinancialSnapshot.ticker,
+                PITFinancialSnapshot.fiscal_year,
+                PITFinancialSnapshot.balance_sheet,
+            )
+            .where(PITFinancialSnapshot.balance_sheet.isnot(None))
+            .limit(5)
         )
-        .where(PITFinancialSnapshot.balance_sheet.isnot(None))
-        .limit(5)
-    )).all()
+    ).all()
 
     return {
         "total_snapshots": total,
@@ -646,13 +661,20 @@ async def pit_data_quality(
         "null_shares_outstanding": null_shares,
         "year_distribution": {str(r.fiscal_year): r.cnt for r in year_dist},
         "sample_null_bs": [
-            {"ticker": r.ticker, "year": r.fiscal_year, "form": r.form_type,
-             "accession": r.accession_number}
+            {
+                "ticker": r.ticker,
+                "year": r.fiscal_year,
+                "form": r.form_type,
+                "accession": r.accession_number,
+            }
             for r in sample_null_bs
         ],
         "sample_with_bs": [
-            {"ticker": r.ticker, "year": r.fiscal_year,
-             "bs_keys": list(r.balance_sheet.keys()) if r.balance_sheet else []}
+            {
+                "ticker": r.ticker,
+                "year": r.fiscal_year,
+                "bs_keys": list(r.balance_sheet.keys()) if r.balance_sheet else [],
+            }
             for r in sample_with_bs
         ],
     }
@@ -687,3 +709,87 @@ async def get_quarantined_assets(
         }
         for a in assets
     ]
+
+
+@router.get("/ml/v4score-diagnostic")
+@limiter.limit("5/minute")
+async def v4score_diagnostic(
+    request: Request,
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Diagnostic: check V4Score detail health for ML training."""
+    _verify_admin_key(x_admin_key)
+
+    # Total V4Score rows
+    total_result = await session.execute(select(func.count(V4Score.id)))
+    total = total_result.scalar() or 0
+
+    # Rows with non-null detail
+    non_null_result = await session.execute(
+        select(func.count(V4Score.id)).where(V4Score.detail.isnot(None))
+    )
+    non_null = non_null_result.scalar() or 0
+
+    # Get latest scored_at
+    latest_result = await session.execute(
+        select(func.max(V4Score.scored_at))
+    )
+    latest_scored_at = latest_result.scalar()
+
+    # Count latest batch (rows with max scored_at)
+    latest_batch = 0
+    latest_with_detail = 0
+    sample_details = []
+    if latest_scored_at:
+        batch_result = await session.execute(
+            select(func.count(V4Score.id)).where(V4Score.scored_at == latest_scored_at)
+        )
+        latest_batch = batch_result.scalar() or 0
+
+        detail_result = await session.execute(
+            select(func.count(V4Score.id)).where(
+                V4Score.scored_at == latest_scored_at,
+                V4Score.detail.isnot(None),
+            )
+        )
+        latest_with_detail = detail_result.scalar() or 0
+
+        # Sample 3 rows with detail to inspect structure
+        sample_result = await session.execute(
+            select(V4Score.detail, Asset.ticker)
+            .join(Asset, V4Score.asset_id == Asset.id)
+            .where(V4Score.scored_at == latest_scored_at, V4Score.detail.isnot(None))
+            .limit(3)
+        )
+        for detail, ticker in sample_result.all():
+            if detail:
+                # Check which keys exist and sub_score null counts
+                info = {"ticker": ticker, "keys": list(detail.keys())[:15]}
+                for factor in ["quality", "value", "momentum"]:
+                    f = detail.get(factor)
+                    if f and isinstance(f, dict):
+                        subs = f.get("sub_scores", [])
+                        nulls = [
+                            s.get("name")
+                            for s in subs
+                            if isinstance(s, dict)
+                            and (s.get("raw_value") is None or s.get("percentile_rank") is None)
+                        ]
+                        info[factor] = {
+                            "sub_score_count": len(subs),
+                            "null_values": nulls,
+                        }
+                    else:
+                        info[factor] = None
+                sample_details.append(info)
+
+    return {
+        "total_v4_scores": total,
+        "with_detail": non_null,
+        "without_detail": total - non_null,
+        "latest_scored_at": latest_scored_at.isoformat() if latest_scored_at else None,
+        "latest_batch_count": latest_batch,
+        "latest_batch_with_detail": latest_with_detail,
+        "sample_details": sample_details,
+    }
