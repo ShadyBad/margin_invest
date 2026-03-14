@@ -532,6 +532,43 @@ async def update_job_status(
     return {"job_id": job_id, "old_status": old_status, "new_status": new_status}
 
 
+@router.post("/jobs/cancel-zombies")
+@limiter.limit("3/minute")
+async def cancel_zombie_jobs(
+    request: Request,
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Cancel ALL 'running' jobs of a given type that are older than 1 hour."""
+    _verify_admin_key(x_admin_key)
+
+    body = await request.json() if request.headers.get("content-type") else {}
+    job_type = body.get("job_type", "train_ml_models")
+    cutoff = datetime.now(UTC) - timedelta(hours=1)
+
+    result = await session.execute(
+        select(JobRun).where(
+            JobRun.job_type == job_type,
+            JobRun.status == "running",
+        )
+    )
+    zombies = result.scalars().all()
+
+    cancelled_ids = []
+    for job in zombies:
+        job.status = "cancelled"
+        job.error_message = "Cancelled: zombie cleanup"
+        if not job.completed_at:
+            job.completed_at = datetime.now(UTC)
+        cancelled_ids.append(job.id)
+
+    if cancelled_ids:
+        await session.commit()
+
+    logger.info("[admin] Cancelled %d zombie %s jobs: %s", len(cancelled_ids), job_type, cancelled_ids)
+    return {"cancelled": len(cancelled_ids), "job_ids": cancelled_ids}
+
+
 @router.post("/backtest/precompute")
 @limiter.limit("3/minute")
 async def trigger_precompute_backtest(
