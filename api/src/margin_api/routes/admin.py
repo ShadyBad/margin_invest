@@ -711,84 +711,172 @@ async def get_quarantined_assets(
     ]
 
 
-@router.get("/ml/v4score-diagnostic")
-@limiter.limit("5/minute")
-async def v4score_diagnostic(
+@router.get("/ml/training-dry-run")
+@limiter.limit("3/minute")
+async def ml_training_dry_run(
     request: Request,
     x_admin_key: str = Header(),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Diagnostic: check V4Score detail health for ML training."""
+    """Simulate ML training data load — same query + parsing as train_ml_models.
+
+    Returns counts and sample data without actually training any models.
+    This verifies the V4Score fix works in the deployed environment.
+    """
     _verify_admin_key(x_admin_key)
 
+    from margin_engine.models.scoring import CompositeScore, FactorBreakdown, FactorScore, FilterResult
+
+    def _parse_fb(data: dict) -> FactorBreakdown | None:
+        if not isinstance(data, dict):
+            return None
+        sub_scores_raw = data.get("sub_scores")
+        if not sub_scores_raw or not isinstance(sub_scores_raw, list):
+            return None
+        if len(sub_scores_raw) == 0:
+            return None
+        sub_scores: list[FactorScore] = []
+        for ss in sub_scores_raw:
+            if not isinstance(ss, dict):
+                return None
+            name = ss.get("name")
+            raw_value = ss.get("raw_value")
+            percentile_rank = ss.get("percentile_rank")
+            if name is None or raw_value is None or percentile_rank is None:
+                return None
+            try:
+                sub_scores.append(FactorScore(
+                    name=str(name),
+                    raw_value=float(raw_value),
+                    percentile_rank=float(percentile_rank),
+                    weight=float(ss["weight"]) if ss.get("weight") is not None else None,
+                ))
+            except (ValueError, TypeError):
+                return None
+        try:
+            return FactorBreakdown(
+                factor_name=str(data.get("factor_name", "")),
+                weight=float(data.get("weight", 1.0)),
+                sub_scores=sub_scores,
+            )
+        except (ValueError, TypeError):
+            return None
+
     try:
-        # Total V4Score rows
-        total_result = await session.execute(select(func.count(V4Score.id)))
-        total = total_result.scalar() or 0
-
-        # Rows with non-null detail
-        non_null_result = await session.execute(
-            select(func.count(V4Score.id)).where(V4Score.detail.isnot(None))
+        # Exact same query as train_ml_models
+        latest_subq = (
+            select(
+                V4Score.asset_id,
+                func.max(V4Score.scored_at).label("max_scored_at"),
+            )
+            .group_by(V4Score.asset_id)
+            .subquery()
         )
-        non_null = non_null_result.scalar() or 0
-
-        # Get latest scored_at
-        latest_result = await session.execute(select(func.max(V4Score.scored_at)))
-        latest_scored_at = latest_result.scalar()
-
-        # Count latest batch
-        latest_batch = 0
-        latest_with_detail = 0
-        if latest_scored_at:
-            batch_result = await session.execute(
-                select(func.count(V4Score.id)).where(
-                    V4Score.scored_at == latest_scored_at
-                )
-            )
-            latest_batch = batch_result.scalar() or 0
-
-            detail_result = await session.execute(
-                select(func.count(V4Score.id)).where(
-                    V4Score.scored_at == latest_scored_at,
-                    V4Score.detail.isnot(None),
-                )
-            )
-            latest_with_detail = detail_result.scalar() or 0
-
-        # Sample 1 row — dump raw quality dict keys to see exact structure
-        sample_details: list[dict] = []
-        sample_result = await session.execute(
-            select(V4Score.detail, Asset.ticker)
+        result = await session.execute(
+            select(V4Score, Asset.ticker)
             .join(Asset, V4Score.asset_id == Asset.id)
-            .where(V4Score.detail.isnot(None))
-            .order_by(V4Score.scored_at.desc())
-            .limit(1)
+            .join(
+                latest_subq,
+                (V4Score.asset_id == latest_subq.c.asset_id)
+                & (V4Score.scored_at == latest_subq.c.max_scored_at),
+            )
         )
-        for detail, ticker in sample_result.all():
+        rows = result.all()
+
+        # Parse composites — same logic as _composite_from_score_detail
+        valid = 0
+        skipped_empty = 0
+        skipped_missing_factor = 0
+        skipped_parse_fail = 0
+        skipped_construct_fail = 0
+        first_failures: list[dict] = []
+
+        for score, ticker in rows:
+            detail = score.detail
             if not detail or not isinstance(detail, dict):
+                skipped_empty += 1
                 continue
-            q = detail.get("quality")
-            info: dict = {
-                "ticker": ticker,
-                "detail_keys": sorted(detail.keys()),
-                "quality_type": type(q).__name__,
-                "quality_keys": sorted(q.keys()) if isinstance(q, dict) else None,
-            }
-            if isinstance(q, dict):
-                subs = q.get("sub_scores")
-                info["quality_sub_scores_type"] = type(subs).__name__
-                if isinstance(subs, list) and subs:
-                    info["first_sub_score"] = subs[0]
-            sample_details.append(info)
+
+            q_raw = detail.get("quality")
+            v_raw = detail.get("value")
+            m_raw = detail.get("momentum")
+
+            if q_raw is None or v_raw is None or m_raw is None:
+                skipped_missing_factor += 1
+                if len(first_failures) < 3:
+                    first_failures.append({
+                        "ticker": ticker,
+                        "reason": "missing_factor",
+                        "has_quality": q_raw is not None,
+                        "has_value": v_raw is not None,
+                        "has_momentum": m_raw is not None,
+                    })
+                continue
+
+            quality = _parse_fb(q_raw)
+            value = _parse_fb(v_raw)
+            momentum = _parse_fb(m_raw)
+
+            if quality is None or value is None or momentum is None:
+                skipped_parse_fail += 1
+                if len(first_failures) < 3:
+                    # Find which sub_score caused the failure
+                    fail_info: dict = {"ticker": ticker, "reason": "parse_fail"}
+                    for fname, fraw in [("quality", q_raw), ("value", v_raw), ("momentum", m_raw)]:
+                        if _parse_fb(fraw) is None and isinstance(fraw, dict):
+                            subs = fraw.get("sub_scores", [])
+                            for s in subs:
+                                if isinstance(s, dict):
+                                    if s.get("raw_value") is None:
+                                        fail_info[f"{fname}_null_raw"] = s.get("name")
+                                    if s.get("percentile_rank") is None:
+                                        fail_info[f"{fname}_null_pct"] = s.get("name")
+                    first_failures.append(fail_info)
+                continue
+
+            # Try constructing CompositeScore
+            try:
+                filters_passed_raw = detail.get("filters_passed", [])
+                filters_passed = []
+                if isinstance(filters_passed_raw, list):
+                    for f in filters_passed_raw:
+                        if isinstance(f, dict) and "name" in f:
+                            filters_passed.append(FilterResult(
+                                name=str(f["name"]),
+                                passed=bool(f.get("passed", True)),
+                                value=f.get("value"),
+                                threshold=f.get("threshold"),
+                                detail=str(f.get("detail", "")),
+                            ))
+                CompositeScore(
+                    ticker=ticker,
+                    composite_percentile=float(detail.get("composite_percentile", 0.0)),
+                    composite_raw_score=float(detail.get("composite_raw_score", 0.0)),
+                    quality=quality,
+                    value=value,
+                    momentum=momentum,
+                    filters_passed=filters_passed,
+                    data_coverage=float(detail.get("data_coverage", 1.0)),
+                )
+                valid += 1
+            except Exception as e:
+                skipped_construct_fail += 1
+                if len(first_failures) < 3:
+                    first_failures.append({
+                        "ticker": ticker,
+                        "reason": "construct_fail",
+                        "error": str(e)[:200],
+                    })
 
         return {
-            "total_v4_scores": total,
-            "with_detail": non_null,
-            "without_detail": total - non_null,
-            "latest_scored_at": str(latest_scored_at) if latest_scored_at else None,
-            "latest_batch_count": latest_batch,
-            "latest_batch_with_detail": latest_with_detail,
-            "sample_details": sample_details,
+            "v4score_rows": len(rows),
+            "valid_composites": valid,
+            "skipped_empty_detail": skipped_empty,
+            "skipped_missing_factor": skipped_missing_factor,
+            "skipped_parse_fail": skipped_parse_fail,
+            "skipped_construct_fail": skipped_construct_fail,
+            "first_failures": first_failures,
+            "verdict": "READY" if valid >= 100 else "NOT_READY",
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e), "type": type(e).__name__}
