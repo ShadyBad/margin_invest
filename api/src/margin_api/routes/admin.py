@@ -755,38 +755,30 @@ async def v4score_diagnostic(
             )
             latest_with_detail = detail_result.scalar() or 0
 
-        # Sample 3 rows with detail — inspect keys and null sub_scores
+        # Sample 1 row — dump raw quality dict keys to see exact structure
         sample_details: list[dict] = []
         sample_result = await session.execute(
             select(V4Score.detail, Asset.ticker)
             .join(Asset, V4Score.asset_id == Asset.id)
             .where(V4Score.detail.isnot(None))
             .order_by(V4Score.scored_at.desc())
-            .limit(3)
+            .limit(1)
         )
         for detail, ticker in sample_result.all():
             if not detail or not isinstance(detail, dict):
                 continue
-            info: dict = {"ticker": ticker, "top_keys": sorted(detail.keys())[:12]}
-            for factor in ["quality", "value", "momentum"]:
-                f = detail.get(factor)
-                if isinstance(f, dict):
-                    subs = f.get("sub_scores", [])
-                    nulls = [
-                        s.get("name", "?")
-                        for s in subs
-                        if isinstance(s, dict)
-                        and (
-                            s.get("raw_value") is None
-                            or s.get("percentile_rank") is None
-                        )
-                    ]
-                    info[factor] = {
-                        "n_subs": len(subs),
-                        "nulls": nulls,
-                    }
-                else:
-                    info[factor] = "missing"
+            q = detail.get("quality")
+            info: dict = {
+                "ticker": ticker,
+                "detail_keys": sorted(detail.keys()),
+                "quality_type": type(q).__name__,
+                "quality_keys": sorted(q.keys()) if isinstance(q, dict) else None,
+            }
+            if isinstance(q, dict):
+                subs = q.get("sub_scores")
+                info["quality_sub_scores_type"] = type(subs).__name__
+                if isinstance(subs, list) and subs:
+                    info["first_sub_score"] = subs[0]
             sample_details.append(info)
 
         return {
