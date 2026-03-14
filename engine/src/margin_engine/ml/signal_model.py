@@ -63,10 +63,18 @@ def train_cluster_models(
     models: dict[int, bytes] = {}
 
     for cluster_id, indices in clusters.items():
+        n_samples = len(indices)
+
+        if n_samples < 2:
+            logger.warning(
+                "Cluster %d has only %d sample(s) — skipping (LightGBM needs >= 2)",
+                cluster_id,
+                n_samples,
+            )
+            continue
+
         cluster_features = features[indices]
         cluster_returns = forward_returns[indices]
-
-        n_samples = len(indices)
 
         if n_samples < 50:
             # Too few samples for time-series CV; train on all data

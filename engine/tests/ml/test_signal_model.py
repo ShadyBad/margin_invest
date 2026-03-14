@@ -72,6 +72,20 @@ class TestTrainClusterModels:
         preds = predict_alpha(models[0], features)
         assert preds.shape == (30,)
 
+    def test_single_sample_cluster_skipped(self) -> None:
+        """Clusters with < 2 samples are skipped (LightGBM requires >= 2)."""
+        rng = np.random.default_rng(42)
+        features = rng.standard_normal((101, 5))
+        returns = rng.standard_normal(101) * 0.02
+        clusters = {
+            0: list(range(100)),  # big cluster — trains normally
+            1: [100],             # single sample — should be skipped
+        }
+
+        models = train_cluster_models(features, returns, clusters)
+        assert 0 in models
+        assert 1 not in models  # skipped
+
     def test_multiple_clusters(self) -> None:
         rng = np.random.default_rng(42)
         features = rng.standard_normal((200, 8))
