@@ -88,12 +88,23 @@ async def trigger_pipeline(request: Request, x_admin_key: str = Header()) -> JSO
 @router.post("/scoring/trigger")
 @limiter.limit("3/minute")
 async def trigger_scoring(request: Request, x_admin_key: str = Header()) -> JSONResponse:
-    """Enqueue just the scoring pipeline (v2 score → v3 score).
+    """Enqueue the scoring pipeline.
 
     Skips ingestion — useful when data is already seeded but scoring
     hasn't run or failed. Requires X-Admin-Key header.
+
+    Body (optional JSON):
+        skip_v2: bool — skip legacy v2 scoring, start from v3 (default: false)
     """
     _verify_admin_key(x_admin_key)
+
+    body: dict = {}
+    if request.headers.get("content-type", "").startswith("application/json"):
+        try:
+            body = await request.json()
+        except Exception:
+            pass
+    skip_v2 = body.get("skip_v2", False)
 
     settings = get_settings()
     from arq.connections import RedisSettings
@@ -102,22 +113,33 @@ async def trigger_scoring(request: Request, x_admin_key: str = Header()) -> JSON
 
     try:
         redis: ArqRedis = await create_pool(redis_settings)
-        # Use unique _job_id to bypass ARQ deduplication
-        job = await redis.enqueue_job("full_score", _job_id=f"full_score:{uuid.uuid4().hex[:8]}")
+        if skip_v2:
+            job = await redis.enqueue_job(
+                "full_score_v3",
+                _job_id=f"full_score_v3:{uuid.uuid4().hex[:8]}",
+            )
+            job_name = "full_score_v3"
+            message = "Scoring enqueued: v3 score → v4 score → stage (skipping v2)"
+        else:
+            job = await redis.enqueue_job(
+                "full_score", _job_id=f"full_score:{uuid.uuid4().hex[:8]}"
+            )
+            job_name = "full_score"
+            message = "Scoring enqueued: v2 score → v3 score → v4 score (skipping ingest)"
         await redis.aclose()
     except Exception as e:
         logger.exception("Failed to enqueue scoring job")
         raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
 
-    logger.info("[admin] Enqueued full_score job: %s", job.job_id)
+    logger.info("[admin] Enqueued %s job: %s", job_name, job.job_id)
 
     return JSONResponse(
         status_code=202,
         content={
             "status": "enqueued",
-            "job": "full_score",
+            "job": job_name,
             "job_id": job.job_id,
-            "message": "Scoring enqueued: v2 score → v3 score → v4 score (skipping ingest)",
+            "message": message,
         },
     )
 
@@ -550,6 +572,7 @@ async def cancel_zombie_jobs(
         select(JobRun).where(
             JobRun.job_type == job_type,
             JobRun.status == "running",
+            JobRun.started_at < cutoff,
         )
     )
     zombies = result.scalars().all()
@@ -565,7 +588,9 @@ async def cancel_zombie_jobs(
     if cancelled_ids:
         await session.commit()
 
-    logger.info("[admin] Cancelled %d zombie %s jobs: %s", len(cancelled_ids), job_type, cancelled_ids)
+    logger.info(
+        "[admin] Cancelled %d zombie %s jobs: %s", len(cancelled_ids), job_type, cancelled_ids
+    )
     return {"cancelled": len(cancelled_ids), "job_ids": cancelled_ids}
 
 
@@ -762,7 +787,12 @@ async def ml_training_dry_run(
     """
     _verify_admin_key(x_admin_key)
 
-    from margin_engine.models.scoring import CompositeScore, FactorBreakdown, FactorScore, FilterResult
+    from margin_engine.models.scoring import (
+        CompositeScore,
+        FactorBreakdown,
+        FactorScore,
+        FilterResult,
+    )
 
     def _parse_fb(data: dict) -> FactorBreakdown | None:
         if not isinstance(data, dict):
@@ -782,12 +812,14 @@ async def ml_training_dry_run(
             if name is None or raw_value is None or percentile_rank is None:
                 return None
             try:
-                sub_scores.append(FactorScore(
-                    name=str(name),
-                    raw_value=float(raw_value),
-                    percentile_rank=float(percentile_rank),
-                    weight=float(ss["weight"]) if ss.get("weight") is not None else None,
-                ))
+                sub_scores.append(
+                    FactorScore(
+                        name=str(name),
+                        raw_value=float(raw_value),
+                        percentile_rank=float(percentile_rank),
+                        weight=float(ss["weight"]) if ss.get("weight") is not None else None,
+                    )
+                )
             except (ValueError, TypeError):
                 return None
         try:
@@ -841,13 +873,15 @@ async def ml_training_dry_run(
             if q_raw is None or v_raw is None or m_raw is None:
                 skipped_missing_factor += 1
                 if len(first_failures) < 3:
-                    first_failures.append({
-                        "ticker": ticker,
-                        "reason": "missing_factor",
-                        "has_quality": q_raw is not None,
-                        "has_value": v_raw is not None,
-                        "has_momentum": m_raw is not None,
-                    })
+                    first_failures.append(
+                        {
+                            "ticker": ticker,
+                            "reason": "missing_factor",
+                            "has_quality": q_raw is not None,
+                            "has_value": v_raw is not None,
+                            "has_momentum": m_raw is not None,
+                        }
+                    )
                 continue
 
             quality = _parse_fb(q_raw)
@@ -878,13 +912,15 @@ async def ml_training_dry_run(
                 if isinstance(filters_passed_raw, list):
                     for f in filters_passed_raw:
                         if isinstance(f, dict) and "name" in f:
-                            filters_passed.append(FilterResult(
-                                name=str(f["name"]),
-                                passed=bool(f.get("passed", True)),
-                                value=f.get("value"),
-                                threshold=f.get("threshold"),
-                                detail=str(f.get("detail", "")),
-                            ))
+                            filters_passed.append(
+                                FilterResult(
+                                    name=str(f["name"]),
+                                    passed=bool(f.get("passed", True)),
+                                    value=f.get("value"),
+                                    threshold=f.get("threshold"),
+                                    detail=str(f.get("detail", "")),
+                                )
+                            )
                 CompositeScore(
                     ticker=ticker,
                     composite_percentile=float(detail.get("composite_percentile", 0.0)),
@@ -899,11 +935,13 @@ async def ml_training_dry_run(
             except Exception as e:
                 skipped_construct_fail += 1
                 if len(first_failures) < 3:
-                    first_failures.append({
-                        "ticker": ticker,
-                        "reason": "construct_fail",
-                        "error": str(e)[:200],
-                    })
+                    first_failures.append(
+                        {
+                            "ticker": ticker,
+                            "reason": "construct_fail",
+                            "error": str(e)[:200],
+                        }
+                    )
 
         return {
             "v4score_rows": len(rows),
