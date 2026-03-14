@@ -721,75 +721,82 @@ async def v4score_diagnostic(
     """Diagnostic: check V4Score detail health for ML training."""
     _verify_admin_key(x_admin_key)
 
-    # Total V4Score rows
-    total_result = await session.execute(select(func.count(V4Score.id)))
-    total = total_result.scalar() or 0
+    try:
+        # Total V4Score rows
+        total_result = await session.execute(select(func.count(V4Score.id)))
+        total = total_result.scalar() or 0
 
-    # Rows with non-null detail
-    non_null_result = await session.execute(
-        select(func.count(V4Score.id)).where(V4Score.detail.isnot(None))
-    )
-    non_null = non_null_result.scalar() or 0
-
-    # Get latest scored_at
-    latest_result = await session.execute(
-        select(func.max(V4Score.scored_at))
-    )
-    latest_scored_at = latest_result.scalar()
-
-    # Count latest batch (rows with max scored_at)
-    latest_batch = 0
-    latest_with_detail = 0
-    sample_details = []
-    if latest_scored_at:
-        batch_result = await session.execute(
-            select(func.count(V4Score.id)).where(V4Score.scored_at == latest_scored_at)
+        # Rows with non-null detail
+        non_null_result = await session.execute(
+            select(func.count(V4Score.id)).where(V4Score.detail.isnot(None))
         )
-        latest_batch = batch_result.scalar() or 0
+        non_null = non_null_result.scalar() or 0
 
-        detail_result = await session.execute(
-            select(func.count(V4Score.id)).where(
-                V4Score.scored_at == latest_scored_at,
-                V4Score.detail.isnot(None),
+        # Get latest scored_at
+        latest_result = await session.execute(select(func.max(V4Score.scored_at)))
+        latest_scored_at = latest_result.scalar()
+
+        # Count latest batch
+        latest_batch = 0
+        latest_with_detail = 0
+        if latest_scored_at:
+            batch_result = await session.execute(
+                select(func.count(V4Score.id)).where(
+                    V4Score.scored_at == latest_scored_at
+                )
             )
-        )
-        latest_with_detail = detail_result.scalar() or 0
+            latest_batch = batch_result.scalar() or 0
 
-        # Sample 3 rows with detail to inspect structure
+            detail_result = await session.execute(
+                select(func.count(V4Score.id)).where(
+                    V4Score.scored_at == latest_scored_at,
+                    V4Score.detail.isnot(None),
+                )
+            )
+            latest_with_detail = detail_result.scalar() or 0
+
+        # Sample 3 rows with detail — inspect keys and null sub_scores
+        sample_details: list[dict] = []
         sample_result = await session.execute(
             select(V4Score.detail, Asset.ticker)
             .join(Asset, V4Score.asset_id == Asset.id)
-            .where(V4Score.scored_at == latest_scored_at, V4Score.detail.isnot(None))
+            .where(V4Score.detail.isnot(None))
+            .order_by(V4Score.scored_at.desc())
             .limit(3)
         )
         for detail, ticker in sample_result.all():
-            if detail:
-                # Check which keys exist and sub_score null counts
-                info = {"ticker": ticker, "keys": list(detail.keys())[:15]}
-                for factor in ["quality", "value", "momentum"]:
-                    f = detail.get(factor)
-                    if f and isinstance(f, dict):
-                        subs = f.get("sub_scores", [])
-                        nulls = [
-                            s.get("name")
-                            for s in subs
-                            if isinstance(s, dict)
-                            and (s.get("raw_value") is None or s.get("percentile_rank") is None)
-                        ]
-                        info[factor] = {
-                            "sub_score_count": len(subs),
-                            "null_values": nulls,
-                        }
-                    else:
-                        info[factor] = None
-                sample_details.append(info)
+            if not detail or not isinstance(detail, dict):
+                continue
+            info: dict = {"ticker": ticker, "top_keys": sorted(detail.keys())[:12]}
+            for factor in ["quality", "value", "momentum"]:
+                f = detail.get(factor)
+                if isinstance(f, dict):
+                    subs = f.get("sub_scores", [])
+                    nulls = [
+                        s.get("name", "?")
+                        for s in subs
+                        if isinstance(s, dict)
+                        and (
+                            s.get("raw_value") is None
+                            or s.get("percentile_rank") is None
+                        )
+                    ]
+                    info[factor] = {
+                        "n_subs": len(subs),
+                        "nulls": nulls,
+                    }
+                else:
+                    info[factor] = "missing"
+            sample_details.append(info)
 
-    return {
-        "total_v4_scores": total,
-        "with_detail": non_null,
-        "without_detail": total - non_null,
-        "latest_scored_at": latest_scored_at.isoformat() if latest_scored_at else None,
-        "latest_batch_count": latest_batch,
-        "latest_batch_with_detail": latest_with_detail,
-        "sample_details": sample_details,
-    }
+        return {
+            "total_v4_scores": total,
+            "with_detail": non_null,
+            "without_detail": total - non_null,
+            "latest_scored_at": str(latest_scored_at) if latest_scored_at else None,
+            "latest_batch_count": latest_batch,
+            "latest_batch_with_detail": latest_with_detail,
+            "sample_details": sample_details,
+        }
+    except Exception as e:
+        return {"error": str(e)}
