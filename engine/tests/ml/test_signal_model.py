@@ -79,7 +79,7 @@ class TestTrainClusterModels:
         returns = rng.standard_normal(101) * 0.02
         clusters = {
             0: list(range(100)),  # big cluster — trains normally
-            1: [100],             # single sample — should be skipped
+            1: [100],  # single sample — should be skipped
         }
 
         models = train_cluster_models(features, returns, clusters)

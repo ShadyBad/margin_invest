@@ -452,9 +452,7 @@ async def _batch_compute_market_caps(session: AsyncSession) -> int:
     # Build {ticker: [(period_end, shares_outstanding)]} sorted desc by period_end
     ticker_shares: dict[str, list[tuple[date, int]]] = {}
     for snap in snap_result.all():
-        ticker_shares.setdefault(snap.ticker, []).append(
-            (snap.period_end, snap.shares_outstanding)
-        )
+        ticker_shares.setdefault(snap.ticker, []).append((snap.period_end, snap.shares_outstanding))
 
     # Batch fetch: latest close price per (ticker, quarter_date)
     # Query all prices for these tickers

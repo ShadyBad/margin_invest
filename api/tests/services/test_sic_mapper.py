@@ -26,23 +26,25 @@ async def session(async_engine):
     factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as sess:
         # Seed test data
-        sess.add_all([
-            SICSectorMap(
-                sic_code=3571,
-                gics_sector="Information Technology",
-                sic_description="Computers",
-            ),
-            SICSectorMap(
-                sic_code=2830,
-                gics_sector="Health Care",
-                sic_description="Pharmaceuticals",
-            ),
-            SICSectorMap(
-                sic_code=6020,
-                gics_sector="Financials",
-                sic_description="Banking",
-            ),
-        ])
+        sess.add_all(
+            [
+                SICSectorMap(
+                    sic_code=3571,
+                    gics_sector="Information Technology",
+                    sic_description="Computers",
+                ),
+                SICSectorMap(
+                    sic_code=2830,
+                    gics_sector="Health Care",
+                    sic_description="Pharmaceuticals",
+                ),
+                SICSectorMap(
+                    sic_code=6020,
+                    gics_sector="Financials",
+                    sic_description="Banking",
+                ),
+            ]
+        )
         await sess.commit()
         yield sess
 

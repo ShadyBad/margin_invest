@@ -122,18 +122,26 @@ async def register(
     try:
         user = await auth.register_user(db, body.username, body.email, body.password)
     except ValueError as exc:
-        track_event(body.email, "activation_failed", {
-            "error_type": "validation",
-            "error_message": str(exc),
-            "username": body.username,
-        })
+        track_event(
+            body.email,
+            "activation_failed",
+            {
+                "error_type": "validation",
+                "error_message": str(exc),
+                "username": body.username,
+            },
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except IntegrityError as exc:
         logger.warning("Registration IntegrityError for %s: %s", body.username, exc)
-        track_event(body.email, "activation_failed", {
-            "error_type": "duplicate_account",
-            "username": body.username,
-        })
+        track_event(
+            body.email,
+            "activation_failed",
+            {
+                "error_type": "duplicate_account",
+                "username": body.username,
+            },
+        )
         await db.rollback()
         raise HTTPException(
             status_code=409,

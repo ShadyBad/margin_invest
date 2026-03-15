@@ -213,8 +213,7 @@ class ReplayOrchestrator:
                     eliminated_count,
                     len(universe),
                     ", ".join(
-                        f"{k}={v}"
-                        for k, v in sorted(filter_failures.items(), key=lambda x: -x[1])
+                        f"{k}={v}" for k, v in sorted(filter_failures.items(), key=lambda x: -x[1])
                     ),
                 )
 
@@ -473,8 +472,7 @@ class ReplayOrchestrator:
                     eliminated_count,
                     len(universe),
                     ", ".join(
-                        f"{k}={v}"
-                        for k, v in sorted(filter_failures.items(), key=lambda x: -x[1])
+                        f"{k}={v}" for k, v in sorted(filter_failures.items(), key=lambda x: -x[1])
                     ),
                 )
 

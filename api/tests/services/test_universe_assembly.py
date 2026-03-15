@@ -223,9 +223,7 @@ class TestDetectDelistings:
     def test_truly_delisted_after_8_quarters(self) -> None:
         """A ticker missing 8+ consecutive quarters should be delisted."""
         quarters = [
-            date(2019 + y, m, d)
-            for y in range(4)
-            for m, d in [(3, 31), (6, 30), (9, 30), (12, 31)]
+            date(2019 + y, m, d) for y in range(4) for m, d in [(3, 31), (6, 30), (9, 30), (12, 31)]
         ]
 
         # Filed in Q1 2019 only
@@ -553,10 +551,14 @@ class TestBatchComputeMarketCaps:
         from sqlalchemy import select
 
         row = (
-            await session.execute(
-                select(PITUniverseMembership).where(PITUniverseMembership.ticker == "AAPL")
+            (
+                await session.execute(
+                    select(PITUniverseMembership).where(PITUniverseMembership.ticker == "AAPL")
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         assert row is not None
         # shares_outstanding=1_000_000_000 (from _make_filing) * close=115.0
         assert row.market_cap == pytest.approx(1_000_000_000 * 115.0)
@@ -651,10 +653,14 @@ class TestBatchComputeAvgVolumes:
         from sqlalchemy import select
 
         row = (
-            await session.execute(
-                select(PITUniverseMembership).where(PITUniverseMembership.ticker == "AAPL")
+            (
+                await session.execute(
+                    select(PITUniverseMembership).where(PITUniverseMembership.ticker == "AAPL")
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         assert row is not None
         # All 5 days: close=115, volume=10M => dollar_vol = 1.15B each
         expected = 115.0 * 10_000_000

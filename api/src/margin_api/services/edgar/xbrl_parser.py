@@ -124,15 +124,11 @@ _CASHFLOW_FIELDS: set[str] = {
 # Regex to match any US-GAAP taxonomy namespace (varies by year).
 # Pre-2012 filings use xbrl.us domain (e.g. http://xbrl.us/us-gaap/2009-01-31),
 # 2012+ filings use fasb.org (e.g. /2013-01-31 or /2024).
-_GAAP_NS_RE = re.compile(
-    r"^http://(fasb\.org|xbrl\.us)/us-gaap/\d{4}(-\d{2}-\d{2})?$"
-)
+_GAAP_NS_RE = re.compile(r"^http://(fasb\.org|xbrl\.us)/us-gaap/\d{4}(-\d{2}-\d{2})?$")
 
 # Regex to match SEC DEI (Document & Entity Information) namespace.
 # Pre-2012: xbrl.us/dei, 2012+: xbrl.sec.gov/dei.
-_DEI_NS_RE = re.compile(
-    r"^http://(xbrl\.sec\.gov|xbrl\.us)/dei(-\w+)?/\d{4}(-\d{2}-\d{2})?$"
-)
+_DEI_NS_RE = re.compile(r"^http://(xbrl\.sec\.gov|xbrl\.us)/dei(-\w+)?/\d{4}(-\d{2}-\d{2})?$")
 
 # DEI-namespace tag mapping. Tags here are checked when no GAAP tag matched.
 # Priority values are offset by 100 so GAAP tags always win.

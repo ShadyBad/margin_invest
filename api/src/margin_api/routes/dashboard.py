@@ -450,38 +450,54 @@ def _fire_dashboard_events(
     if picks:
         avg_score = sum(p.score or p.composite_percentile for p in picks) / len(picks)
         if avg_score < 30:
-            track_event(org_id, "north_star_drop", {
-                "avg_score": round(avg_score, 1),
-                "pick_count": len(picks),
-                "label": "Weak",
-            })
+            track_event(
+                org_id,
+                "north_star_drop",
+                {
+                    "avg_score": round(avg_score, 1),
+                    "pick_count": len(picks),
+                    "label": "Weak",
+                },
+            )
 
     # pql_threshold_crossed — universe fully scored (product-qualified)
     if universe and universe.scoring_coverage >= 0.95:
-        track_event(org_id, "pql_threshold_crossed", {
-            "scoring_coverage": universe.scoring_coverage,
-            "universe_size": universe.size,
-            "version": universe.version,
-        })
+        track_event(
+            org_id,
+            "pql_threshold_crossed",
+            {
+                "scoring_coverage": universe.scoring_coverage,
+                "universe_size": universe.size,
+                "version": universe.version,
+            },
+        )
 
     # churn_risk_threshold_crossed — expired data signals product failure
     expired_picks = [p for p in picks if p.data_freshness == "expired"]
     if expired_picks:
         expired_ratio = len(expired_picks) / len(picks) if picks else 0
         if expired_ratio >= 0.5:
-            track_event(org_id, "churn_risk_threshold_crossed", {
-                "expired_count": len(expired_picks),
-                "total_picks": len(picks),
-                "expired_ratio": round(expired_ratio, 2),
-            })
+            track_event(
+                org_id,
+                "churn_risk_threshold_crossed",
+                {
+                    "expired_count": len(expired_picks),
+                    "total_picks": len(picks),
+                    "expired_ratio": round(expired_ratio, 2),
+                },
+            )
 
     # feature_flag_stale — any pick with expired data freshness
     for p in expired_picks[:3]:  # cap to avoid noise
-        track_event(org_id, "feature_flag_stale", {
-            "ticker": p.ticker,
-            "data_freshness": p.data_freshness,
-            "scored_at": p.scored_at,
-        })
+        track_event(
+            org_id,
+            "feature_flag_stale",
+            {
+                "ticker": p.ticker,
+                "data_freshness": p.data_freshness,
+                "scored_at": p.scored_at,
+            },
+        )
 
 
 @router.get("/dashboard/status")
