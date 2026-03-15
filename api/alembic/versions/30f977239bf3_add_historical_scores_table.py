@@ -10,7 +10,6 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
-
 from margin_api.db.models import JSONVariant
 
 # revision identifiers, used by Alembic.
