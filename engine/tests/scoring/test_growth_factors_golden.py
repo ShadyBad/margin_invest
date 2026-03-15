@@ -22,7 +22,6 @@ from margin_engine.scoring.quantitative.revenue_cagr import revenue_cagr
 from margin_engine.scoring.quantitative.rule_of_40 import rule_of_40
 from margin_engine.scoring.quantitative.runway_score import runway_score
 
-
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
@@ -132,12 +131,6 @@ class TestIncrementalRoicGolden:
     def test_zero_delta_ic(self) -> None:
         """Same IC both periods — delta_IC = 0 → raw_value = 0.0."""
         # Both periods identical IC = equity(500) + debt(200+100) - cash(50) = 750
-        period = _make_period(
-            total_equity=Decimal("500"),
-            long_term_debt=Decimal("200"),
-            short_term_debt=Decimal("100"),
-            cash_and_equivalents=Decimal("50"),
-        )
         history = FinancialHistory(
             ticker="TEST",
             periods=[
