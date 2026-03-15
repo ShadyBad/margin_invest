@@ -1538,6 +1538,74 @@ def _parse_factor_breakdown(
         return None
 
 
+def _rebuild_composite_from_historical(
+    ticker: str,
+    composite_score: float,
+    sub_scores: dict,
+) -> CompositeScore | None:
+    """Reconstruct a CompositeScore from HistoricalScore sub_scores JSONB.
+
+    HistoricalScore.sub_scores format:
+        {"quality": [{"name": "gp", "raw_value": 0.5, "percentile_rank": 80.0}, ...],
+         "value": [...], "momentum": [...], "growth": [...]}
+
+    Returns None if required pillars are missing.
+    """
+    from margin_engine.models.scoring import CompositeScore, FactorBreakdown, FactorScore
+
+    if not sub_scores:
+        return None
+
+    def _rebuild_breakdown(pillar: str, weight: float) -> FactorBreakdown | None:
+        pillar_data = sub_scores.get(pillar)
+        if not pillar_data or not isinstance(pillar_data, list) or len(pillar_data) == 0:
+            return None
+        scores = []
+        for s in pillar_data:
+            if not isinstance(s, dict):
+                return None
+            name = s.get("name")
+            raw_value = s.get("raw_value")
+            percentile_rank = s.get("percentile_rank")
+            if name is None or raw_value is None or percentile_rank is None:
+                return None
+            try:
+                scores.append(
+                    FactorScore(
+                        name=str(name),
+                        raw_value=float(raw_value),
+                        percentile_rank=float(percentile_rank),
+                    )
+                )
+            except (ValueError, TypeError):
+                return None
+        return FactorBreakdown(factor_name=pillar, weight=weight, sub_scores=scores)
+
+    quality = _rebuild_breakdown("quality", 0.25)
+    value = _rebuild_breakdown("value", 0.20)
+    momentum = _rebuild_breakdown("momentum", 0.25)
+
+    if quality is None or value is None or momentum is None:
+        return None
+
+    growth = _rebuild_breakdown("growth", 0.15) if "growth" in sub_scores else None
+
+    try:
+        return CompositeScore(
+            ticker=ticker,
+            composite_percentile=composite_score,
+            composite_raw_score=composite_score,
+            quality=quality,
+            value=value,
+            momentum=momentum,
+            growth=growth,
+            filters_passed=[],
+            data_coverage=1.0,
+        )
+    except (ValueError, TypeError):
+        return None
+
+
 def _composite_from_score_detail(
     ticker: str,
     detail: dict,
@@ -1778,16 +1846,90 @@ async def train_ml_models(ctx: dict) -> dict:
                 await session.commit()
             return {"status": "failed", "message": msg}
 
-        # Build feature matrix
-        registry = default_registry()
-        features, tickers, feature_names = build_feature_matrix(composites, registry)
-
         import numpy as np
         from margin_engine.ml.forward_returns import compute_forward_returns
+        from margin_engine.ml.historical_forward_returns import (
+            compute_historical_forward_returns,
+        )
+
+        # --- Step 1: Load historical scores (PIT-bootstrapped) ---
+        hist_composites: list[CompositeScore] = []
+        hist_fwd_returns: dict[str, float] = {}
+        hist_cutoff = (datetime.now(UTC) - timedelta(days=365)).date()
+
+        async with session_factory() as session:
+            hist_result = await session.execute(
+                select(HistoricalScore)
+                .where(HistoricalScore.score_date <= hist_cutoff)
+                .order_by(HistoricalScore.score_date)
+            )
+            hist_rows = hist_result.scalars().all()
+
+        if hist_rows:
+            # Group by quarter (score_date)
+            quarters: dict[date, list] = {}
+            for hs in hist_rows:
+                quarters.setdefault(hs.score_date, []).append(hs)
+
+            hist_skipped = 0
+            for quarter_date, quarter_scores in quarters.items():
+                quarter_tickers = [hs.ticker for hs in quarter_scores]
+
+                # Load PIT prices per quarter (bounded dates to avoid OOM)
+                price_start = quarter_date - timedelta(days=30)
+                price_end = quarter_date + timedelta(days=400)  # ~252 trading days + buffer
+                async with session_factory() as session:
+                    pit_result = await session.execute(
+                        select(PITDailyPrice).where(
+                            PITDailyPrice.ticker.in_(quarter_tickers),
+                            PITDailyPrice.date >= price_start,
+                            PITDailyPrice.date <= price_end,
+                        )
+                    )
+                    pit_rows = pit_result.scalars().all()
+
+                # Build pit_prices dict: ticker -> list of bar dicts (sorted by date)
+                pit_prices: dict[str, list[dict]] = {}
+                for p in pit_rows:
+                    pit_prices.setdefault(p.ticker, []).append(
+                        {"date": p.date.isoformat(), "close": float(p.close)}
+                    )
+                for ticker_key in pit_prices:
+                    pit_prices[ticker_key].sort(key=lambda b: b["date"])
+
+                # Compute historical forward returns for this quarter
+                quarter_fwd = compute_historical_forward_returns(pit_prices, quarter_date)
+                hist_fwd_returns.update(quarter_fwd)
+
+                # Reconstruct CompositeScore objects from sub_scores JSONB
+                for hs in quarter_scores:
+                    c = _rebuild_composite_from_historical(
+                        hs.ticker, hs.composite_score, hs.sub_scores or {}
+                    )
+                    if c is not None:
+                        hist_composites.append(c)
+                    else:
+                        hist_skipped += 1
+
+            logger.info(
+                "[ml] Historical data: %d composites from %d quarters, "
+                "%d forward returns, %d skipped",
+                len(hist_composites),
+                len(quarters),
+                len(hist_fwd_returns),
+                hist_skipped,
+            )
+
+        # --- Step 2: Combine live + historical composites ---
+        all_composites = composites + hist_composites
+
+        # --- Step 3: Build feature matrix from combined data ---
+        registry = default_registry()
+        features, tickers, feature_names = build_feature_matrix(all_composites, registry)
 
         n_clusters = settings.ml_n_clusters
 
-        # Load price data for training tickers
+        # --- Step 4: Compute live forward returns (existing code) ---
         async with session_factory() as session:
             price_result = await session.execute(
                 select(FinancialData.price_history, Asset.ticker)
@@ -1814,13 +1956,45 @@ async def train_ml_models(ctx: dict) -> dict:
             for score, t in rows
             if t in ticker_prices
         ]
-        fwd_returns = compute_forward_returns(scored_entries, ticker_prices)
+        live_fwd_returns = compute_forward_returns(scored_entries, ticker_prices)
 
-        forward_returns = np.array([fwd_returns.get(t, 0.0) for t in tickers])
-        n_with_returns = sum(1 for t in tickers if t in fwd_returns)
+        # --- Step 5: Merge forward returns (historical + live) ---
+        fwd_returns = {**hist_fwd_returns, **live_fwd_returns}
+
+        # --- Step 6: Filter to valid tickers (THE FIX — no more 0.0 default) ---
+        valid_mask = np.array([t in fwd_returns for t in tickers])
+        n_with_returns = int(valid_mask.sum())
         logger.info(
-            "[ml] Forward returns: %d/%d tickers have real data", n_with_returns, len(tickers)
+            "[ml] Forward returns: %d/%d tickers have real data (live=%d, historical=%d)",
+            n_with_returns,
+            len(tickers),
+            len(live_fwd_returns),
+            len(hist_fwd_returns),
         )
+
+        # --- Step 7: Min samples gate on combined dataset ---
+        if n_with_returns < settings.ml_train_min_samples:
+            msg = (
+                f"Only {n_with_returns} tickers with forward returns "
+                f"(need {settings.ml_train_min_samples}). "
+                f"Live={len(live_fwd_returns)}, Historical={len(hist_fwd_returns)}."
+            )
+            logger.warning("[ml] %s", msg)
+            async with session_factory() as session:
+                result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+                job = result.scalar_one()
+                job.status = "completed"
+                job.progress_detail = msg
+                job.completed_at = datetime.now(UTC)
+                await session.commit()
+            return {"status": "completed", "message": msg}
+
+        # --- Step 8: Re-index to only valid tickers ---
+        valid_indices = np.where(valid_mask)[0]
+        tickers = [tickers[i] for i in valid_indices]
+        features = features[valid_indices]
+        all_composites = [all_composites[i] for i in valid_indices]
+        forward_returns = np.array([fwd_returns[t] for t in tickers])
 
         # Sanitize values for JSONB — numpy types are not JSON-serializable
         def _sanitize(obj: object) -> object:
