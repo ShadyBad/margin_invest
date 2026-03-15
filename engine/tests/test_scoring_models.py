@@ -260,9 +260,7 @@ class TestScoringConfig:
         config = ScoringConfig()
         for stage in GrowthStage:
             q, v, m, g = config.weights_for_stage(stage)
-            assert q + v + m + g == pytest.approx(0.85), (
-                f"Weights for {stage} don't sum to 0.85"
-            )
+            assert q + v + m + g == pytest.approx(0.85), f"Weights for {stage} don't sum to 0.85"
 
 
 class TestConsistencyFlag:

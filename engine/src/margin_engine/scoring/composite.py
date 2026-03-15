@@ -49,13 +49,17 @@ def compute_composite_score(
 
     # 1. Determine weights from growth stage (or default)
     if growth_stage is not None:
-        q_weight, v_weight, m_weight, _g_weight = config.weights_for_stage(growth_stage)
+        q_weight, v_weight, m_weight, g_weight = config.weights_for_stage(growth_stage)
     else:
         q_weight = config.quality_weight
         v_weight = config.value_weight
         m_weight = config.momentum_weight
+        g_weight = config.growth_weight
 
-    # 2. Build FactorBreakdowns
+    # 2. Determine whether growth data is available
+    has_growth = growth_scores is not None and len(growth_scores) > 0
+
+    # 3. Build FactorBreakdowns
     quality = FactorBreakdown(
         factor_name="quality",
         weight=q_weight,
@@ -72,24 +76,34 @@ def compute_composite_score(
         sub_scores=momentum_scores,
     )
 
-    # Build growth breakdown (informational; not yet part of composite weighting)
     growth_breakdown: FactorBreakdown | None = None
-    if growth_scores:
+    if has_growth:
         growth_breakdown = FactorBreakdown(
             factor_name="growth",
-            weight=0.0,
-            sub_scores=growth_scores,
+            weight=g_weight,
+            sub_scores=growth_scores,  # type: ignore[arg-type]
         )
 
-    # 3. Compute weighted composite percentile
-    composite_percentile = (
-        quality.average_percentile * q_weight
-        + value.average_percentile * v_weight
-        + momentum.average_percentile * m_weight
-    )
+    # 4. Compute weighted composite percentile with normalization
+    # Build pillars list: (average_percentile, weight) for each active pillar
+    pillars: list[tuple[float, float]] = [
+        (quality.average_percentile, q_weight),
+        (value.average_percentile, v_weight),
+        (momentum.average_percentile, m_weight),
+    ]
+    if has_growth:
+        pillars.append((growth_breakdown.average_percentile, g_weight))  # type: ignore[union-attr]
 
-    # 4. Compute data coverage
+    weight_sum = sum(w for _, w in pillars)
+    if weight_sum > 0:
+        composite_percentile = sum(p * w for p, w in pillars) / weight_sum
+    else:
+        composite_percentile = 0.0
+
+    # 5. Compute data coverage (includes growth when present)
     all_scores = [*quality_scores, *value_scores, *momentum_scores]
+    if has_growth:
+        all_scores.extend(growth_scores)  # type: ignore[arg-type]
     total_scores = len(all_scores)
     if total_scores == 0:
         data_coverage = 1.0
@@ -97,7 +111,7 @@ def compute_composite_score(
         scores_with_data = sum(1 for s in all_scores if s.percentile_rank > 0.0)
         data_coverage = scores_with_data / total_scores
 
-    # 5. Attach price targets if provided
+    # 6. Attach price targets if provided
     price_kwargs: dict = {}
     if price_targets:
         price_kwargs = {
@@ -111,7 +125,7 @@ def compute_composite_score(
             "price_target_invalid_reason": price_targets.invalid_reason,
         }
 
-    # 6. Assemble and return CompositeScore
+    # 7. Assemble and return CompositeScore
     return CompositeScore(
         ticker=ticker,
         composite_percentile=composite_percentile,

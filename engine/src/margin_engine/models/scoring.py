@@ -241,9 +241,7 @@ class ScoringConfig(BaseModel):
     medium_threshold: float = 66.0  # renamed from watchlist_threshold
     sell_threshold: float = 97.0
 
-    def weights_for_stage(
-        self, stage: GrowthStage
-    ) -> tuple[float, float, float, float]:
+    def weights_for_stage(self, stage: GrowthStage) -> tuple[float, float, float, float]:
         """Return (quality, value, momentum, growth) weights for a growth stage.
 
         All stage weight tuples sum to 0.85; the composite scorer normalizes
