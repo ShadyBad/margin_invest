@@ -26,8 +26,9 @@ def compute_composite_score(
     growth_stage: GrowthStage | None = None,
     config: ScoringConfig | None = None,
     price_targets: PriceTargets | None = None,
+    growth_scores: list[FactorScore] | None = None,
 ) -> CompositeScore:
-    """Compute a weighted composite score from quality, value, and momentum sub-factors.
+    """Compute a weighted composite score from quality, value, momentum, and growth sub-factors.
 
     Args:
         ticker: Stock symbol.
@@ -37,6 +38,8 @@ def compute_composite_score(
         filters_passed: FilterResult list from elimination phase.
         growth_stage: If provided, adjusts factor weights via ScoringConfig.
         config: Optional ScoringConfig override; defaults to ScoringConfig().
+        price_targets: Optional PriceTargets to attach to the composite.
+        growth_scores: Optional FactorScore list for growth sub-factors.
 
     Returns:
         A fully populated CompositeScore.
@@ -46,7 +49,7 @@ def compute_composite_score(
 
     # 1. Determine weights from growth stage (or default)
     if growth_stage is not None:
-        q_weight, v_weight, m_weight = config.weights_for_stage(growth_stage)
+        q_weight, v_weight, m_weight, _g_weight = config.weights_for_stage(growth_stage)
     else:
         q_weight = config.quality_weight
         v_weight = config.value_weight
@@ -68,6 +71,15 @@ def compute_composite_score(
         weight=m_weight,
         sub_scores=momentum_scores,
     )
+
+    # Build growth breakdown (informational; not yet part of composite weighting)
+    growth_breakdown: FactorBreakdown | None = None
+    if growth_scores:
+        growth_breakdown = FactorBreakdown(
+            factor_name="growth",
+            weight=0.0,
+            sub_scores=growth_scores,
+        )
 
     # 3. Compute weighted composite percentile
     composite_percentile = (
@@ -107,6 +119,7 @@ def compute_composite_score(
         quality=quality,
         value=value,
         momentum=momentum,
+        growth=growth_breakdown,
         filters_passed=filters_passed,
         data_coverage=data_coverage,
         growth_stage=growth_stage,

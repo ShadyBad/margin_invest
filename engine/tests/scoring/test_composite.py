@@ -647,3 +647,54 @@ class TestPriceTargetsIntegration:
         )
         assert score.margin_invest_value is None
         assert score.buy_price is None
+
+
+# ---------------------------------------------------------------------------
+# Task 1: ScoringConfig growth_weight field
+# ---------------------------------------------------------------------------
+
+
+class TestGrowthWeight:
+    """ScoringConfig growth_weight field and 4-tuple weights_for_stage."""
+
+    def test_default_growth_weight(self):
+        config = ScoringConfig()
+        assert config.growth_weight == 0.15
+
+    def test_default_weights_changed(self):
+        config = ScoringConfig()
+        assert config.quality_weight == 0.25
+        assert config.value_weight == 0.20
+        assert config.momentum_weight == 0.25
+        assert config.growth_weight == 0.15
+
+    def test_weights_for_stage_returns_4_tuple(self):
+        config = ScoringConfig()
+        result = config.weights_for_stage(GrowthStage.HIGH_GROWTH)
+        assert len(result) == 4
+
+    def test_high_growth_stage_weights(self):
+        config = ScoringConfig()
+        q, v, m, g = config.weights_for_stage(GrowthStage.HIGH_GROWTH)
+        assert q == pytest.approx(0.20)
+        assert v == pytest.approx(0.10)
+        assert m == pytest.approx(0.25)
+        assert g == pytest.approx(0.30)
+        assert q + v + m + g == pytest.approx(0.85)
+
+    def test_mature_stage_weights(self):
+        config = ScoringConfig()
+        q, v, m, g = config.weights_for_stage(GrowthStage.MATURE)
+        assert q == pytest.approx(0.25)
+        assert v == pytest.approx(0.30)
+        assert m == pytest.approx(0.15)
+        assert g == pytest.approx(0.15)
+        assert q + v + m + g == pytest.approx(0.85)
+
+    def test_steady_growth_stage_weights(self):
+        config = ScoringConfig()
+        q, v, m, g = config.weights_for_stage(GrowthStage.STEADY_GROWTH)
+        assert q == pytest.approx(0.25)
+        assert v == pytest.approx(0.20)
+        assert m == pytest.approx(0.25)
+        assert g == pytest.approx(0.15)
