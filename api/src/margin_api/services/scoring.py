@@ -47,11 +47,16 @@ from margin_engine.scoring.quantitative.ev_fcf import ev_fcf
 from margin_engine.scoring.quantitative.f_score import piotroski_f_score
 from margin_engine.scoring.quantitative.fcf_conversion import fcf_conversion
 from margin_engine.scoring.quantitative.gross_profitability import gross_profitability
+from margin_engine.scoring.quantitative.incremental_roic import incremental_roic
 from margin_engine.scoring.quantitative.multi_horizon_momentum import multi_horizon_momentum
 from margin_engine.scoring.quantitative.price_targets import compute_price_targets
+from margin_engine.scoring.quantitative.revenue_cagr import revenue_cagr
 from margin_engine.scoring.quantitative.roic_trend import roic_trend
 from margin_engine.scoring.quantitative.roic_wacc import roic_wacc_spread
+from margin_engine.scoring.quantitative.rule_of_40 import rule_of_40
+from margin_engine.scoring.quantitative.runway_score import runway_score
 from margin_engine.scoring.quantitative.scenario_iv import compute_scenario_iv
+from margin_engine.scoring.quantitative.sentiment_score import sentiment_score
 from margin_engine.scoring.quantitative.shareholder_yield import shareholder_yield
 from margin_engine.scoring.quantitative.sue import sue_score
 
@@ -78,6 +83,7 @@ class RawScoringResult:
     quality_scores: list[FactorScore] = field(default_factory=list)
     value_scores: list[FactorScore] = field(default_factory=list)
     momentum_scores: list[FactorScore] = field(default_factory=list)
+    growth_scores: list[FactorScore] = field(default_factory=list)
     filter_results: list[FilterResult] = field(default_factory=list)
     growth_stage: GrowthStage | None = None
     period: FinancialPeriod | None = None
@@ -309,7 +315,32 @@ def compute_raw_factor_scores(
     if earnings_raw:
         momentum_scores.append(sue_score(surprises))
 
-    # --- Step 5: Classify growth stage ---
+    # Sentiment: stub with neutral value (LLM pipeline not yet wired)
+    momentum_scores.append(sentiment_score(score=0.0))
+
+    # --- Step 5: Growth factors ---
+    growth_scores: list[FactorScore] = []
+    if history is not None and len(history.periods) >= 2:
+        growth_scores.append(revenue_cagr(history))
+        growth_scores.append(incremental_roic(history))
+
+    # Rule of 40: revenue growth + FCF margin
+    revenue = float(period.current_income.revenue)
+    if revenue > 0:
+        fcf = float(period.current_cash_flow.free_cash_flow)
+        fcf_margin = fcf / revenue
+        # Derive revenue growth from current vs prior period
+        rev_growth_rate = 0.0
+        if period.prior_income is not None:
+            prior_rev = float(period.prior_income.revenue)
+            if prior_rev > 0:
+                rev_growth_rate = (revenue - prior_rev) / prior_rev
+        growth_scores.append(rule_of_40(rev_growth_rate, fcf_margin))
+
+    # Runway score: sub-industry revenue not available, use None (neutral 0.5)
+    growth_scores.append(runway_score(period.current_income.revenue, None))
+
+    # --- Step 6: Classify growth stage ---
     growth_stage = classify_growth_stage(period, profile)
 
     return RawScoringResult(
@@ -318,6 +349,7 @@ def compute_raw_factor_scores(
         quality_scores=quality_scores,
         value_scores=value_scores,
         momentum_scores=momentum_scores,
+        growth_scores=growth_scores,
         filter_results=filter_results,
         growth_stage=growth_stage,
         period=period,
@@ -349,7 +381,7 @@ def rank_and_compute_composites(
     scores_by_key: dict[tuple[str, str], list[FactorScore]] = defaultdict(list)
 
     for i, result in enumerate(raw_results):
-        for list_attr in ("quality_scores", "value_scores", "momentum_scores"):
+        for list_attr in ("quality_scores", "value_scores", "momentum_scores", "growth_scores"):
             scores = getattr(result, list_attr)
             for j, score in enumerate(scores):
                 key = (result.sector, score.name)
@@ -375,6 +407,7 @@ def rank_and_compute_composites(
             quality_scores=r.quality_scores,
             value_scores=r.value_scores,
             momentum_scores=r.momentum_scores,
+            growth_scores=r.growth_scores,
             filters_passed=r.filter_results,
             growth_stage=r.growth_stage,
         )
@@ -397,6 +430,7 @@ def rank_and_compute_composites(
                 quality_scores=r.quality_scores,
                 value_scores=r.value_scores,
                 momentum_scores=r.momentum_scores,
+                growth_scores=r.growth_scores,
                 filters_passed=r.filter_results,
                 growth_stage=r.growth_stage,
                 price_targets=price_targets,

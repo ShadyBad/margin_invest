@@ -199,9 +199,16 @@ class TestFullPipeline:
         assert composite.value.factor_name == "value"
         assert len(composite.value.sub_scores) == 4
 
-        # Momentum factor: 2 real sub_scores (multi_horizon_momentum + SUE)
+        # Momentum factor: 3 sub_scores (multi_horizon_momentum + SUE + sentiment)
         assert composite.momentum.factor_name == "momentum"
-        assert len(composite.momentum.sub_scores) == 2
+        assert len(composite.momentum.sub_scores) == 3
+        momentum_names = {s.name for s in composite.momentum.sub_scores}
+        assert "sentiment" in momentum_names
+
+        # Growth factor populated
+        assert composite.growth is not None
+        assert composite.growth.factor_name == "growth"
+        assert len(composite.growth.sub_scores) >= 1
 
         # All 6 elimination filters ran
         assert len(composite.filters_passed) == 6
@@ -228,7 +235,7 @@ class TestFullPipeline:
         assert reconstructed.data_coverage == response.data_coverage
         assert len(reconstructed.quality.sub_scores) == 5
         assert len(reconstructed.value.sub_scores) == 4
-        assert len(reconstructed.momentum.sub_scores) == 2
+        assert len(reconstructed.momentum.sub_scores) == 3
         assert len(reconstructed.filters_passed) == 6
 
     def test_pipeline_with_different_sectors(self):
