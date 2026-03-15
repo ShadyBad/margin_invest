@@ -503,6 +503,84 @@ async def trigger_pit_reparse(
     )
 
 
+@router.post("/historical/backfill")
+@limiter.limit("1/hour")
+async def trigger_historical_backfill(
+    request: Request, x_admin_key: str = Header()
+) -> JSONResponse:
+    """Enqueue historical score backfill from PIT data for ML training.
+
+    Generates composite scores for every quarter from 2009-Q1 to 2025-Q4.
+    Idempotent: skips quarters that already have scores.
+    Expected runtime: 30-60 minutes. Timeout: 2 hours.
+    """
+    _verify_admin_key(x_admin_key)
+
+    settings = get_settings()
+    from arq.connections import RedisSettings
+
+    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+
+    try:
+        redis: ArqRedis = await create_pool(redis_settings)
+        job = await redis.enqueue_job(
+            "backfill_historical_scores",
+            _job_id=f"hist_backfill:{uuid.uuid4().hex[:8]}",
+        )
+        await redis.aclose()
+    except Exception as e:
+        logger.exception("Failed to enqueue historical backfill job")
+        raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
+
+    logger.info("[admin] Enqueued backfill_historical_scores job: %s", job.job_id)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "enqueued",
+            "job": "backfill_historical_scores",
+            "job_id": job.job_id,
+            "message": (
+                "Historical score backfill enqueued: 67 quarters × ~3000 tickers from PIT data"
+            ),
+        },
+    )
+
+
+@router.get("/historical/stats")
+@limiter.limit("10/minute")
+async def historical_stats(
+    request: Request,
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Return row counts and date range for historical_scores table."""
+    _verify_admin_key(x_admin_key)
+
+    from margin_api.db.models import HistoricalScore
+
+    total = (await session.execute(select(func.count()).select_from(HistoricalScore))).scalar_one()
+    distinct_dates = (
+        await session.execute(select(func.count(func.distinct(HistoricalScore.score_date))))
+    ).scalar_one()
+
+    min_date = max_date = None
+    if total > 0:
+        min_date = (
+            await session.execute(select(func.min(HistoricalScore.score_date)))
+        ).scalar_one()
+        max_date = (
+            await session.execute(select(func.max(HistoricalScore.score_date)))
+        ).scalar_one()
+
+    return {
+        "historical_scores": total,
+        "quarters_scored": distinct_dates,
+        "min_date": str(min_date) if min_date else None,
+        "max_date": str(max_date) if max_date else None,
+    }
+
+
 @router.patch("/jobs/{job_id}/status")
 @limiter.limit("10/minute")
 async def update_job_status(
