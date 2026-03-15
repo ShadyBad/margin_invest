@@ -230,11 +230,17 @@ class TestGrowthStage:
 class TestScoringConfig:
     def test_default_weights(self):
         config = ScoringConfig()
-        assert config.quality_weight == 0.35
-        assert config.value_weight == 0.30
-        assert config.momentum_weight == 0.35
-        total = config.quality_weight + config.value_weight + config.momentum_weight
-        assert total == pytest.approx(1.0)
+        assert config.quality_weight == 0.25
+        assert config.value_weight == 0.20
+        assert config.momentum_weight == 0.25
+        assert config.growth_weight == 0.15
+        total = (
+            config.quality_weight
+            + config.value_weight
+            + config.momentum_weight
+            + config.growth_weight
+        )
+        assert total == pytest.approx(0.85)
 
     def test_default_thresholds(self):
         config = ScoringConfig()
@@ -245,16 +251,16 @@ class TestScoringConfig:
     def test_growth_stage_weights(self):
         config = ScoringConfig()
         weights = config.weights_for_stage(GrowthStage.HIGH_GROWTH)
-        assert weights == (0.40, 0.25, 0.35)
+        assert weights == (0.20, 0.10, 0.25, 0.30)
 
         weights = config.weights_for_stage(GrowthStage.MATURE)
-        assert weights == (0.30, 0.40, 0.30)
+        assert weights == (0.25, 0.30, 0.15, 0.15)
 
-    def test_all_stage_weights_sum_to_one(self):
+    def test_all_stage_weights_sum_to_085(self):
         config = ScoringConfig()
         for stage in GrowthStage:
-            q, v, m = config.weights_for_stage(stage)
-            assert q + v + m == pytest.approx(1.0), f"Weights for {stage} don't sum to 1.0"
+            q, v, m, g = config.weights_for_stage(stage)
+            assert q + v + m + g == pytest.approx(0.85), f"Weights for {stage} don't sum to 0.85"
 
 
 class TestConsistencyFlag:

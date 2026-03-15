@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     ml_n_clusters: int = 5
     vae_enable: bool = True
     ml_n_seeds: int = 20
+    ml_bootstrap_mode: bool = True  # Use relaxed IC gates for PIT-bootstrapped training
+    ml_live_weight: float = 0.0  # Blend weight for live data (0.0 = all historical, 1.0 = all live)
 
     # Batched ingest
     ingest_batch_size: int = 50

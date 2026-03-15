@@ -229,10 +229,11 @@ class ConsistencyFlag(BaseModel):
 class ScoringConfig(BaseModel):
     """Configuration for the scoring engine — factor weights and thresholds."""
 
-    # Default weights (Steady Growth)
-    quality_weight: float = 0.35
-    value_weight: float = 0.30
-    momentum_weight: float = 0.35
+    # Default weights (Steady Growth) — sum to 0.85; composite normalizes to 1.0
+    quality_weight: float = 0.25
+    value_weight: float = 0.20
+    momentum_weight: float = 0.25
+    growth_weight: float = 0.15
 
     # Conviction thresholds (raw score) — absolute, universe-independent
     exceptional_threshold: float = 76.0
@@ -240,13 +241,17 @@ class ScoringConfig(BaseModel):
     medium_threshold: float = 66.0  # renamed from watchlist_threshold
     sell_threshold: float = 97.0
 
-    def weights_for_stage(self, stage: GrowthStage) -> tuple[float, float, float]:
-        """Return (quality, value, momentum) weights for a growth stage."""
-        stage_weights = {
-            GrowthStage.HIGH_GROWTH: (0.40, 0.25, 0.35),
-            GrowthStage.STEADY_GROWTH: (0.35, 0.30, 0.35),
-            GrowthStage.MATURE: (0.30, 0.40, 0.30),
-            GrowthStage.CYCLICAL: (0.35, 0.30, 0.35),
-            GrowthStage.TURNAROUND: (0.35, 0.30, 0.35),
+    def weights_for_stage(self, stage: GrowthStage) -> tuple[float, float, float, float]:
+        """Return (quality, value, momentum, growth) weights for a growth stage.
+
+        All stage weight tuples sum to 0.85; the composite scorer normalizes
+        to 1.0 based on which pillars have data.
+        """
+        stage_weights: dict[GrowthStage, tuple[float, float, float, float]] = {
+            GrowthStage.HIGH_GROWTH: (0.20, 0.10, 0.25, 0.30),
+            GrowthStage.STEADY_GROWTH: (0.25, 0.20, 0.25, 0.15),
+            GrowthStage.MATURE: (0.25, 0.30, 0.15, 0.15),
+            GrowthStage.CYCLICAL: (0.25, 0.20, 0.25, 0.15),
+            GrowthStage.TURNAROUND: (0.25, 0.20, 0.25, 0.15),
         }
         return stage_weights[stage]

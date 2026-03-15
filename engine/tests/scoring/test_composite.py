@@ -37,7 +37,9 @@ class TestBasicComposite:
     """Core weighted-average computation with default weights."""
 
     def test_known_percentiles_default_weights(self):
-        """Quality=75, Value=60, Momentum=80 -> 75*0.35 + 60*0.30 + 80*0.35 = 72.25."""
+        """Quality=75, Value=60, Momentum=80, no growth.
+        (75*0.25 + 60*0.20 + 80*0.25) / 0.70 = 50.75 / 0.70 = 72.5.
+        """
         quality = [_make_factor_score("gp", percentile_rank=75.0)]
         value = [_make_factor_score("ev_fcf", percentile_rank=60.0)]
         momentum = [_make_factor_score("price_mom", percentile_rank=80.0)]
@@ -51,7 +53,7 @@ class TestBasicComposite:
             filters_passed=filters,
         )
 
-        assert result.composite_percentile == pytest.approx(72.25)
+        assert result.composite_percentile == pytest.approx(72.5)
         assert result.ticker == "AAPL"
 
     def test_composite_raw_score_populated(self):
@@ -68,7 +70,7 @@ class TestBasicComposite:
             filters_passed=[],
         )
 
-        assert result.composite_raw_score == pytest.approx(72.25)
+        assert result.composite_raw_score == pytest.approx(72.5)
         assert result.composite_percentile == result.composite_raw_score
 
     def test_multiple_sub_scores_per_factor(self):
@@ -93,8 +95,9 @@ class TestBasicComposite:
             filters_passed=[],
         )
 
-        # 85*0.35 + 65*0.30 + 50*0.35 = 29.75 + 19.5 + 17.5 = 66.75
-        assert result.composite_percentile == pytest.approx(66.75)
+        # (85*0.25 + 65*0.20 + 50*0.25) / 0.70 = 46.75 / 0.70 = 66.7857...
+        expected = (85 * 0.25 + 65 * 0.20 + 50 * 0.25) / 0.70
+        assert result.composite_percentile == pytest.approx(expected)
 
     def test_all_perfect_scores(self):
         """All 100th percentile -> composite = 100."""
@@ -138,7 +141,7 @@ class TestGrowthStageWeights:
     """Weights adjusted by growth stage via ScoringConfig.weights_for_stage."""
 
     def test_high_growth_weights(self):
-        """High Growth: quality=0.40, value=0.25, momentum=0.35."""
+        """High Growth (no growth_scores): q=0.20, v=0.10, m=0.25, sum=0.55."""
         quality = [_make_factor_score(percentile_rank=75.0)]
         value = [_make_factor_score(percentile_rank=60.0)]
         momentum = [_make_factor_score(percentile_rank=80.0)]
@@ -152,12 +155,13 @@ class TestGrowthStageWeights:
             growth_stage=GrowthStage.HIGH_GROWTH,
         )
 
-        # 75*0.40 + 60*0.25 + 80*0.35 = 30.0 + 15.0 + 28.0 = 73.0
-        assert result.composite_percentile == pytest.approx(73.0)
+        # (75*0.20 + 60*0.10 + 80*0.25) / 0.55 = 41.0 / 0.55 = 74.5454...
+        expected = (75 * 0.20 + 60 * 0.10 + 80 * 0.25) / 0.55
+        assert result.composite_percentile == pytest.approx(expected)
         assert result.growth_stage == GrowthStage.HIGH_GROWTH
 
     def test_mature_weights(self):
-        """Mature: quality=0.30, value=0.40, momentum=0.30."""
+        """Mature (no growth_scores): q=0.25, v=0.30, m=0.15, sum=0.70."""
         quality = [_make_factor_score(percentile_rank=75.0)]
         value = [_make_factor_score(percentile_rank=60.0)]
         momentum = [_make_factor_score(percentile_rank=80.0)]
@@ -171,11 +175,12 @@ class TestGrowthStageWeights:
             growth_stage=GrowthStage.MATURE,
         )
 
-        # 75*0.30 + 60*0.40 + 80*0.30 = 22.5 + 24.0 + 24.0 = 70.5
-        assert result.composite_percentile == pytest.approx(70.5)
+        # (75*0.25 + 60*0.30 + 80*0.15) / 0.70 = 48.75 / 0.70 = 69.6428...
+        expected = (75 * 0.25 + 60 * 0.30 + 80 * 0.15) / 0.70
+        assert result.composite_percentile == pytest.approx(expected)
 
     def test_steady_growth_same_as_default(self):
-        """Steady Growth: quality=0.35, value=0.30, momentum=0.35 (same as default)."""
+        """Steady Growth (no growth_scores): q=0.25, v=0.20, m=0.25 — matches defaults."""
         quality = [_make_factor_score(percentile_rank=75.0)]
         value = [_make_factor_score(percentile_rank=60.0)]
         momentum = [_make_factor_score(percentile_rank=80.0)]
@@ -423,8 +428,8 @@ class TestDefaultConfig:
             config=None,
         )
 
-        # Default weights: 0.35 / 0.30 / 0.35
-        assert result.composite_percentile == pytest.approx(72.25)
+        # Default weights: q=0.25, v=0.20, m=0.25 (no growth), sum=0.70
+        assert result.composite_percentile == pytest.approx(72.5)
 
     def test_custom_config_overrides_defaults(self):
         """Custom config with different weights."""
@@ -487,8 +492,8 @@ class TestEmptySubScores:
         )
 
         # quality avg = 80, value avg = 0 (empty), momentum avg = 60
-        # 80*0.35 + 0*0.30 + 60*0.35 = 28.0 + 0.0 + 21.0 = 49.0
-        assert result.composite_percentile == pytest.approx(49.0)
+        # (80*0.25 + 0*0.20 + 60*0.25) / 0.70 = 35.0 / 0.70 = 50.0
+        assert result.composite_percentile == pytest.approx(50.0)
 
 
 # ---------------------------------------------------------------------------
@@ -522,19 +527,19 @@ class TestFactorBreakdownFields:
 
         # Quality breakdown
         assert result.quality.factor_name == "quality"
-        assert result.quality.weight == pytest.approx(0.35)
+        assert result.quality.weight == pytest.approx(0.25)
         assert len(result.quality.sub_scores) == 2
         assert result.quality.average_percentile == pytest.approx(98.5)
 
         # Value breakdown
         assert result.value.factor_name == "value"
-        assert result.value.weight == pytest.approx(0.30)
+        assert result.value.weight == pytest.approx(0.20)
         assert len(result.value.sub_scores) == 1
         assert result.value.average_percentile == pytest.approx(70.0)
 
         # Momentum breakdown
         assert result.momentum.factor_name == "momentum"
-        assert result.momentum.weight == pytest.approx(0.35)
+        assert result.momentum.weight == pytest.approx(0.25)
         assert len(result.momentum.sub_scores) == 2
         assert result.momentum.average_percentile == pytest.approx(80.0)
 
@@ -553,9 +558,9 @@ class TestFactorBreakdownFields:
             growth_stage=GrowthStage.HIGH_GROWTH,
         )
 
-        assert result.quality.weight == pytest.approx(0.40)
-        assert result.value.weight == pytest.approx(0.25)
-        assert result.momentum.weight == pytest.approx(0.35)
+        assert result.quality.weight == pytest.approx(0.20)
+        assert result.value.weight == pytest.approx(0.10)
+        assert result.momentum.weight == pytest.approx(0.25)
 
     def test_filters_passed_through(self):
         """filters_passed list is forwarded to CompositeScore."""
@@ -647,3 +652,168 @@ class TestPriceTargetsIntegration:
         )
         assert score.margin_invest_value is None
         assert score.buy_price is None
+
+
+# ---------------------------------------------------------------------------
+# Task 1: ScoringConfig growth_weight field
+# ---------------------------------------------------------------------------
+
+
+class TestGrowthWeight:
+    """ScoringConfig growth_weight field and 4-tuple weights_for_stage."""
+
+    def test_default_growth_weight(self):
+        config = ScoringConfig()
+        assert config.growth_weight == 0.15
+
+    def test_default_weights_changed(self):
+        config = ScoringConfig()
+        assert config.quality_weight == 0.25
+        assert config.value_weight == 0.20
+        assert config.momentum_weight == 0.25
+        assert config.growth_weight == 0.15
+
+    def test_weights_for_stage_returns_4_tuple(self):
+        config = ScoringConfig()
+        result = config.weights_for_stage(GrowthStage.HIGH_GROWTH)
+        assert len(result) == 4
+
+    def test_high_growth_stage_weights(self):
+        config = ScoringConfig()
+        q, v, m, g = config.weights_for_stage(GrowthStage.HIGH_GROWTH)
+        assert q == pytest.approx(0.20)
+        assert v == pytest.approx(0.10)
+        assert m == pytest.approx(0.25)
+        assert g == pytest.approx(0.30)
+        assert q + v + m + g == pytest.approx(0.85)
+
+    def test_mature_stage_weights(self):
+        config = ScoringConfig()
+        q, v, m, g = config.weights_for_stage(GrowthStage.MATURE)
+        assert q == pytest.approx(0.25)
+        assert v == pytest.approx(0.30)
+        assert m == pytest.approx(0.15)
+        assert g == pytest.approx(0.15)
+        assert q + v + m + g == pytest.approx(0.85)
+
+    def test_steady_growth_stage_weights(self):
+        config = ScoringConfig()
+        q, v, m, g = config.weights_for_stage(GrowthStage.STEADY_GROWTH)
+        assert q == pytest.approx(0.25)
+        assert v == pytest.approx(0.20)
+        assert m == pytest.approx(0.25)
+        assert g == pytest.approx(0.15)
+
+
+# ---------------------------------------------------------------------------
+# Task 2: Growth factors in composite scoring
+# ---------------------------------------------------------------------------
+
+
+class TestGrowthFactorInComposite:
+    """Growth scores contribute to composite percentile with real weight."""
+
+    def test_growth_included_in_composite_default_weights(self):
+        """Q=80, V=60, M=70, G=90 with default weights (normalized to 1.0).
+        Raw: 80*0.25 + 60*0.20 + 70*0.25 + 90*0.15 = 63.0
+        Sum of weights = 0.85, normalized: 63.0 / 0.85 = 74.117647...
+        """
+        quality = [_make_factor_score("gp", percentile_rank=80.0)]
+        value = [_make_factor_score("ev_fcf", percentile_rank=60.0)]
+        momentum = [_make_factor_score("price_mom", percentile_rank=70.0)]
+        growth = [_make_factor_score("revenue_cagr", percentile_rank=90.0)]
+        result = compute_composite_score(
+            ticker="GROW",
+            quality_scores=quality,
+            value_scores=value,
+            momentum_scores=momentum,
+            filters_passed=[],
+            growth_scores=growth,
+        )
+        expected = (80 * 0.25 + 60 * 0.20 + 70 * 0.25 + 90 * 0.15) / 0.85
+        assert result.composite_percentile == pytest.approx(expected, rel=1e-6)
+
+    def test_growth_none_uses_three_pillars(self):
+        """When growth_scores is None, only Q/V/M are used (normalized)."""
+        quality = [_make_factor_score("gp", percentile_rank=80.0)]
+        value = [_make_factor_score("ev_fcf", percentile_rank=60.0)]
+        momentum = [_make_factor_score("price_mom", percentile_rank=70.0)]
+        result = compute_composite_score(
+            ticker="NOGROW",
+            quality_scores=quality,
+            value_scores=value,
+            momentum_scores=momentum,
+            filters_passed=[],
+            growth_scores=None,
+        )
+        expected = (80 * 0.25 + 60 * 0.20 + 70 * 0.25) / 0.70
+        assert result.composite_percentile == pytest.approx(expected, rel=1e-6)
+
+    def test_growth_empty_list_uses_three_pillars(self):
+        """Empty growth_scores list -> weight excluded from normalization."""
+        quality = [_make_factor_score("gp", percentile_rank=80.0)]
+        value = [_make_factor_score("ev_fcf", percentile_rank=60.0)]
+        momentum = [_make_factor_score("price_mom", percentile_rank=70.0)]
+        result = compute_composite_score(
+            ticker="EMPTYGROW",
+            quality_scores=quality,
+            value_scores=value,
+            momentum_scores=momentum,
+            filters_passed=[],
+            growth_scores=[],
+        )
+        expected = (80 * 0.25 + 60 * 0.20 + 70 * 0.25) / 0.70
+        assert result.composite_percentile == pytest.approx(expected, rel=1e-6)
+
+    def test_growth_with_growth_stage(self):
+        """High Growth stage: q=0.20, v=0.10, m=0.25, g=0.30 (sum=0.85)."""
+        quality = [_make_factor_score("gp", percentile_rank=80.0)]
+        value = [_make_factor_score("ev_fcf", percentile_rank=60.0)]
+        momentum = [_make_factor_score("price_mom", percentile_rank=70.0)]
+        growth = [_make_factor_score("revenue_cagr", percentile_rank=90.0)]
+        result = compute_composite_score(
+            ticker="HGROW",
+            quality_scores=quality,
+            value_scores=value,
+            momentum_scores=momentum,
+            filters_passed=[],
+            growth_scores=growth,
+            growth_stage=GrowthStage.HIGH_GROWTH,
+        )
+        expected = (80 * 0.20 + 60 * 0.10 + 70 * 0.25 + 90 * 0.30) / 0.85
+        assert result.composite_percentile == pytest.approx(expected, rel=1e-6)
+
+    def test_growth_included_in_data_coverage(self):
+        """Growth scores are counted in data_coverage calculation."""
+        quality = [_make_factor_score("gp", percentile_rank=80.0)]
+        value = [_make_factor_score("ev_fcf", percentile_rank=60.0)]
+        momentum = [_make_factor_score("price_mom", percentile_rank=70.0)]
+        growth = [
+            _make_factor_score("revenue_cagr", percentile_rank=90.0),
+            _make_factor_score("rule_of_40", percentile_rank=0.0),
+        ]
+        result = compute_composite_score(
+            ticker="COV",
+            quality_scores=quality,
+            value_scores=value,
+            momentum_scores=momentum,
+            filters_passed=[],
+            growth_scores=growth,
+        )
+        assert result.data_coverage == pytest.approx(4 / 5)
+
+    def test_weight_normalization_sums_to_one(self):
+        """All 100 -> composite=100."""
+        quality = [_make_factor_score(percentile_rank=100.0)]
+        value = [_make_factor_score(percentile_rank=100.0)]
+        momentum = [_make_factor_score(percentile_rank=100.0)]
+        growth = [_make_factor_score(percentile_rank=100.0)]
+        result = compute_composite_score(
+            ticker="NORM",
+            quality_scores=quality,
+            value_scores=value,
+            momentum_scores=momentum,
+            filters_passed=[],
+            growth_scores=growth,
+        )
+        assert result.composite_percentile == pytest.approx(100.0)

@@ -1,7 +1,7 @@
-"""Composite scorer — combines quality, value, and momentum into a final ConvictionScore.
+"""Composite scorer — combines quality, value, momentum, and growth into a CompositeScore.
 
 Takes pre-computed sub-factor percentile ranks, applies growth-stage-adjusted
-weights, and returns a fully populated CompositeScore.
+weights with normalization, and returns a fully populated CompositeScore.
 """
 
 from __future__ import annotations
@@ -26,8 +26,9 @@ def compute_composite_score(
     growth_stage: GrowthStage | None = None,
     config: ScoringConfig | None = None,
     price_targets: PriceTargets | None = None,
+    growth_scores: list[FactorScore] | None = None,
 ) -> CompositeScore:
-    """Compute a weighted composite score from quality, value, and momentum sub-factors.
+    """Compute a weighted composite score from quality, value, momentum, and growth sub-factors.
 
     Args:
         ticker: Stock symbol.
@@ -37,6 +38,8 @@ def compute_composite_score(
         filters_passed: FilterResult list from elimination phase.
         growth_stage: If provided, adjusts factor weights via ScoringConfig.
         config: Optional ScoringConfig override; defaults to ScoringConfig().
+        price_targets: Optional PriceTargets to attach to the composite.
+        growth_scores: Optional FactorScore list for growth sub-factors.
 
     Returns:
         A fully populated CompositeScore.
@@ -46,13 +49,17 @@ def compute_composite_score(
 
     # 1. Determine weights from growth stage (or default)
     if growth_stage is not None:
-        q_weight, v_weight, m_weight = config.weights_for_stage(growth_stage)
+        q_weight, v_weight, m_weight, g_weight = config.weights_for_stage(growth_stage)
     else:
         q_weight = config.quality_weight
         v_weight = config.value_weight
         m_weight = config.momentum_weight
+        g_weight = config.growth_weight
 
-    # 2. Build FactorBreakdowns
+    # 2. Determine whether growth data is available
+    has_growth = growth_scores is not None and len(growth_scores) > 0
+
+    # 3. Build FactorBreakdowns
     quality = FactorBreakdown(
         factor_name="quality",
         weight=q_weight,
@@ -69,15 +76,34 @@ def compute_composite_score(
         sub_scores=momentum_scores,
     )
 
-    # 3. Compute weighted composite percentile
-    composite_percentile = (
-        quality.average_percentile * q_weight
-        + value.average_percentile * v_weight
-        + momentum.average_percentile * m_weight
-    )
+    growth_breakdown: FactorBreakdown | None = None
+    if has_growth:
+        growth_breakdown = FactorBreakdown(
+            factor_name="growth",
+            weight=g_weight,
+            sub_scores=growth_scores,  # type: ignore[arg-type]
+        )
 
-    # 4. Compute data coverage
+    # 4. Compute weighted composite percentile with normalization
+    # Build pillars list: (average_percentile, weight) for each active pillar
+    pillars: list[tuple[float, float]] = [
+        (quality.average_percentile, q_weight),
+        (value.average_percentile, v_weight),
+        (momentum.average_percentile, m_weight),
+    ]
+    if has_growth:
+        pillars.append((growth_breakdown.average_percentile, g_weight))  # type: ignore[union-attr]
+
+    weight_sum = sum(w for _, w in pillars)
+    if weight_sum > 0:
+        composite_percentile = sum(p * w for p, w in pillars) / weight_sum
+    else:
+        composite_percentile = 0.0
+
+    # 5. Compute data coverage (includes growth when present)
     all_scores = [*quality_scores, *value_scores, *momentum_scores]
+    if has_growth:
+        all_scores.extend(growth_scores)  # type: ignore[arg-type]
     total_scores = len(all_scores)
     if total_scores == 0:
         data_coverage = 1.0
@@ -85,7 +111,7 @@ def compute_composite_score(
         scores_with_data = sum(1 for s in all_scores if s.percentile_rank > 0.0)
         data_coverage = scores_with_data / total_scores
 
-    # 5. Attach price targets if provided
+    # 6. Attach price targets if provided
     price_kwargs: dict = {}
     if price_targets:
         price_kwargs = {
@@ -99,7 +125,7 @@ def compute_composite_score(
             "price_target_invalid_reason": price_targets.invalid_reason,
         }
 
-    # 6. Assemble and return CompositeScore
+    # 7. Assemble and return CompositeScore
     return CompositeScore(
         ticker=ticker,
         composite_percentile=composite_percentile,
@@ -107,6 +133,7 @@ def compute_composite_score(
         quality=quality,
         value=value,
         momentum=momentum,
+        growth=growth_breakdown,
         filters_passed=filters_passed,
         data_coverage=data_coverage,
         growth_stage=growth_stage,

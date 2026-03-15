@@ -1161,3 +1161,23 @@ class EdgarIndexCache(Base):
     )
 
     __table_args__ = (Index("ix_edgar_index_cache_year_quarter", "year", "quarter", unique=True),)
+
+
+class HistoricalScore(Base):
+    """Historical composite scores generated from PIT data for ML training."""
+
+    __tablename__ = "historical_scores"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(20), index=True)
+    score_date: Mapped[date] = mapped_column(index=True)
+    composite_score: Mapped[float] = mapped_column(Float)
+    composite_tier: Mapped[str] = mapped_column(String(20))
+    sub_scores: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        UniqueConstraint("ticker", "score_date", name="uq_historical_score_ticker_date"),
+    )

@@ -36,16 +36,20 @@ from margin_api.db.models import (
     FilingMetadata,
     FinancialData,
     GovernanceEvent,
+    HistoricalScore,
     IngestionRun,
     IngestionTickerStatus,
     JobRun,
     MlModelRun,
     PipelineApproval,
+    PITDailyPrice,
     PITFinancialSnapshot,
+    PITUniverseMembership,
     ReproducibilityAudit,
     Score,
     SeedValidationReport,
     ShadowPortfolioSnapshot,
+    SICSectorMap,
     UniverseSnapshot,
     V3Score,
     V4Score,
@@ -490,7 +494,7 @@ async def ingest_sweep(ctx: dict, run_id: str, pipeline_id: str) -> dict:
 async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dict:
     """Finalize the ingestion run and chain to scoring.
 
-    Updates the IngestionRun record with final stats, then enqueues full_score.
+    Updates the IngestionRun record with final stats, then enqueues full_score_v3.
     """
     label = f"[sweep_complete:{run_id}]"
     logger.info("%s Finalizing ingestion run (pipeline=%s)", label, pipeline_id)
@@ -549,8 +553,8 @@ async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dic
 
     redis: ArqRedis | None = ctx.get("redis")
     if redis:
-        await redis.enqueue_job("full_score", pipeline_id)
-        logger.info("%s Enqueued full_score (pipeline=%s)", label, pipeline_id)
+        await redis.enqueue_job("full_score_v3", pipeline_id)
+        logger.info("%s Enqueued full_score_v3 (pipeline=%s)", label, pipeline_id)
 
     return {
         "status": "completed",
@@ -559,87 +563,6 @@ async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dic
         "failed": run.tickers_failed or 0,
         "duration_seconds": run.duration_seconds,
     }
-
-
-async def full_score(
-    ctx: dict,
-    pipeline_id: str | None = None,
-) -> dict:
-    """Score all ingested assets using the v2 two-pass pipeline.
-
-    Reuses run_scoring() from cli.py. Always chains to full_score_v3,
-    even on failure, so the v3 pipeline can still run independently.
-    """
-    from margin_api.cli import run_scoring
-
-    logger.info("[score_v2] Starting v2 scoring (pipeline=%s)...", pipeline_id)
-
-    engine = get_engine()
-    session_factory = get_session_factory(engine)
-
-    # Create JobRun record
-    async with session_factory() as session:
-        job = JobRun(
-            job_type="score_v2",
-            status="running",
-            triggered_by="chained",
-            pipeline_id=pipeline_id,
-            started_at=datetime.now(UTC),
-        )
-        session.add(job)
-        await session.commit()
-        job_id = job.id
-
-    status = "completed"
-    error: str | None = None
-
-    try:
-        await run_scoring()
-        reset_engine_cache()
-
-        engine = get_engine()
-        session_factory = get_session_factory(engine)
-        async with session_factory() as session:
-            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
-            job = result.scalar_one()
-            job.status = "completed"
-            job.progress = 1.0
-            job.completed_at = datetime.now(UTC)
-            await session.commit()
-
-        logger.info("[score_v2] Scoring complete")
-
-    except Exception as e:
-        logger.exception("[score_v2] Scoring failed: %s", e)
-        status = "failed"
-        error = str(e)
-        reset_engine_cache()
-        engine = get_engine()
-        session_factory = get_session_factory(engine)
-        async with session_factory() as session:
-            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
-            job = result.scalar_one()
-            job.status = "failed"
-            job.error_message = str(e)[:500]
-            job.completed_at = datetime.now(UTC)
-            await session.commit()
-
-    # Always chain to v3 scoring — v3 is independent and should run
-    # regardless of v2 outcome
-    redis: ArqRedis | None = ctx.get("redis")
-    if redis:
-        await redis.enqueue_job("full_score_v3", pipeline_id, job_id)
-        logger.info(
-            "[score_v2] Enqueued full_score_v3 job (pipeline=%s, parent=%s)",
-            pipeline_id,
-            job_id,
-        )
-    else:
-        logger.warning("[score_v2] No redis in worker context — cannot chain to full_score_v3")
-
-    if error:
-        return {"status": status, "pipeline_id": pipeline_id, "error": error}
-    return {"status": status, "pipeline_id": pipeline_id}
 
 
 async def full_score_v3(
@@ -1534,6 +1457,74 @@ def _parse_factor_breakdown(
         return None
 
 
+def _rebuild_composite_from_historical(
+    ticker: str,
+    composite_score: float,
+    sub_scores: dict,
+) -> CompositeScore | None:
+    """Reconstruct a CompositeScore from HistoricalScore sub_scores JSONB.
+
+    HistoricalScore.sub_scores format:
+        {"quality": [{"name": "gp", "raw_value": 0.5, "percentile_rank": 80.0}, ...],
+         "value": [...], "momentum": [...], "growth": [...]}
+
+    Returns None if required pillars are missing.
+    """
+    from margin_engine.models.scoring import CompositeScore, FactorBreakdown, FactorScore
+
+    if not sub_scores:
+        return None
+
+    def _rebuild_breakdown(pillar: str, weight: float) -> FactorBreakdown | None:
+        pillar_data = sub_scores.get(pillar)
+        if not pillar_data or not isinstance(pillar_data, list) or len(pillar_data) == 0:
+            return None
+        scores = []
+        for s in pillar_data:
+            if not isinstance(s, dict):
+                return None
+            name = s.get("name")
+            raw_value = s.get("raw_value")
+            percentile_rank = s.get("percentile_rank")
+            if name is None or raw_value is None or percentile_rank is None:
+                return None
+            try:
+                scores.append(
+                    FactorScore(
+                        name=str(name),
+                        raw_value=float(raw_value),
+                        percentile_rank=float(percentile_rank),
+                    )
+                )
+            except (ValueError, TypeError):
+                return None
+        return FactorBreakdown(factor_name=pillar, weight=weight, sub_scores=scores)
+
+    quality = _rebuild_breakdown("quality", 0.25)
+    value = _rebuild_breakdown("value", 0.20)
+    momentum = _rebuild_breakdown("momentum", 0.25)
+
+    if quality is None or value is None or momentum is None:
+        return None
+
+    growth = _rebuild_breakdown("growth", 0.15) if "growth" in sub_scores else None
+
+    try:
+        return CompositeScore(
+            ticker=ticker,
+            composite_percentile=composite_score,
+            composite_raw_score=composite_score,
+            quality=quality,
+            value=value,
+            momentum=momentum,
+            growth=growth,
+            filters_passed=[],
+            data_coverage=1.0,
+        )
+    except (ValueError, TypeError):
+        return None
+
+
 def _composite_from_score_detail(
     ticker: str,
     detail: dict,
@@ -1774,16 +1765,90 @@ async def train_ml_models(ctx: dict) -> dict:
                 await session.commit()
             return {"status": "failed", "message": msg}
 
-        # Build feature matrix
-        registry = default_registry()
-        features, tickers, feature_names = build_feature_matrix(composites, registry)
-
         import numpy as np
         from margin_engine.ml.forward_returns import compute_forward_returns
+        from margin_engine.ml.historical_forward_returns import (
+            compute_historical_forward_returns,
+        )
+
+        # --- Step 1: Load historical scores (PIT-bootstrapped) ---
+        hist_composites: list[CompositeScore] = []
+        hist_fwd_returns: dict[str, float] = {}
+        hist_cutoff = (datetime.now(UTC) - timedelta(days=365)).date()
+
+        async with session_factory() as session:
+            hist_result = await session.execute(
+                select(HistoricalScore)
+                .where(HistoricalScore.score_date <= hist_cutoff)
+                .order_by(HistoricalScore.score_date)
+            )
+            hist_rows = hist_result.scalars().all()
+
+        if hist_rows:
+            # Group by quarter (score_date)
+            quarters: dict[date, list] = {}
+            for hs in hist_rows:
+                quarters.setdefault(hs.score_date, []).append(hs)
+
+            hist_skipped = 0
+            for quarter_date, quarter_scores in quarters.items():
+                quarter_tickers = [hs.ticker for hs in quarter_scores]
+
+                # Load PIT prices per quarter (bounded dates to avoid OOM)
+                price_start = quarter_date - timedelta(days=30)
+                price_end = quarter_date + timedelta(days=400)  # ~252 trading days + buffer
+                async with session_factory() as session:
+                    pit_result = await session.execute(
+                        select(PITDailyPrice).where(
+                            PITDailyPrice.ticker.in_(quarter_tickers),
+                            PITDailyPrice.date >= price_start,
+                            PITDailyPrice.date <= price_end,
+                        )
+                    )
+                    pit_rows = pit_result.scalars().all()
+
+                # Build pit_prices dict: ticker -> list of bar dicts (sorted by date)
+                pit_prices: dict[str, list[dict]] = {}
+                for p in pit_rows:
+                    pit_prices.setdefault(p.ticker, []).append(
+                        {"date": p.date.isoformat(), "close": float(p.close)}
+                    )
+                for ticker_key in pit_prices:
+                    pit_prices[ticker_key].sort(key=lambda b: b["date"])
+
+                # Compute historical forward returns for this quarter
+                quarter_fwd = compute_historical_forward_returns(pit_prices, quarter_date)
+                hist_fwd_returns.update(quarter_fwd)
+
+                # Reconstruct CompositeScore objects from sub_scores JSONB
+                for hs in quarter_scores:
+                    c = _rebuild_composite_from_historical(
+                        hs.ticker, hs.composite_score, hs.sub_scores or {}
+                    )
+                    if c is not None:
+                        hist_composites.append(c)
+                    else:
+                        hist_skipped += 1
+
+            logger.info(
+                "[ml] Historical data: %d composites from %d quarters, "
+                "%d forward returns, %d skipped",
+                len(hist_composites),
+                len(quarters),
+                len(hist_fwd_returns),
+                hist_skipped,
+            )
+
+        # --- Step 2: Combine live + historical composites ---
+        all_composites = composites + hist_composites
+
+        # --- Step 3: Build feature matrix from combined data ---
+        registry = default_registry()
+        features, tickers, feature_names = build_feature_matrix(all_composites, registry)
 
         n_clusters = settings.ml_n_clusters
 
-        # Load price data for training tickers
+        # --- Step 4: Compute live forward returns (existing code) ---
         async with session_factory() as session:
             price_result = await session.execute(
                 select(FinancialData.price_history, Asset.ticker)
@@ -1810,13 +1875,45 @@ async def train_ml_models(ctx: dict) -> dict:
             for score, t in rows
             if t in ticker_prices
         ]
-        fwd_returns = compute_forward_returns(scored_entries, ticker_prices)
+        live_fwd_returns = compute_forward_returns(scored_entries, ticker_prices)
 
-        forward_returns = np.array([fwd_returns.get(t, 0.0) for t in tickers])
-        n_with_returns = sum(1 for t in tickers if t in fwd_returns)
+        # --- Step 5: Merge forward returns (historical + live) ---
+        fwd_returns = {**hist_fwd_returns, **live_fwd_returns}
+
+        # --- Step 6: Filter to valid tickers (THE FIX — no more 0.0 default) ---
+        valid_mask = np.array([t in fwd_returns for t in tickers])
+        n_with_returns = int(valid_mask.sum())
         logger.info(
-            "[ml] Forward returns: %d/%d tickers have real data", n_with_returns, len(tickers)
+            "[ml] Forward returns: %d/%d tickers have real data (live=%d, historical=%d)",
+            n_with_returns,
+            len(tickers),
+            len(live_fwd_returns),
+            len(hist_fwd_returns),
         )
+
+        # --- Step 7: Min samples gate on combined dataset ---
+        if n_with_returns < settings.ml_train_min_samples:
+            msg = (
+                f"Only {n_with_returns} tickers with forward returns "
+                f"(need {settings.ml_train_min_samples}). "
+                f"Live={len(live_fwd_returns)}, Historical={len(hist_fwd_returns)}."
+            )
+            logger.warning("[ml] %s", msg)
+            async with session_factory() as session:
+                result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+                job = result.scalar_one()
+                job.status = "completed"
+                job.progress_detail = msg
+                job.completed_at = datetime.now(UTC)
+                await session.commit()
+            return {"status": "completed", "message": msg}
+
+        # --- Step 8: Re-index to only valid tickers ---
+        valid_indices = np.where(valid_mask)[0]
+        tickers = [tickers[i] for i in valid_indices]
+        features = features[valid_indices]
+        all_composites = [all_composites[i] for i in valid_indices]
+        forward_returns = np.array([fwd_returns[t] for t in tickers])
 
         # Sanitize values for JSONB — numpy types are not JSON-serializable
         def _sanitize(obj: object) -> object:
@@ -1981,7 +2078,18 @@ async def train_ml_models(ctx: dict) -> dict:
             best_rank_ic,
         )
 
-        validation = validate_seed_distribution(seed_metrics_list)
+        # Select thresholds based on bootstrap mode
+        if settings.ml_bootstrap_mode:
+            from margin_engine.ml.seed_validation import SeedValidationThresholds
+
+            thresholds = SeedValidationThresholds(
+                min_median_rank_ic=0.05,
+                max_rank_ic_cv=0.50,
+                min_worst_seed_ic=0.02,
+            )
+            validation = validate_seed_distribution(seed_metrics_list, thresholds)
+        else:
+            validation = validate_seed_distribution(seed_metrics_list)
 
         # Compare to previous run group (if one exists)
         previous_comparison: dict | None = None
@@ -3037,6 +3145,277 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Historical Score Backfill
+# ---------------------------------------------------------------------------
+
+
+def _generate_quarter_ends(start_year: int = 2009, end_year: int = 2025) -> list[date]:
+    """Generate quarter-end dates from start_year Q1 to end_year Q4."""
+    quarter_ends: list[date] = []
+    for year in range(start_year, end_year + 1):
+        quarter_ends.append(date(year, 3, 31))
+        quarter_ends.append(date(year, 6, 30))
+        quarter_ends.append(date(year, 9, 30))
+        quarter_ends.append(date(year, 12, 31))
+    return quarter_ends
+
+
+async def backfill_historical_scores(ctx: dict) -> dict:
+    """Backfill historical composite scores using PIT data for ML training.
+
+    Generates quarter-end dates from 2009-Q1 to 2025-Q4 (67 quarters),
+    loads PIT snapshots + prices for each quarter, runs the full scoring
+    pipeline via score_universe_at_date(), and bulk-inserts results into
+    the historical_scores table.
+
+    Idempotent: skips quarters that already have HistoricalScore rows.
+    """
+    from margin_engine.scoring.historical_scorer import score_universe_at_date
+
+    logger.info("[historical] Starting backfill_historical_scores...")
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="backfill_historical_scores",
+            status="running",
+            triggered_by="manual",
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        quarter_ends = _generate_quarter_ends(2009, 2025)
+        total_quarters = len(quarter_ends)
+        total_scored = 0
+        quarters_done = 0
+
+        # Load SIC → GICS sector mapping once
+        sic_to_gics: dict[int, str] = {}
+        async with session_factory() as session:
+            sic_result = await session.execute(
+                select(SICSectorMap.sic_code, SICSectorMap.gics_sector)
+            )
+            for row in sic_result.all():
+                sic_to_gics[row[0]] = row[1]
+        logger.info("[historical] Loaded SIC→GICS map: %d entries", len(sic_to_gics))
+
+        for qe in quarter_ends:
+            # --- Idempotency check: skip if already scored ---
+            async with session_factory() as session:
+                existing = await session.execute(
+                    select(func.count())
+                    .select_from(HistoricalScore)
+                    .where(HistoricalScore.score_date == qe)
+                )
+                if existing.scalar_one() > 0:
+                    quarters_done += 1
+                    logger.info(
+                        "[historical] %s: already scored, skipping (%d/%d)",
+                        qe.isoformat(),
+                        quarters_done,
+                        total_quarters,
+                    )
+                    continue
+
+            # --- Load active tickers from PITUniverseMembership ---
+            async with session_factory() as session:
+                membership_result = await session.execute(
+                    select(PITUniverseMembership).where(
+                        PITUniverseMembership.quarter_date == qe,
+                        PITUniverseMembership.is_active.is_(True),
+                    )
+                )
+                memberships = membership_result.scalars().all()
+
+            if not memberships:
+                quarters_done += 1
+                logger.info(
+                    "[historical] %s: no active memberships, skipping (%d/%d)",
+                    qe.isoformat(),
+                    quarters_done,
+                    total_quarters,
+                )
+                continue
+
+            active_tickers = {m.ticker for m in memberships}
+            # Build ticker → (market_cap, sic_code) from memberships
+            ticker_meta: dict[str, tuple[float | None, int | None]] = {
+                m.ticker: (m.market_cap, m.sic_code) for m in memberships
+            }
+
+            # --- Load PIT snapshots with filing_date <= quarter_end ---
+            async with session_factory() as session:
+                snap_result = await session.execute(
+                    select(PITFinancialSnapshot).where(
+                        PITFinancialSnapshot.filing_date <= qe,
+                        PITFinancialSnapshot.ticker.in_(active_tickers),
+                    )
+                )
+                snapshots = snap_result.scalars().all()
+
+            if not snapshots:
+                quarters_done += 1
+                logger.info(
+                    "[historical] %s: no PIT snapshots, skipping (%d/%d)",
+                    qe.isoformat(),
+                    quarters_done,
+                    total_quarters,
+                )
+                continue
+
+            # Convert ORM snapshots to dicts for engine
+            pit_snapshots: list[dict] = []
+            for s in snapshots:
+                meta = ticker_meta.get(s.ticker)
+                market_cap = meta[0] if meta and meta[0] else 0.0
+                sic_code = s.sic_code or (meta[1] if meta else None)
+                default_sector = "Information Technology"
+                sector = sic_to_gics.get(sic_code, default_sector) if sic_code else default_sector
+
+                pit_snapshots.append(
+                    {
+                        "ticker": s.ticker,
+                        "filing_date": s.filing_date.isoformat() if s.filing_date else "",
+                        "period_end": s.period_end.isoformat() if s.period_end else "",
+                        "income_statement": s.income_statement or {},
+                        "balance_sheet": s.balance_sheet or {},
+                        "cash_flow": s.cash_flow or {},
+                        "sector": sector,
+                        "market_cap": market_cap,
+                        "shares_outstanding": s.shares_outstanding,
+                    }
+                )
+
+            # --- Load PIT prices (date-bounded to avoid OOM) ---
+            # ~400 trading days trailing window for momentum factors
+            price_start = qe - timedelta(days=400)
+            async with session_factory() as session:
+                price_result = await session.execute(
+                    select(PITDailyPrice).where(
+                        PITDailyPrice.ticker.in_(active_tickers),
+                        PITDailyPrice.date >= price_start,
+                        PITDailyPrice.date <= qe,
+                    )
+                )
+                price_rows = price_result.scalars().all()
+
+            # Group prices by ticker
+            pit_prices: dict[str, list[dict]] = {}
+            for p in price_rows:
+                if p.ticker not in pit_prices:
+                    pit_prices[p.ticker] = []
+                pit_prices[p.ticker].append(
+                    {
+                        "date": p.date.isoformat(),
+                        "open": p.open,
+                        "high": p.high,
+                        "low": p.low,
+                        "close": p.close,
+                        "adj_close": p.adj_close,
+                        "volume": p.volume,
+                    }
+                )
+
+            # --- Score the universe at this quarter end ---
+            composites = score_universe_at_date(
+                pit_snapshots=pit_snapshots,
+                pit_prices=pit_prices,
+                rebalance_date=qe.isoformat(),
+                active_tickers=active_tickers,
+            )
+
+            if not composites:
+                quarters_done += 1
+                logger.info(
+                    "[historical] %s: scoring returned 0 results (%d/%d)",
+                    qe.isoformat(),
+                    quarters_done,
+                    total_quarters,
+                )
+                continue
+
+            # --- Bulk-insert HistoricalScore rows ---
+            async with session_factory() as session:
+                for c in composites:
+                    # Serialize sub_scores to JSONB
+                    sub_scores_json: dict[str, list[dict]] = {}
+                    for category in ("quality", "value", "momentum", "growth"):
+                        breakdown = getattr(c, category, None)
+                        if breakdown is not None:
+                            sub_scores_json[category] = [
+                                {
+                                    "name": fs.name,
+                                    "raw_value": fs.raw_value,
+                                    "percentile_rank": fs.percentile_rank,
+                                }
+                                for fs in breakdown.sub_scores
+                            ]
+
+                    row = HistoricalScore(
+                        ticker=c.ticker,
+                        score_date=qe,
+                        composite_score=c.composite_percentile,
+                        composite_tier=c.composite_tier.value,
+                        sub_scores=sub_scores_json,
+                    )
+                    session.add(row)
+                await session.commit()
+
+            scored_count = len(composites)
+            total_scored += scored_count
+            quarters_done += 1
+            logger.info(
+                "[historical] %s: scored %d tickers (total: %d, quarters: %d/%d)",
+                qe.isoformat(),
+                scored_count,
+                total_scored,
+                quarters_done,
+                total_quarters,
+            )
+
+        # Mark job completed
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        result_dict = {
+            "status": "completed",
+            "total_scored": total_scored,
+            "quarters_processed": quarters_done,
+            "total_quarters": total_quarters,
+        }
+        logger.info("[historical] Backfill complete: %s", result_dict)
+        return result_dict
+
+    except Exception as e:
+        logger.exception("[historical] Backfill failed: %s", e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "error", "message": str(e)}
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -3169,7 +3548,6 @@ class WorkerSettings:
         ingest_sweep,
         ingest_sweep_complete,
         # Scoring pipeline: 2h timeout — 3,000+ tickers take ~20-40 min
-        arq_func(full_score, timeout=7200),
         arq_func(full_score_v3, timeout=7200),
         arq_func(full_score_v4, timeout=7200),
         stage_scores,
@@ -3192,6 +3570,8 @@ class WorkerSettings:
         arq_func(bootstrap_pit_data, timeout=86400, max_tries=5),
         # 2h timeout — re-downloads filings from SEC EDGAR
         arq_func(reparse_pit_filings, timeout=259200),  # 72h for full reparse
+        # 2h timeout — scores 67 quarters of PIT data for ML training
+        arq_func(backfill_historical_scores, timeout=7200),
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -3201,7 +3581,9 @@ class WorkerSettings:
             run_at_startup=False,
         ),
         cron(retry_quarantined, weekday=6, hour=0, run_at_startup=False),  # Sunday midnight
-        cron(train_ml_models, weekday=5, hour=2, run_at_startup=False, timeout=7200),  # Saturday 2 AM UTC, 2h
+        cron(
+            train_ml_models, weekday=5, hour=2, run_at_startup=False, timeout=7200
+        ),  # Saturday 2 AM UTC, 2h
         cron(full_13f_ingest, hour=22, minute=0, run_at_startup=False),  # 5 PM ET
         cron(expire_stale_approvals, hour={0, 6, 12, 18}, run_at_startup=False),
         cron(rollup_governance_events, hour={3, 9, 15, 21}, run_at_startup=False),

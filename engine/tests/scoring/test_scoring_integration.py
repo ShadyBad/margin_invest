@@ -238,13 +238,13 @@ class TestGrowthStageAffectsWeights:
             growth_stage=GrowthStage.MATURE,
         )
 
-        # High Growth: Q=0.40, V=0.25, M=0.35
-        # 90*0.40 + 50*0.25 + 70*0.35 = 36 + 12.5 + 24.5 = 73.0
-        assert high_growth.composite_percentile == pytest.approx(73.0)
+        # High Growth (no growth_scores): q=0.20, v=0.10, m=0.25 → sum=0.55
+        # (90*0.20 + 50*0.10 + 70*0.25) / 0.55 = 40.5/0.55 ≈ 73.636
+        assert high_growth.composite_percentile == pytest.approx(40.5 / 0.55, rel=1e-6)
 
-        # Mature: Q=0.30, V=0.40, M=0.30
-        # 90*0.30 + 50*0.40 + 70*0.30 = 27 + 20 + 21 = 68.0
-        assert mature.composite_percentile == pytest.approx(68.0)
+        # Mature (no growth_scores): q=0.25, v=0.30, m=0.15 → sum=0.70
+        # (90*0.25 + 50*0.30 + 70*0.15) / 0.70 = 48.0/0.70 ≈ 68.571
+        assert mature.composite_percentile == pytest.approx(48.0 / 0.70, rel=1e-6)
 
         # They must differ
         assert high_growth.composite_percentile != pytest.approx(mature.composite_percentile)

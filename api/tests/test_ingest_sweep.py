@@ -160,7 +160,9 @@ class TestIngestSweepComplete:
         result = await ingest_sweep_complete(ctx, "1", "abc123")
 
         assert result["status"] == "completed"
-        score_calls = [c for c in mock_redis.enqueue_job.call_args_list if c[0][0] == "full_score"]
+        score_calls = [
+            c for c in mock_redis.enqueue_job.call_args_list if c[0][0] == "full_score_v3"
+        ]
         assert len(score_calls) == 1
 
     @pytest.mark.asyncio
