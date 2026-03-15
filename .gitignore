@@ -41,6 +41,14 @@ node_modules/
 # MCP
 .playwright-mcp/
 
+# Secrets and runtime state
+.admin_key
+.edgar_checkpoint
+.claude/scheduled_tasks.lock
+
+# Plugin caches (user-specific)
+web/.superpowers/
+
 # GSD Workflow Engine
 /tmp/gsd-tests-passed-*
 
