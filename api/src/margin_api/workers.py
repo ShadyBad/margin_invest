@@ -2159,7 +2159,17 @@ async def train_ml_models(ctx: dict) -> dict:
             best_rank_ic,
         )
 
-        validation = validate_seed_distribution(seed_metrics_list)
+        # Select thresholds based on bootstrap mode
+        if settings.ml_bootstrap_mode:
+            from margin_engine.ml.seed_validation import SeedValidationThresholds
+            thresholds = SeedValidationThresholds(
+                min_median_rank_ic=0.05,
+                max_rank_ic_cv=0.50,
+                min_worst_seed_ic=0.02,
+            )
+            validation = validate_seed_distribution(seed_metrics_list, thresholds)
+        else:
+            validation = validate_seed_distribution(seed_metrics_list)
 
         # Compare to previous run group (if one exists)
         previous_comparison: dict | None = None

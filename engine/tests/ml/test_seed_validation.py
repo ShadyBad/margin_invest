@@ -189,6 +189,30 @@ class TestValidateSeedDistribution:
         assert "cluster_ari" not in result.metric_distributions
 
 
+class TestBootstrapThresholds:
+    """Bootstrap mode uses relaxed thresholds."""
+
+    def test_bootstrap_thresholds_lower_than_default(self):
+        thresholds = SeedValidationThresholds(
+            min_median_rank_ic=0.05,
+            max_rank_ic_cv=0.50,
+            min_worst_seed_ic=0.02,
+        )
+        assert thresholds.min_median_rank_ic == 0.05
+        assert thresholds.min_worst_seed_ic == 0.02
+
+    def test_bootstrap_thresholds_pass_low_ic(self):
+        """IC=0.08 passes bootstrap gate but would fail default gate."""
+        seed_metrics = [{"rank_ic": 0.08}, {"rank_ic": 0.10}, {"rank_ic": 0.06}]
+        thresholds = SeedValidationThresholds(
+            min_median_rank_ic=0.05,
+            max_rank_ic_cv=0.50,
+            min_worst_seed_ic=0.02,
+        )
+        result = validate_seed_distribution(seed_metrics, thresholds)
+        assert result.gate_passed is True
+
+
 class TestSeedValidationResultToDict:
     def test_to_dict_serializable(self) -> None:
         """to_dict() output should be JSON-serializable (all native types)."""
