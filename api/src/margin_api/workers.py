@@ -36,16 +36,20 @@ from margin_api.db.models import (
     FilingMetadata,
     FinancialData,
     GovernanceEvent,
+    HistoricalScore,
     IngestionRun,
     IngestionTickerStatus,
     JobRun,
     MlModelRun,
     PipelineApproval,
+    PITDailyPrice,
     PITFinancialSnapshot,
+    PITUniverseMembership,
     ReproducibilityAudit,
     Score,
     SeedValidationReport,
     ShadowPortfolioSnapshot,
+    SICSectorMap,
     UniverseSnapshot,
     V3Score,
     V4Score,
@@ -3037,6 +3041,277 @@ async def bootstrap_pit_data(ctx: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Historical Score Backfill
+# ---------------------------------------------------------------------------
+
+
+def _generate_quarter_ends(start_year: int = 2009, end_year: int = 2025) -> list[date]:
+    """Generate quarter-end dates from start_year Q1 to end_year Q4."""
+    quarter_ends: list[date] = []
+    for year in range(start_year, end_year + 1):
+        quarter_ends.append(date(year, 3, 31))
+        quarter_ends.append(date(year, 6, 30))
+        quarter_ends.append(date(year, 9, 30))
+        quarter_ends.append(date(year, 12, 31))
+    return quarter_ends
+
+
+async def backfill_historical_scores(ctx: dict) -> dict:
+    """Backfill historical composite scores using PIT data for ML training.
+
+    Generates quarter-end dates from 2009-Q1 to 2025-Q4 (67 quarters),
+    loads PIT snapshots + prices for each quarter, runs the full scoring
+    pipeline via score_universe_at_date(), and bulk-inserts results into
+    the historical_scores table.
+
+    Idempotent: skips quarters that already have HistoricalScore rows.
+    """
+    from margin_engine.scoring.historical_scorer import score_universe_at_date
+
+    logger.info("[historical] Starting backfill_historical_scores...")
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="backfill_historical_scores",
+            status="running",
+            triggered_by="manual",
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        quarter_ends = _generate_quarter_ends(2009, 2025)
+        total_quarters = len(quarter_ends)
+        total_scored = 0
+        quarters_done = 0
+
+        # Load SIC → GICS sector mapping once
+        sic_to_gics: dict[int, str] = {}
+        async with session_factory() as session:
+            sic_result = await session.execute(
+                select(SICSectorMap.sic_code, SICSectorMap.gics_sector)
+            )
+            for row in sic_result.all():
+                sic_to_gics[row[0]] = row[1]
+        logger.info("[historical] Loaded SIC→GICS map: %d entries", len(sic_to_gics))
+
+        for qe in quarter_ends:
+            # --- Idempotency check: skip if already scored ---
+            async with session_factory() as session:
+                existing = await session.execute(
+                    select(func.count())
+                    .select_from(HistoricalScore)
+                    .where(HistoricalScore.score_date == qe)
+                )
+                if existing.scalar_one() > 0:
+                    quarters_done += 1
+                    logger.info(
+                        "[historical] %s: already scored, skipping (%d/%d)",
+                        qe.isoformat(),
+                        quarters_done,
+                        total_quarters,
+                    )
+                    continue
+
+            # --- Load active tickers from PITUniverseMembership ---
+            async with session_factory() as session:
+                membership_result = await session.execute(
+                    select(PITUniverseMembership).where(
+                        PITUniverseMembership.quarter_date == qe,
+                        PITUniverseMembership.is_active.is_(True),
+                    )
+                )
+                memberships = membership_result.scalars().all()
+
+            if not memberships:
+                quarters_done += 1
+                logger.info(
+                    "[historical] %s: no active memberships, skipping (%d/%d)",
+                    qe.isoformat(),
+                    quarters_done,
+                    total_quarters,
+                )
+                continue
+
+            active_tickers = {m.ticker for m in memberships}
+            # Build ticker → (market_cap, sic_code) from memberships
+            ticker_meta: dict[str, tuple[float | None, int | None]] = {
+                m.ticker: (m.market_cap, m.sic_code) for m in memberships
+            }
+
+            # --- Load PIT snapshots with filing_date <= quarter_end ---
+            async with session_factory() as session:
+                snap_result = await session.execute(
+                    select(PITFinancialSnapshot).where(
+                        PITFinancialSnapshot.filing_date <= qe,
+                        PITFinancialSnapshot.ticker.in_(active_tickers),
+                    )
+                )
+                snapshots = snap_result.scalars().all()
+
+            if not snapshots:
+                quarters_done += 1
+                logger.info(
+                    "[historical] %s: no PIT snapshots, skipping (%d/%d)",
+                    qe.isoformat(),
+                    quarters_done,
+                    total_quarters,
+                )
+                continue
+
+            # Convert ORM snapshots to dicts for engine
+            pit_snapshots: list[dict] = []
+            for s in snapshots:
+                meta = ticker_meta.get(s.ticker)
+                market_cap = meta[0] if meta and meta[0] else 0.0
+                sic_code = s.sic_code or (meta[1] if meta else None)
+                default_sector = "Information Technology"
+                sector = sic_to_gics.get(sic_code, default_sector) if sic_code else default_sector
+
+                pit_snapshots.append(
+                    {
+                        "ticker": s.ticker,
+                        "filing_date": s.filing_date.isoformat() if s.filing_date else "",
+                        "period_end": s.period_end.isoformat() if s.period_end else "",
+                        "income_statement": s.income_statement or {},
+                        "balance_sheet": s.balance_sheet or {},
+                        "cash_flow": s.cash_flow or {},
+                        "sector": sector,
+                        "market_cap": market_cap,
+                        "shares_outstanding": s.shares_outstanding,
+                    }
+                )
+
+            # --- Load PIT prices (date-bounded to avoid OOM) ---
+            # ~400 trading days trailing window for momentum factors
+            price_start = qe - timedelta(days=400)
+            async with session_factory() as session:
+                price_result = await session.execute(
+                    select(PITDailyPrice).where(
+                        PITDailyPrice.ticker.in_(active_tickers),
+                        PITDailyPrice.date >= price_start,
+                        PITDailyPrice.date <= qe,
+                    )
+                )
+                price_rows = price_result.scalars().all()
+
+            # Group prices by ticker
+            pit_prices: dict[str, list[dict]] = {}
+            for p in price_rows:
+                if p.ticker not in pit_prices:
+                    pit_prices[p.ticker] = []
+                pit_prices[p.ticker].append(
+                    {
+                        "date": p.date.isoformat(),
+                        "open": p.open,
+                        "high": p.high,
+                        "low": p.low,
+                        "close": p.close,
+                        "adj_close": p.adj_close,
+                        "volume": p.volume,
+                    }
+                )
+
+            # --- Score the universe at this quarter end ---
+            composites = score_universe_at_date(
+                pit_snapshots=pit_snapshots,
+                pit_prices=pit_prices,
+                rebalance_date=qe.isoformat(),
+                active_tickers=active_tickers,
+            )
+
+            if not composites:
+                quarters_done += 1
+                logger.info(
+                    "[historical] %s: scoring returned 0 results (%d/%d)",
+                    qe.isoformat(),
+                    quarters_done,
+                    total_quarters,
+                )
+                continue
+
+            # --- Bulk-insert HistoricalScore rows ---
+            async with session_factory() as session:
+                for c in composites:
+                    # Serialize sub_scores to JSONB
+                    sub_scores_json: dict[str, list[dict]] = {}
+                    for category in ("quality", "value", "momentum", "growth"):
+                        breakdown = getattr(c, category, None)
+                        if breakdown is not None:
+                            sub_scores_json[category] = [
+                                {
+                                    "name": fs.name,
+                                    "raw_value": fs.raw_value,
+                                    "percentile_rank": fs.percentile_rank,
+                                }
+                                for fs in breakdown.sub_scores
+                            ]
+
+                    row = HistoricalScore(
+                        ticker=c.ticker,
+                        score_date=qe,
+                        composite_score=c.composite_percentile,
+                        composite_tier=c.composite_tier.value,
+                        sub_scores=sub_scores_json,
+                    )
+                    session.add(row)
+                await session.commit()
+
+            scored_count = len(composites)
+            total_scored += scored_count
+            quarters_done += 1
+            logger.info(
+                "[historical] %s: scored %d tickers (total: %d, quarters: %d/%d)",
+                qe.isoformat(),
+                scored_count,
+                total_scored,
+                quarters_done,
+                total_quarters,
+            )
+
+        # Mark job completed
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        result_dict = {
+            "status": "completed",
+            "total_scored": total_scored,
+            "quarters_processed": quarters_done,
+            "total_quarters": total_quarters,
+        }
+        logger.info("[historical] Backfill complete: %s", result_dict)
+        return result_dict
+
+    except Exception as e:
+        logger.exception("[historical] Backfill failed: %s", e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "error", "message": str(e)}
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -3192,6 +3467,8 @@ class WorkerSettings:
         arq_func(bootstrap_pit_data, timeout=86400, max_tries=5),
         # 2h timeout — re-downloads filings from SEC EDGAR
         arq_func(reparse_pit_filings, timeout=259200),  # 72h for full reparse
+        # 2h timeout — scores 67 quarters of PIT data for ML training
+        arq_func(backfill_historical_scores, timeout=7200),
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -3201,7 +3478,9 @@ class WorkerSettings:
             run_at_startup=False,
         ),
         cron(retry_quarantined, weekday=6, hour=0, run_at_startup=False),  # Sunday midnight
-        cron(train_ml_models, weekday=5, hour=2, run_at_startup=False, timeout=7200),  # Saturday 2 AM UTC, 2h
+        cron(
+            train_ml_models, weekday=5, hour=2, run_at_startup=False, timeout=7200
+        ),  # Saturday 2 AM UTC, 2h
         cron(full_13f_ingest, hour=22, minute=0, run_at_startup=False),  # 5 PM ET
         cron(expire_stale_approvals, hour={0, 6, 12, 18}, run_at_startup=False),
         cron(rollup_governance_events, hour={3, 9, 15, 21}, run_at_startup=False),
