@@ -494,7 +494,7 @@ async def ingest_sweep(ctx: dict, run_id: str, pipeline_id: str) -> dict:
 async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dict:
     """Finalize the ingestion run and chain to scoring.
 
-    Updates the IngestionRun record with final stats, then enqueues full_score.
+    Updates the IngestionRun record with final stats, then enqueues full_score_v3.
     """
     label = f"[sweep_complete:{run_id}]"
     logger.info("%s Finalizing ingestion run (pipeline=%s)", label, pipeline_id)
@@ -553,8 +553,8 @@ async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dic
 
     redis: ArqRedis | None = ctx.get("redis")
     if redis:
-        await redis.enqueue_job("full_score", pipeline_id)
-        logger.info("%s Enqueued full_score (pipeline=%s)", label, pipeline_id)
+        await redis.enqueue_job("full_score_v3", pipeline_id)
+        logger.info("%s Enqueued full_score_v3 (pipeline=%s)", label, pipeline_id)
 
     return {
         "status": "completed",
@@ -2162,6 +2162,7 @@ async def train_ml_models(ctx: dict) -> dict:
         # Select thresholds based on bootstrap mode
         if settings.ml_bootstrap_mode:
             from margin_engine.ml.seed_validation import SeedValidationThresholds
+
             thresholds = SeedValidationThresholds(
                 min_median_rank_ic=0.05,
                 max_rank_ic_cv=0.50,
