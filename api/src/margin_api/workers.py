@@ -565,87 +565,6 @@ async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dic
     }
 
 
-async def full_score(
-    ctx: dict,
-    pipeline_id: str | None = None,
-) -> dict:
-    """Score all ingested assets using the v2 two-pass pipeline.
-
-    Reuses run_scoring() from cli.py. Always chains to full_score_v3,
-    even on failure, so the v3 pipeline can still run independently.
-    """
-    from margin_api.cli import run_scoring
-
-    logger.info("[score_v2] Starting v2 scoring (pipeline=%s)...", pipeline_id)
-
-    engine = get_engine()
-    session_factory = get_session_factory(engine)
-
-    # Create JobRun record
-    async with session_factory() as session:
-        job = JobRun(
-            job_type="score_v2",
-            status="running",
-            triggered_by="chained",
-            pipeline_id=pipeline_id,
-            started_at=datetime.now(UTC),
-        )
-        session.add(job)
-        await session.commit()
-        job_id = job.id
-
-    status = "completed"
-    error: str | None = None
-
-    try:
-        await run_scoring()
-        reset_engine_cache()
-
-        engine = get_engine()
-        session_factory = get_session_factory(engine)
-        async with session_factory() as session:
-            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
-            job = result.scalar_one()
-            job.status = "completed"
-            job.progress = 1.0
-            job.completed_at = datetime.now(UTC)
-            await session.commit()
-
-        logger.info("[score_v2] Scoring complete")
-
-    except Exception as e:
-        logger.exception("[score_v2] Scoring failed: %s", e)
-        status = "failed"
-        error = str(e)
-        reset_engine_cache()
-        engine = get_engine()
-        session_factory = get_session_factory(engine)
-        async with session_factory() as session:
-            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
-            job = result.scalar_one()
-            job.status = "failed"
-            job.error_message = str(e)[:500]
-            job.completed_at = datetime.now(UTC)
-            await session.commit()
-
-    # Always chain to v3 scoring — v3 is independent and should run
-    # regardless of v2 outcome
-    redis: ArqRedis | None = ctx.get("redis")
-    if redis:
-        await redis.enqueue_job("full_score_v3", pipeline_id, job_id)
-        logger.info(
-            "[score_v2] Enqueued full_score_v3 job (pipeline=%s, parent=%s)",
-            pipeline_id,
-            job_id,
-        )
-    else:
-        logger.warning("[score_v2] No redis in worker context — cannot chain to full_score_v3")
-
-    if error:
-        return {"status": status, "pipeline_id": pipeline_id, "error": error}
-    return {"status": status, "pipeline_id": pipeline_id}
-
-
 async def full_score_v3(
     ctx: dict,
     pipeline_id: str | None = None,
@@ -3629,7 +3548,6 @@ class WorkerSettings:
         ingest_sweep,
         ingest_sweep_complete,
         # Scoring pipeline: 2h timeout — 3,000+ tickers take ~20-40 min
-        arq_func(full_score, timeout=7200),
         arq_func(full_score_v3, timeout=7200),
         arq_func(full_score_v4, timeout=7200),
         stage_scores,

@@ -92,19 +92,8 @@ async def trigger_scoring(request: Request, x_admin_key: str = Header()) -> JSON
 
     Skips ingestion — useful when data is already seeded but scoring
     hasn't run or failed. Requires X-Admin-Key header.
-
-    Body (optional JSON):
-        skip_v2: bool — skip legacy v2 scoring, start from v3 (default: false)
     """
     _verify_admin_key(x_admin_key)
-
-    body: dict = {}
-    if request.headers.get("content-type", "").startswith("application/json"):
-        try:
-            body = await request.json()
-        except Exception:
-            pass
-    skip_v2 = body.get("skip_v2", False)
 
     settings = get_settings()
     from arq.connections import RedisSettings
@@ -113,19 +102,12 @@ async def trigger_scoring(request: Request, x_admin_key: str = Header()) -> JSON
 
     try:
         redis: ArqRedis = await create_pool(redis_settings)
-        if skip_v2:
-            job = await redis.enqueue_job(
-                "full_score_v3",
-                _job_id=f"full_score_v3:{uuid.uuid4().hex[:8]}",
-            )
-            job_name = "full_score_v3"
-            message = "Scoring enqueued: v3 score → v4 score → stage (skipping v2)"
-        else:
-            job = await redis.enqueue_job(
-                "full_score", _job_id=f"full_score:{uuid.uuid4().hex[:8]}"
-            )
-            job_name = "full_score"
-            message = "Scoring enqueued: v2 score → v3 score → v4 score (skipping ingest)"
+        job = await redis.enqueue_job(
+            "full_score_v3",
+            _job_id=f"full_score_v3:{uuid.uuid4().hex[:8]}",
+        )
+        job_name = "full_score_v3"
+        message = "Scoring enqueued: v3 score → v4 score → stage"
         await redis.aclose()
     except Exception as e:
         logger.exception("Failed to enqueue scoring job")

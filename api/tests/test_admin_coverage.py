@@ -42,11 +42,11 @@ class TestScoringTrigger:
         assert resp.status_code == 202
         data = resp.json()
         assert data["status"] == "enqueued"
-        assert data["job"] == "full_score"
+        assert data["job"] == "full_score_v3"
         assert data["job_id"] == "score-job-456"
         mock_pool.enqueue_job.assert_called_once()
         call_args = mock_pool.enqueue_job.call_args
-        assert call_args[0][0] == "full_score"
+        assert call_args[0][0] == "full_score_v3"
 
     def test_scoring_trigger_requires_admin_key(self):
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
