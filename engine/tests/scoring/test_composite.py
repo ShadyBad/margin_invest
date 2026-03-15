@@ -180,7 +180,7 @@ class TestGrowthStageWeights:
         assert result.composite_percentile == pytest.approx(expected)
 
     def test_steady_growth_same_as_default(self):
-        """Steady Growth: quality=0.35, value=0.30, momentum=0.35 (same as default)."""
+        """Steady Growth (no growth_scores): q=0.25, v=0.20, m=0.25 — matches defaults."""
         quality = [_make_factor_score(percentile_rank=75.0)]
         value = [_make_factor_score(percentile_rank=60.0)]
         momentum = [_make_factor_score(percentile_rank=80.0)]

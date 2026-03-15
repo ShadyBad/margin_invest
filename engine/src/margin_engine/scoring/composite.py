@@ -1,7 +1,7 @@
-"""Composite scorer — combines quality, value, and momentum into a final ConvictionScore.
+"""Composite scorer — combines quality, value, momentum, and growth into a CompositeScore.
 
 Takes pre-computed sub-factor percentile ranks, applies growth-stage-adjusted
-weights, and returns a fully populated CompositeScore.
+weights with normalization, and returns a fully populated CompositeScore.
 """
 
 from __future__ import annotations
