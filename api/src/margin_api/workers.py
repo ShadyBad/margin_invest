@@ -2381,7 +2381,11 @@ async def promote_ml_model(
 
 
 async def live_price_poll(ctx: dict) -> dict:
-    """Poll live prices for all scored tickers and cache bars + prices in Redis."""
+    """Poll live prices for all scored tickers and cache bars + prices in Redis.
+
+    Processes tickers concurrently in batches with per-ticker timeouts to avoid
+    one slow ticker blocking the entire job.
+    """
     settings = get_settings()
 
     engine = get_engine()
@@ -2416,20 +2420,21 @@ async def live_price_poll(ctx: dict) -> dict:
     redis_client = aioredis.from_url(settings.redis_url)
     service = LivePriceService(redis_client)
 
-    try:
-        updated = 0
-        for ticker in scored_tickers:
-            try:
-                t = yf.Ticker(ticker)
+    per_ticker_timeout = 15  # seconds per ticker
+    batch_size = 20  # concurrent tickers per batch
 
-                # Fetch last_price for backward-compat actual_price override
-                info = t.fast_info
+    async def _fetch_one(ticker: str) -> bool:
+        """Fetch price + bar for a single ticker with timeout."""
+        try:
+            async with asyncio.timeout(per_ticker_timeout):
+                t = await asyncio.to_thread(lambda: yf.Ticker(ticker))
+
+                info = await asyncio.to_thread(lambda: t.fast_info)
                 current = getattr(info, "last_price", None)
                 if current and current > 0:
                     await service.set_price(ticker, float(current))
 
-                # Fetch today's daily bar for chart injection
-                hist = t.history(period="1d")
+                hist = await asyncio.to_thread(lambda: t.history(period="1d"))
                 if hist is not None and not hist.empty:
                     row = hist.iloc[-1]
                     bar_date = hist.index[-1].strftime("%Y-%m-%d")
@@ -2443,13 +2448,30 @@ async def live_price_poll(ctx: dict) -> dict:
                     }
                     await service.set_bar(ticker, bar)
 
-                updated += 1
-            except Exception:
-                logger.debug("[prices] Failed to fetch %s", ticker, exc_info=True)
-                continue
+                return True
+        except TimeoutError:
+            logger.debug("[prices] Timeout fetching %s", ticker)
+            return False
+        except Exception:
+            logger.debug("[prices] Failed to fetch %s", ticker, exc_info=True)
+            return False
 
-        logger.info("[prices] Updated %d/%d tickers", updated, len(scored_tickers))
-        return {"status": "completed", "updated": updated}
+    try:
+        updated = 0
+        failed = 0
+        for i in range(0, len(scored_tickers), batch_size):
+            batch = scored_tickers[i : i + batch_size]
+            results = await asyncio.gather(*[_fetch_one(t) for t in batch])
+            updated += sum(1 for r in results if r)
+            failed += sum(1 for r in results if not r)
+
+        logger.info(
+            "[prices] Updated %d/%d tickers (%d failed)",
+            updated,
+            len(scored_tickers),
+            failed,
+        )
+        return {"status": "completed", "updated": updated, "failed": failed}
     finally:
         await redis_client.aclose()
 
@@ -3579,6 +3601,7 @@ class WorkerSettings:
             live_price_poll,
             minute={0, 15, 30, 45},
             run_at_startup=False,
+            timeout=600,  # 10 min — batched concurrent fetches, well under 15min interval
         ),
         cron(retry_quarantined, weekday=6, hour=0, run_at_startup=False),  # Sunday midnight
         cron(
