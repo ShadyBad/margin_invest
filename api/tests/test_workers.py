@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -257,6 +258,56 @@ class TestFullScoreV4:
         call_kwargs = mock_redis.enqueue_job.call_args
         assert call_kwargs[0][0] == "full_score_v4"
         assert call_kwargs[1]["pipeline_id"] == "pipe-fail-chain"
+
+
+class TestScoringTimeouts:
+    @pytest.mark.asyncio
+    async def test_full_score_v4_timeout_marks_failed(self):
+        """full_score_v4 times out and records failure when scoring hangs."""
+        from margin_api.workers import full_score_v4
+
+        mock_factory, _, _ = _mock_session_factory()
+
+        async def _hang_forever():
+            await asyncio.sleep(9999)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.cli.run_scoring_v4", side_effect=_hang_forever),
+            patch("margin_api.workers.reset_engine_cache"),
+            patch("margin_api.workers.SCORING_V4_TIMEOUT", 0.01),
+        ):
+            result = await full_score_v4({}, pipeline_id="pipe-timeout")
+
+        assert result["status"] == "failed"
+        assert "timed out" in result["error"].lower() or "timeout" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_full_score_v3_timeout_marks_failed(self):
+        """full_score_v3 times out and records failure when scoring hangs."""
+        from margin_api.workers import full_score_v3
+
+        mock_factory, _, _ = _mock_session_factory()
+        mock_redis = AsyncMock()
+        mock_redis.enqueue_job = AsyncMock()
+
+        async def _hang_forever():
+            await asyncio.sleep(9999)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+            patch("margin_api.cli.run_scoring_v3", side_effect=_hang_forever),
+            patch("margin_api.workers.reset_engine_cache"),
+            patch("margin_api.workers.SCORING_V3_TIMEOUT", 0.01),
+        ):
+            result = await full_score_v3({"redis": mock_redis}, pipeline_id="pipe-v3-timeout")
+
+        assert result["status"] == "failed"
+        assert "timed out" in result["error"].lower() or "timeout" in result["error"].lower()
+        # Should still chain to v4 even on timeout
+        mock_redis.enqueue_job.assert_called_once()
 
 
 class TestLivePricePoll:

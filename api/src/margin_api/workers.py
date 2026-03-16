@@ -74,6 +74,12 @@ if TYPE_CHECKING:
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+# Timeout (seconds) for scoring worker functions.
+# score_v3 typically completes in ~3 min; score_v4 in ~7 min.
+# These generous limits catch hangs without interfering with large universes.
+SCORING_V3_TIMEOUT = 600  # 10 minutes
+SCORING_V4_TIMEOUT = 900  # 15 minutes
+
 
 # ---------------------------------------------------------------------------
 # Alerting helpers
@@ -603,7 +609,7 @@ async def full_score_v3(
     error: str | None = None
 
     try:
-        await run_scoring_v3()
+        await asyncio.wait_for(run_scoring_v3(), timeout=SCORING_V3_TIMEOUT)
         reset_engine_cache()
 
         engine = get_engine()
@@ -617,6 +623,21 @@ async def full_score_v3(
             await session.commit()
 
         logger.info("[score_v3] V3 scoring complete")
+
+    except TimeoutError:
+        logger.error("[score_v3] V3 scoring timed out after %ds", SCORING_V3_TIMEOUT)
+        status = "failed"
+        error = f"score_v3 timed out after {SCORING_V3_TIMEOUT}s"
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "failed"
+            job.error_message = error
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
 
     except Exception as e:
         logger.exception("[score_v3] V3 scoring failed: %s", e)
@@ -686,7 +707,7 @@ async def full_score_v4(
         job_id = job.id
 
     try:
-        scored_at = await run_scoring_v4()
+        scored_at = await asyncio.wait_for(run_scoring_v4(), timeout=SCORING_V4_TIMEOUT)
         reset_engine_cache()
 
         engine = get_engine()
@@ -724,6 +745,21 @@ async def full_score_v4(
                 await session.commit()
         except Exception as e:
             logger.warning("[v4] Reproducibility audit failed (non-fatal): %s", e)
+
+    except TimeoutError:
+        error_msg = f"score_v4 timed out after {SCORING_V4_TIMEOUT}s"
+        logger.error("[score_v4] %s", error_msg)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "failed"
+            job.error_message = error_msg
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "failed", "pipeline_id": pipeline_id, "error": error_msg}
 
     except Exception as e:
         logger.exception("[score_v4] V4 scoring failed: %s", e)
