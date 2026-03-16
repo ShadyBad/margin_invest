@@ -80,6 +80,11 @@ logger = logging.getLogger(__name__)
 SCORING_V3_TIMEOUT = 600  # 10 minutes
 SCORING_V4_TIMEOUT = 900  # 15 minutes
 
+# Auto-approval threshold: if conviction changes are below this percentage
+# of scored tickers, the approval is auto-approved and published immediately.
+# Above this threshold, manual operator approval is required.
+AUTO_APPROVE_MAX_CONVICTION_CHANGE_PCT = 0.10  # 10%
+
 
 # ---------------------------------------------------------------------------
 # Alerting helpers
@@ -855,17 +860,47 @@ async def _stage_scores_impl(
     await session.flush()
 
     approval_id = approval.id
+
+    # Evaluate auto-approval: if conviction change rate is below threshold
+    # and we actually scored something, auto-approve and skip manual gate.
+    conviction_change_pct = (conviction_changes / ticker_count) if ticker_count > 0 else 1.0
+    if ticker_count > 0 and conviction_change_pct < AUTO_APPROVE_MAX_CONVICTION_CHANGE_PCT:
+        approval.status = "approved"
+        approval.decided_at = datetime.now(UTC)
+        approval.decision_reason = (
+            f"Auto-approved: conviction change rate {conviction_change_pct:.1%}"
+            f" < {AUTO_APPROVE_MAX_CONVICTION_CHANGE_PCT:.0%} threshold"
+            f" ({conviction_changes}/{ticker_count} tickers)"
+        )
+        status = "auto_approved"
+        logger.info(
+            "[stage_scores] Auto-approved %d scores (%s, approval=%d)",
+            ticker_count,
+            approval.decision_reason,
+            approval_id,
+        )
+    else:
+        status = "staged"
+        if ticker_count > 0:
+            logger.info(
+                "[stage_scores] Manual approval required: conviction change rate %.1f%%"
+                " >= %.0f%% threshold (%d/%d tickers, approval=%d)",
+                conviction_change_pct * 100,
+                AUTO_APPROVE_MAX_CONVICTION_CHANGE_PCT * 100,
+                conviction_changes,
+                ticker_count,
+                approval_id,
+            )
+        else:
+            logger.info(
+                "[stage_scores] Staged empty approval (0 scores, approval=%d)",
+                approval_id,
+            )
+
     await session.commit()
 
-    logger.info(
-        "[stage_scores] Staged %d scores (conviction_changes=%d, approval=%d)",
-        ticker_count,
-        conviction_changes,
-        approval_id,
-    )
-
     return {
-        "status": "staged",
+        "status": status,
         "approval_id": approval_id,
         "ticker_count": ticker_count,
     }
@@ -924,6 +959,25 @@ async def stage_scores(
             await session.commit()
 
         logger.info("[stage_scores] Complete: %s", result)
+
+        # If auto-approved, chain directly to publish_scores
+        if result.get("status") == "auto_approved":
+            redis: ArqRedis | None = ctx.get("redis")
+            if redis:
+                await redis.enqueue_job(
+                    "publish_scores",
+                    result["approval_id"],
+                    None,  # decided_by (system)
+                    "Auto-approved by stage_scores",
+                    _job_id=f"publish_scores:{uuid.uuid4().hex[:8]}",
+                )
+                logger.info(
+                    "[stage_scores] Auto-approved → chained to publish_scores (approval=%d)",
+                    result["approval_id"],
+                )
+            else:
+                logger.warning("[stage_scores] Auto-approved but no redis — cannot chain")
+
         return result
 
     except Exception as e:

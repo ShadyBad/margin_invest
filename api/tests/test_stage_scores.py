@@ -9,7 +9,7 @@ import pytest
 import pytest_asyncio
 from margin_api.db.base import Base
 from margin_api.db.models import Asset, PipelineApproval, V4Score
-from margin_api.workers import _stage_scores_impl
+from margin_api.workers import AUTO_APPROVE_MAX_CONVICTION_CHANGE_PCT, _stage_scores_impl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -89,7 +89,7 @@ class TestStageScoresImpl:
         pipeline_id = "pipe-test-001"
         result = await _stage_scores_impl(db_session, pipeline_id, now)
 
-        assert result["status"] == "staged"
+        assert result["status"] == "auto_approved"  # 0 conviction changes → auto-approved
         assert result["ticker_count"] == 1
         assert "approval_id" in result
 
@@ -99,7 +99,7 @@ class TestStageScoresImpl:
 
         approval = approvals[0]
         assert approval.gate_type == "score_publish"
-        assert approval.status == "staged"
+        assert approval.status == "approved"  # auto-approved
         assert approval.pipeline_id == pipeline_id
         assert approval.payload_ref["scored_at"] is not None
         assert approval.payload_ref["ticker_count"] == 1
@@ -161,7 +161,7 @@ class TestStageScoresImpl:
 
         result = await _stage_scores_impl(db_session, "pipe-test-003", now)
 
-        assert result["status"] == "staged"
+        assert result["status"] == "auto_approved"  # 0 changes → auto-approved
         assert result["ticker_count"] == 1
 
         approvals = (await db_session.execute(select(PipelineApproval))).scalars().all()
@@ -239,3 +239,123 @@ class TestStageScoresImpl:
 
         result = await _stage_scores_impl(db_session, "pipe-shared", shared_time)
         assert result["ticker_count"] == 3
+
+
+class TestAutoApproval:
+    @pytest.mark.asyncio
+    async def test_auto_approves_when_no_conviction_changes(self, db_session):
+        """Zero conviction changes → auto-approved."""
+        now = datetime.now(UTC)
+        for ticker in ["AAPL", "MSFT", "GOOG"]:
+            asset = await _create_asset(db_session, ticker)
+            await _create_v4_score(db_session, asset, conviction="high", scored_at=now)
+        await db_session.commit()
+
+        result = await _stage_scores_impl(db_session, "pipe-auto", now)
+
+        assert result["status"] == "auto_approved"
+        approval = (await db_session.execute(select(PipelineApproval))).scalar_one()
+        assert approval.status == "approved"
+        assert approval.decided_at is not None
+        assert approval.decided_by is None  # system, not a user
+        assert "auto" in approval.decision_reason.lower()
+
+    @pytest.mark.asyncio
+    async def test_auto_approves_when_below_threshold(self, db_session):
+        """Conviction changes below threshold → auto-approved."""
+        now = datetime.now(UTC)
+        old_time = now - timedelta(days=1)
+
+        # 20 tickers, 1 conviction change = 5% < 10% threshold
+        for i in range(20):
+            ticker = f"T{i:03d}"
+            asset = await _create_asset(db_session, ticker)
+            old_conv = "low" if i == 0 else "high"
+            await _create_v4_score(
+                db_session, asset, conviction=old_conv, scored_at=old_time, published=True
+            )
+            await _create_v4_score(db_session, asset, conviction="high", scored_at=now)
+        await db_session.commit()
+
+        result = await _stage_scores_impl(db_session, "pipe-below", now)
+
+        assert result["status"] == "auto_approved"
+        approval = (await db_session.execute(select(PipelineApproval))).scalar_one()
+        assert approval.status == "approved"
+
+    @pytest.mark.asyncio
+    async def test_requires_manual_when_above_threshold(self, db_session):
+        """Conviction changes above threshold → stays staged for manual review."""
+        now = datetime.now(UTC)
+        old_time = now - timedelta(days=1)
+
+        # 10 tickers, 5 conviction changes = 50% > 10% threshold
+        for i in range(10):
+            ticker = f"T{i:03d}"
+            asset = await _create_asset(db_session, ticker)
+            old_conv = "low" if i < 5 else "high"
+            await _create_v4_score(
+                db_session, asset, conviction=old_conv, scored_at=old_time, published=True
+            )
+            await _create_v4_score(db_session, asset, conviction="high", scored_at=now)
+        await db_session.commit()
+
+        result = await _stage_scores_impl(db_session, "pipe-above", now)
+
+        assert result["status"] == "staged"
+        approval = (await db_session.execute(select(PipelineApproval))).scalar_one()
+        assert approval.status == "staged"
+        assert approval.decided_at is None
+
+    @pytest.mark.asyncio
+    async def test_requires_manual_at_exact_threshold(self, db_session):
+        """Conviction changes exactly at threshold → stays staged (not strictly less than)."""
+        now = datetime.now(UTC)
+        old_time = now - timedelta(days=1)
+
+        # 10 tickers, 1 conviction change = 10% = threshold → staged
+        for i in range(10):
+            ticker = f"T{i:03d}"
+            asset = await _create_asset(db_session, ticker)
+            old_conv = "low" if i == 0 else "high"
+            await _create_v4_score(
+                db_session, asset, conviction=old_conv, scored_at=old_time, published=True
+            )
+            await _create_v4_score(db_session, asset, conviction="high", scored_at=now)
+        await db_session.commit()
+
+        result = await _stage_scores_impl(db_session, "pipe-exact", now)
+
+        assert result["status"] == "staged"
+
+    @pytest.mark.asyncio
+    async def test_no_scores_stays_staged(self, db_session):
+        """Zero scored tickers → stays staged (nothing to auto-approve)."""
+        now = datetime.now(UTC)
+        result = await _stage_scores_impl(db_session, "pipe-empty", now)
+
+        assert result["status"] == "staged"
+        assert result["ticker_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_auto_approval_records_conviction_change_pct(self, db_session):
+        """Auto-approval decision_reason includes the conviction change percentage."""
+        now = datetime.now(UTC)
+        old_time = now - timedelta(days=1)
+
+        for i in range(20):
+            ticker = f"T{i:03d}"
+            asset = await _create_asset(db_session, ticker)
+            old_conv = "low" if i == 0 else "high"
+            await _create_v4_score(
+                db_session, asset, conviction=old_conv, scored_at=old_time, published=True
+            )
+            await _create_v4_score(db_session, asset, conviction="high", scored_at=now)
+        await db_session.commit()
+
+        result = await _stage_scores_impl(db_session, "pipe-pct", now)
+
+        assert result["status"] == "auto_approved"
+        approval = (await db_session.execute(select(PipelineApproval))).scalar_one()
+        assert "5.0%" in approval.decision_reason
+        assert "10%" in approval.decision_reason
