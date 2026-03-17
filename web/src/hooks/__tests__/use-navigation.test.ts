@@ -67,10 +67,10 @@ describe("useNavigation", () => {
       expect(result.current.isAuthenticated).toBe(true)
     })
 
-    it("returns Dashboard and Guides as center links", () => {
+    it("returns Dashboard, Smart Money, Backtesting, and Guides as center links", () => {
       const { result } = renderHook(() => useNavigation())
       const labels = result.current.links.map((l) => l.label)
-      expect(labels).toEqual(["Dashboard", "Guides"])
+      expect(labels).toEqual(["Dashboard", "Smart Money", "Backtesting", "Guides"])
     })
 
     it("returns cta as null", () => {

@@ -48,6 +48,8 @@ const PUBLIC_LINKS: { href: string; label: string }[] = [
 
 const APP_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/smart-money", label: "Smart Money" },
+  { href: "/backtesting", label: "Backtesting" },
   { href: "/guides", label: "Guides" },
 ]
 

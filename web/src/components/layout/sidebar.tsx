@@ -58,6 +58,30 @@ function IconPulse() {
   )
 }
 
+function IconDollar() {
+  return (
+    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20m5-17a5 3 0 01-5 3 5 3 0 01-5-3 5 3 0 015-3 5 3 0 015 3zm0 12a5 3 0 01-5 3 5 3 0 01-5-3 5 3 0 015-3 5 3 0 015 3z" />
+    </svg>
+  )
+}
+
+function IconChart() {
+  return (
+    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 16l4-4 4 4 5-5" />
+    </svg>
+  )
+}
+
+function IconUser() {
+  return (
+    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a8.25 8.25 0 0115 0" />
+    </svg>
+  )
+}
+
 /* ---------- Navigation data ---------- */
 
 const navGroups: NavGroup[] = [
@@ -65,6 +89,8 @@ const navGroups: NavGroup[] = [
     title: "CORE",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: <IconGrid /> },
+      { href: "/smart-money", label: "Smart Money", icon: <IconDollar /> },
+      { href: "/backtesting", label: "Backtesting", icon: <IconChart /> },
     ],
   },
   {
@@ -73,6 +99,12 @@ const navGroups: NavGroup[] = [
       { href: "/methodology", label: "Methodology", icon: <IconBook /> },
       { href: "/guides", label: "Guides", icon: <IconCompass /> },
       { href: "/status", label: "Status", icon: <IconPulse /> },
+    ],
+  },
+  {
+    title: "ACCOUNT",
+    items: [
+      { href: "/account", label: "Account", icon: <IconUser /> },
     ],
   },
 ]

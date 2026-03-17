@@ -81,4 +81,24 @@ describe("Sidebar", () => {
     render(<Sidebar expanded={false} onToggle={vi.fn()} />)
     expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument()
   })
+
+  it("renders Smart Money link", () => {
+    render(<Sidebar expanded={true} onToggle={vi.fn()} />)
+    expect(screen.getByRole("link", { name: "Smart Money" })).toHaveAttribute("href", "/smart-money")
+  })
+
+  it("renders Backtesting link", () => {
+    render(<Sidebar expanded={true} onToggle={vi.fn()} />)
+    expect(screen.getByRole("link", { name: "Backtesting" })).toHaveAttribute("href", "/backtesting")
+  })
+
+  it("renders Account link", () => {
+    render(<Sidebar expanded={true} onToggle={vi.fn()} />)
+    expect(screen.getByRole("link", { name: "Account" })).toHaveAttribute("href", "/account")
+  })
+
+  it("renders ACCOUNT group title when expanded", () => {
+    render(<Sidebar expanded={true} onToggle={vi.fn()} />)
+    expect(screen.getByText("ACCOUNT")).toBeInTheDocument()
+  })
 })
