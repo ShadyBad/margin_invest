@@ -140,7 +140,7 @@ async def test_precompute_runs_with_pit_data():
         avg_turnover=0.15,
     )
     replay_result = ReplayResult(
-        config=ReplayConfig(start_date=date(2009, 1, 1)),
+        config=ReplayConfig(start_date=date(2011, 1, 1)),
         metrics=metrics,
         snapshots=[],
         audit_log=[],
@@ -152,17 +152,22 @@ async def test_precompute_runs_with_pit_data():
     universe_snap = MagicMock()
     universe_snap.id = 1
 
+    # Mock SPY prices returned by get_price_series
+    spy_prices = {date(2020, 1, 1): 300.0, date(2020, 2, 1): 310.0}
+
     # Call sequence:
     # 1. PIT count query → 100 (has data)
-    # 2+ job updates
+    # 2. SPY count query → 10 (already seeded)
+    # 3+ job updates
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
             {"scalar_one": 100},  # PIT count → nonzero
+            {"scalar_one": 10},   # SPY count → already seeded
         ]
     )
 
-    mock_orchestrator = MagicMock()
-    mock_orchestrator.run_async = AsyncMock(return_value=replay_result)
+    mock_provider = MagicMock()
+    mock_provider.get_price_series = AsyncMock(return_value=spy_prices)
 
     with (
         patch("margin_api.workers.get_engine"),
@@ -170,15 +175,25 @@ async def test_precompute_runs_with_pit_data():
         patch("margin_api.workers.reset_engine_cache"),
         patch("margin_api.workers.get_active_snapshot", return_value=universe_snap),
         patch(
-            "margin_engine.backtesting.replay_orchestrator.ReplayOrchestrator",
-            return_value=mock_orchestrator,
+            "margin_api.services.pit_provider.DatabasePITProvider",
+            return_value=mock_provider,
         ),
+        patch(
+            "margin_api.services.backtest.run_real_backtest",
+            new_callable=AsyncMock,
+            return_value=replay_result,
+        ) as mock_run_real,
     ):
         result = await precompute_default_backtest({})
 
     assert result["status"] == "completed"
     assert result["metrics"]["cagr"] == 0.12
     assert result["metrics"]["sharpe_ratio"] == 0.95
+
+    # Verify run_real_backtest was called with benchmark_prices
+    mock_run_real.assert_called_once()
+    call_kwargs = mock_run_real.call_args
+    assert call_kwargs.kwargs.get("benchmark_prices") == spy_prices
 
     # Should have added JobRun + BacktestRun
     backtest_runs = [o for o in added if isinstance(o, BacktestRun)]
@@ -187,6 +202,59 @@ async def test_precompute_runs_with_pit_data():
     assert backtest_runs[0].status == "complete"
     assert backtest_runs[0].total_return == 6.0
     assert backtest_runs[0].sharpe_ratio == 0.95
+
+
+@pytest.mark.asyncio
+async def test_precompute_captures_replay_error():
+    """Worker should store error in BacktestRun when replay fails."""
+    from margin_api.workers import precompute_default_backtest
+
+    universe_snap = MagicMock()
+    universe_snap.id = 1
+
+    spy_prices = {date(2020, 1, 1): 300.0}
+
+    # Call sequence:
+    # 1. PIT count query → 100 (has data)
+    # 2. SPY count query → 10 (already seeded)
+    # 3+ job updates and error handling
+    factory, session, added = _mock_session_factory(
+        execute_side_effects=[
+            {"scalar_one": 100},  # PIT count → nonzero
+            {"scalar_one": 10},   # SPY count → already seeded
+        ]
+    )
+
+    mock_provider = MagicMock()
+    mock_provider.get_price_series = AsyncMock(return_value=spy_prices)
+
+    with (
+        patch("margin_api.workers.get_engine"),
+        patch("margin_api.workers.get_session_factory", return_value=factory),
+        patch("margin_api.workers.reset_engine_cache"),
+        patch("margin_api.workers.get_active_snapshot", return_value=universe_snap),
+        patch(
+            "margin_api.services.pit_provider.DatabasePITProvider",
+            return_value=mock_provider,
+        ),
+        patch(
+            "margin_api.services.backtest.run_real_backtest",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("Scoring engine exploded"),
+        ),
+    ):
+        result = await precompute_default_backtest({})
+
+    # The outer except catches the re-raise and returns error
+    assert result["status"] == "error"
+    assert "Scoring engine exploded" in result["message"]
+
+    # Should have stored a failed BacktestRun
+    backtest_runs = [o for o in added if isinstance(o, BacktestRun)]
+    assert len(backtest_runs) == 1
+    assert backtest_runs[0].status == "failed"
+    assert backtest_runs[0].error_message is not None
+    assert "Scoring engine exploded" in backtest_runs[0].error_message
 
 
 # ---------------------------------------------------------------------------
