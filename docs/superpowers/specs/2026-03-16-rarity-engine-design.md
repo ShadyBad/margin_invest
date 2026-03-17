@@ -524,7 +524,7 @@ Core rarity computation + pipeline integration.
 - Extend `institutional_accumulation.py` and `insider_cluster.py` to populate `FactorScore.metadata`
 - Regime alignment -> `engine/src/margin_engine/rarity/regime.py`
 - Historical rarity -> `engine/src/margin_engine/rarity/historical_rarity.py`
-- FRED client extensions -> `api/src/margin_api/data/fred_client.py`
+- Macro data client (rename + extend) -> `api/src/margin_api/data/macro_data_client.py`
 - API routes -> `api/src/margin_api/routes/rarity.py`
 - API schemas -> `api/src/margin_api/schemas/rarity.py`
 - `ScoreResponse` enrichment -> `api/src/margin_api/schemas/scores.py`
