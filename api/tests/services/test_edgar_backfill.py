@@ -366,7 +366,7 @@ class TestFetchAndParseFilingRetry:
 
         result = await fetch_and_parse_filing(mock_client, entry)
         assert result is None
-        assert mock_client.get.call_count == 8
+        assert mock_client.get.call_count == 4  # stop_after_attempt(4)
 
 
 class TestXBRLParserNamespaces:

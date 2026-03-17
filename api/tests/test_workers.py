@@ -338,6 +338,7 @@ class TestLivePricePoll:
     async def test_live_price_poll_with_tickers(self):
         """Fetches prices for recommended tickers and stores in Redis."""
         import fakeredis.aioredis
+        import pandas as pd
         from margin_api.workers import live_price_poll
 
         fake_redis = fakeredis.aioredis.FakeRedis()
@@ -351,19 +352,24 @@ class TestLivePricePoll:
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        mock_ticker = MagicMock()
-        mock_ticker.fast_info = MagicMock()
-        mock_ticker.fast_info.last_price = 185.50
-        import pandas as pd
-
-        mock_ticker.history.return_value = pd.DataFrame()
+        # yf.download with a single ticker returns a flat DataFrame (no MultiIndex)
+        mock_download_df = pd.DataFrame(
+            {
+                "Open": [184.00],
+                "High": [186.00],
+                "Low": [183.50],
+                "Close": [185.50],
+                "Volume": [3000000],
+            },
+            index=pd.DatetimeIndex(["2026-03-16"], name="Date"),
+        )
 
         with (
             patch("margin_api.workers.get_engine"),
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
-            patch("margin_api.workers.yf.Ticker", return_value=mock_ticker),
+            patch("margin_api.workers.yf.download", return_value=mock_download_df),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             result = await live_price_poll({})
@@ -382,11 +388,14 @@ class TestLivePricePoll:
 
     @pytest.mark.asyncio
     async def test_live_price_poll_skips_failed_tickers(self):
-        """A failing ticker is skipped gracefully."""
+        """Tickers with 5+ consecutive failures are skipped via Redis counter."""
         import fakeredis.aioredis
+        import pandas as pd
         from margin_api.workers import live_price_poll
 
         fake_redis = fakeredis.aioredis.FakeRedis()
+        # Pre-set failure counter for BAD ticker to trigger skip
+        await fake_redis.set("price_fail:BAD", "5")
 
         mock_session = AsyncMock()
         mock_result = MagicMock()
@@ -397,29 +406,30 @@ class TestLivePricePoll:
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        def mock_ticker_factory(ticker):
-            if ticker == "BAD":
-                raise Exception("yfinance error")
-            import pandas as pd
-
-            mock_t = MagicMock()
-            mock_t.fast_info = MagicMock()
-            mock_t.fast_info.last_price = 100.0
-            mock_t.history.return_value = pd.DataFrame()
-            return mock_t
+        mock_download_df = pd.DataFrame(
+            {
+                "Open": [99.0],
+                "High": [101.0],
+                "Low": [98.0],
+                "Close": [100.0],
+                "Volume": [1000000],
+            },
+            index=pd.DatetimeIndex(["2026-03-16"], name="Date"),
+        )
 
         with (
             patch("margin_api.workers.get_engine"),
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
-            patch("margin_api.workers.yf.Ticker", side_effect=mock_ticker_factory),
+            patch("margin_api.workers.yf.download", return_value=mock_download_df),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             result = await live_price_poll({})
 
         assert result["status"] == "completed"
         assert result["updated"] == 1
+        assert result["skipped"] == 1  # BAD was skipped
 
         await fake_redis.aclose()
 
@@ -441,10 +451,8 @@ class TestLivePricePoll:
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        mock_ticker = MagicMock()
-        mock_ticker.fast_info = MagicMock()
-        mock_ticker.fast_info.last_price = 191.75
-        mock_ticker.history.return_value = pd.DataFrame(
+        # yf.download with single ticker returns flat DataFrame
+        mock_download_df = pd.DataFrame(
             {
                 "Open": [188.50],
                 "High": [192.30],
@@ -460,7 +468,7 @@ class TestLivePricePoll:
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
-            patch("margin_api.workers.yf.Ticker", return_value=mock_ticker),
+            patch("margin_api.workers.yf.download", return_value=mock_download_df),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             result = await live_price_poll({})
@@ -501,28 +509,31 @@ class TestLivePricePoll:
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        def mock_ticker_factory(ticker):
-            mock_t = MagicMock()
-            mock_t.fast_info = MagicMock()
-            mock_t.fast_info.last_price = 100.0
-            mock_t.history.return_value = pd.DataFrame(
-                {
-                    "Open": [99.0],
-                    "High": [101.0],
-                    "Low": [98.0],
-                    "Close": [100.0],
-                    "Volume": [1000],
-                },
-                index=pd.DatetimeIndex(["2026-03-06"], name="Date"),
-            )
-            return mock_t
+        # yf.download with multiple tickers returns MultiIndex columns
+        idx = pd.DatetimeIndex(["2026-03-06"], name="Date")
+        mock_download_df = pd.DataFrame(
+            {
+                ("Open", "AAPL"): [99.0],
+                ("High", "AAPL"): [101.0],
+                ("Low", "AAPL"): [98.0],
+                ("Close", "AAPL"): [100.0],
+                ("Volume", "AAPL"): [1000],
+                ("Open", "MSFT"): [399.0],
+                ("High", "MSFT"): [401.0],
+                ("Low", "MSFT"): [398.0],
+                ("Close", "MSFT"): [400.0],
+                ("Volume", "MSFT"): [2000],
+            },
+            index=idx,
+        )
+        mock_download_df.columns = pd.MultiIndex.from_tuples(mock_download_df.columns)
 
         with (
             patch("margin_api.workers.get_engine"),
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
-            patch("margin_api.workers.yf.Ticker", side_effect=mock_ticker_factory),
+            patch("margin_api.workers.yf.download", return_value=mock_download_df),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             result = await live_price_poll({})
@@ -753,8 +764,11 @@ class TestTrainMlModels:
             return mock_session
 
         async def _mock_execute(stmt):
-            # Session 2 is the Score query — returns only 1 row (< min_samples)
-            if session_num == 2:
+            # Session 1 is the concurrency guard — return 0 running jobs
+            if session_num == 1:
+                return MagicMock(scalar=MagicMock(return_value=0))
+            # Session 3 is the Score query — returns only 1 row (< min_samples)
+            if session_num == 3:
                 mock_score = MagicMock()
                 mock_score.composite_percentile = 75.0
                 mock_score.composite_raw_score = 70.0
@@ -803,7 +817,10 @@ class TestTrainMlModels:
             return mock_session
 
         async def _mock_execute(stmt):
-            if session_num == 2:
+            # Session 1 is the concurrency guard — return 0 running jobs
+            if session_num == 1:
+                return MagicMock(scalar=MagicMock(return_value=0))
+            if session_num == 3:
                 return MagicMock(all=MagicMock(return_value=[]))  # Empty scores
             return MagicMock(scalar_one=MagicMock(return_value=mock_job))
 
@@ -852,8 +869,11 @@ class TestTrainMlModels:
             return mock_session
 
         async def _mock_execute(stmt):
-            # Session 2 is Score query — blow up
-            if session_num == 2:
+            # Session 1 is the concurrency guard — return 0 running jobs
+            if session_num == 1:
+                return MagicMock(scalar=MagicMock(return_value=0))
+            # Session 3 is Score query — blow up
+            if session_num == 3:
                 raise RuntimeError("Score query failed")
             return MagicMock(scalar_one=MagicMock(return_value=mock_job))
 
