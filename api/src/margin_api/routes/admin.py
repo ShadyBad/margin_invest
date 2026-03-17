@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from margin_api.config import get_settings
 from margin_api.db.models import (
     Asset,
+    BacktestRun,
     JobRun,
     PipelineApproval,
     PITDailyPrice,
@@ -687,6 +688,63 @@ async def trigger_precompute_backtest(
             "job": "precompute_default_backtest",
             "job_id": job.job_id,
         },
+    )
+
+
+@router.get("/backtest/latest")
+async def get_latest_backtest(
+    x_admin_key: str = Header(),
+    session: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """Return the most recent BacktestRun with metrics and validation summary."""
+    _verify_admin_key(x_admin_key)
+
+    stmt = (
+        select(BacktestRun)
+        .order_by(BacktestRun.created_at.desc())
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    run = result.scalar_one_or_none()
+
+    if run is None:
+        raise HTTPException(404, "No backtest runs found")
+
+    # Build validation summary from stored metrics if available
+    validation = None
+    if run.status == "complete" and run.summary_stats and "metrics" in run.summary_stats:
+        try:
+            from margin_engine.backtesting.models import PerformanceMetrics
+            from margin_api.services.backtest import compute_validation_summary
+
+            metrics = PerformanceMetrics(**run.summary_stats["metrics"])
+            validation = compute_validation_summary(metrics)
+        except Exception:
+            pass  # Fall back to no validation if metrics can't be parsed
+
+    duration_seconds = None
+    if run.started_at and run.completed_at:
+        duration_seconds = (run.completed_at - run.started_at).total_seconds()
+
+    return JSONResponse(
+        content={
+            "id": run.id,
+            "name": run.name,
+            "status": run.status,
+            "config": run.config,
+            "metrics": {
+                "total_return": run.total_return,
+                "annualized_return": run.annualized_return,
+                "sharpe_ratio": run.sharpe_ratio,
+                "max_drawdown": run.max_drawdown,
+            },
+            "validation": validation,
+            "started_at": run.started_at.isoformat() if run.started_at else None,
+            "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+            "duration_seconds": duration_seconds,
+            "error_message": getattr(run, "error_message", None),
+            "created_at": run.created_at.isoformat(),
+        }
     )
 
 
