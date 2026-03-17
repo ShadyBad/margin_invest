@@ -7,6 +7,7 @@ import { HeroSearch } from "../hero-search"
 
 const productLinks = [
   { label: "Dashboard", href: "/dashboard" },
+  { label: "Explore", href: "/explore" },
   { label: "Guides", href: "/guides" },
   { label: "Methodology", href: "/methodology" },
   { label: "API", href: "/api-docs" },

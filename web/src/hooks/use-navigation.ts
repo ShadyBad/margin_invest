@@ -41,6 +41,7 @@ export interface NavigationState {
 
 const PUBLIC_LINKS: { href: string; label: string }[] = [
   { href: "/login", label: "Dashboard" },
+  { href: "/explore", label: "Explore" },
   { href: "/methodology", label: "Methodology" },
   { href: "/guides", label: "Guides" },
   { href: "/#pricing", label: "Pricing" },
