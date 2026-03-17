@@ -322,3 +322,114 @@ class TestReplayOrchestrator:
             assert record.survivor_count == 2
             for holding in record.top_holdings:
                 assert holding["score"] in [75.0, 60.0]
+
+
+def test_run_populates_gross_return_with_costs():
+    """gross_return should reflect pre-cost return and exceed portfolio_return when costs are nonzero.
+
+    Scenario:
+      Month 1: AAA scores high (net_income=10_000) -> selected; BBB scores low.
+      Month 2: AAA price rises to 110 (+10%); AAA now scores low, BBB scores high.
+               -> Portfolio earns 10% from AAA, then 100% turnover occurs (sell AAA, buy BBB),
+                  incurring transaction costs. gross_return captures the 10% before costs;
+                  portfolio_return is net-of-cost (< 10%).
+
+    Without the fix, MonthlySnapshot model_validator defaults gross_return = portfolio_return,
+    so gross_return would equal portfolio_return instead of being the pre-cost figure.
+    """
+
+    def _make_period_with_income(period_end_str: str, net_income: float) -> FinancialPeriod:
+        income = IncomeStatement(
+            revenue=10_000,
+            cost_of_revenue=4_000,
+            gross_profit=6_000,
+            sga_expense=1_000,
+            depreciation=500,
+            ebit=4_500,
+            interest_expense=200,
+            tax_provision=1_000,
+            net_income=net_income,
+            shares_outstanding=1_000_000_000,
+        )
+        balance = BalanceSheet(
+            total_assets=50_000,
+            current_assets=20_000,
+            cash_and_equivalents=10_000,
+            receivables=5_000,
+            total_liabilities=20_000,
+            current_liabilities=8_000,
+            long_term_debt=10_000,
+            total_equity=30_000,
+            retained_earnings=15_000,
+            shares_outstanding=1_000_000_000,
+        )
+        cf = CashFlowStatement(operating_cash_flow=5_000, capital_expenditures=-1_000)
+        return FinancialPeriod(
+            period_end=period_end_str,
+            filing_date=period_end_str,
+            current_income=income,
+            current_balance=balance,
+            current_cash_flow=cf,
+            prior_income=income,
+            prior_balance=balance,
+            prior_cash_flow=cf,
+        )
+
+    provider = InMemoryPITProvider()
+    # Month 1: AAA scores high -> gets selected; BBB scores low
+    provider.add_snapshot(
+        date(2020, 1, 1),
+        "AAA",
+        _make_profile("AAA"),
+        _make_period_with_income("2020-01-01", net_income=10_000),
+        100.0,
+    )
+    provider.add_snapshot(
+        date(2020, 1, 1),
+        "BBB",
+        _make_profile("BBB"),
+        _make_period_with_income("2020-01-01", net_income=1),
+        100.0,
+    )
+    # Month 2: AAA price up 10%; AAA now scores low, BBB scores high -> 100% turnover -> costs
+    provider.add_snapshot(
+        date(2020, 2, 1),
+        "AAA",
+        _make_profile("AAA"),
+        _make_period_with_income("2020-02-01", net_income=1),
+        110.0,
+    )
+    provider.add_snapshot(
+        date(2020, 2, 1),
+        "BBB",
+        _make_profile("BBB"),
+        _make_period_with_income("2020-02-01", net_income=10_000),
+        100.0,
+    )
+
+    config = ReplayConfig(
+        start_date=date(2020, 1, 1),
+        end_date=date(2020, 2, 28),
+        rebalance_frequency="monthly",
+        transaction_cost_bps=100.0,  # 1% costs to make the spread visible
+    )
+    orchestrator = ReplayOrchestrator(
+        config=config,
+        pit_provider=provider,
+        factor_registry=FactorRegistry.default(),
+        disabled_filters={"liquidity"},  # bypass years_of_history check on synthetic data
+    )
+    result = orchestrator.run()
+
+    snapshots_with_costs = [s for s in result.snapshots if s.transaction_costs > 0]
+    assert len(snapshots_with_costs) > 0, "Expected at least one snapshot with transaction costs"
+
+    for s in snapshots_with_costs:
+        assert s.gross_return is not None, "gross_return must be explicitly populated"
+        if s.portfolio_return != 0.0:
+            # When there is a real price return, gross_return > portfolio_return
+            # (gross captures pre-cost value; portfolio_return is net-of-cost)
+            assert s.gross_return > s.portfolio_return, (
+                f"gross_return ({s.gross_return}) should exceed portfolio_return ({s.portfolio_return}) "
+                "when transaction costs are nonzero and price return exists"
+            )
