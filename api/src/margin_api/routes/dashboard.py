@@ -382,9 +382,12 @@ async def get_dashboard(
         total_result = await db.execute(select(func.count(func.distinct(Score.asset_id))))
     total_scored = total_result.scalar() or 0
 
-    # Last updated
-    updated_result = await db.execute(select(func.max(Score.scored_at)))
-    last_updated_dt = updated_result.scalar()
+    # Last updated — use the most recent scored_at across both Score and V4Score tables
+    score_ts_result = await db.execute(select(func.max(Score.scored_at)))
+    score_ts = score_ts_result.scalar()
+    v4_ts_result = await db.execute(select(func.max(V4Score.scored_at)))
+    v4_ts = v4_ts_result.scalar()
+    last_updated_dt = max(filter(None, [score_ts, v4_ts]), default=None)
     last_updated = last_updated_dt.isoformat() if last_updated_dt else datetime.now(UTC).isoformat()
 
     # Universe metadata (reuse snapshot fetched above)

@@ -19,6 +19,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import httpx
+import pandas as pd
 import redis.asyncio as aioredis
 import sentry_sdk
 import yfinance as yf
@@ -2473,15 +2474,16 @@ async def promote_ml_model(
 async def live_price_poll(ctx: dict) -> dict:
     """Poll live prices for all scored tickers and cache bars + prices in Redis.
 
-    Processes tickers concurrently in batches with per-ticker timeouts to avoid
-    one slow ticker blocking the entire job.
+    Uses yfinance batch download (one HTTP call per batch of ~100 tickers) instead
+    of per-ticker Ticker() calls.  Excludes quarantined assets and tickers that
+    have failed price lookups repeatedly (tracked via Redis counter).
     """
     settings = get_settings()
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
 
-    # Query DB for ALL tickers with a latest score (no conviction filter)
+    # Only poll active (non-quarantined) assets that have been scored
     async with session_factory() as session:
         latest_subq = (
             select(
@@ -2499,71 +2501,169 @@ async def live_price_poll(ctx: dict) -> dict:
                 (Score.asset_id == latest_subq.c.asset_id)
                 & (Score.scored_at == latest_subq.c.max_scored_at),
             )
+            .where(Asset.ingestion_status != "quarantined")
         )
         scored_tickers = [row[0] for row in result.all()]
 
     if not scored_tickers:
         return {"status": "no_scored_tickers", "updated": 0}
 
-    logger.info("[prices] Polling prices for %d scored tickers", len(scored_tickers))
-
     redis_client = aioredis.from_url(settings.redis_url)
     service = LivePriceService(redis_client)
 
-    per_ticker_timeout = 15  # seconds per ticker
-    batch_size = 20  # concurrent tickers per batch
+    # Skip tickers that have failed 5+ consecutive price polls (likely delisted).
+    # Counter resets on success.  Key expires after 24h so they get retried daily.
+    fail_key_prefix = "price_fail:"
+    max_consecutive_fails = 5
+    try:
+        pipe = redis_client.pipeline()
+        for t in scored_tickers:
+            pipe.get(f"{fail_key_prefix}{t}")
+        fail_counts = await pipe.execute()
 
-    async def _fetch_one(ticker: str) -> bool:
-        """Fetch price + bar for a single ticker with timeout."""
+        eligible = []
+        skipped = 0
+        for ticker, count_raw in zip(scored_tickers, fail_counts):
+            count = int(count_raw) if count_raw else 0
+            if count >= max_consecutive_fails:
+                skipped += 1
+            else:
+                eligible.append(ticker)
+
+        if skipped:
+            logger.info(
+                "[prices] Skipping %d tickers with %d+ consecutive failures",
+                skipped,
+                max_consecutive_fails,
+            )
+    except Exception:
+        eligible = scored_tickers
+        skipped = 0
+
+    logger.info("[prices] Polling prices for %d eligible tickers", len(eligible))
+
+    batch_size = 100  # yf.download handles batches efficiently
+    batch_timeout = 60  # seconds per batch download
+
+    async def _download_batch(batch: list[str]) -> int:
+        """Download prices for a batch of tickers via yf.download. Returns success count."""
         try:
-            async with asyncio.timeout(per_ticker_timeout):
-                t = await asyncio.to_thread(lambda: yf.Ticker(ticker))
+            async with asyncio.timeout(batch_timeout):
+                tickers_str = " ".join(batch)
+                df = await asyncio.to_thread(
+                    lambda: yf.download(
+                        tickers_str,
+                        period="1d",
+                        progress=False,
+                        threads=True,
+                    )
+                )
+        except (TimeoutError, Exception) as exc:
+            logger.warning("[prices] Batch download failed: %s", exc)
+            # Increment failure counters for entire batch
+            try:
+                pipe = redis_client.pipeline()
+                for t in batch:
+                    pipe.incr(f"{fail_key_prefix}{t}")
+                    pipe.expire(f"{fail_key_prefix}{t}", 86400)  # 24h TTL
+                await pipe.execute()
+            except Exception:
+                pass
+            return 0
 
-                info = await asyncio.to_thread(lambda: t.fast_info)
-                current = getattr(info, "last_price", None)
-                if current and current > 0:
-                    await service.set_price(ticker, float(current))
+        if df is None or df.empty:
+            return 0
 
-                hist = await asyncio.to_thread(lambda: t.history(period="1d"))
-                if hist is not None and not hist.empty:
-                    row = hist.iloc[-1]
-                    bar_date = hist.index[-1].strftime("%Y-%m-%d")
+        ok = 0
+        is_multi = len(batch) > 1 and isinstance(df.columns, pd.MultiIndex)
+
+        for ticker in batch:
+            try:
+                if is_multi:
+                    if ticker not in df.columns.get_level_values(1):
+                        await _record_fail(redis_client, ticker)
+                        continue
+                    close = df[("Close", ticker)].dropna()
+                    if close.empty:
+                        await _record_fail(redis_client, ticker)
+                        continue
+                    last_close = float(close.iloc[-1])
+                    last_row = {
+                        col: float(df[(col, ticker)].iloc[-1])
+                        for col in ("Open", "High", "Low", "Close")
+                    }
+                    last_row["Volume"] = int(df[("Volume", ticker)].iloc[-1])
+                    bar_date = close.index[-1].strftime("%Y-%m-%d")
+                else:
+                    # Single ticker — no MultiIndex
+                    close_col = df.get("Close")
+                    if close_col is None or close_col.dropna().empty:
+                        await _record_fail(redis_client, ticker)
+                        continue
+                    close_col = close_col.dropna()
+                    last_close = float(close_col.iloc[-1])
+                    last_row = {
+                        col: float(df[col].iloc[-1]) for col in ("Open", "High", "Low", "Close")
+                    }
+                    last_row["Volume"] = int(df["Volume"].iloc[-1])
+                    bar_date = close_col.index[-1].strftime("%Y-%m-%d")
+
+                if last_close > 0:
+                    await service.set_price(ticker, last_close)
                     bar = {
                         "date": bar_date,
-                        "open": float(row["Open"]),
-                        "high": float(row["High"]),
-                        "low": float(row["Low"]),
-                        "close": float(row["Close"]),
-                        "volume": int(row["Volume"]),
+                        "open": last_row["Open"],
+                        "high": last_row["High"],
+                        "low": last_row["Low"],
+                        "close": last_row["Close"],
+                        "volume": last_row["Volume"],
                     }
                     await service.set_bar(ticker, bar)
+                    # Reset failure counter on success
+                    await redis_client.delete(f"{fail_key_prefix}{ticker}")
+                    ok += 1
+                else:
+                    await _record_fail(redis_client, ticker)
+            except Exception:
+                logger.debug("[prices] Failed to extract %s from batch", ticker)
+                await _record_fail(redis_client, ticker)
 
-                return True
-        except TimeoutError:
-            logger.debug("[prices] Timeout fetching %s", ticker)
-            return False
-        except Exception:
-            logger.debug("[prices] Failed to fetch %s", ticker, exc_info=True)
-            return False
+        return ok
 
     try:
         updated = 0
         failed = 0
-        for i in range(0, len(scored_tickers), batch_size):
-            batch = scored_tickers[i : i + batch_size]
-            results = await asyncio.gather(*[_fetch_one(t) for t in batch])
-            updated += sum(1 for r in results if r)
-            failed += sum(1 for r in results if not r)
+        for i in range(0, len(eligible), batch_size):
+            batch = eligible[i : i + batch_size]
+            batch_ok = await _download_batch(batch)
+            updated += batch_ok
+            failed += len(batch) - batch_ok
 
         logger.info(
-            "[prices] Updated %d/%d tickers (%d failed)",
+            "[prices] Updated %d/%d tickers (%d failed, %d skipped)",
             updated,
-            len(scored_tickers),
+            len(eligible),
             failed,
+            skipped,
         )
-        return {"status": "completed", "updated": updated, "failed": failed}
+        return {
+            "status": "completed",
+            "updated": updated,
+            "failed": failed,
+            "skipped": skipped,
+        }
     finally:
         await redis_client.aclose()
+
+
+async def _record_fail(redis_client, ticker: str) -> None:
+    """Increment the price-poll failure counter for a ticker (24h TTL)."""
+    try:
+        key = f"price_fail:{ticker}"
+        await redis_client.incr(key)
+        await redis_client.expire(key, 86400)
+    except Exception:
+        pass
 
 
 async def retry_quarantined(ctx: dict) -> dict:
@@ -3691,7 +3791,7 @@ class WorkerSettings:
             live_price_poll,
             minute={0, 15, 30, 45},
             run_at_startup=False,
-            timeout=600,  # 10 min — batched concurrent fetches, well under 15min interval
+            timeout=900,  # 15 min — batch yf.download, ~31 batches of 100 tickers
         ),
         cron(retry_quarantined, weekday=6, hour=0, run_at_startup=False),  # Sunday midnight
         cron(
