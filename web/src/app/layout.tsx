@@ -41,14 +41,6 @@ export const metadata: Metadata = {
       "A deterministic capital allocation system that replaces narrative with structure. Scoring 3,000+ US equities daily.",
     url: "https://www.margin-invest.com",
     siteName: "Margin Invest",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "Margin Invest — Deterministic Investment Analysis",
-      },
-    ],
     locale: "en_US",
     type: "website",
   },
@@ -57,7 +49,6 @@ export const metadata: Metadata = {
     title: "Margin Invest — Discipline. Engineered.",
     description:
       "A deterministic capital allocation system. Scoring 3,000+ US equities daily with zero human discretion.",
-    images: ["/og-image.png"],
   },
 };
 
