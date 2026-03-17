@@ -39,9 +39,12 @@ describe("useNavigation", () => {
       ])
     })
 
-    it("returns cta as null", () => {
+    it("returns CTA with Get Started and Sign In for unauthenticated users", () => {
       const { result } = renderHook(() => useNavigation())
-      expect(result.current.cta).toBeNull()
+      expect(result.current.cta).toEqual({
+        primary: { label: "Get Started", href: "/login" },
+        secondary: { label: "Sign In", href: "/login" },
+      })
     })
 
     it("returns user as null", () => {

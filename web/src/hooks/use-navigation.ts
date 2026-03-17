@@ -62,7 +62,12 @@ export function useNavigation(): NavigationState {
     isActive: pathname === link.href,
   }))
 
-  const cta: NavigationCTA | null = null
+  const cta: NavigationCTA | null = isAuthenticated
+    ? null
+    : {
+        primary: { label: "Get Started", href: "/login" },
+        secondary: { label: "Sign In", href: "/login" },
+      }
 
   const user: NavigationUser | null = isAuthenticated
     ? {
