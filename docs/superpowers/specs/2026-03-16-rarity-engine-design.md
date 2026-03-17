@@ -45,7 +45,14 @@ is_generational = (
 
 Base rate: ~0.5-1.5% of universe at any time = 15-50 stocks before further filtering.
 
-**Track B adaptation:** Mispricing-track stocks have 3 universal pillars (quality, value, momentum — `growth` is `None`). Gates adjust: `min_pillar` operates on 3 pillars, `pillars_above_80` threshold drops to 2 of 3.
+**Track B adaptation:** Mispricing-track stocks (`winning_track="mispricing"`) have a different pillar structure. In `composite_mispricing.py`, Track B produces:
+- `quality` = quality_floor (populated, meaningful)
+- `value` = value (populated, meaningful)
+- `momentum` = empty `FactorBreakdown(weight=0.0, sub_scores=[])` — `average_percentile` returns 0.0 (NOT a real signal)
+- `growth` = `None`
+- `catalyst` = populated (meaningful, but not a universal pillar)
+
+**Pillar extraction for rarity:** For Track B stocks, the 3 meaningful pillars are `quality`, `value`, and `catalyst`. The dummy `momentum` (percentile 0.0) is excluded — including it would severely distort convergence and joint rarity. Gates adjust: `min_pillar` operates on 3 pillars, `pillars_above_80` threshold drops to 2 of 3.
 
 ### "High-Conviction" (Computable)
 
@@ -89,18 +96,19 @@ def compute_convergence(pillar_percentiles: list[float]) -> float:
     1. Compute min/max ratio: min(pillars) / max(pillars)
        - Perfect convergence (all equal): ratio = 1.0
        - Divergent: ratio -> 0
-    2. Penalize if floor is below 60th percentile
+    2. Penalize if floor is below 60th percentile (convergence on mediocrity doesn't count)
     3. Scale to 0-100
     """
     floor = min(pillar_percentiles)
     ceiling = max(pillar_percentiles)
     ratio = floor / ceiling if ceiling > 0 else 0
-    floor_penalty = max(0, (floor - 40) / 60)
+    # Ramp: 0 at 60th pctl, 1.0 at 100th pctl. Below 60 = zero convergence credit.
+    floor_penalty = max(0, (floor - 60) / 40)
     convergence = ratio * floor_penalty * 100
     return round(convergence, 2)
 ```
 
-Operates on 4 universal pillars (3 for Track B stocks).
+Operates on meaningful pillars only: 4 for Track A (quality, value, momentum, growth), 3 for Track B (quality, value, catalyst). See Track B adaptation in Section 1.
 
 ### 2B. Joint Rarity Signal (Core)
 
@@ -126,9 +134,15 @@ def compute_joint_rarity(
     return round((1 - frac_dominating) * 100, 2)
 ```
 
-**Complexity:** O(N * F) per stock, O(N^2 * F) for full universe. N=3000, F=7: ~63M comparisons, <2 seconds with numpy broadcasting.
+**Complexity:** O(N * F) per stock, O(N^2 * F) for full universe. N=3000, F=4: ~36M comparisons, <1 second with numpy broadcasting.
 
-**Factor selection:** 4 pillar `average_percentile` values (quality, value, momentum, growth) + top 3 individual factors by weight from the winning track. Total ~7 dimensions. For Track B stocks with `growth=None`, the `catalyst.average_percentile` fills the growth column to keep the matrix rectangular.
+**Factor selection:** Use only the 4 pillar `average_percentile` values for a uniform comparison surface. This avoids the cross-track alignment problem where different winning tracks have structurally different individual factors (e.g., `gross_profitability` vs `dcf_margin_of_safety` cannot share a matrix column).
+
+**Pillar-to-column mapping:**
+- **Track A (compounder):** quality, value, momentum, growth → columns 0-3
+- **Track B (mispricing):** quality, value, catalyst, `NaN` → columns 0-2, column 3 masked
+
+For Track B stocks, the growth column is `NaN`. The joint rarity comparison for Track B stocks uses masked comparison: only columns 0-2 participate in the "all factors >= target" test. This means Track B stocks are compared on 3 dimensions (slightly easier to dominate), which is a known trade-off — accepted because Track B is ~15% of the universe and the convergence/gate cascade provides additional filtering.
 
 ### 2C. Historical Rarity Signal
 
@@ -162,17 +176,22 @@ def compute_historical_frequency(
 Standalone regime classification (independent of the existing `RegimeState` in `engine/src/margin_engine/regime/`). This is a deliberate design choice — the rarity regime is simpler (4 classes vs 4 axes) and purpose-built for historical comparison.
 
 **Data sources** (extend `api/src/margin_api/data/fred_client.py`):
-- Yield curve slope: DGS10 - DGS2 (FRED)
-- Credit spreads: BAA10Y - AAA10Y (FRED)
-- VIX level: from yfinance (^VIX)
-- Same 24h caching pattern as existing `fetch_shiller_cape()`
+- Yield curve slope: `DGS10` minus `DGS2` (FRED) — 10Y-2Y Treasury spread in percentage points
+- Credit spread: `BAA10Y` (FRED) — Moody's Baa Corporate Bond Yield Relative to 10-Year Treasury, already a spread in percentage points. No subtraction needed.
+- VIX level: from yfinance (`^VIX`) — separate from FRED, same 24h cache pattern
 
-| Regime | Conditions | Favored Opportunity Types |
-|--------|-----------|--------------------------|
-| EXPANSION | Yield curve > 0, VIX < 20, credit tight | Growth, Momentum |
-| LATE_CYCLE | Yield curve flattening, VIX 15-25 | Quality, Capital Allocation |
-| CONTRACTION | Yield curve inverted OR VIX > 25 | Value, Mispricing |
-| CRISIS | VIX > 35 AND credit spreads > 300bp | Deep Value, Turnaround |
+**Note:** VIX is fetched via yfinance, not FRED. The `fred_client.py` file is being repurposed as a general macro data fetcher. Consider renaming to `macro_data_client.py` during implementation.
+
+**Regime classification** — evaluated in precedence order (first match wins):
+
+| Regime | Conditions (exact thresholds) | Favored Opportunity Types |
+|--------|------|--------------------------|
+| CRISIS | VIX > 35 AND Baa-10Y spread > 2.5pp | Deep Value, Turnaround |
+| CONTRACTION | Yield curve slope < 0 (inverted) OR VIX > 25 | Value, Mispricing |
+| LATE_CYCLE | Yield curve slope between -0.2 and 0.5 AND 15 <= VIX <= 25 | Quality, Capital Allocation |
+| EXPANSION | (default — none of the above) | Growth, Momentum |
+
+Boundary conditions: VIX thresholds use strict inequalities (`>`, not `>=`). Yield curve slope is in percentage points (e.g., 0.5 = 50bp). The Baa-10Y spread threshold of 2.5pp (~250bp) corresponds to historical stress levels; during 2008-2009 it reached 6pp+, during COVID it briefly hit 3.5pp.
 
 **Regime-conditional rarity:** Historical analogs only compare against the same regime classification. Activates once >= 2 quarters of data per regime accumulate.
 
@@ -224,7 +243,7 @@ def compute_smart_money_convergence(
     """
 ```
 
-The rarity engine reads `FactorScore.metadata` from the `V4Score.detail` JSONB where the full `CompositeScore` is serialized.
+**Metadata propagation path:** `institutional_accumulation()` and `insider_cluster_score()` populate `metadata` on their returned `FactorScore` → these flow into `FactorBreakdown.sub_scores` → into `CompositeScore` → `CompositeScore.model_dump(mode="json")` → `V4Score.detail` JSONB. The rarity engine reads metadata by traversing: `detail["quality"]["sub_scores"][i]["metadata"]` (or equivalent pillar path). The rarity engine must handle `metadata=None` for all historical V4Score rows (pre-metadata) and for any factor function that doesn't populate it. All metadata reads use `.get()` with defaults.
 
 ---
 
@@ -261,6 +280,8 @@ Gates run in order — fail any = excluded:
 | 4 | `RARITY_SCORE` >= 80 | Same |
 | 5 | Hard cap: top 30 by rarity_score | Same |
 | 6 | Sector cap: max 40% per sector | Drop lowest-rarity from over-concentrated sectors |
+
+**Note:** Gates 1-6 produce the **rarity-scored universe** (~30 stocks). The `is_generational` flag is a stricter subset within this list, requiring `composite_raw >= 76` (EXCEPTIONAL only) plus all 5 criteria from Section 1. Gate 1 intentionally allows HIGH-tier stocks (>= 71) through so they receive rarity scores — only the `is_generational` boolean requires EXCEPTIONAL.
 
 Expected survival rates:
 - Gate 1: ~3,500 -> ~500
@@ -311,8 +332,9 @@ full_score_v4 ──→ stage_scores ──→ [approval] ──→ publish_scor
 | regime_alignment | Float | macro fit |
 | combination_signature | String(30) | e.g., "Q92+V85+M78+G88" |
 | regime | String(20) | current regime label |
+| conviction_score | Float | 0-100 high-conviction composite (Section 1) |
 | is_generational | Boolean | passes all generational gates |
-| detail | JSONVariant | full breakdown |
+| detail | JSONVariant | full breakdown incl. per-dimension scores |
 | universe_size | Integer | |
 
 Indexes: `(asset_id, scored_at)`, `scored_at`
@@ -386,12 +408,14 @@ All in `engine/src/margin_engine/rarity/`:
 **Modified:** `full_score_v4` in `api/src/margin_api/workers.py`
 - Add `redis.enqueue_job("compute_rarity", pipeline_id, job_id, scored_at_iso, ...)` alongside the existing `stage_scores` enqueue
 
-### FRED Client Extension
+### Macro Data Client
 
-**Modified:** `api/src/margin_api/data/fred_client.py`
-- `fetch_yield_curve_slope()` — DGS10 - DGS2, same 24h cache pattern
-- `fetch_credit_spread()` — BAA10Y - AAA10Y, same 24h cache pattern
-- `fetch_vix()` — from yfinance (^VIX), 24h cache
+**Renamed:** `api/src/margin_api/data/fred_client.py` → `api/src/margin_api/data/macro_data_client.py` (existing `fetch_shiller_cape()` moves too; update imports in `cli.py`).
+
+New async functions (same 24h cache pattern):
+- `fetch_yield_curve_slope()` — `DGS10` minus `DGS2` (FRED), returns spread in percentage points
+- `fetch_credit_spread()` — `BAA10Y` (FRED), Baa-Treasury spread, already a spread value
+- `fetch_vix()` — from yfinance (`^VIX`), current VIX level
 
 ---
 
@@ -541,4 +565,4 @@ Depends on Phase 3 decision.
 - **Sidecar test:** Verify `full_score_v4` enqueues both `stage_scores` and `compute_rarity`
 - **Backtest validation:** Conditional Rank IC report across available quarterly rebalances
 - **Frontend tests:** `cd web && npx vitest run src/components/rarity/`
-- **Performance:** `compute_rarity` completes in < 30 seconds for 3,000 stock universe
+- **Performance:** `compute_rarity` completes in < 30 seconds for 3,000 stock universe (historical rarity snapshots batch-loaded into memory before per-stock loop; FRED/VIX fetches cached with 24h TTL so no network I/O in steady state)
