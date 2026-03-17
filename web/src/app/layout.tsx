@@ -10,6 +10,7 @@ import { PostHogIdentify } from "@/lib/posthog/identify";
 import { ConditionalFooter } from "@/components/layout/conditional-footer";
 import { MfaRequiredModal } from "@/components/modals/mfa-required-modal";
 import { AnalysisDisclaimerModal } from "@/components/modals/analysis-disclaimer-modal";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const interTight = Inter_Tight({
@@ -80,6 +81,17 @@ export default function RootLayout({
                 <ConditionalFooter />
                 <MfaRequiredModal />
                 <AnalysisDisclaimerModal />
+                <Toaster
+                  theme="dark"
+                  position="bottom-right"
+                  toastOptions={{
+                    style: {
+                      background: "var(--color-bg-elevated)",
+                      border: "1px solid var(--color-border-subtle)",
+                      color: "var(--color-text-primary)",
+                    },
+                  }}
+                />
               </div>
             </PostHogProvider>
           </SessionProvider>
