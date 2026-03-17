@@ -699,11 +699,7 @@ async def get_latest_backtest(
     """Return the most recent BacktestRun with metrics and validation summary."""
     _verify_admin_key(x_admin_key)
 
-    stmt = (
-        select(BacktestRun)
-        .order_by(BacktestRun.created_at.desc())
-        .limit(1)
-    )
+    stmt = select(BacktestRun).order_by(BacktestRun.created_at.desc()).limit(1)
     result = await session.execute(stmt)
     run = result.scalar_one_or_none()
 
@@ -715,6 +711,7 @@ async def get_latest_backtest(
     if run.status == "complete" and run.summary_stats and "metrics" in run.summary_stats:
         try:
             from margin_engine.backtesting.models import PerformanceMetrics
+
             from margin_api.services.backtest import compute_validation_summary
 
             metrics = PerformanceMetrics(**run.summary_stats["metrics"])

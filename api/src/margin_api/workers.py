@@ -2907,7 +2907,6 @@ async def precompute_default_backtest(ctx: dict) -> dict:
     import traceback as tb_mod
 
     import numpy as np
-
     from margin_engine.backtesting.replay_orchestrator import ReplayConfig
 
     from margin_api.services.backtest import (
@@ -2964,40 +2963,37 @@ async def precompute_default_backtest(ctx: dict) -> dict:
 
             # Seed SPY prices if not already present
             spy_count_result = await session.execute(
-                select(func.count()).select_from(PITDailyPrice).where(
-                    PITDailyPrice.ticker == "SPY"
-                )
+                select(func.count()).select_from(PITDailyPrice).where(PITDailyPrice.ticker == "SPY")
             )
             spy_count = spy_count_result.scalar_one()
 
             if spy_count == 0:
                 logger.info("[precompute_backtest] Seeding SPY prices via yfinance...")
-                spy_df = yf.download(
-                    "SPY", start="2011-01-01", auto_adjust=False, progress=False
-                )
+                spy_df = yf.download("SPY", start="2011-01-01", auto_adjust=False, progress=False)
                 for idx, row in spy_df.iterrows():
                     d = pd.Timestamp(idx).date() if hasattr(idx, "date") else idx
                     close_val = float(row["Close"])
                     if pd.isna(close_val):
                         continue
-                    session.add(PITDailyPrice(
-                        ticker="SPY", date=d,
-                        open=float(row["Open"]), high=float(row["High"]),
-                        low=float(row["Low"]), close=close_val,
-                        adj_close=float(row.get("Adj Close", row["Close"])),
-                        volume=int(row["Volume"]),
-                        source="yfinance",
-                    ))
+                    session.add(
+                        PITDailyPrice(
+                            ticker="SPY",
+                            date=d,
+                            open=float(row["Open"]),
+                            high=float(row["High"]),
+                            low=float(row["Low"]),
+                            close=close_val,
+                            adj_close=float(row.get("Adj Close", row["Close"])),
+                            volume=int(row["Volume"]),
+                            source="yfinance",
+                        )
+                    )
                 await session.commit()
                 logger.info("[precompute_backtest] Seeded %d SPY price rows", len(spy_df))
 
             # Load SPY prices for benchmark
-            spy_prices = await provider.get_price_series(
-                "SPY", config.start_date, config.end_date
-            )
-            logger.info(
-                "[precompute_backtest] Loaded %d SPY benchmark prices", len(spy_prices)
-            )
+            spy_prices = await provider.get_price_series("SPY", config.start_date, config.end_date)
+            logger.info("[precompute_backtest] Loaded %d SPY benchmark prices", len(spy_prices))
 
             # Get active universe snapshot for the backtest run record
             active_snap = await get_active_snapshot(session)
@@ -3053,9 +3049,7 @@ async def precompute_default_backtest(ctx: dict) -> dict:
         if spy_monthly_returns:
             spy_mean = np.mean(spy_monthly_returns)
             spy_std = np.std(spy_monthly_returns)
-            benchmark_sharpe = (
-                (spy_mean * 12) / (spy_std * (12**0.5)) if spy_std > 0 else 0.0
-            )
+            benchmark_sharpe = (spy_mean * 12) / (spy_std * (12**0.5)) if spy_std > 0 else 0.0
         else:
             benchmark_sharpe = 0.0
 
@@ -3073,7 +3067,10 @@ async def precompute_default_backtest(ctx: dict) -> dict:
             status = "PASS" if gate["passed"] else "FAIL"
             logger.info(
                 "  [%s] %s: %.4f (threshold: %s)",
-                status, gate["name"], float(gate["value"]), gate["threshold"],
+                status,
+                gate["name"],
+                float(gate["value"]),
+                gate["threshold"],
             )
 
         # Store in backtest_runs
