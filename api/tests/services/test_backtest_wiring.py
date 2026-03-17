@@ -590,3 +590,47 @@ class TestComputeValidationSummary:
         summary = compute_validation_summary(metrics, benchmark_sharpe=0.8)
         sharpe_gate = next(g for g in summary["gates"] if g["name"] == "sharpe_exceeds_benchmark")
         assert sharpe_gate["passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_run_real_backtest_passes_benchmark_prices(self):
+        """run_real_backtest should pass benchmark_prices to the orchestrator."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_engine.backtesting.models import PerformanceMetrics
+        from margin_engine.backtesting.replay_orchestrator import ReplayConfig, ReplayResult
+
+        captured_kwargs: dict = {}
+
+        class MockOrchestrator:
+            def __init__(self, **kwargs):
+                captured_kwargs.update(kwargs)
+
+            async def run_async(self):
+                return ReplayResult(
+                    config=ReplayConfig(),
+                    metrics=PerformanceMetrics(
+                        cagr=0, excess_cagr=0, sharpe_ratio=0, sortino_ratio=0,
+                        max_drawdown=0, win_rate=0, information_ratio=0,
+                        total_return=0, benchmark_total_return=0, num_months=0,
+                        avg_turnover=0,
+                    ),
+                    snapshots=[], audit_log=[], regime_segments={},
+                    factor_timeline=[], duration_seconds=0.0,
+                )
+
+        mock_session = AsyncMock()
+        spy_prices = {date(2020, 1, 1): 300.0, date(2020, 2, 1): 310.0}
+
+        with patch(
+            "margin_engine.backtesting.replay_orchestrator.ReplayOrchestrator",
+            MockOrchestrator,
+        ):
+            with patch("margin_api.services.backtest.DatabasePITProvider"):
+                with patch("margin_api.services.backtest.FactorRegistry"):
+                    from margin_api.services.backtest import run_real_backtest
+
+                    await run_real_backtest(
+                        mock_session, ReplayConfig(), benchmark_prices=spy_prices
+                    )
+
+        assert captured_kwargs.get("benchmark_prices") == spy_prices

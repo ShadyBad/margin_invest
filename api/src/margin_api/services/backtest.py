@@ -445,15 +445,16 @@ async def get_precomputed_default(session: AsyncSession) -> ReplayResult | None:
         return None
 
 
-async def run_real_backtest(session: AsyncSession, config: ReplayConfig) -> ReplayResult:
+async def run_real_backtest(
+    session: AsyncSession,
+    config: ReplayConfig,
+    benchmark_prices: dict[date, float] | None = None,
+) -> ReplayResult:
     """Run a real backtest using DatabasePITProvider and ReplayOrchestrator.
 
     Uses backtest-tuned filter thresholds (lower market cap floor, shorter
-    history requirement) to avoid over-eliminating historical tickers.
-
-    Instantiates the provider, registry, and orchestrator, then runs
-    the async replay. Returns an empty result gracefully when no PIT
-    data exists (orchestrator returns result with num_months=0).
+    history requirement, relaxed dollar volumes) to avoid over-eliminating
+    historical tickers.
     """
     from margin_engine.backtesting.replay_orchestrator import ReplayOrchestrator
     from margin_engine.config.filter_config import backtest_filter_config
@@ -466,6 +467,7 @@ async def run_real_backtest(session: AsyncSession, config: ReplayConfig) -> Repl
         factor_registry=registry,
         filter_config=backtest_filter_config(),
         use_real_scoring=True,
+        benchmark_prices=benchmark_prices or {},
     )
     return await orchestrator.run_async()
 
