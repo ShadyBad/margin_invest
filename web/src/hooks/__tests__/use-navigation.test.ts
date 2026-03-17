@@ -33,6 +33,7 @@ describe("useNavigation", () => {
       const { result } = renderHook(() => useNavigation())
       expect(result.current.links).toEqual([
         { href: "/login", label: "Dashboard", isActive: false },
+        { href: "/explore", label: "Explore", isActive: false },
         { href: "/methodology", label: "Methodology", isActive: false },
         { href: "/guides", label: "Guides", isActive: false },
         { href: "/#pricing", label: "Pricing", isActive: false },

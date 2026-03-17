@@ -44,10 +44,10 @@ describe("HeroSection", () => {
     expect(screen.getByText("Engineered.")).toBeInTheDocument()
   })
 
-  it("renders subheadline about systematic equity analysis", () => {
+  it("renders subheadline about stock filtering", () => {
     render(<HeroSection data={null} />)
     expect(
-      screen.getByText(/Systematic equity analysis/)
+      screen.getByText(/3,000\+ stocks filtered/)
     ).toBeInTheDocument()
   })
 
@@ -66,10 +66,10 @@ describe("HeroSection", () => {
     expect(screen.getByText("Try:")).toBeInTheDocument()
   })
 
-  it("renders five factors and zero emotion tagline", () => {
+  it("renders auditability tagline", () => {
     render(<HeroSection data={null} />)
     expect(
-      screen.getByText(/Five factors\. Zero emotion\./)
+      screen.getByText(/Every score auditable to the formula\./)
     ).toBeInTheDocument()
   })
 })
