@@ -86,6 +86,26 @@ class DatabasePITProvider:
         result = await self._session.execute(stmt)
         return {row.ticker: float(row.close) for row in result.all()}
 
+    async def get_price_series(
+        self, ticker: str, start_date: date, end_date: date
+    ) -> dict[date, float]:
+        """Return all closing prices for a ticker in a date range.
+
+        Used for loading benchmark (SPY) prices for the full backtest window.
+        Returns {date: close_price} dict. Empty dict if no data.
+        """
+        stmt = (
+            select(PITDailyPrice.date, PITDailyPrice.close)
+            .where(
+                PITDailyPrice.ticker == ticker,
+                PITDailyPrice.date >= start_date,
+                PITDailyPrice.date <= end_date,
+            )
+            .order_by(PITDailyPrice.date)
+        )
+        result = await self._session.execute(stmt)
+        return {row.date: float(row.close) for row in result.all()}
+
     async def get_snapshot(self, ticker: str, as_of_date: date) -> PITSnapshot | None:
         """Return point-in-time data for a specific ticker.
 

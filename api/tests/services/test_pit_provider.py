@@ -871,3 +871,55 @@ class TestVolumeAndHistory:
 
         assert len(universe) == 1
         assert universe[0].profile.avg_daily_volume == Decimal("0")
+
+
+# ---------------------------------------------------------------------------
+# get_price_series tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_price_series_returns_date_price_dict(session):
+    """get_price_series returns {date: float} for a ticker in a date range."""
+    for day, close in [(1, 100.0), (2, 101.0), (3, 102.0)]:
+        session.add(PITDailyPrice(
+            ticker="SPY", date=date(2020, 1, day),
+            open=close, high=close, low=close, close=close,
+            adj_close=close, volume=1000000,
+        ))
+    await session.flush()
+
+    provider = DatabasePITProvider(session)
+    prices = await provider.get_price_series("SPY", date(2020, 1, 1), date(2020, 1, 3))
+
+    assert len(prices) == 3
+    assert prices[date(2020, 1, 1)] == 100.0
+    assert prices[date(2020, 1, 2)] == 101.0
+    assert prices[date(2020, 1, 3)] == 102.0
+
+
+@pytest.mark.asyncio
+async def test_get_price_series_filters_by_date_range(session):
+    """get_price_series only returns prices within the requested range."""
+    for day in range(1, 6):
+        session.add(PITDailyPrice(
+            ticker="SPY", date=date(2020, 1, day),
+            open=100.0, high=100.0, low=100.0, close=float(100 + day),
+            adj_close=float(100 + day), volume=1000000,
+        ))
+    await session.flush()
+
+    provider = DatabasePITProvider(session)
+    prices = await provider.get_price_series("SPY", date(2020, 1, 2), date(2020, 1, 4))
+
+    assert len(prices) == 3
+    assert date(2020, 1, 1) not in prices
+    assert date(2020, 1, 5) not in prices
+
+
+@pytest.mark.asyncio
+async def test_get_price_series_empty_when_no_data(session):
+    """get_price_series returns empty dict when ticker has no data."""
+    provider = DatabasePITProvider(session)
+    prices = await provider.get_price_series("NODATA", date(2020, 1, 1), date(2020, 12, 31))
+    assert prices == {}
