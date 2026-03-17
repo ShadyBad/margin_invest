@@ -1,8 +1,8 @@
 # Marketing & Conversion Implementation — Design Spec
 
 **Date**: 2026-03-17
-**Scope**: Phases 1-3 (Tasks 1-13) — frontend/conversion work
-**Out of scope**: Email system (Task 14), Smart Money backend (Task 15) — separate future specs
+**Scope**: Phases 1-3 (Tasks 1-12) — frontend/conversion work
+**Out of scope**: Email system, Smart Money backend — separate future specs
 
 ## Problem
 
@@ -60,7 +60,7 @@ Favicon and OG image assets already exist via Next.js file-based metadata conven
 
 **Test**: Use opengraph.xyz or Twitter Card Validator to verify the dynamic OG image renders on social share (should already work once the stale manual reference is removed).
 
-### Task 5: Create Branded 404 Page
+### Task 4: Create Branded 404 Page
 
 **Priority**: P1 — Trust & professionalism
 **Files**: `web/src/app/not-found.tsx` (new)
@@ -83,7 +83,7 @@ Currently uses default Next.js 404 page.
 
 Four tasks that expand engagement paths and prevent drop-offs.
 
-### Task 6: Add Route Protection via middleware.ts
+### Task 5: Add Route Protection via middleware.ts
 
 **Priority**: P1 — Prevent broken states for unauthenticated users
 **Files**: `web/src/middleware.ts` (new)
@@ -102,7 +102,7 @@ No route protection exists. Unauthenticated users hitting `/dashboard`, `/smart-
 
 **Test**: Visit `/dashboard` logged out → redirected to `/login?callbackUrl=%2Fdashboard`. Log in → redirected back to `/dashboard`. Visit `/explore` logged out → page renders normally.
 
-### Task 7: Install Global Toast System
+### Task 6: Install Global Toast System
 
 **Priority**: P1 — Users get no feedback on actions
 **Files**: `web/package.json`, `web/src/app/layout.tsx`, various interaction points
@@ -124,7 +124,7 @@ No global feedback system exists. Actions complete silently.
 
 **Test**: Perform key actions → verify toast appears with correct styling and auto-dismisses.
 
-### Task 8: Wire Onboarding to Real Scoring
+### Task 7: Wire Onboarding to Real Scoring
 
 **Priority**: P1 — First product interaction is fake
 **Files**: `web/src/components/onboarding/onboarding-flow.tsx`, possibly `web/src/lib/api/scores.ts`
@@ -140,11 +140,11 @@ The onboarding promises "see composite scores in 60 seconds" then fakes a 2-seco
    - "Score" → resolves when all responses arrive
    - "Rank" → brief delay, then redirect
 4. On success: redirect to `/asset/[firstTicker]` so user sees immediate, relevant content. The redirect replaces the unused `"results"` stage — remove it from the `Stage` type.
-5. Fallback: if all calls fail or timeout after 10 seconds, redirect to `/dashboard` with a toast (Task 7) explaining the delay: "Scoring is taking longer than usual. Your results will appear on the dashboard shortly."
+5. Fallback: if all calls fail or timeout after 10 seconds, redirect to `/dashboard` with a toast (Task 6) explaining the delay: "Scoring is taking longer than usual. Your results will appear on the dashboard shortly."
 
 **Test**: Enter AAPL, MSFT in onboarding → verify real API calls made → verify step indicators progress → verify redirect to `/asset/AAPL`. Test timeout fallback by simulating slow API.
 
-### Task 9: Hero Copy Iteration
+### Task 8: Hero Copy Iteration
 
 **Priority**: P2 — Incremental conversion lift
 **Files**: `web/src/components/landing/sections/hero-section.tsx`
@@ -155,7 +155,7 @@ The onboarding promises "see composite scores in 60 seconds" then fakes a 2-seco
    - To: `"3,000+ stocks filtered to the ones worth your capital. Every score auditable to the formula."`
 2. Add secondary CTA inside the `data-hero-ctas` div in `hero-section.tsx`, after the `<HeroSearch />` component:
    - Text: "or browse this week's top picks →"
-   - Link to `/explore` (Task 11)
+   - Link to `/explore` (Task 10)
    - Styled as subtle text link, `text-text-secondary hover:text-accent`, `text-sm`
 
 Keep "Discipline. Engineered." headline unchanged — it's strong.
@@ -168,7 +168,7 @@ Keep "Discipline. Engineered." headline unchanged — it's strong.
 
 Four tasks shipping as one bundled PR. New content that opens additional conversion paths and builds trust.
 
-### Task 10: Comparison Table on Landing Page
+### Task 9: Comparison Table on Landing Page
 
 **Priority**: P2 — Competitive differentiation is buried in FAQ
 **Files**: `web/src/components/landing/sections/comparison-section.tsx` (new), `web/src/components/landing/homepage-client.tsx`
@@ -191,7 +191,7 @@ Four tasks shipping as one bundled PR. New content that opens additional convers
 
 **Test**: Visual review. Verify responsive layout on mobile.
 
-### Task 11: Public Explore / Top Picks Page
+### Task 10: Public Explore / Top Picks Page
 
 **Priority**: P2 — Secondary CTA, SEO, proves system works
 **Files**: `web/src/app/explore/page.tsx` (new), `web/src/components/explore/` (new directory)
@@ -205,11 +205,11 @@ Four tasks shipping as one bundled PR. New content that opens additional convers
 4. Page is public and indexable (no auth required)
 5. Graceful fallback if API is unavailable
 
-**Linked from**: hero section secondary CTA (Task 9), navbar public links (`PUBLIC_LINKS` in `use-navigation.ts`), footer.
+**Linked from**: hero section secondary CTA (Task 8), navbar public links (`PUBLIC_LINKS` in `use-navigation.ts`), footer.
 
 **Test**: Visit `/explore` logged out → see top picks. Click "View full report" → navigates to asset page. Verify page is server-rendered (view source shows content).
 
-### Task 12: About / Founder Page
+### Task 11: About / Founder Page
 
 **Priority**: P2 — Trust & credibility for financial product
 **Files**: `web/src/app/about/page.tsx` (new)
@@ -226,7 +226,7 @@ Four tasks shipping as one bundled PR. New content that opens additional convers
 
 **Test**: Visual review. Verify footer link works.
 
-### Task 13: Social Proof Section on Landing Page
+### Task 12: Social Proof Section on Landing Page
 
 **Priority**: P3 — Important but uses system-generated data
 **Files**: `web/src/components/landing/sections/social-proof-section.tsx` (new), `web/src/components/landing/homepage-client.tsx`
@@ -253,9 +253,9 @@ Each stat gets an icon, the number, and a one-line explanation. Styled as a grid
 
 | Phase | PRs | Rationale |
 |-------|-----|-----------|
-| Phase 1 | 3 individual PRs | Tasks 1, 2, 5 are tiny and independent. Task 3 (metadata cleanup) can bundle with Task 1 |
-| Phase 2 | 4 individual PRs | Tasks 6-9 are independent, different concerns |
-| Phase 3 | 1 bundled PR | Tasks 10-13 land together as a cohesive content launch |
+| Phase 1 | 3 individual PRs | Tasks 1, 2, 4 are tiny and independent. Task 3 (metadata cleanup) can bundle with Task 1 |
+| Phase 2 | 4 individual PRs | Tasks 5-8 are independent, different concerns |
+| Phase 3 | 1 bundled PR | Tasks 9-12 land together as a cohesive content launch |
 
 Total: 8 PRs.
 
@@ -276,5 +276,5 @@ Total: 8 PRs.
 
 ## Deferred to Future Specs
 
-- **Task 14 — Email System**: Score alerts, transactional email (welcome, password reset, weekly digest). Backend infrastructure: Resend integration, HTML templates, notification preferences UI. Separate spec, ~1-2 weeks.
-- **Task 15 — Smart Money Backend**: API endpoints `new-positions` and `crowded_trades` return empty arrays because they need previous-quarter comparison logic. Frontend components (`MarketSignals`, `CloneLab`) are fully built. Separate spec, ~1-2 weeks.
+- **Email System**: Score alerts, transactional email (welcome, password reset, weekly digest). Backend infrastructure: Resend integration, HTML templates, notification preferences UI. Separate spec, ~1-2 weeks.
+- **Smart Money Backend**: API endpoints `new-positions` and `crowded_trades` return empty arrays because they need previous-quarter comparison logic. Frontend components (`MarketSignals`, `CloneLab`) are fully built. Separate spec, ~1-2 weeks.
