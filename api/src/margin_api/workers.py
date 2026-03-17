@@ -46,6 +46,8 @@ from margin_api.db.models import (
     PITDailyPrice,
     PITFinancialSnapshot,
     PITUniverseMembership,
+    RarityDistributionSnapshot,
+    RarityScore,
     ReproducibilityAudit,
     Score,
     SeedValidationReport,
@@ -793,6 +795,17 @@ async def full_score_v4(
             _job_id=f"stage_scores:{uuid.uuid4().hex[:8]}",
         )
         logger.info("[score_v4] Chained -> stage_scores (pipeline=%s)", pipeline_id)
+        # Enqueue rarity computation as independent sidecar
+        await redis.enqueue_job(
+            "compute_rarity",
+            pipeline_id,
+            job_id,
+            scored_at_iso,
+            _job_id=f"compute_rarity:{uuid.uuid4().hex[:8]}",
+        )
+        logger.info(
+            "[score_v4] Chained -> compute_rarity (parallel sidecar, pipeline=%s)", pipeline_id
+        )
     else:
         logger.warning("[score_v4] No redis in worker context — cannot chain to stage_scores")
 
@@ -983,6 +996,239 @@ async def stage_scores(
 
     except Exception as e:
         logger.exception("[stage_scores] Failed: %s", e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "failed", "pipeline_id": pipeline_id, "error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Compute rarity (parallel sidecar after full_score_v4)
+# ---------------------------------------------------------------------------
+
+
+async def compute_rarity(
+    ctx: dict,
+    pipeline_id: str | None = None,
+    parent_job_id: int | None = None,
+    scored_at_iso: str | None = None,
+) -> dict:
+    """Worker entry point: compute rarity scores for V4-scored universe.
+
+    Runs as an independent parallel sidecar immediately after full_score_v4.
+    Reads V4Score rows for the given scored_at, reconstructs CompositeScore
+    objects from the detail JSONB, fetches macro regime data, and writes
+    RarityScore + RarityDistributionSnapshot rows.
+    """
+    import numpy as np
+    from margin_engine.models.scoring import CompositeScore
+    from margin_engine.rarity.models import RarityConfig
+    from margin_engine.rarity.rarity_engine import compute_rarity_for_universe
+    from margin_engine.rarity.regime import classify_regime
+
+    from margin_api.data.macro_data_client import (
+        fetch_credit_spread,
+        fetch_vix,
+        fetch_yield_curve_slope,
+    )
+
+    logger.info(
+        "[compute_rarity] Starting (pipeline=%s, parent=%s, scored_at=%s)",
+        pipeline_id,
+        parent_job_id,
+        scored_at_iso,
+    )
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Create JobRun record
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="compute_rarity",
+            status="running",
+            triggered_by="chained",
+            parent_job_id=parent_job_id,
+            pipeline_id=pipeline_id,
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        scored_at = datetime.fromisoformat(scored_at_iso) if scored_at_iso else datetime.now(UTC)
+
+        # Load V4Score rows with Asset join for the given scored_at
+        async with session_factory() as session:
+            result = await session.execute(
+                select(V4Score, Asset)
+                .join(Asset, V4Score.asset_id == Asset.id)
+                .where(V4Score.scored_at == scored_at)
+            )
+            rows = result.all()
+
+        if not rows:
+            logger.warning(
+                "[compute_rarity] No V4Score rows found for scored_at=%s — skipping", scored_at_iso
+            )
+            async with session_factory() as session:
+                job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+                job = job_result.scalar_one()
+                job.status = "completed"
+                job.progress = 1.0
+                job.completed_at = datetime.now(UTC)
+                await session.commit()
+            return {"status": "completed", "pipeline_id": pipeline_id, "rarity_count": 0}
+
+        # Reconstruct CompositeScore objects from detail JSONB
+        composites: list[CompositeScore] = []
+        asset_id_by_ticker: dict[str, int] = {}
+        for v4_score, asset in rows:
+            if not v4_score.detail:
+                continue
+            try:
+                composite = CompositeScore(**v4_score.detail)
+                composites.append(composite)
+                asset_id_by_ticker[composite.ticker] = asset.id
+            except Exception as exc:
+                logger.warning(
+                    "[compute_rarity] Failed to reconstruct CompositeScore for asset_id=%d: %s",
+                    v4_score.asset_id,
+                    exc,
+                )
+
+        if not composites:
+            logger.warning("[compute_rarity] All detail JSONB failed to reconstruct — skipping")
+            async with session_factory() as session:
+                job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+                job = job_result.scalar_one()
+                job.status = "completed"
+                job.progress = 1.0
+                job.completed_at = datetime.now(UTC)
+                await session.commit()
+            return {"status": "completed", "pipeline_id": pipeline_id, "rarity_count": 0}
+
+        # Fetch macro regime indicators (all fallback gracefully)
+        vix = await fetch_vix()
+        yield_curve = await fetch_yield_curve_slope()
+        credit_spread = await fetch_credit_spread()
+        regime = classify_regime(vix, yield_curve, credit_spread)
+
+        logger.info(
+            "[compute_rarity] Regime: %s (vix=%.1f, yield_curve=%.2f, credit_spread=%.2f)",
+            regime,
+            vix,
+            yield_curve,
+            credit_spread,
+        )
+
+        # Compute rarity for all composites
+        config = RarityConfig()
+        results = compute_rarity_for_universe(composites, regime, [], config)
+
+        # Write RarityScore rows
+        rarity_rows: list[RarityScore] = []
+        for rr in results:
+            asset_id = asset_id_by_ticker.get(rr.ticker)
+            if asset_id is None:
+                logger.warning("[compute_rarity] No asset_id for ticker=%s — skipping", rr.ticker)
+                continue
+            rarity_rows.append(
+                RarityScore(
+                    asset_id=asset_id,
+                    scored_at=scored_at,
+                    rarity_score=rr.rarity_score,
+                    joint_rarity_pctl=rr.dimensions.joint_rarity_pctl,
+                    convergence_score=rr.dimensions.convergence_score,
+                    historical_frequency=rr.dimensions.historical_frequency,
+                    quality_momentum=rr.dimensions.quality_momentum,
+                    smart_money_score=rr.dimensions.smart_money_score,
+                    regime_alignment=rr.dimensions.regime_alignment,
+                    combination_signature=rr.combination_signature,
+                    regime=str(regime),
+                    conviction_score=rr.conviction_score,
+                    is_generational=rr.is_generational,
+                    detail={
+                        "pillar_percentiles": rr.pillar_percentiles,
+                        "passed_gates": rr.passed_gates,
+                        "composite_tier": rr.composite_tier,
+                        "composite_raw_score": rr.composite_raw_score,
+                    },
+                    universe_size=rr.universe_size,
+                )
+            )
+
+        async with session_factory() as session:
+            session.add_all(rarity_rows)
+            await session.commit()
+
+        logger.info("[compute_rarity] Wrote %d RarityScore rows", len(rarity_rows))
+
+        # Build distribution snapshots from pillar_percentiles across all results
+        pillar_buckets: dict[str, list[float]] = {}
+        for rr in results:
+            for fname, val in rr.pillar_percentiles.items():
+                pillar_buckets.setdefault(fname, []).append(val)
+
+        snapshot_rows: list[RarityDistributionSnapshot] = []
+        for fname, vals in pillar_buckets.items():
+            if not vals:
+                continue
+            arr = np.array(vals)
+            snap = RarityDistributionSnapshot(
+                scored_at=scored_at,
+                scope="universe",
+                factor_name=fname,
+                n_obs=len(vals),
+                percentiles={
+                    f"p{p}": round(float(np.percentile(arr, p)), 2)
+                    for p in [5, 10, 25, 50, 75, 90, 95]
+                },
+                mean=round(float(arr.mean()), 2),
+                std=round(float(arr.std()), 2),
+            )
+            snapshot_rows.append(snap)
+
+        if snapshot_rows:
+            async with session_factory() as session:
+                session.add_all(snapshot_rows)
+                await session.commit()
+            logger.info(
+                "[compute_rarity] Wrote %d RarityDistributionSnapshot rows", len(snapshot_rows)
+            )
+
+        # Mark job completed
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            job_result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = job_result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        logger.info(
+            "[compute_rarity] Complete: %d rarity scores, regime=%s", len(rarity_rows), regime
+        )
+        return {
+            "status": "completed",
+            "pipeline_id": pipeline_id,
+            "rarity_count": len(rarity_rows),
+            "regime": str(regime),
+        }
+
+    except Exception as e:
+        logger.exception("[compute_rarity] Failed: %s", e)
         reset_engine_cache()
         engine = get_engine()
         session_factory = get_session_factory(engine)
@@ -3851,6 +4097,7 @@ class WorkerSettings:
         arq_func(full_score_v3, timeout=7200),
         arq_func(full_score_v4, timeout=7200),
         stage_scores,
+        arq_func(compute_rarity, timeout=300),
         publish_scores,
         promote_ml_model,
         backtest_validate,

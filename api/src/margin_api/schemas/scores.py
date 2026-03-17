@@ -170,6 +170,10 @@ class ScoreResponse(BaseModel):
     # Conditionally included via ?include=
     price_history: list[PriceBarResponse] | None = None
     signal_history: list[SignalTransitionResponse] | None = None
+    # Rarity engine fields (populated when rarity sidecar has run)
+    rarity_score: float | None = None
+    is_generational: bool | None = None
+    combination_signature: str | None = None
 
     @classmethod
     def from_engine(cls, score: CompositeScore) -> ScoreResponse:

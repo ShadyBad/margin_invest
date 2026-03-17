@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -84,6 +85,7 @@ class FactorScore(BaseModel):
     detail: str = ""
     weight: float | None = None  # optional sub-factor weight within pillar
     stub: bool = False
+    metadata: dict[str, Any] | None = None
 
     @field_validator("percentile_rank")
     @classmethod
