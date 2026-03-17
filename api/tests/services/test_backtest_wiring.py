@@ -547,8 +547,8 @@ class TestRunRealBacktestUsesRealScoring:
 class TestComputeValidationSummary:
     def test_all_gates_pass_with_good_metrics(self):
         """Validation summary should pass all gates for strong metrics."""
-        from margin_engine.backtesting.models import PerformanceMetrics
         from margin_api.services.backtest import compute_validation_summary
+        from margin_engine.backtesting.models import PerformanceMetrics
 
         metrics = PerformanceMetrics(
             cagr=0.12, excess_cagr=0.04, sharpe_ratio=1.1,
@@ -562,8 +562,8 @@ class TestComputeValidationSummary:
 
     def test_fails_when_cagr_negative(self):
         """Negative CAGR should fail the CAGR gate."""
-        from margin_engine.backtesting.models import PerformanceMetrics
         from margin_api.services.backtest import compute_validation_summary
+        from margin_engine.backtesting.models import PerformanceMetrics
 
         metrics = PerformanceMetrics(
             cagr=-0.02, excess_cagr=-0.05, sharpe_ratio=0.3,
@@ -578,8 +578,8 @@ class TestComputeValidationSummary:
 
     def test_fails_when_sharpe_below_benchmark(self):
         """Sharpe below benchmark should fail the sharpe gate."""
-        from margin_engine.backtesting.models import PerformanceMetrics
         from margin_api.services.backtest import compute_validation_summary
+        from margin_engine.backtesting.models import PerformanceMetrics
 
         metrics = PerformanceMetrics(
             cagr=0.08, excess_cagr=0.01, sharpe_ratio=0.5,

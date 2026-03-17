@@ -9,7 +9,7 @@ import pytest
 import pytest_asyncio
 from margin_api.db.base import Base
 from margin_api.db.models import Asset, PipelineApproval, V4Score
-from margin_api.workers import AUTO_APPROVE_MAX_CONVICTION_CHANGE_PCT, _stage_scores_impl
+from margin_api.workers import _stage_scores_impl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 

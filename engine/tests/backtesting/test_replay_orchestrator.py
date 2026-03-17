@@ -325,7 +325,9 @@ class TestReplayOrchestrator:
 
 
 def test_run_populates_gross_return_with_costs():
-    """gross_return should reflect pre-cost return and exceed portfolio_return when costs are nonzero.
+    """gross_return should reflect pre-cost return and exceed portfolio_return.
+
+    Costs are nonzero.
 
     Scenario:
       Month 1: AAA scores high (net_income=10_000) -> selected; BBB scores low.
@@ -430,6 +432,6 @@ def test_run_populates_gross_return_with_costs():
             # When there is a real price return, gross_return > portfolio_return
             # (gross captures pre-cost value; portfolio_return is net-of-cost)
             assert s.gross_return > s.portfolio_return, (
-                f"gross_return ({s.gross_return}) should exceed portfolio_return ({s.portfolio_return}) "
-                "when transaction costs are nonzero and price return exists"
+                f"gross={s.gross_return} should exceed "
+                f"net={s.portfolio_return} when costs nonzero"
             )
