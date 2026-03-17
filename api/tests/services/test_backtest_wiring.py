@@ -537,3 +537,56 @@ class TestRunRealBacktestUsesRealScoring:
         assert isinstance(fc, FilterConfig)
         assert fc.liquidity.min_years_of_history == 1
         assert fc.liquidity.market_cap_minimum.default == 100_000_000
+
+
+# ---------------------------------------------------------------------------
+# Validation gate tests
+# ---------------------------------------------------------------------------
+
+
+class TestComputeValidationSummary:
+    def test_all_gates_pass_with_good_metrics(self):
+        """Validation summary should pass all gates for strong metrics."""
+        from margin_engine.backtesting.models import PerformanceMetrics
+        from margin_api.services.backtest import compute_validation_summary
+
+        metrics = PerformanceMetrics(
+            cagr=0.12, excess_cagr=0.04, sharpe_ratio=1.1,
+            sortino_ratio=1.5, max_drawdown=0.25, win_rate=0.58,
+            information_ratio=0.7, total_return=4.0,
+            benchmark_total_return=2.5, num_months=180, avg_turnover=0.20,
+        )
+        summary = compute_validation_summary(metrics, benchmark_sharpe=0.8)
+        assert summary["overall_pass"] is True
+        assert all(g["passed"] for g in summary["gates"])
+
+    def test_fails_when_cagr_negative(self):
+        """Negative CAGR should fail the CAGR gate."""
+        from margin_engine.backtesting.models import PerformanceMetrics
+        from margin_api.services.backtest import compute_validation_summary
+
+        metrics = PerformanceMetrics(
+            cagr=-0.02, excess_cagr=-0.05, sharpe_ratio=0.3,
+            sortino_ratio=0.4, max_drawdown=0.45, win_rate=0.40,
+            information_ratio=-0.2, total_return=-0.2,
+            benchmark_total_return=2.5, num_months=180, avg_turnover=0.20,
+        )
+        summary = compute_validation_summary(metrics, benchmark_sharpe=0.8)
+        assert summary["overall_pass"] is False
+        cagr_gate = next(g for g in summary["gates"] if g["name"] == "cagr_positive")
+        assert cagr_gate["passed"] is False
+
+    def test_fails_when_sharpe_below_benchmark(self):
+        """Sharpe below benchmark should fail the sharpe gate."""
+        from margin_engine.backtesting.models import PerformanceMetrics
+        from margin_api.services.backtest import compute_validation_summary
+
+        metrics = PerformanceMetrics(
+            cagr=0.08, excess_cagr=0.01, sharpe_ratio=0.5,
+            sortino_ratio=0.7, max_drawdown=0.30, win_rate=0.52,
+            information_ratio=0.3, total_return=2.0,
+            benchmark_total_return=1.8, num_months=180, avg_turnover=0.20,
+        )
+        summary = compute_validation_summary(metrics, benchmark_sharpe=0.8)
+        sharpe_gate = next(g for g in summary["gates"] if g["name"] == "sharpe_exceeds_benchmark")
+        assert sharpe_gate["passed"] is False
