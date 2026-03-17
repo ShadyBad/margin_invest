@@ -2,6 +2,7 @@
 
 import { HeroSection } from "./sections/hero-section"
 import { AuthorityStrip } from "./sections/authority-strip"
+import { SocialProofSection } from "./sections/social-proof-section"
 import { EvidenceSection } from "./sections/evidence-section"
 import { PipelineSection } from "./sections/pipeline-section"
 import { ResultsShowcaseSection } from "./sections/results-showcase-section"
@@ -20,6 +21,7 @@ export function HomepageClient({ data }: HomepageClientProps) {
     <ScrollCanvas>
       <HeroSection data={data} />
       <AuthorityStrip data={data} />
+      <SocialProofSection data={data} />
       <EvidenceSection
         candidates={data?.allPicks ?? []}
         totalUniverse={data?.total_universe}
