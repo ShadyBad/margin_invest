@@ -464,21 +464,21 @@ describe("middleware", () => {
     mockedGetToken.mockResolvedValue({ sub: "user-1" } as never)
     const req = createRequest("/dashboard")
     const res = await middleware(req)
-    expect(res).toEqual(NextResponse.next())
+    expect(res?.headers.get("location")).toBeNull()
   })
 
   it("allows unauthenticated users to access /explore", async () => {
     mockedGetToken.mockResolvedValue(null)
     const req = createRequest("/explore")
     const res = await middleware(req)
-    expect(res).toEqual(NextResponse.next())
+    expect(res?.headers.get("location")).toBeNull()
   })
 
   it("allows unauthenticated users to access /methodology", async () => {
     mockedGetToken.mockResolvedValue(null)
     const req = createRequest("/methodology")
     const res = await middleware(req)
-    expect(res).toEqual(NextResponse.next())
+    expect(res?.headers.get("location")).toBeNull()
   })
 
   it("exports a matcher config excluding static assets and API routes", () => {
@@ -689,8 +689,8 @@ describe("OnboardingFlow", () => {
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith("/dashboard")
-    }, { timeout: 15000 })
-  })
+    }, { timeout: 12000 })
+  }, 15000) // Extend Vitest test timeout — the 10s abort controller needs time to fire
 })
 ```
 
@@ -865,45 +865,46 @@ Systematic equity analysis. Five factors. Zero emotion.
 
 - [ ] **Step 2: Add secondary CTA below HeroSearch**
 
-In the `data-hero-ctas` div in `hero-section.tsx`, add after `<HeroSearch />`:
+Inside the existing `<div data-hero-ctas className="max-w-md">` in `hero-section.tsx`, add a `<p>` element after the `<HeroSearch />` component. Do NOT recreate the wrapper div — it already exists at line 122.
+
+Add `import Link from "next/link"` at the top of the file. Then the div becomes:
 
 ```typescript
 <div data-hero-ctas className="max-w-md">
   <HeroSearch />
   <p className="mt-4 text-sm text-text-secondary">
     or{" "}
-    <a
+    <Link
       href="/explore"
       className="text-text-secondary hover:text-accent transition-colors underline underline-offset-2"
     >
       browse this week&apos;s top picks &rarr;
-    </a>
+    </Link>
   </p>
 </div>
 ```
 
-Add `import Link from "next/link"` at the top if not already present, and use `<Link>` instead of `<a>` for client-side navigation:
+- [ ] **Step 3: Update existing hero section test for new subline text**
+
+The existing test at `web/src/components/landing/sections/__tests__/hero-section.test.tsx` asserts the old subline text. Find the test that checks for `"Systematic equity analysis. Five factors. Zero emotion."` and update it to match the new text:
 
 ```typescript
-import Link from "next/link"
-// ...
-<Link
-  href="/explore"
-  className="text-text-secondary hover:text-accent transition-colors underline underline-offset-2"
->
-  browse this week&apos;s top picks &rarr;
-</Link>
+it("renders the subtext", () => {
+  expect(
+    screen.getByText("3,000+ stocks filtered to the ones worth your capital. Every score auditable to the formula.")
+  ).toBeInTheDocument()
+})
 ```
 
-- [ ] **Step 3: Run existing hero section tests**
+- [ ] **Step 4: Run hero section tests**
 
-Run: `cd web && npx vitest run --reporter=verbose 2>&1 | grep -i hero | head -10`
-Expected: Existing tests pass (or identify any that need updating for the new text)
+Run: `cd web && npx vitest run src/components/landing/sections/__tests__/hero-section.test.tsx`
+Expected: All tests PASS
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add web/src/components/landing/sections/hero-section.tsx
+git add web/src/components/landing/sections/hero-section.tsx web/src/components/landing/sections/__tests__/hero-section.test.tsx
 git commit -m "feat(web): update hero copy and add secondary explore CTA"
 ```
 
@@ -1095,20 +1096,24 @@ vi.mock("@/lib/api/client", () => ({
 }))
 
 const mockScores = {
-  items: [
+  scores: [
     {
       ticker: "AAPL",
-      company_name: "Apple Inc.",
+      name: "Apple Inc.",
       sector: "Technology",
       composite_percentile: 85,
       composite_tier: "high",
+      score: 72,
+      signal: "strong",
     },
     {
       ticker: "MSFT",
-      company_name: "Microsoft Corp.",
+      name: "Microsoft Corp.",
       sector: "Technology",
       composite_percentile: 78,
       composite_tier: "high",
+      score: 68,
+      signal: "strong",
     },
   ],
   total: 2,
@@ -1129,7 +1134,7 @@ describe("ExploreClient", () => {
   })
 
   it("renders empty state when no data", () => {
-    render(<ExploreClient initialData={{ items: [], total: 0, page: 1, page_size: 20 }} />)
+    render(<ExploreClient initialData={{ scores: [], total: 0, page: 1, page_size: 20 }} />)
     expect(screen.getByText(/no scored assets/i)).toBeInTheDocument()
   })
 })
@@ -1151,14 +1156,14 @@ import Link from "next/link"
 
 interface ScoreItem {
   ticker: string
-  company_name: string
-  sector: string
+  name: string
+  sector?: string | null
   composite_percentile: number
   composite_tier: string
 }
 
 interface ScoreListData {
-  items: ScoreItem[]
+  scores: ScoreItem[]
   total: number
   page: number
   page_size: number
@@ -1179,9 +1184,9 @@ function tierColor(tier: string): string {
 }
 
 export function ExploreClient({ initialData }: ExploreClientProps) {
-  const { items } = initialData
+  const { scores } = initialData
 
-  if (items.length === 0) {
+  if (scores.length === 0) {
     return (
       <div className="terminal-card p-12 text-center">
         <p className="text-text-secondary">No scored assets available right now. Check back after the next scoring cycle.</p>
@@ -1191,7 +1196,7 @@ export function ExploreClient({ initialData }: ExploreClientProps) {
 
   return (
     <div className="space-y-3">
-      {items.map((item) => (
+      {scores.map((item) => (
         <Link
           key={item.ticker}
           href={`/asset/${item.ticker}`}
@@ -1202,8 +1207,8 @@ export function ExploreClient({ initialData }: ExploreClientProps) {
               {item.ticker}
             </span>
             <div className="min-w-0">
-              <p className="text-sm text-text-primary truncate">{item.company_name}</p>
-              <p className="text-xs text-text-tertiary">{item.sector}</p>
+              <p className="text-sm text-text-primary truncate">{item.name}</p>
+              <p className="text-xs text-text-tertiary">{item.sector ?? "—"}</p>
             </div>
           </div>
           <div className="flex items-center gap-4 shrink-0">
@@ -1245,10 +1250,10 @@ export const metadata: Metadata = {
 }
 
 interface ScoreListResponse {
-  items: Array<{
+  scores: Array<{
     ticker: string
-    company_name: string
-    sector: string
+    name: string
+    sector?: string | null
     composite_percentile: number
     composite_tier: string
   }>
@@ -1263,7 +1268,7 @@ async function getTopPicks(): Promise<ScoreListResponse> {
       "/api/v1/scores?page=1&page_size=20&min_percentile=70"
     )
   } catch {
-    return { items: [], total: 0, page: 1, page_size: 20 }
+    return { scores: [], total: 0, page: 1, page_size: 20 }
   }
 }
 
