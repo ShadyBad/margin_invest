@@ -455,6 +455,7 @@ class BacktestRun(Base):
     seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
     environment_snapshot: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     pit_data_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     results: Mapped[list[BacktestResult]] = relationship(back_populates="run")
 
