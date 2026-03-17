@@ -202,9 +202,9 @@ class FilterConfig(BaseModel):
 def backtest_filter_config() -> FilterConfig:
     """Return a FilterConfig with relaxed thresholds for PIT backtesting.
 
-    Reduces min_years_of_history (5 → 1) and market_cap floor ($300M → $100M)
-    to avoid over-eliminating historical tickers. Financial health filters
-    (beneish, altman, FCF, etc.) remain at production defaults.
+    Reduces min_years_of_history (5 -> 1), market_cap floor ($300M -> $100M),
+    and dollar volume tiers (halved) to avoid over-eliminating historical
+    tickers when markets were less liquid.
     """
     return FilterConfig(
         liquidity=LiquidityConfig(
@@ -213,6 +213,12 @@ def backtest_filter_config() -> FilterConfig:
                 default=100_000_000,
                 utilities=500_000_000,
                 energy=250_000_000,
+            ),
+            dollar_volume=DollarVolumeTiers(
+                mega=25_000_000,
+                large=10_000_000,
+                mid=2_500_000,
+                small=1_000_000,
             ),
         ),
     )
