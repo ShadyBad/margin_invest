@@ -69,7 +69,7 @@ describe("HeroSection", () => {
   it("renders the subtext", () => {
     render(<HeroSection data={mockData} />)
     expect(
-      screen.getByText("Systematic equity analysis. Five factors. Zero emotion.")
+      screen.getByText("3,000+ stocks filtered to the ones worth your capital. Every score auditable to the formula.")
     ).toBeInTheDocument()
   })
 

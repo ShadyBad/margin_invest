@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import Link from "next/link"
 import type { HomepageData } from "../shared/types"
 import { HeroSearch } from "../hero-search"
 import { InstrumentPanel } from "./instrument-panel"
@@ -116,11 +117,20 @@ export function HeroSection({ data }: HeroSectionProps) {
             data-hero-subtext
             className="text-body text-text-secondary max-w-xl mb-10 leading-relaxed"
           >
-            Systematic equity analysis. Five factors. Zero emotion.
+            3,000+ stocks filtered to the ones worth your capital. Every score auditable to the formula.
           </p>
 
           <div data-hero-ctas className="max-w-md">
             <HeroSearch />
+            <p className="mt-4 text-sm text-text-secondary">
+              or{" "}
+              <Link
+                href="/explore"
+                className="text-text-secondary hover:text-accent transition-colors underline underline-offset-2"
+              >
+                browse this week&apos;s top picks &rarr;
+              </Link>
+            </p>
           </div>
         </div>
 
