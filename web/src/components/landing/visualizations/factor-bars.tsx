@@ -11,8 +11,8 @@ interface FactorBarsProps {
     quality: number // 0-100 percentile
     value: number
     momentum: number
-    sentiment: number
-    growth: number
+    sentiment: number | null
+    growth: number | null
   }
   compact?: boolean // smaller variant for inline use
 }
@@ -40,8 +40,7 @@ export function FactorBars({ factors, compact = false }: FactorBarsProps) {
     <div className={`flex flex-col ${compact ? "gap-2.5" : "gap-3"}`}>
       {FACTOR_ORDER.map((key) => {
         const raw = factors[key]
-        const value = clamp(Math.round(raw), 0, 100)
-        const color = getPercentileColor(value)
+        const isUnavailable = raw === null || raw === undefined
 
         return (
           <div key={key} className="group/bar flex items-center gap-3 cursor-default">
@@ -50,22 +49,37 @@ export function FactorBars({ factors, compact = false }: FactorBarsProps) {
               {key.toUpperCase()}
             </span>
 
-            {/* Bar track */}
-            <div
-              className={`relative flex-1 rounded-full bg-white/5 overflow-hidden ${compact ? "h-1" : "h-1.5"} transition-all duration-200 group-hover/bar:bg-white/10`}
-              data-factor-track
-            >
-              <div
-                className="h-full rounded-full transition-all duration-500 group-hover/bar:brightness-125"
-                style={{ width: `${value}%`, backgroundColor: color }}
-                data-factor-bar
-              />
-            </div>
+            {isUnavailable ? (
+              <>
+                {/* Empty track for unavailable factors */}
+                <div
+                  className={`relative flex-1 rounded-full bg-white/5 overflow-hidden ${compact ? "h-1" : "h-1.5"}`}
+                  data-factor-track
+                />
+                <span className="font-mono text-[10px] text-text-tertiary w-7 text-right">
+                  N/A
+                </span>
+              </>
+            ) : (
+              <>
+                {/* Bar track */}
+                <div
+                  className={`relative flex-1 rounded-full bg-white/5 overflow-hidden ${compact ? "h-1" : "h-1.5"} transition-all duration-200 group-hover/bar:bg-white/10`}
+                  data-factor-track
+                >
+                  <div
+                    className="h-full rounded-full transition-all duration-500 group-hover/bar:brightness-125"
+                    style={{ width: `${clamp(Math.round(raw), 0, 100)}%`, backgroundColor: getPercentileColor(clamp(Math.round(raw), 0, 100)) }}
+                    data-factor-bar
+                  />
+                </div>
 
-            {/* Numeric value */}
-            <span className="font-mono text-[11px] text-text-secondary w-7 text-right tabular-nums transition-colors duration-200 group-hover/bar:text-text-primary">
-              {value}
-            </span>
+                {/* Numeric value */}
+                <span className="font-mono text-[11px] text-text-secondary w-7 text-right tabular-nums transition-colors duration-200 group-hover/bar:text-text-primary">
+                  {clamp(Math.round(raw), 0, 100)}
+                </span>
+              </>
+            )}
           </div>
         )
       })}

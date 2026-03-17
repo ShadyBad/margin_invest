@@ -155,13 +155,17 @@ export function AssetDetailView({
         sectorMedian: null,
       }))
 
-  // Build 5-factor percentiles for the FactorPanel
+  // Build 5-factor percentiles for the FactorPanel.
+  // Sentiment lives as a sub-score within momentum; growth is its own pillar.
+  const sentimentSubScore = scoreData.momentum?.sub_scores?.find(
+    (s) => s.name === "sentiment"
+  )
   const factorPercentiles = {
     quality: scoreData.quality.average_percentile,
     value: scoreData.value.average_percentile,
     momentum: scoreData.momentum.average_percentile,
-    sentiment: scoreData.capital_allocation?.average_percentile ?? 50,
-    growth: scoreData.catalyst?.average_percentile ?? 50,
+    sentiment: sentimentSubScore?.percentile_rank ?? null,
+    growth: scoreData.growth?.average_percentile ?? null,
   }
 
   const hasPriceData =

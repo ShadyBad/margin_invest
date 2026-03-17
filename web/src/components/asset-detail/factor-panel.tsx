@@ -12,8 +12,8 @@ export interface FactorPanelFactors {
   quality: number
   value: number
   momentum: number
-  sentiment: number
-  growth: number
+  sentiment: number | null
+  growth: number | null
 }
 
 interface FactorPanelProps {

@@ -82,6 +82,7 @@ export interface ScoreResponse {
   timing_signal?: string | null
   capital_allocation?: FactorBreakdownResponse | null
   catalyst?: FactorBreakdownResponse | null
+  growth?: FactorBreakdownResponse | null
   price_target_invalid_reason?: string | null
   // Asset context fields
   sector?: string | null

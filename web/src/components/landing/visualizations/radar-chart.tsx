@@ -12,8 +12,8 @@ interface RadarChartProps {
     quality: number // 0-100
     value: number
     momentum: number
-    sentiment: number
-    growth: number
+    sentiment: number | null
+    growth: number | null
   }
   size?: number // default 200
   className?: string
@@ -51,7 +51,10 @@ export function RadarChart({
   const cy = size / 2
   const radius = size * 0.35 // Leave room for labels
 
-  const values = FACTOR_KEYS.map((key) => Math.max(0, Math.min(100, factors[key])))
+  const values = FACTOR_KEYS.map((key) => {
+    const v = factors[key]
+    return v != null ? Math.max(0, Math.min(100, v)) : 0
+  })
 
   const refPoints = polygonPoints(cx, cy, radius)
   const dataPoints = polygonPoints(cx, cy, radius, values)
@@ -120,6 +123,7 @@ export function RadarChart({
       {/* Labels at each vertex */}
       {FACTOR_KEYS.map((key, i) => {
         const [x, y] = vertex(cx, cy, radius + LABEL_OFFSET, i)
+        const isUnavailable = factors[key] == null
         return (
           <text
             key={`label-${key}`}
@@ -133,6 +137,7 @@ export function RadarChart({
               fontFamily: "var(--font-mono, monospace)",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
+              opacity: isUnavailable ? 0.4 : 1,
             }}
           >
             {key}

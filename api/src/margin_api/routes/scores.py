@@ -70,6 +70,7 @@ def _score_response_from_row(
                 "momentum",
                 "capital_allocation",
                 "catalyst",
+                "growth",
             ):
                 factor = detail.get(factor_key)
                 if (
@@ -239,7 +240,7 @@ def _v4_score_response_from_row(
     for f in detail.get("filters_passed", []):
         f.setdefault("sector_pass_rate", sector_rates.get(f.get("name")))
 
-    for factor_key in ("quality", "value", "momentum", "capital_allocation", "catalyst"):
+    for factor_key in ("quality", "value", "momentum", "capital_allocation", "catalyst", "growth"):
         factor = detail.get(factor_key)
         if factor is not None and isinstance(factor, dict) and "average_percentile" not in factor:
             subs = factor.get("sub_scores", [])

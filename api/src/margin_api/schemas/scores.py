@@ -135,6 +135,7 @@ class ScoreResponse(BaseModel):
     timing_signal: str | None = None
     capital_allocation: FactorBreakdownResponse | None = None
     catalyst: FactorBreakdownResponse | None = None
+    growth: FactorBreakdownResponse | None = None
     # Live price and freshness fields
     data_freshness: str = "expired"  # "fresh", "stale", "expired"
     price_source: str = "daily_close"  # "live" or "daily_close"
@@ -218,6 +219,7 @@ class ScoreResponse(BaseModel):
                 else None
             ),
             catalyst=_breakdown_from_engine(score.catalyst) if score.catalyst else None,
+            growth=_breakdown_from_engine(score.growth) if score.growth else None,
         )
 
 

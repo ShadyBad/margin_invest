@@ -89,4 +89,32 @@ describe("FactorBars", () => {
     expect(bars[3]).toHaveStyle({ width: "100%" })
     expect(bars[4]).toHaveStyle({ width: "50%" })
   })
+
+  test("renders N/A for null factor values instead of a bar", () => {
+    const nullFactors = {
+      quality: 85,
+      value: 72,
+      momentum: 65,
+      sentiment: null,
+      growth: null,
+    }
+    render(<FactorBars factors={nullFactors} />)
+    // Should show N/A labels for null factors
+    const naLabels = screen.getAllByText("N/A")
+    expect(naLabels).toHaveLength(2)
+    // Should not render bars for null factors (only 3 bars for quality/value/momentum)
+  })
+
+  test("renders bars only for non-null factors when some are null", () => {
+    const mixedFactors = {
+      quality: 85,
+      value: 72,
+      momentum: 65,
+      sentiment: null,
+      growth: null,
+    }
+    const { container } = render(<FactorBars factors={mixedFactors} />)
+    const bars = container.querySelectorAll("[data-factor-bar]")
+    expect(bars).toHaveLength(3) // only quality, value, momentum
+  })
 })
