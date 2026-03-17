@@ -432,6 +432,5 @@ def test_run_populates_gross_return_with_costs():
             # When there is a real price return, gross_return > portfolio_return
             # (gross captures pre-cost value; portfolio_return is net-of-cost)
             assert s.gross_return > s.portfolio_return, (
-                f"gross={s.gross_return} should exceed "
-                f"net={s.portfolio_return} when costs nonzero"
+                f"gross={s.gross_return} should exceed net={s.portfolio_return} when costs nonzero"
             )

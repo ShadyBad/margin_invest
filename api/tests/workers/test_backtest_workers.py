@@ -162,7 +162,7 @@ async def test_precompute_runs_with_pit_data():
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
             {"scalar_one": 100},  # PIT count → nonzero
-            {"scalar_one": 10},   # SPY count → already seeded
+            {"scalar_one": 10},  # SPY count → already seeded
         ]
     )
 
@@ -221,7 +221,7 @@ async def test_precompute_captures_replay_error():
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
             {"scalar_one": 100},  # PIT count → nonzero
-            {"scalar_one": 10},   # SPY count → already seeded
+            {"scalar_one": 10},  # SPY count → already seeded
         ]
     )
 

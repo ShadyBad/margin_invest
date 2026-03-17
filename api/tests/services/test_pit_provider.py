@@ -882,11 +882,18 @@ class TestVolumeAndHistory:
 async def test_get_price_series_returns_date_price_dict(session):
     """get_price_series returns {date: float} for a ticker in a date range."""
     for day, close in [(1, 100.0), (2, 101.0), (3, 102.0)]:
-        session.add(PITDailyPrice(
-            ticker="SPY", date=date(2020, 1, day),
-            open=close, high=close, low=close, close=close,
-            adj_close=close, volume=1000000,
-        ))
+        session.add(
+            PITDailyPrice(
+                ticker="SPY",
+                date=date(2020, 1, day),
+                open=close,
+                high=close,
+                low=close,
+                close=close,
+                adj_close=close,
+                volume=1000000,
+            )
+        )
     await session.flush()
 
     provider = DatabasePITProvider(session)
@@ -902,11 +909,18 @@ async def test_get_price_series_returns_date_price_dict(session):
 async def test_get_price_series_filters_by_date_range(session):
     """get_price_series only returns prices within the requested range."""
     for day in range(1, 6):
-        session.add(PITDailyPrice(
-            ticker="SPY", date=date(2020, 1, day),
-            open=100.0, high=100.0, low=100.0, close=float(100 + day),
-            adj_close=float(100 + day), volume=1000000,
-        ))
+        session.add(
+            PITDailyPrice(
+                ticker="SPY",
+                date=date(2020, 1, day),
+                open=100.0,
+                high=100.0,
+                low=100.0,
+                close=float(100 + day),
+                adj_close=float(100 + day),
+                volume=1000000,
+            )
+        )
     await session.flush()
 
     provider = DatabasePITProvider(session)

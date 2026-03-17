@@ -551,10 +551,17 @@ class TestComputeValidationSummary:
         from margin_engine.backtesting.models import PerformanceMetrics
 
         metrics = PerformanceMetrics(
-            cagr=0.12, excess_cagr=0.04, sharpe_ratio=1.1,
-            sortino_ratio=1.5, max_drawdown=0.25, win_rate=0.58,
-            information_ratio=0.7, total_return=4.0,
-            benchmark_total_return=2.5, num_months=180, avg_turnover=0.20,
+            cagr=0.12,
+            excess_cagr=0.04,
+            sharpe_ratio=1.1,
+            sortino_ratio=1.5,
+            max_drawdown=0.25,
+            win_rate=0.58,
+            information_ratio=0.7,
+            total_return=4.0,
+            benchmark_total_return=2.5,
+            num_months=180,
+            avg_turnover=0.20,
         )
         summary = compute_validation_summary(metrics, benchmark_sharpe=0.8)
         assert summary["overall_pass"] is True
@@ -566,10 +573,17 @@ class TestComputeValidationSummary:
         from margin_engine.backtesting.models import PerformanceMetrics
 
         metrics = PerformanceMetrics(
-            cagr=-0.02, excess_cagr=-0.05, sharpe_ratio=0.3,
-            sortino_ratio=0.4, max_drawdown=0.45, win_rate=0.40,
-            information_ratio=-0.2, total_return=-0.2,
-            benchmark_total_return=2.5, num_months=180, avg_turnover=0.20,
+            cagr=-0.02,
+            excess_cagr=-0.05,
+            sharpe_ratio=0.3,
+            sortino_ratio=0.4,
+            max_drawdown=0.45,
+            win_rate=0.40,
+            information_ratio=-0.2,
+            total_return=-0.2,
+            benchmark_total_return=2.5,
+            num_months=180,
+            avg_turnover=0.20,
         )
         summary = compute_validation_summary(metrics, benchmark_sharpe=0.8)
         assert summary["overall_pass"] is False
@@ -582,10 +596,17 @@ class TestComputeValidationSummary:
         from margin_engine.backtesting.models import PerformanceMetrics
 
         metrics = PerformanceMetrics(
-            cagr=0.08, excess_cagr=0.01, sharpe_ratio=0.5,
-            sortino_ratio=0.7, max_drawdown=0.30, win_rate=0.52,
-            information_ratio=0.3, total_return=2.0,
-            benchmark_total_return=1.8, num_months=180, avg_turnover=0.20,
+            cagr=0.08,
+            excess_cagr=0.01,
+            sharpe_ratio=0.5,
+            sortino_ratio=0.7,
+            max_drawdown=0.30,
+            win_rate=0.52,
+            information_ratio=0.3,
+            total_return=2.0,
+            benchmark_total_return=1.8,
+            num_months=180,
+            avg_turnover=0.20,
         )
         summary = compute_validation_summary(metrics, benchmark_sharpe=0.8)
         sharpe_gate = next(g for g in summary["gates"] if g["name"] == "sharpe_exceeds_benchmark")
@@ -609,13 +630,23 @@ class TestComputeValidationSummary:
                 return ReplayResult(
                     config=ReplayConfig(),
                     metrics=PerformanceMetrics(
-                        cagr=0, excess_cagr=0, sharpe_ratio=0, sortino_ratio=0,
-                        max_drawdown=0, win_rate=0, information_ratio=0,
-                        total_return=0, benchmark_total_return=0, num_months=0,
+                        cagr=0,
+                        excess_cagr=0,
+                        sharpe_ratio=0,
+                        sortino_ratio=0,
+                        max_drawdown=0,
+                        win_rate=0,
+                        information_ratio=0,
+                        total_return=0,
+                        benchmark_total_return=0,
+                        num_months=0,
                         avg_turnover=0,
                     ),
-                    snapshots=[], audit_log=[], regime_segments={},
-                    factor_timeline=[], duration_seconds=0.0,
+                    snapshots=[],
+                    audit_log=[],
+                    regime_segments={},
+                    factor_timeline=[],
+                    duration_seconds=0.0,
                 )
 
         mock_session = AsyncMock()
