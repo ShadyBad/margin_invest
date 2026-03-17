@@ -5,6 +5,7 @@ import { AuthorityStrip } from "./sections/authority-strip"
 import { EvidenceSection } from "./sections/evidence-section"
 import { PipelineSection } from "./sections/pipeline-section"
 import { ResultsShowcaseSection } from "./sections/results-showcase-section"
+import { ComparisonSection } from "./sections/comparison-section"
 import { PricingSection } from "./sections/pricing-section"
 import { FooterSection } from "./sections/footer-section"
 import { ScrollCanvas } from "./shared/scroll-canvas"
@@ -28,6 +29,7 @@ export function HomepageClient({ data }: HomepageClientProps) {
       />
       <PipelineSection data={data} />
       <ResultsShowcaseSection data={data} />
+      <ComparisonSection />
       <PricingSection totalUniverse={data?.total_universe} />
       <FooterSection />
     </ScrollCanvas>
