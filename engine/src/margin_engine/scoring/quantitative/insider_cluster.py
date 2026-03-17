@@ -119,9 +119,18 @@ def insider_cluster_score(transactions: list[InsiderTransaction]) -> FactorScore
         f"insiders: {', '.join(insider_weights)}"
     )
 
+    total_buy_value = float(sum(t.value for t in in_window))
+
     return FactorScore(
         name="insider_cluster",
         raw_value=weighted_score,
         percentile_rank=0.0,
         detail=detail,
+        metadata={
+            "cluster_buy_detected": is_cluster,
+            "n_distinct_insiders": distinct_count,
+            "total_buy_value": total_buy_value,
+            "window_start": window_start.isoformat(),
+            "window_end": most_recent_date.isoformat(),
+        },
     )

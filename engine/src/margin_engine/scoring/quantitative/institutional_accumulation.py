@@ -111,4 +111,13 @@ def institutional_accumulation(holdings: list[InstitutionalHolding]) -> FactorSc
             f"reducing={reductions}; no_change={no_change}; "
             f"size_weighted_score={total_score:.4f}; median_size={median_size}"
         ),
+        metadata={
+            "n_quality_institutions_adding": accumulating,
+            "n_new_positions": new_positions,
+            "n_additions": additions,
+            "n_reductions": reductions,
+            "n_no_change": no_change,
+            "most_recent_quarter": most_recent_quarter,
+            "median_position_size": float(median_size),
+        },
     )
