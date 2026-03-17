@@ -2897,16 +2897,23 @@ async def compute_accumulation_signals(ctx: dict, pipeline_id: str | None = None
 async def precompute_default_backtest(ctx: dict) -> dict:
     """Pre-compute the default backtest using real PIT data.
 
-    Runs weekly (Sunday 03:00 UTC). Creates a DatabasePITProvider, runs
-    ReplayOrchestrator with default config (2009-present), and stores the
-    result in the backtest_runs table.
+    Runs weekly (Sunday 03:00 UTC). Seeds SPY benchmark prices if needed,
+    runs ReplayOrchestrator with default config (2011-present) and relaxed
+    filter thresholds, stores results in backtest_runs, and logs a
+    validation summary.
 
     Falls back gracefully when PIT tables are empty.
     """
-    from margin_engine.backtesting.factor_registry import FactorRegistry
-    from margin_engine.backtesting.replay_orchestrator import ReplayConfig, ReplayOrchestrator
+    import traceback as tb_mod
 
-    from margin_api.services.backtest import compute_config_hash
+    import numpy as np
+    from margin_engine.backtesting.replay_orchestrator import ReplayConfig
+
+    from margin_api.services.backtest import (
+        compute_config_hash,
+        compute_validation_summary,
+        run_real_backtest,
+    )
     from margin_api.services.pit_provider import DatabasePITProvider
 
     logger.info("[precompute_backtest] Starting precompute_default_backtest...")
@@ -2946,44 +2953,125 @@ async def precompute_default_backtest(ctx: dict) -> dict:
 
         # PIT data exists — run the real backtest
         config = ReplayConfig(
-            start_date=date(2009, 1, 1),
+            start_date=date(2011, 1, 1),
             rebalance_frequency="monthly",
         )
         config_hash = compute_config_hash(config)
 
         async with session_factory() as session:
-            # Market cap filter: $100M floor screens out tickers with
-            # missing shares_outstanding (market_cap=0). After XBRL namespace
-            # fix + reparse, most tickers will have shares data and survive.
             provider = DatabasePITProvider(session, min_market_cap=100_000_000)
 
-            registry = FactorRegistry.default()
-            # Disable liquidity filter for PIT backtest: the v1 liquidity
-            # filter's years_of_history >= 5 requirement eliminates everything
-            # in early years (EDGAR data starts at 2009). Volume data is also
-            # computed from recent prices, not as-of-date prices, making it
-            # unreliable for historical replay.
-            orchestrator = ReplayOrchestrator(
-                config=config,
-                pit_provider=provider,
-                factor_registry=registry,
-                use_real_scoring=True,
-                disabled_filters={"liquidity"},
+            # Seed SPY prices if not already present
+            spy_count_result = await session.execute(
+                select(func.count()).select_from(PITDailyPrice).where(PITDailyPrice.ticker == "SPY")
             )
-            replay_result = await orchestrator.run_async()
-            logger.info(
-                "[precompute_backtest] Replay complete: snapshots=%d, total_return=%.4f, "
-                "cagr=%.4f, sharpe=%.4f, max_dd=%.4f",
-                len(replay_result.snapshots),
-                replay_result.metrics.total_return,
-                replay_result.metrics.cagr,
-                replay_result.metrics.sharpe_ratio,
-                replay_result.metrics.max_drawdown,
-            )
+            spy_count = spy_count_result.scalar_one()
+
+            if spy_count == 0:
+                logger.info("[precompute_backtest] Seeding SPY prices via yfinance...")
+                spy_df = yf.download("SPY", start="2011-01-01", auto_adjust=False, progress=False)
+                for idx, row in spy_df.iterrows():
+                    d = pd.Timestamp(idx).date() if hasattr(idx, "date") else idx
+                    close_val = float(row["Close"])
+                    if pd.isna(close_val):
+                        continue
+                    session.add(
+                        PITDailyPrice(
+                            ticker="SPY",
+                            date=d,
+                            open=float(row["Open"]),
+                            high=float(row["High"]),
+                            low=float(row["Low"]),
+                            close=close_val,
+                            adj_close=float(row.get("Adj Close", row["Close"])),
+                            volume=int(row["Volume"]),
+                            source="yfinance",
+                        )
+                    )
+                await session.commit()
+                logger.info("[precompute_backtest] Seeded %d SPY price rows", len(spy_df))
+
+            # Load SPY prices for benchmark
+            spy_prices = await provider.get_price_series("SPY", config.start_date, config.end_date)
+            logger.info("[precompute_backtest] Loaded %d SPY benchmark prices", len(spy_prices))
 
             # Get active universe snapshot for the backtest run record
             active_snap = await get_active_snapshot(session)
             universe_id = active_snap.id if active_snap else 1
+
+            # Run the backtest with error capture
+            run_started_at = datetime.now(UTC)
+            try:
+                replay_result = await run_real_backtest(
+                    session, config, benchmark_prices=spy_prices
+                )
+            except Exception:
+                error_msg = tb_mod.format_exc()
+                logger.error("[precompute_backtest] Replay failed:\n%s", error_msg)
+                async with session_factory() as err_session:
+                    run = BacktestRun(
+                        name="default",
+                        universe_snapshot_id=universe_id,
+                        start_date=config.start_date.isoformat(),
+                        end_date=config.end_date.isoformat(),
+                        rebalance_frequency=config.rebalance_frequency,
+                        config=config.model_dump(mode="json"),
+                        config_hash=config_hash,
+                        status="failed",
+                        error_message=error_msg,
+                        started_at=run_started_at,
+                        completed_at=datetime.now(UTC),
+                    )
+                    err_session.add(run)
+                    await err_session.commit()
+                # Re-raise so ARQ marks the job as failed
+                raise
+
+        logger.info(
+            "[precompute_backtest] Replay complete: snapshots=%d, total_return=%.4f, "
+            "cagr=%.4f, sharpe=%.4f, max_dd=%.4f",
+            len(replay_result.snapshots),
+            replay_result.metrics.total_return,
+            replay_result.metrics.cagr,
+            replay_result.metrics.sharpe_ratio,
+            replay_result.metrics.max_drawdown,
+        )
+
+        # Compute benchmark Sharpe from SPY monthly returns
+        spy_monthly_returns = []
+        spy_dates = sorted(spy_prices.keys())
+        for i in range(1, len(spy_dates)):
+            prev_price = spy_prices[spy_dates[i - 1]]
+            curr_price = spy_prices[spy_dates[i]]
+            if prev_price > 0:
+                spy_monthly_returns.append((curr_price / prev_price) - 1.0)
+
+        if spy_monthly_returns:
+            spy_mean = np.mean(spy_monthly_returns)
+            spy_std = np.std(spy_monthly_returns)
+            benchmark_sharpe = (spy_mean * 12) / (spy_std * (12**0.5)) if spy_std > 0 else 0.0
+        else:
+            benchmark_sharpe = 0.0
+
+        validation = compute_validation_summary(
+            replay_result.metrics, benchmark_sharpe=benchmark_sharpe
+        )
+
+        logger.info(
+            "[precompute_backtest] Validation: %s (%d/%d gates passed)",
+            "PASS" if validation["overall_pass"] else "FAIL",
+            validation["passed_count"],
+            validation["total_gates"],
+        )
+        for gate in validation["gates"]:
+            status = "PASS" if gate["passed"] else "FAIL"
+            logger.info(
+                "  [%s] %s: %.4f (threshold: %s)",
+                status,
+                gate["name"],
+                float(gate["value"]),
+                gate["threshold"],
+            )
 
         # Store in backtest_runs
         metrics = replay_result.metrics
@@ -3002,7 +3090,7 @@ async def precompute_default_backtest(ctx: dict) -> dict:
                 sharpe_ratio=metrics.sharpe_ratio,
                 max_drawdown=metrics.max_drawdown,
                 summary_stats=replay_result.model_dump(mode="json"),
-                started_at=datetime.now(UTC),
+                started_at=run_started_at,
                 completed_at=datetime.now(UTC),
             )
             session.add(run)

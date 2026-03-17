@@ -213,3 +213,43 @@ class TestBackwardCompatibility:
     def test_old_results_not_found(self, client):
         response = client.get("/api/v1/backtest/results/nonexistent-id")
         assert response.status_code == 404
+
+
+class TestBacktestLatestEndpoint:
+    def test_returns_404_when_no_backtest_runs(self):
+        """GET /api/v1/admin/backtest/latest returns 404 when no runs exist."""
+        import asyncio
+        import os
+        from unittest.mock import patch
+
+        from margin_api.config import get_settings
+
+        async def _setup():
+            engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            return engine, factory
+
+        engine, factory = (
+            asyncio.get_event_loop_policy().new_event_loop().run_until_complete(_setup())
+        )
+
+        get_settings.cache_clear()
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-admin-key"}):
+            app = create_app()
+
+            async def override_get_db():
+                async with factory() as session:
+                    yield session
+
+            app.dependency_overrides[get_db] = override_get_db
+            tc = TestClient(app)
+            response = tc.get(
+                "/api/v1/admin/backtest/latest",
+                headers={"x-admin-key": "test-admin-key"},
+            )
+        get_settings.cache_clear()
+        asyncio.get_event_loop_policy().new_event_loop().run_until_complete(engine.dispose())
+        assert response.status_code == 404
+        assert "No backtest runs found" in response.json()["detail"]

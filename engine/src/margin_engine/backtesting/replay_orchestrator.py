@@ -515,6 +515,9 @@ class ReplayOrchestrator:
                         total_return += h.weight * stock_return
                 portfolio_value *= 1.0 + total_return
 
+            # Capture pre-cost portfolio value for gross return computation
+            pre_cost_value = portfolio_value
+
             # 7. Transaction costs
             turnover = self._calculate_turnover(prev_holdings, new_holdings)
             cost = portfolio_value * (turnover * self._config.transaction_cost_bps / 10_000)
@@ -531,11 +534,13 @@ class ReplayOrchestrator:
             if not snapshots:
                 port_return = 0.0
                 bench_return = 0.0
+                gross_return = 0.0
             else:
                 prev_pv = snapshots[-1].portfolio_value
                 prev_bv = snapshots[-1].benchmark_value
                 port_return = (portfolio_value - prev_pv) / prev_pv if prev_pv > 0 else 0.0
                 bench_return = (benchmark_value - prev_bv) / prev_bv if prev_bv > 0 else 0.0
+                gross_return = (pre_cost_value - prev_pv) / prev_pv if prev_pv > 0 else 0.0
 
             # 10. Regime classification
             benchmark_peak = max(benchmark_peak, benchmark_value)
@@ -582,6 +587,7 @@ class ReplayOrchestrator:
                 benchmark_return=bench_return,
                 turnover=turnover,
                 transaction_costs=cost,
+                gross_return=gross_return,
             )
             snapshots.append(snapshot_record)
 

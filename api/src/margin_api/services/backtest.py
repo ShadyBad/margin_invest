@@ -445,15 +445,16 @@ async def get_precomputed_default(session: AsyncSession) -> ReplayResult | None:
         return None
 
 
-async def run_real_backtest(session: AsyncSession, config: ReplayConfig) -> ReplayResult:
+async def run_real_backtest(
+    session: AsyncSession,
+    config: ReplayConfig,
+    benchmark_prices: dict[date, float] | None = None,
+) -> ReplayResult:
     """Run a real backtest using DatabasePITProvider and ReplayOrchestrator.
 
     Uses backtest-tuned filter thresholds (lower market cap floor, shorter
-    history requirement) to avoid over-eliminating historical tickers.
-
-    Instantiates the provider, registry, and orchestrator, then runs
-    the async replay. Returns an empty result gracefully when no PIT
-    data exists (orchestrator returns result with num_months=0).
+    history requirement, relaxed dollar volumes) to avoid over-eliminating
+    historical tickers.
     """
     from margin_engine.backtesting.replay_orchestrator import ReplayOrchestrator
     from margin_engine.config.filter_config import backtest_filter_config
@@ -466,8 +467,70 @@ async def run_real_backtest(session: AsyncSession, config: ReplayConfig) -> Repl
         factor_registry=registry,
         filter_config=backtest_filter_config(),
         use_real_scoring=True,
+        benchmark_prices=benchmark_prices or {},
     )
     return await orchestrator.run_async()
+
+
+def compute_validation_summary(
+    metrics: PerformanceMetrics,
+    benchmark_sharpe: float = 0.0,
+) -> dict:
+    """Evaluate backtest metrics against validation gates.
+
+    Returns a dict with gate results for logging and storage.
+    Gates are advisory (not enforced) per spec.
+    """
+    gates = [
+        {
+            "name": "cagr_positive",
+            "description": "CAGR is positive",
+            "value": metrics.cagr,
+            "threshold": 0.0,
+            "passed": metrics.cagr > 0,
+        },
+        {
+            "name": "excess_cagr_positive",
+            "description": "Excess CAGR vs SPY is positive",
+            "value": metrics.excess_cagr,
+            "threshold": 0.0,
+            "passed": metrics.excess_cagr > 0,
+        },
+        {
+            "name": "sharpe_exceeds_benchmark",
+            "description": "Sharpe ratio exceeds benchmark",
+            "value": metrics.sharpe_ratio,
+            "threshold": benchmark_sharpe,
+            "passed": metrics.sharpe_ratio > benchmark_sharpe,
+        },
+        {
+            "name": "max_drawdown_acceptable",
+            "description": "Max drawdown below 60%",
+            "value": metrics.max_drawdown,
+            "threshold": 0.60,
+            "passed": metrics.max_drawdown < 0.60,
+        },
+        {
+            "name": "sufficient_months",
+            "description": "At least 100 months of data",
+            "value": metrics.num_months,
+            "threshold": 100,
+            "passed": metrics.num_months > 100,
+        },
+        {
+            "name": "turnover_reasonable",
+            "description": "Average turnover below 80%",
+            "value": metrics.avg_turnover,
+            "threshold": 0.80,
+            "passed": metrics.avg_turnover < 0.80,
+        },
+    ]
+    return {
+        "gates": gates,
+        "overall_pass": all(g["passed"] for g in gates),
+        "passed_count": sum(1 for g in gates if g["passed"]),
+        "total_gates": len(gates),
+    }
 
 
 async def get_best_available_result(session: AsyncSession) -> ReplayResult:

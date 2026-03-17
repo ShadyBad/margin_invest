@@ -205,3 +205,28 @@ class TestBacktestFilterConfig:
 
         config = backtest_filter_config()
         assert isinstance(config, FilterConfig)
+
+    def test_backtest_config_has_relaxed_dollar_volumes(self):
+        """Backtest should halve dollar volume tiers for historical liquidity."""
+        from margin_engine.config.filter_config import backtest_filter_config
+
+        config = backtest_filter_config()
+        dv = config.liquidity.dollar_volume
+        assert dv.mega == 25_000_000
+        assert dv.large == 10_000_000
+        assert dv.mid == 2_500_000
+        assert dv.small == 1_000_000
+
+    def test_backtest_dollar_volumes_are_lower_than_production(self):
+        """Backtest dollar volumes should be strictly less than production defaults."""
+        from margin_engine.config.filter_config import (
+            DollarVolumeTiers,
+            backtest_filter_config,
+        )
+
+        production = DollarVolumeTiers()
+        backtest = backtest_filter_config().liquidity.dollar_volume
+        assert backtest.mega < production.mega
+        assert backtest.large < production.large
+        assert backtest.mid < production.mid
+        assert backtest.small < production.small
