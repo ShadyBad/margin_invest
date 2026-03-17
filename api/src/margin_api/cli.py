@@ -725,7 +725,7 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
     from margin_engine.scoring.quantitative.sue import sue_score
     from margin_engine.scoring.v3_pipeline import TickerV3Data, score_universe_v3
 
-    from margin_api.data.fred_client import fetch_shiller_cape
+    from margin_api.data.macro_data_client import fetch_shiller_cape
     from margin_api.db.models import V3Score
     from margin_api.services.scoring import build_asset_profile, build_financial_history_from_rows
 
@@ -1157,7 +1157,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
     from margin_engine.scoring.style_classifier import classify_investment_style
     from margin_engine.scoring.v4_pipeline import TickerV4Data, score_universe_v4
 
-    from margin_api.data.fred_client import fetch_shiller_cape
+    from margin_api.data.macro_data_client import fetch_shiller_cape
     from margin_api.db.models import AccumulationSignal, MlModelRun, V4Score
     from margin_api.services.scoring import (
         build_asset_profile,
