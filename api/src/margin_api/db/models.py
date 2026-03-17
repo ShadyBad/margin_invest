@@ -1181,3 +1181,50 @@ class HistoricalScore(Base):
     __table_args__ = (
         UniqueConstraint("ticker", "score_date", name="uq_historical_score_ticker_date"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Rarity Engine tables
+# ---------------------------------------------------------------------------
+
+
+class RarityScore(Base):
+    """Per-ticker rarity assessment from the rarity engine sidecar."""
+
+    __tablename__ = "rarity_scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
+    scored_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    rarity_score: Mapped[float] = mapped_column(Float)
+    joint_rarity_pctl: Mapped[float] = mapped_column(Float)
+    convergence_score: Mapped[float] = mapped_column(Float)
+    historical_frequency: Mapped[float] = mapped_column(Float)
+    quality_momentum: Mapped[float] = mapped_column(Float)
+    smart_money_score: Mapped[float] = mapped_column(Float)
+    regime_alignment: Mapped[float] = mapped_column(Float)
+    combination_signature: Mapped[str] = mapped_column(String(30))
+    regime: Mapped[str] = mapped_column(String(20))
+    conviction_score: Mapped[float] = mapped_column(Float, default=0.0)
+    is_generational: Mapped[bool] = mapped_column(default=False)
+    detail: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    universe_size: Mapped[int] = mapped_column(default=0)
+
+    asset: Mapped[Asset] = relationship()
+
+    __table_args__ = (Index("ix_rarity_scores_asset_scored", "asset_id", "scored_at"),)
+
+
+class RarityDistributionSnapshot(Base):
+    """Per-run factor distribution summary for historical rarity baseline."""
+
+    __tablename__ = "rarity_distribution_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scored_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    scope: Mapped[str] = mapped_column(String(30))
+    factor_name: Mapped[str] = mapped_column(String(50))
+    n_obs: Mapped[int] = mapped_column()
+    percentiles: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    mean: Mapped[float] = mapped_column(Float)
+    std: Mapped[float] = mapped_column(Float)
