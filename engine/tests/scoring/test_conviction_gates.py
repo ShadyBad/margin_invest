@@ -33,8 +33,8 @@ class TestConvictionGateResult:
 class TestTrackAGates:
     """Track A gate checks.
 
-    Requires: ROIC > 15%, CV < 0.30, reinvestment > 30%,
-    price < 2x IV, coverage > 85%.
+    ROIC-conditional reinvestment: reinvestment threshold varies by ROIC tier.
+    Also: CV < 0.30, price < 2x IV, coverage > 85%.
     """
 
     def test_all_gates_pass(self):
@@ -49,8 +49,9 @@ class TestTrackAGates:
         assert result.failures == []
 
     def test_roic_too_low(self):
+        """ROIC below minimum (8%) with no trajectory override -> fail."""
         result = check_track_a_gates(
-            roic_median=0.10,
+            roic_median=0.06,
             roic_cv=0.15,
             reinvestment_rate=0.40,
             price_to_iv_ratio=1.2,
@@ -71,10 +72,11 @@ class TestTrackAGates:
         assert any("CV" in f or "stability" in f.lower() for f in result.failures)
 
     def test_reinvestment_too_low(self):
+        """ROIC in strong tier (15-25%) requires reinvestment > 10%."""
         result = check_track_a_gates(
             roic_median=0.20,
             roic_cv=0.15,
-            reinvestment_rate=0.20,
+            reinvestment_rate=0.08,
             price_to_iv_ratio=1.2,
             data_coverage=0.95,
         )
@@ -115,8 +117,8 @@ class TestTrackAGates:
         assert result.passed is False
         assert len(result.failures) >= 4
 
-    def test_boundary_roic_exactly_15_fails(self):
-        """ROIC must be > 15%, not >=."""
+    def test_boundary_roic_exactly_15_in_strong_tier(self):
+        """ROIC == 15% is in the strong tier (>= 15%) — needs reinvestment > 10%."""
         result = check_track_a_gates(
             roic_median=0.15,
             roic_cv=0.15,
@@ -124,7 +126,8 @@ class TestTrackAGates:
             price_to_iv_ratio=1.2,
             data_coverage=0.95,
         )
-        assert result.passed is False
+        # With adequate reinvestment, ROIC exactly at 15% passes in the strong tier
+        assert result.passed is True
 
     def test_boundary_cv_exactly_030_fails(self):
         """CV must be < 0.30, not <=."""
@@ -172,17 +175,19 @@ class TestTrackBGates:
         assert result.failures == []
 
     def test_all_gates_pass_with_improving_roic(self):
-        """Quality floor met via improving trajectory even with low ROIC."""
+        """Quality floor met via trajectory in 6-8% zone with sufficient improvement."""
         result = check_track_b_gates(
-            roic_median=0.05,
+            roic_median=0.07,
             roic_improving=True,
             price_to_iv_ratio=0.50,
             has_catalyst=True,
             net_cash_pct=0.60,
             tangible_book_pct=0.30,
             current_ratio=1.5,
+            roic_quarterly=[0.05, 0.07, 0.09],  # 200bps for 2 consecutive
         )
         assert result.passed is True
+        assert result.conditional is True
 
     def test_quality_floor_fails(self):
         """ROIC < 8% and not improving -> quality floor fail."""

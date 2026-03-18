@@ -17,7 +17,7 @@ from margin_engine.models.financial import (
     FinancialPeriod,
     GICSSector,
 )
-from margin_engine.models.scoring import CompositeTier
+from margin_engine.models.scoring import CompositeTier, FilterResult
 from margin_engine.scoring.market_regime import detect_regime, regime_adjustments
 from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
 from margin_engine.scoring.quantitative.wacc_company import compute_company_wacc
@@ -60,6 +60,30 @@ _CONVICTION_ORDER = {
     CompositeTier.MEDIUM: 2,
     CompositeTier.NONE: 3,
 }
+
+_DEFAULT_CONDITIONAL_MULTIPLIER = 0.90
+
+
+def _conditional_multiplier_for_ticker(
+    ticker: str,
+    filter_results: dict[str, list[FilterResult]] | None,
+) -> float:
+    """Return the conditional score multiplier if any filter for this ticker is conditional.
+
+    Returns 1.0 (no penalty) when no filter is conditional.
+    """
+    if filter_results is None:
+        return 1.0
+    ticker_filters = filter_results.get(ticker)
+    if not ticker_filters:
+        return 1.0
+    for fr in ticker_filters:
+        if fr.conditional:
+            metrics = fr.computed_metrics or {}
+            return float(
+                metrics.get("conditional_score_multiplier", _DEFAULT_CONDITIONAL_MULTIPLIER)
+            )
+    return 1.0
 
 
 def _compute_ev_ebit(td: TickerV3Data) -> float | None:
@@ -131,6 +155,7 @@ def score_universe_v3(
     tickers_data: list[TickerV3Data],
     shiller_cape: float,
     optimize: bool = False,
+    filter_results: dict[str, list[FilterResult]] | None = None,
 ) -> list[V3Result]:
     """Score a universe of tickers through the full v3 pipeline.
 
@@ -206,6 +231,12 @@ def score_universe_v3(
             regime_adjustments=adj,
         )
         track_b = run_track_b_cascade(track_b_inputs)
+
+        # Step 5b: Apply conditional score multiplier if any filter is conditional
+        multiplier = _conditional_multiplier_for_ticker(td.ticker, filter_results)
+        if multiplier != 1.0:
+            track_a = track_a.model_copy(update={"score": track_a.score * multiplier})
+            track_b = track_b.model_copy(update={"score": track_b.score * multiplier})
 
         # Step 6: Timing signal — use winning track's is_mispricing flag
         # Determine the winning track for timing purposes

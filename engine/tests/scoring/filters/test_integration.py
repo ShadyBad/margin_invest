@@ -29,8 +29,8 @@ class TestAppleIntegration:
             f"Apple failed filters: {[r.name for r in apple_result.failed_filters]}"
         )
 
-    def test_apple_all_six_filters_run(self, apple_result):
-        assert len(apple_result.results) == 6
+    def test_apple_all_seven_filters_run(self, apple_result):
+        assert len(apple_result.results) == 7
 
     def test_apple_liquidity_pass(self, apple_result):
         liquidity = next(r for r in apple_result.results if r.name == "liquidity")
@@ -150,5 +150,5 @@ class TestDistressedCompanyIntegration:
         assert len(distressed_result.failed_filters) >= 3
 
     def test_all_filters_still_run(self, distressed_result):
-        """All 6 filters should run even with failures."""
-        assert len(distressed_result.results) == 6
+        """All 7 filters should run even with failures."""
+        assert len(distressed_result.results) == 7

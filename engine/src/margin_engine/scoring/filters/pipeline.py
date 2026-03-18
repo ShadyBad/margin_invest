@@ -1,4 +1,4 @@
-"""Elimination filter pipeline — chains all 6 filters in sequence.
+"""Elimination filter pipeline — chains all 7 filters in sequence.
 
 Runs every filter regardless of earlier failures (no short-circuit) to provide
 complete diagnostic information about why an asset was eliminated.
@@ -16,7 +16,9 @@ Usage (v2, multi-period):
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
+from decimal import Decimal
 
 from margin_engine.config.filter_config import FilterConfig, load_filter_config
 from margin_engine.models.financial import (
@@ -41,6 +43,7 @@ from margin_engine.scoring.filters.interest_coverage import (
     interest_coverage_check_v2,
 )
 from margin_engine.scoring.filters.liquidity import liquidity_check, liquidity_check_v2
+from margin_engine.scoring.filters.mediocrity_gate import mediocrity_gate
 
 
 @dataclass
@@ -51,13 +54,52 @@ class PipelineResult:
 
     @property
     def passed(self) -> bool:
-        """True if ALL filters passed."""
-        return all(r.passed for r in self.results)
+        """True if ALL filters passed (or conditionally passed)."""
+        return all(r.passed or r.conditional for r in self.results)
 
     @property
     def failed_filters(self) -> list[FilterResult]:
         """List of filters that failed."""
         return [r for r in self.results if not r.passed]
+
+
+def _extract_quarterly_series(
+    history: FinancialHistory,
+) -> dict[str, list[float]]:
+    """Extract quarterly ROIC, gross margin, and FCF series from financial history.
+
+    Returns a dict with keys ``"roic"``, ``"gm"``, ``"fcf"`` — each a list of
+    finite float values suitable for trajectory analysis.
+    """
+    roic_vals: list[float] = []
+    gm_vals: list[float] = []
+    fcf_vals: list[float] = []
+
+    for p in history.periods:
+        # ROIC = NOPAT / IC where NOPAT = EBIT * (1 - tax_rate), IC = equity + debt - cash
+        ci = p.current_income
+        cb = p.current_balance
+        ebit = float(ci.ebit)
+        tax_rate = ci.effective_tax_rate
+        nopat = ebit * (1.0 - tax_rate)
+        cash = float(cb.cash_and_equivalents or Decimal("0"))
+        ic = float(cb.total_equity) + float(cb.total_debt) - cash
+        if ic > 0:
+            roic = nopat / ic
+            if math.isfinite(roic):
+                roic_vals.append(roic)
+
+        # Gross margin
+        gm = ci.gross_margin
+        if math.isfinite(gm):
+            gm_vals.append(gm)
+
+        # Free cash flow
+        fcf = float(p.current_cash_flow.free_cash_flow)
+        if math.isfinite(fcf):
+            fcf_vals.append(fcf)
+
+    return {"roic": roic_vals, "gm": gm_vals, "fcf": fcf_vals}
 
 
 def run_elimination_filters(
@@ -96,7 +138,8 @@ def run_elimination_filters(
             no-short-circuit guarantee) but removed before returning.
             Valid names: ``"liquidity"``, ``"beneish_m_score"``,
             ``"altman_z_score"``, ``"fcf_distress"``,
-            ``"interest_coverage"``, ``"current_ratio"``.
+            ``"interest_coverage"``, ``"current_ratio"``,
+            ``"mediocrity_gate"``.
 
     Returns:
         PipelineResult containing all filter outcomes.
@@ -147,6 +190,21 @@ def run_elimination_filters(
     else:
         current_result = current_ratio_check(period, sector=sector, config=config.current_ratio)
 
+    # --- Mediocrity Gate ---
+    mediocrity_history = (
+        history
+        if history is not None
+        else FinancialHistory(ticker=profile.ticker, periods=[period])
+    )
+    quarterly = _extract_quarterly_series(history) if history is not None else {}
+    mediocrity_result = mediocrity_gate(
+        history=mediocrity_history,
+        sector=sector,
+        roic_quarterly=quarterly.get("roic"),
+        gm_quarterly=quarterly.get("gm"),
+        fcf_quarterly=quarterly.get("fcf"),
+    )
+
     results = [
         liquidity_result,
         beneish_result,
@@ -154,6 +212,7 @@ def run_elimination_filters(
         fcf_result,
         interest_result,
         current_result,
+        mediocrity_result,
     ]
 
     if disabled_filters:

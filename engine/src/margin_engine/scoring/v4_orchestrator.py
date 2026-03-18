@@ -53,11 +53,6 @@ def _is_strong(track: V3TrackResult) -> bool:
     return track.conviction in _STRONG_CONVICTIONS
 
 
-def _best_conviction(*convictions: CompositeTier) -> CompositeTier:
-    """Return the strongest conviction from the given levels."""
-    return min(convictions, key=lambda c: _CONVICTION_ORDER[c])
-
-
 def orchestrate_v4(
     ticker: str,
     track_a: V3TrackResult,
@@ -84,8 +79,10 @@ def orchestrate_v4(
     c_strong = c_qual and _is_strong(track_c)
 
     # Rule 1: All three strong -> "all_three", EXCEPTIONAL
+    # At least one participating track must be non-conditional for EXCEPTIONAL
     if a_strong and b_strong and c_strong:
-        conviction = CompositeTier.EXCEPTIONAL
+        all_conditional = track_a.conditional and track_b.conditional and track_c.conditional
+        conviction = CompositeTier.HIGH if all_conditional else CompositeTier.EXCEPTIONAL
         opp_type = "all_three"
         position = compute_v3_position_size(opp_type, conviction)
         return V4Result(
@@ -100,8 +97,10 @@ def orchestrate_v4(
         )
 
     # Rule 2: A+B strong -> "both", EXCEPTIONAL
+    # At least one participating track must be non-conditional for EXCEPTIONAL
     if a_strong and b_strong:
-        conviction = CompositeTier.EXCEPTIONAL
+        both_conditional = track_a.conditional and track_b.conditional
+        conviction = CompositeTier.HIGH if both_conditional else CompositeTier.EXCEPTIONAL
         opp_type = "both"
         position = compute_v3_position_size(opp_type, conviction)
         return V4Result(
@@ -116,8 +115,10 @@ def orchestrate_v4(
         )
 
     # Rule 3: A+C strong -> "compounder_growth", EXCEPTIONAL
+    # At least one participating track must be non-conditional for EXCEPTIONAL
     if a_strong and c_strong:
-        conviction = CompositeTier.EXCEPTIONAL
+        both_conditional = track_a.conditional and track_c.conditional
+        conviction = CompositeTier.HIGH if both_conditional else CompositeTier.EXCEPTIONAL
         opp_type = "compounder_growth"
         position = compute_v3_position_size(opp_type, conviction)
         return V4Result(

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import statistics
 from decimal import Decimal
-from typing import Any
 
 from pydantic import BaseModel
 
@@ -20,7 +19,7 @@ from margin_engine.models.financial import (
     FinancialPeriod,
     GICSSector,
 )
-from margin_engine.models.scoring import CompositeTier, InvestmentStyle
+from margin_engine.models.scoring import CompositeTier, FilterResult, InvestmentStyle
 from margin_engine.scoring.market_regime import detect_regime, regime_adjustments
 from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
 from margin_engine.scoring.quantitative.wacc_company import compute_company_wacc
@@ -84,9 +83,9 @@ class V4ResultWithML(BaseModel):
     opportunity_type: str
     conviction: CompositeTier  # final, after ML override
     rules_conviction: CompositeTier  # before ML override
-    track_a: Any  # V3TrackResult
-    track_b: Any  # V3TrackResult
-    track_c: Any  # V3TrackResult
+    track_a: V3TrackResult
+    track_b: V3TrackResult
+    track_c: V3TrackResult
     style: InvestmentStyle
     timing_signal: str
     max_position_pct: float
@@ -102,6 +101,30 @@ _CONVICTION_ORDER = {
     CompositeTier.MEDIUM: 2,
     CompositeTier.NONE: 3,
 }
+
+_DEFAULT_CONDITIONAL_MULTIPLIER = 0.90
+
+
+def _conditional_multiplier_for_ticker(
+    ticker: str,
+    filter_results: dict[str, list[FilterResult]] | None,
+) -> float:
+    """Return the conditional score multiplier if any filter for this ticker is conditional.
+
+    Returns 1.0 (no penalty) when no filter is conditional.
+    """
+    if filter_results is None:
+        return 1.0
+    ticker_filters = filter_results.get(ticker)
+    if not ticker_filters:
+        return 1.0
+    for fr in ticker_filters:
+        if fr.conditional:
+            metrics = fr.computed_metrics or {}
+            return float(
+                metrics.get("conditional_score_multiplier", _DEFAULT_CONDITIONAL_MULTIPLIER)
+            )
+    return 1.0
 
 
 def _compute_ev_ebit(td: TickerV4Data) -> float | None:
@@ -202,6 +225,7 @@ def score_universe_v4(
     shiller_cape: float,
     ml_predictions: dict | None = None,
     optimize: bool = False,
+    filter_results: dict[str, list[FilterResult]] | None = None,
 ) -> list[V4ResultWithML]:
     """Score a universe of tickers through the full v4 pipeline.
 
@@ -295,6 +319,13 @@ def score_universe_v4(
             track_c = run_track_c_cascade(track_c_inputs)
         else:
             track_c = _none_track_c()
+
+        # Step 3d-ii: Apply conditional score multiplier if any filter is conditional
+        multiplier = _conditional_multiplier_for_ticker(td.ticker, filter_results)
+        if multiplier != 1.0:
+            track_a = track_a.model_copy(update={"score": track_a.score * multiplier})
+            track_b = track_b.model_copy(update={"score": track_b.score * multiplier})
+            track_c = track_c.model_copy(update={"score": track_c.score * multiplier})
 
         # Step 3e: Timing signal — use winning track's is_mispricing flag
         a_order = _CONVICTION_ORDER.get(track_a.conviction, 3)

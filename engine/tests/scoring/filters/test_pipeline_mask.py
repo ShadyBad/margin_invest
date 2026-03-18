@@ -9,6 +9,7 @@ ALL_FILTER_NAMES = {
     "fcf_distress",
     "interest_coverage",
     "current_ratio",
+    "mediocrity_gate",
 }
 
 
@@ -16,7 +17,7 @@ class TestDisabledFiltersMask:
     """Tests for the disabled_filters parameter on run_elimination_filters."""
 
     def test_mask_disables_specified_filters(self):
-        """Disabling 2 filters returns only the remaining 4."""
+        """Disabling 2 filters returns only the remaining 5."""
         from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024, APPLE_PROFILE
 
         disabled = {"liquidity", "beneish_m_score"}
@@ -24,7 +25,7 @@ class TestDisabledFiltersMask:
             APPLE_PERIOD_2024, APPLE_PROFILE, disabled_filters=disabled
         )
 
-        assert len(result.results) == 4
+        assert len(result.results) == 5
         returned_names = {r.name for r in result.results}
         assert returned_names == ALL_FILTER_NAMES - disabled
         # Verify the disabled ones are truly absent
@@ -62,7 +63,7 @@ class TestDisabledFiltersMask:
     def test_mask_preserves_no_short_circuit(self):
         """Disabled filters are still evaluated (no short-circuit).
 
-        We verify this indirectly: even when disabling 5 filters, the one
+        We verify this indirectly: even when disabling 6 filters, the one
         remaining filter still has its correct computed value (meaning the
         pipeline ran to completion, not just up to the first enabled filter).
         """
@@ -84,5 +85,5 @@ class TestDisabledFiltersMask:
 
         result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE, disabled_filters=None)
 
-        assert len(result.results) == 6
+        assert len(result.results) == 7
         assert {r.name for r in result.results} == ALL_FILTER_NAMES

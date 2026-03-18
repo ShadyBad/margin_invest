@@ -60,6 +60,7 @@ class FilterResult(BaseModel):
 
     name: str
     passed: bool
+    conditional: bool = False
     value: float | None = None
     threshold: float | None = None
     detail: str = ""

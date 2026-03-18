@@ -52,6 +52,10 @@ def _passing_gate() -> ConvictionGateResult:
     return ConvictionGateResult(passed=True, failures=[])
 
 
+def _conditional_gate() -> ConvictionGateResult:
+    return ConvictionGateResult(passed=True, conditional=True, failures=[])
+
+
 def _failing_gate() -> ConvictionGateResult:
     return ConvictionGateResult(passed=False, failures=["ROIC too low"])
 
@@ -284,6 +288,90 @@ class TestGateFailure:
         )
         assert result.composite_raw_score < 71.0
         assert result.composite_tier == CompositeTier.MEDIUM
+
+
+# ---------------------------------------------------------------------------
+# Conditional gate caps conviction at HIGH
+# ---------------------------------------------------------------------------
+
+
+class TestConditionalGate:
+    """Conditional gates (trajectory override) cap conviction at HIGH, not EXCEPTIONAL."""
+
+    def test_conditional_gate_caps_exceptional_to_high(self):
+        """Score that would be EXCEPTIONAL gets capped to HIGH when conditional."""
+        track_a = _make_composite(percentile=99.8)  # raw_score=99.8 -> would be EXCEPTIONAL
+        result = score_dual_track(
+            track_a_score=track_a,
+            track_b_score=_make_composite(percentile=70.0),
+            opportunity_type=OpportunityType.COMPOUNDER,
+            asymmetry_ratio_value=3.0,
+            timing_signal="buy_now",
+            gate_result_a=_conditional_gate(),
+            gate_result_b=_passing_gate(),
+        )
+        assert result.composite_raw_score <= 75.9
+        assert result.composite_tier == CompositeTier.HIGH
+
+    def test_conditional_gate_preserves_high(self):
+        """Score already at HIGH is not affected by conditional cap."""
+        track_a = _make_composite(percentile=73.0)  # raw_score=73.0 -> HIGH (71-76 range)
+        result = score_dual_track(
+            track_a_score=track_a,
+            track_b_score=_make_composite(percentile=60.0),
+            opportunity_type=OpportunityType.COMPOUNDER,
+            asymmetry_ratio_value=3.0,
+            timing_signal="buy_now",
+            gate_result_a=_conditional_gate(),
+            gate_result_b=_passing_gate(),
+        )
+        assert result.composite_raw_score == pytest.approx(73.0)
+        assert result.composite_tier == CompositeTier.HIGH
+
+    def test_conditional_gate_preserves_medium(self):
+        """Score at MEDIUM is not raised by conditional cap."""
+        track_a = _make_composite(percentile=68.0)  # raw_score=68.0 -> MEDIUM
+        result = score_dual_track(
+            track_a_score=track_a,
+            track_b_score=_make_composite(percentile=60.0),
+            opportunity_type=OpportunityType.COMPOUNDER,
+            asymmetry_ratio_value=3.0,
+            timing_signal="buy_now",
+            gate_result_a=_conditional_gate(),
+            gate_result_b=_passing_gate(),
+        )
+        assert result.composite_raw_score == pytest.approx(68.0)
+        assert result.composite_tier == CompositeTier.MEDIUM
+
+    def test_conditional_gate_track_b_winner(self):
+        """Conditional cap applies to Track B winner too."""
+        track_b = _make_composite(percentile=99.0, winning_track="mispricing")
+        result = score_dual_track(
+            track_a_score=_make_composite(percentile=60.0),
+            track_b_score=track_b,
+            opportunity_type=OpportunityType.MISPRICING,
+            asymmetry_ratio_value=4.0,
+            timing_signal="buy_now",
+            gate_result_a=_passing_gate(),
+            gate_result_b=_conditional_gate(),
+        )
+        assert result.composite_raw_score <= 75.9
+        assert result.composite_tier == CompositeTier.HIGH
+
+    def test_unconditional_pass_allows_exceptional(self):
+        """Non-conditional pass still allows EXCEPTIONAL conviction."""
+        track_a = _make_composite(percentile=99.8)  # raw_score=99.8 -> EXCEPTIONAL
+        result = score_dual_track(
+            track_a_score=track_a,
+            track_b_score=_make_composite(percentile=70.0),
+            opportunity_type=OpportunityType.COMPOUNDER,
+            asymmetry_ratio_value=3.0,
+            timing_signal="buy_now",
+            gate_result_a=_passing_gate(),
+            gate_result_b=_passing_gate(),
+        )
+        assert result.composite_raw_score == pytest.approx(99.8)
+        assert result.composite_tier == CompositeTier.EXCEPTIONAL
 
 
 # ---------------------------------------------------------------------------

@@ -7,10 +7,12 @@ and return a V3TrackResult.
 
 from __future__ import annotations
 
+import statistics
 from decimal import Decimal
 
 from pydantic import BaseModel
 
+from margin_engine.config.v3_scoring_config import V3CompositeConfig
 from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod
 from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.market_regime import RegimeAdjustments
@@ -24,6 +26,7 @@ from margin_engine.scoring.quantitative.reverse_dcf import (
 )
 from margin_engine.scoring.v3_composite import compute_track_a_score, compute_track_b_score
 from margin_engine.scoring.v3_intermediates import (
+    _nopat_and_ic,
     compute_capital_allocation_composite,
     compute_catalyst_strength,
     compute_compounding_power,
@@ -55,6 +58,7 @@ class TrackAInputs(BaseModel):
     sbc_pct: float | None = None
     recent_acquisition_count: int = 0
     regime_adjustments: RegimeAdjustments | None = None
+    composite_config: V3CompositeConfig | None = None
 
 
 # Conviction levels that qualify for inclusion
@@ -83,7 +87,22 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
 
     # --- Gate 2: Reinvestment Engine ---
     compounding = compute_compounding_power(inputs.history)
-    if compounding > 0.04:
+
+    # Capital-light bypass: high ROIC companies (Apple, Visa) may have low
+    # compounding_power because they return capital via buybacks instead of
+    # reinvesting. If median ROIC is exceptional, skip the compounding gate.
+    roic_bypass = False
+    if compounding <= 0.04 and len(inputs.history.periods) >= 2:
+        roics = []
+        for p in inputs.history.periods:
+            nopat_p, ic_p = _nopat_and_ic(p)
+            if ic_p > 0:
+                roics.append(nopat_p / ic_p)
+        if roics:
+            median_roic = statistics.median(roics)
+            roic_bypass = median_roic >= 0.25  # Same threshold as conviction gates
+
+    if compounding > 0.04 or roic_bypass:
         gates_passed += 1
 
     # --- Gate 3: Capital Allocation ---
@@ -150,6 +169,7 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
         compounding_power=compounding,
         capital_allocation=cap_alloc,
         growth_gap=max(growth_gap, 0.0),
+        config=inputs.composite_config,
     )
 
     # --- Conviction ---
@@ -160,6 +180,7 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
         moat_durability=int(moat_val),
         growth_gap=growth_gap,
         growth_gap_adjustment=growth_gap_adjustment,
+        conditional=False,
     )
 
     qualifies = conviction in _QUALIFYING_CONVICTIONS
@@ -169,6 +190,7 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
         qualifies=qualifies,
         conviction=conviction,
         score=score,
+        conditional=False,
         gates_passed=gates_passed,
         total_gates=total_gates,
     )
@@ -194,6 +216,7 @@ class TrackBInputs(BaseModel):
     accumulation_percentile: float = 0.0
     wacc: float
     regime_adjustments: RegimeAdjustments | None = None
+    composite_config: V3CompositeConfig | None = None
 
 
 def _current_roic(period: FinancialPeriod) -> float:
@@ -314,6 +337,7 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
         catalyst_strength=catalyst / 100.0,
         quality_floor_factor=quality_floor,
         valuation_convergence=convergence,
+        config=inputs.composite_config,
     )
 
     # --- Conviction ---
@@ -331,6 +355,7 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
         converging_methods=ensemble.converging_count,
         asymmetry_adjustment=asymmetry_adjustment,
         catalyst_percentile_override=catalyst_pctl_override,
+        conditional=False,
     )
 
     qualifies = conviction in _QUALIFYING_CONVICTIONS
@@ -340,6 +365,7 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
         qualifies=qualifies,
         conviction=conviction,
         score=score,
+        conditional=False,
         gates_passed=gates_passed,
         total_gates=total_gates,
     )
