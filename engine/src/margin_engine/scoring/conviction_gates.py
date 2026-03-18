@@ -44,7 +44,7 @@ _B_TANGIBLE_BOOK_MIN = 0.50
 _B_CURRENT_RATIO_MIN = 2.0
 
 
-def _check_trajectory_override(
+def check_trajectory_override(
     roic_quarterly: list[float],
     min_delta: float,
     min_periods: int,
@@ -130,7 +130,7 @@ def check_track_a_gates(
 
     if required == -1.0:
         # Below minimum ROIC — check trajectory override
-        if roic_quarterly and _check_trajectory_override(
+        if roic_quarterly and check_trajectory_override(
             roic_quarterly, config.trajectory_min_delta, config.trajectory_min_periods
         ):
             conditional = True
@@ -199,7 +199,7 @@ def check_track_b_gates(
         pass  # unconditional pass
     elif roic_median >= config.track_b_roic_hard_floor:
         # In the improving zone (6-8%) — must show meaningful trajectory
-        if roic_quarterly and _check_trajectory_override(
+        if roic_quarterly and check_trajectory_override(
             roic_quarterly,
             config.track_b_improving_min_delta,
             config.track_b_improving_min_periods,
