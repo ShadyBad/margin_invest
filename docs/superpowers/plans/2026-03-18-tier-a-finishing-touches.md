@@ -21,7 +21,7 @@
 5. **Item 5 (A2)** -- Growth stage passthrough, independent
 6. **Item 6 (A5 part 1)** -- Extract TickerDataBase, required before Item 7
 7. **Item 7 (A5 part 2)** -- Extract pipeline helpers, uses TickerDataBase from Item 6
-8. **Item 8 (A6)** -- Optuna weight + bonus tuning CLI
+8. **Item 8 (A6)** -- Optuna weight + bonus tuning CLI (independent of Items 6-7)
 
 ---
 
@@ -120,9 +120,13 @@ After quality_floor computation, add trajectory detection using `_compute_roic_s
 
 Run: `uv run pytest engine/tests/scoring/test_v3_cascade_trajectory.py -v`
 
-- [ ] **Step 9: Run full cascade test suite for regressions**
+- [ ] **Step 9: Write conviction cap end-to-end test**
 
-- [ ] **Step 10: Commit**
+Add a test that builds Track A inputs which would reach EXCEPTIONAL conviction without conditional, then sets up a trajectory scenario where conditional=True, and verifies the conviction is capped to HIGH. This confirms the wiring between cascade trajectory detection and `assess_track_a_conviction`'s capping logic.
+
+- [ ] **Step 10: Run full cascade test suite for regressions**
+
+- [ ] **Step 11: Commit**
 
 ---
 
@@ -287,4 +291,4 @@ Add `weight-tune` command to CLI accepting track (A/B/C/ALL), --n-trials, --metr
 | 5 | A2: Growth stage passthrough | Small | None |
 | 6 | A5 part 1: Extract TickerDataBase | Small | None |
 | 7 | A5 part 2: Extract pipeline helpers | Small | Item 6 |
-| 8 | A6: Optuna weight tuning | Medium | Item 7 |
+| 8 | A6: Optuna weight tuning | Medium | None |
