@@ -19,6 +19,7 @@ class V3TrackResult(BaseModel):
     qualifies: bool
     conviction: CompositeTier
     score: float
+    conditional: bool = False
     gates_passed: int
     total_gates: int
 

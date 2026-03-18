@@ -14,6 +14,7 @@ class ConvictionGateResult(BaseModel):
     """Result of checking absolute conviction gates."""
 
     passed: bool
+    conditional: bool = False
     failures: list[str]
 
 
