@@ -3216,11 +3216,19 @@ async def precompute_default_backtest(ctx: dict) -> dict:
             if spy_count == 0:
                 logger.info("[precompute_backtest] Seeding SPY prices via yfinance...")
                 spy_df = yf.download("SPY", start="2011-01-01", auto_adjust=False, progress=False)
+                # Flatten MultiIndex columns from single-ticker download
+                if isinstance(spy_df.columns, pd.MultiIndex):
+                    spy_df.columns = spy_df.columns.get_level_values(0)
                 for idx, row in spy_df.iterrows():
                     d = pd.Timestamp(idx).date() if hasattr(idx, "date") else idx
                     close_val = float(row["Close"])
                     if pd.isna(close_val):
                         continue
+                    adj = row.get("Adj Close")
+                    if adj is None or pd.isna(adj):
+                        adj = close_val
+                    else:
+                        adj = float(adj)
                     session.add(
                         PITDailyPrice(
                             ticker="SPY",
@@ -3229,7 +3237,7 @@ async def precompute_default_backtest(ctx: dict) -> dict:
                             high=float(row["High"]),
                             low=float(row["Low"]),
                             close=close_val,
-                            adj_close=float(row.get("Adj Close", row["Close"])),
+                            adj_close=adj,
                             volume=int(row["Volume"]),
                             source="yfinance",
                         )
