@@ -4137,6 +4137,9 @@ class WorkerSettings:
             )
             logger.info("[worker] Sentry initialized")
 
+        # Fix yfinance TzCache permission errors in containers
+        yf.set_tz_cache_location("/tmp/yfinance-cache")
+
         settings = get_settings()
         url = settings.redis_url
         # Redact password
@@ -4192,6 +4195,33 @@ class WorkerSettings:
                     )
         except Exception:
             logger.exception("[worker] Failed to clean up orphaned ARQ keys")
+
+        # One-time bulk reset of corrupted price_fail:* keys (misattribution bug fix)
+        try:
+            redis_pool: ArqRedis | None = ctx.get("redis")
+            if redis_pool:
+                already_done = await redis_pool.get("price_fail_bulk_reset_done")
+                if not already_done:
+                    deleted = 0
+                    cursor = 0
+                    while True:
+                        cursor, keys = await redis_pool.scan(
+                            cursor=cursor, match="price_fail:*", count=500
+                        )
+                        if keys:
+                            await redis_pool.delete(*keys)
+                            deleted += len(keys)
+                        if cursor == 0:
+                            break
+                    await redis_pool.set("price_fail_bulk_reset_done", "1")
+                    if deleted:
+                        logger.info(
+                            "[worker] Bulk-reset %d corrupted price_fail keys", deleted
+                        )
+                else:
+                    logger.debug("[worker] price_fail bulk reset already done, skipping")
+        except Exception:
+            logger.exception("[worker] Failed to bulk-reset price_fail keys")
 
         # Auto-bootstrap PIT data if tables are empty
         try:

@@ -1327,3 +1327,98 @@ class TestRetryQuarantined:
         await fake_redis.aclose()
 
         await fake_redis.aclose()
+
+
+class TestWorkerStartupFixes:
+    @pytest.mark.asyncio
+    async def test_yfinance_tz_cache_set_on_startup(self):
+        """Worker startup sets yfinance TzCache to /tmp/yfinance-cache."""
+        from margin_api.workers import WorkerSettings
+
+        mock_redis = AsyncMock()
+        mock_redis.keys = AsyncMock(return_value=[])
+        mock_redis.scan = AsyncMock(return_value=(0, []))
+        mock_redis.get = AsyncMock(return_value=b"1")  # bulk reset already done
+        ctx = {"redis": mock_redis}
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory") as mock_sf,
+            patch("margin_api.workers.yf") as mock_yf,
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost"
+            mock_session = AsyncMock()
+            mock_result = MagicMock()
+            mock_result.scalar_one = MagicMock(return_value=1)  # PIT count > 0
+            mock_session.execute = AsyncMock(return_value=mock_result)
+            mock_sf.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_sf.return_value.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await WorkerSettings.on_startup(ctx)
+
+        mock_yf.set_tz_cache_location.assert_called_once_with("/tmp/yfinance-cache")
+
+    @pytest.mark.asyncio
+    async def test_bulk_reset_clears_price_fail_keys(self):
+        """First deploy bulk-resets all price_fail:* keys."""
+        import fakeredis.aioredis
+        from margin_api.workers import WorkerSettings
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail:AAPL", "10")
+        await fake_redis.set("price_fail:MSFT", "7")
+
+        ctx = {"redis": fake_redis}
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory") as mock_sf,
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost"
+            mock_session = AsyncMock()
+            mock_result = MagicMock()
+            mock_result.scalar_one = MagicMock(return_value=1)
+            mock_session.execute = AsyncMock(return_value=mock_result)
+            mock_sf.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_sf.return_value.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await WorkerSettings.on_startup(ctx)
+
+        assert await fake_redis.get("price_fail:AAPL") is None
+        assert await fake_redis.get("price_fail:MSFT") is None
+        assert await fake_redis.get("price_fail_bulk_reset_done") is not None
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_bulk_reset_runs_only_once(self):
+        """Second startup skips bulk reset if flag key exists."""
+        import fakeredis.aioredis
+        from margin_api.workers import WorkerSettings
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail_bulk_reset_done", "1")
+        await fake_redis.set("price_fail:AAPL", "3")
+
+        ctx = {"redis": fake_redis}
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory") as mock_sf,
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost"
+            mock_session = AsyncMock()
+            mock_result = MagicMock()
+            mock_result.scalar_one = MagicMock(return_value=1)
+            mock_session.execute = AsyncMock(return_value=mock_result)
+            mock_sf.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_sf.return_value.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await WorkerSettings.on_startup(ctx)
+
+        assert await fake_redis.get("price_fail:AAPL") is not None
+
+        await fake_redis.aclose()
