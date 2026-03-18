@@ -951,3 +951,538 @@ class TestWorkerRegistration:
     def test_total_cron_jobs_count(self):
         """Should have 10 cron jobs."""
         assert len(WorkerSettings.cron_jobs) == 10
+
+
+class TestRecordFail:
+    @pytest.mark.asyncio
+    async def test_ttl_set_only_on_first_failure(self):
+        """TTL should be set on first failure, not reset on subsequent failures."""
+        import fakeredis.aioredis
+        from margin_api.workers import _record_fail
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        # First failure — should set TTL
+        await _record_fail(fake_redis, "AAPL")
+        ttl_after_first = await fake_redis.ttl("price_fail:AAPL")
+        assert 86300 < ttl_after_first <= 86400  # ~24h
+
+        # Simulate time passing: manually reduce TTL to 50000
+        await fake_redis.expire("price_fail:AAPL", 50000)
+
+        # Second failure — should NOT reset TTL back to 86400
+        await _record_fail(fake_redis, "AAPL")
+        ttl_after_second = await fake_redis.ttl("price_fail:AAPL")
+        assert ttl_after_second <= 50000  # TTL was NOT reset
+        count = int(await fake_redis.get("price_fail:AAPL"))
+        assert count == 2  # Counter incremented
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_safety_ttl_on_orphaned_key(self):
+        """If a key has no TTL (simulating crash between INCR and EXPIRE), the
+        safety check should add one."""
+        import fakeredis.aioredis
+        from margin_api.workers import _record_fail
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        # Call _record_fail once to create the key normally
+        await _record_fail(fake_redis, "AAPL")
+        # Now simulate a crash: manually remove the TTL to create an orphan
+        await fake_redis.persist("price_fail:AAPL")
+        assert await fake_redis.ttl("price_fail:AAPL") == -1
+
+        # Second call should detect TTL=-1 and fix it
+        await _record_fail(fake_redis, "AAPL")
+        ttl = await fake_redis.ttl("price_fail:AAPL")
+        assert ttl > 0, "Orphaned key should have TTL restored"
+        assert 86300 < ttl <= 86400
+        count = int(await fake_redis.get("price_fail:AAPL"))
+        assert count == 2
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_logs_warning_on_failure(self):
+        """_record_fail logs a warning with ticker and count."""
+        import fakeredis.aioredis
+        from margin_api.workers import _record_fail
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        with patch("margin_api.workers.logger") as mock_logger:
+            await _record_fail(fake_redis, "AAPL")
+            mock_logger.warning.assert_called_once_with("price_fail:%s count=%d", "AAPL", 1)
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_logs_debug_on_redis_error(self):
+        """Redis exceptions are logged at debug level, not swallowed silently."""
+        from margin_api.workers import _record_fail
+
+        mock_redis = AsyncMock()
+        mock_redis.incr = AsyncMock(side_effect=ConnectionError("Redis down"))
+
+        with patch("margin_api.workers.logger") as mock_logger:
+            await _record_fail(mock_redis, "AAPL")  # Should not raise
+            mock_logger.debug.assert_called_once()
+
+
+class TestDownloadBatchAttribution:
+    """Tests for per-ticker failure attribution in _download_batch."""
+
+    @pytest.mark.asyncio
+    async def test_batch_timeout_does_not_penalize_tickers(self):
+        """On asyncio.TimeoutError, no tickers get _record_fail."""
+        import fakeredis.aioredis
+        from margin_api.workers import live_price_poll
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("AAPL",), ("MSFT",)]
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # yf.download always times out
+        def _timeout(*args, **kwargs):
+            raise TimeoutError("Batch download timed out")
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", side_effect=_timeout),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            await live_price_poll({})
+
+        # No tickers should have failure counters
+        aapl_count = await fake_redis.get("price_fail:AAPL")
+        msft_count = await fake_redis.get("price_fail:MSFT")
+        assert aapl_count is None, "AAPL should not be penalized on batch timeout"
+        assert msft_count is None, "MSFT should not be penalized on batch timeout"
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_partial_batch_penalizes_only_missing_tickers(self):
+        """Tickers with no data get _record_fail; tickers with data get counter cleared."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import live_price_poll
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        # Pre-set a failure counter for AAPL that should be cleared on success
+        await fake_redis.set("price_fail:AAPL", "3")
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("AAPL",), ("BAD",)]
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # MultiIndex DataFrame: AAPL has data, BAD is missing
+        idx = pd.DatetimeIndex(["2026-03-17"], name="Date")
+        mock_df = pd.DataFrame(
+            {
+                ("Open", "AAPL"): [150.0],
+                ("High", "AAPL"): [152.0],
+                ("Low", "AAPL"): [149.0],
+                ("Close", "AAPL"): [151.0],
+                ("Volume", "AAPL"): [1000000],
+            },
+            index=idx,
+        )
+        mock_df.columns = pd.MultiIndex.from_tuples(mock_df.columns)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", return_value=mock_df),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            await live_price_poll({})
+
+        # AAPL succeeded — counter should be cleared
+        assert await fake_redis.get("price_fail:AAPL") is None
+        # BAD had no data — counter should be set
+        bad_count = await fake_redis.get("price_fail:BAD")
+        assert bad_count is not None
+        assert int(bad_count) >= 1
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_connection_error_does_not_penalize_or_retry(self):
+        """On ConnectionError (non-timeout), no tickers penalized, no retry."""
+        import fakeredis.aioredis
+        from margin_api.workers import live_price_poll
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("AAPL",)]
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        call_count = 0
+
+        def _conn_error(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            raise ConnectionError("Network unreachable")
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", side_effect=_conn_error),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            await live_price_poll({})
+
+        # No tickers penalized
+        assert await fake_redis.get("price_fail:AAPL") is None
+        # No retry — only called once per batch
+        assert call_count == 1
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_batch_split_retry_recovers_on_second_try(self):
+        """On timeout, batch splits in half and retries. Successful halves process normally."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import live_price_poll
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("AAPL",), ("MSFT",)]
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # First call (full batch) times out; subsequent calls (halves) succeed
+        call_count = 0
+        idx = pd.DatetimeIndex(["2026-03-17"], name="Date")
+
+        def _download_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise TimeoutError("Batch download timed out")
+            # Half-batch calls succeed with single-ticker DataFrames
+            return pd.DataFrame(
+                {
+                    "Open": [150.0],
+                    "High": [152.0],
+                    "Low": [149.0],
+                    "Close": [151.0],
+                    "Volume": [1000000],
+                },
+                index=idx,
+            )
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", side_effect=_download_side_effect),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await live_price_poll({})
+
+        # Both halves succeeded after retry
+        assert result["updated"] == 2
+        # 3 calls: 1 full batch timeout + 2 half-batch retries
+        assert call_count == 3
+        # No failure counters set
+        assert await fake_redis.get("price_fail:AAPL") is None
+        assert await fake_redis.get("price_fail:MSFT") is None
+
+
+class TestRetryQuarantined:
+    @pytest.mark.asyncio
+    async def test_recovers_ticker_on_successful_download(self):
+        """Quarantined ticker with valid yfinance data gets un-quarantined."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import retry_quarantined
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail:AAPL", "10")
+        await fake_redis.expire("price_fail:AAPL", 86400)
+
+        mock_df = pd.DataFrame(
+            {"Close": [150.0]},
+            index=pd.DatetimeIndex(["2026-03-17"], name="Date"),
+        )
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", return_value=mock_df),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await retry_quarantined({})
+
+        assert result["status"] == "completed"
+        assert result["recovered"] >= 1
+        assert await fake_redis.get("price_fail:AAPL") is None
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_resets_counter_on_still_failing(self):
+        """Ticker that still fails gets counter reset to max_consecutive_fails."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import retry_quarantined
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail:BAD", "47")
+
+        mock_df = pd.DataFrame()
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", return_value=mock_df),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await retry_quarantined({})
+
+        assert result["still_failing"] >= 1
+        count = int(await fake_redis.get("price_fail:BAD"))
+        assert count == 5
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_caps_at_50_tickers_per_run(self):
+        """Only samples up to 50 quarantined tickers per run."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import retry_quarantined
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        for i in range(100):
+            await fake_redis.set(f"price_fail:TICK{i:03d}", "10")
+
+        mock_df = pd.DataFrame(
+            {"Close": [100.0]},
+            index=pd.DatetimeIndex(["2026-03-17"], name="Date"),
+        )
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", return_value=mock_df),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await retry_quarantined({})
+
+        assert result["tested"] <= 50
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_skips_non_quarantined_tickers(self):
+        """Tickers with count < 5 are not retried."""
+        import fakeredis.aioredis
+        from margin_api.workers import retry_quarantined
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail:LOW", "2")
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download") as mock_dl,
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await retry_quarantined({})
+
+        assert result["tested"] == 0
+        mock_dl.assert_not_called()
+
+        await fake_redis.aclose()
+
+        await fake_redis.aclose()
+
+
+class TestWorkerStartupFixes:
+    @pytest.mark.asyncio
+    async def test_yfinance_tz_cache_set_on_startup(self):
+        """Worker startup sets yfinance TzCache to /tmp/yfinance-cache."""
+        from margin_api.workers import WorkerSettings
+
+        mock_redis = AsyncMock()
+        mock_redis.keys = AsyncMock(return_value=[])
+        mock_redis.scan = AsyncMock(return_value=(0, []))
+        mock_redis.get = AsyncMock(return_value=b"1")  # bulk reset already done
+        ctx = {"redis": mock_redis}
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory") as mock_sf,
+            patch("margin_api.workers.yf") as mock_yf,
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost"
+            mock_session = AsyncMock()
+            mock_result = MagicMock()
+            mock_result.scalar_one = MagicMock(return_value=1)  # PIT count > 0
+            mock_session.execute = AsyncMock(return_value=mock_result)
+            mock_sf.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_sf.return_value.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await WorkerSettings.on_startup(ctx)
+
+        mock_yf.set_tz_cache_location.assert_called_once_with("/tmp/yfinance-cache")
+
+    @pytest.mark.asyncio
+    async def test_bulk_reset_clears_price_fail_keys(self):
+        """First deploy bulk-resets all price_fail:* keys."""
+        import fakeredis.aioredis
+        from margin_api.workers import WorkerSettings
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail:AAPL", "10")
+        await fake_redis.set("price_fail:MSFT", "7")
+
+        ctx = {"redis": fake_redis}
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory") as mock_sf,
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost"
+            mock_session = AsyncMock()
+            mock_result = MagicMock()
+            mock_result.scalar_one = MagicMock(return_value=1)
+            mock_session.execute = AsyncMock(return_value=mock_result)
+            mock_sf.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_sf.return_value.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await WorkerSettings.on_startup(ctx)
+
+        assert await fake_redis.get("price_fail:AAPL") is None
+        assert await fake_redis.get("price_fail:MSFT") is None
+        assert await fake_redis.get("price_fail_bulk_reset_done") is not None
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_bulk_reset_runs_only_once(self):
+        """Second startup skips bulk reset if flag key exists."""
+        import fakeredis.aioredis
+        from margin_api.workers import WorkerSettings
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail_bulk_reset_done", "1")
+        await fake_redis.set("price_fail:AAPL", "3")
+
+        ctx = {"redis": fake_redis}
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory") as mock_sf,
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost"
+            mock_session = AsyncMock()
+            mock_result = MagicMock()
+            mock_result.scalar_one = MagicMock(return_value=1)
+            mock_session.execute = AsyncMock(return_value=mock_result)
+            mock_sf.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_sf.return_value.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await WorkerSettings.on_startup(ctx)
+
+        assert await fake_redis.get("price_fail:AAPL") is not None
+
+        await fake_redis.aclose()
+
+
+class TestExpireStaleApprovalsDedup:
+    @pytest.mark.asyncio
+    async def test_skips_if_lock_exists(self):
+        """expire_stale_approvals skips execution if Redis lock exists."""
+        import fakeredis.aioredis
+        from margin_api.workers import expire_stale_approvals
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("expire_approvals_lock", "1")
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.get_engine") as mock_engine,
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await expire_stale_approvals({})
+
+        assert result["status"] == "skipped_dedup"
+        mock_engine.assert_not_called()
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_sets_lock_on_execution(self):
+        """expire_stale_approvals sets Redis lock when it runs."""
+        import fakeredis.aioredis
+        from margin_api.workers import expire_stale_approvals
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await expire_stale_approvals({})
+
+        assert result["status"] == "completed"
+        lock_val = await fake_redis.get("expire_approvals_lock")
+        assert lock_val is not None
+        ttl = await fake_redis.ttl("expire_approvals_lock")
+        assert 17000 < ttl <= 18000  # ~5h
+
+        await fake_redis.aclose()

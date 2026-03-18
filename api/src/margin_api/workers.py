@@ -1426,8 +1426,22 @@ async def _expire_stale_approvals_impl(session: AsyncSession) -> int:
 async def expire_stale_approvals(ctx: dict) -> dict:
     """Worker entry point: expire staged PipelineApprovals past their deadline.
 
-    Runs every 6 hours to clean up approvals that were never acted upon.
+    Runs every 12 hours. Uses a Redis lock to detect unexpected re-triggering.
     """
+    settings = get_settings()
+    redis_client = aioredis.from_url(settings.redis_url)
+
+    try:
+        # Dedup guard: skip if already executed recently (5h lock)
+        acquired = await redis_client.set("expire_approvals_lock", "1", nx=True, ex=18000)
+        if not acquired:
+            logger.warning("[expire_stale_approvals] Skipped — lock exists (ran recently)")
+            return {"status": "skipped_dedup"}
+    except Exception:
+        logger.debug("[expire_stale_approvals] Redis lock check failed, proceeding anyway")
+    finally:
+        await redis_client.aclose()
+
     logger.info("[expire_stale_approvals] Starting expiry check")
 
     engine = get_engine()
@@ -2794,29 +2808,52 @@ async def live_price_poll(ctx: dict) -> dict:
     async def _download_batch(batch: list[str]) -> int:
         """Download prices for a batch of tickers via yf.download. Returns success count."""
         try:
-            async with asyncio.timeout(batch_timeout):
-                tickers_str = " ".join(batch)
-                df = await asyncio.to_thread(
-                    lambda: yf.download(
-                        tickers_str,
-                        period="1d",
-                        progress=False,
-                        threads=True,
+            df = await _yf_download_with_timeout(batch, batch_timeout)
+        except TimeoutError:
+            # Batch timeout — retry once with split halves
+            logger.warning(
+                "[prices] Batch timeout (%ds) for %d tickers, retrying in halves",
+                batch_timeout,
+                len(batch),
+            )
+            mid = len(batch) // 2
+            ok = 0
+            for half in (batch[:mid], batch[mid:]):
+                if not half:
+                    continue
+                try:
+                    df_half = await _yf_download_with_timeout(half, batch_timeout)
+                    ok += await _process_batch_df(half, df_half)
+                except TimeoutError:
+                    logger.warning(
+                        "[prices] Half-batch timeout for %d tickers, skipping (no penalty)",
+                        len(half),
                     )
-                )
-        except (TimeoutError, Exception) as exc:
-            logger.warning("[prices] Batch download failed: %s", exc)
-            # Increment failure counters for entire batch
-            try:
-                pipe = redis_client.pipeline()
-                for t in batch:
-                    pipe.incr(f"{fail_key_prefix}{t}")
-                    pipe.expire(f"{fail_key_prefix}{t}", 86400)  # 24h TTL
-                await pipe.execute()
-            except Exception:
-                pass
+                except Exception as exc:
+                    logger.warning("[prices] Half-batch failed (infrastructure): %s", exc)
+            return ok
+        except Exception as exc:
+            # Non-timeout infrastructure failure — do NOT penalize individual tickers
+            logger.warning("[prices] Batch download failed (infrastructure): %s", exc)
             return 0
 
+        return await _process_batch_df(batch, df)
+
+    async def _yf_download_with_timeout(tickers: list[str], timeout: int) -> pd.DataFrame | None:
+        """Run yf.download in a thread with asyncio timeout."""
+        tickers_str = " ".join(tickers)
+        async with asyncio.timeout(timeout):
+            return await asyncio.to_thread(
+                lambda: yf.download(
+                    tickers_str,
+                    period="1d",
+                    progress=False,
+                    threads=True,
+                )
+            )
+
+    async def _process_batch_df(batch: list[str], df: pd.DataFrame | None) -> int:
+        """Process a yfinance DataFrame and update Redis. Returns success count."""
         if df is None or df.empty:
             return 0
 
@@ -2841,7 +2878,6 @@ async def live_price_poll(ctx: dict) -> dict:
                     last_row["Volume"] = int(df[("Volume", ticker)].iloc[-1])
                     bar_date = close.index[-1].strftime("%Y-%m-%d")
                 else:
-                    # Single ticker — no MultiIndex
                     close_col = df.get("Close")
                     if close_col is None or close_col.dropna().empty:
                         await _record_fail(redis_client, ticker)
@@ -2903,18 +2939,126 @@ async def live_price_poll(ctx: dict) -> dict:
 
 
 async def _record_fail(redis_client, ticker: str) -> None:
-    """Increment the price-poll failure counter for a ticker (24h TTL)."""
+    """Increment the price-poll failure counter for a ticker.
+
+    TTL (24h) is set only on first failure to create a fixed evaluation window.
+    Includes a safety check for orphaned keys with no TTL.
+    """
+    key = f"price_fail:{ticker}"
     try:
-        key = f"price_fail:{ticker}"
-        await redis_client.incr(key)
-        await redis_client.expire(key, 86400)
+        count = await redis_client.incr(key)
+        if count == 1:
+            # First failure in window — start the 24h countdown
+            await redis_client.expire(key, 86400)
+        else:
+            # Safety: if key has no TTL (crash between INCR and EXPIRE), set it
+            ttl = await redis_client.ttl(key)
+            if ttl == -1:
+                await redis_client.expire(key, 86400)
+        logger.warning("price_fail:%s count=%d", ticker, count)
     except Exception:
-        pass
+        logger.debug("Redis error in _record_fail for %s", ticker, exc_info=True)
 
 
 async def retry_quarantined(ctx: dict) -> dict:
-    """Retry quarantined tickers weekly."""
-    return {"status": "not_implemented"}
+    """Retry quarantined tickers (5+ consecutive failures).
+
+    Samples up to 50 quarantined tickers, re-tests via yf.download in batches
+    of 10. Clears failure counter for recovered tickers; resets inflated
+    counters to max_consecutive_fails for still-failing ones.
+    """
+    import random
+
+    settings = get_settings()
+    redis_client = aioredis.from_url(settings.redis_url)
+    max_consecutive_fails = 5
+    max_sample = 50
+    retry_batch_size = 10
+
+    try:
+        # Scan for quarantined tickers (price_fail:* with value >= threshold)
+        quarantined = []
+        cursor = 0
+        while True:
+            cursor, keys = await redis_client.scan(cursor=cursor, match="price_fail:*", count=500)
+            for key in keys:
+                val = await redis_client.get(key)
+                if val and int(val) >= max_consecutive_fails:
+                    key_str = key.decode() if isinstance(key, bytes) else key
+                    ticker = key_str.replace("price_fail:", "")
+                    quarantined.append(ticker)
+            if cursor == 0:
+                break
+
+        if not quarantined:
+            logger.info("[retry_quarantined] No quarantined tickers found")
+            return {"status": "completed", "tested": 0, "recovered": 0, "still_failing": 0}
+
+        sample = random.sample(quarantined, min(len(quarantined), max_sample))
+
+        logger.info(
+            "[retry_quarantined] Testing %d of %d quarantined tickers",
+            len(sample),
+            len(quarantined),
+        )
+
+        recovered = 0
+        still_failing = 0
+
+        for i in range(0, len(sample), retry_batch_size):
+            batch = sample[i : i + retry_batch_size]
+            tickers_str = " ".join(batch)
+
+            try:
+                df = await asyncio.to_thread(
+                    lambda ts=tickers_str: yf.download(
+                        ts, period="1d", progress=False, threads=True
+                    )
+                )
+            except Exception as exc:
+                logger.warning("[retry_quarantined] Batch download failed: %s", exc)
+                continue
+
+            is_multi = len(batch) > 1 and isinstance(getattr(df, "columns", None), pd.MultiIndex)
+
+            for ticker in batch:
+                has_data = False
+                try:
+                    if df is not None and not df.empty:
+                        if is_multi:
+                            if ticker in df.columns.get_level_values(1):
+                                close = df[("Close", ticker)].dropna()
+                                has_data = not close.empty and float(close.iloc[-1]) > 0
+                        else:
+                            close_col = df.get("Close")
+                            if close_col is not None:
+                                close_col = close_col.dropna()
+                                has_data = not close_col.empty and float(close_col.iloc[-1]) > 0
+                except Exception:
+                    has_data = False
+
+                key = f"price_fail:{ticker}"
+                if has_data:
+                    await redis_client.delete(key)
+                    recovered += 1
+                else:
+                    await redis_client.set(key, str(max_consecutive_fails), ex=86400)
+                    still_failing += 1
+
+        logger.info(
+            "[retry_quarantined] tested=%d, recovered=%d, still_failing=%d",
+            len(sample),
+            recovered,
+            still_failing,
+        )
+        return {
+            "status": "completed",
+            "tested": len(sample),
+            "recovered": recovered,
+            "still_failing": still_failing,
+        }
+    finally:
+        await redis_client.aclose()
 
 
 # ---------------------------------------------------------------------------
@@ -4003,6 +4147,9 @@ class WorkerSettings:
             )
             logger.info("[worker] Sentry initialized")
 
+        # Fix yfinance TzCache permission errors in containers
+        yf.set_tz_cache_location("/tmp/yfinance-cache")
+
         settings = get_settings()
         url = settings.redis_url
         # Redact password
@@ -4058,6 +4205,31 @@ class WorkerSettings:
                     )
         except Exception:
             logger.exception("[worker] Failed to clean up orphaned ARQ keys")
+
+        # One-time bulk reset of corrupted price_fail:* keys (misattribution bug fix)
+        try:
+            redis_pool: ArqRedis | None = ctx.get("redis")
+            if redis_pool:
+                already_done = await redis_pool.get("price_fail_bulk_reset_done")
+                if not already_done:
+                    deleted = 0
+                    cursor = 0
+                    while True:
+                        cursor, keys = await redis_pool.scan(
+                            cursor=cursor, match="price_fail:*", count=500
+                        )
+                        if keys:
+                            await redis_pool.delete(*keys)
+                            deleted += len(keys)
+                        if cursor == 0:
+                            break
+                    await redis_pool.set("price_fail_bulk_reset_done", "1")
+                    if deleted:
+                        logger.info("[worker] Bulk-reset %d corrupted price_fail keys", deleted)
+                else:
+                    logger.debug("[worker] price_fail bulk reset already done, skipping")
+        except Exception:
+            logger.exception("[worker] Failed to bulk-reset price_fail keys")
 
         # Auto-bootstrap PIT data if tables are empty
         try:
@@ -4136,12 +4308,12 @@ class WorkerSettings:
             run_at_startup=False,
             timeout=900,  # 15 min — batch yf.download, ~31 batches of 100 tickers
         ),
-        cron(retry_quarantined, weekday=6, hour=0, run_at_startup=False),  # Sunday midnight
+        cron(retry_quarantined, hour={0, 6, 12, 18}, run_at_startup=False),  # Every 6 hours
         cron(
             train_ml_models, weekday=5, hour=2, run_at_startup=False, timeout=7200
         ),  # Saturday 2 AM UTC, 2h
         cron(full_13f_ingest, hour=22, minute=0, run_at_startup=False),  # 5 PM ET
-        cron(expire_stale_approvals, hour={0, 6, 12, 18}, run_at_startup=False),
+        cron(expire_stale_approvals, hour={0, 12}, run_at_startup=False),
         cron(rollup_governance_events, hour={3, 9, 15, 21}, run_at_startup=False),
         cron(
             precompute_default_backtest,
