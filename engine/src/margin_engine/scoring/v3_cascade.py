@@ -12,8 +12,13 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from margin_engine.config.v3_scoring_config import V3CompositeConfig
-from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod
+from margin_engine.config.v3_scoring_config import SectorPercentileConfig, V3CompositeConfig
+from margin_engine.models.financial import (
+    AssetProfile,
+    FinancialHistory,
+    FinancialPeriod,
+    GICSSector,
+)
 from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.market_regime import RegimeAdjustments
 from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
@@ -24,6 +29,7 @@ from margin_engine.scoring.quantitative.reverse_dcf import (
     reverse_dcf_combined_gap,
     reverse_dcf_growth_gap,
 )
+from margin_engine.scoring.sector_adapters import SectorAdapter, sector_percentile_rank
 from margin_engine.scoring.v3_composite import compute_track_a_score, compute_track_b_score
 from margin_engine.scoring.v3_intermediates import (
     _nopat_and_ic,
@@ -59,6 +65,8 @@ class TrackAInputs(BaseModel):
     recent_acquisition_count: int = 0
     regime_adjustments: RegimeAdjustments | None = None
     composite_config: V3CompositeConfig | None = None
+    universe_profitability_metrics: dict[GICSSector, list[float]] | None = None
+    percentile_config: SectorPercentileConfig | None = None
 
 
 # Conviction levels that qualify for inclusion
@@ -88,19 +96,43 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
     # --- Gate 2: Reinvestment Engine ---
     compounding = compute_compounding_power(inputs.history)
 
-    # Capital-light bypass: high ROIC companies (Apple, Visa) may have low
+    # Capital-light bypass: high-profitability companies (Apple, Visa) may have low
     # compounding_power because they return capital via buybacks instead of
-    # reinvesting. If median ROIC is exceptional, skip the compounding gate.
+    # reinvesting. If the sector-appropriate profitability metric is exceptional,
+    # skip the compounding gate.
+    #
+    # For Financials/RE with universe data: use sector adapter metric + percentile rank.
+    # For all other sectors (or when universe data is absent): use absolute ROIC >= 0.25.
     roic_bypass = False
     if compounding <= 0.04 and len(inputs.history.periods) >= 2:
-        roics = []
-        for p in inputs.history.periods:
-            nopat_p, ic_p = _nopat_and_ic(p)
-            if ic_p > 0:
-                roics.append(nopat_p / ic_p)
-        if roics:
-            median_roic = statistics.median(roics)
-            roic_bypass = median_roic >= 0.25  # Same threshold as conviction gates
+        sector = inputs.profile.sector
+        use_percentile = (
+            SectorAdapter.needs_percentile_gates(sector)
+            and inputs.universe_profitability_metrics is not None
+            and inputs.percentile_config is not None
+        )
+
+        if use_percentile:
+            # Sector-aware path: compute median sector metric, then percentile rank
+            metrics = [
+                SectorAdapter.profitability_metric(p, sector) for p in inputs.history.periods
+            ]
+            metrics = [m for m in metrics if m is not None]
+            if metrics:
+                median_metric = statistics.median(metrics)
+                universe_list = inputs.universe_profitability_metrics.get(sector, [])
+                pctile = sector_percentile_rank(median_metric, sector, universe_list)
+                roic_bypass = pctile >= inputs.percentile_config.capital_light_bypass
+        else:
+            # Original ROIC-based path for non-percentile sectors or missing data
+            roics = []
+            for p in inputs.history.periods:
+                nopat_p, ic_p = _nopat_and_ic(p)
+                if ic_p > 0:
+                    roics.append(nopat_p / ic_p)
+            if roics:
+                median_roic = statistics.median(roics)
+                roic_bypass = median_roic >= 0.25  # Same threshold as conviction gates
 
     if compounding > 0.04 or roic_bypass:
         gates_passed += 1
@@ -217,6 +249,8 @@ class TrackBInputs(BaseModel):
     wacc: float
     regime_adjustments: RegimeAdjustments | None = None
     composite_config: V3CompositeConfig | None = None
+    universe_profitability_metrics: dict[GICSSector, list[float]] | None = None
+    percentile_config: SectorPercentileConfig | None = None
 
 
 def _current_roic(period: FinancialPeriod) -> float:
@@ -228,6 +262,16 @@ def _current_roic(period: FinancialPeriod) -> float:
     if ic <= 0:
         return 0.0
     return float(ci.ebit) * (1.0 - ci.effective_tax_rate) / ic
+
+
+def _current_profitability(period: FinancialPeriod, sector: GICSSector) -> float:
+    """Return the sector-appropriate profitability metric for the current period.
+
+    Financials -> ROE, Real Estate -> FFO proxy, others -> ROIC.
+    """
+    if SectorAdapter.needs_percentile_gates(sector):
+        return SectorAdapter.profitability_metric(period, sector)
+    return _current_roic(period)
 
 
 def _is_roic_improving(history: FinancialHistory) -> bool:
@@ -242,6 +286,24 @@ def _is_roic_improving(history: FinancialHistory) -> bool:
         if ic > 0:
             roics.append(float(ci.ebit) * (1.0 - ci.effective_tax_rate) / ic)
     return len(roics) >= 2 and roics[-1] > roics[0]
+
+
+def _is_profitability_improving(
+    history: FinancialHistory,
+    sector: GICSSector,
+) -> bool:
+    """Return True if the sector-appropriate metric is higher in the latest vs earliest.
+
+    Financials -> ROE trend, Real Estate -> FFO proxy trend, others -> ROIC trend.
+    """
+    if not SectorAdapter.needs_percentile_gates(sector):
+        return _is_roic_improving(history)
+
+    if len(history.periods) < 2:
+        return False
+    metrics = [SectorAdapter.profitability_metric(p, sector) for p in history.periods]
+    valid = [m for m in metrics if m is not None]
+    return len(valid) >= 2 and valid[-1] > valid[0]
 
 
 def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
@@ -261,9 +323,12 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
     total_gates = 4
 
     # Compute quality floor early (needed for tiered Gate 1 threshold)
-    roic = _current_roic(inputs.period)
-    improving = _is_roic_improving(inputs.history)
-    quality_floor = compute_quality_floor_factor(roic, improving)
+    # Use sector-appropriate profitability metric: ROE for Financials,
+    # FFO proxy for Real Estate, ROIC for all others.
+    sector = inputs.profile.sector
+    profitability = _current_profitability(inputs.period, sector)
+    improving = _is_profitability_improving(inputs.history, sector)
+    quality_floor = compute_quality_floor_factor(profitability, improving)
 
     # --- Gate 1: Ensemble Valuation (tiered IV discount by quality) ---
     ensemble = compute_ensemble_valuation(
