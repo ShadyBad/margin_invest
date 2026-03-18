@@ -1,4 +1,4 @@
-"""Elimination filter pipeline — chains all 6 filters in sequence.
+"""Elimination filter pipeline — chains all 7 filters in sequence.
 
 Runs every filter regardless of earlier failures (no short-circuit) to provide
 complete diagnostic information about why an asset was eliminated.
@@ -41,6 +41,7 @@ from margin_engine.scoring.filters.interest_coverage import (
     interest_coverage_check_v2,
 )
 from margin_engine.scoring.filters.liquidity import liquidity_check, liquidity_check_v2
+from margin_engine.scoring.filters.mediocrity_gate import mediocrity_gate
 
 
 @dataclass
@@ -51,8 +52,8 @@ class PipelineResult:
 
     @property
     def passed(self) -> bool:
-        """True if ALL filters passed."""
-        return all(r.passed for r in self.results)
+        """True if ALL filters passed (or conditionally passed)."""
+        return all(r.passed or r.conditional for r in self.results)
 
     @property
     def failed_filters(self) -> list[FilterResult]:
@@ -96,7 +97,8 @@ def run_elimination_filters(
             no-short-circuit guarantee) but removed before returning.
             Valid names: ``"liquidity"``, ``"beneish_m_score"``,
             ``"altman_z_score"``, ``"fcf_distress"``,
-            ``"interest_coverage"``, ``"current_ratio"``.
+            ``"interest_coverage"``, ``"current_ratio"``,
+            ``"mediocrity_gate"``.
 
     Returns:
         PipelineResult containing all filter outcomes.
@@ -147,6 +149,17 @@ def run_elimination_filters(
     else:
         current_result = current_ratio_check(period, sector=sector, config=config.current_ratio)
 
+    # --- Mediocrity Gate ---
+    mediocrity_history = (
+        history
+        if history is not None
+        else FinancialHistory(ticker=profile.ticker, periods=[period])
+    )
+    mediocrity_result = mediocrity_gate(
+        history=mediocrity_history,
+        sector=sector,
+    )
+
     results = [
         liquidity_result,
         beneish_result,
@@ -154,6 +167,7 @@ def run_elimination_filters(
         fcf_result,
         interest_result,
         current_result,
+        mediocrity_result,
     ]
 
     if disabled_filters:

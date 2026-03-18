@@ -18,11 +18,11 @@ from margin_engine.scoring.filters.pipeline import run_elimination_filters
 
 class TestFilterPipeline:
     def test_apple_runs_all_filters(self):
-        """Pipeline runs all 6 filters for Apple."""
+        """Pipeline runs all 7 filters for Apple."""
         from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024, APPLE_PROFILE
 
         result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE)
-        assert len(result.results) == 6
+        assert len(result.results) == 7
 
     def test_apple_overall_result(self):
         """Apple should pass all 6 filters."""
@@ -33,7 +33,7 @@ class TestFilterPipeline:
         assert len(result.failed_filters) == 0
 
     def test_all_filter_names_present(self):
-        """All 6 filter names should be in the results."""
+        """All 7 filter names should be in the results."""
         from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024, APPLE_PROFILE
 
         result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE)
@@ -45,6 +45,7 @@ class TestFilterPipeline:
             "fcf_distress",
             "interest_coverage",
             "current_ratio",
+            "mediocrity_gate",
         }
 
     def test_excluded_sector_fails(self):
@@ -124,8 +125,8 @@ class TestFilterPipeline:
             years_of_history=10,
         )
         result = run_elimination_filters(period, profile)
-        # Should have all 6 results even though multiple fail
-        assert len(result.results) == 6
+        # Should have all 7 results even though multiple fail
+        assert len(result.results) == 7
         assert result.passed is False
         assert len(result.failed_filters) >= 1
 
@@ -148,7 +149,7 @@ class TestFilterPipelineWithConfig:
 
         config = FilterConfig()
         result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE, config=config)
-        assert len(result.results) == 6
+        assert len(result.results) == 7
         assert result.passed is True
 
     def test_config_flows_to_beneish(self):
@@ -170,7 +171,7 @@ class TestFilterPipelineWithConfig:
 
         result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE)
         assert result.passed is True
-        assert len(result.results) == 6
+        assert len(result.results) == 7
         # All filter names present
         names = {r.name for r in result.results}
         assert names == {
@@ -180,6 +181,7 @@ class TestFilterPipelineWithConfig:
             "fcf_distress",
             "interest_coverage",
             "current_ratio",
+            "mediocrity_gate",
         }
 
     def test_default_config_produces_same_results_as_no_config(self):
@@ -321,8 +323,8 @@ class TestFilterPipelineV2:
 
         result = run_elimination_filters(p3, profile, history=history)
 
-        # Should still run all 6 filters
-        assert len(result.results) == 6
+        # Should still run all 7 filters
+        assert len(result.results) == 7
         names = {r.name for r in result.results}
         assert names == {
             "liquidity",
@@ -331,6 +333,7 @@ class TestFilterPipelineV2:
             "fcf_distress",
             "interest_coverage",
             "current_ratio",
+            "mediocrity_gate",
         }
 
         # Beneish v2 should populate computed_metrics when using multi-period
@@ -362,8 +365,8 @@ class TestFilterPipelineV2:
 
         result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE, price_bars=price_bars)
 
-        # Should still run all 6 filters
-        assert len(result.results) == 6
+        # Should still run all 7 filters
+        assert len(result.results) == 7
 
         # Liquidity v2 should populate computed_metrics (vs v1 which does not)
         liq_result = next(r for r in result.results if r.name == "liquidity")
@@ -382,7 +385,7 @@ class TestFilterPipelineV2:
         result = run_elimination_filters(APPLE_PERIOD_2024, APPLE_PROFILE)
 
         assert result.passed is True
-        assert len(result.results) == 6
+        assert len(result.results) == 7
         names = {r.name for r in result.results}
         assert names == {
             "liquidity",
@@ -391,6 +394,7 @@ class TestFilterPipelineV2:
             "fcf_distress",
             "interest_coverage",
             "current_ratio",
+            "mediocrity_gate",
         }
 
         # v1 liquidity check does NOT produce computed_metrics
@@ -439,7 +443,7 @@ class TestFilterPipelineV2:
 
         result = run_elimination_filters(p3, profile, history=history, price_bars=price_bars)
 
-        assert len(result.results) == 6
+        assert len(result.results) == 7
 
         # Liquidity should use v2 (has computed_metrics)
         liq_result = next(r for r in result.results if r.name == "liquidity")
@@ -461,8 +465,8 @@ class TestFilterPipelineV2:
         cr_result = next(r for r in result.results if r.name == "current_ratio")
         assert cr_result.computed_metrics is not None
 
-    def test_pipeline_v2_still_runs_all_six_filters(self):
-        """Even with v2, all 6 filter names are present and no extra filters appear."""
+    def test_pipeline_v2_still_runs_all_seven_filters(self):
+        """Even with v2, all 7 filter names are present and no extra filters appear."""
         profile = _make_healthy_profile()
         p1 = _make_period("2023-12-31")
         p2 = _make_period("2024-12-31")
@@ -470,7 +474,7 @@ class TestFilterPipelineV2:
 
         result = run_elimination_filters(p2, profile, history=history)
 
-        assert len(result.results) == 6
+        assert len(result.results) == 7
         names = [r.name for r in result.results]
         assert names == [
             "liquidity",
@@ -479,6 +483,7 @@ class TestFilterPipelineV2:
             "fcf_distress",
             "interest_coverage",
             "current_ratio",
+            "mediocrity_gate",
         ]
 
     def test_pipeline_v2_config_flows_through(self):

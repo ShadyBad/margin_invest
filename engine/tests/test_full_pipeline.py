@@ -34,7 +34,7 @@ def _make_income(
     cogs: int = 4_000,
     gross_profit: int | None = None,
     net_income: int = 1_500,
-    ebit: int = 2_000,
+    ebit: int = 5_000,
     interest_expense: int = 200,
 ) -> IncomeStatement:
     gp = gross_profit if gross_profit is not None else revenue - cogs
