@@ -1063,7 +1063,7 @@ class TestDownloadBatchAttribution:
             patch("margin_api.workers.yf.download", side_effect=_timeout),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
-            result = await live_price_poll({})
+            await live_price_poll({})
 
         # No tickers should have failure counters
         aapl_count = await fake_redis.get("price_fail:AAPL")
@@ -1115,7 +1115,7 @@ class TestDownloadBatchAttribution:
             patch("margin_api.workers.yf.download", return_value=mock_df),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
-            result = await live_price_poll({})
+            await live_price_poll({})
 
         # AAPL succeeded — counter should be cleared
         assert await fake_redis.get("price_fail:AAPL") is None
@@ -1158,7 +1158,7 @@ class TestDownloadBatchAttribution:
             patch("margin_api.workers.yf.download", side_effect=_conn_error),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
-            result = await live_price_poll({})
+            await live_price_poll({})
 
         # No tickers penalized
         assert await fake_redis.get("price_fail:AAPL") is None
@@ -1196,7 +1196,13 @@ class TestDownloadBatchAttribution:
                 raise TimeoutError("Batch download timed out")
             # Half-batch calls succeed with single-ticker DataFrames
             return pd.DataFrame(
-                {"Open": [150.0], "High": [152.0], "Low": [149.0], "Close": [151.0], "Volume": [1000000]},
+                {
+                    "Open": [150.0],
+                    "High": [152.0],
+                    "Low": [149.0],
+                    "Close": [151.0],
+                    "Volume": [1000000],
+                },
                 index=idx,
             )
 
@@ -1252,7 +1258,7 @@ class TestRetryQuarantined:
 
     @pytest.mark.asyncio
     async def test_resets_counter_on_still_failing(self):
-        """Ticker that still fails gets counter reset to max_consecutive_fails, not left inflated."""
+        """Ticker that still fails gets counter reset to max_consecutive_fails."""
         import fakeredis.aioredis
         import pandas as pd
         from margin_api.workers import retry_quarantined
@@ -1420,5 +1426,63 @@ class TestWorkerStartupFixes:
             await WorkerSettings.on_startup(ctx)
 
         assert await fake_redis.get("price_fail:AAPL") is not None
+
+        await fake_redis.aclose()
+
+
+class TestExpireStaleApprovalsDedup:
+    @pytest.mark.asyncio
+    async def test_skips_if_lock_exists(self):
+        """expire_stale_approvals skips execution if Redis lock exists."""
+        import fakeredis.aioredis
+        from margin_api.workers import expire_stale_approvals
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("expire_approvals_lock", "1")
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.get_engine") as mock_engine,
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await expire_stale_approvals({})
+
+        assert result["status"] == "skipped_dedup"
+        mock_engine.assert_not_called()
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_sets_lock_on_execution(self):
+        """expire_stale_approvals sets Redis lock when it runs."""
+        import fakeredis.aioredis
+        from margin_api.workers import expire_stale_approvals
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await expire_stale_approvals({})
+
+        assert result["status"] == "completed"
+        lock_val = await fake_redis.get("expire_approvals_lock")
+        assert lock_val is not None
+        ttl = await fake_redis.ttl("expire_approvals_lock")
+        assert 17000 < ttl <= 18000  # ~5h
 
         await fake_redis.aclose()

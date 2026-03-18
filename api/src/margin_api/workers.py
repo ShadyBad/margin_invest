@@ -1426,8 +1426,22 @@ async def _expire_stale_approvals_impl(session: AsyncSession) -> int:
 async def expire_stale_approvals(ctx: dict) -> dict:
     """Worker entry point: expire staged PipelineApprovals past their deadline.
 
-    Runs every 6 hours to clean up approvals that were never acted upon.
+    Runs every 12 hours. Uses a Redis lock to detect unexpected re-triggering.
     """
+    settings = get_settings()
+    redis_client = aioredis.from_url(settings.redis_url)
+
+    try:
+        # Dedup guard: skip if already executed recently (5h lock)
+        acquired = await redis_client.set("expire_approvals_lock", "1", nx=True, ex=18000)
+        if not acquired:
+            logger.warning("[expire_stale_approvals] Skipped — lock exists (ran recently)")
+            return {"status": "skipped_dedup"}
+    except Exception:
+        logger.debug("[expire_stale_approvals] Redis lock check failed, proceeding anyway")
+    finally:
+        await redis_client.aclose()
+
     logger.info("[expire_stale_approvals] Starting expiry check")
 
     engine = get_engine()
@@ -2795,7 +2809,7 @@ async def live_price_poll(ctx: dict) -> dict:
         """Download prices for a batch of tickers via yf.download. Returns success count."""
         try:
             df = await _yf_download_with_timeout(batch, batch_timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Batch timeout — retry once with split halves
             logger.warning(
                 "[prices] Batch timeout (%ds) for %d tickers, retrying in halves",
@@ -2810,7 +2824,7 @@ async def live_price_poll(ctx: dict) -> dict:
                 try:
                     df_half = await _yf_download_with_timeout(half, batch_timeout)
                     ok += await _process_batch_df(half, df_half)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning(
                         "[prices] Half-batch timeout for %d tickers, skipping (no penalty)",
                         len(half),
@@ -2966,9 +2980,7 @@ async def retry_quarantined(ctx: dict) -> dict:
         quarantined = []
         cursor = 0
         while True:
-            cursor, keys = await redis_client.scan(
-                cursor=cursor, match="price_fail:*", count=500
-            )
+            cursor, keys = await redis_client.scan(cursor=cursor, match="price_fail:*", count=500)
             for key in keys:
                 val = await redis_client.get(key)
                 if val and int(val) >= max_consecutive_fails:
@@ -3007,9 +3019,7 @@ async def retry_quarantined(ctx: dict) -> dict:
                 logger.warning("[retry_quarantined] Batch download failed: %s", exc)
                 continue
 
-            is_multi = len(batch) > 1 and isinstance(
-                getattr(df, "columns", None), pd.MultiIndex
-            )
+            is_multi = len(batch) > 1 and isinstance(getattr(df, "columns", None), pd.MultiIndex)
 
             for ticker in batch:
                 has_data = False
@@ -4215,9 +4225,7 @@ class WorkerSettings:
                             break
                     await redis_pool.set("price_fail_bulk_reset_done", "1")
                     if deleted:
-                        logger.info(
-                            "[worker] Bulk-reset %d corrupted price_fail keys", deleted
-                        )
+                        logger.info("[worker] Bulk-reset %d corrupted price_fail keys", deleted)
                 else:
                     logger.debug("[worker] price_fail bulk reset already done, skipping")
         except Exception:
@@ -4305,7 +4313,7 @@ class WorkerSettings:
             train_ml_models, weekday=5, hour=2, run_at_startup=False, timeout=7200
         ),  # Saturday 2 AM UTC, 2h
         cron(full_13f_ingest, hour=22, minute=0, run_at_startup=False),  # 5 PM ET
-        cron(expire_stale_approvals, hour={0, 6, 12, 18}, run_at_startup=False),
+        cron(expire_stale_approvals, hour={0, 12}, run_at_startup=False),
         cron(rollup_governance_events, hour={3, 9, 15, 21}, run_at_startup=False),
         cron(
             precompute_default_backtest,
