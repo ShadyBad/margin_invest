@@ -110,6 +110,7 @@ def run_track_c_cascade(inputs: TrackCInputs) -> V3TrackResult:
         incremental_roic=inputs.incremental_roic,
         wacc=inputs.wacc,
         tam_headroom=inputs.tam_headroom,
+        conditional=False,
     )
 
     qualifies = conviction in _QUALIFYING_CONVICTIONS
@@ -119,6 +120,7 @@ def run_track_c_cascade(inputs: TrackCInputs) -> V3TrackResult:
         qualifies=qualifies,
         conviction=conviction,
         score=score,
+        conditional=False,
         gates_passed=gates_passed,
         total_gates=total_gates,
     )

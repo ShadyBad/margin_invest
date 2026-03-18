@@ -74,8 +74,10 @@ def orchestrate_v3(
     b_strong = track_b.conviction in _STRONG_CONVICTIONS
 
     # "Both" promotion: both qualify at HIGH or EXCEPTIONAL
+    # At least one track must be non-conditional for EXCEPTIONAL promotion
     if a_qualifies and b_qualifies and a_strong and b_strong:
-        conviction = CompositeTier.EXCEPTIONAL
+        both_conditional = track_a.conditional and track_b.conditional
+        conviction = CompositeTier.HIGH if both_conditional else CompositeTier.EXCEPTIONAL
         position = compute_v3_position_size("both", conviction)
         return V3Result(
             ticker=ticker,

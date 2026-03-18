@@ -26,6 +26,7 @@ def assess_track_a_conviction(
     growth_gap_adjustment: float = 0.0,
     prior_conviction: CompositeTier | None = None,
     config: ThresholdConfig | None = None,
+    conditional: bool = False,
 ) -> CompositeTier:
     """Determine Track A conviction level from absolute thresholds.
 
@@ -40,6 +41,8 @@ def assess_track_a_conviction(
             Hysteresis only prevents demotion, never prevents promotion.
         config: Optional threshold configuration. When None, module-level
             defaults are used (identical to original hardcoded values).
+        conditional: When True, cap maximum conviction at HIGH (trajectory-based
+            passes cannot reach EXCEPTIONAL).
     """
     cfg = config or _DEFAULT_CONFIG
 
@@ -51,6 +54,7 @@ def assess_track_a_conviction(
         growth_gap,
         growth_gap_adjustment,
         cfg,
+        conditional,
     )
 
     if prior_conviction is None:
@@ -77,6 +81,7 @@ def _compute_track_a(
     growth_gap: float,
     growth_gap_adjustment: float,
     cfg: ThresholdConfig,
+    conditional: bool = False,
 ) -> CompositeTier:
     """Core Track A conviction logic without hysteresis."""
     ta = cfg.track_a
@@ -90,7 +95,8 @@ def _compute_track_a(
         and moat_durability >= ta.exceptional_moat
         and growth_gap > ta.exceptional_gap + growth_gap_adjustment
     ):
-        return CompositeTier.EXCEPTIONAL
+        # Conditional passes (trajectory-based) cap at HIGH
+        return CompositeTier.HIGH if conditional else CompositeTier.EXCEPTIONAL
 
     if (
         gates_passed >= ta.min_gates_full
@@ -162,6 +168,7 @@ def assess_track_b_conviction(
     asymmetry_adjustment: float = 0.0,
     catalyst_percentile_override: float | None = None,
     config: ThresholdConfig | None = None,
+    conditional: bool = False,
 ) -> CompositeTier:
     """Determine Track B conviction level from absolute thresholds.
 
@@ -172,6 +179,8 @@ def assess_track_b_conviction(
             percentile threshold (e.g., euphoria regime raises the bar).
         config: Optional threshold configuration. When None, module-level
             defaults are used (identical to original hardcoded values).
+        conditional: When True, cap maximum conviction at HIGH (trajectory-based
+            passes cannot reach EXCEPTIONAL).
     """
     cfg = config or _DEFAULT_CONFIG
     tb = cfg.track_b
@@ -191,7 +200,8 @@ def assess_track_b_conviction(
         and catalyst_percentile > exceptional_catalyst
         and converging_methods >= tb.exceptional_converging
     ):
-        return CompositeTier.EXCEPTIONAL
+        # Conditional passes (trajectory-based) cap at HIGH
+        return CompositeTier.HIGH if conditional else CompositeTier.EXCEPTIONAL
 
     if (
         gates_passed >= tb.min_gates_full

@@ -19,6 +19,7 @@ def assess_track_c_conviction(
     incremental_roic: float,
     wacc: float,
     tam_headroom: float,
+    conditional: bool = False,
 ) -> CompositeTier:
     """Determine Track C conviction level from absolute thresholds.
 
@@ -26,6 +27,10 @@ def assess_track_c_conviction(
     HIGH: 4/4 gates + rule_of_40 >= 30 + inc_ROIC > WACC
     MEDIUM: 3+ gates
     NONE: < 3 gates
+
+    Args:
+        conditional: When True, cap maximum conviction at HIGH (trajectory-based
+            passes cannot reach EXCEPTIONAL).
     """
     if gates_passed < _MEDIUM_GATES:
         return CompositeTier.NONE
@@ -37,7 +42,8 @@ def assess_track_c_conviction(
         and tam_headroom > _EXCEPTIONAL_TAM_HEADROOM
         and tam_headroom < 50  # reject implausible TAM estimates
     ):
-        return CompositeTier.EXCEPTIONAL
+        # Conditional passes (trajectory-based) cap at HIGH
+        return CompositeTier.HIGH if conditional else CompositeTier.EXCEPTIONAL
 
     if (
         gates_passed >= _FULL_GATES
