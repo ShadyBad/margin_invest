@@ -12,9 +12,10 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from margin_engine.config.v3_scoring_config import V3CompositeConfig
+from margin_engine.config.v3_scoring_config import ConvictionGateConfig, V3CompositeConfig
 from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod
 from margin_engine.models.scoring import CompositeTier
+from margin_engine.scoring.conviction_gates import check_trajectory_override
 from margin_engine.scoring.market_regime import RegimeAdjustments
 from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
 from margin_engine.scoring.quantitative.asymmetry import asymmetry_ratio as compute_asymmetry
@@ -67,6 +68,20 @@ _QUALIFYING_CONVICTIONS = frozenset(
 )
 
 
+def _compute_roic_series(history: FinancialHistory) -> list[float]:
+    """Compute ROIC per period using NOPAT / Invested Capital.
+
+    Skips periods with non-positive invested capital.
+    Returns values in chronological order (periods are already sorted ascending).
+    """
+    series: list[float] = []
+    for p in history.periods:
+        nopat, ic = _nopat_and_ic(p)
+        if ic > 0:
+            series.append(nopat / ic)
+    return series
+
+
 def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
     """Run the 4-gate Compounder cascade and return a V3TrackResult.
 
@@ -91,19 +106,23 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
     # Capital-light bypass: high ROIC companies (Apple, Visa) may have low
     # compounding_power because they return capital via buybacks instead of
     # reinvesting. If median ROIC is exceptional, skip the compounding gate.
+    roic_series = _compute_roic_series(inputs.history)
+    median_roic = statistics.median(roic_series) if roic_series else 0.0
+
     roic_bypass = False
-    if compounding <= 0.04 and len(inputs.history.periods) >= 2:
-        roics = []
-        for p in inputs.history.periods:
-            nopat_p, ic_p = _nopat_and_ic(p)
-            if ic_p > 0:
-                roics.append(nopat_p / ic_p)
-        if roics:
-            median_roic = statistics.median(roics)
-            roic_bypass = median_roic >= 0.25  # Same threshold as conviction gates
+    if compounding <= 0.04 and len(roic_series) >= 2:
+        roic_bypass = median_roic >= 0.25  # Same threshold as conviction gates
 
     if compounding > 0.04 or roic_bypass:
         gates_passed += 1
+
+    # --- Trajectory detection (turnaround companies) ---
+    gate_config = ConvictionGateConfig()
+    conditional = False
+    if median_roic < gate_config.roic_minimum and len(roic_series) >= 2:
+        conditional = check_trajectory_override(
+            roic_series, gate_config.trajectory_min_delta, gate_config.trajectory_min_periods
+        )
 
     # --- Gate 3: Capital Allocation ---
     cap_alloc = compute_capital_allocation_composite(
@@ -180,7 +199,7 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
         moat_durability=int(moat_val),
         growth_gap=growth_gap,
         growth_gap_adjustment=growth_gap_adjustment,
-        conditional=False,
+        conditional=conditional,
     )
 
     qualifies = conviction in _QUALIFYING_CONVICTIONS
@@ -190,7 +209,7 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
         qualifies=qualifies,
         conviction=conviction,
         score=score,
-        conditional=False,
+        conditional=conditional,
         gates_passed=gates_passed,
         total_gates=total_gates,
     )
@@ -264,6 +283,21 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
     roic = _current_roic(inputs.period)
     improving = _is_roic_improving(inputs.history)
     quality_floor = compute_quality_floor_factor(roic, improving)
+
+    # --- Trajectory detection (turnaround companies in 6-8% ROIC band) ---
+    gate_config = ConvictionGateConfig()
+    conditional = False
+    roic_series = _compute_roic_series(inputs.history)
+    median_roic = statistics.median(roic_series) if roic_series else 0.0
+    if (
+        gate_config.track_b_roic_hard_floor <= median_roic < gate_config.roic_minimum
+        and len(roic_series) >= 2
+    ):
+        conditional = check_trajectory_override(
+            roic_series,
+            gate_config.track_b_improving_min_delta,
+            gate_config.track_b_improving_min_periods,
+        )
 
     # --- Gate 1: Ensemble Valuation (tiered IV discount by quality) ---
     ensemble = compute_ensemble_valuation(
@@ -355,7 +389,7 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
         converging_methods=ensemble.converging_count,
         asymmetry_adjustment=asymmetry_adjustment,
         catalyst_percentile_override=catalyst_pctl_override,
-        conditional=False,
+        conditional=conditional,
     )
 
     qualifies = conviction in _QUALIFYING_CONVICTIONS
@@ -365,7 +399,7 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
         qualifies=qualifies,
         conviction=conviction,
         score=score,
-        conditional=False,
+        conditional=conditional,
         gates_passed=gates_passed,
         total_gates=total_gates,
     )

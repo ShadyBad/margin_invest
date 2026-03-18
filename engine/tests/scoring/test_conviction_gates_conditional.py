@@ -6,9 +6,9 @@ Track B: tightened quality floor with hard floor at 6% and trajectory-based cond
 
 from margin_engine.config.v3_scoring_config import ConvictionGateConfig
 from margin_engine.scoring.conviction_gates import (
-    _check_trajectory_override,
     check_track_a_gates,
     check_track_b_gates,
+    check_trajectory_override,
 )
 
 # ---------------------------------------------------------------------------
@@ -229,7 +229,7 @@ class TestTrackBTightened:
 
 
 # ---------------------------------------------------------------------------
-# _check_trajectory_override helper
+# check_trajectory_override helper
 # ---------------------------------------------------------------------------
 
 
@@ -238,38 +238,38 @@ class TestCheckTrajectoryOverride:
 
     def test_sufficient_improvement(self):
         """3 consecutive 200bps+ improvements -> True."""
-        assert _check_trajectory_override([0.04, 0.06, 0.08, 0.10], 0.02, 3) is True
+        assert check_trajectory_override([0.04, 0.06, 0.08, 0.10], 0.02, 3) is True
 
     def test_insufficient_periods(self):
         """Only 2 consecutive 200bps+ improvements when 3 needed -> False."""
-        assert _check_trajectory_override([0.04, 0.06, 0.08], 0.02, 3) is False
+        assert check_trajectory_override([0.04, 0.06, 0.08], 0.02, 3) is False
 
     def test_gap_in_improvement(self):
         """Improvement dips below threshold mid-stream -> resets count."""
         # 0.04->0.06 (+200bps), 0.06->0.065 (+50bps resets), 0.065->0.085 (+200bps)
-        assert _check_trajectory_override([0.04, 0.06, 0.065, 0.085, 0.105], 0.02, 3) is False
+        assert check_trajectory_override([0.04, 0.06, 0.065, 0.085, 0.105], 0.02, 3) is False
 
     def test_nan_filtered(self):
         """NaN values are filtered out before checking deltas."""
         values = [0.04, float("nan"), 0.06, 0.08, 0.10]
-        assert _check_trajectory_override(values, 0.02, 3) is True
+        assert check_trajectory_override(values, 0.02, 3) is True
 
     def test_all_nan(self):
         """All NaN -> returns False (not enough data)."""
-        assert _check_trajectory_override([float("nan"), float("nan")], 0.02, 3) is False
+        assert check_trajectory_override([float("nan"), float("nan")], 0.02, 3) is False
 
     def test_empty_list(self):
         """Empty list -> returns False."""
-        assert _check_trajectory_override([], 0.02, 3) is False
+        assert check_trajectory_override([], 0.02, 3) is False
 
     def test_two_periods_sufficient(self):
         """min_periods=2 with exactly 2 consecutive improvements -> True."""
-        assert _check_trajectory_override([0.05, 0.07, 0.09], 0.02, 2) is True
+        assert check_trajectory_override([0.05, 0.07, 0.09], 0.02, 2) is True
 
     def test_inf_filtered(self):
         """Inf values are filtered out by math.isfinite."""
         values = [0.04, float("inf"), 0.06, 0.08, 0.10]
-        assert _check_trajectory_override(values, 0.02, 3) is True
+        assert check_trajectory_override(values, 0.02, 3) is True
 
 
 # ---------------------------------------------------------------------------
