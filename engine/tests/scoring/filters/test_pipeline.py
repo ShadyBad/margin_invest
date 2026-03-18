@@ -13,7 +13,8 @@ from margin_engine.models.financial import (
     IncomeStatement,
     PriceBar,
 )
-from margin_engine.scoring.filters.pipeline import run_elimination_filters
+from margin_engine.models.scoring import FilterResult, FilterVerdict
+from margin_engine.scoring.filters.pipeline import PipelineResult, run_elimination_filters
 
 
 class TestFilterPipeline:
@@ -525,3 +526,33 @@ class TestFilterPipelineV2:
         assert beneish_result.threshold == -10.0
         # M-Score should be well above -10.0, so it should FAIL
         assert beneish_result.passed is False
+
+
+class TestConditionalFilterSemantics:
+    """Conditional passes should not appear in failed_filters and should get their own verdict."""
+
+    def test_verdict_returns_conditional_pass(self):
+        fr = FilterResult(name="test", passed=False, conditional=True, detail="trajectory")
+        assert fr.verdict == FilterVerdict.CONDITIONAL_PASS
+
+    def test_failed_filters_excludes_conditional(self):
+        conditional = FilterResult(name="mediocrity", passed=False, conditional=True)
+        failed = FilterResult(name="altman", passed=False, conditional=False)
+        passed = FilterResult(name="liquidity", passed=True)
+        result = PipelineResult(results=[conditional, failed, passed])
+        assert len(result.failed_filters) == 1
+        assert result.failed_filters[0].name == "altman"
+
+    def test_conditional_filters_returns_only_conditional(self):
+        conditional = FilterResult(name="mediocrity", passed=False, conditional=True)
+        failed = FilterResult(name="altman", passed=False, conditional=False)
+        passed = FilterResult(name="liquidity", passed=True)
+        result = PipelineResult(results=[conditional, failed, passed])
+        assert len(result.conditional_filters) == 1
+        assert result.conditional_filters[0].name == "mediocrity"
+
+    def test_pipeline_passed_still_counts_conditional_as_passing(self):
+        conditional = FilterResult(name="mediocrity", passed=False, conditional=True)
+        passed = FilterResult(name="liquidity", passed=True)
+        result = PipelineResult(results=[conditional, passed])
+        assert result.passed is True

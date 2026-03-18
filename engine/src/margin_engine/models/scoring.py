@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class FilterVerdict(StrEnum):
     PASS = "pass"
+    CONDITIONAL_PASS = "conditional_pass"
     FAIL = "fail"
     INCONCLUSIVE = "inconclusive"
 
@@ -74,7 +75,11 @@ class FilterResult(BaseModel):
     def verdict(self) -> FilterVerdict:
         if self.insufficient_data:
             return FilterVerdict.INCONCLUSIVE
-        return FilterVerdict.PASS if self.passed else FilterVerdict.FAIL
+        if self.passed:
+            return FilterVerdict.PASS
+        if self.conditional:
+            return FilterVerdict.CONDITIONAL_PASS
+        return FilterVerdict.FAIL
 
 
 class FactorScore(BaseModel):

@@ -59,8 +59,13 @@ class PipelineResult:
 
     @property
     def failed_filters(self) -> list[FilterResult]:
-        """List of filters that failed."""
-        return [r for r in self.results if not r.passed]
+        """List of filters that failed (excludes conditional passes)."""
+        return [r for r in self.results if not r.passed and not r.conditional]
+
+    @property
+    def conditional_filters(self) -> list[FilterResult]:
+        """List of filters that conditionally passed."""
+        return [r for r in self.results if not r.passed and r.conditional]
 
 
 def _extract_quarterly_series(
