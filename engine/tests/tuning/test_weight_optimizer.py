@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-import optuna
-from margin_engine.tuning.weight_optimizer import suggest_track_weights
+import pytest
+
+optuna = pytest.importorskip("optuna", reason="optuna not installed (optional dep)")
+
+from margin_engine.tuning.weight_optimizer import suggest_track_weights  # noqa: E402
 
 
 class TestWeightConstraints:
