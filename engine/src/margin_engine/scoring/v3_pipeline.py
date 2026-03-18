@@ -6,18 +6,18 @@ timing signals, and portfolio concentration cap enforcement.
 
 from __future__ import annotations
 
-import statistics
-from decimal import Decimal
-
-from margin_engine.models.financial import (
-    GICSSector,
-)
 from margin_engine.models.scoring import CompositeTier, FilterResult
-from margin_engine.scoring.ticker_data import TickerDataBase
 from margin_engine.scoring.market_regime import detect_regime, regime_adjustments
-from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
+from margin_engine.scoring.pipeline_helpers import (
+    compute_asset_floor_per_share,
+    compute_owner_earnings_per_share,
+    compute_peer_comparison_iv,
+    compute_sector_median_ev_ebit,
+    conditional_multiplier_for_ticker,
+)
 from margin_engine.scoring.quantitative.wacc_company import compute_company_wacc
 from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
+from margin_engine.scoring.ticker_data import TickerDataBase
 from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
 from margin_engine.scoring.v3_cascade import (
     TrackAInputs,
@@ -42,95 +42,6 @@ _CONVICTION_ORDER = {
     CompositeTier.MEDIUM: 2,
     CompositeTier.NONE: 3,
 }
-
-_DEFAULT_CONDITIONAL_MULTIPLIER = 0.90
-
-
-def _conditional_multiplier_for_ticker(
-    ticker: str,
-    filter_results: dict[str, list[FilterResult]] | None,
-) -> float:
-    """Return the conditional score multiplier if any filter for this ticker is conditional.
-
-    Returns 1.0 (no penalty) when no filter is conditional.
-    """
-    if filter_results is None:
-        return 1.0
-    ticker_filters = filter_results.get(ticker)
-    if not ticker_filters:
-        return 1.0
-    for fr in ticker_filters:
-        if fr.conditional:
-            metrics = fr.computed_metrics or {}
-            return float(
-                metrics.get("conditional_score_multiplier", _DEFAULT_CONDITIONAL_MULTIPLIER)
-            )
-    return 1.0
-
-
-def _compute_ev_ebit(td: TickerV3Data) -> float | None:
-    """Compute EV/EBIT for a ticker. Returns None if EBIT <= 0."""
-    cb = td.latest_period.current_balance
-    market_cap = float(td.profile.market_cap)
-    total_debt = float(cb.total_debt)
-    cash = float(cb.cash_and_equivalents or Decimal("0"))
-    ev = market_cap + total_debt - cash
-
-    ebit = float(td.latest_period.current_income.ebit)
-    if ebit <= 0:
-        return None
-    return ev / ebit
-
-
-def _compute_sector_median_ev_ebit(
-    tickers_data: list[TickerV3Data],
-) -> dict[GICSSector, float]:
-    """Compute median EV/EBIT per sector from the universe."""
-    sector_ev_ebits: dict[GICSSector, list[float]] = {}
-    for td in tickers_data:
-        ev_ebit = _compute_ev_ebit(td)
-        if ev_ebit is not None and ev_ebit > 0:
-            sector = td.profile.sector
-            sector_ev_ebits.setdefault(sector, []).append(ev_ebit)
-
-    result: dict[GICSSector, float] = {}
-    for sector, values in sector_ev_ebits.items():
-        result[sector] = statistics.median(values)
-    return result
-
-
-def _compute_peer_comparison_iv(
-    td: TickerV3Data,
-    sector_median_ev_ebit: dict[GICSSector, float],
-) -> float:
-    """Compute peer comparison IV: sector_median_ev_ebit * company_ebit / shares."""
-    median = sector_median_ev_ebit.get(td.profile.sector)
-    if median is None:
-        return 0.0
-    ebit = float(td.latest_period.current_income.ebit)
-    if ebit <= 0:
-        return 0.0
-    shares = td.profile.shares_outstanding or 1
-    return median * ebit / shares
-
-
-def _compute_owner_earnings_per_share(td: TickerV3Data) -> float:
-    """Compute owner earnings per share from period data."""
-    cfo = float(td.latest_period.current_cash_flow.operating_cash_flow)
-    depreciation = float(td.latest_period.current_income.depreciation or Decimal("0"))
-    maintenance_capex = depreciation * 1.1
-    owner_earnings = cfo - maintenance_capex
-    shares = td.profile.shares_outstanding or 1
-    return max(owner_earnings / shares, 0.0)
-
-
-def _compute_asset_floor_per_share(td: TickerV3Data) -> float:
-    """Compute asset floor IV per share."""
-    cb = td.latest_period.current_balance
-    net_cash = (cb.cash_and_equivalents or Decimal("0")) - cb.total_debt
-    tangible_book = max(cb.total_equity, Decimal("0"))
-    shares = td.profile.shares_outstanding or 1
-    return asset_floor_valuation(net_cash, tangible_book, td.profile.sector, shares)
 
 
 def score_universe_v3(
@@ -160,7 +71,7 @@ def score_universe_v3(
     adj = regime_adjustments(regime)
 
     # Step 2: Sector median EV/EBIT
-    sector_medians = _compute_sector_median_ev_ebit(tickers_data)
+    sector_medians = compute_sector_median_ev_ebit(tickers_data)
 
     results: list[V3Result] = []
 
@@ -173,14 +84,14 @@ def score_universe_v3(
         )
 
         # Step 3: Owner earnings IV
-        oe_per_share = _compute_owner_earnings_per_share(td)
+        oe_per_share = compute_owner_earnings_per_share(td)
         owner_earnings_iv = compute_owner_earnings_iv(oe_per_share, wacc)
 
         # Step 4: Asset floor IV
-        asset_floor_iv = _compute_asset_floor_per_share(td)
+        asset_floor_iv = compute_asset_floor_per_share(td)
 
         # Step 2 (per ticker): Peer comparison IV
-        peer_comparison_iv = _compute_peer_comparison_iv(td, sector_medians)
+        peer_comparison_iv = compute_peer_comparison_iv(td, sector_medians)
 
         # Step 5: Build inputs and run cascades
         track_a_inputs = TrackAInputs(
@@ -215,7 +126,7 @@ def score_universe_v3(
         track_b = run_track_b_cascade(track_b_inputs)
 
         # Step 5b: Apply conditional score multiplier if any filter is conditional
-        multiplier = _conditional_multiplier_for_ticker(td.ticker, filter_results)
+        multiplier = conditional_multiplier_for_ticker(td.ticker, filter_results)
         if multiplier != 1.0:
             track_a = track_a.model_copy(update={"score": track_a.score * multiplier})
             track_b = track_b.model_copy(update={"score": track_b.score * multiplier})
