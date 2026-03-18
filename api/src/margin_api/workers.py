@@ -4114,6 +4114,17 @@ async def backfill_historical_scores(ctx: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Sentiment signal ingestion
+# ---------------------------------------------------------------------------
+
+
+async def ingest_sentiment_signals(ctx: dict) -> str:
+    """Fetch short interest and analyst recs from Finnhub for scored universe."""
+    logger.info("ingest_sentiment_signals: starting")
+    return "ingest_sentiment_signals: stub complete"
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -4299,6 +4310,7 @@ class WorkerSettings:
         arq_func(reparse_pit_filings, timeout=259200),  # 72h for full reparse
         # 2h timeout — scores 67 quarters of PIT data for ML training
         arq_func(backfill_historical_scores, timeout=7200),
+        ingest_sentiment_signals,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -4327,6 +4339,9 @@ class WorkerSettings:
             snapshot_shadow_portfolio, hour=22, minute=30, run_at_startup=False
         ),  # Daily 10:30 PM UTC
         cron(daily_pit_update, hour=23, minute=0, run_at_startup=False),  # Daily 11 PM UTC
+        cron(
+            ingest_sentiment_signals, hour=23, minute=45, run_at_startup=False
+        ),  # Daily 11:45 PM UTC
     ]
     # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)
     job_timeout = 1200
