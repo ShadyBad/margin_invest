@@ -14,12 +14,10 @@ from pydantic import BaseModel
 
 from margin_engine.ml.ensemble_override import apply_ml_override
 from margin_engine.models.financial import (
-    AssetProfile,
-    FinancialHistory,
-    FinancialPeriod,
     GICSSector,
 )
 from margin_engine.models.scoring import CompositeTier, FilterResult, InvestmentStyle
+from margin_engine.scoring.ticker_data import TickerDataBase
 from margin_engine.scoring.market_regime import detect_regime, regime_adjustments
 from margin_engine.scoring.quantitative.asset_floor import asset_floor_valuation
 from margin_engine.scoring.quantitative.wacc_company import compute_company_wacc
@@ -41,25 +39,10 @@ from margin_engine.scoring.v4_orchestrator import orchestrate_v4
 V4_MAX_POSITIONS = 50
 
 
-class TickerV4Data(BaseModel):
+class TickerV4Data(TickerDataBase):
     """All data needed to score a single ticker through the v4 pipeline."""
 
-    ticker: str
-    history: FinancialHistory
-    latest_period: FinancialPeriod
-    profile: AssetProfile
-    current_price: float
-    current_fcf_per_share: float
-    sustainable_growth_rate: float
-    buyback_yield: float | None = None
-    insider_ownership_pct: float | None = None
-    sbc_pct: float | None = None
-    recent_acquisition_count: int = 0
-    sue_percentile: float = 0.0
     accumulation_percentile: float = 0.0
-    beta: float | None = None
-    momentum_percentile: float = 50.0
-    dcf_iv: float = 0.0
 
     # V4 additions
     style: InvestmentStyle = InvestmentStyle.BLEND
