@@ -2947,8 +2947,108 @@ async def _record_fail(redis_client, ticker: str) -> None:
 
 
 async def retry_quarantined(ctx: dict) -> dict:
-    """Retry quarantined tickers weekly."""
-    return {"status": "not_implemented"}
+    """Retry quarantined tickers (5+ consecutive failures).
+
+    Samples up to 50 quarantined tickers, re-tests via yf.download in batches
+    of 10. Clears failure counter for recovered tickers; resets inflated
+    counters to max_consecutive_fails for still-failing ones.
+    """
+    import random
+
+    settings = get_settings()
+    redis_client = aioredis.from_url(settings.redis_url)
+    max_consecutive_fails = 5
+    max_sample = 50
+    retry_batch_size = 10
+
+    try:
+        # Scan for quarantined tickers (price_fail:* with value >= threshold)
+        quarantined = []
+        cursor = 0
+        while True:
+            cursor, keys = await redis_client.scan(
+                cursor=cursor, match="price_fail:*", count=500
+            )
+            for key in keys:
+                val = await redis_client.get(key)
+                if val and int(val) >= max_consecutive_fails:
+                    key_str = key.decode() if isinstance(key, bytes) else key
+                    ticker = key_str.replace("price_fail:", "")
+                    quarantined.append(ticker)
+            if cursor == 0:
+                break
+
+        if not quarantined:
+            logger.info("[retry_quarantined] No quarantined tickers found")
+            return {"status": "completed", "tested": 0, "recovered": 0, "still_failing": 0}
+
+        sample = random.sample(quarantined, min(len(quarantined), max_sample))
+
+        logger.info(
+            "[retry_quarantined] Testing %d of %d quarantined tickers",
+            len(sample),
+            len(quarantined),
+        )
+
+        recovered = 0
+        still_failing = 0
+
+        for i in range(0, len(sample), retry_batch_size):
+            batch = sample[i : i + retry_batch_size]
+            tickers_str = " ".join(batch)
+
+            try:
+                df = await asyncio.to_thread(
+                    lambda ts=tickers_str: yf.download(
+                        ts, period="1d", progress=False, threads=True
+                    )
+                )
+            except Exception as exc:
+                logger.warning("[retry_quarantined] Batch download failed: %s", exc)
+                continue
+
+            is_multi = len(batch) > 1 and isinstance(
+                getattr(df, "columns", None), pd.MultiIndex
+            )
+
+            for ticker in batch:
+                has_data = False
+                try:
+                    if df is not None and not df.empty:
+                        if is_multi:
+                            if ticker in df.columns.get_level_values(1):
+                                close = df[("Close", ticker)].dropna()
+                                has_data = not close.empty and float(close.iloc[-1]) > 0
+                        else:
+                            close_col = df.get("Close")
+                            if close_col is not None:
+                                close_col = close_col.dropna()
+                                has_data = not close_col.empty and float(close_col.iloc[-1]) > 0
+                except Exception:
+                    has_data = False
+
+                key = f"price_fail:{ticker}"
+                if has_data:
+                    await redis_client.delete(key)
+                    recovered += 1
+                else:
+                    await redis_client.set(key, str(max_consecutive_fails), ex=86400)
+                    still_failing += 1
+
+        logger.info(
+            "[retry_quarantined] tested=%d, recovered=%d, still_failing=%d",
+            len(sample),
+            recovered,
+            still_failing,
+        )
+        return {
+            "status": "completed",
+            "tested": len(sample),
+            "recovered": recovered,
+            "still_failing": still_failing,
+        }
+    finally:
+        await redis_client.aclose()
 
 
 # ---------------------------------------------------------------------------
@@ -4170,7 +4270,7 @@ class WorkerSettings:
             run_at_startup=False,
             timeout=900,  # 15 min — batch yf.download, ~31 batches of 100 tickers
         ),
-        cron(retry_quarantined, weekday=6, hour=0, run_at_startup=False),  # Sunday midnight
+        cron(retry_quarantined, hour={0, 6, 12, 18}, run_at_startup=False),  # Every 6 hours
         cron(
             train_ml_models, weekday=5, hour=2, run_at_startup=False, timeout=7200
         ),  # Saturday 2 AM UTC, 2h

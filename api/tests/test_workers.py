@@ -1218,4 +1218,112 @@ class TestDownloadBatchAttribution:
         assert await fake_redis.get("price_fail:AAPL") is None
         assert await fake_redis.get("price_fail:MSFT") is None
 
+
+class TestRetryQuarantined:
+    @pytest.mark.asyncio
+    async def test_recovers_ticker_on_successful_download(self):
+        """Quarantined ticker with valid yfinance data gets un-quarantined."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import retry_quarantined
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail:AAPL", "10")
+        await fake_redis.expire("price_fail:AAPL", 86400)
+
+        mock_df = pd.DataFrame(
+            {"Close": [150.0]},
+            index=pd.DatetimeIndex(["2026-03-17"], name="Date"),
+        )
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", return_value=mock_df),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await retry_quarantined({})
+
+        assert result["status"] == "completed"
+        assert result["recovered"] >= 1
+        assert await fake_redis.get("price_fail:AAPL") is None
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_resets_counter_on_still_failing(self):
+        """Ticker that still fails gets counter reset to max_consecutive_fails, not left inflated."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import retry_quarantined
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail:BAD", "47")
+
+        mock_df = pd.DataFrame()
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", return_value=mock_df),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await retry_quarantined({})
+
+        assert result["still_failing"] >= 1
+        count = int(await fake_redis.get("price_fail:BAD"))
+        assert count == 5
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_caps_at_50_tickers_per_run(self):
+        """Only samples up to 50 quarantined tickers per run."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import retry_quarantined
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        for i in range(100):
+            await fake_redis.set(f"price_fail:TICK{i:03d}", "10")
+
+        mock_df = pd.DataFrame(
+            {"Close": [100.0]},
+            index=pd.DatetimeIndex(["2026-03-17"], name="Date"),
+        )
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", return_value=mock_df),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await retry_quarantined({})
+
+        assert result["tested"] <= 50
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_skips_non_quarantined_tickers(self):
+        """Tickers with count < 5 are not retried."""
+        import fakeredis.aioredis
+        from margin_api.workers import retry_quarantined
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail:LOW", "2")
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download") as mock_dl,
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await retry_quarantined({})
+
+        assert result["tested"] == 0
+        mock_dl.assert_not_called()
+
+        await fake_redis.aclose()
+
         await fake_redis.aclose()
