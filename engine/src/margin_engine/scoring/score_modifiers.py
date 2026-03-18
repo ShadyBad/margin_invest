@@ -3,6 +3,7 @@
 Each modifier returns a float multiplier. Combined product clamped to [0.75, 1.25].
 Applied after v3/v4 cascade -- affects ranking and position sizing, not conviction tier.
 """
+
 from __future__ import annotations
 
 import math
@@ -58,6 +59,34 @@ def liquidity_modifier(
 
     avg = (cap_score + turnover_score + stability_score) / 3.0
     return _LIQ_FLOOR + (_LIQ_CEILING - _LIQ_FLOOR) * avg
+
+
+def insider_signal_modifier(
+    cluster_score: float,
+    cluster_detected: bool,
+    total_buy_value: float,
+    price_drawdown_pct: float | None,
+    has_first_ever_buy: bool,
+) -> float:
+    """Returns multiplier 1.00 - 1.15. Never penalizes.
+
+    No cluster -> 1.0.
+    Cluster detected -> base 1.05.
+    + drawdown > 10% -> +0.03
+    + magnitude $5M+ -> +0.03
+    + first-ever-buy  -> +0.04
+    Maximum: 1.15.
+    """
+    if not cluster_detected:
+        return 1.0
+    modifier = 1.05
+    if price_drawdown_pct is not None and price_drawdown_pct < -0.10:
+        modifier += 0.03
+    if total_buy_value >= 5_000_000:
+        modifier += 0.03
+    if has_first_ever_buy:
+        modifier += 0.04
+    return min(modifier, 1.15)
 
 
 def apply_all_modifiers(

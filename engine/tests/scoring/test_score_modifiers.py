@@ -1,6 +1,11 @@
 """Tests for post-composite score modifiers."""
+
 import pytest
-from margin_engine.scoring.score_modifiers import apply_all_modifiers, liquidity_modifier
+from margin_engine.scoring.score_modifiers import (
+    apply_all_modifiers,
+    insider_signal_modifier,
+    liquidity_modifier,
+)
 
 
 class TestApplyAllModifiers:
@@ -78,3 +83,30 @@ class TestLiquidityModifier:
         result = liquidity_modifier(0, 0, 5.0)
         assert result == pytest.approx(0.875, abs=0.01)
         assert result >= 0.85
+
+
+class TestInsiderSignalModifier:
+    def test_no_cluster_neutral(self):
+        assert insider_signal_modifier(0.0, False, 0, None, False) == pytest.approx(1.0)
+
+    def test_cluster_base_boost(self):
+        assert insider_signal_modifier(5.0, True, 500_000, None, False) == pytest.approx(1.05)
+
+    def test_cluster_with_drawdown(self):
+        assert insider_signal_modifier(5.0, True, 500_000, -0.15, False) == pytest.approx(1.08)
+
+    def test_cluster_with_high_magnitude(self):
+        assert insider_signal_modifier(5.0, True, 6_000_000, None, False) == pytest.approx(1.08)
+
+    def test_cluster_with_first_buy(self):
+        assert insider_signal_modifier(5.0, True, 500_000, None, True) == pytest.approx(1.09)
+
+    def test_max_modifier(self):
+        assert insider_signal_modifier(10.0, True, 6_000_000, -0.20, True) == pytest.approx(1.15)
+
+    def test_never_penalizes(self):
+        assert insider_signal_modifier(0.0, False, 0, -0.50, False) >= 1.0
+
+    def test_drawdown_threshold_boundary(self):
+        # Exactly -10% should not trigger (need < -0.10)
+        assert insider_signal_modifier(5.0, True, 500_000, -0.10, False) == pytest.approx(1.05)
