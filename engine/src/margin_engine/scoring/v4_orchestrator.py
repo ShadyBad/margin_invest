@@ -53,11 +53,6 @@ def _is_strong(track: V3TrackResult) -> bool:
     return track.conviction in _STRONG_CONVICTIONS
 
 
-def _best_conviction(*convictions: CompositeTier) -> CompositeTier:
-    """Return the strongest conviction from the given levels."""
-    return min(convictions, key=lambda c: _CONVICTION_ORDER[c])
-
-
 def orchestrate_v4(
     ticker: str,
     track_a: V3TrackResult,

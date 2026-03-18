@@ -16,7 +16,9 @@ Usage (v2, multi-period):
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
+from decimal import Decimal
 
 from margin_engine.config.filter_config import FilterConfig, load_filter_config
 from margin_engine.models.financial import (
@@ -59,6 +61,45 @@ class PipelineResult:
     def failed_filters(self) -> list[FilterResult]:
         """List of filters that failed."""
         return [r for r in self.results if not r.passed]
+
+
+def _extract_quarterly_series(
+    history: FinancialHistory,
+) -> dict[str, list[float]]:
+    """Extract quarterly ROIC, gross margin, and FCF series from financial history.
+
+    Returns a dict with keys ``"roic"``, ``"gm"``, ``"fcf"`` — each a list of
+    finite float values suitable for trajectory analysis.
+    """
+    roic_vals: list[float] = []
+    gm_vals: list[float] = []
+    fcf_vals: list[float] = []
+
+    for p in history.periods:
+        # ROIC = NOPAT / IC where NOPAT = EBIT * (1 - tax_rate), IC = equity + debt - cash
+        ci = p.current_income
+        cb = p.current_balance
+        ebit = float(ci.ebit)
+        tax_rate = ci.effective_tax_rate
+        nopat = ebit * (1.0 - tax_rate)
+        cash = float(cb.cash_and_equivalents or Decimal("0"))
+        ic = float(cb.total_equity) + float(cb.total_debt) - cash
+        if ic > 0:
+            roic = nopat / ic
+            if math.isfinite(roic):
+                roic_vals.append(roic)
+
+        # Gross margin
+        gm = ci.gross_margin
+        if math.isfinite(gm):
+            gm_vals.append(gm)
+
+        # Free cash flow
+        fcf = float(p.current_cash_flow.free_cash_flow)
+        if math.isfinite(fcf):
+            fcf_vals.append(fcf)
+
+    return {"roic": roic_vals, "gm": gm_vals, "fcf": fcf_vals}
 
 
 def run_elimination_filters(
@@ -155,9 +196,13 @@ def run_elimination_filters(
         if history is not None
         else FinancialHistory(ticker=profile.ticker, periods=[period])
     )
+    quarterly = _extract_quarterly_series(history) if history is not None else {}
     mediocrity_result = mediocrity_gate(
         history=mediocrity_history,
         sector=sector,
+        roic_quarterly=quarterly.get("roic"),
+        gm_quarterly=quarterly.get("gm"),
+        fcf_quarterly=quarterly.get("fcf"),
     )
 
     results = [

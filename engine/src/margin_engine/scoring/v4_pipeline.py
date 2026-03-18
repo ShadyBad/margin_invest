@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import statistics
 from decimal import Decimal
-from typing import Any
 
 from pydantic import BaseModel
 
@@ -84,9 +83,9 @@ class V4ResultWithML(BaseModel):
     opportunity_type: str
     conviction: CompositeTier  # final, after ML override
     rules_conviction: CompositeTier  # before ML override
-    track_a: Any  # V3TrackResult
-    track_b: Any  # V3TrackResult
-    track_c: Any  # V3TrackResult
+    track_a: V3TrackResult
+    track_b: V3TrackResult
+    track_c: V3TrackResult
     style: InvestmentStyle
     timing_signal: str
     max_position_pct: float
