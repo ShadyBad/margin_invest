@@ -36,6 +36,10 @@
 | engine/src/margin_engine/scoring/v3_thresholds.py | Accept conditional param, cap at HIGH when True |
 | engine/src/margin_engine/scoring/v3_track_c_thresholds.py | Same conditional cap |
 | engine/src/margin_engine/scoring/v3_orchestrator.py | Add conditional: bool = False to V3TrackResult |
+| engine/src/margin_engine/scoring/dual_track.py | Handle conditional from ConvictionGateResult (cap at HIGH, not MEDIUM) |
+| engine/src/margin_engine/scoring/v4_orchestrator.py | Multi-track promotion checks conditional flag — at least one non-conditional track required for EXCEPTIONAL promotion |
+
+**Note:** Config models live in `config/v3_scoring_config.py` (not `scoring/v3_config.py` as the spec suggests) — following the existing pattern of `config/threshold_config.py` and `config/filter_config.py`.
 
 ---
 
@@ -98,6 +102,17 @@
 
 ---
 
+### Task 4b: Handle conditional in dual_track.py (v2 system)
+
+**Files:**
+- Modify: engine/src/margin_engine/scoring/dual_track.py
+
+- [ ] **Step 1:** In `score_dual_track()`, when `gate_result.conditional is True`, cap the winning track's conviction at HIGH (not MEDIUM as with full gate failure). Currently line 17-19 caps at MEDIUM when gates fail. Add a new condition: if gates passed but conditional, cap at HIGH.
+- [ ] **Step 2: Run existing dual_track tests for regression**
+- [ ] **Step 3: Commit** — `feat(engine): handle conditional conviction in dual_track scoring`
+
+---
+
 ### Task 5: Implement Mediocrity Gate Trajectory Override
 
 **Files:**
@@ -106,7 +121,7 @@
 
 - [ ] **Step 1: Write tests** — Static pass unchanged, ROIC trajectory conditional, FCF inflection conditional, TURNAROUND stage conditional, all trajectory checks fail, backward compatible (no quarterly data)
 - [ ] **Step 2: Run tests to verify they fail**
-- [ ] **Step 3: Implement** — Add optional params (roic_quarterly, gm_quarterly, fcf_quarterly, growth_stage, config). After static fail, check 4 trajectory conditions. Set conditional=True if any triggers. Store multiplier in computed_metrics.
+- [ ] **Step 3: Implement** — Add optional params (roic_quarterly, gm_quarterly, fcf_quarterly, growth_stage, config). After static fail, check 4 trajectory conditions. Set conditional=True if any triggers. Store multiplier in computed_metrics. **NaN handling:** Filter NaN values with `math.isfinite()` in all quarterly series (same risk as conviction gates — yfinance data contains NaN).
 - [ ] **Step 4: Run new tests to verify they pass**
 - [ ] **Step 5: Run existing mediocrity tests for regression**
 - [ ] **Step 6: Commit** — `feat(engine): mediocrity gate trajectory override for turnarounds`
@@ -137,18 +152,23 @@
 
 ---
 
-### Task 8: Wire CONDITIONAL_PASS Through v3 Thresholds
+### Task 8: Wire CONDITIONAL_PASS Through v3 Thresholds and Orchestrators
 
 **Files:**
 - Modify: engine/src/margin_engine/scoring/v3_thresholds.py
 - Modify: engine/src/margin_engine/scoring/v3_track_c_thresholds.py
-- Modify: engine/src/margin_engine/scoring/v3_cascade.py
-- Modify: engine/src/margin_engine/scoring/v3_track_c_cascade.py
+- Modify: engine/src/margin_engine/scoring/v3_cascade.py (already modified in Task 7 — this task adds to those changes)
+- Modify: engine/src/margin_engine/scoring/v3_track_c_cascade.py (same)
+- Modify: engine/src/margin_engine/scoring/v3_orchestrator.py
+- Modify: engine/src/margin_engine/scoring/v4_orchestrator.py
+
+**Important:** This task modifies the same cascade files as Task 7. Run Task 7 first, then Task 8. Do NOT run in parallel.
 
 - [ ] **Step 1:** Add conditional: bool = False to assess_track_{a,b,c}_conviction. Cap at HIGH when True.
 - [ ] **Step 2:** Propagate conditional from cascade runners to threshold functions and V3TrackResult.
-- [ ] **Step 3: Run tests for regression**
-- [ ] **Step 4: Commit** — `feat(engine): wire CONDITIONAL_PASS through v3 thresholds and cascades`
+- [ ] **Step 3:** Update multi-track promotion logic in v3_orchestrator.py and v4_orchestrator.py: the "both" / "compounder_growth" / "all_three" EXCEPTIONAL promotions require at least one participating track to have conditional=False. If all participating tracks are conditional, cap the promotion at HIGH.
+- [ ] **Step 4: Run tests for regression** — `uv run pytest engine/tests/ -v -k "threshold or cascade or orchestrat" --timeout=120`
+- [ ] **Step 5: Commit** — `feat(engine): wire CONDITIONAL_PASS through v3 thresholds, cascades, and orchestrators`
 
 ---
 
@@ -198,12 +218,13 @@ Research: compute_compounding_power() returns 0.0 when reinvestment_rate <= 0. C
 | 2 | Add conditional to models | None |
 | 3 | Geometric mean composite + tests | 1 |
 | 4 | ROIC-conditional conviction gates + tests | 1, 2 |
+| 4b | Handle conditional in dual_track.py | 2, 4 |
 | 5 | Mediocrity trajectory override + tests | 1, 2 |
 | 6 | Wire mediocrity gate into filter pipeline | 2, 5 |
 | 7 | Wire composite config through cascades | 1, 3 |
-| 8 | Wire CONDITIONAL_PASS through thresholds | 2, 4 |
+| 11 | Investigate compounding_power (research) | 3, 7 — **run before Task 8** |
+| 8 | Wire CONDITIONAL_PASS through thresholds + orchestrators | 2, 4, 7, 11 |
 | 9 | Wire mediocrity multiplier through pipeline | 5, 6 |
-| 10 | Integration regression tests | 3-9 |
-| 11 | Investigate compounding_power | 3, 7 |
+| 10 | Integration regression tests | All above |
 
-**Parallelizable:** Tasks 3, 4, 5 can run in parallel after 1+2. Tasks 6, 7, 8, 9 are independent of each other.
+**Parallelizable:** Tasks 3, 4, 5 can run in parallel after 1+2 complete (different files). Tasks 6, 4b, and 7 can also run in parallel. Tasks 7 and 8 are **sequential** (both modify v3_cascade.py). Task 11 must run before Task 8 (findings affect implementation).
