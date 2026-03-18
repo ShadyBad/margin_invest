@@ -4124,6 +4124,18 @@ async def ingest_sentiment_signals(ctx: dict) -> str:
     return "ingest_sentiment_signals: stub complete"
 
 
+async def backfill_form4_history(ctx: dict) -> str:
+    """One-time backfill of Form 4 filings from EDGAR full-text search index."""
+    logger.info("backfill_form4_history: starting")
+    return "backfill_form4_history: stub complete"
+
+
+async def daily_form4_update(ctx: dict) -> str:
+    """Daily fetch of new Form 4 filings from EDGAR."""
+    logger.info("daily_form4_update: starting")
+    return "daily_form4_update: stub complete"
+
+
 # ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
@@ -4311,6 +4323,8 @@ class WorkerSettings:
         # 2h timeout — scores 67 quarters of PIT data for ML training
         arq_func(backfill_historical_scores, timeout=7200),
         ingest_sentiment_signals,
+        backfill_form4_history,
+        daily_form4_update,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -4339,6 +4353,9 @@ class WorkerSettings:
             snapshot_shadow_portfolio, hour=22, minute=30, run_at_startup=False
         ),  # Daily 10:30 PM UTC
         cron(daily_pit_update, hour=23, minute=0, run_at_startup=False),  # Daily 11 PM UTC
+        cron(
+            daily_form4_update, hour=23, minute=30, run_at_startup=False
+        ),  # Daily 11:30 PM UTC — Form 4 filings
         cron(
             ingest_sentiment_signals, hour=23, minute=45, run_at_startup=False
         ),  # Daily 11:45 PM UTC

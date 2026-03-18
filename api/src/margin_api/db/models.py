@@ -1249,9 +1249,7 @@ class SentimentSignal(Base):
     eps_revision_direction: Mapped[float | None] = mapped_column(Float, nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-    __table_args__ = (
-        UniqueConstraint("ticker", "signal_date", name="uq_sentiment_ticker_date"),
-    )
+    __table_args__ = (UniqueConstraint("ticker", "signal_date", name="uq_sentiment_ticker_date"),)
 
 
 # ---------------------------------------------------------------------------
@@ -1264,7 +1262,7 @@ class InsiderTransactionHistory(Base):
 
     __tablename__ = "insider_transaction_history"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     ticker: Mapped[str] = mapped_column(String(10), index=True)
     cik: Mapped[str] = mapped_column(String(10))
     insider_cik: Mapped[str] = mapped_column(String(10))
