@@ -28,6 +28,7 @@ from margin_engine.models.financial import (
     PriceBar,
 )
 from margin_engine.models.scoring import FilterResult
+from margin_engine.scoring.classifier import classify_growth_stage
 from margin_engine.scoring.filters.altman import altman_z_score
 from margin_engine.scoring.filters.beneish import beneish_m_score, beneish_m_score_v2
 from margin_engine.scoring.filters.current_ratio import (
@@ -71,14 +72,15 @@ class PipelineResult:
 def _extract_quarterly_series(
     history: FinancialHistory,
 ) -> dict[str, list[float]]:
-    """Extract quarterly ROIC, gross margin, and FCF series from financial history.
+    """Extract quarterly ROIC, gross margin, FCF, and net income series from financial history.
 
-    Returns a dict with keys ``"roic"``, ``"gm"``, ``"fcf"`` — each a list of
-    finite float values suitable for trajectory analysis.
+    Returns a dict with keys ``"roic"``, ``"gm"``, ``"fcf"``, ``"net_income"`` —
+    each a list of finite float values suitable for trajectory analysis.
     """
     roic_vals: list[float] = []
     gm_vals: list[float] = []
     fcf_vals: list[float] = []
+    net_income_vals: list[float] = []
 
     for p in history.periods:
         # ROIC = NOPAT / IC where NOPAT = EBIT * (1 - tax_rate), IC = equity + debt - cash
@@ -104,7 +106,12 @@ def _extract_quarterly_series(
         if math.isfinite(fcf):
             fcf_vals.append(fcf)
 
-    return {"roic": roic_vals, "gm": gm_vals, "fcf": fcf_vals}
+        # Net income
+        ni = float(ci.net_income)
+        if math.isfinite(ni):
+            net_income_vals.append(ni)
+
+    return {"roic": roic_vals, "gm": gm_vals, "fcf": fcf_vals, "net_income": net_income_vals}
 
 
 def run_elimination_filters(
@@ -202,12 +209,25 @@ def run_elimination_filters(
         else FinancialHistory(ticker=profile.ticker, periods=[period])
     )
     quarterly = _extract_quarterly_series(history) if history is not None else {}
+
+    # Classify growth stage when history is available — enables turnaround/high-growth
+    # trajectory overrides in the mediocrity gate.
+    growth_stage = None
+    if history is not None:
+        growth_stage = classify_growth_stage(
+            period,
+            profile,
+            quarterly_net_incomes=quarterly.get("net_income"),
+            quarterly_margins=quarterly.get("gm"),
+        )
+
     mediocrity_result = mediocrity_gate(
         history=mediocrity_history,
         sector=sector,
         roic_quarterly=quarterly.get("roic"),
         gm_quarterly=quarterly.get("gm"),
         fcf_quarterly=quarterly.get("fcf"),
+        growth_stage=growth_stage,
     )
 
     results = [
