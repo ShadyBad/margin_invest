@@ -308,9 +308,9 @@ class TestAssetProfile:
         )
         assert profile.ticker == "AAPL"
         assert profile.sector == GICSSector.TECHNOLOGY
-        assert profile.is_excluded is False
 
-    def test_financials_excluded(self):
+    def test_no_is_excluded_property(self):
+        """AssetProfile should not have is_excluded property (removed in v2)."""
         profile = AssetProfile(
             ticker="JPM",
             name="JPMorgan Chase",
@@ -319,18 +319,12 @@ class TestAssetProfile:
             avg_daily_volume=Decimal("10000000"),
             years_of_history=20,
         )
-        assert profile.is_excluded is True
+        assert not hasattr(profile, "is_excluded")
 
-    def test_real_estate_excluded(self):
-        profile = AssetProfile(
-            ticker="AMT",
-            name="American Tower",
-            sector=GICSSector.REAL_ESTATE,
-            market_cap=Decimal("100000000000"),
-            avg_daily_volume=Decimal("5000000"),
-            years_of_history=15,
-        )
-        assert profile.is_excluded is True
+    def test_no_is_excluded_v1_on_sector(self):
+        """GICSSector should not have is_excluded_v1 property (removed in v2)."""
+        assert not hasattr(GICSSector.FINANCIALS, "is_excluded_v1")
+        assert not hasattr(GICSSector.REAL_ESTATE, "is_excluded_v1")
 
 
 class TestPriceBar:

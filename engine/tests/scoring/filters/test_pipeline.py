@@ -48,8 +48,8 @@ class TestFilterPipeline:
             "mediocrity_gate",
         }
 
-    def test_excluded_sector_fails(self):
-        """Financial sector company should fail (liquidity filter)."""
+    def test_financials_sector_passes_liquidity(self):
+        """Financial sector company should pass liquidity (no sector exclusion in v2)."""
         income = IncomeStatement(
             revenue=Decimal("50000"),
             ebit=Decimal("10000"),
@@ -85,8 +85,10 @@ class TestFilterPipeline:
             years_of_history=30,
         )
         result = run_elimination_filters(period, profile)
-        assert result.passed is False
-        assert any(r.name == "liquidity" and not r.passed for r in result.results)
+        # JPM should pass liquidity filter now (sector exclusion removed)
+        liq_results = [r for r in result.results if r.name == "liquidity"]
+        assert len(liq_results) == 1
+        assert liq_results[0].passed is True
 
     def test_no_short_circuit(self):
         """All filters should run even if one fails (no short-circuit)."""

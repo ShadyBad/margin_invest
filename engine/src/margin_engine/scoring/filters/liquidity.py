@@ -1,14 +1,13 @@
-"""Liquidity filter — minimum market cap, volume, history, and sector eligibility.
+"""Liquidity filter — minimum market cap, volume, and history.
 
 Checks whether an asset meets minimum liquidity and coverage requirements
 before it enters the scoring pipeline. This is a pre-scoring elimination
 filter that uses static asset metadata (AssetProfile), not financial period data.
 
 **v1 criteria** (``liquidity_check``):
-- Market Cap >= $300M (sector-adjusted: Utilities >= $1B, Energy >= $500M)
+- Market Cap >= $100M (sector-adjusted: Utilities/RE >= $1B, Energy/Financials >= $500M)
 - Average Daily Dollar Volume >= $1M (or tiered by market cap bucket with config)
 - Years of Trading History >= 5
-- Sector not in {Financials, Real Estate} (v1 exclusion)
 
 **v2 criteria** (``liquidity_check_v2``):
 All v1 criteria plus:
@@ -48,15 +47,6 @@ _SECTOR_MARKET_CAP: dict[GICSSector, Decimal] = {
     GICSSector.UTILITIES: Decimal("1_000_000_000"),  # $1B
     GICSSector.ENERGY: Decimal("500_000_000"),  # $500M
 }
-
-# Excluded sectors (v1)
-_EXCLUDED_SECTORS: frozenset[GICSSector] = frozenset(
-    {
-        GICSSector.FINANCIALS,
-        GICSSector.REAL_ESTATE,
-    }
-)
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -124,24 +114,7 @@ def liquidity_check(
     criteria: list[str] = []
     all_passed = True
 
-    # 1. Sector exclusion — checked first, overrides everything
-    if config is not None:
-        excluded_sector_values = set(config.excluded_sectors)
-    else:
-        excluded_sector_values = {s.value for s in _EXCLUDED_SECTORS}
-
-    if profile.sector.value in excluded_sector_values:
-        excluded_list = ", ".join(sorted(excluded_sector_values))
-        detail = (
-            f"Sector '{profile.sector.value}' is excluded in v1. Excluded sectors: {excluded_list}"
-        )
-        return FilterResult(
-            name=name,
-            passed=False,
-            detail=detail,
-        )
-
-    # 2. Market cap check (sector-adjusted)
+    # 1. Market cap check (sector-adjusted)
     if config is not None:
         cap_threshold = _config_market_cap_threshold(profile.sector, config)
         # Determine if this sector has a config override (not just the default)
@@ -208,7 +181,7 @@ def liquidity_check_v2(
 ) -> FilterResult:
     """Enhanced liquidity check with position sizing and divergence analysis.
 
-    Runs all v1 checks (market cap, volume, history, sector) plus:
+    Runs all v1 checks (market cap, volume, history) plus:
 
     - **90d median dollar volume** vs tiered threshold (computed from price bars)
     - **Position sizing**: can a $500K position be filled in <= 5 days at 5%
@@ -236,18 +209,7 @@ def liquidity_check_v2(
     all_passed = True
     metrics: dict[str, float] = {}
 
-    # 1. Sector exclusion — checked first, overrides everything
-    excluded_sector_values = set(config.excluded_sectors)
-    if profile.sector.value in excluded_sector_values:
-        excluded_list = ", ".join(sorted(excluded_sector_values))
-        detail = f"Sector '{profile.sector.value}' is excluded. Excluded sectors: {excluded_list}"
-        return FilterResult(
-            name=name,
-            passed=False,
-            detail=detail,
-        )
-
-    # 2. Market cap check (sector-adjusted)
+    # 1. Market cap check (sector-adjusted)
     cap_threshold = _config_market_cap_threshold(profile.sector, config)
     sector_key = profile.sector.name.lower()
     has_override = getattr(config.market_cap_minimum, sector_key, None) is not None

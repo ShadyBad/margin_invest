@@ -59,8 +59,8 @@ class TestLiquidity:
         result = liquidity_check(profile)
         assert result.passed is False
 
-    def test_financials_excluded(self):
-        """Financial sector should be excluded."""
+    def test_financials_not_excluded(self):
+        """Financial sector should no longer be excluded (sector exclusion removed in v2)."""
         profile = AssetProfile(
             ticker="JPM",
             name="JPMorgan Chase",
@@ -70,11 +70,10 @@ class TestLiquidity:
             years_of_history=30,
         )
         result = liquidity_check(profile)
-        assert result.passed is False
-        assert "excluded" in result.detail.lower() or "sector" in result.detail.lower()
+        assert result.passed is True
 
-    def test_real_estate_excluded(self):
-        """Real estate sector should be excluded."""
+    def test_real_estate_not_excluded(self):
+        """Real estate sector should no longer be excluded (sector exclusion removed in v2)."""
         profile = AssetProfile(
             ticker="AMT",
             name="American Tower",
@@ -84,7 +83,7 @@ class TestLiquidity:
             years_of_history=20,
         )
         result = liquidity_check(profile)
-        assert result.passed is False
+        assert result.passed is True
 
     def test_energy_higher_market_cap_threshold(self):
         """Energy sector needs >= $500M market cap."""
@@ -233,12 +232,11 @@ class TestLiquidityWithConfig:
         result = liquidity_check(profile)  # no config parameter
         assert result.passed
 
-    def test_config_sector_exclusions(self):
-        """Sector exclusions should come from config."""
+    def test_financials_pass_liquidity_with_config(self):
+        """Financials should pass liquidity filter (no sector exclusion)."""
         from margin_engine.config.filter_config import LiquidityConfig
 
-        # Config with no excluded sectors
-        config = LiquidityConfig(excluded_sectors=[])
+        config = LiquidityConfig()
         profile = AssetProfile(
             ticker="FIN",
             name="Finance Corp",
@@ -248,7 +246,7 @@ class TestLiquidityWithConfig:
             years_of_history=10,
         )
         result = liquidity_check(profile, config=config)
-        assert result.passed  # Financials NOT excluded when config says so
+        assert result.passed
 
     def test_config_market_cap_minimum_overrides(self):
         """Market cap minimum thresholds should come from config."""
@@ -488,8 +486,8 @@ class TestLiquidityCheckV2:
         # v1 doesn't produce computed_metrics
         assert result.computed_metrics is None
 
-    def test_v2_sector_exclusion(self):
-        """v2 also checks sector exclusion."""
+    def test_v2_financials_not_excluded(self):
+        """v2 no longer excludes Financials sector."""
         profile = AssetProfile(
             ticker="JPM",
             name="JPMorgan Chase",
@@ -499,8 +497,7 @@ class TestLiquidityCheckV2:
             years_of_history=30,
         )
         result = liquidity_check_v2(profile, price_bars=None)
-        assert result.passed is False
-        assert "excluded" in result.detail.lower()
+        assert result.passed is True
 
     def test_v2_insufficient_bars_skips_90d(self):
         """When fewer than 90 bars provided, falls back to profile volume."""

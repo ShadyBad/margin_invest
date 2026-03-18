@@ -47,8 +47,5 @@ class TestGoldenAppleFixture:
         roa = float(APPLE_INCOME_2024.net_income / APPLE_BALANCE_2024.total_assets)
         assert roa == pytest.approx(EXPECTED["roa_2024"], abs=0.001)
 
-    def test_profile_not_excluded(self):
-        assert APPLE_PROFILE.is_excluded is False
-
     def test_profile_sector(self):
         assert APPLE_PROFILE.sector.is_cyclical is False
