@@ -191,6 +191,8 @@ class InsiderTransaction(BaseModel):
     shares: int
     price_per_share: Decimal
     value: Decimal
+    insider_cik: str | None = None
+    is_first_purchase: bool | None = None
 
 
 class InstitutionalHolding(BaseModel):
