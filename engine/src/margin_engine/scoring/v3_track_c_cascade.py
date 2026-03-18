@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from margin_engine.config.v3_scoring_config import V3CompositeConfig
 from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.v3_composite import compute_track_c_score
 from margin_engine.scoring.v3_orchestrator import V3TrackResult
@@ -42,6 +43,7 @@ class TrackCInputs(BaseModel):
     # Gate 4: Growth Durability
     revenue_deceleration: float  # change in growth rate (negative = slowing)
     tam_headroom: float  # TAM / current_revenue
+    composite_config: V3CompositeConfig | None = None
 
 
 def run_track_c_cascade(inputs: TrackCInputs) -> V3TrackResult:
@@ -97,6 +99,7 @@ def run_track_c_cascade(inputs: TrackCInputs) -> V3TrackResult:
         unit_economics=ue,
         capital_efficiency=ce,
         growth_durability=gd,
+        config=inputs.composite_config,
     )
 
     # --- Conviction ---

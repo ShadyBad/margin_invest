@@ -11,6 +11,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from margin_engine.config.v3_scoring_config import V3CompositeConfig
 from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod
 from margin_engine.models.scoring import CompositeTier
 from margin_engine.scoring.market_regime import RegimeAdjustments
@@ -55,6 +56,7 @@ class TrackAInputs(BaseModel):
     sbc_pct: float | None = None
     recent_acquisition_count: int = 0
     regime_adjustments: RegimeAdjustments | None = None
+    composite_config: V3CompositeConfig | None = None
 
 
 # Conviction levels that qualify for inclusion
@@ -150,6 +152,7 @@ def run_track_a_cascade(inputs: TrackAInputs) -> V3TrackResult:
         compounding_power=compounding,
         capital_allocation=cap_alloc,
         growth_gap=max(growth_gap, 0.0),
+        config=inputs.composite_config,
     )
 
     # --- Conviction ---
@@ -194,6 +197,7 @@ class TrackBInputs(BaseModel):
     accumulation_percentile: float = 0.0
     wacc: float
     regime_adjustments: RegimeAdjustments | None = None
+    composite_config: V3CompositeConfig | None = None
 
 
 def _current_roic(period: FinancialPeriod) -> float:
@@ -314,6 +318,7 @@ def run_track_b_cascade(inputs: TrackBInputs) -> V3TrackResult:
         catalyst_strength=catalyst / 100.0,
         quality_floor_factor=quality_floor,
         valuation_convergence=convergence,
+        config=inputs.composite_config,
     )
 
     # --- Conviction ---
