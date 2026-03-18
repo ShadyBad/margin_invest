@@ -951,3 +951,81 @@ class TestWorkerRegistration:
     def test_total_cron_jobs_count(self):
         """Should have 10 cron jobs."""
         assert len(WorkerSettings.cron_jobs) == 10
+
+
+class TestRecordFail:
+    @pytest.mark.asyncio
+    async def test_ttl_set_only_on_first_failure(self):
+        """TTL should be set on first failure, not reset on subsequent failures."""
+        import fakeredis.aioredis
+        from margin_api.workers import _record_fail
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        # First failure — should set TTL
+        await _record_fail(fake_redis, "AAPL")
+        ttl_after_first = await fake_redis.ttl("price_fail:AAPL")
+        assert 86300 < ttl_after_first <= 86400  # ~24h
+
+        # Simulate time passing: manually reduce TTL to 50000
+        await fake_redis.expire("price_fail:AAPL", 50000)
+
+        # Second failure — should NOT reset TTL back to 86400
+        await _record_fail(fake_redis, "AAPL")
+        ttl_after_second = await fake_redis.ttl("price_fail:AAPL")
+        assert ttl_after_second <= 50000  # TTL was NOT reset
+        count = int(await fake_redis.get("price_fail:AAPL"))
+        assert count == 2  # Counter incremented
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_safety_ttl_on_orphaned_key(self):
+        """If a key has no TTL (simulating crash between INCR and EXPIRE), the
+        safety check should add one."""
+        import fakeredis.aioredis
+        from margin_api.workers import _record_fail
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        # Call _record_fail once to create the key normally
+        await _record_fail(fake_redis, "AAPL")
+        # Now simulate a crash: manually remove the TTL to create an orphan
+        await fake_redis.persist("price_fail:AAPL")
+        assert await fake_redis.ttl("price_fail:AAPL") == -1
+
+        # Second call should detect TTL=-1 and fix it
+        await _record_fail(fake_redis, "AAPL")
+        ttl = await fake_redis.ttl("price_fail:AAPL")
+        assert ttl > 0, "Orphaned key should have TTL restored"
+        assert 86300 < ttl <= 86400
+        count = int(await fake_redis.get("price_fail:AAPL"))
+        assert count == 2
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_logs_warning_on_failure(self):
+        """_record_fail logs a warning with ticker and count."""
+        import fakeredis.aioredis
+        from margin_api.workers import _record_fail
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        with patch("margin_api.workers.logger") as mock_logger:
+            await _record_fail(fake_redis, "AAPL")
+            mock_logger.warning.assert_called_once_with("price_fail:%s count=%d", "AAPL", 1)
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_logs_debug_on_redis_error(self):
+        """Redis exceptions are logged at debug level, not swallowed silently."""
+        from margin_api.workers import _record_fail
+
+        mock_redis = AsyncMock()
+        mock_redis.incr = AsyncMock(side_effect=ConnectionError("Redis down"))
+
+        with patch("margin_api.workers.logger") as mock_logger:
+            await _record_fail(mock_redis, "AAPL")  # Should not raise
+            mock_logger.debug.assert_called_once()

@@ -2903,13 +2903,25 @@ async def live_price_poll(ctx: dict) -> dict:
 
 
 async def _record_fail(redis_client, ticker: str) -> None:
-    """Increment the price-poll failure counter for a ticker (24h TTL)."""
+    """Increment the price-poll failure counter for a ticker.
+
+    TTL (24h) is set only on first failure to create a fixed evaluation window.
+    Includes a safety check for orphaned keys with no TTL.
+    """
+    key = f"price_fail:{ticker}"
     try:
-        key = f"price_fail:{ticker}"
-        await redis_client.incr(key)
-        await redis_client.expire(key, 86400)
+        count = await redis_client.incr(key)
+        if count == 1:
+            # First failure in window — start the 24h countdown
+            await redis_client.expire(key, 86400)
+        else:
+            # Safety: if key has no TTL (crash between INCR and EXPIRE), set it
+            ttl = await redis_client.ttl(key)
+            if ttl == -1:
+                await redis_client.expire(key, 86400)
+        logger.warning("price_fail:%s count=%d", ticker, count)
     except Exception:
-        pass
+        logger.debug("Redis error in _record_fail for %s", ticker, exc_info=True)
 
 
 async def retry_quarantined(ctx: dict) -> dict:
