@@ -18,6 +18,9 @@ from margin_engine.scoring.position_sizing import compute_position_size
 _MEDIUM_PERCENTILE_CAP = 98.0
 _MEDIUM_RAW_SCORE_CAP = 70.9  # Just below HIGH threshold (71.0) -> forces MEDIUM max
 
+# Conditional gate cap — trajectory override limits conviction to HIGH (not EXCEPTIONAL)
+_HIGH_RAW_SCORE_CAP = 75.9  # Just below EXCEPTIONAL threshold (76.0) -> forces HIGH max
+
 
 def score_dual_track(
     track_a_score: CompositeScore,
@@ -34,7 +37,10 @@ def score_dual_track(
         1. Pick the track with higher composite_percentile (tie goes to Track A).
         2. Copy the winning CompositeScore.
         3. Set v2 fields: opportunity_type, winning_track, asymmetry_ratio, timing_signal.
-        4. If winning track's gates failed -> cap conviction at MEDIUM.
+        4. Apply conviction caps based on gate results:
+           - gates failed -> cap at MEDIUM (raw_score < 71.0)
+           - gates passed conditionally (trajectory override) -> cap at HIGH (raw_score < 76.0)
+           - gates passed unconditionally -> no cap
         5. Compute position sizing from asymmetry + conviction level.
 
     Args:
@@ -66,10 +72,14 @@ def score_dual_track(
     result.asymmetry_ratio = asymmetry_ratio_value
     result.timing_signal = timing_signal
 
-    # 4. Cap conviction if gates failed
+    # 4. Cap conviction based on gate results
     if not winning_gate.passed:
+        # Full failure — cap at MEDIUM
         result.composite_percentile = min(result.composite_percentile, _MEDIUM_PERCENTILE_CAP)
         result.composite_raw_score = min(result.composite_raw_score, _MEDIUM_RAW_SCORE_CAP)
+    elif winning_gate.conditional:
+        # Trajectory override — cap at HIGH (not EXCEPTIONAL)
+        result.composite_raw_score = min(result.composite_raw_score, _HIGH_RAW_SCORE_CAP)
 
     # 5. Compute position sizing
     composite_tier = result.composite_tier
