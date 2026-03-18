@@ -2794,29 +2794,52 @@ async def live_price_poll(ctx: dict) -> dict:
     async def _download_batch(batch: list[str]) -> int:
         """Download prices for a batch of tickers via yf.download. Returns success count."""
         try:
-            async with asyncio.timeout(batch_timeout):
-                tickers_str = " ".join(batch)
-                df = await asyncio.to_thread(
-                    lambda: yf.download(
-                        tickers_str,
-                        period="1d",
-                        progress=False,
-                        threads=True,
+            df = await _yf_download_with_timeout(batch, batch_timeout)
+        except asyncio.TimeoutError:
+            # Batch timeout — retry once with split halves
+            logger.warning(
+                "[prices] Batch timeout (%ds) for %d tickers, retrying in halves",
+                batch_timeout,
+                len(batch),
+            )
+            mid = len(batch) // 2
+            ok = 0
+            for half in (batch[:mid], batch[mid:]):
+                if not half:
+                    continue
+                try:
+                    df_half = await _yf_download_with_timeout(half, batch_timeout)
+                    ok += await _process_batch_df(half, df_half)
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "[prices] Half-batch timeout for %d tickers, skipping (no penalty)",
+                        len(half),
                     )
-                )
-        except (TimeoutError, Exception) as exc:
-            logger.warning("[prices] Batch download failed: %s", exc)
-            # Increment failure counters for entire batch
-            try:
-                pipe = redis_client.pipeline()
-                for t in batch:
-                    pipe.incr(f"{fail_key_prefix}{t}")
-                    pipe.expire(f"{fail_key_prefix}{t}", 86400)  # 24h TTL
-                await pipe.execute()
-            except Exception:
-                pass
+                except Exception as exc:
+                    logger.warning("[prices] Half-batch failed (infrastructure): %s", exc)
+            return ok
+        except Exception as exc:
+            # Non-timeout infrastructure failure — do NOT penalize individual tickers
+            logger.warning("[prices] Batch download failed (infrastructure): %s", exc)
             return 0
 
+        return await _process_batch_df(batch, df)
+
+    async def _yf_download_with_timeout(tickers: list[str], timeout: int) -> pd.DataFrame | None:
+        """Run yf.download in a thread with asyncio timeout."""
+        tickers_str = " ".join(tickers)
+        async with asyncio.timeout(timeout):
+            return await asyncio.to_thread(
+                lambda: yf.download(
+                    tickers_str,
+                    period="1d",
+                    progress=False,
+                    threads=True,
+                )
+            )
+
+    async def _process_batch_df(batch: list[str], df: pd.DataFrame | None) -> int:
+        """Process a yfinance DataFrame and update Redis. Returns success count."""
         if df is None or df.empty:
             return 0
 
@@ -2841,7 +2864,6 @@ async def live_price_poll(ctx: dict) -> dict:
                     last_row["Volume"] = int(df[("Volume", ticker)].iloc[-1])
                     bar_date = close.index[-1].strftime("%Y-%m-%d")
                 else:
-                    # Single ticker — no MultiIndex
                     close_col = df.get("Close")
                     if close_col is None or close_col.dropna().empty:
                         await _record_fail(redis_client, ticker)

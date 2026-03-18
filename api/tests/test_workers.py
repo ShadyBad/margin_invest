@@ -1029,3 +1029,193 @@ class TestRecordFail:
         with patch("margin_api.workers.logger") as mock_logger:
             await _record_fail(mock_redis, "AAPL")  # Should not raise
             mock_logger.debug.assert_called_once()
+
+
+class TestDownloadBatchAttribution:
+    """Tests for per-ticker failure attribution in _download_batch."""
+
+    @pytest.mark.asyncio
+    async def test_batch_timeout_does_not_penalize_tickers(self):
+        """On asyncio.TimeoutError, no tickers get _record_fail."""
+        import fakeredis.aioredis
+        from margin_api.workers import live_price_poll
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("AAPL",), ("MSFT",)]
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # yf.download always times out
+        def _timeout(*args, **kwargs):
+            raise TimeoutError("Batch download timed out")
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", side_effect=_timeout),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await live_price_poll({})
+
+        # No tickers should have failure counters
+        aapl_count = await fake_redis.get("price_fail:AAPL")
+        msft_count = await fake_redis.get("price_fail:MSFT")
+        assert aapl_count is None, "AAPL should not be penalized on batch timeout"
+        assert msft_count is None, "MSFT should not be penalized on batch timeout"
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_partial_batch_penalizes_only_missing_tickers(self):
+        """Tickers with no data get _record_fail; tickers with data get counter cleared."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import live_price_poll
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        # Pre-set a failure counter for AAPL that should be cleared on success
+        await fake_redis.set("price_fail:AAPL", "3")
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("AAPL",), ("BAD",)]
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # MultiIndex DataFrame: AAPL has data, BAD is missing
+        idx = pd.DatetimeIndex(["2026-03-17"], name="Date")
+        mock_df = pd.DataFrame(
+            {
+                ("Open", "AAPL"): [150.0],
+                ("High", "AAPL"): [152.0],
+                ("Low", "AAPL"): [149.0],
+                ("Close", "AAPL"): [151.0],
+                ("Volume", "AAPL"): [1000000],
+            },
+            index=idx,
+        )
+        mock_df.columns = pd.MultiIndex.from_tuples(mock_df.columns)
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", return_value=mock_df),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await live_price_poll({})
+
+        # AAPL succeeded — counter should be cleared
+        assert await fake_redis.get("price_fail:AAPL") is None
+        # BAD had no data — counter should be set
+        bad_count = await fake_redis.get("price_fail:BAD")
+        assert bad_count is not None
+        assert int(bad_count) >= 1
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_connection_error_does_not_penalize_or_retry(self):
+        """On ConnectionError (non-timeout), no tickers penalized, no retry."""
+        import fakeredis.aioredis
+        from margin_api.workers import live_price_poll
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("AAPL",)]
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        call_count = 0
+
+        def _conn_error(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            raise ConnectionError("Network unreachable")
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", side_effect=_conn_error),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await live_price_poll({})
+
+        # No tickers penalized
+        assert await fake_redis.get("price_fail:AAPL") is None
+        # No retry — only called once per batch
+        assert call_count == 1
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_batch_split_retry_recovers_on_second_try(self):
+        """On timeout, batch splits in half and retries. Successful halves process normally."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import live_price_poll
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("AAPL",), ("MSFT",)]
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_session_factory = MagicMock()
+        mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # First call (full batch) times out; subsequent calls (halves) succeed
+        call_count = 0
+        idx = pd.DatetimeIndex(["2026-03-17"], name="Date")
+
+        def _download_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise TimeoutError("Batch download timed out")
+            # Half-batch calls succeed with single-ticker DataFrames
+            return pd.DataFrame(
+                {"Open": [150.0], "High": [152.0], "Low": [149.0], "Close": [151.0], "Volume": [1000000]},
+                index=idx,
+            )
+
+        with (
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", side_effect=_download_side_effect),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await live_price_poll({})
+
+        # Both halves succeeded after retry
+        assert result["updated"] == 2
+        # 3 calls: 1 full batch timeout + 2 half-batch retries
+        assert call_count == 3
+        # No failure counters set
+        assert await fake_redis.get("price_fail:AAPL") is None
+        assert await fake_redis.get("price_fail:MSFT") is None
+
+        await fake_redis.aclose()
