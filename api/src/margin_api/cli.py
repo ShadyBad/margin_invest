@@ -1762,13 +1762,13 @@ def run_universe_generate(output: str | None = None) -> None:
         screen_us_equities,
     )
 
-    excluded_sectors = ["Financial Services", "Real Estate"]
+    excluded_sectors: list[str] = []
     min_market_cap = 0
     min_avg_volume = 0
 
     logger.info("Screening Yahoo Finance for US-domiciled equities...")
     logger.info("  Exchanges: %s", ", ".join(US_EXCHANGES))
-    logger.info("  Excluded sectors: %s", ", ".join(excluded_sectors))
+    logger.info("  Sector exclusions: none (all GICS sectors included)")
 
     raw = screen_us_equities(
         min_market_cap=min_market_cap,
@@ -1796,7 +1796,7 @@ def run_universe_generate(output: str | None = None) -> None:
         min_market_cap=min_market_cap,
         min_avg_volume=min_avg_volume,
         exchanges=US_EXCHANGES,
-        description="US-domiciled equities, excluding financials and REITs",
+        description="US-domiciled equities, all GICS sectors",
     )
 
     if output is None:
