@@ -12,7 +12,7 @@ from margin_engine.ingestion.types import (
 
 
 class TestDataCategory:
-    def test_has_all_seven_values(self):
+    def test_has_all_expected_values(self):
         expected = {
             "FUNDAMENTALS",
             "PRICE",
@@ -21,6 +21,8 @@ class TestDataCategory:
             "MACRO",
             "NEWS",
             "EARNINGS",
+            "SHORT_INTEREST",
+            "ANALYST",
         }
         actual = {member.name for member in DataCategory}
         assert actual == expected

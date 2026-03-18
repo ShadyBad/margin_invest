@@ -536,7 +536,7 @@ class TestRunRealBacktestUsesRealScoring:
         assert fc is not None, "filter_config must be passed to orchestrator"
         assert isinstance(fc, FilterConfig)
         assert fc.liquidity.min_years_of_history == 1
-        assert fc.liquidity.market_cap_minimum.default == 100_000_000
+        assert fc.liquidity.market_cap_minimum.default == 50_000_000
 
 
 # ---------------------------------------------------------------------------

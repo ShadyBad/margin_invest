@@ -1762,13 +1762,13 @@ def run_universe_generate(output: str | None = None) -> None:
         screen_us_equities,
     )
 
-    excluded_sectors = ["Financial Services", "Real Estate"]
+    excluded_sectors: list[str] = []
     min_market_cap = 0
     min_avg_volume = 0
 
     logger.info("Screening Yahoo Finance for US-domiciled equities...")
     logger.info("  Exchanges: %s", ", ".join(US_EXCHANGES))
-    logger.info("  Excluded sectors: %s", ", ".join(excluded_sectors))
+    logger.info("  Sector exclusions: none (all GICS sectors included)")
 
     raw = screen_us_equities(
         min_market_cap=min_market_cap,
@@ -1796,7 +1796,7 @@ def run_universe_generate(output: str | None = None) -> None:
         min_market_cap=min_market_cap,
         min_avg_volume=min_avg_volume,
         exchanges=US_EXCHANGES,
-        description="US-domiciled equities, excluding financials and REITs",
+        description="US-domiciled equities, all GICS sectors",
     )
 
     if output is None:
@@ -2414,6 +2414,81 @@ def run_regime_characterize(
         print(f"\nReport saved to {report_path}")
 
 
+def run_weight_tune(
+    track: str = "ALL",
+    n_trials: int = 100,
+    metric: str = "sharpe",
+    dry_run: bool = False,
+) -> None:
+    """Run Optuna weight optimization for scoring tracks."""
+    try:
+        import optuna  # noqa: F401
+    except ImportError:
+        print(
+            "ERROR: optuna is not installed. "
+            "Install with: uv sync --package margin-engine --extra tuning"
+        )
+        sys.exit(1)
+
+    from margin_engine.tuning.weight_optimizer import TRACK_FACTORS
+
+    tracks = list(TRACK_FACTORS.keys()) if track == "ALL" else [track.upper()]
+
+    for t in tracks:
+        if t not in TRACK_FACTORS:
+            print(f"ERROR: Unknown track '{t}'. Valid tracks: A, B, C, ALL")
+            sys.exit(1)
+
+    print("=" * 60)
+    print("WEIGHT OPTIMIZATION (Optuna)")
+    print("=" * 60)
+    print(f"  Tracks:    {', '.join(tracks)}")
+    print(f"  Trials:    {n_trials}")
+    print(f"  Metric:    {metric}")
+    print(f"  Dry run:   {dry_run}")
+    print()
+
+    if dry_run:
+        for t in tracks:
+            factors = TRACK_FACTORS[t]
+            print(f"  Track {t}: {len(factors)} factors — {', '.join(factors)}")
+        print()
+        print("Dry run complete. No optimization performed.")
+        print("Full backtest objective wiring is pending.")
+        return
+
+    for t in tracks:
+        factors = TRACK_FACTORS[t]
+        print(f"Track {t}: optimizing {len(factors)} factors ({', '.join(factors)})")
+
+        study = optuna.create_study(
+            direction="maximize",
+            study_name=f"weight_tune_track_{t}",
+        )
+
+        def objective(trial: optuna.Trial, _track: str = t, _factors: list = factors) -> float:
+            from margin_engine.tuning.weight_optimizer import suggest_track_weights
+
+            weights = suggest_track_weights(trial, factor_names=_factors)
+            if weights is None:
+                raise optuna.TrialPruned()
+            # Scaffold: return dummy value until backtest wiring is complete
+            return sum(w**2 for w in weights.values())
+
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+
+        print(f"  Best trial: #{study.best_trial.number}")
+        print(f"  Best value: {study.best_value:.6f}")
+        print("  Best params:")
+        for k, v in study.best_params.items():
+            print(f"    {k}: {v:.4f}")
+        print()
+
+    print("NOTE: Full backtest objective wiring is pending.")
+    print("Current objective is a placeholder (sum of squared weights).")
+
+
 def main() -> None:
     """CLI entry point with argparse."""
     logging.basicConfig(
@@ -2667,6 +2742,36 @@ def main() -> None:
         help="Bootstrap resamples (default: 1000)",
     )
 
+    # weight-tune
+    weight_tune_parser = subparsers.add_parser(
+        "weight-tune",
+        help="Optimize scoring track weights via Optuna",
+    )
+    weight_tune_parser.add_argument(
+        "track",
+        nargs="?",
+        default="ALL",
+        choices=["A", "B", "C", "ALL"],
+        help="Track to optimize (A, B, C, or ALL; default: ALL)",
+    )
+    weight_tune_parser.add_argument(
+        "--n-trials",
+        type=int,
+        default=100,
+        help="Number of Optuna trials (default: 100)",
+    )
+    weight_tune_parser.add_argument(
+        "--metric",
+        default="sharpe",
+        choices=["sharpe", "sortino", "calmar"],
+        help="Optimization metric (default: sharpe)",
+    )
+    weight_tune_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print configuration without running optimization",
+    )
+
     args = parser.parse_args()
 
     if args.command == "universe":
@@ -2737,6 +2842,13 @@ def main() -> None:
             end_date=args.end_date,
             output=args.output,
             bootstrap_n=args.bootstrap_n,
+        )
+    elif args.command == "weight-tune":
+        run_weight_tune(
+            track=args.track,
+            n_trials=args.n_trials,
+            metric=args.metric,
+            dry_run=args.dry_run,
         )
     else:
         parser.print_help()

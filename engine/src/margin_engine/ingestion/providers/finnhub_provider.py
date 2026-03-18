@@ -1,7 +1,8 @@
 """Finnhub data provider via the official Python SDK.
 
 Provides earnings surprises, insider transactions, institutional
-holdings, and company news. Free tier supports 60 API calls/min.
+holdings, company news, short interest, and analyst recommendations.
+Free tier supports 60 API calls/min.
 
 Finnhub docs: https://finnhub.io/docs/api
 """
@@ -32,9 +33,10 @@ class FinnhubProvider(DataProvider):
     """Concrete data provider backed by Finnhub.
 
     Requires an API key. Supports earnings, insider transactions,
-    institutional holdings, and company news. Priority is 5 — acts
-    as primary for earnings/news and fallback for insider/institutional
-    (SEC EDGAR will be higher priority when built).
+    institutional holdings, company news, short interest, and analyst
+    recommendations. Priority is 5 — acts as primary for
+    earnings/news and fallback for insider/institutional (SEC EDGAR
+    will be higher priority when built).
     """
 
     def __init__(
@@ -62,6 +64,8 @@ class FinnhubProvider(DataProvider):
                 DataCategory.INSIDER,
                 DataCategory.INSTITUTIONAL,
                 DataCategory.NEWS,
+                DataCategory.SHORT_INTEREST,
+                DataCategory.ANALYST,
             ],
             requests_per_minute=60,
             requires_api_key=True,
@@ -186,6 +190,56 @@ class FinnhubProvider(DataProvider):
             return FetchResult(
                 provider_name=self.info.name,
                 category=DataCategory.NEWS,
+                ticker=ticker,
+                raw_data={},
+                fetched_at=_now_iso(),
+                success=False,
+                error=str(exc),
+            )
+
+    def fetch_short_interest(self, ticker: str) -> FetchResult:
+        """Fetch short interest data for a ticker."""
+        self._acquire_rate_limit()
+        try:
+            data = self._client.stock_short_interest(symbol=ticker)
+            records = data.get("data", []) if data else []
+
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.SHORT_INTEREST,
+                ticker=ticker,
+                raw_data={"short_interest": records},
+                fetched_at=_now_iso(),
+            )
+        except Exception as exc:
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.SHORT_INTEREST,
+                ticker=ticker,
+                raw_data={},
+                fetched_at=_now_iso(),
+                success=False,
+                error=str(exc),
+            )
+
+    def fetch_analyst_recommendations(self, ticker: str) -> FetchResult:
+        """Fetch analyst recommendation trends for a ticker."""
+        self._acquire_rate_limit()
+        try:
+            data = self._client.recommendation_trends(symbol=ticker)
+            recommendations = data if data else []
+
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.ANALYST,
+                ticker=ticker,
+                raw_data={"recommendations": recommendations},
+                fetched_at=_now_iso(),
+            )
+        except Exception as exc:
+            return FetchResult(
+                provider_name=self.info.name,
+                category=DataCategory.ANALYST,
                 ticker=ticker,
                 raw_data={},
                 fetched_at=_now_iso(),

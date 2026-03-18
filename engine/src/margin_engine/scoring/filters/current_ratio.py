@@ -71,7 +71,19 @@ def current_ratio_check(
             When None, hardcoded constants are used.
     """
     name = "current_ratio"
-    threshold = _get_config_threshold(sector, config) if config else _get_threshold(sector)
+    cfg = config or CurrentRatioConfig()
+    threshold = _get_config_threshold(sector, cfg) if config else _get_threshold(sector)
+
+    # Sector exemption check
+    sector_value = sector.value if sector is not None else None
+    if sector_value in cfg.exempt_sectors:
+        return FilterResult(
+            name=name,
+            passed=True,
+            threshold=threshold,
+            detail=f"Sector '{sector_value}' is exempt from {name}",
+        )
+
     current_assets = period.current_balance.current_assets
     current_liabilities = period.current_balance.current_liabilities
 
@@ -160,6 +172,16 @@ def current_ratio_check_v2(
     name = "current_ratio"
     cfg = config or CurrentRatioConfig()
     threshold = _get_config_threshold(sector, cfg)
+
+    # Sector exemption check
+    sector_value = sector.value if sector is not None else None
+    if sector_value in cfg.exempt_sectors:
+        return FilterResult(
+            name=name,
+            passed=True,
+            threshold=threshold,
+            detail=f"Sector '{sector_value}' is exempt from {name}",
+        )
 
     # Use 3 most recent periods (or fewer if less data)
     lookback = 3

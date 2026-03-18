@@ -212,11 +212,12 @@ class TestFilterToScoringPipeline:
         # (10000 - 4000) / 50000 = 0.12
         assert abs(score.raw_value - 0.12) < 1e-6
 
-    def test_excluded_sector_fails_filter(self) -> None:
+    def test_small_cap_fails_filter(self) -> None:
+        """Stock with market cap below minimum should fail liquidity filter."""
         from margin_engine.scoring.filters import run_elimination_filters
 
         period = _make_period()
-        profile = _make_profile(ticker="BAD", sector=GICSSector.FINANCIALS)
+        profile = _make_profile(ticker="TINY", market_cap=50_000_000)  # $50M < $100M min
 
         pipeline_result = run_elimination_filters(period, profile)
         assert not pipeline_result.passed
@@ -231,7 +232,7 @@ class TestFilterToScoringPipeline:
             ("AAPL", GICSSector.TECHNOLOGY, 3_000_000_000, 10_000, 3_000, 50_000),
             ("MSFT", GICSSector.TECHNOLOGY, 2_500_000_000, 20_000, 8_000, 80_000),
             ("JPM", GICSSector.FINANCIALS, 500_000_000_000, 50_000, 20_000, 200_000),
-            ("TINY", GICSSector.TECHNOLOGY, 100_000_000, 5_000, 2_000, 30_000),
+            ("TINY", GICSSector.TECHNOLOGY, 50_000_000, 5_000, 2_000, 30_000),
         ]
 
         survivors: list[tuple[str, FactorScore]] = []
@@ -243,11 +244,12 @@ class TestFilterToScoringPipeline:
                 score = gross_profitability(period)
                 survivors.append((ticker, score))
 
-        # JPM excluded (Financials), TINY too small market cap
+        # TINY too small market cap ($50M < $100M), JPM now passes (sector exclusion removed)
         survivor_tickers = {t for t, _ in survivors}
         assert "AAPL" in survivor_tickers
         assert "MSFT" in survivor_tickers
-        assert "JPM" not in survivor_tickers
+        assert "JPM" in survivor_tickers
+        assert "TINY" not in survivor_tickers
 
         # All survivors have numeric scores
         for _, score in survivors:

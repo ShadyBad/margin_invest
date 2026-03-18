@@ -13,7 +13,8 @@ from margin_engine.models.financial import (
     IncomeStatement,
     PriceBar,
 )
-from margin_engine.scoring.filters.pipeline import run_elimination_filters
+from margin_engine.models.scoring import FilterResult, FilterVerdict
+from margin_engine.scoring.filters.pipeline import PipelineResult, run_elimination_filters
 
 
 class TestFilterPipeline:
@@ -48,8 +49,8 @@ class TestFilterPipeline:
             "mediocrity_gate",
         }
 
-    def test_excluded_sector_fails(self):
-        """Financial sector company should fail (liquidity filter)."""
+    def test_financials_sector_passes_liquidity(self):
+        """Financial sector company should pass liquidity (no sector exclusion in v2)."""
         income = IncomeStatement(
             revenue=Decimal("50000"),
             ebit=Decimal("10000"),
@@ -85,8 +86,10 @@ class TestFilterPipeline:
             years_of_history=30,
         )
         result = run_elimination_filters(period, profile)
-        assert result.passed is False
-        assert any(r.name == "liquidity" and not r.passed for r in result.results)
+        # JPM should pass liquidity filter now (sector exclusion removed)
+        liq_results = [r for r in result.results if r.name == "liquidity"]
+        assert len(liq_results) == 1
+        assert liq_results[0].passed is True
 
     def test_no_short_circuit(self):
         """All filters should run even if one fails (no short-circuit)."""
@@ -525,3 +528,33 @@ class TestFilterPipelineV2:
         assert beneish_result.threshold == -10.0
         # M-Score should be well above -10.0, so it should FAIL
         assert beneish_result.passed is False
+
+
+class TestConditionalFilterSemantics:
+    """Conditional passes should not appear in failed_filters and should get their own verdict."""
+
+    def test_verdict_returns_conditional_pass(self):
+        fr = FilterResult(name="test", passed=False, conditional=True, detail="trajectory")
+        assert fr.verdict == FilterVerdict.CONDITIONAL_PASS
+
+    def test_failed_filters_excludes_conditional(self):
+        conditional = FilterResult(name="mediocrity", passed=False, conditional=True)
+        failed = FilterResult(name="altman", passed=False, conditional=False)
+        passed = FilterResult(name="liquidity", passed=True)
+        result = PipelineResult(results=[conditional, failed, passed])
+        assert len(result.failed_filters) == 1
+        assert result.failed_filters[0].name == "altman"
+
+    def test_conditional_filters_returns_only_conditional(self):
+        conditional = FilterResult(name="mediocrity", passed=False, conditional=True)
+        failed = FilterResult(name="altman", passed=False, conditional=False)
+        passed = FilterResult(name="liquidity", passed=True)
+        result = PipelineResult(results=[conditional, failed, passed])
+        assert len(result.conditional_filters) == 1
+        assert result.conditional_filters[0].name == "mediocrity"
+
+    def test_pipeline_passed_still_counts_conditional_as_passing(self):
+        conditional = FilterResult(name="mediocrity", passed=False, conditional=True)
+        passed = FilterResult(name="liquidity", passed=True)
+        result = PipelineResult(results=[conditional, passed])
+        assert result.passed is True

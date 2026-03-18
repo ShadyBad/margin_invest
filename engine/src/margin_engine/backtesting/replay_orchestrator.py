@@ -199,8 +199,16 @@ class ReplayOrchestrator:
                         eliminated_count += 1
                         for f in filter_result.failed_filters:
                             filter_failures[f.name] += 1
-                        failed = [f.name for f in filter_result.failed_filters]
-                        notable_events.append(f"{snapshot.ticker} eliminated — {', '.join(failed)}")
+                        for f in filter_result.conditional_filters:
+                            filter_failures[f"conditional:{f.name}"] += 1
+                        failed_names = [f.name for f in filter_result.failed_filters]
+                        conditional_names = [f.name for f in filter_result.conditional_filters]
+                        all_issue_names = failed_names + [
+                            f"conditional:{n}" for n in conditional_names
+                        ]
+                        notable_events.append(
+                            f"{snapshot.ticker} eliminated — {', '.join(all_issue_names)}"
+                        )
                 except Exception:
                     logger.warning("Filter error for %s on %s", snapshot.ticker, rebal_date)
                     eliminated_count += 1
@@ -458,8 +466,16 @@ class ReplayOrchestrator:
                         eliminated_count += 1
                         for f in filter_result.failed_filters:
                             filter_failures[f.name] += 1
-                        failed = [f.name for f in filter_result.failed_filters]
-                        notable_events.append(f"{snapshot.ticker} eliminated — {', '.join(failed)}")
+                        for f in filter_result.conditional_filters:
+                            filter_failures[f"conditional:{f.name}"] += 1
+                        failed_names = [f.name for f in filter_result.failed_filters]
+                        conditional_names = [f.name for f in filter_result.conditional_filters]
+                        all_issue_names = failed_names + [
+                            f"conditional:{n}" for n in conditional_names
+                        ]
+                        notable_events.append(
+                            f"{snapshot.ticker} eliminated — {', '.join(all_issue_names)}"
+                        )
                 except Exception:
                     logger.warning("Filter error for %s on %s", snapshot.ticker, rebal_date)
                     eliminated_count += 1

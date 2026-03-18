@@ -60,16 +60,41 @@ beneish:
 
     def test_market_cap_minimum_defaults(self):
         config = FilterConfig()
-        assert config.liquidity.market_cap_minimum.default == 300_000_000
+        assert config.liquidity.market_cap_minimum.default == 100_000_000
         assert config.liquidity.market_cap_minimum.utilities == 1_000_000_000
         assert config.liquidity.market_cap_minimum.energy == 500_000_000
+        assert config.liquidity.market_cap_minimum.financials == 500_000_000
+        assert config.liquidity.market_cap_minimum.real_estate == 1_000_000_000
 
     def test_altman_defaults(self):
-        """Altman Z-score config has correct defaults."""
+        """Altman Z-score config has correct defaults including expanded exempt_sectors."""
         config = FilterConfig()
         assert config.altman.threshold == 1.1
         assert config.altman.equity_tl_cap == 10.0
-        assert config.altman.exempt_sectors == ["Utilities"]
+        assert config.altman.exempt_sectors == ["Utilities", "Financials", "Real Estate"]
+
+    def test_fcf_distress_exempt_sectors(self):
+        """FCF distress config should exempt Financials and Real Estate."""
+        config = FilterConfig()
+        assert config.fcf_distress.exempt_sectors == ["Financials", "Real Estate"]
+
+    def test_interest_coverage_exempt_sectors(self):
+        """Interest coverage config should exempt Financials."""
+        config = FilterConfig()
+        assert config.interest_coverage.exempt_sectors == ["Financials"]
+
+    def test_current_ratio_exempt_sectors(self):
+        """Current ratio config should exempt Financials."""
+        config = FilterConfig()
+        assert config.current_ratio.exempt_sectors == ["Financials"]
+
+    def test_market_cap_minimum_updated_defaults(self):
+        """MarketCapMinimum should have lower default and new sector overrides."""
+        config = FilterConfig()
+        cap = config.liquidity.market_cap_minimum
+        assert cap.default == 100_000_000  # lowered from 300M to 100M
+        assert cap.financials == 500_000_000  # new
+        assert cap.real_estate == 1_000_000_000  # new
 
     def test_position_sizing_defaults(self):
         """Position sizing has correct defaults."""
@@ -135,11 +160,10 @@ mediocrity_gate:
         # Other sections completely untouched
         assert config.beneish.threshold == -1.78
 
-    def test_excluded_sectors_default(self):
-        """Excluded sectors matches current hardcoded values."""
+    def test_no_excluded_sectors_on_liquidity(self):
+        """LiquidityConfig should NOT have excluded_sectors field (removed in v2)."""
         config = FilterConfig()
-        assert "Financials" in config.liquidity.excluded_sectors
-        assert "Real Estate" in config.liquidity.excluded_sectors
+        assert not hasattr(config.liquidity, "excluded_sectors")
 
     def test_liquidity_dollar_volume_window(self):
         """Dollar volume window default matches design doc."""
@@ -163,11 +187,11 @@ class TestBacktestFilterConfig:
         assert config.liquidity.min_years_of_history == 1
 
     def test_backtest_config_has_lower_market_cap(self):
-        """Backtest should use $100M market cap floor (not $300M)."""
+        """Backtest should use $50M market cap floor (not $100M production default)."""
         from margin_engine.config.filter_config import backtest_filter_config
 
         config = backtest_filter_config()
-        assert config.liquidity.market_cap_minimum.default == 100_000_000
+        assert config.liquidity.market_cap_minimum.default == 50_000_000
 
     def test_backtest_config_preserves_other_defaults(self):
         """Backtest config should not change financial health filters."""
@@ -181,13 +205,14 @@ class TestBacktestFilterConfig:
         assert config.interest_coverage.default == 1.5
         assert config.current_ratio.default == 0.8
 
-    def test_backtest_config_preserves_sector_exclusions(self):
-        """Backtest config should still exclude Financials and Real Estate."""
+    def test_backtest_config_preserves_exempt_sectors(self):
+        """Backtest config should preserve exempt sectors on downstream filters."""
         from margin_engine.config.filter_config import backtest_filter_config
 
         config = backtest_filter_config()
-        assert "Financials" in config.liquidity.excluded_sectors
-        assert "Real Estate" in config.liquidity.excluded_sectors
+        assert "Financials" in config.altman.exempt_sectors
+        assert "Real Estate" in config.altman.exempt_sectors
+        assert "Financials" in config.fcf_distress.exempt_sectors
 
     def test_backtest_config_preserves_sector_cap_overrides(self):
         """Sector-specific market cap overrides should remain proportional."""

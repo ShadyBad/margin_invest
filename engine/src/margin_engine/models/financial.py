@@ -28,10 +28,6 @@ class GICSSector(StrEnum):
     COMMUNICATION_SERVICES = "Communication Services"
 
     @property
-    def is_excluded_v1(self) -> bool:
-        return self in (GICSSector.FINANCIALS, GICSSector.REAL_ESTATE)
-
-    @property
     def is_cyclical(self) -> bool:
         return self in (
             GICSSector.ENERGY,
@@ -195,6 +191,8 @@ class InsiderTransaction(BaseModel):
     shares: int
     price_per_share: Decimal
     value: Decimal
+    insider_cik: str | None = None
+    is_first_purchase: bool | None = None
 
 
 class InstitutionalHolding(BaseModel):
@@ -218,10 +216,6 @@ class AssetProfile(BaseModel):
     avg_daily_volume: Decimal = Decimal("0")
     shares_outstanding: int | None = None
     years_of_history: int = 0
-
-    @property
-    def is_excluded(self) -> bool:
-        return self.sector.is_excluded_v1
 
 
 class FinancialHistory(BaseModel):

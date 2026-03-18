@@ -211,7 +211,7 @@ class TestFullPipeline:
         assert len(composite.growth.sub_scores) >= 1
 
         # All 6 elimination filters ran
-        assert len(composite.filters_passed) == 6
+        assert len(composite.filters_passed) == 7
 
     def test_score_detail_serializes_to_json(self):
         """CompositeScore can be serialized and reconstructed via ScoreResponse."""
@@ -236,7 +236,7 @@ class TestFullPipeline:
         assert len(reconstructed.quality.sub_scores) == 5
         assert len(reconstructed.value.sub_scores) == 4
         assert len(reconstructed.momentum.sub_scores) == 3
-        assert len(reconstructed.filters_passed) == 6
+        assert len(reconstructed.filters_passed) == 7
 
     def test_pipeline_with_different_sectors(self):
         """Pipeline works with a Financials sector profile (e.g., JPM-like)."""
@@ -267,4 +267,4 @@ class TestFullPipeline:
         assert composite.composite_tier.value in VALID_COMPOSITE_TIERS
         assert composite.signal.value in VALID_SIGNALS
         assert 0.0 <= composite.data_coverage <= 1.0
-        assert len(composite.filters_passed) == 6
+        assert len(composite.filters_passed) == 7

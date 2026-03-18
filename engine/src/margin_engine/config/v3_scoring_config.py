@@ -111,6 +111,26 @@ class ConvictionGateConfig(BaseModel):
     track_b_improving_min_periods: int = 2
 
 
+class SectorPercentileConfig(BaseModel):
+    """Percentile thresholds for sector-relative conviction gates.
+
+    Used by Financials and Real Estate sectors where absolute ROIC thresholds
+    are inappropriate. Instead, conviction is determined by percentile rank
+    within the sector universe.
+
+    Thresholds are percentile values (0-100):
+        - capital_light_bypass: >= this percentile bypasses reinvestment gate
+        - exceptional/strong/adequate: conviction tier cutoffs
+        - minimum: minimum percentile to avoid hard failure
+    """
+
+    capital_light_bypass: float = 90.0
+    exceptional: float = 75.0
+    strong: float = 60.0
+    adequate: float = 50.0
+    minimum: float = 50.0
+
+
 class MediocracyTrajectoryConfig(BaseModel):
     """Configuration for the mediocracy gate trajectory override.
 
