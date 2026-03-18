@@ -68,8 +68,8 @@ def _compute_roic_series(history: FinancialHistory) -> list[float]:
 
 Replace inline ROIC loop in capital-light bypass (lines 96-103) with this helper.
 
-**Track A trajectory detection** (after capital-light bypass):
-- Compute `median_roic` from `_compute_roic_series()`
+**Track A trajectory detection** (after capital-light bypass, reusing the same
+`roic_series` and `median_roic` already computed for the bypass check):
 - If `median_roic < ConvictionGateConfig().roic_minimum` (0.08) and `len(roic_series) >= 2`:
   call `check_trajectory_override(roic_series, config.trajectory_min_delta, config.trajectory_min_periods)`
 - If trajectory fires → `conditional = True`
@@ -155,26 +155,46 @@ Thread `growth_stage` through the filter pipeline.
 
 In `filters/pipeline.py`, `run_elimination_filters()`:
 1. Import `classify_growth_stage` from `scoring/classifier.py`
-2. Compute `growth_stage = classify_growth_stage(period, profile)` — both are already
-   available as parameters to `run_elimination_filters()`
-3. Pass `growth_stage=growth_stage` to `mediocrity_gate()`
+2. Extract `quarterly_net_incomes` and `quarterly_margins` from `history` (when
+   available) — these are **required** for turnaround detection. Without them,
+   `_is_turnaround()` always returns `False`, making this entire change a no-op.
+3. Compute growth stage:
+   ```python
+   growth_stage = classify_growth_stage(
+       period, profile,
+       quarterly_net_incomes=quarterly_net_incomes,
+       quarterly_margins=quarterly_margins,
+   )
+   ```
+4. Pass `growth_stage=growth_stage` to `mediocrity_gate()`
+
+**Extracting quarterly data from history**: The pipeline's `_extract_quarterly_series()`
+already iterates history periods. Extend it to also extract:
+- `quarterly_net_incomes`: `[float(p.current_income.net_income) for p in history.periods]`
+- `quarterly_margins`: `[p.current_income.gross_margin for p in history.periods]`
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `engine/src/margin_engine/scoring/filters/pipeline.py` | Import classifier, compute growth stage, pass to mediocrity_gate |
+| `engine/src/margin_engine/scoring/filters/pipeline.py` | Import classifier, extract quarterly data for turnaround detection, compute growth stage, pass to mediocrity_gate |
 
 ### Config/Data Dependencies
 
-None — `classify_growth_stage()` uses `FinancialPeriod` and `AssetProfile` which are
-already parameters of `run_elimination_filters()`.
+- `classify_growth_stage()` uses `FinancialPeriod` and `AssetProfile` (already available)
+- Turnaround detection requires `quarterly_net_incomes` (2+ negative quarters) and
+  `quarterly_margins` (2+ sequential improvements) — must be extracted from `history`
+- When `history` is `None` (v1 single-period path), growth stage is computed without
+  quarterly data, so turnaround detection won't fire (acceptable — v1 path is legacy)
 
 ### Test Strategy
 
-- Add test to `test_mediocrity_trajectory.py`: construct TURNAROUND history that fails
-  static gate but passes trajectory override → verify `conditional=True` when called
-  through `run_elimination_filters()`
+- Add test to `test_mediocrity_trajectory.py`: construct TURNAROUND history with 2+
+  negative net income quarters + sequential margin improvement + positive OCF → verify
+  `classify_growth_stage` returns TURNAROUND, and `conditional=True` when called through
+  `run_elimination_filters()`
+- Test that non-turnaround history still classifies correctly and mediocrity gate behaves
+  as before
 - Verify backward compat: existing pipeline tests still pass
 
 ---
@@ -319,12 +339,28 @@ conditional = [f.name for f in filter_result.conditional_filters]
 | `engine/src/margin_engine/scoring/filters/pipeline.py` | Add conditional_filters, update failed_filters |
 | `engine/src/margin_engine/backtesting/replay_orchestrator.py` | Log conditional_filters separately (~lines 200, 459) |
 
+### Downstream Consumers
+
+`failed_filters` is consumed in tests and production code. After the semantic change,
+any test asserting on `failed_filters` with conditional results needs verification:
+
+- `engine/tests/scoring/filters/test_pipeline.py` (lines 33, 131, 134, 140)
+- `engine/tests/scoring/filters/test_integration.py` (lines 29, 150)
+- `engine/tests/scoring/filters/test_pipeline_mask.py` (line 61)
+- `engine/tests/test_full_pipeline.py` (lines 205, 223)
+- `engine/tests/backtesting/test_replay_orchestrator.py` (line 260, mocks `failed_filters`)
+
+`api/src/margin_api/routes/scores.py:704` checks `any(not f.passed for f in filters)`
+inline rather than using the `failed_filters` property — not directly affected, but
+exhibits the same ambiguity. Consider updating to use `failed_filters` for consistency.
+
 ### Test Strategy
 
 - Test `FilterResult.verdict` returns CONDITIONAL_PASS for (passed=False, conditional=True)
 - Test `PipelineResult.failed_filters` excludes conditional results
 - Test `PipelineResult.conditional_filters` returns only conditional results
 - Verify replay orchestrator logs conditional filters in backtest output
+- Update or verify all 5 test files listed above for compatibility with new semantics
 
 ---
 
@@ -346,19 +382,22 @@ conditional = [f.name for f in filter_result.conditional_filters]
 | `_compute_asset_floor_per_share()` | 9 | Asset floor IV per share |
 
 Additionally, `TickerV3Data` and `TickerV4Data` are independent `BaseModel` subclasses
-with 14 overlapping fields but no shared base class. The helpers can't be typed against
+with 15 overlapping fields but no shared base class. The helpers can't be typed against
 `TickerV3Data` because `TickerV4Data` doesn't inherit from it.
 
 ### Current State
 
-**Shared fields (14):**
+**Shared fields (15):**
 `ticker`, `history`, `latest_period`, `profile`, `current_price`,
 `current_fcf_per_share`, `sustainable_growth_rate`, `buyback_yield`,
 `insider_ownership_pct`, `sbc_pct`, `recent_acquisition_count`,
 `sue_percentile`, `beta`, `momentum_percentile`, `dcf_iv`
 
-**V4-only fields:**
-`accumulation_percentile`, `style`, `revenue_growth_rate`, `fcf_margin`
+**V4-only fields (11):**
+`accumulation_percentile`, `style`, `revenue_growth_rate`, `fcf_margin`,
+`gross_margin_current`, `gross_margin_3yr_ago`, `opex_growth_rate`,
+`revenue_growth_rate_for_leverage`, `incremental_roic`, `revenue_deceleration`,
+`tam_headroom`
 
 **PIT adapter** (`backtesting/pit_adapter.py`) constructs `TickerV3Data` directly from
 `PITSnapshot` — would naturally use the base class.
@@ -388,8 +427,10 @@ class TickerDataBase(BaseModel):
 
 **Step 2: Rebase data classes:**
 - `TickerV3Data(TickerDataBase)` — empty body (preserves existing type references)
-- `TickerV4Data(TickerDataBase)` — adds `accumulation_percentile`, `style`,
-  `revenue_growth_rate`, `fcf_margin`
+- `TickerV4Data(TickerDataBase)` — adds all 11 V4-only fields: `accumulation_percentile`,
+  `style`, `revenue_growth_rate`, `fcf_margin`, `gross_margin_current`,
+  `gross_margin_3yr_ago`, `opex_growth_rate`, `revenue_growth_rate_for_leverage`,
+  `incremental_roic`, `revenue_deceleration`, `tam_headroom`
 
 **Step 3: Extract helpers** to `engine/src/margin_engine/scoring/pipeline_helpers.py`,
 typed against `TickerDataBase`:
@@ -463,6 +504,14 @@ Backtesting infrastructure: `backtesting/simulator.py` (WalkForwardSimulator),
 **Joint optimization** using Optuna (Bayesian optimization) instead of exhaustive grid
 search. Converges in ~50-100 trials (~8-16 hours) vs ~333 hours for grid sweep.
 
+**Config injection**: The objective function must inject trial weights into the scoring
+pipeline. Currently `score_universe_v3()` uses default `V3CompositeConfig` because
+`TrackAInputs.composite_config` and `TrackBInputs.composite_config` default to `None`.
+The optimizer constructs a `V3CompositeConfig` with trial weights and passes it to
+`score_universe_v3()` (or v4) via a new `composite_config` parameter. If
+`score_universe_v3` doesn't accept this parameter today, add it — it flows through
+to `TrackAInputs` / `TrackBInputs` which already support it.
+
 **Hyperparameter space** (per track):
 
 | Parameter | Range | Constraint |
@@ -478,8 +527,10 @@ search. Converges in ~50-100 trials (~8-16 hours) vs ~333 hours for grid sweep.
 optimize for Sharpe ratio. Secondary metrics (IC, Sortino) logged per trial but not
 used in the objective.
 
-**Per-track optimization**: Tracks A, B, C run independently — each has its own factor
-names, weight set, and potentially different optimal balance bonus parameters.
+**Per-track optimization**: Tracks A and B run independently via the v3 pipeline. Track C
+optimization requires the v4 pipeline (Track C only runs for GROWTH-style tickers in v4).
+The CLI `--track C` option must use `score_universe_v4` instead of `score_universe_v3`
+and filter results to Track C outcomes only.
 
 **CLI command** `weight-tune`:
 ```
@@ -496,14 +547,16 @@ Options:
 - `--dry-run`: Report top 5 combos without updating config defaults
 
 **Decision gate**: Only update `V3CompositeConfig` defaults if the optimized combo
-improves Sharpe by >5% vs equal-weight baseline. Otherwise keep current defaults and
-log the result.
+improves Sharpe by >5% relative (e.g., baseline Sharpe 1.0 → optimized must be >1.05)
+vs equal-weight baseline. Otherwise keep current defaults and log the result.
 
 **Golden-value test impact**: If weights or bonus multiplier change, existing
 golden-value tests need threshold updates. The CLI should output a diff showing old
 vs new expected values.
 
-**New dependency**: `optuna` added to engine package.
+**New dependency**: `optuna` added as an optional dependency group in engine
+(`[project.optional-dependencies] tuning = ["optuna"]`). Keeps the core engine
+lightweight — only the CLI tuning command requires it.
 
 ### Files to Modify
 
@@ -513,13 +566,15 @@ vs new expected values.
 | `engine/src/margin_engine/tuning/weight_optimizer.py` | New — Optuna study setup, objective function, weight constraint |
 | `api/src/margin_api/cli.py` | Add `weight-tune` command |
 | `engine/src/margin_engine/config/v3_scoring_config.py` | Update defaults if decision gate passes |
-| `engine/pyproject.toml` | Add `optuna` dependency |
+| `engine/pyproject.toml` | Add `optuna` as optional dependency (`[tuning]` group) |
 
 ### Config/Data Dependencies
 
 - Requires PIT data (existing `pit_financial_snapshots`, `pit_daily_prices`)
 - Backtest infrastructure already exists (`WalkForwardSimulator`, metrics)
 - Optuna stores trial history in SQLite by default — enables resume after interruption
+- CLI should fail gracefully with a clear message if PIT data is insufficient for
+  walk-forward simulation (e.g., fewer than 3 years of snapshots)
 
 ### Test Strategy
 
