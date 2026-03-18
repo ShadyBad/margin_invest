@@ -21,6 +21,12 @@ from margin_engine.scoring.pipeline_helpers import (
 )
 from margin_engine.scoring.quantitative.wacc_company import compute_company_wacc
 from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
+from margin_engine.scoring.score_modifiers import (
+    anti_consensus_modifier,
+    apply_all_modifiers,
+    insider_signal_modifier,
+    liquidity_modifier,
+)
 from margin_engine.scoring.ticker_data import TickerDataBase
 from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
 from margin_engine.scoring.v3_cascade import (
@@ -76,6 +82,8 @@ class V4ResultWithML(BaseModel):
     ml_confidence: float | None = None
     ml_override: str = "none"
     composite_score: float = 0.0
+    modified_score: float | None = None
+    modifier_breakdown: dict[str, float] | None = None
 
 
 _CONVICTION_ORDER = {
@@ -283,6 +291,37 @@ def score_universe_v4(
         else:
             max_position_pct = v4_result.max_position_pct
 
+        # Step 3i: Compute and apply score modifiers
+        ac_mod = anti_consensus_modifier(
+            td.short_interest_percentile,
+            td.analyst_divergence,
+            td.eps_revision_strength,
+            td.fundamental_trajectory,
+        )
+
+        divergence_ratio = None  # Not yet available from LiquidityProfile
+        liq_mod = liquidity_modifier(
+            float(td.profile.market_cap),
+            float(td.profile.avg_daily_volume),
+            divergence_ratio,
+        )
+
+        drawdown_pct = None
+        if td.high_52w and td.high_52w > 0 and td.current_price > 0:
+            drawdown_pct = (td.current_price - td.high_52w) / td.high_52w
+
+        ins_mod = insider_signal_modifier(
+            td.insider_cluster_score_value,
+            td.insider_cluster_detected,
+            td.insider_total_buy_value,
+            drawdown_pct,
+            td.insider_has_first_buy,
+        )
+
+        modified_score, modifier_breakdown = apply_all_modifiers(
+            composite_score, ac_mod, liq_mod, ins_mod
+        )
+
         results.append(
             V4ResultWithML(
                 ticker=td.ticker,
@@ -299,6 +338,8 @@ def score_universe_v4(
                 ml_confidence=ml_confidence_val,
                 ml_override=ml_override_type,
                 composite_score=composite_score,
+                modified_score=modified_score,
+                modifier_breakdown=modifier_breakdown,
             )
         )
 

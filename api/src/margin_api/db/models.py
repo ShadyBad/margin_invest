@@ -1229,3 +1229,62 @@ class RarityDistributionSnapshot(Base):
     percentiles: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     mean: Mapped[float] = mapped_column(Float)
     std: Mapped[float] = mapped_column(Float)
+
+
+# ---------------------------------------------------------------------------
+# Sentiment / Analyst Signal models
+# ---------------------------------------------------------------------------
+
+
+class SentimentSignal(Base):
+    """Daily sentiment signals: short interest, analyst consensus, EPS revisions."""
+
+    __tablename__ = "sentiment_signals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(10), index=True)
+    signal_date: Mapped[date] = mapped_column()
+    short_interest_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    analyst_consensus: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    eps_revision_direction: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (UniqueConstraint("ticker", "signal_date", name="uq_sentiment_ticker_date"),)
+
+
+# ---------------------------------------------------------------------------
+# Insider Transaction History (Form 4)
+# ---------------------------------------------------------------------------
+
+
+class InsiderTransactionHistory(Base):
+    """Full Form 4 insider transaction history for first-ever-buy detection."""
+
+    __tablename__ = "insider_transaction_history"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(10), index=True)
+    cik: Mapped[str] = mapped_column(String(10))
+    insider_cik: Mapped[str] = mapped_column(String(10))
+    insider_name: Mapped[str] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(Text)
+    transaction_type: Mapped[str] = mapped_column(String(10))
+    transaction_date: Mapped[date] = mapped_column()
+    shares: Mapped[int] = mapped_column(BigInteger)
+    price_per_share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    accession_number: Mapped[str] = mapped_column(String(30))
+    filing_date: Mapped[date] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "accession_number",
+            "insider_cik",
+            "transaction_date",
+            name="uq_insider_accession_cik_date",
+        ),
+        Index("ix_insider_hist_insider", "insider_cik", "ticker"),
+    )

@@ -415,3 +415,49 @@ class TestCurrentRatioV2:
         # Decline from 1.2 to 1.0 = 16.7%, under 30% threshold
         assert result.passed is True
         assert result.warning is False
+
+
+class TestCurrentRatioSectorExemption:
+    """Tests for sector exemption in current ratio filter."""
+
+    def test_financials_exempt_v1(self):
+        """Financials sector should be exempt from current ratio check (v1)."""
+        # CR = 0.3 would normally FAIL
+        period = _make_period("300", "1000")
+        config = CurrentRatioConfig()
+        result = current_ratio_check(period, sector=GICSSector.FINANCIALS, config=config)
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_financials_exempt_v2(self):
+        """Financials sector should be exempt from current ratio check (v2)."""
+        periods = [
+            _make_period("300", "1000", period_end="2022-09-28"),  # CR = 0.3
+            _make_period("300", "1000", period_end="2023-09-28"),  # CR = 0.3
+            _make_period("300", "1000", period_end="2024-09-28"),  # CR = 0.3
+        ]
+        history = _make_history(periods)
+        config = CurrentRatioConfig()
+        result = current_ratio_check_v2(history, sector=GICSSector.FINANCIALS, config=config)
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_technology_not_exempt(self):
+        """Technology sector should NOT be exempt from current ratio check."""
+        period = _make_period("300", "1000")
+        config = CurrentRatioConfig()
+        result = current_ratio_check(period, sector=GICSSector.TECHNOLOGY, config=config)
+        assert result.passed is False
+
+    def test_default_config_exempt_sectors(self):
+        """Default CurrentRatioConfig should exempt Financials."""
+        config = CurrentRatioConfig()
+        assert "Financials" in config.exempt_sectors
+
+    def test_custom_exempt_sectors(self):
+        """Custom exempt_sectors should work."""
+        config = CurrentRatioConfig(exempt_sectors=["Financials", "Real Estate"])
+        period = _make_period("300", "1000")
+        result = current_ratio_check(period, sector=GICSSector.REAL_ESTATE, config=config)
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()

@@ -17,6 +17,12 @@ from margin_engine.scoring.pipeline_helpers import (
 )
 from margin_engine.scoring.quantitative.wacc_company import compute_company_wacc
 from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
+from margin_engine.scoring.score_modifiers import (
+    anti_consensus_modifier,
+    apply_all_modifiers,
+    insider_signal_modifier,
+    liquidity_modifier,
+)
 from margin_engine.scoring.ticker_data import TickerDataBase
 from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
 from margin_engine.scoring.v3_cascade import (
@@ -150,6 +156,53 @@ def score_universe_v3(
 
         # Step 7: Orchestrate
         result = orchestrate_v3(td.ticker, track_a, track_b, timing_signal)
+
+        # Step 7b: Compute and apply score modifiers
+        # Composite score = winning track's score
+        composite_score = max(
+            track_a.score if track_a.qualifies else 0.0,
+            track_b.score if track_b.qualifies else 0.0,
+        )
+
+        ac_mod = anti_consensus_modifier(
+            td.short_interest_percentile,
+            td.analyst_divergence,
+            td.eps_revision_strength,
+            td.fundamental_trajectory,
+        )
+
+        # Divergence ratio not yet available — pass None
+        divergence_ratio = None
+        liq_mod = liquidity_modifier(
+            float(td.profile.market_cap),
+            float(td.profile.avg_daily_volume),
+            divergence_ratio,
+        )
+
+        # Compute drawdown from 52-week high
+        drawdown_pct = None
+        if td.high_52w and td.high_52w > 0 and td.current_price > 0:
+            drawdown_pct = (td.current_price - td.high_52w) / td.high_52w
+
+        ins_mod = insider_signal_modifier(
+            td.insider_cluster_score_value,
+            td.insider_cluster_detected,
+            td.insider_total_buy_value,
+            drawdown_pct,
+            td.insider_has_first_buy,
+        )
+
+        modified_score, modifier_breakdown = apply_all_modifiers(
+            composite_score, ac_mod, liq_mod, ins_mod
+        )
+
+        result = result.model_copy(
+            update={
+                "modified_score": modified_score,
+                "modifier_breakdown": modifier_breakdown,
+            }
+        )
+
         results.append(result)
 
     # Step 8: Sort by conviction order, then by max_position_pct descending

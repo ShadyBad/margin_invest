@@ -40,9 +40,11 @@ class DollarVolumeTiers(BaseModel):
 class MarketCapMinimum(BaseModel):
     """Minimum market cap thresholds (sector-adjusted)."""
 
-    default: int = 300_000_000
+    default: int = 100_000_000
     utilities: int = 1_000_000_000
     energy: int = 500_000_000
+    financials: int = 500_000_000
+    real_estate: int = 1_000_000_000
 
 
 class PositionSizingConfig(BaseModel):
@@ -61,7 +63,6 @@ PositionImpact = PositionSizingConfig
 class LiquidityConfig(BaseModel):
     """Liquidity filter configuration."""
 
-    excluded_sectors: list[str] = Field(default_factory=lambda: ["Financials", "Real Estate"])
     min_years_of_history: int = 5
     market_cap_minimum: MarketCapMinimum = Field(default_factory=MarketCapMinimum)
     dollar_volume: DollarVolumeTiers = Field(default_factory=DollarVolumeTiers)
@@ -82,6 +83,7 @@ class BeneishConfig(BaseModel):
     """Beneish M-Score filter configuration."""
 
     threshold: float = -1.78
+    exempt_sectors: list[str] = Field(default_factory=lambda: ["Financials", "Real Estate"])
 
 
 class AltmanConfig(BaseModel):
@@ -89,7 +91,9 @@ class AltmanConfig(BaseModel):
 
     threshold: float = 1.1
     equity_tl_cap: float = 10.0
-    exempt_sectors: list[str] = Field(default_factory=lambda: ["Utilities"])
+    exempt_sectors: list[str] = Field(
+        default_factory=lambda: ["Utilities", "Financials", "Real Estate"]
+    )
 
 
 class FcfDistressConfig(BaseModel):
@@ -104,8 +108,10 @@ class FcfDistressConfig(BaseModel):
     growth_positive_years_required: int = 2
     growth_ocf_rescue_min_gross_margin: float = 0.40
 
+    # Sectors exempt from this filter (non-traditional FCF structures).
+    exempt_sectors: list[str] = Field(default_factory=lambda: ["Financials", "Real Estate"])
+
     # Sector-specific FCF margin floors (lowercased GICSSector value -> minimum).
-    # Financials and Real Estate are excluded from scoring (GICSSector.is_excluded_v1).
     sector_margin_overrides: dict[str, float] = Field(
         default_factory=lambda: {
             "information technology": 0.10,
@@ -142,6 +148,7 @@ class InterestCoverageConfig(BaseModel):
     sector_overrides: dict[str, float] = Field(
         default_factory=lambda: {"information technology": 5.0, "utilities": 1.2}
     )
+    exempt_sectors: list[str] = Field(default_factory=lambda: ["Financials"])
     median_lookback_years: int = 3
     median_minimum: float = 1.0
 
@@ -157,6 +164,7 @@ class CurrentRatioConfig(BaseModel):
     sector_overrides: dict[str, float] = Field(
         default_factory=lambda: {"information technology": 0.8, "utilities": 0.6}
     )
+    exempt_sectors: list[str] = Field(default_factory=lambda: ["Financials"])
     quick_ratio_rescue: float = 0.5
     max_3yr_decline_pct: float = 30.0
 
@@ -202,7 +210,7 @@ class FilterConfig(BaseModel):
 def backtest_filter_config() -> FilterConfig:
     """Return a FilterConfig with relaxed thresholds for PIT backtesting.
 
-    Reduces min_years_of_history (5 -> 1), market_cap floor ($300M -> $100M),
+    Reduces min_years_of_history (5 -> 1), market_cap floor ($100M -> $50M),
     and dollar volume tiers (halved) to avoid over-eliminating historical
     tickers when markets were less liquid.
     """
@@ -210,9 +218,11 @@ def backtest_filter_config() -> FilterConfig:
         liquidity=LiquidityConfig(
             min_years_of_history=1,
             market_cap_minimum=MarketCapMinimum(
-                default=100_000_000,
+                default=50_000_000,
                 utilities=500_000_000,
                 energy=250_000_000,
+                financials=250_000_000,
+                real_estate=500_000_000,
             ),
             dollar_volume=DollarVolumeTiers(
                 mega=25_000_000,

@@ -9,6 +9,7 @@ from margin_engine.models.financial import (
     CashFlowStatement,
     FinancialHistory,
     FinancialPeriod,
+    GICSSector,
     IncomeStatement,
 )
 from margin_engine.models.scoring import FilterVerdict
@@ -625,3 +626,110 @@ class TestBeneishMScoreV2:
         assert result.computed_metrics is not None
         # Stable company -> trend should be 0.0 (stable)
         assert result.computed_metrics["trend"] == 0.0
+
+
+class TestBeneishSectorExemption:
+    """Tests for sector exemption in Beneish M-Score filter."""
+
+    def test_financials_exempt_v1(self):
+        """Financials sector should be exempt from Beneish M-Score (v1)."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
+
+        config = BeneishConfig()
+        result = beneish_m_score(
+            APPLE_PERIOD_2024,
+            config=config,
+            sector=GICSSector.FINANCIALS,
+        )
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_real_estate_exempt_v1(self):
+        """Real Estate sector should be exempt from Beneish M-Score (v1)."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
+
+        config = BeneishConfig()
+        result = beneish_m_score(
+            APPLE_PERIOD_2024,
+            config=config,
+            sector=GICSSector.REAL_ESTATE,
+        )
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_financials_exempt_v2(self):
+        """Financials sector should be exempt from Beneish M-Score (v2)."""
+        periods = [
+            _make_period(
+                "2023-09-30",
+                1200,
+                1000,
+                480,
+                100,
+                2000,
+                1800,
+                net_income=400,
+                operating_cf=50,
+                gross_profit_current=300,
+                gross_profit_prior=500,
+            ),
+        ]
+        history = FinancialHistory(ticker="BANK", periods=periods)
+        result = beneish_m_score_v2(
+            history,
+            config=BeneishConfig(),
+            sector=GICSSector.FINANCIALS,
+        )
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_real_estate_exempt_v2(self):
+        """Real Estate sector should be exempt from Beneish M-Score (v2)."""
+        periods = [
+            _make_period(
+                "2023-09-30",
+                1200,
+                1000,
+                480,
+                100,
+                2000,
+                1800,
+                net_income=400,
+                operating_cf=50,
+                gross_profit_current=300,
+                gross_profit_prior=500,
+            ),
+        ]
+        history = FinancialHistory(ticker="REIT", periods=periods)
+        result = beneish_m_score_v2(
+            history,
+            config=BeneishConfig(),
+            sector=GICSSector.REAL_ESTATE,
+        )
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_technology_not_exempt(self):
+        """Technology sector should NOT be exempt from Beneish M-Score."""
+        from tests.fixtures.golden_apple_2024 import APPLE_PERIOD_2024
+
+        config = BeneishConfig()
+        result = beneish_m_score(
+            APPLE_PERIOD_2024,
+            config=config,
+            sector=GICSSector.TECHNOLOGY,
+        )
+        # Should compute normally, not be exempt
+        assert "exempt" not in result.detail.lower()
+
+    def test_default_config_exempt_sectors(self):
+        """Default BeneishConfig should exempt Financials and Real Estate."""
+        config = BeneishConfig()
+        assert "Financials" in config.exempt_sectors
+        assert "Real Estate" in config.exempt_sectors
+
+    def test_custom_exempt_sectors(self):
+        """Custom exempt_sectors should override defaults."""
+        config = BeneishConfig(exempt_sectors=["Utilities"])
+        assert "Financials" not in config.exempt_sectors
+        assert "Utilities" in config.exempt_sectors

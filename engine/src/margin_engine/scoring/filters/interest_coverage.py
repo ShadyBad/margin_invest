@@ -63,7 +63,19 @@ def interest_coverage_check(
             When None, hardcoded constants are used.
     """
     name = "interest_coverage"
-    threshold = _get_config_threshold(sector, config) if config else _get_threshold(sector)
+    cfg = config or InterestCoverageConfig()
+    threshold = _get_config_threshold(sector, cfg) if config else _get_threshold(sector)
+
+    # Sector exemption check
+    sector_value = sector.value if sector is not None else None
+    if sector_value in cfg.exempt_sectors:
+        return FilterResult(
+            name=name,
+            passed=True,
+            threshold=threshold,
+            detail=f"Sector '{sector_value}' is exempt from {name}",
+        )
+
     interest_expense = period.current_income.interest_expense
 
     # No interest expense means no debt service -> automatically passes
@@ -135,6 +147,16 @@ def interest_coverage_check_v2(
     name = "interest_coverage"
     cfg = config or InterestCoverageConfig()
     threshold = _get_config_threshold(sector, cfg)
+
+    # Sector exemption check
+    sector_value = sector.value if sector is not None else None
+    if sector_value in cfg.exempt_sectors:
+        return FilterResult(
+            name=name,
+            passed=True,
+            threshold=threshold,
+            detail=f"Sector '{sector_value}' is exempt from {name}",
+        )
 
     # Compute ICR for each period, skipping those with no interest expense.
     lookback = cfg.median_lookback_years

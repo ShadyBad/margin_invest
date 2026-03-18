@@ -7,12 +7,13 @@
 # changes required.
 
 liquidity:
-  excluded_sectors: ["Financials", "Real Estate"]
   min_years_of_history: 5
   market_cap_minimum:
-    default: 300_000_000        # $300M
+    default: 100_000_000        # $100M
     utilities: 1_000_000_000    # $1B
     energy: 500_000_000         # $500M
+    financials: 500_000_000     # $500M — higher floor for Financials
+    real_estate: 1_000_000_000  # $1B — higher floor for Real Estate
   dollar_volume:
     mega: 50_000_000            # $50M  (market cap > $200B)
     large: 20_000_000           # $20M  (market cap $10B–$200B)
@@ -32,13 +33,14 @@ beneish:
 altman:
   threshold: 1.1                # Z'' < 1.1 = financial distress
   equity_tl_cap: 10.0           # Cap Equity/TL when total_liabilities == 0
-  exempt_sectors: ["Utilities"] # Capital structures make Z'' unreliable
+  exempt_sectors: ["Utilities", "Financials", "Real Estate"]  # Capital structures make Z'' unreliable
 
 fcf_distress:
   positive_years_required: 3    # Need 3 of lookback_years positive
   lookback_years: 5
   min_fcf_margin: 0.0           # Default floor when sector unknown
   allow_positive_trend_rescue: true
+  exempt_sectors: ["Financials", "Real Estate"]  # Non-traditional FCF structures
   # Sector-specific FCF margin floors (overrides min_fcf_margin per sector)
   sector_margin_overrides:
     "information technology": 0.10  # 10% — capital-light, high margins
@@ -56,6 +58,7 @@ interest_coverage:
   sector_overrides:
     "information technology": 3.0  # High-margin, low-debt expected
     utilities: 1.2                 # Capital-intensive, regulated
+  exempt_sectors: ["Financials"]   # Interest is core business for banks
   median_lookback_years: 3
   median_minimum: 1.0
 
@@ -64,6 +67,7 @@ current_ratio:
   sector_overrides:
     "information technology": 0.8  # Calibrated: Apple CR=0.87
     utilities: 0.6                 # Capital-intensive, regulated
+  exempt_sectors: ["Financials"]   # Different liquidity structure for banks
   quick_ratio_rescue: 0.5         # If CR < threshold, check QR > 0.5
   max_3yr_decline_pct: 30         # CR must not decline >30% over 3 years
 

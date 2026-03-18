@@ -171,3 +171,118 @@ class TestScoreUniverseV3:
         # Both should produce valid results
         assert results_no_beta[0].conviction is not None
         assert results_with_beta[0].conviction is not None
+
+
+class TestScoreModifiersIntegration:
+    """Tests for score modifier wiring into the v3 pipeline."""
+
+    def test_neutral_modifiers_produce_modifier_breakdown(self):
+        """With neutral modifier inputs, breakdown should exist with all multipliers ~1.0."""
+        td = _make_ticker_data("TEST")
+        results = score_universe_v3([td], shiller_cape=25.0)
+        assert len(results) == 1
+        r = results[0]
+        # Modifier breakdown should always be populated
+        assert r.modifier_breakdown is not None
+        assert "anti_consensus" in r.modifier_breakdown
+        assert "liquidity" in r.modifier_breakdown
+        assert "insider" in r.modifier_breakdown
+        assert "combined" in r.modifier_breakdown
+        # Insider modifier should be 1.0 (no cluster detected by default)
+        assert r.modifier_breakdown["insider"] == 1.0
+
+    def test_modified_score_populated(self):
+        """Modified score should be populated on every result."""
+        td = _make_ticker_data("TEST")
+        results = score_universe_v3([td], shiller_cape=25.0)
+        r = results[0]
+        assert r.modified_score is not None
+        # Modified score = original composite * combined modifier
+        assert isinstance(r.modified_score, float)
+
+    def test_insider_cluster_boosts_score(self):
+        """When insider cluster is detected, modified_score should be boosted vs neutral."""
+        td_neutral = _make_ticker_data("TEST")
+
+        td_insider = _make_ticker_data("TEST")
+        td_insider.insider_cluster_detected = True
+        td_insider.insider_cluster_score_value = 0.8
+        td_insider.insider_total_buy_value = 10_000_000.0
+        td_insider.insider_has_first_buy = True
+        td_insider.high_52w = 200.0  # current_price=100, so 50% drawdown
+
+        results_neutral = score_universe_v3([td_neutral], shiller_cape=25.0)
+        results_insider = score_universe_v3([td_insider], shiller_cape=25.0)
+
+        r_neutral = results_neutral[0]
+        r_insider = results_insider[0]
+
+        # Insider modifier should be > 1.0
+        assert r_insider.modifier_breakdown["insider"] > 1.0
+        # Modified score should be higher when insider signal fires
+        assert r_insider.modified_score >= r_neutral.modified_score
+
+    def test_anti_consensus_with_improving_trajectory_boosts(self):
+        """High short interest + improving fundamentals should boost score."""
+        td_neutral = _make_ticker_data("TEST")
+
+        td_ac = _make_ticker_data("TEST")
+        td_ac.short_interest_percentile = 90.0  # High short interest
+        td_ac.fundamental_trajectory = 0.9  # Improving fundamentals
+        td_ac.analyst_divergence = -0.8  # Bearish consensus
+        td_ac.eps_revision_strength = 0.5  # Positive EPS revisions
+
+        score_universe_v3([td_neutral], shiller_cape=25.0)  # baseline, verify no crash
+        results_ac = score_universe_v3([td_ac], shiller_cape=25.0)
+
+        # Anti-consensus modifier should be above 1.0
+        assert results_ac[0].modifier_breakdown["anti_consensus"] > 1.0
+
+    def test_small_cap_liquidity_penalizes(self):
+        """Small market cap / low volume ticker should get liquidity penalty."""
+        td_small = _make_ticker_data("SMALL")
+        td_small.profile = AssetProfile(
+            ticker="SMALL",
+            name="Small Corp",
+            sector=GICSSector.TECHNOLOGY,
+            market_cap=Decimal("100000000"),  # $100M
+            shares_outstanding=10,
+            avg_daily_volume=Decimal("50000"),  # Low ADV
+        )
+        td_small.latest_period = _period()
+        periods = [_period(period_end=f"{yr}-12-31") for yr in range(2020, 2025)]
+        td_small.history = FinancialHistory(ticker="SMALL", periods=periods)
+
+        results = score_universe_v3([td_small], shiller_cape=25.0)
+        r = results[0]
+
+        # Liquidity modifier should be < 1.0 for small cap
+        assert r.modifier_breakdown["liquidity"] < 1.0
+
+    def test_modifiers_do_not_change_conviction(self):
+        """Modifiers affect score, not conviction tier."""
+        td = _make_ticker_data("TEST")
+        td.insider_cluster_detected = True
+        td.insider_cluster_score_value = 0.8
+        td.insider_total_buy_value = 10_000_000.0
+
+        td_neutral = _make_ticker_data("TEST")
+
+        results_mod = score_universe_v3([td], shiller_cape=25.0)
+        results_neutral = score_universe_v3([td_neutral], shiller_cape=25.0)
+
+        # Conviction should be the same regardless of modifiers
+        assert results_mod[0].conviction == results_neutral[0].conviction
+
+    def test_default_modifier_fields_are_neutral(self):
+        """Default TickerV3Data should have neutral modifier inputs."""
+        td = _make_ticker_data("TEST")
+        assert td.fundamental_trajectory == 0.5
+        assert td.high_52w is None
+        assert td.short_interest_percentile == 50.0
+        assert td.analyst_divergence == 0.0
+        assert td.eps_revision_strength == 0.0
+        assert td.insider_cluster_score_value == 0.0
+        assert td.insider_cluster_detected is False
+        assert td.insider_total_buy_value == 0.0
+        assert td.insider_has_first_buy is False

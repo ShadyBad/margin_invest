@@ -25,3 +25,14 @@ class TickerDataBase(BaseModel):
     beta: float | None = None
     momentum_percentile: float = 50.0
     dcf_iv: float = 0.0
+
+    # Score modifier inputs (Tier B)
+    fundamental_trajectory: float = 0.5
+    high_52w: float | None = None
+    short_interest_percentile: float = 50.0
+    analyst_divergence: float = 0.0
+    eps_revision_strength: float = 0.0
+    insider_cluster_score_value: float = 0.0
+    insider_cluster_detected: bool = False
+    insider_total_buy_value: float = 0.0
+    insider_has_first_buy: bool = False

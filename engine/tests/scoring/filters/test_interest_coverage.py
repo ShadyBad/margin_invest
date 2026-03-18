@@ -354,3 +354,45 @@ class TestInterestCoverageV2:
         assert result.passed is True
         assert result.value == pytest.approx(3.0)
         assert result.name == "interest_coverage"
+
+
+class TestInterestCoverageSectorExemption:
+    """Tests for sector exemption in interest coverage filter."""
+
+    def test_financials_exempt_v1(self):
+        """Financials sector should be exempt from interest coverage check (v1)."""
+        # ICR = 0.5 would normally FAIL
+        period = _make_period(ebit=50.0, interest_expense=100.0)
+        config = InterestCoverageConfig()
+        result = interest_coverage_check(period, sector=GICSSector.FINANCIALS, config=config)
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_financials_exempt_v2(self):
+        """Financials sector should be exempt from interest coverage check (v2)."""
+        # Build history with very low ICR that would FAIL
+        history = _make_icr_history([0.5, 0.3, 0.4])
+        config = InterestCoverageConfig()
+        result = interest_coverage_check_v2(history, sector=GICSSector.FINANCIALS, config=config)
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_technology_not_exempt(self):
+        """Technology sector should NOT be exempt from interest coverage check."""
+        history = _make_icr_history([0.5, 0.3, 0.4])
+        config = InterestCoverageConfig()
+        result = interest_coverage_check_v2(history, sector=GICSSector.TECHNOLOGY, config=config)
+        assert result.passed is False
+
+    def test_default_config_exempt_sectors(self):
+        """Default InterestCoverageConfig should exempt Financials."""
+        config = InterestCoverageConfig()
+        assert "Financials" in config.exempt_sectors
+
+    def test_custom_exempt_sectors(self):
+        """Custom exempt_sectors should work."""
+        config = InterestCoverageConfig(exempt_sectors=["Financials", "Real Estate"])
+        period = _make_period(ebit=50.0, interest_expense=100.0)
+        result = interest_coverage_check(period, sector=GICSSector.REAL_ESTATE, config=config)
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()

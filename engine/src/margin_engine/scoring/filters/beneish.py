@@ -13,7 +13,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from margin_engine.config.filter_config import BeneishConfig
-from margin_engine.models.financial import FinancialHistory, FinancialPeriod
+from margin_engine.models.financial import FinancialHistory, FinancialPeriod, GICSSector
 from margin_engine.models.scoring import FilterResult
 
 _THRESHOLD = -1.78
@@ -36,6 +36,7 @@ def _d(val: Decimal | None, default: Decimal = Decimal("0")) -> float:
 def beneish_m_score(
     period: FinancialPeriod,
     config: BeneishConfig | None = None,
+    sector: GICSSector | None = None,
 ) -> FilterResult:
     """Compute Beneish M-Score and return filter result.
 
@@ -46,9 +47,22 @@ def beneish_m_score(
         period: Financial data with current and prior period statements.
         config: Optional BeneishConfig. When provided, threshold is read
             from config. When None, the hardcoded constant is used.
+        sector: Optional GICSSector for sector exemption.
     """
     name = "beneish_m_score"
-    threshold = config.threshold if config else _THRESHOLD
+    if config is None:
+        config = BeneishConfig()
+    threshold = config.threshold
+
+    # Sector exemption check
+    sector_value = sector.value if sector is not None else None
+    if sector_value in config.exempt_sectors:
+        return FilterResult(
+            name=name,
+            passed=True,
+            threshold=threshold,
+            detail=f"Sector '{sector_value}' is exempt from {name}",
+        )
 
     # Guard: need prior period data for year-over-year comparisons
     if period.prior_income is None or period.prior_balance is None:
@@ -179,6 +193,7 @@ def beneish_m_score(
 def beneish_m_score_v2(
     history_or_period: FinancialHistory | FinancialPeriod,
     config: BeneishConfig | None = None,
+    sector: GICSSector | None = None,
 ) -> FilterResult:
     """Compute Beneish M-Score across multiple periods with trend analysis.
 
@@ -194,19 +209,32 @@ def beneish_m_score_v2(
         history_or_period: Either a multi-year FinancialHistory or a single
             FinancialPeriod for backward-compatible single-period check.
         config: Optional BeneishConfig controlling threshold.
+        sector: Optional GICSSector for sector exemption.
 
     Returns:
         FilterResult with computed_metrics containing current_m_score,
         historical_m_scores_count, and trend indicator.
     """
     name = "beneish_m_score"
+    if config is None:
+        config = BeneishConfig()
+
+    # Sector exemption check
+    sector_value = sector.value if sector is not None else None
+    if sector_value in config.exempt_sectors:
+        return FilterResult(
+            name=name,
+            passed=True,
+            threshold=config.threshold,
+            detail=f"Sector '{sector_value}' is exempt from {name}",
+        )
 
     # --- Single-period fallback ---
     if isinstance(history_or_period, FinancialPeriod):
-        return beneish_m_score(history_or_period, config=config)
+        return beneish_m_score(history_or_period, config=config, sector=sector)
 
     history = history_or_period
-    threshold = config.threshold if config else _THRESHOLD
+    threshold = config.threshold
 
     # --- Compute M-Score for each period that has prior data ---
     historical_m_scores: list[tuple[str, float]] = []

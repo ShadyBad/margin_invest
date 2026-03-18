@@ -34,6 +34,8 @@ class V3Result(BaseModel):
     track_b: V3TrackResult
     timing_signal: str
     max_position_pct: float
+    modified_score: float | None = None
+    modifier_breakdown: dict[str, float] | None = None
 
 
 # Conviction levels considered "strong" for "both" promotion

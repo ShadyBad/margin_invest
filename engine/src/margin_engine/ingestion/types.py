@@ -32,6 +32,8 @@ class DataCategory(StrEnum):
     MACRO = "macro"
     NEWS = "news"
     EARNINGS = "earnings"
+    SHORT_INTEREST = "short_interest"
+    ANALYST = "analyst"
 
 
 class ProviderInfo(BaseModel):
@@ -123,3 +125,13 @@ class DataProvider(ABC):
     def fetch_news(self, ticker: str) -> FetchResult:
         """Fetch news articles for a ticker."""
         raise NotImplementedError(f"{self.info.name} does not support fetch_news")
+
+    def fetch_short_interest(self, ticker: str) -> FetchResult:
+        """Fetch short interest data for a ticker."""
+        raise NotImplementedError(f"{self.info.name} does not support fetch_short_interest")
+
+    def fetch_analyst_recommendations(self, ticker: str) -> FetchResult:
+        """Fetch analyst recommendation trends for a ticker."""
+        raise NotImplementedError(
+            f"{self.info.name} does not support fetch_analyst_recommendations"
+        )

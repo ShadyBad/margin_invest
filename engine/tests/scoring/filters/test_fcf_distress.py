@@ -503,3 +503,61 @@ class TestFCFDistressSectorMarginFloors:
         assert result.computed_metrics is not None
         assert result.computed_metrics["sector_fcf_margin_floor"] == 0.0
         assert result.computed_metrics["sector_name"] == ""
+
+
+class TestFCFDistressSectorExemption:
+    """Tests for sector exemption in FCF distress filters."""
+
+    def test_financials_exempt_v1(self):
+        """Financials sector should be exempt from FCF distress check (v1)."""
+        # Build a period with negative FCF that would normally FAIL
+        period = _make_period(fcf=-200, revenue=1000)
+        config = FcfDistressConfig()
+        result = fcf_distress_check(period, config=config, sector=GICSSector.FINANCIALS)
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_real_estate_exempt_v1(self):
+        """Real Estate sector should be exempt from FCF distress check (v1)."""
+        period = _make_period(fcf=-200, revenue=1000)
+        config = FcfDistressConfig()
+        result = fcf_distress_check(period, config=config, sector=GICSSector.REAL_ESTATE)
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_financials_exempt_v2(self):
+        """Financials sector should be exempt from FCF distress check (v2)."""
+        history = _make_history([-200, -300, -400, -500, -600])
+        result = fcf_distress_check_v2(history, sector=GICSSector.FINANCIALS)
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_real_estate_exempt_v2(self):
+        """Real Estate sector should be exempt from FCF distress check (v2)."""
+        history = _make_history([-200, -300, -400, -500, -600])
+        result = fcf_distress_check_v2(history, sector=GICSSector.REAL_ESTATE)
+        assert result.passed is True
+        assert "exempt" in result.detail.lower()
+
+    def test_technology_not_exempt(self):
+        """Technology sector should NOT be exempt from FCF distress check."""
+        history = _make_history([-200, -300, -400, -500, -600])
+        result = fcf_distress_check_v2(history, sector=GICSSector.TECHNOLOGY)
+        assert result.passed is False
+
+    def test_exempt_with_default_config(self):
+        """Default config exempts Financials and Real Estate."""
+        config = FcfDistressConfig()
+        assert "Financials" in config.exempt_sectors
+        assert "Real Estate" in config.exempt_sectors
+
+    def test_custom_exempt_sectors(self):
+        """Custom exempt_sectors should override defaults."""
+        config = FcfDistressConfig(exempt_sectors=["Utilities"])
+        history = _make_history([-200, -300, -400, -500, -600])
+        # Financials no longer exempt with custom config
+        result = fcf_distress_check_v2(history, sector=GICSSector.FINANCIALS, config=config)
+        assert result.passed is False
+        # Utilities now exempt
+        result = fcf_distress_check_v2(history, sector=GICSSector.UTILITIES, config=config)
+        assert result.passed is True

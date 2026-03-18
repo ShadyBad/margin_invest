@@ -38,6 +38,7 @@ _CYCLICAL_RELAXATION = 1
 def fcf_distress_check(
     period: FinancialPeriod,
     config: FcfDistressConfig | None = None,
+    sector: GICSSector | None = None,
 ) -> FilterResult:
     """Check if free cash flow indicates financial distress (single-period).
 
@@ -51,10 +52,23 @@ def fcf_distress_check(
         period: Financial data with current cash flow statement.
         config: Optional FcfDistressConfig. Accepted for API consistency
             but only the single-period check is performed.
+        sector: Optional GICSSector for sector exemption.
 
     Returns:
         FilterResult with passed=True if FCF >= 0, False otherwise.
     """
+    if config is None:
+        config = FcfDistressConfig()
+
+    # Sector exemption check
+    sector_value = sector.value if sector is not None else None
+    if sector_value in config.exempt_sectors:
+        return FilterResult(
+            name=_FILTER_NAME,
+            passed=True,
+            detail=f"Sector '{sector_value}' is exempt from {_FILTER_NAME}",
+        )
+
     threshold = _THRESHOLD
 
     fcf = period.current_cash_flow.free_cash_flow
@@ -113,12 +127,21 @@ def fcf_distress_check_v2(
 
     # Sector-specific FCF margin floor lookup
     sector_value = sector.value if sector is not None else None
+
+    # Sector exemption check
+    if sector_value in config.exempt_sectors:
+        return FilterResult(
+            name=_FILTER_NAME,
+            passed=True,
+            detail=f"Sector '{sector_value}' is exempt from {_FILTER_NAME}",
+        )
+
     margin_floor = config.get_min_fcf_margin(sector_value)
     sector_name = sector.value if sector is not None else ""
 
     # --- Single-period fallback ---
     if isinstance(history_or_period, FinancialPeriod):
-        return fcf_distress_check(history_or_period, config=config)
+        return fcf_distress_check(history_or_period, config=config, sector=sector)
 
     history = history_or_period
 

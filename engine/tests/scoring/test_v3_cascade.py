@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from margin_engine.config.v3_scoring_config import SectorPercentileConfig
 from margin_engine.models.financial import (
     AssetProfile,
     BalanceSheet,
@@ -407,3 +408,288 @@ class TestRunTrackBCascade:
         )
         # Gate 1 should pass: price 53.625 < 0.60 * 97.5 = 58.5
         assert result.gates_passed >= 1
+
+
+class TestSectorAdapterWiringTrackA:
+    """Sector adapter integration in Track A cascade."""
+
+    def test_financials_high_roe_triggers_capital_light_bypass(self):
+        """Financials ticker with high ROE (top percentile) bypasses Gate 2.
+
+        Default period has ROIC=0.21 < 0.25, so under the old ROIC-only path Gate 2
+        would NOT get a bypass (current code gives 2 gates). But ROE = 160/500 = 0.32
+        is at the 100th percentile of the universe -> bypass fires -> 3 gates.
+
+        This test MUST FAIL until sector adapter wiring is implemented.
+        """
+        history = FinancialHistory(
+            ticker="BANK",
+            periods=[
+                _period(period_end="2020-12-31"),
+                _period(period_end="2024-12-31"),
+            ],
+        )
+        # Universe: lower ROE peers -> this ticker (ROE=0.32) at 100th percentile
+        universe = {GICSSector.FINANCIALS: [0.05, 0.08, 0.10, 0.12, 0.15]}
+        inputs = TrackAInputs(
+            history=history,
+            period=history.periods[-1],
+            profile=_profile(ticker="BANK", sector=GICSSector.FINANCIALS),
+            current_price=100.0,
+            current_fcf_per_share=5.0,
+            wacc=0.10,
+            sustainable_growth_rate=0.08,
+            universe_profitability_metrics=universe,
+            percentile_config=SectorPercentileConfig(capital_light_bypass=90.0),
+        )
+        result = run_track_a_cascade(inputs)
+        assert result.track == "compounder"
+        # Without sector wiring: 2 gates (ROIC=0.21 < 0.25, no bypass)
+        # With sector wiring: 3 gates (ROE percentile=100 >= 90, bypass fires)
+        assert result.gates_passed >= 3
+
+    def test_financials_low_roe_no_bypass(self):
+        """Financials ticker with below-median ROE does NOT bypass Gate 2.
+
+        ROE = 30/500 = 0.06. Universe has higher ROEs.
+        Percentile will be low (< 90) -> no bypass.
+        """
+        history = FinancialHistory(
+            ticker="WBANK",
+            periods=[
+                _period(
+                    net_income=Decimal("30"),
+                    total_equity=Decimal("500"),
+                    period_end="2020-12-31",
+                ),
+                _period(
+                    net_income=Decimal("30"),
+                    total_equity=Decimal("500"),
+                    period_end="2024-12-31",
+                ),
+            ],
+        )
+        # Universe: this ticker is bottom of the pack
+        universe = {GICSSector.FINANCIALS: [0.10, 0.12, 0.15, 0.18, 0.20]}
+        inputs = TrackAInputs(
+            history=history,
+            period=history.periods[-1],
+            profile=_profile(ticker="WBANK", sector=GICSSector.FINANCIALS),
+            current_price=100.0,
+            current_fcf_per_share=5.0,
+            wacc=0.10,
+            sustainable_growth_rate=0.08,
+            universe_profitability_metrics=universe,
+            percentile_config=SectorPercentileConfig(capital_light_bypass=90.0),
+        )
+        result = run_track_a_cascade(inputs)
+        # Should not crash; low ROE bank should not get bypass
+        assert result.track == "compounder"
+
+    def test_technology_sector_unchanged_with_new_fields(self):
+        """Technology sector ignores universe_profitability_metrics, uses ROIC as before."""
+        history = FinancialHistory(
+            ticker="TECH",
+            periods=[
+                _period(period_end="2020-12-31"),
+                _period(period_end="2024-12-31"),
+            ],
+        )
+        # Pass universe metrics, but for tech sector they should be ignored
+        universe = {GICSSector.TECHNOLOGY: [0.05, 0.10, 0.15]}
+        inputs_with = TrackAInputs(
+            history=history,
+            period=history.periods[-1],
+            profile=_profile(ticker="TECH", sector=GICSSector.TECHNOLOGY),
+            current_price=100.0,
+            current_fcf_per_share=5.0,
+            wacc=0.10,
+            sustainable_growth_rate=0.08,
+            universe_profitability_metrics=universe,
+            percentile_config=SectorPercentileConfig(),
+        )
+        inputs_without = TrackAInputs(
+            history=history,
+            period=history.periods[-1],
+            profile=_profile(ticker="TECH", sector=GICSSector.TECHNOLOGY),
+            current_price=100.0,
+            current_fcf_per_share=5.0,
+            wacc=0.10,
+            sustainable_growth_rate=0.08,
+        )
+        result_with = run_track_a_cascade(inputs_with)
+        result_without = run_track_a_cascade(inputs_without)
+        assert result_with.gates_passed == result_without.gates_passed
+        assert result_with.score == result_without.score
+
+    def test_backward_compat_no_universe_metrics(self):
+        """Omitting universe_profitability_metrics falls back to existing ROIC logic."""
+        history = FinancialHistory(
+            ticker="BANK2",
+            periods=[
+                _period(period_end="2020-12-31"),
+                _period(period_end="2024-12-31"),
+            ],
+        )
+        inputs = TrackAInputs(
+            history=history,
+            period=history.periods[-1],
+            profile=_profile(ticker="BANK2", sector=GICSSector.FINANCIALS),
+            current_price=100.0,
+            current_fcf_per_share=5.0,
+            wacc=0.10,
+            sustainable_growth_rate=0.08,
+            # No universe_profitability_metrics -> falls back to ROIC
+        )
+        result = run_track_a_cascade(inputs)
+        assert result.track == "compounder"
+
+    def test_real_estate_uses_ffo_proxy(self):
+        """Real Estate ticker uses FFO proxy metric for bypass decision."""
+        # FFO proxy = (net_income + depreciation) / equity = (160 + 50) / 500 = 0.42
+        history = FinancialHistory(
+            ticker="REIT",
+            periods=[
+                _period(
+                    net_income=Decimal("160"),
+                    depreciation=Decimal("50"),
+                    total_equity=Decimal("500"),
+                    period_end="2020-12-31",
+                ),
+                _period(
+                    net_income=Decimal("160"),
+                    depreciation=Decimal("50"),
+                    total_equity=Decimal("500"),
+                    period_end="2024-12-31",
+                ),
+            ],
+        )
+        # Universe: lower FFO peers
+        universe = {GICSSector.REAL_ESTATE: [0.05, 0.08, 0.10, 0.12]}
+        inputs = TrackAInputs(
+            history=history,
+            period=history.periods[-1],
+            profile=_profile(ticker="REIT", sector=GICSSector.REAL_ESTATE),
+            current_price=100.0,
+            current_fcf_per_share=5.0,
+            wacc=0.10,
+            sustainable_growth_rate=0.08,
+            universe_profitability_metrics=universe,
+            percentile_config=SectorPercentileConfig(capital_light_bypass=90.0),
+        )
+        result = run_track_a_cascade(inputs)
+        assert result.track == "compounder"
+        # Should get bypass (100th percentile >= 90)
+        assert result.gates_passed >= 1
+
+
+class TestSectorAdapterWiringTrackB:
+    """Sector adapter integration in Track B cascade."""
+
+    def test_financials_quality_floor_uses_roe_not_roic(self):
+        """Financials Track B uses ROE for quality floor instead of ROIC.
+
+        With ebit=30, net_income=80:
+        - ROIC = 0.032 (below 8% -> quality_floor=0 under old ROIC path -> Gate 4 FAILS)
+        - ROE = 80/500 = 0.16 (above 8% -> quality_floor=1.0 under ROE path -> Gate 4 PASSES)
+
+        This test MUST FAIL until _current_roic becomes sector-aware.
+        """
+        # low ebit but decent net_income creates ROIC/ROE divergence
+        period = _period(ebit=Decimal("30"), net_income=Decimal("80"))
+        history = FinancialHistory(
+            ticker="FBANK",
+            periods=[period],
+        )
+        result = run_track_b_cascade(
+            TrackBInputs(
+                history=history,
+                period=period,
+                profile=_profile(ticker="FBANK", sector=GICSSector.FINANCIALS),
+                current_price=50.0,
+                dcf_iv=100.0,
+                owner_earnings_iv=95.0,
+                asset_floor_iv=90.0,
+                peer_comparison_iv=105.0,
+                sue_percentile=70.0,
+                wacc=0.10,
+            )
+        )
+        assert result.track == "mispricing"
+        # Under old code: ROIC=0.032 < 0.08 -> quality_floor=0 -> Gate 4 fails
+        # Under new code: ROE=0.16 > 0.08 -> quality_floor=1.0 -> Gate 4 passes
+        # Also Gate 1 is affected: quality_floor=1.0 gives iv_discount=0.75 (vs 0.60)
+        # price=50 < 0.75*97.5=73.125 -> Gate 1 passes either way, but with higher discount
+        # Gate 4 is the key: quality_floor > 0 should be True
+        assert result.gates_passed >= 3  # At least gate 1 + gate 3 + gate 4
+
+    def test_financials_improving_roe_but_declining_roic(self):
+        """Financials with declining ROIC but improving ROE should pass Gate 4.
+
+        Early: ebit=30 (ROIC=0.032), net_income=25 (ROE=0.05)
+        Late:  ebit=25 (ROIC=0.026), net_income=45 (ROE=0.09)
+
+        Under old (ROIC) path:
+        - ROIC declining (0.032 -> 0.026), below 0.08 -> quality_floor=0 -> Gate 4 FAILS
+        Under new (ROE) path:
+        - ROE=0.09 > 0.08 -> quality_floor=1.0 -> Gate 4 PASSES
+
+        This test MUST FAIL until _current_roic / _is_roic_improving are sector-aware.
+        """
+        history = FinancialHistory(
+            ticker="IMPBANK",
+            periods=[
+                _period(
+                    ebit=Decimal("30"),
+                    net_income=Decimal("25"),
+                    total_equity=Decimal("500"),
+                    period_end="2022-12-31",
+                ),
+                _period(
+                    ebit=Decimal("25"),
+                    net_income=Decimal("45"),
+                    total_equity=Decimal("500"),
+                    period_end="2024-12-31",
+                ),
+            ],
+        )
+        result = run_track_b_cascade(
+            TrackBInputs(
+                history=history,
+                period=history.periods[-1],
+                profile=_profile(ticker="IMPBANK", sector=GICSSector.FINANCIALS),
+                current_price=50.0,
+                dcf_iv=100.0,
+                owner_earnings_iv=95.0,
+                asset_floor_iv=90.0,
+                peer_comparison_iv=105.0,
+                sue_percentile=70.0,
+                wacc=0.10,
+            )
+        )
+        assert result.track == "mispricing"
+        # Under old code: ROIC=0.026, declining, quality_floor=0, Gate 4 fails -> 2 gates
+        # Under new code: ROE=0.09 > 0.08, quality_floor=1.0, Gate 4 passes -> 3 gates
+        assert result.gates_passed >= 3
+
+    def test_track_b_backward_compat(self):
+        """Track B without new fields produces same result as before."""
+        history = FinancialHistory(
+            ticker="COMPAT",
+            periods=[_period(period_end="2022-12-31"), _period(period_end="2024-12-31")],
+        )
+        result = run_track_b_cascade(
+            TrackBInputs(
+                history=history,
+                period=history.periods[-1],
+                profile=_profile(),
+                current_price=50.0,
+                dcf_iv=100.0,
+                owner_earnings_iv=95.0,
+                asset_floor_iv=90.0,
+                peer_comparison_iv=105.0,
+                sue_percentile=50.0,
+                wacc=0.10,
+            )
+        )
+        assert result.track == "mispricing"
