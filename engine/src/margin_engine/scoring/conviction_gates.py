@@ -195,7 +195,7 @@ def check_track_b_gates(
     conditional = False
 
     # --- Tightened quality floor ---
-    if roic_median > _B_ROIC_FLOOR:
+    if roic_median >= _B_ROIC_FLOOR:
         pass  # unconditional pass
     elif roic_median >= config.track_b_roic_hard_floor:
         # In the improving zone (6-8%) — must show meaningful trajectory

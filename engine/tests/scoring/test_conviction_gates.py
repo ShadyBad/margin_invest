@@ -271,8 +271,8 @@ class TestTrackBGates:
         )
         assert result.passed is True
 
-    def test_boundary_roic_exactly_8_fails(self):
-        """ROIC must be > 8%, not >=."""
+    def test_boundary_roic_exactly_8_passes(self):
+        """ROIC >= 8% passes unconditionally per design spec."""
         result = check_track_b_gates(
             roic_median=0.08,
             roic_improving=False,
@@ -282,7 +282,36 @@ class TestTrackBGates:
             tangible_book_pct=0.30,
             current_ratio=1.5,
         )
+        assert result.passed is True
+        assert result.conditional is False
+
+    def test_track_b_roic_exactly_at_floor_passes(self):
+        """ROIC=0.08 should pass unconditionally (passed=True, conditional=False)."""
+        result = check_track_b_gates(
+            roic_median=0.08,
+            roic_improving=False,
+            price_to_iv_ratio=0.50,
+            has_catalyst=True,
+            net_cash_pct=0.60,
+            tangible_book_pct=0.30,
+            current_ratio=1.5,
+        )
+        assert result.passed is True
+        assert result.conditional is False
+
+    def test_track_b_roic_just_below_floor_enters_improving_zone(self):
+        """ROIC=0.0799 without trajectory data should fail (below 8% floor, no improvement)."""
+        result = check_track_b_gates(
+            roic_median=0.0799,
+            roic_improving=False,
+            price_to_iv_ratio=0.50,
+            has_catalyst=True,
+            net_cash_pct=0.60,
+            tangible_book_pct=0.30,
+            current_ratio=1.5,
+        )
         assert result.passed is False
+        assert any("quality" in f.lower() for f in result.failures)
 
     def test_boundary_price_exactly_060_fails(self):
         """Price to IV must be < 0.60, not <=."""
