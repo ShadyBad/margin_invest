@@ -10,15 +10,17 @@ All 4 items share a common integration: post-composite multipliers applied after
 
 ```
 Existing pipeline (unchanged):
-  Universe → Elimination Filters → v3/v4 Cascade (4 factors) → Composite Score
+  Universe → Elimination Filters → v3/v4 Cascade (4 factors) → Composite Score + Conviction
 
-New modifier layer:
+New modifier layer (applied AFTER cascade, affects score for ranking/sizing):
   Composite Score
     × anti_consensus_modifier (B1)    # range: 0.90 - 1.15
     × liquidity_modifier (B3)         # range: 0.85 - 1.00
     × insider_signal_modifier (B4)    # range: 1.00 - 1.15
-    = Modified Composite Score → Conviction Gates
+    = Modified Composite Score → used for ranking, position sizing, and display
 ```
+
+**Sequencing clarification**: Conviction tier is determined inside the cascade functions (`run_track_a_cascade`, `run_track_b_cascade`) alongside the composite score. Modifiers are applied **after** the cascade returns, so they affect the score used for ranking and position sizing but do **not** change the conviction tier. This is intentional — conviction tiers are a fundamental quality classification, while modifiers capture tactical/timing signals that should influence portfolio weighting without reclassifying the asset.
 
 B2 (Sector Exclusion Removal) is structural — it modifies which assets enter the pipeline and how the cascade computes profitability, not the output score.
 
@@ -52,9 +54,9 @@ def fetch_analyst_recommendations(self, ticker: str) -> FetchResult:
     """Finnhub /stock/recommendation — consensus buy/hold/sell counts over time."""
 ```
 
-Earnings revision data uses existing `fetch_earnings()` which returns EPS surprise data. Revision direction computed from surprise magnitude across quarters.
+**Earnings revision proxy**: Uses existing `fetch_earnings()` EPS surprise data. This is a **proxy** for true analyst estimate revisions — EPS surprise (actual vs estimate) measures whether the company beat expectations, not whether estimates changed directionally. True revision tracking would require ingesting estimate snapshots over time (not currently available). The surprise proxy captures a correlated signal: consistent positive surprises indicate upward estimate trajectory.
 
-No new external APIs — these are additional endpoints on the existing Finnhub client (60 calls/min free tier, sufficient for ~500 universe).
+**Finnhub rate limits**: Free tier = 60 calls/min. With universe expansion to ~3,500 tickers and 2 new endpoints per ticker (short interest + analyst recs), `ingest_sentiment_signals` needs ~7,000 calls → ~2 hours at free tier. Combined with existing Finnhub jobs (earnings, insider, news), total daily Finnhub volume is ~18,000 calls. **Recommendation**: upgrade to paid Finnhub tier ($149/mo, 300 calls/min) or implement aggressive caching (only re-fetch sentiment signals weekly, not daily, since short interest and analyst ratings change slowly).
 
 ### Data Storage
 
@@ -73,7 +75,7 @@ CREATE TABLE sentiment_signals (
 );
 ```
 
-New ARQ job: `ingest_sentiment_signals` — daily at 22:30 UTC (after `pit_daily_update`). Iterates scored universe, fetches short interest + analyst recs.
+New ARQ job: `ingest_sentiment_signals` — daily at 23:45 UTC (after `pit_daily_update` at 23:00 and `daily_form4_update` at 23:30). Iterates scored universe, fetches short interest + analyst recs.
 
 ### Modifier Function
 
@@ -94,8 +96,28 @@ def anti_consensus_modifier(
     Only fires meaningfully when fundamental_trajectory > 0.5 (fundamentals
     are actually improving). Without fundamental backing, bearish sentiment is
     probably correct — modifier stays near 1.0 or slightly penalizes.
+
+    The asymmetric range (0.90-1.15) is intentional: penalization is capped
+    conservatively because the modifier is based on external sentiment data
+    (noisier than fundamental factors), while the upside is slightly wider
+    because anti-consensus signals have demonstrated alpha in literature.
     """
 ```
+
+**`fundamental_trajectory` computation**: Derived in the pipeline (v3/v4) before modifiers are called, since `FinancialHistory` is in scope during scoring but not at the modifier layer. Computed as:
+
+```python
+def compute_fundamental_trajectory(history: FinancialHistory) -> float:
+    """Compare latest vs prior period ROIC and gross margin.
+
+    Returns 0-1:
+    - 1.0: both ROIC and GM improving for 2+ consecutive periods
+    - 0.5: one metric improving, one flat/declining
+    - 0.0: both declining
+    """
+```
+
+Added to `TickerV3Data` and `TickerV4Data` as `fundamental_trajectory: float = 0.5` (neutral default).
 
 ### Relationship to Existing Stubs
 
@@ -106,7 +128,9 @@ def anti_consensus_modifier(
 | File | Change |
 |------|--------|
 | `engine/src/margin_engine/ingestion/providers/finnhub_provider.py` | Add `fetch_short_interest()`, `fetch_analyst_recommendations()` |
-| `engine/src/margin_engine/scoring/score_modifiers.py` | **New** — `anti_consensus_modifier()` |
+| `engine/src/margin_engine/scoring/score_modifiers.py` | **New** — `anti_consensus_modifier()`, `compute_fundamental_trajectory()` |
+| `engine/src/margin_engine/scoring/v3_pipeline.py` | Add `fundamental_trajectory` to `TickerV3Data` |
+| `engine/src/margin_engine/scoring/v4_pipeline.py` | Add `fundamental_trajectory` to `TickerV4Data` |
 | `api/src/margin_api/db/models.py` | New `sentiment_signals` table |
 | `api/alembic/versions/xxx_add_sentiment_signals.py` | Migration |
 | `api/src/margin_api/workers.py` | New `ingest_sentiment_signals` cron job |
@@ -197,6 +221,33 @@ class SectorAdapter:
         """Return human-readable metric name for display/audit."""
 ```
 
+### Layer 4: Downstream Filter Adaptations
+
+Several elimination filters implicitly assume non-financial company financials. Without adaptations, Financials tickers would systematically fail these filters even after the sector exclusion is removed, rendering the inclusion moot.
+
+**Filters requiring sector exemptions for Financials:**
+
+| Filter | Problem for Financials | Solution |
+|--------|----------------------|----------|
+| **FCF distress** (`fcf_distress.py`) | Bank operating cash flow includes loan originations/repayments — semantically different from industrial FCF. `FcfDistressConfig.sector_margin_overrides` explicitly excludes Financials. | Add `GICSSector.FINANCIALS` to exempt sectors in `FcfDistressConfig` |
+| **Beneish M-Score** | Designed for manufacturing/industrial. DSRI, Depreciation Index, Asset Quality Index produce meaningless values for banks. Academic literature confirms it is inappropriate for financial institutions. | Add `GICSSector.FINANCIALS` to exempt sectors |
+| **Current ratio** | Banks have structurally low current ratios (deposits are current liabilities). A healthy bank at 0.8 current ratio would be flagged. | Add `GICSSector.FINANCIALS` to exempt sectors in `CurrentRatioConfig` |
+| **Interest coverage** | Bank interest expense IS the core business cost, not a solvency indicator. The filter produces meaningless results. | Add `GICSSector.FINANCIALS` to exempt sectors in `InterestCoverageConfig` |
+| **Altman Z-Score** | Z'' (service variant) may produce marginally acceptable results but was not designed for banks. `AltmanConfig.exempt_sectors` currently only includes Utilities. | Add `GICSSector.FINANCIALS` to `AltmanConfig.exempt_sectors` |
+
+**Filters for Real Estate:**
+
+| Filter | Problem for REITs | Solution |
+|--------|-------------------|----------|
+| **FCF distress** | REIT depreciation is enormous (buildings), making FCF look negative when underlying cash flow is healthy. | Add `GICSSector.REAL_ESTATE` to exempt sectors |
+| **Beneish M-Score** | Depreciation Index component distorted by REIT accounting. | Add `GICSSector.REAL_ESTATE` to exempt sectors |
+
+Other filters (mediocrity gate, profitability floor) will work correctly once sector adapters provide the right profitability metric.
+
+**Implementation**: Each filter config model already has an `exempt_sectors` or `sector_overrides` pattern. Adding Financials/RE to these lists is a config-only change per filter — no algorithmic changes needed.
+
+**XBRL validation note**: The crude ROE and FFO proxy computations assume that `net_income`, `depreciation`, and `total_equity` parse correctly from bank and REIT 10-K filings. These filings may use a different XBRL taxonomy (`us-gaap:banking`). During implementation, validate parsing against sample filings (e.g., JPM 10-K, AMT 10-K) and add taxonomy-aware fallbacks if needed.
+
 ### Percentile Normalization for Conviction Gates
 
 The conviction gates currently use absolute ROIC thresholds. For Financials and Real Estate, these thresholds are meaningless (ROE and ROIC have different normal ranges). Solution: **percentile-normalize within sector for new sectors only**.
@@ -209,6 +260,13 @@ def sector_percentile_rank(
 ) -> float:
     """Rank a ticker's profitability metric within its sector peers. Returns 0-100."""
 ```
+
+**Gate wiring detail**: `sector_percentile_rank()` is called in `v3_cascade.py` when the sector requires percentile gates. The percentile value replaces the raw metric before being passed to `conviction_gates.py`. Specifically:
+
+- **Track A** (`run_track_a_cascade`): The capital-light bypass at lines 94-103 computes `median_roic` from `_nopat_and_ic()`. For Financials/RE, replace this with `SectorAdapter.profitability_metric()` → `sector_percentile_rank()`, then compare against percentile thresholds instead of absolute 0.25.
+- **Track A conviction**: `assess_track_a_conviction()` in `v3_thresholds.py` receives `roic_median`. For Financials/RE, pass the sector percentile (0-100) instead, with a translated config mapping percentile thresholds to conviction tiers.
+- **Track B** (`run_track_b_cascade`): `_current_roic()` (line 222) and `_is_roic_improving()` (line 244) compute ROIC directly from EBIT. Replace with `SectorAdapter` for Financials/RE.
+- **Track B conviction**: `assess_track_b_conviction()` receives `roic_median`. Same percentile translation as Track A.
 
 Gate translation (Financials/RE only):
 
@@ -234,20 +292,25 @@ Config: New `SectorPercentileConfig` in `v3_scoring_config.py` with the percenti
 |------|--------|
 | `api/src/margin_api/cli.py` | Remove `excluded_sectors` from universe builder |
 | `engine/src/margin_engine/scoring/filters/liquidity.py` | Remove `_EXCLUDED_SECTORS`, remove exclusion checks |
-| `engine/src/margin_engine/config/filter_config.py` | Remove `excluded_sectors`, add Financials/RE market cap overrides |
-| `engine/src/margin_engine/models/financial.py` | Remove `is_excluded_v1` property |
+| `engine/src/margin_engine/config/filter_config.py` | Remove `excluded_sectors`, add Financials/RE market cap overrides, add exempt sectors to `FcfDistressConfig`, `CurrentRatioConfig`, `InterestCoverageConfig` |
+| `engine/src/margin_engine/models/financial.py` | Remove `is_excluded_v1` property and `AssetProfile.is_excluded` |
 | `engine/src/margin_engine/scoring/sector_adapters.py` | **New** — profitability metric adapters |
-| `engine/src/margin_engine/scoring/v3_cascade.py` | Use `SectorAdapter` for Financials/RE |
+| `engine/src/margin_engine/scoring/v3_cascade.py` | Use `SectorAdapter` for Financials/RE, update `_current_roic()`, `_is_roic_improving()` |
+| `engine/src/margin_engine/scoring/v3_thresholds.py` | Accept percentile-based input for Financials/RE |
 | `engine/src/margin_engine/config/v3_scoring_config.py` | Add `SectorPercentileConfig` |
+| `engine/src/margin_engine/scoring/filters/beneish.py` | Add Financials/RE to exempt sectors |
+| `engine/src/margin_engine/scoring/filters/altman.py` | Add Financials to `AltmanConfig.exempt_sectors` |
 
 ### Test Strategy
 
 - Unit: `SectorAdapter` — Financials → ROE, Real Estate → FFO proxy, Technology → ROIC
 - Unit: `sector_percentile_rank` with known distributions
+- Unit: Filter exemptions — verify Financials/RE bypass FCF distress, Beneish, current ratio, interest coverage
 - Integration: JPM-like bank data → scores through full pipeline using ROE + percentile gates
 - Integration: REIT-like data with depreciation-heavy profile → correct FFO proxy
 - Regression: all existing non-financial tests pass unchanged (absolute thresholds preserved)
-- Verify `is_excluded_v1` references cleaned up
+- Verify all `is_excluded_v1` and `AssetProfile.is_excluded` references cleaned up
+- XBRL validation: parse sample bank/REIT 10-K, verify `net_income`, `depreciation`, `total_equity` extract correctly
 
 ---
 
@@ -261,13 +324,15 @@ Replace the binary $300M market cap cliff with a lowered hard floor ($100M) plus
 
 ### Hard Floor Changes
 
-`filter_config.py`:
+`filter_config.py` — change `MarketCapMinimum.default`:
 ```python
 # Before
-min_market_cap: Decimal = Decimal("300_000_000")
+default: int = 300_000_000
 # After
-min_market_cap: Decimal = Decimal("100_000_000")
+default: int = 100_000_000
 ```
+
+Note: `backtest_filter_config()` (line 202-224 of `filter_config.py`) already uses $100M as its default for backtesting. This change aligns production with the backtest floor.
 
 Expands eligible universe by ~200-400 small-cap names. They enter scoring but receive liquidity penalties via the modifier.
 
@@ -365,7 +430,7 @@ high_52w: float | None = None
 
 ### Enhancement 2: Conviction Magnitude (tiered boost)
 
-Applied to the weighted cluster score:
+Opt-in via new parameter `apply_magnitude: bool = False` to preserve backward compatibility. When False (default), existing behavior is unchanged — golden-value tests pass without modification.
 
 ```python
 def _magnitude_boost(total_buy_value: float) -> float:
@@ -375,7 +440,7 @@ def _magnitude_boost(total_buy_value: float) -> float:
     return 0.5
 ```
 
-`total_buy_value` is already computed in the existing function (line 122 of `insider_cluster.py`).
+`total_buy_value` is already computed in the existing function (line 122 of `insider_cluster.py`). The magnitude boost is only applied when `apply_magnitude=True` is explicitly passed by the caller.
 
 ### Enhancement 3: First-Ever-Buy Detection (10x weight)
 
@@ -411,7 +476,7 @@ CREATE TABLE insider_transaction_history (
     title TEXT NOT NULL,
     transaction_type VARCHAR(10) NOT NULL,
     transaction_date DATE NOT NULL,
-    shares INTEGER NOT NULL,
+    shares BIGINT NOT NULL,
     price_per_share FLOAT,
     total_value FLOAT,
     accession_number VARCHAR(30) NOT NULL,
@@ -431,6 +496,7 @@ CREATE INDEX ix_insider_hist_insider ON insider_transaction_history(insider_cik,
 **First-ever-buy detection**:
 
 ```python
+# Lives in API layer (api/src/margin_api/services/insider_service.py), NOT engine
 async def is_first_purchase(
     session: AsyncSession,
     ticker: str,
@@ -439,6 +505,8 @@ async def is_first_purchase(
     """Check if this insider has ever purchased this stock before.
     Queries insider_transaction_history for any prior 'P' transaction."""
 ```
+
+**Architecture boundary**: This DB query runs in the API/worker layer. The boolean result is populated on `InsiderTransaction.is_first_purchase` before the model reaches the engine. The engine package remains pure Python with zero web/DB dependencies.
 
 When `is_first_purchase` returns True, that insider's weight is multiplied by 10x (1.0→10.0 for directors, 2.0→20.0 for C-suite).
 
@@ -492,6 +560,7 @@ def insider_signal_modifier(
 | `engine/src/margin_engine/scoring/v3_pipeline.py` | Add `high_52w` to `TickerV3Data` |
 | `engine/src/margin_engine/scoring/v4_pipeline.py` | Add `high_52w` to `TickerV4Data` |
 | `api/src/margin_api/services/edgar/form4_parser.py` | **New** — Form 4 XML parsing |
+| `api/src/margin_api/services/insider_service.py` | **New** — `is_first_purchase()` DB query (API layer) |
 | `api/src/margin_api/db/models.py` | New `insider_transaction_history` table |
 | `api/alembic/versions/xxx_add_insider_history.py` | Migration |
 | `api/src/margin_api/workers.py` | New `backfill_form4_history`, `daily_form4_update` jobs |
@@ -543,7 +612,7 @@ Called from `v3_pipeline.py` and `v4_pipeline.py` after composite score computat
 
 | Job | Schedule | Source | Purpose |
 |-----|----------|--------|---------|
-| `ingest_sentiment_signals` | Daily 22:30 UTC | Finnhub | Short interest, analyst recs (B1) |
+| `ingest_sentiment_signals` | Daily 23:45 UTC | Finnhub | Short interest, analyst recs (B1) |
 | `backfill_form4_history` | One-time | EDGAR | Historical insider transactions (B4) |
 | `daily_form4_update` | Daily 23:30 UTC | EDGAR | New Form 4 filings (B4) |
 
@@ -556,10 +625,11 @@ Called from `v3_pipeline.py` and `v4_pipeline.py` after composite score computat
 
 ### Migration Summary
 
-3 new Alembic migrations:
+2 new Alembic migrations:
 1. `add_sentiment_signals` — B1 table
 2. `add_insider_history` — B4 table
-3. `remove_sector_exclusion_config` — B2 cleanup (remove `excluded_sectors` from any config tables if stored)
+
+Note: B2's `excluded_sectors` is a Pydantic model field on `LiquidityConfig`, not stored in the database — no migration needed for its removal.
 
 ### Ordering Constraints
 
