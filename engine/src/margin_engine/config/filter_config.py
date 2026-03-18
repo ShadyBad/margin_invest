@@ -83,6 +83,7 @@ class BeneishConfig(BaseModel):
     """Beneish M-Score filter configuration."""
 
     threshold: float = -1.78
+    exempt_sectors: list[str] = Field(default_factory=lambda: ["Financials", "Real Estate"])
 
 
 class AltmanConfig(BaseModel):
