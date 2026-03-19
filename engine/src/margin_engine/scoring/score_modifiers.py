@@ -238,10 +238,7 @@ def anti_consensus_modifier(
         # Redistribute to 30/25/25/20 and add NLP component
         nlp_signal = nlp_sentiment / 5.0  # Normalize [-5, +5] -> [-1, +1]
         raw_signal = (
-            0.30 * short_signal
-            + 0.25 * analyst_signal
-            + 0.25 * eps_signal
-            + 0.20 * nlp_signal
+            0.30 * short_signal + 0.25 * analyst_signal + 0.25 * eps_signal + 0.20 * nlp_signal
         )
     else:
         # Original 40/30/30 weights (backward compatible)
@@ -275,22 +272,61 @@ def anti_consensus_modifier(
     return max(_ANTI_CONSENSUS_FLOOR, min(_ANTI_CONSENSUS_CEILING, modifier))
 
 
+def tam_modifier(tam_score_value: float | None) -> float:
+    """Returns multiplier [0.95, 1.10] based on TAM expansion velocity score.
+
+    Maps 0-10 to [0.95, 1.10], centered at 5 -> 1.0.
+    Below 5 -> penalty toward 0.95, above 5 -> boost toward 1.10.
+    None -> 1.0 (no data available).
+
+    Args:
+        tam_score_value: TAM expansion velocity score (0-10), or None.
+
+    Returns:
+        Float multiplier in [0.95, 1.10].
+    """
+    if tam_score_value is None:
+        return 1.0
+    # Clamp input to [0, 10]
+    clamped = max(0.0, min(10.0, tam_score_value))
+    if clamped >= 5.0:
+        # Above center: boost toward 1.10
+        boost = (clamped - 5.0) / 5.0 * 0.10  # 0 to 0.10
+        return 1.0 + boost
+    else:
+        # Below center: penalty toward 0.95
+        penalty = (5.0 - clamped) / 5.0 * 0.05  # 0 to 0.05
+        return 1.0 - penalty
+
+
 def apply_all_modifiers(
     composite_score: float,
     anti_consensus: float,
     liquidity: float,
     insider: float,
+    inflection: float = 1.0,
+    tam: float = 1.0,
 ) -> tuple[float, dict[str, float]]:
     """Apply all post-composite modifiers with combined bounds.
 
     Returns (modified_score, breakdown) where breakdown contains
     each modifier value and the combined product.
+
+    Args:
+        composite_score: Raw composite score from the winning track.
+        anti_consensus: Anti-consensus modifier (0.90-1.15).
+        liquidity: Liquidity modifier (0.85-1.00).
+        insider: Insider signal modifier (1.00-1.15).
+        inflection: Fundamental inflection modifier (default 1.0).
+        tam: TAM expansion modifier from tam_modifier() (default 1.0).
     """
-    combined = anti_consensus * liquidity * insider
+    combined = anti_consensus * liquidity * insider * inflection * tam
     combined = max(_COMBINED_FLOOR, min(_COMBINED_CEILING, combined))
     return composite_score * combined, {
         "anti_consensus": anti_consensus,
         "liquidity": liquidity,
         "insider": insider,
+        "inflection": inflection,
+        "tam": tam,
         "combined": combined,
     }

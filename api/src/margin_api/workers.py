@@ -33,7 +33,6 @@ from margin_api.config import get_settings
 from margin_api.db.models import (
     Asset,
     BacktestRun,
-    DrawdownRescreen,
     Event,
     FilingMetadata,
     FilingText,
@@ -4269,9 +4268,7 @@ async def analyze_filing_text(
     # Build the filing index URL to locate the HTML document
     cik_int = int(snapshot.cik)
     accession_clean = snapshot.accession_number.replace("-", "")
-    index_url = (
-        f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
-    )
+    index_url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
 
     filing_html: str | None = None
     try:
@@ -4385,7 +4382,7 @@ async def screen_drawdown_candidates(ctx: dict) -> dict:
 
     screener = DrawdownScreener()
 
-    CIRCUIT_BREAKER_THRESHOLD = 15
+    circuit_breaker_threshold = 15
 
     try:
         async with session_factory() as session:
@@ -4396,12 +4393,12 @@ async def screen_drawdown_candidates(ctx: dict) -> dict:
             len(candidates),
         )
 
-        if len(candidates) > CIRCUIT_BREAKER_THRESHOLD:
+        if len(candidates) > circuit_breaker_threshold:
             logger.warning(
                 "[screen_drawdown] Circuit breaker: %d candidates exceeds threshold %d — "
                 "emitting governance event instead of mass-enqueueing",
                 len(candidates),
-                CIRCUIT_BREAKER_THRESHOLD,
+                circuit_breaker_threshold,
             )
             reset_engine_cache()
             engine = get_engine()
@@ -4412,7 +4409,7 @@ async def screen_drawdown_candidates(ctx: dict) -> dict:
                     source="screen_drawdown_candidates",
                     detail={
                         "candidate_count": len(candidates),
-                        "circuit_breaker_threshold": CIRCUIT_BREAKER_THRESHOLD,
+                        "circuit_breaker_threshold": circuit_breaker_threshold,
                         "tickers": [c.ticker for c in candidates[:50]],
                     },
                 )
@@ -4422,7 +4419,7 @@ async def screen_drawdown_candidates(ctx: dict) -> dict:
             return {
                 "status": "circuit_breaker",
                 "candidate_count": len(candidates),
-                "circuit_breaker_threshold": CIRCUIT_BREAKER_THRESHOLD,
+                "circuit_breaker_threshold": circuit_breaker_threshold,
             }
 
         if not candidates:

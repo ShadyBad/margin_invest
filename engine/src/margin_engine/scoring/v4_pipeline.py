@@ -26,6 +26,7 @@ from margin_engine.scoring.score_modifiers import (
     apply_all_modifiers,
     insider_signal_modifier,
     liquidity_modifier,
+    tam_modifier,
 )
 from margin_engine.scoring.ticker_data import TickerDataBase
 from margin_engine.scoring.timing_overlay import compute_v3_timing_signal
@@ -318,8 +319,11 @@ def score_universe_v4(
             td.insider_has_first_buy,
         )
 
+        # TAM data not yet available in pipeline — placeholder
+        tam_mod = tam_modifier(None)
+
         modified_score, modifier_breakdown = apply_all_modifiers(
-            composite_score, ac_mod, liq_mod, ins_mod
+            composite_score, ac_mod, liq_mod, ins_mod, tam=tam_mod
         )
 
         results.append(

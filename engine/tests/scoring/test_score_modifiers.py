@@ -16,6 +16,7 @@ from margin_engine.scoring.score_modifiers import (
     compute_fundamental_trajectory,
     insider_signal_modifier,
     liquidity_modifier,
+    tam_modifier,
 )
 
 
@@ -39,7 +40,14 @@ class TestApplyAllModifiers:
 
     def test_breakdown_contains_all_keys(self):
         _, breakdown = apply_all_modifiers(0.5, 1.05, 0.95, 1.10)
-        assert set(breakdown.keys()) == {"anti_consensus", "liquidity", "insider", "combined"}
+        assert set(breakdown.keys()) == {
+            "anti_consensus",
+            "liquidity",
+            "insider",
+            "inflection",
+            "tam",
+            "combined",
+        }
 
     def test_score_multiplied_by_combined(self):
         score, breakdown = apply_all_modifiers(0.8, 1.10, 0.90, 1.05)
@@ -50,6 +58,27 @@ class TestApplyAllModifiers:
     def test_zero_score_stays_zero(self):
         score, _ = apply_all_modifiers(0.0, 1.15, 0.90, 1.10)
         assert score == pytest.approx(0.0)
+
+    def test_five_param_backward_compat(self):
+        """4-param call (inflection and tam default to 1.0) still works."""
+        score, breakdown = apply_all_modifiers(0.75, 1.0, 1.0, 1.0)
+        assert score == pytest.approx(0.75)
+        assert breakdown["inflection"] == pytest.approx(1.0)
+        assert breakdown["tam"] == pytest.approx(1.0)
+
+    def test_six_param_with_tam(self):
+        """Explicit tam param is multiplied into combined."""
+        score, breakdown = apply_all_modifiers(1.0, 1.0, 1.0, 1.0, tam=1.05)
+        assert breakdown["tam"] == pytest.approx(1.05)
+        assert breakdown["combined"] == pytest.approx(1.05)
+        assert score == pytest.approx(1.05)
+
+    def test_six_param_with_inflection_and_tam(self):
+        """Both inflection and tam multiply into combined."""
+        score, breakdown = apply_all_modifiers(1.0, 1.0, 1.0, 1.0, inflection=1.02, tam=1.03)
+        expected = 1.0 * 1.0 * 1.0 * 1.02 * 1.03
+        assert breakdown["combined"] == pytest.approx(expected)
+        assert score == pytest.approx(expected)
 
 
 class TestLiquidityModifier:
@@ -446,3 +475,55 @@ class TestAntiConsensusModifierNLP:
         # But trajectory=0.5 is in transition zone -> effective=0 -> modifier=1.0
         result = anti_consensus_modifier(50.0, 0.0, 0.0, 0.5, nlp_sentiment=0.0)
         assert result == pytest.approx(1.0, abs=0.01)
+
+
+class TestTAMModifier:
+    """Tests for tam_modifier."""
+
+    def test_none_returns_one(self):
+        """None TAM score -> 1.0 (no data, neutral)."""
+        assert tam_modifier(None) == pytest.approx(1.0)
+
+    def test_score_5_returns_one(self):
+        """Score at center (5.0) -> exactly 1.0."""
+        assert tam_modifier(5.0) == pytest.approx(1.0)
+
+    def test_score_above_5_boosts(self):
+        """Score > 5 -> multiplier > 1.0."""
+        result = tam_modifier(8.0)
+        assert result > 1.0
+
+    def test_score_below_5_penalizes(self):
+        """Score < 5 -> multiplier < 1.0."""
+        result = tam_modifier(2.0)
+        assert result < 1.0
+
+    def test_score_10_max_boost(self):
+        """Score = 10 -> maximum boost 1.10."""
+        assert tam_modifier(10.0) == pytest.approx(1.10)
+
+    def test_score_0_max_penalty(self):
+        """Score = 0 -> maximum penalty 0.95."""
+        assert tam_modifier(0.0) == pytest.approx(0.95)
+
+    def test_score_8_boost(self):
+        """Score = 8 -> boost = (8-5)/5 * 0.10 = 0.06 -> 1.06."""
+        assert tam_modifier(8.0) == pytest.approx(1.06)
+
+    def test_score_2_penalty(self):
+        """Score = 2 -> penalty = (5-2)/5 * 0.05 = 0.03 -> 0.97."""
+        assert tam_modifier(2.0) == pytest.approx(0.97)
+
+    def test_range_all_valid_scores(self):
+        """For all scores 0-10, modifier stays in [0.95, 1.10]."""
+        for score in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
+            result = tam_modifier(float(score))
+            assert 0.95 <= result <= 1.10, f"score={score}: modifier={result} out of range"
+
+    def test_clamps_above_10(self):
+        """Score > 10 is clamped to 10 -> 1.10."""
+        assert tam_modifier(15.0) == pytest.approx(1.10)
+
+    def test_clamps_below_0(self):
+        """Score < 0 is clamped to 0 -> 0.95."""
+        assert tam_modifier(-5.0) == pytest.approx(0.95)
