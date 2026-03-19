@@ -36,6 +36,7 @@ from margin_api.routes.proposals import router as proposals_router
 from margin_api.routes.public_scores import router as public_scores_router
 from margin_api.routes.rarity import router as rarity_router
 from margin_api.routes.scores import router as scores_router
+from margin_api.routes.sectors import router as sectors_router
 from margin_api.routes.thirteenf import router as thirteenf_router
 from margin_api.routes.transparency import router as transparency_router
 from margin_api.routes.universe import router as universe_router
@@ -166,6 +167,7 @@ def create_app() -> FastAPI:
     app.include_router(transparency_router)
     app.include_router(public_scores_router)
     app.include_router(rarity_router)
+    app.include_router(sectors_router)
     app.include_router(universe_router)
     app.include_router(correlations_router)
     app.include_router(ws_router)

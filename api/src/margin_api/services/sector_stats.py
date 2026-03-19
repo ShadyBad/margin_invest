@@ -3,12 +3,17 @@
 Includes filter pass rates and sub-factor distributions (P10/P50/P90)
 per sector. These are injected into the V4Score detail JSONB so the
 frontend can render sector context sparklines.
+
+Also provides async query helpers for the sector list and champion endpoints.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
 from typing import TYPE_CHECKING
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
     from margin_api.services.scoring import RawScoringResult
@@ -105,3 +110,116 @@ def compute_all_sector_distributions(
             distributions[sector][factor_name] = dist
 
     return dict(distributions)
+
+
+async def list_sector_summaries(session: AsyncSession) -> list[dict]:
+    """Query published V4Scores grouped by sector.
+
+    Returns one summary dict per sector with count, avg score, and the
+    top-scoring ticker + its score.
+    """
+    from margin_api.db.models import Asset, V4Score
+
+    # Subquery: find the max composite_score per sector among published scores
+    max_score_sq = (
+        select(
+            Asset.sector.label("sector"),
+            func.max(V4Score.composite_score).label("top_score"),
+        )
+        .join(Asset, V4Score.asset_id == Asset.id)
+        .where(V4Score.published == True)  # noqa: E712
+        .group_by(Asset.sector)
+        .subquery()
+    )
+
+    # Per-sector aggregates
+    agg_q = (
+        select(
+            Asset.sector,
+            func.count(V4Score.id).label("asset_count"),
+            func.avg(V4Score.composite_score).label("avg_composite_score"),
+            max_score_sq.c.top_score,
+        )
+        .join(Asset, V4Score.asset_id == Asset.id)
+        .join(max_score_sq, max_score_sq.c.sector == Asset.sector)
+        .where(V4Score.published == True)  # noqa: E712
+        .group_by(Asset.sector, max_score_sq.c.top_score)
+        .order_by(Asset.sector)
+    )
+    agg_result = await session.execute(agg_q)
+    agg_rows = agg_result.all()
+
+    if not agg_rows:
+        return []
+
+    # Build a set of (sector, top_score) pairs so we can fetch matching tickers
+    sector_top: dict[str, float] = {row.sector: row.top_score for row in agg_rows}
+
+    # Fetch one ticker per sector that matches the top score
+    champion_q = (
+        select(Asset.sector, Asset.ticker, V4Score.composite_score)
+        .join(Asset, V4Score.asset_id == Asset.id)
+        .where(V4Score.published == True)  # noqa: E712
+        .order_by(Asset.sector, V4Score.composite_score.desc())
+    )
+    champion_result = await session.execute(champion_q)
+    champion_rows = champion_result.all()
+
+    # Pick first (highest-score) ticker per sector
+    top_ticker_map: dict[str, str] = {}
+    for row in champion_rows:
+        if row.sector not in top_ticker_map:
+            top_ticker_map[row.sector] = row.ticker
+
+    summaries = []
+    for row in agg_rows:
+        sector = row.sector
+        summaries.append(
+            {
+                "sector": sector,
+                "asset_count": row.asset_count,
+                "avg_composite_score": float(row.avg_composite_score or 0.0),
+                "top_ticker": top_ticker_map.get(sector, ""),
+                "top_score": float(sector_top.get(sector, 0.0)),
+            }
+        )
+    return summaries
+
+
+async def get_sector_champion_detail(session: AsyncSession, sector: str) -> dict | None:
+    """Get highest-scored published ticker in a sector.
+
+    Returns a dict with ticker, sector, composite_score, composite_tier,
+    signal, and market_cap. Returns None if the sector has no published scores.
+    """
+    from margin_api.db.models import Asset, V4Score
+
+    q = (
+        select(V4Score, Asset)
+        .join(Asset, V4Score.asset_id == Asset.id)
+        .where(
+            Asset.sector == sector,
+            V4Score.published == True,  # noqa: E712
+        )
+        .order_by(V4Score.composite_score.desc())
+        .limit(1)
+    )
+    result = await session.execute(q)
+    row = result.first()
+    if row is None:
+        return None
+
+    v4, asset = row
+    detail = v4.detail or {}
+    composite_tier = detail.get("composite_tier") or v4.conviction or ""
+    signal = detail.get("signal") or v4.timing_signal or ""
+    market_cap = float(asset.market_cap) if asset.market_cap else None
+
+    return {
+        "ticker": asset.ticker,
+        "sector": asset.sector,
+        "composite_score": float(v4.composite_score),
+        "composite_tier": composite_tier,
+        "signal": signal,
+        "market_cap": market_cap,
+    }
