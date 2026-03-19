@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from margin_engine.config.blend_config import BlendConfig
+
 
 def blend_alpha(
     composite_alpha: float,
@@ -19,6 +24,39 @@ def blend_alpha(
         Blended alpha value.
     """
     return (1.0 - ml_weight) * composite_alpha + ml_weight * ml_alpha
+
+
+def blend_from_config(
+    composite_alpha: float,
+    gbm_alpha: float,
+    vae_mean: float,
+    vae_var: float,
+    config: BlendConfig,
+) -> tuple[float, float]:
+    """Blend composite + GBM + VAE predictions using a BlendConfig.
+
+    Args:
+        composite_alpha: Alpha from the composite scoring engine.
+        gbm_alpha: Alpha from the GBM signal model.
+        vae_mean: Mean prediction from the FactorVAE.
+        vae_var: Variance from the FactorVAE prior (passed through as uncertainty).
+        config: BlendConfig specifying weights and VAE shadow mode.
+
+    Returns:
+        Tuple of (blended_alpha, uncertainty).
+        When config.vae_shadow_mode is True, VAE weight is forced to 0 and
+        the composite weight absorbs the remaining allocation.
+    """
+    if config.vae_shadow_mode:
+        vae_w = 0.0
+        composite_w = 1.0 - config.gbm_weight
+    else:
+        composite_w = config.composite_weight
+        vae_w = config.vae_weight
+
+    gbm_w = config.gbm_weight
+    blended = composite_w * composite_alpha + gbm_w * gbm_alpha + vae_w * vae_mean
+    return blended, vae_var
 
 
 def blend_with_vae(
