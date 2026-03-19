@@ -68,6 +68,12 @@ from margin_api.services.edgar.index_builder import (
 )
 from margin_api.services.edgar.price_backfill import backfill_prices_for_tickers
 from margin_api.services.edgar.universe_assembly import assemble_universe, fill_last_known_prices
+from margin_api.services.circuit_breaker import (
+    check_ingestion_failure_rate,
+    check_ml_regression,
+    check_score_drift,
+)
+from margin_api.services.governance_config import get_threshold
 from margin_api.services.live_prices import LivePriceService
 from margin_api.services.universe import get_active_snapshot
 from margin_api.ws.scores import ScoreChangeMessage, manager
@@ -538,6 +544,26 @@ async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dic
         run.duration_seconds or 0,
     )
 
+    # Check ingestion failure rate circuit breaker with dynamic threshold
+    try:
+        async with session_factory() as session:
+            ingest_threshold_pct = (
+                await get_threshold(session, "circuit_breaker.ingestion_failure") / 100.0
+            )
+        ingest_cb_result = check_ingestion_failure_rate(
+            failed_count=run.tickers_failed or 0,
+            total_count=run.tickers_requested or 0,
+            threshold_pct=ingest_threshold_pct,
+        )
+        if ingest_cb_result.triggered:
+            logger.warning(
+                "%s Ingestion failure circuit breaker triggered: %s",
+                label,
+                ingest_cb_result.detail,
+            )
+    except Exception:
+        logger.exception("%s Ingestion failure circuit breaker check failed (non-blocking)", label)
+
     # Run post-ingestion consistency validation (non-blocking)
     try:
         from margin_api.services.consistency import validate_universe_consistency
@@ -855,6 +881,19 @@ async def _stage_scores_impl(
         prev_score = prev_result.scalar_one_or_none()
         if prev_score and prev_score.conviction != new_score.conviction:
             conviction_changes += 1
+
+    # Check score drift circuit breaker with dynamic threshold from governance config
+    drift_threshold_pct = (
+        await get_threshold(session, "circuit_breaker.score_drift") / 100.0
+    )
+    drift_result = await check_score_drift(
+        session, scored_at, threshold_pct=drift_threshold_pct
+    )
+    if drift_result.triggered:
+        logger.warning(
+            "[stage_scores] Score drift circuit breaker triggered: %s",
+            drift_result.detail,
+        )
 
     # Create the PipelineApproval
     approval = PipelineApproval(
@@ -2632,6 +2671,21 @@ async def _stage_ml_model_impl(
         current_ic = model.overall_rank_ic or 0.0
         impact_summary["previous_rank_ic"] = previous_ic
         impact_summary["rank_ic_delta"] = current_ic - previous_ic
+
+        # Check ML regression circuit breaker with dynamic threshold from governance config
+        ml_threshold_pct = (
+            await get_threshold(session, "circuit_breaker.ml_regression") / 100.0
+        )
+        ml_cb_result = check_ml_regression(
+            new_rank_ic=current_ic,
+            active_rank_ic=previous_ic,
+            threshold_pct=ml_threshold_pct,
+        )
+        if ml_cb_result.triggered:
+            logger.warning(
+                "[stage_ml] ML regression circuit breaker triggered: %s",
+                ml_cb_result.detail,
+            )
 
     # Create PipelineApproval
     approval = PipelineApproval(
