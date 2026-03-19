@@ -39,7 +39,13 @@ class TestApplyAllModifiers:
 
     def test_breakdown_contains_all_keys(self):
         _, breakdown = apply_all_modifiers(0.5, 1.05, 0.95, 1.10)
-        assert set(breakdown.keys()) == {"anti_consensus", "liquidity", "insider", "combined"}
+        assert set(breakdown.keys()) == {
+            "anti_consensus",
+            "liquidity",
+            "insider",
+            "inflection",
+            "combined",
+        }
 
     def test_score_multiplied_by_combined(self):
         score, breakdown = apply_all_modifiers(0.8, 1.10, 0.90, 1.05)
@@ -368,3 +374,111 @@ class TestAntiConsensusModifier:
         for traj in [0.3, 0.35, 0.4, 0.45]:
             result = anti_consensus_modifier(90.0, -1.0, 1.0, traj)
             assert result == pytest.approx(1.0, abs=0.001)
+
+
+# ---------------------------------------------------------------------------
+# TestInflectionModifier
+# ---------------------------------------------------------------------------
+
+
+class TestInflectionModifier:
+    """Tests for inflection_modifier."""
+
+    def test_score_zero_returns_floor(self):
+        """Score 0 -> multiplier 1.0 (floor)."""
+        assert inflection_modifier(0.0) == pytest.approx(1.0)
+
+    def test_score_ten_returns_ceiling(self):
+        """Score 10 -> multiplier 1.10 (ceiling)."""
+        assert inflection_modifier(10.0) == pytest.approx(1.10)
+
+    def test_score_five_returns_midpoint(self):
+        """Score 5 -> multiplier 1.05 (midpoint)."""
+        assert inflection_modifier(5.0) == pytest.approx(1.05)
+
+    def test_negative_score_clamped_to_floor(self):
+        """Negative score -> clamped, returns 1.0."""
+        assert inflection_modifier(-3.0) == pytest.approx(1.0)
+
+    def test_score_above_ten_clamped_to_ceiling(self):
+        """Score > 10 -> clamped, returns 1.10."""
+        assert inflection_modifier(15.0) == pytest.approx(1.10)
+
+    def test_never_penalizes(self):
+        """Any input -> multiplier always >= 1.0."""
+        for val in [-100.0, -1.0, 0.0, 5.0, 10.0, 999.0]:
+            assert inflection_modifier(val) >= 1.0
+
+    def test_linear_interpolation_at_two_and_half(self):
+        """Score 2.5 -> 1.0 + (2.5/10)*0.10 = 1.025."""
+        assert inflection_modifier(2.5) == pytest.approx(1.025)
+
+    def test_linear_interpolation_at_seven(self):
+        """Score 7 -> 1.0 + (7/10)*0.10 = 1.07."""
+        assert inflection_modifier(7.0) == pytest.approx(1.07)
+
+
+# ---------------------------------------------------------------------------
+# TestApplyAllModifiers — inflection param (Task 6)
+# ---------------------------------------------------------------------------
+
+
+class TestApplyAllModifiersInflection:
+    """Tests for inflection param added to apply_all_modifiers."""
+
+    def test_five_param_call_with_inflection(self):
+        """5-param call: inflection modifier is included in product."""
+        score, breakdown = apply_all_modifiers(1.0, 1.0, 1.0, 1.0, 1.05)
+        assert breakdown["inflection"] == pytest.approx(1.05)
+        assert breakdown["combined"] == pytest.approx(1.05)
+        assert score == pytest.approx(1.05)
+
+    def test_four_param_backward_compat(self):
+        """4-param call: inflection defaults to 1.0 (no change)."""
+        score4, breakdown4 = apply_all_modifiers(0.75, 1.0, 1.0, 1.0)
+        score5, breakdown5 = apply_all_modifiers(0.75, 1.0, 1.0, 1.0, 1.0)
+        assert score4 == pytest.approx(score5)
+        assert breakdown4["combined"] == pytest.approx(breakdown5["combined"])
+
+    def test_breakdown_contains_inflection_key(self):
+        """Breakdown dict now includes 'inflection' key."""
+        _, breakdown = apply_all_modifiers(0.5, 1.05, 0.95, 1.10, 1.08)
+        assert "inflection" in breakdown
+
+    def test_breakdown_has_all_five_keys(self):
+        """Breakdown should have anti_consensus, liquidity, insider, inflection, combined."""
+        _, breakdown = apply_all_modifiers(0.5, 1.05, 0.95, 1.10, 1.05)
+        assert set(breakdown.keys()) == {
+            "anti_consensus",
+            "liquidity",
+            "insider",
+            "inflection",
+            "combined",
+        }
+
+    def test_inflection_multiplies_into_product(self):
+        """Combined product uses all four modifier inputs."""
+        score, breakdown = apply_all_modifiers(1.0, 1.10, 0.90, 1.05, 1.08)
+        expected = 1.10 * 0.90 * 1.05 * 1.08
+        # Clamped to [0.75, 1.25]
+        expected = max(0.75, min(1.25, expected))
+        assert breakdown["combined"] == pytest.approx(expected)
+        assert score == pytest.approx(expected)
+
+    def test_inflection_ceiling_still_clamped(self):
+        """Even with inflection boost, combined is clamped to 1.25."""
+        score, breakdown = apply_all_modifiers(1.0, 1.15, 1.0, 1.15, 1.10)
+        assert breakdown["combined"] == pytest.approx(1.25)
+
+    def test_inflection_default_preserves_existing_test_cases(self):
+        """Old 4-arg call still passes original TestApplyAllModifiers test cases."""
+        # neutral
+        score, breakdown = apply_all_modifiers(0.75, 1.0, 1.0, 1.0)
+        assert score == pytest.approx(0.75)
+        assert breakdown["combined"] == pytest.approx(1.0)
+        # floor
+        score, breakdown = apply_all_modifiers(1.0, 0.80, 0.85, 1.0)
+        assert breakdown["combined"] == pytest.approx(0.75)
+        # ceiling
+        score, breakdown = apply_all_modifiers(1.0, 1.15, 1.0, 1.15)
+        assert breakdown["combined"] == pytest.approx(1.25)
