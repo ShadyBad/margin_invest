@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from margin_engine.ml.blend import blend_with_vae
 from margin_engine.models.scoring import CompositeTier
@@ -23,14 +23,14 @@ _CONVICTION_INDEX: dict[CompositeTier, int] = {
 class OverrideConfig(BaseModel):
     """Configuration thresholds for ML conviction override logic."""
 
-    top_1_percentile: float = 85.0
-    bottom_1_percentile: float = 15.0
-    min_confidence_1: float = 0.75
-    top_2_percentile: float = 95.0
-    bottom_2_percentile: float = 5.0
-    min_confidence_2: float = 0.80
-    max_override_levels: int = 2
-    early_exit_confidence: float = 0.60
+    top_1_percentile: float = Field(default=85.0, gt=0.0, lt=100.0)
+    bottom_1_percentile: float = Field(default=15.0, gt=0.0, lt=100.0)
+    min_confidence_1: float = Field(default=0.75, ge=0.0, le=1.0)
+    top_2_percentile: float = Field(default=95.0, gt=0.0, lt=100.0)
+    bottom_2_percentile: float = Field(default=5.0, gt=0.0, lt=100.0)
+    min_confidence_2: float = Field(default=0.80, ge=0.0, le=1.0)
+    max_override_levels: int = Field(default=1, ge=1, le=2)
+    early_exit_confidence: float = Field(default=0.60, ge=0.0, le=1.0)
 
 
 def promote(tier: CompositeTier, levels: int) -> CompositeTier:

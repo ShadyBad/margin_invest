@@ -59,3 +59,18 @@ class TestBlendConfig:
         assert config.horizon_weights == {63: 0.15, 126: 0.25, 252: 0.40, 504: 0.20}
         total = sum(config.horizon_weights.values())
         assert abs(total - 1.0) < 1e-6
+
+    def test_negative_weight_rejected(self):
+        """Negative weights are rejected even if they sum to 1.0."""
+        with pytest.raises(ValidationError):
+            BlendConfig(composite_weight=-0.5, gbm_weight=1.5, vae_weight=0.0)
+
+    def test_empty_horizon_weights_rejected(self):
+        """Empty horizon_weights dict is rejected."""
+        with pytest.raises(ValidationError, match="must not be empty"):
+            BlendConfig(horizon_weights={})
+
+    def test_negative_horizon_weight_rejected(self):
+        """Negative horizon weight values are rejected."""
+        with pytest.raises(ValidationError, match="non-negative"):
+            BlendConfig(horizon_weights={252: 1.5, 126: -0.5})

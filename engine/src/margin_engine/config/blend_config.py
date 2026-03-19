@@ -35,9 +35,9 @@ class BlendConfig(BaseModel):
     blending weights. All horizon weights must also sum to 1.0.
     """
 
-    composite_weight: float = 0.70
-    gbm_weight: float = 0.30
-    vae_weight: float = 0.0
+    composite_weight: float = Field(default=0.70, ge=0.0, le=1.0)
+    gbm_weight: float = Field(default=0.30, ge=0.0, le=1.0)
+    vae_weight: float = Field(default=0.0, ge=0.0, le=1.0)
     vae_shadow_mode: bool = True
     horizon_weights: dict[int, float] = Field(default_factory=lambda: {252: 1.0})
 
@@ -51,6 +51,10 @@ class BlendConfig(BaseModel):
 
     @model_validator(mode="after")
     def _horizon_weights_must_sum_to_one(self) -> Self:
+        if not self.horizon_weights:
+            raise ValueError("horizon_weights must not be empty")
+        if any(v < 0.0 for v in self.horizon_weights.values()):
+            raise ValueError("horizon_weights values must be non-negative")
         total = sum(self.horizon_weights.values())
         if abs(total - 1.0) > 1e-6:
             msg = f"Horizon weights must sum to 1.0, got {total}"

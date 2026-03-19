@@ -56,12 +56,12 @@ class TestApplyMlOverride:
         assert override_type == "promoted"
 
     def test_demote_when_low_percentile_and_confident(self) -> None:
-        """ml_percentile <= 5 AND confidence >= 0.80 -> demote two levels (HIGH -> NONE)."""
+        """ml_percentile <= 15 AND confidence >= 0.75 -> demote one level."""
         # ml_signal = 0 * 0.0 + 0.60 * 0.05 + 0.40 * 0.03 = 0.03 + 0.012 = 0.042
         # values < 0.042: 0.01..0.04 = 4 values
-        # ml_percentile = 4/100*100 = 4 <= 5 (bottom_2_percentile)
-        # confidence = 1.0 - 0.10 = 0.90 >= 0.80 (min_confidence_2)
-        # -> 2-level path fires: HIGH demoted 2 levels -> NONE
+        # ml_percentile = 4/100*100 = 4 <= 15 (bottom_1_percentile)
+        # confidence = 1.0 - 0.10 = 0.90 >= 0.75 (min_confidence_1)
+        # Default max_override_levels=1 -> 1-level demote: HIGH -> MEDIUM
         conviction, override_type = apply_ml_override(
             rules_conviction=CompositeTier.HIGH,
             ml_alpha=0.05,
@@ -70,7 +70,7 @@ class TestApplyMlOverride:
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
         )
-        assert conviction == CompositeTier.NONE
+        assert conviction == CompositeTier.MEDIUM
         assert override_type == "demoted"
 
     def test_promote_exceptional_stays_exceptional(self) -> None:
@@ -143,7 +143,7 @@ class TestOverrideConfig:
         assert cfg.top_2_percentile == 95.0
         assert cfg.bottom_2_percentile == 5.0
         assert cfg.min_confidence_2 == 0.80
-        assert cfg.max_override_levels == 2
+        assert cfg.max_override_levels == 1
         assert cfg.early_exit_confidence == 0.60
 
     def test_disable_2_level(self) -> None:
@@ -169,7 +169,7 @@ class TestTwoLevelOverride:
             vae_variance=0.10,
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
-            config=OverrideConfig(),
+            config=OverrideConfig(max_override_levels=2),
         )
         assert conviction == CompositeTier.EXCEPTIONAL
         assert override_type == "promoted"
@@ -188,7 +188,7 @@ class TestTwoLevelOverride:
             vae_variance=0.10,
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
-            config=OverrideConfig(),
+            config=OverrideConfig(max_override_levels=2),
         )
         assert conviction == CompositeTier.MEDIUM
         assert override_type == "demoted"
@@ -207,7 +207,7 @@ class TestTwoLevelOverride:
             vae_variance=0.24,
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
-            config=OverrideConfig(),
+            config=OverrideConfig(max_override_levels=2),
         )
         assert conviction == CompositeTier.HIGH
         assert override_type == "promoted"
@@ -223,7 +223,7 @@ class TestTwoLevelOverride:
             vae_variance=0.30,
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
-            config=OverrideConfig(),
+            config=OverrideConfig(max_override_levels=2),
         )
         assert conviction == CompositeTier.HIGH
         assert override_type == "none"
