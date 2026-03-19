@@ -54,17 +54,24 @@ The existing auth flow uses a two-step challenge-token MFA flow: `verify-credent
 accounts with elevated privileges must not have weaker auth than regular users.
 
 1. **`POST /api/v1/auth/admin-login`** — validates credentials against `User.password_hash`,
-   checks `role in ("admin", "superadmin")`. If MFA is enabled (which should be mandatory
-   for admin/superadmin roles), returns challenge token requiring `mfa/complete` as with
-   regular login. On successful MFA completion, issues JWT with `role` claim in an httpOnly
-   cookie. Reuses existing `jwt_secret` from `settings` and existing `_verify_jwt_token()`
-   infrastructure in `deps.py`, extended to extract the `role` claim alongside the `sub`
-   (user ID) claim.
-2. **`get_admin_user(request) -> User`** — FastAPI dependency that calls existing
-   `_verify_jwt_token()` to extract user ID, then loads the `User` and checks
-   `role in ("admin", "superadmin")`. Replaces `_verify_admin_key()` in all admin routes.
-3. **`get_superadmin_user(request) -> User`** — same but requires `superadmin` role. Used
-   for governance config changes (E1).
+   checks `role in ("admin", "superadmin")`. MFA is **mandatory** for admin/superadmin roles
+   — returns challenge token requiring `mfa/complete` as with regular login. On successful
+   MFA completion, issues a JWT with `role` claim signed with `settings.jwt_secret` (same
+   key used by `mfa_complete` and `verify_mfa_token` in `routes/auth.py`). The JWT is set
+   as an httpOnly cookie named `admin_session`.
+
+   **Key distinction:** The existing `_verify_jwt_token()` in `deps.py` uses
+   `settings.service_auth_secret` (for Next.js→API inter-service auth). Admin JWTs are
+   signed with `settings.jwt_secret` (the user-facing JWT key). These are different keys.
+   A new `_verify_admin_jwt(token, settings) -> tuple[int, str]` function is needed in
+   `deps.py` that decodes with `jwt_secret` and returns `(user_id, role)`.
+
+2. **`get_admin_user(request: Request, session) -> User`** — FastAPI dependency that reads
+   `request.cookies.get("admin_session")`, calls `_verify_admin_jwt()` to extract user ID
+   and role, loads the `User` from DB, and verifies `role in ("admin", "superadmin")`.
+   Replaces `_verify_admin_key()` in all admin routes.
+3. **`get_superadmin_user(request: Request, session) -> User`** — same but requires
+   `superadmin` role. Used for governance config changes (E1).
 
 #### Frontend Changes
 
@@ -76,8 +83,16 @@ accounts with elevated privileges must not have weaker auth than regular users.
 
 #### Middleware
 
-`proxy.ts` checks `/admin/*` routes for valid admin session cookie, redirects to
-`/admin/login` if missing.
+The current `web/src/proxy.ts` re-exports the NextAuth `auth` handler and matches only
+`/dashboard`, `/account`, `/settings`, `/backtesting`. It must be refactored from a
+simple re-export into a custom middleware function that handles both:
+
+1. **Regular session checks** — delegate to existing `auth` handler for existing routes
+2. **Admin cookie checks** — for `/admin/*` routes, read the `admin_session` httpOnly
+   cookie and redirect to `/admin/login` if missing or invalid
+
+Add `/admin/:path*` to the matcher array. The admin login page itself (`/admin/login`)
+must be excluded from the check to avoid redirect loops.
 
 #### Files to Create/Modify
 
@@ -386,17 +401,20 @@ logic was deferred during 13F pipeline implementation.
 The existing `schemas/thirteenf.py` defines schemas that will be **replaced** by this work:
 
 - `NewPositionEntry` (ticker, managers, total_new_funds, curated_new_funds, total_value_millions)
-  → replaced by updated `NewPositionEntry` with quarter-comparison fields
+  → fields updated to reflect quarter-comparison semantics
+- `NewPositionResponse` (period_of_report, new_positions)
+  → adds `previous_quarter: date` field
 - `CrowdedTrade` (ticker, new_position_count, pct_funds_adding)
-  → replaced by updated `CrowdedTrade` with holder-based fields
-- `OverlapResponse` uses `most_held: list[OverlapEntry]`
-  → `OverlapEntry` (ticker, holder_count, curated_count) is replaced; `most_held` changes to
-  `list[CrowdedTrade]` for consistency
+  → replaced with holder-based fields (holder_count, concentration_pct, total_value_millions)
+- `OverlapEntry` (ticker, holder_count, curated_count) → field definitions unchanged
+- `OverlapResponse` (period_of_report, most_held, crowded_trades)
+  → adds `total_managers: int` field; `crowded_trades` element type changes to match new `CrowdedTrade`
 
-**This is a breaking API change.** The Smart Money page frontend (`/smart-money`) must be
-updated to consume the new response shapes. Since these endpoints currently return empty
-arrays, no real data flows through them — the frontend is already handling the empty case.
-The breaking change is safe because the old schemas never carried real data.
+**This is a breaking API change** affecting 5 schemas. The Smart Money page frontend
+(`/smart-money`) must be updated to consume the new response shapes. Since these endpoints
+currently return empty arrays, no real data flows through them — the frontend is already
+handling the empty case. The breaking change is safe because the old schemas never carried
+real data.
 
 #### Data Source
 
