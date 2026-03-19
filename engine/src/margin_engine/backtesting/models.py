@@ -82,6 +82,33 @@ class HoldingRecord(BaseModel):
     weight: float
     entry_price: float
     composite_score: float
+    conviction_tier: str | None = None
+    exit_price: float | None = None
+    position_return: float | None = None
+
+
+class PositionOutcome(BaseModel):
+    """Completed position with entry/exit for Kelly stats."""
+
+    ticker: str
+    conviction_tier: str
+    entry_price: float
+    exit_price: float
+    return_pct: float
+
+    @property
+    def is_winner(self) -> bool:
+        return self.return_pct > 0
+
+
+class TierStats(BaseModel):
+    """Per-conviction-tier Kelly inputs."""
+
+    tier: str
+    win_rate: float
+    avg_winner_return: float
+    avg_loser_return: float  # Absolute value
+    n_positions: int
 
 
 class MonthlySnapshot(BaseModel):
@@ -130,6 +157,7 @@ class PerformanceMetrics(BaseModel):
     gross_sharpe: float = 0.0
     gross_max_drawdown: float = 0.0
     cost_drag_bps: float = 0.0
+    tier_stats: list[TierStats] | None = None
 
 
 class PassThreshold(BaseModel):
