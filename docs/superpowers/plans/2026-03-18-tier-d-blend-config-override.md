@@ -17,7 +17,7 @@
 | Action | File | Responsibility |
 |--------|------|---------------|
 | Create | `engine/src/margin_engine/config/blend_config.py` | BlendConfig Pydantic model |
-| Modify | `engine/src/margin_engine/ml/blend.py` | New blend_from_config() accepting BlendConfig |
+| Modify | `engine/src/margin_engine/ml/blend.py` | New blend_from_config() as public API; old functions become deprecated wrappers |
 | Modify | `engine/src/margin_engine/ml/ensemble_override.py` | OverrideConfig, promote(), demote(), 2-level support |
 | Create | `engine/tests/config/test_blend_config.py` | Tests for BlendConfig validation |
 | Modify | `engine/tests/ml/test_blend.py` | Tests for config-based blend |
@@ -90,7 +90,8 @@ Add to blend.py:
 - `blend_from_config(composite_alpha, gbm_alpha, vae_mean, vae_var, config: BlendConfig) -> tuple[float, float]`
 - When config.vae_shadow_mode is True: force vae_w=0.0, composite_w = 1.0 - gbm_w
 - When False: use config weights directly
-- Keep old blend_alpha() and blend_with_vae() unchanged
+- `blend_from_config` is the new public API. Old `blend_alpha()` and `blend_with_vae()` become deprecated wrappers (keep for backward compat but new code should use `blend_from_config`)
+- Shadow mode enforcement happens inside `blend_from_config` -- this is the caller boundary where the spec says to suppress VAE
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -113,7 +114,7 @@ Expected: All PASS
 
 Add TestOverrideConfig: default values match spec (top_1=85, bottom_1=15, conf_1=0.75, top_2=95, bottom_2=5, conf_2=0.80, max_levels=2, early_exit=0.60). Test max_override_levels=1 disables 2-level.
 
-Add TestPromoteDemote: promote 1 level (MEDIUM->HIGH), 2 levels (MEDIUM->EXCEPTIONAL), capped at EXCEPTIONAL, demote 1 (HIGH->MEDIUM), 2 (EXCEPTIONAL->MEDIUM), floored at NONE, unknown tier returns unchanged.
+Add TestPromoteDemote: promote 1 level (MEDIUM->HIGH), 2 levels (MEDIUM->EXCEPTIONAL), promote(HIGH, 2) capped at EXCEPTIONAL, promote(EXCEPTIONAL, 1) stays, demote 1 (HIGH->MEDIUM), 2 (EXCEPTIONAL->MEDIUM), demote(MEDIUM, 2) floored at NONE, demote(NONE, 1) stays, unknown tier returns unchanged.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -123,7 +124,7 @@ Expected: FAIL with ImportError
 - [ ] **Step 3: Implement OverrideConfig and promote/demote**
 
 Add to ensemble_override.py above apply_ml_override:
-- OverrideConfig(BaseModel): percentile thresholds for 1-level and 2-level, confidence gates, max_override_levels, early_exit_confidence
+- OverrideConfig(BaseModel) with fields: top_1_percentile(85.0), bottom_1_percentile(15.0), min_confidence_1(0.75), top_2_percentile(95.0), bottom_2_percentile(5.0), min_confidence_2(0.80), max_override_levels(2), early_exit_confidence(0.60)
 - promote(tier, levels): index-based, capped at EXCEPTIONAL, guard for unknown tiers
 - demote(tier, levels): index-based, floored at NONE, guard for unknown tiers
 
@@ -157,12 +158,14 @@ Add TestTwoLevelOverride:
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest engine/tests/ml/test_ensemble_override.py::TestTwoLevelOverride -v`
-Expected: FAIL with TypeError
+Expected: Most tests FAIL with TypeError (unexpected keyword argument 'config'). The backward-compat test (no config kwarg) will PASS -- this is expected.
 
 - [ ] **Step 3: Refactor apply_ml_override**
 
 Add optional `config: OverrideConfig | None = None` parameter.
 Logic: (1) model_qualifies gate, (2) compute ml_signal via blend_with_vae internal 60/40, (3) confidence from vae_variance, (4) early exit if confidence < config.early_exit_confidence, (5) percentile rank, (6) 2-level check first (stricter), (7) 1-level check, (8) no override. Use promote()/demote() helpers.
+
+**IMPORTANT:** Do NOT change the internal `blend_with_vae(gbm_weight=0.60, vae_weight=0.40)` call inside apply_ml_override. This is a SEPARATE internal blend (GBM vs VAE within the ML signal) and must NOT use BlendConfig. Only the top-level composite/ML blend uses BlendConfig.
 
 - [ ] **Step 4: Run ALL override tests**
 
