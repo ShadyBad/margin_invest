@@ -5,7 +5,8 @@ Revises: bd1958ca620b
 Create Date: 2026-03-19 08:51:33.174984
 
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
@@ -14,9 +15,9 @@ from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
 revision: str = "f0d4d4376360"
-down_revision: Union[str, Sequence[str], None] = "bd1958ca620b"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "bd1958ca620b"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -57,9 +58,7 @@ def upgrade() -> None:
             sa.Column("event_type", sa.String(length=50), nullable=False),
             sa.Column(
                 "payload",
-                sa.JSON().with_variant(
-                    postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-                ),
+                sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
                 nullable=False,
             ),
             sa.Column("status", sa.String(length=20), nullable=False),

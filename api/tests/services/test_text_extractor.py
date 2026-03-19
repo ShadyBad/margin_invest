@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 
 import pytest
-
 from margin_api.services.edgar.text_extractor import ExtractedSections, FilingTextExtractor
 
 

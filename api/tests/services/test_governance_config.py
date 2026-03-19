@@ -8,7 +8,6 @@ from margin_api.db.base import Base
 from margin_api.db.models import GovernanceConfig
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -41,49 +40,37 @@ class TestValidateConfigValue:
     def test_valid_value_returns_no_errors(self):
         from margin_api.services.governance_config import validate_config_value
 
-        errors = validate_config_value(
-            "circuit_breaker.score_drift", {"threshold": 25.0}
-        )
+        errors = validate_config_value("circuit_breaker.score_drift", {"threshold": 25.0})
         assert errors == []
 
     def test_valid_value_integer_accepted_for_float_field(self):
         from margin_api.services.governance_config import validate_config_value
 
-        errors = validate_config_value(
-            "circuit_breaker.score_drift", {"threshold": 25}
-        )
+        errors = validate_config_value("circuit_breaker.score_drift", {"threshold": 25})
         assert errors == []
 
     def test_out_of_range_high_returns_range_error(self):
         from margin_api.services.governance_config import validate_config_value
 
-        errors = validate_config_value(
-            "circuit_breaker.score_drift", {"threshold": 150.0}
-        )
+        errors = validate_config_value("circuit_breaker.score_drift", {"threshold": 150.0})
         assert any("range" in e.lower() for e in errors)
 
     def test_out_of_range_low_returns_range_error(self):
         from margin_api.services.governance_config import validate_config_value
 
-        errors = validate_config_value(
-            "circuit_breaker.score_drift", {"threshold": -5.0}
-        )
+        errors = validate_config_value("circuit_breaker.score_drift", {"threshold": -5.0})
         assert any("range" in e.lower() for e in errors)
 
     def test_wrong_type_returns_error(self):
         from margin_api.services.governance_config import validate_config_value
 
-        errors = validate_config_value(
-            "circuit_breaker.score_drift", {"threshold": "not_a_number"}
-        )
+        errors = validate_config_value("circuit_breaker.score_drift", {"threshold": "not_a_number"})
         assert len(errors) > 0
 
     def test_unknown_key_returns_unknown_error(self):
         from margin_api.services.governance_config import validate_config_value
 
-        errors = validate_config_value(
-            "circuit_breaker.nonexistent_key", {"threshold": 10.0}
-        )
+        errors = validate_config_value("circuit_breaker.nonexistent_key", {"threshold": 10.0})
         assert any("unknown" in e.lower() for e in errors)
 
     def test_missing_required_field_returns_error(self):
@@ -109,17 +96,13 @@ class TestValidateConfigValue:
     def test_ingestion_failure_valid_value(self):
         from margin_api.services.governance_config import validate_config_value
 
-        errors = validate_config_value(
-            "circuit_breaker.ingestion_failure", {"threshold": 20.0}
-        )
+        errors = validate_config_value("circuit_breaker.ingestion_failure", {"threshold": 20.0})
         assert errors == []
 
     def test_ml_regression_valid_value(self):
         from margin_api.services.governance_config import validate_config_value
 
-        errors = validate_config_value(
-            "circuit_breaker.ml_regression", {"threshold": 50.0}
-        )
+        errors = validate_config_value("circuit_breaker.ml_regression", {"threshold": 50.0})
         assert errors == []
 
 

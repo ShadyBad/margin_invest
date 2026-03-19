@@ -6,7 +6,7 @@ Create Date: 2026-03-19 07:03:27.273963
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
@@ -15,9 +15,9 @@ from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
 revision: str = "25c03fc53f59"
-down_revision: Union[str, Sequence[str], None] = "ed87a3253818"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "ed87a3253818"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 JSONVariant = sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")
 
@@ -50,9 +50,7 @@ def upgrade() -> None:
                 name="uq_filing_text_ticker_type_period",
             ),
         )
-        op.create_index(
-            op.f("ix_filing_texts_ticker"), "filing_texts", ["ticker"], unique=False
-        )
+        op.create_index(op.f("ix_filing_texts_ticker"), "filing_texts", ["ticker"], unique=False)
 
     if "filing_sentiment_cache" not in existing:
         op.create_table(
@@ -102,9 +100,7 @@ def downgrade() -> None:
     existing = inspector.get_table_names()
 
     if "filing_sentiment_cache" in existing:
-        op.drop_index(
-            op.f("ix_filing_sentiment_cache_ticker"), table_name="filing_sentiment_cache"
-        )
+        op.drop_index(op.f("ix_filing_sentiment_cache_ticker"), table_name="filing_sentiment_cache")
         op.drop_index(
             op.f("ix_filing_sentiment_cache_filing_text_id"),
             table_name="filing_sentiment_cache",

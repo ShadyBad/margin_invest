@@ -6,15 +6,11 @@ Tests are written first (TDD). Uses mocks for the Anthropic client.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from margin_api.services.nlp_analyzer import NLPAnalyzer
-
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -246,9 +242,7 @@ class TestNLPEnabled:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_cache_hit_returns_cached_result(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_cache_hit_returns_cached_result(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """If a cache row exists, return it without calling the API."""
         monkeypatch.setenv("MARGIN_NLP_ENABLED", "true")
 

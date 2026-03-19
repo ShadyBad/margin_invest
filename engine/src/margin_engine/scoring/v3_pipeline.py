@@ -15,11 +15,13 @@ from margin_engine.scoring.pipeline_helpers import (
     compute_sector_median_ev_ebit,
     conditional_multiplier_for_ticker,
 )
+from margin_engine.scoring.quantitative.inflection_detection import inflection_score
 from margin_engine.scoring.quantitative.wacc_company import compute_company_wacc
 from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
 from margin_engine.scoring.score_modifiers import (
     anti_consensus_modifier,
     apply_all_modifiers,
+    inflection_modifier,
     insider_signal_modifier,
     liquidity_modifier,
     tam_modifier,
@@ -193,11 +195,15 @@ def score_universe_v3(
             td.insider_has_first_buy,
         )
 
+        # Inflection detection
+        infl_result = inflection_score(td.history)
+        infl_mod = inflection_modifier(infl_result.raw_value)
+
         # TAM data not yet available in pipeline — placeholder
         tam_mod = tam_modifier(None)
 
         modified_score, modifier_breakdown = apply_all_modifiers(
-            composite_score, ac_mod, liq_mod, ins_mod, tam=tam_mod
+            composite_score, ac_mod, liq_mod, ins_mod, inflection=infl_mod, tam=tam_mod
         )
 
         result = result.model_copy(

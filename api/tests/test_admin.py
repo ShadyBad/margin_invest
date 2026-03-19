@@ -33,6 +33,7 @@ def _make_client_with_admin(admin_key: str = "test-admin-key", db_override=None)
     app.dependency_overrides[get_admin_user] = override_admin_user
     if db_override is not None:
         from margin_api.db.session import get_db
+
         app.dependency_overrides[get_db] = db_override
     return TestClient(app)
 

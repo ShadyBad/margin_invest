@@ -11,13 +11,12 @@ from fastapi.testclient import TestClient
 from margin_api.app import create_app
 from margin_api.config import get_settings
 from margin_api.db.base import Base
-from margin_api.db.models import GovernanceConfig, GovernanceEvent, User, UserRole
+from margin_api.db.models import GovernanceEvent, User, UserRole
 from margin_api.db.session import get_db
 from margin_api.deps import get_superadmin_user
 from margin_api.services.governance_config import CONFIG_REGISTRY
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 
 # ---------------------------------------------------------------------------
 # Superadmin user mock
@@ -76,9 +75,11 @@ def _make_app_and_client(session_factory=None) -> tuple:
     app.dependency_overrides[get_superadmin_user] = override_superadmin
 
     if session_factory is not None:
+
         async def db_override():
             async with session_factory() as s:
                 yield s
+
         app.dependency_overrides[get_db] = db_override
 
     client = TestClient(app)
@@ -333,7 +334,5 @@ class TestDeleteGovernanceConfig:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             client = TestClient(app)
-        response = client.delete(
-            "/api/v1/admin/governance-config/circuit_breaker.score_drift"
-        )
+        response = client.delete("/api/v1/admin/governance-config/circuit_breaker.score_drift")
         assert response.status_code == 401

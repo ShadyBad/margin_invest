@@ -106,8 +106,7 @@ def validate_config_value(key: str, value: dict) -> list[str]:
         numeric_value = float(field_value)
         if not (min_val <= numeric_value <= max_val):
             errors.append(
-                f"Field {field_name!r}: value {field_value} is out of range "
-                f"[{min_val}, {max_val}]"
+                f"Field {field_name!r}: value {field_value} is out of range [{min_val}, {max_val}]"
             )
 
     return errors

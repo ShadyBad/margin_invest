@@ -25,6 +25,7 @@ def _make_admin_user() -> User:
     user.role = UserRole.ADMIN
     return user
 
+
 # ---------------------------------------------------------------------------
 # Async DB fixtures (real SQLite, same pattern as test_ml_deployment_gate)
 # ---------------------------------------------------------------------------

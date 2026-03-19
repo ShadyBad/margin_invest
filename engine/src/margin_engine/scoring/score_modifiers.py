@@ -272,6 +272,19 @@ def anti_consensus_modifier(
     return max(_ANTI_CONSENSUS_FLOOR, min(_ANTI_CONSENSUS_CEILING, modifier))
 
 
+_INFLECTION_FLOOR = 1.0
+_INFLECTION_CEILING = 1.10
+
+
+def inflection_modifier(inflection_score_value: float) -> float:
+    """Returns multiplier 1.00 - 1.10. Never penalizes.
+
+    Maps inflection_score (0-10) linearly to [1.0, 1.10].
+    """
+    clamped = max(0.0, min(inflection_score_value, 10.0))
+    return _INFLECTION_FLOOR + (clamped / 10.0) * (_INFLECTION_CEILING - _INFLECTION_FLOOR)
+
+
 def tam_modifier(tam_score_value: float | None) -> float:
     """Returns multiplier [0.95, 1.10] based on TAM expansion velocity score.
 

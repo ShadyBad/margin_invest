@@ -9,13 +9,12 @@ import pytest
 import pytest_asyncio
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.config import Settings
 from margin_api.db.base import Base
 from margin_api.db.models import User, UserRole
 from margin_api.db.session import get_db
 from margin_api.deps import _verify_admin_jwt, get_admin_user, get_superadmin_user
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -137,9 +136,7 @@ async def admin_app_setup():
     async with factory() as session:
         regular = User(email="user@test.com", name="Regular", role=UserRole.USER)
         admin = User(email="admin@test.com", name="Admin", role=UserRole.ADMIN)
-        superadmin = User(
-            email="superadmin@test.com", name="Super", role=UserRole.SUPERADMIN
-        )
+        superadmin = User(email="superadmin@test.com", name="Super", role=UserRole.SUPERADMIN)
         session.add_all([regular, admin, superadmin])
         await session.commit()
         await session.refresh(regular)
@@ -184,9 +181,7 @@ class TestGetAdminUser:
         token = _mint_token(user_id=admin_id, role="admin")
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.get(
-                "/admin-only", cookies={"admin_session": token}
-            )
+            resp = await client.get("/admin-only", cookies={"admin_session": token})
         assert resp.status_code == 200
         assert resp.json()["user_id"] == admin_id
         assert resp.json()["role"] == "admin"
@@ -197,9 +192,7 @@ class TestGetAdminUser:
         token = _mint_token(user_id=superadmin_id, role="superadmin")
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.get(
-                "/admin-only", cookies={"admin_session": token}
-            )
+            resp = await client.get("/admin-only", cookies={"admin_session": token})
         assert resp.status_code == 200
         assert resp.json()["user_id"] == superadmin_id
 
@@ -212,18 +205,14 @@ class TestGetAdminUser:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_regular_user_with_admin_role_claim_returns_403(
-        self, admin_app_setup
-    ):
+    async def test_regular_user_with_admin_role_claim_returns_403(self, admin_app_setup):
         """DB role must be admin/superadmin even if JWT claims it."""
         app, regular_id, _, _, settings = admin_app_setup
         # JWT claims admin but DB user has role=user
         token = _mint_token(user_id=regular_id, role="admin")
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.get(
-                "/admin-only", cookies={"admin_session": token}
-            )
+            resp = await client.get("/admin-only", cookies={"admin_session": token})
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
@@ -232,9 +221,7 @@ class TestGetAdminUser:
         token = _mint_token(user_id=admin_id, role="admin", exp_offset=-10)
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.get(
-                "/admin-only", cookies={"admin_session": token}
-            )
+            resp = await client.get("/admin-only", cookies={"admin_session": token})
         assert resp.status_code == 401
 
 
@@ -245,9 +232,7 @@ class TestGetSuperadminUser:
         token = _mint_token(user_id=superadmin_id, role="superadmin")
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.get(
-                "/superadmin-only", cookies={"admin_session": token}
-            )
+            resp = await client.get("/superadmin-only", cookies={"admin_session": token})
         assert resp.status_code == 200
         assert resp.json()["user_id"] == superadmin_id
 
@@ -257,9 +242,7 @@ class TestGetSuperadminUser:
         token = _mint_token(user_id=admin_id, role="admin")
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.get(
-                "/superadmin-only", cookies={"admin_session": token}
-            )
+            resp = await client.get("/superadmin-only", cookies={"admin_session": token})
         assert resp.status_code == 403
 
     @pytest.mark.asyncio

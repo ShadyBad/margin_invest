@@ -11,10 +11,10 @@ import os
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.db.models import DrawdownRescreen, PITDailyPrice
+from margin_api.db.models import DrawdownRescreen
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +39,9 @@ class DrawdownScreener:
     """
 
     def __init__(self) -> None:
-        self.threshold: float = float(
-            os.environ.get("MARGIN_DRAWDOWN_THRESHOLD", "-0.20")
-        )
-        self.max_per_run: int = int(
-            os.environ.get("MARGIN_DRAWDOWN_MAX_PER_RUN", "10")
-        )
-        self.debounce_days: int = int(
-            os.environ.get("MARGIN_DRAWDOWN_DEBOUNCE_DAYS", "7")
-        )
+        self.threshold: float = float(os.environ.get("MARGIN_DRAWDOWN_THRESHOLD", "-0.20"))
+        self.max_per_run: int = int(os.environ.get("MARGIN_DRAWDOWN_MAX_PER_RUN", "10"))
+        self.debounce_days: int = int(os.environ.get("MARGIN_DRAWDOWN_DEBOUNCE_DAYS", "7"))
 
     async def find_candidates(
         self,
