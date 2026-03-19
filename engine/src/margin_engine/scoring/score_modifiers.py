@@ -194,37 +194,58 @@ def anti_consensus_modifier(
     analyst_divergence: float,
     eps_revision_strength: float,
     fundamental_trajectory: float,
+    nlp_sentiment: float | None = None,
 ) -> float:
     """Returns multiplier 0.90 - 1.15.
 
-    Three weighted components:
+    Without nlp_sentiment (or nlp_sentiment=None), three weighted components:
     - Short interest divergence (40%): high short + improving fundamentals
     - Analyst rating divergence (30%): downgrades while fundamentals improve
     - Earnings revision strength (30%): positive surprises
 
+    With nlp_sentiment provided, four weighted components (redistributed):
+    - Short interest divergence (30%)
+    - Analyst rating divergence (25%)
+    - Earnings revision strength (25%)
+    - NLP sentiment (20%): normalized from [-5, +5] range to [-1, +1]
+
     Only fires meaningfully when fundamental_trajectory > 0.5.
     When trajectory < 0.3, bearish sentiment is correct -> mild penalty.
+    Trajectory gating applies uniformly to all signals including NLP.
 
     Args:
         short_interest_percentile: 0-100, sector-relative rank
         analyst_divergence: -1 to +1 (negative = bearish consensus)
         eps_revision_strength: -1 to +1 (positive = upward revisions)
         fundamental_trajectory: 0-1 from compute_fundamental_trajectory
+        nlp_sentiment: optional [-5, +5] NLP sentiment score; when provided
+            redistributes weights to 30/25/25/20
     """
-    # Component 1: Short interest divergence (40%)
+    # Component 1: Short interest divergence
     # High short interest (percentile > 50) + improving fundamentals = bullish signal
     short_signal = (short_interest_percentile - 50.0) / 50.0  # -1 to +1
 
-    # Component 2: Analyst divergence (30%)
+    # Component 2: Analyst divergence
     # Negative analyst_divergence (bearish consensus) + strong fundamentals = bullish signal
     analyst_signal = -analyst_divergence  # Flip: bearish consensus -> positive signal
 
-    # Component 3: Earnings revision strength (30%)
+    # Component 3: Earnings revision strength
     # Positive EPS revisions are directly bullish
     eps_signal = eps_revision_strength  # -1 to +1
 
-    # Weighted raw signal
-    raw_signal = 0.40 * short_signal + 0.30 * analyst_signal + 0.30 * eps_signal
+    # Weighted raw signal — weights depend on whether NLP sentiment is available
+    if nlp_sentiment is not None:
+        # Redistribute to 30/25/25/20 and add NLP component
+        nlp_signal = nlp_sentiment / 5.0  # Normalize [-5, +5] -> [-1, +1]
+        raw_signal = (
+            0.30 * short_signal
+            + 0.25 * analyst_signal
+            + 0.25 * eps_signal
+            + 0.20 * nlp_signal
+        )
+    else:
+        # Original 40/30/30 weights (backward compatible)
+        raw_signal = 0.40 * short_signal + 0.30 * analyst_signal + 0.30 * eps_signal
 
     # Apply trajectory gating
     if fundamental_trajectory > 0.5:

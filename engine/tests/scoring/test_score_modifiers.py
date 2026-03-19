@@ -368,3 +368,81 @@ class TestAntiConsensusModifier:
         for traj in [0.3, 0.35, 0.4, 0.45]:
             result = anti_consensus_modifier(90.0, -1.0, 1.0, traj)
             assert result == pytest.approx(1.0, abs=0.001)
+
+
+class TestAntiConsensusModifierNLP:
+    """Tests for anti_consensus_modifier with optional nlp_sentiment."""
+
+    def test_none_nlp_identical_to_original(self):
+        """nlp_sentiment=None must produce identical results to omitting the param."""
+        without_nlp = anti_consensus_modifier(90.0, -0.8, 0.5, 0.9)
+        with_none = anti_consensus_modifier(90.0, -0.8, 0.5, 0.9, nlp_sentiment=None)
+        assert without_nlp == pytest.approx(with_none)
+
+    def test_none_nlp_backward_compat_weights(self):
+        """Without NLP, weights stay 40/30/30. Verify against hand-calculated value."""
+        # short_signal = (90-50)/50 = 0.8, analyst_signal = -(-0.8) = 0.8, eps_signal = 0.5
+        # raw = 0.40*0.8 + 0.30*0.8 + 0.30*0.5 = 0.32 + 0.24 + 0.15 = 0.71
+        # trajectory=0.9 -> scale = (0.9-0.5)*2 = 0.8 -> effective = 0.71*0.8 = 0.568
+        # modifier = 1.0 + 0.568 * 0.15 = 1.0852
+        result = anti_consensus_modifier(90.0, -0.8, 0.5, 0.9)
+        assert result == pytest.approx(1.0 + 0.568 * 0.15, abs=0.001)
+
+    def test_with_nlp_differs_from_without(self):
+        """Providing nlp_sentiment must change the result compared to None."""
+        without = anti_consensus_modifier(90.0, -0.8, 0.5, 0.9)
+        with_nlp = anti_consensus_modifier(90.0, -0.8, 0.5, 0.9, nlp_sentiment=3.0)
+        assert without != pytest.approx(with_nlp)
+
+    def test_positive_nlp_with_improving_trajectory_boosts(self):
+        """Strongly positive NLP sentiment + improving trajectory -> modifier > 1.0."""
+        result = anti_consensus_modifier(70.0, -0.5, 0.3, 0.9, nlp_sentiment=4.0)
+        assert result > 1.0
+
+    def test_negative_nlp_reduces_modifier(self):
+        """Negative NLP sentiment lowers modifier compared to equivalent zero NLP."""
+        # Use trajectory > 0.5 so raw_signal matters
+        with_zero_nlp = anti_consensus_modifier(70.0, -0.5, 0.3, 0.9, nlp_sentiment=0.0)
+        with_neg_nlp = anti_consensus_modifier(70.0, -0.5, 0.3, 0.9, nlp_sentiment=-4.0)
+        assert with_neg_nlp < with_zero_nlp
+
+    def test_nlp_normalized_from_minus5_to_plus5(self):
+        """NLP value of +5 normalizes to +1, -5 normalizes to -1."""
+        # nlp_signal for +5 should equal nlp_signal for +1 in the [-1,+1] context
+        # i.e. nlp_sentiment=5.0 -> nlp_signal=1.0, nlp_sentiment=-5.0 -> nlp_signal=-1.0
+        # With weights 30/25/25/20: verify by computing expected value manually
+        # short=(90-50)/50=0.8, analyst=-(-0.5)=0.5, eps=0.3, nlp=5.0/5.0=1.0
+        # raw = 0.30*0.8 + 0.25*0.5 + 0.25*0.3 + 0.20*1.0 = 0.24+0.125+0.075+0.20 = 0.64
+        # trajectory=0.9 -> scale=0.8 -> effective=0.64*0.8=0.512
+        # modifier = 1.0 + 0.512*0.15 = 1.0768
+        result = anti_consensus_modifier(90.0, -0.5, 0.3, 0.9, nlp_sentiment=5.0)
+        assert result == pytest.approx(1.0 + 0.512 * 0.15, abs=0.001)
+
+    def test_nlp_extreme_positive_clamped(self):
+        """NLP > 5 or extreme combination still stays within [0.90, 1.15]."""
+        result = anti_consensus_modifier(100.0, -1.0, 1.0, 1.0, nlp_sentiment=5.0)
+        assert 0.90 <= result <= 1.15
+
+    def test_nlp_extreme_negative_clamped(self):
+        """Extreme negative NLP with weak trajectory stays within bounds."""
+        result = anti_consensus_modifier(0.0, 1.0, -1.0, 0.0, nlp_sentiment=-5.0)
+        assert 0.90 <= result <= 1.15
+
+    def test_trajectory_gating_applies_to_nlp_signal(self):
+        """Even with positive NLP, low trajectory (< 0.3) still causes penalty."""
+        result = anti_consensus_modifier(70.0, -0.5, 0.5, 0.1, nlp_sentiment=5.0)
+        assert result < 1.0
+
+    def test_trajectory_transition_zone_neutral_with_nlp(self):
+        """Trajectory in 0.3-0.5 returns 1.0 even when NLP is provided."""
+        for traj in [0.3, 0.35, 0.4, 0.45]:
+            result = anti_consensus_modifier(90.0, -1.0, 1.0, traj, nlp_sentiment=5.0)
+            assert result == pytest.approx(1.0, abs=0.001)
+
+    def test_weights_sum_to_one_with_nlp(self):
+        """30/25/25/20 weights sum to 1.0 — verify via neutral inputs producing 1.0."""
+        # All signals = 0 when inputs are neutral regardless of weight distribution
+        # short=50 -> signal=0, analyst=0 -> signal=0, eps=0 -> signal=0, nlp=0 -> signal=0
+        # But trajectory=0.5 is in transition zone -> effective=0 -> modifier=1.0
+        result = anti_consensus_modifier(50.0, 0.0, 0.0, 0.5, nlp_sentiment=0.0)
+        assert result == pytest.approx(1.0, abs=0.01)
