@@ -56,11 +56,12 @@ class TestApplyMlOverride:
         assert override_type == "promoted"
 
     def test_demote_when_low_percentile_and_confident(self) -> None:
-        """ml_percentile <= 15 AND confidence >= 0.75 -> demote one level."""
+        """ml_percentile <= 5 AND confidence >= 0.80 -> demote two levels (HIGH -> NONE)."""
         # ml_signal = 0 * 0.0 + 0.60 * 0.05 + 0.40 * 0.03 = 0.03 + 0.012 = 0.042
         # values < 0.042: 0.01..0.04 = 4 values
-        # ml_percentile = 4/100*100 = 4 <= 15 -> demote
-        # confidence = 1.0 - 0.10 = 0.90 >= 0.75
+        # ml_percentile = 4/100*100 = 4 <= 5 (bottom_2_percentile)
+        # confidence = 1.0 - 0.10 = 0.90 >= 0.80 (min_confidence_2)
+        # -> 2-level path fires: HIGH demoted 2 levels -> NONE
         conviction, override_type = apply_ml_override(
             rules_conviction=CompositeTier.HIGH,
             ml_alpha=0.05,
@@ -69,7 +70,7 @@ class TestApplyMlOverride:
             model_qualifies=True,
             universe_ml_alphas=_UNIVERSE,
         )
-        assert conviction == CompositeTier.MEDIUM
+        assert conviction == CompositeTier.NONE
         assert override_type == "demoted"
 
     def test_promote_exceptional_stays_exceptional(self) -> None:
@@ -149,6 +150,116 @@ class TestOverrideConfig:
         """OverrideConfig(max_override_levels=1) should be accepted."""
         cfg = OverrideConfig(max_override_levels=1)
         assert cfg.max_override_levels == 1
+
+
+class TestTwoLevelOverride:
+    """Tests for 2-level ML conviction override support."""
+
+    def test_2_level_promote_top_5_high_confidence(self) -> None:
+        """Top 5% + confidence >= 0.80 -> promote 2 levels (MEDIUM -> EXCEPTIONAL)."""
+        # ml_signal = 0.60*0.99 + 0.40*0.98 = 0.594 + 0.392 = 0.986
+        # values < 0.986 in _UNIVERSE (0.01..1.00): 0.01..0.98 = 98 values
+        # ml_percentile = 98/100*100 = 98 >= 95 (top_2_percentile)
+        # confidence = 1.0 - 0.10 = 0.90 >= 0.80 (min_confidence_2)
+        # -> promote 2 levels: MEDIUM -> EXCEPTIONAL
+        conviction, override_type = apply_ml_override(
+            rules_conviction=CompositeTier.MEDIUM,
+            ml_alpha=0.99,
+            vae_mean=0.98,
+            vae_variance=0.10,
+            model_qualifies=True,
+            universe_ml_alphas=_UNIVERSE,
+            config=OverrideConfig(),
+        )
+        assert conviction == CompositeTier.EXCEPTIONAL
+        assert override_type == "promoted"
+
+    def test_2_level_demote_bottom_5_high_confidence(self) -> None:
+        """Bottom 5% + confidence >= 0.80 -> demote 2 levels (EXCEPTIONAL -> MEDIUM)."""
+        # ml_signal = 0.60*0.01 + 0.40*0.01 = 0.006 + 0.004 = 0.010
+        # values < 0.010 in _UNIVERSE: none (smallest is 0.01) = 0 values
+        # ml_percentile = 0/100*100 = 0 <= 5 (bottom_2_percentile)
+        # confidence = 1.0 - 0.10 = 0.90 >= 0.80 (min_confidence_2)
+        # -> demote 2 levels: EXCEPTIONAL -> MEDIUM
+        conviction, override_type = apply_ml_override(
+            rules_conviction=CompositeTier.EXCEPTIONAL,
+            ml_alpha=0.01,
+            vae_mean=0.01,
+            vae_variance=0.10,
+            model_qualifies=True,
+            universe_ml_alphas=_UNIVERSE,
+            config=OverrideConfig(),
+        )
+        assert conviction == CompositeTier.MEDIUM
+        assert override_type == "demoted"
+
+    def test_1_level_when_confidence_between_gates(self) -> None:
+        """confidence >= 0.75 but < 0.80 -> only 1-level override (MEDIUM -> HIGH)."""
+        # ml_signal = 0.60*0.99 + 0.40*0.98 = 0.986, percentile = 98 >= 95
+        # confidence = 1.0 - 0.24 = 0.76 >= 0.75 but < 0.80
+        # 2-level gate blocked by confidence; falls through to 1-level gate
+        # percentile 98 >= 85 (top_1_percentile), confidence >= 0.75
+        # -> promote 1 level: MEDIUM -> HIGH
+        conviction, override_type = apply_ml_override(
+            rules_conviction=CompositeTier.MEDIUM,
+            ml_alpha=0.99,
+            vae_mean=0.98,
+            vae_variance=0.24,
+            model_qualifies=True,
+            universe_ml_alphas=_UNIVERSE,
+            config=OverrideConfig(),
+        )
+        assert conviction == CompositeTier.HIGH
+        assert override_type == "promoted"
+
+    def test_no_override_below_confidence_075(self) -> None:
+        """confidence=0.70 (>= 0.60 early_exit, < 0.75 gate) -> no override."""
+        # confidence = 1.0 - 0.30 = 0.70: passes early_exit (0.60) but fails both gates
+        # ml_signal low enough for bottom percentile but confidence blocks both 1 and 2-level
+        conviction, override_type = apply_ml_override(
+            rules_conviction=CompositeTier.HIGH,
+            ml_alpha=0.01,
+            vae_mean=0.01,
+            vae_variance=0.30,
+            model_qualifies=True,
+            universe_ml_alphas=_UNIVERSE,
+            config=OverrideConfig(),
+        )
+        assert conviction == CompositeTier.HIGH
+        assert override_type == "none"
+
+    def test_2_level_disabled_via_config(self) -> None:
+        """max_override_levels=1 disables 2-level even with high confidence + top 5%."""
+        # Same inputs as test_2_level_promote_top_5_high_confidence
+        # but config caps at 1 level -> MEDIUM -> HIGH (not EXCEPTIONAL)
+        conviction, override_type = apply_ml_override(
+            rules_conviction=CompositeTier.MEDIUM,
+            ml_alpha=0.99,
+            vae_mean=0.98,
+            vae_variance=0.10,
+            model_qualifies=True,
+            universe_ml_alphas=_UNIVERSE,
+            config=OverrideConfig(max_override_levels=1),
+        )
+        assert conviction == CompositeTier.HIGH
+        assert override_type == "promoted"
+
+    def test_backward_compat_no_config(self) -> None:
+        """Calling without config kwarg should use default OverrideConfig."""
+        # Same inputs as test_promote_when_high_percentile_and_confident
+        # ml_signal = 0.60*0.95 + 0.40*0.90 = 0.57 + 0.36 = 0.93
+        # percentile = 92 >= 85, confidence = 0.90 >= 0.75
+        # -> promote 1 level: MEDIUM -> HIGH
+        conviction, override_type = apply_ml_override(
+            rules_conviction=CompositeTier.MEDIUM,
+            ml_alpha=0.95,
+            vae_mean=0.90,
+            vae_variance=0.10,
+            model_qualifies=True,
+            universe_ml_alphas=_UNIVERSE,
+        )
+        assert conviction == CompositeTier.HIGH
+        assert override_type == "promoted"
 
 
 class TestPromoteDemote:
