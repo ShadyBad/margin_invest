@@ -259,7 +259,7 @@ NLP confidence merged with quantitative proxy confidence (weighted average).
 
 | File | Change |
 |------|--------|
-| `engine/src/margin_engine/scoring/quantitative/moat_durability.py` | Add 3 proxy detectors, update _SIGNATURE_WEIGHTS, add classification metadata |
+| `engine/src/margin_engine/scoring/quantitative/moat_durability.py` | Add 3 proxy detectors (separate from `_SIGNATURE_WEIGHTS`), add classification metadata to `FactorScore` |
 
 ### Test Strategy
 
@@ -380,7 +380,7 @@ the trigger reason field.
 - Debounce: ticker re-screened 3 days ago → skipped
 - Hard cap: 20 candidates found → only top 10 enqueued
 - Circuit breaker: 16 candidates → governance alert event created
-- Integration: trigger re-screen → full_score job enqueued with force_recount_gates=True
+- Integration: trigger re-screen → `rescore_ticker` job enqueued
 - Edge case: stock with <252 days of history (use available max for high calc)
 
 ---
