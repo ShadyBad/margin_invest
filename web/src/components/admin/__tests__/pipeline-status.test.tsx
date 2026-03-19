@@ -36,7 +36,7 @@ beforeEach(() => {
 
 describe("PipelineStatus", () => {
   it("renders pending count", async () => {
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByText("3")).toBeInTheDocument()
     })
@@ -44,7 +44,7 @@ describe("PipelineStatus", () => {
   })
 
   it("renders pending count with warning color when > 0", async () => {
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByTestId("stat-pending-value")).toBeInTheDocument()
     })
@@ -55,7 +55,7 @@ describe("PipelineStatus", () => {
 
   it("renders pending count without warning color when 0", async () => {
     mockedGetDashboard.mockResolvedValue({ ...mockDashboard, pending_count: 0 })
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByTestId("stat-pending-value")).toBeInTheDocument()
     })
@@ -65,7 +65,7 @@ describe("PipelineStatus", () => {
   })
 
   it("renders avg latency", async () => {
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByText("2.5 hours")).toBeInTheDocument()
     })
@@ -73,7 +73,7 @@ describe("PipelineStatus", () => {
   })
 
   it("renders rejection rate as percentage", async () => {
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByText("12.3%")).toBeInTheDocument()
     })
@@ -85,7 +85,7 @@ describe("PipelineStatus", () => {
       ...mockDashboard,
       avg_approval_latency_hours: null,
     })
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByTestId("stat-latency-value")).toBeInTheDocument()
     })
@@ -97,7 +97,7 @@ describe("PipelineStatus", () => {
       ...mockDashboard,
       rejection_rate: null,
     })
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByTestId("stat-rejection-value")).toBeInTheDocument()
     })
@@ -105,7 +105,7 @@ describe("PipelineStatus", () => {
   })
 
   it("renders pipeline status", async () => {
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByText("idle")).toBeInTheDocument()
     })
@@ -117,14 +117,14 @@ describe("PipelineStatus", () => {
       ...mockTransparency,
       pipeline_health: { status: "running", last_successful_run: null },
     })
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByText("running")).toBeInTheDocument()
     })
   })
 
   it("renders last successful run datetime", async () => {
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByText("Last Successful Run")).toBeInTheDocument()
     })
@@ -137,29 +137,29 @@ describe("PipelineStatus", () => {
       ...mockTransparency,
       pipeline_health: { status: "idle", last_successful_run: null },
     })
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByTestId("stat-last-run-value")).toBeInTheDocument()
     })
     expect(screen.getByTestId("stat-last-run-value")).toHaveTextContent("\u2014")
   })
 
-  it("passes adminKey to getDashboard", async () => {
-    render(<PipelineStatus adminKey="my-secret-key" />)
+  it("calls getDashboard without arguments", async () => {
+    render(<PipelineStatus />)
     await waitFor(() => {
-      expect(mockedGetDashboard).toHaveBeenCalledWith("my-secret-key")
+      expect(mockedGetDashboard).toHaveBeenCalledWith()
     })
   })
 
   it("calls getTransparency without arguments", async () => {
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(mockedGetTransparency).toHaveBeenCalledWith()
     })
   })
 
   it("uses terminal-card class on the container", async () => {
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     await waitFor(() => {
       expect(screen.getByTestId("pipeline-status")).toBeInTheDocument()
     })
@@ -170,7 +170,7 @@ describe("PipelineStatus", () => {
     // Never resolve the promises
     mockedGetDashboard.mockReturnValue(new Promise(() => {}))
     mockedGetTransparency.mockReturnValue(new Promise(() => {}))
-    render(<PipelineStatus adminKey="test-key" />)
+    render(<PipelineStatus />)
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
   })
 })

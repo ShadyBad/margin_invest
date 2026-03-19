@@ -41,7 +41,7 @@ beforeEach(() => {
 
 describe("EventTable", () => {
   it("renders event rows with correct event_type and source", async () => {
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(screen.getByText("score_publish")).toBeInTheDocument()
     })
@@ -67,7 +67,7 @@ describe("EventTable", () => {
       ],
       total: 1,
     })
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(screen.getByText("test_event")).toBeInTheDocument()
     })
@@ -77,7 +77,7 @@ describe("EventTable", () => {
   })
 
   it("renders null detail as dash", async () => {
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(screen.getByText("universe_activation")).toBeInTheDocument()
     })
@@ -87,7 +87,7 @@ describe("EventTable", () => {
 
   it("shows pagination controls", async () => {
     mockedGetEvents.mockResolvedValue({ events: mockEvents, total: 120 })
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(screen.getByText("score_publish")).toBeInTheDocument()
     })
@@ -98,14 +98,14 @@ describe("EventTable", () => {
 
   it("shows empty state when no events", async () => {
     mockedGetEvents.mockResolvedValue({ events: [], total: 0 })
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(screen.getByText(/no events/i)).toBeInTheDocument()
     })
   })
 
   it("filter input triggers new fetch", async () => {
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(mockedGetEvents).toHaveBeenCalledTimes(1)
     })
@@ -114,7 +114,7 @@ describe("EventTable", () => {
     fireEvent.change(filterInput, { target: { value: "score" } })
 
     await waitFor(() => {
-      expect(mockedGetEvents).toHaveBeenCalledWith("test-key", {
+      expect(mockedGetEvents).toHaveBeenCalledWith({
         event_type: "score",
         limit: 50,
         offset: 0,
@@ -122,10 +122,10 @@ describe("EventTable", () => {
     })
   })
 
-  it("passes adminKey to getEvents", async () => {
-    render(<EventTable adminKey="my-admin-key" />)
+  it("calls getEvents with correct initial arguments", async () => {
+    render(<EventTable />)
     await waitFor(() => {
-      expect(mockedGetEvents).toHaveBeenCalledWith("my-admin-key", {
+      expect(mockedGetEvents).toHaveBeenCalledWith({
         event_type: "",
         limit: 50,
         offset: 0,
@@ -134,7 +134,7 @@ describe("EventTable", () => {
   })
 
   it("disables Previous button on first page", async () => {
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(screen.getByText("score_publish")).toBeInTheDocument()
     })
@@ -143,7 +143,7 @@ describe("EventTable", () => {
 
   it("disables Next button on last page", async () => {
     mockedGetEvents.mockResolvedValue({ events: mockEvents, total: 3 })
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(screen.getByText("score_publish")).toBeInTheDocument()
     })
@@ -152,7 +152,7 @@ describe("EventTable", () => {
 
   it("advances to next page and fetches with offset", async () => {
     mockedGetEvents.mockResolvedValue({ events: mockEvents, total: 120 })
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(screen.getByText("score_publish")).toBeInTheDocument()
     })
@@ -160,7 +160,7 @@ describe("EventTable", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }))
 
     await waitFor(() => {
-      expect(mockedGetEvents).toHaveBeenCalledWith("test-key", {
+      expect(mockedGetEvents).toHaveBeenCalledWith({
         event_type: "",
         limit: 50,
         offset: 50,
@@ -169,7 +169,7 @@ describe("EventTable", () => {
   })
 
   it("uses terminal-card class on container", async () => {
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(screen.getByTestId("event-table")).toBeInTheDocument()
     })
@@ -177,7 +177,7 @@ describe("EventTable", () => {
   })
 
   it("uses monospace font for event type cells", async () => {
-    render(<EventTable adminKey="test-key" />)
+    render(<EventTable />)
     await waitFor(() => {
       expect(screen.getByText("score_publish")).toBeInTheDocument()
     })

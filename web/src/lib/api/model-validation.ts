@@ -53,32 +53,23 @@ export interface ValidationHistory {
   total: number
 }
 
-export async function getLatestValidationReport(
-  adminKey: string,
-): Promise<SeedValidationReport> {
-  return apiFetch<SeedValidationReport>(
-    "/api/v1/admin/model-validation/latest",
-    { headers: { "X-Admin-Key": adminKey } },
-  )
+export async function getLatestValidationReport(): Promise<SeedValidationReport> {
+  return apiFetch<SeedValidationReport>("/api/v1/admin/model-validation/latest")
 }
 
 export async function getValidationHistory(
-  adminKey: string,
   limit = 20,
   offset = 0,
 ): Promise<ValidationHistory> {
   return apiFetch<ValidationHistory>(
     `/api/v1/admin/model-validation/history?limit=${limit}&offset=${offset}`,
-    { headers: { "X-Admin-Key": adminKey } },
   )
 }
 
 export async function getValidationReport(
-  adminKey: string,
   runGroupId: string,
 ): Promise<SeedValidationReport> {
   return apiFetch<SeedValidationReport>(
     `/api/v1/admin/model-validation/${runGroupId}`,
-    { headers: { "X-Admin-Key": adminKey } },
   )
 }

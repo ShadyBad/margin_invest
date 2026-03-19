@@ -18,25 +18,21 @@ export interface ApprovalListResponse {
   approvals: Approval[]
 }
 
-export async function getApprovals(adminKey: string, status?: string): Promise<ApprovalListResponse> {
+export async function getApprovals(status?: string): Promise<ApprovalListResponse> {
   const params = status ? `?status=${status}` : ""
-  return apiFetch<ApprovalListResponse>(`/api/v1/admin/approvals${params}`, {
-    headers: { "X-Admin-Key": adminKey },
-  })
+  return apiFetch<ApprovalListResponse>(`/api/v1/admin/approvals${params}`)
 }
 
-export async function approveApproval(adminKey: string, id: number, reason?: string): Promise<{ status: string }> {
+export async function approveApproval(id: number, reason?: string): Promise<{ status: string }> {
   return apiFetch(`/api/v1/admin/approvals/${id}/approve`, {
     method: "POST",
-    headers: { "X-Admin-Key": adminKey },
     body: JSON.stringify({ reason }),
   })
 }
 
-export async function rejectApproval(adminKey: string, id: number, reason?: string): Promise<{ status: string }> {
+export async function rejectApproval(id: number, reason?: string): Promise<{ status: string }> {
   return apiFetch(`/api/v1/admin/approvals/${id}/reject`, {
     method: "POST",
-    headers: { "X-Admin-Key": adminKey },
     body: JSON.stringify({ reason }),
   })
 }
@@ -54,10 +50,8 @@ export interface TransparencyResponse {
   pipeline_health: { status: string; last_successful_run: string | null }
 }
 
-export async function getDashboard(adminKey: string): Promise<DashboardResponse> {
-  return apiFetch<DashboardResponse>("/api/v1/admin/governance/dashboard", {
-    headers: { "X-Admin-Key": adminKey },
-  })
+export async function getDashboard(): Promise<DashboardResponse> {
+  return apiFetch<DashboardResponse>("/api/v1/admin/governance/dashboard")
 }
 
 export async function getTransparency(): Promise<TransparencyResponse> {
@@ -78,7 +72,6 @@ export interface EventListResponse {
 }
 
 export async function getEvents(
-  adminKey: string,
   options?: { event_type?: string; limit?: number; offset?: number }
 ): Promise<EventListResponse> {
   const params = new URLSearchParams()
@@ -86,7 +79,5 @@ export async function getEvents(
   if (options?.limit) params.set("limit", String(options.limit))
   if (options?.offset) params.set("offset", String(options.offset))
   const query = params.toString()
-  return apiFetch<EventListResponse>(`/api/v1/admin/governance/events${query ? `?${query}` : ""}`, {
-    headers: { "X-Admin-Key": adminKey },
-  })
+  return apiFetch<EventListResponse>(`/api/v1/admin/governance/events${query ? `?${query}` : ""}`)
 }

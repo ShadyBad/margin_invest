@@ -3,10 +3,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { getEvents, type GovernanceEvent } from "@/lib/api/governance"
 
-interface EventTableProps {
-  adminKey: string
-}
-
 const PAGE_SIZE = 50
 
 function truncateJson(detail: Record<string, unknown> | null): string {
@@ -27,7 +23,7 @@ function formatDatetime(iso: string | null): string {
   })
 }
 
-export function EventTable({ adminKey }: EventTableProps) {
+export function EventTable() {
   const [events, setEvents] = useState<GovernanceEvent[]>([])
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
@@ -37,7 +33,7 @@ export function EventTable({ adminKey }: EventTableProps) {
   const fetchEvents = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getEvents(adminKey, {
+      const data = await getEvents({
         event_type: filter,
         limit: PAGE_SIZE,
         offset,
@@ -49,7 +45,7 @@ export function EventTable({ adminKey }: EventTableProps) {
     } finally {
       setLoading(false)
     }
-  }, [adminKey, filter, offset])
+  }, [filter, offset])
 
   useEffect(() => {
     fetchEvents()
