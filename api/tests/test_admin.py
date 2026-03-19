@@ -9,7 +9,32 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 from margin_api.app import create_app
 from margin_api.config import get_settings
-from margin_api.db.models import Asset
+from margin_api.db.models import Asset, User, UserRole
+from margin_api.deps import get_admin_user
+
+
+def _make_admin_user() -> User:
+    """Create a mock admin User for dependency override."""
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.role = UserRole.ADMIN
+    return user
+
+
+def _make_client_with_admin(admin_key: str = "test-admin-key", db_override=None):
+    """Create app and TestClient with get_admin_user overridden."""
+    get_settings.cache_clear()
+    with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": admin_key}):
+        app = create_app()
+
+    async def override_admin_user():
+        return _make_admin_user()
+
+    app.dependency_overrides[get_admin_user] = override_admin_user
+    if db_override is not None:
+        from margin_api.db.session import get_db
+        app.dependency_overrides[get_db] = db_override
+    return TestClient(app)
 
 
 class TestPipelineTrigger:
@@ -24,30 +49,14 @@ class TestPipelineTrigger:
             app = create_app()
             return TestClient(app)
 
-    def test_trigger_requires_admin_key_header(self):
+    def test_trigger_requires_auth(self):
+        """Without a valid admin session cookie, endpoint returns 401."""
         client = self._make_client()
         response = client.post("/api/v1/admin/pipeline/trigger")
-        assert response.status_code == 422  # Missing required header
-
-    def test_trigger_rejects_wrong_key(self):
-        client = self._make_client(admin_key="correct-key")
-        response = client.post(
-            "/api/v1/admin/pipeline/trigger",
-            headers={"X-Admin-Key": "wrong-key"},
-        )
-        assert response.status_code == 403
-
-    def test_trigger_rejects_empty_admin_key_config(self):
-        """Trigger returns 503 when admin key is not configured."""
-        client = self._make_client(admin_key="")
-        response = client.post(
-            "/api/v1/admin/pipeline/trigger",
-            headers={"X-Admin-Key": "any-key"},
-        )
-        assert response.status_code == 503
+        assert response.status_code == 401  # No admin_session cookie
 
     def test_trigger_enqueues_job(self):
-        """Trigger returns 202 and enqueues orchestrate_ingest with correct key."""
+        """Trigger returns 202 and enqueues orchestrate_ingest with admin auth."""
         mock_job = MagicMock()
         mock_job.job_id = "test-job-123"
 
@@ -60,11 +69,9 @@ class TestPipelineTrigger:
             patch("margin_api.routes.admin.create_pool", return_value=mock_pool),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.post(
-                "/api/v1/admin/pipeline/trigger",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.post("/api/v1/admin/pipeline/trigger")
 
         assert response.status_code == 202
         data = response.json()
@@ -86,11 +93,9 @@ class TestPipelineTrigger:
             ),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.post(
-                "/api/v1/admin/pipeline/trigger",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.post("/api/v1/admin/pipeline/trigger")
 
         assert response.status_code == 503
 
@@ -107,18 +112,11 @@ class TestUniverseActivate:
             app = create_app()
             return TestClient(app)
 
-    def test_activate_requires_admin_key(self):
+    def test_activate_requires_auth(self):
+        """Without admin session cookie, endpoint returns 401."""
         client = self._make_client()
         response = client.post("/api/v1/admin/universe/activate")
-        assert response.status_code == 422
-
-    def test_activate_rejects_wrong_key(self):
-        client = self._make_client(admin_key="correct-key")
-        response = client.post(
-            "/api/v1/admin/universe/activate",
-            headers={"X-Admin-Key": "wrong-key"},
-        )
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     def test_activate_stages_with_yaml(self):
         """Activate universe now returns 202 with staged status."""
@@ -139,11 +137,9 @@ class TestUniverseActivate:
             patch("pathlib.Path.exists", return_value=True),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.post(
-                "/api/v1/admin/universe/activate",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.post("/api/v1/admin/universe/activate")
 
         assert response.status_code == 202
         data = response.json()
@@ -158,22 +154,13 @@ class TestQuarantinedEndpoint:
     def teardown_method(self):
         get_settings.cache_clear()
 
-    def test_quarantined_requires_admin_key(self):
+    def test_quarantined_requires_auth(self):
+        """Without admin session cookie, endpoint returns 401."""
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             client = TestClient(app)
             response = client.get("/api/v1/admin/ingestion/quarantined")
-        assert response.status_code == 422
-
-    def test_quarantined_rejects_wrong_key(self):
-        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "correct-key"}):
-            app = create_app()
-            client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/ingestion/quarantined",
-                headers={"X-Admin-Key": "wrong-key"},
-            )
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     def test_quarantined_returns_quarantined_assets(self):
         """GET /admin/ingestion/quarantined returns quarantined assets."""
@@ -201,14 +188,12 @@ class TestQuarantinedEndpoint:
 
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             app.dependency_overrides[
                 __import__("margin_api.db.session", fromlist=["get_db"]).get_db
             ] = mock_get_db
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/ingestion/quarantined",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/ingestion/quarantined")
 
         assert response.status_code == 200
         data = response.json()
@@ -233,14 +218,12 @@ class TestQuarantinedEndpoint:
 
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             app.dependency_overrides[
                 __import__("margin_api.db.session", fromlist=["get_db"]).get_db
             ] = mock_get_db
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/ingestion/quarantined",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/ingestion/quarantined")
 
         assert response.status_code == 200
         assert response.json() == []

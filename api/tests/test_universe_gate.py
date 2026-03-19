@@ -12,10 +12,18 @@ from fastapi.testclient import TestClient
 from margin_api.app import create_app
 from margin_api.config import get_settings
 from margin_api.db.base import Base
-from margin_api.db.models import PipelineApproval, UniverseSnapshot
+from margin_api.db.models import PipelineApproval, UniverseSnapshot, User, UserRole
+from margin_api.deps import get_admin_user
 from margin_api.routes.admin import stage_universe_activation
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+
+def _make_admin_user() -> User:
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.role = UserRole.ADMIN
+    return user
 
 # ---------------------------------------------------------------------------
 # Async DB fixtures (real SQLite, same pattern as test_ml_deployment_gate)
@@ -109,11 +117,9 @@ class TestUniverseActivateEndpoint:
             ),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.post(
-                "/api/v1/admin/universe/activate",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.post("/api/v1/admin/universe/activate")
 
         assert response.status_code == 202
         data = response.json()
@@ -122,14 +128,11 @@ class TestUniverseActivateEndpoint:
         assert data["added_tickers"] == ["NVDA"]
         assert data["removed_tickers"] == ["INTC"]
 
-    def test_endpoint_requires_admin_key(self):
-        """Endpoint rejects requests with wrong admin key."""
+    def test_endpoint_requires_auth(self):
+        """Endpoint rejects requests without admin session cookie."""
         client = _make_client(admin_key="correct-key")
-        response = client.post(
-            "/api/v1/admin/universe/activate",
-            headers={"X-Admin-Key": "wrong-key"},
-        )
-        assert response.status_code == 403
+        response = client.post("/api/v1/admin/universe/activate")
+        assert response.status_code == 401
 
 
 # ---------------------------------------------------------------------------

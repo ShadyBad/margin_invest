@@ -25,9 +25,11 @@ from margin_api.db.models import (
     PITFinancialSnapshot,
     PITUniverseMembership,
     UniverseSnapshot,
+    User,
     V4Score,
 )
 from margin_api.db.session import get_db
+from margin_api.deps import get_admin_user
 from margin_api.middleware.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -36,7 +38,11 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 
 def _verify_admin_key(x_admin_key: str = Header()) -> None:
-    """Verify the admin API key from the X-Admin-Key header."""
+    """Verify the admin API key from the X-Admin-Key header.
+
+    DEPRECATED: Use get_admin_user from margin_api.deps instead.
+    This function is kept for backward compatibility only.
+    """
     import hmac
 
     settings = get_settings()
@@ -48,13 +54,15 @@ def _verify_admin_key(x_admin_key: str = Header()) -> None:
 
 @router.post("/pipeline/trigger")
 @limiter.limit("3/minute")
-async def trigger_pipeline(request: Request, x_admin_key: str = Header()) -> JSONResponse:
+async def trigger_pipeline(
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+) -> JSONResponse:
     """Enqueue a full pipeline run (ingest → v2 score → v3 score).
 
-    Requires the X-Admin-Key header matching the MARGIN_ADMIN_KEY env var.
+    Requires a valid admin session cookie.
     Returns 202 Accepted with the enqueued job info.
     """
-    _verify_admin_key(x_admin_key)
 
     settings = get_settings()
     from arq.connections import RedisSettings
@@ -88,13 +96,15 @@ async def trigger_pipeline(request: Request, x_admin_key: str = Header()) -> JSO
 
 @router.post("/scoring/trigger")
 @limiter.limit("3/minute")
-async def trigger_scoring(request: Request, x_admin_key: str = Header()) -> JSONResponse:
+async def trigger_scoring(
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+) -> JSONResponse:
     """Enqueue the scoring pipeline.
 
     Skips ingestion — useful when data is already seeded but scoring
-    hasn't run or failed. Requires X-Admin-Key header.
+    hasn't run or failed. Requires a valid admin session cookie.
     """
-    _verify_admin_key(x_admin_key)
 
     settings = get_settings()
     from arq.connections import RedisSettings
@@ -187,16 +197,15 @@ async def stage_universe_activation(session: AsyncSession, config_path: Path) ->
 @limiter.limit("3/minute")
 async def activate_universe_endpoint(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Stage a universe activation from the bundled engine/universe.yaml config.
 
     Creates a PipelineApproval record for review instead of activating immediately.
-    Requires the X-Admin-Key header matching the MARGIN_ADMIN_KEY env var.
+    Requires a valid admin session cookie.
     Returns 202 Accepted with the staged approval details.
     """
-    _verify_admin_key(x_admin_key)
 
     # Look for universe.yaml relative to the repo/container root
     candidates = [
@@ -227,13 +236,15 @@ async def activate_universe_endpoint(
 
 @router.get("/redis/health")
 @limiter.limit("3/minute")
-async def redis_health(request: Request, x_admin_key: str = Header()) -> dict:
+async def redis_health(
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+) -> dict:
     """Check Redis connectivity and inspect ARQ queue state.
 
     Returns connection info, pending job count, and any queued job IDs
     so we can verify the API and worker share the same Redis instance.
     """
-    _verify_admin_key(x_admin_key)
 
     settings = get_settings()
     # Redact password from URL for display
@@ -282,12 +293,14 @@ async def redis_health(request: Request, x_admin_key: str = Header()) -> dict:
 
 @router.post("/redis/flush-jobs")
 @limiter.limit("3/minute")
-async def flush_redis_jobs(request: Request, x_admin_key: str = Header()) -> dict:
+async def flush_redis_jobs(
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+) -> dict:
     """Remove all pending jobs from the ARQ queue and their associated keys.
 
     Use this to clear stale/stuck jobs before re-triggering the pipeline.
     """
-    _verify_admin_key(x_admin_key)
 
     settings = get_settings()
     try:
@@ -332,12 +345,14 @@ async def flush_redis_jobs(request: Request, x_admin_key: str = Header()) -> dic
 
 @router.post("/ml/train")
 @limiter.limit("3/minute")
-async def trigger_ml_training(request: Request, x_admin_key: str = Header()) -> JSONResponse:
+async def trigger_ml_training(
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+) -> JSONResponse:
     """Enqueue ML model training (clustering + LightGBM).
 
-    Requires the X-Admin-Key header matching the MARGIN_ADMIN_KEY env var.
+    Requires a valid admin session cookie.
     """
-    _verify_admin_key(x_admin_key)
 
     settings = get_settings()
     from arq.connections import RedisSettings
@@ -367,15 +382,17 @@ async def trigger_ml_training(request: Request, x_admin_key: str = Header()) -> 
 
 @router.post("/pit/backfill")
 @limiter.limit("1/hour")
-async def trigger_pit_backfill(request: Request, x_admin_key: str = Header()) -> JSONResponse:
+async def trigger_pit_backfill(
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+) -> JSONResponse:
     """Enqueue the PIT data bootstrap pipeline (EDGAR → prices → universe → backtest).
 
     Runs the full backfill chain as a background worker job. Safe to call
     multiple times — the worker skips if PIT tables already have data.
 
-    Requires the X-Admin-Key header matching the MARGIN_ADMIN_KEY env var.
+    Requires a valid admin session cookie.
     """
-    _verify_admin_key(x_admin_key)
 
     settings = get_settings()
     from arq.connections import RedisSettings
@@ -413,11 +430,10 @@ async def trigger_pit_backfill(request: Request, x_admin_key: str = Header()) ->
 @limiter.limit("3/minute")
 async def pit_stats(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Return row counts for PIT tables to verify backfill progress."""
-    _verify_admin_key(x_admin_key)
 
     snapshots = (
         await session.execute(select(func.count()).select_from(PITFinancialSnapshot))
@@ -438,7 +454,7 @@ async def pit_stats(
 @limiter.limit("3/minute")
 async def trigger_universe_assembly(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Run only Phase 3 (universe assembly) of the PIT backfill.
@@ -446,7 +462,6 @@ async def trigger_universe_assembly(
     Useful when EDGAR and price data are already populated but universe
     assembly failed or needs re-running. Runs synchronously (not via worker).
     """
-    _verify_admin_key(x_admin_key)
 
     from margin_api.services.edgar.universe_assembly import (
         assemble_universe,
@@ -463,7 +478,7 @@ async def trigger_universe_assembly(
 @limiter.limit("1/hour")
 async def trigger_pit_reparse(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
 ) -> JSONResponse:
     """Enqueue re-parse of EDGAR filings with empty data.
 
@@ -473,7 +488,6 @@ async def trigger_pit_reparse(
 
     Runs as a background worker job (may take minutes for large datasets).
     """
-    _verify_admin_key(x_admin_key)
 
     settings = get_settings()
     from arq.connections import RedisSettings
@@ -507,7 +521,8 @@ async def trigger_pit_reparse(
 @router.post("/historical/backfill")
 @limiter.limit("1/hour")
 async def trigger_historical_backfill(
-    request: Request, x_admin_key: str = Header()
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
 ) -> JSONResponse:
     """Enqueue historical score backfill from PIT data for ML training.
 
@@ -515,7 +530,6 @@ async def trigger_historical_backfill(
     Idempotent: skips quarters that already have scores.
     Expected runtime: 30-60 minutes. Timeout: 2 hours.
     """
-    _verify_admin_key(x_admin_key)
 
     settings = get_settings()
     from arq.connections import RedisSettings
@@ -552,11 +566,10 @@ async def trigger_historical_backfill(
 @limiter.limit("10/minute")
 async def historical_stats(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Return row counts and date range for historical_scores table."""
-    _verify_admin_key(x_admin_key)
 
     from margin_api.db.models import HistoricalScore
 
@@ -587,11 +600,10 @@ async def historical_stats(
 async def update_job_status(
     job_id: int,
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Update the status of a job run (e.g. mark a zombie job as cancelled)."""
-    _verify_admin_key(x_admin_key)
 
     body = await request.json()
     new_status = body.get("status")
@@ -619,11 +631,10 @@ async def update_job_status(
 @limiter.limit("3/minute")
 async def cancel_zombie_jobs(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Cancel ALL 'running' jobs of a given type that are older than 1 hour."""
-    _verify_admin_key(x_admin_key)
 
     body = await request.json() if request.headers.get("content-type") else {}
     job_type = body.get("job_type", "train_ml_models")
@@ -658,10 +669,10 @@ async def cancel_zombie_jobs(
 @router.post("/backtest/precompute")
 @limiter.limit("3/minute")
 async def trigger_precompute_backtest(
-    request: Request, x_admin_key: str = Header()
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
 ) -> JSONResponse:
     """Enqueue just the precompute_default_backtest job (skips full bootstrap)."""
-    _verify_admin_key(x_admin_key)
 
     settings = get_settings()
     from arq.connections import RedisSettings
@@ -693,11 +704,11 @@ async def trigger_precompute_backtest(
 
 @router.get("/backtest/latest")
 async def get_latest_backtest(
-    x_admin_key: str = Header(),
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     """Return the most recent BacktestRun with metrics and validation summary."""
-    _verify_admin_key(x_admin_key)
 
     stmt = select(BacktestRun).order_by(BacktestRun.created_at.desc()).limit(1)
     result = await session.execute(stmt)
@@ -749,11 +760,10 @@ async def get_latest_backtest(
 @limiter.limit("5/minute")
 async def pit_data_quality(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Diagnostic: check PIT financial snapshot data quality."""
-    _verify_admin_key(x_admin_key)
 
     total = (
         await session.execute(select(func.count()).select_from(PITFinancialSnapshot))
@@ -861,11 +871,10 @@ async def pit_data_quality(
 @limiter.limit("3/minute")
 async def get_quarantined_assets(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> list[dict]:
     """Return all quarantined and permanently skipped assets for triage."""
-    _verify_admin_key(x_admin_key)
 
     result = await session.execute(
         select(Asset)
@@ -892,7 +901,7 @@ async def get_quarantined_assets(
 @limiter.limit("3/minute")
 async def ml_training_dry_run(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Simulate ML training data load — same query + parsing as train_ml_models.
@@ -900,7 +909,6 @@ async def ml_training_dry_run(
     Returns counts and sample data without actually training any models.
     This verifies the V4Score fix works in the deployed environment.
     """
-    _verify_admin_key(x_admin_key)
 
     from margin_engine.models.scoring import (
         CompositeScore,

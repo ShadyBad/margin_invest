@@ -118,7 +118,6 @@ def create_app() -> FastAPI:
             "X-User-Email",
             "X-Auth-Timestamp",
             "X-Auth-Signature",
-            "X-Admin-Key",
         ],
     )
 
