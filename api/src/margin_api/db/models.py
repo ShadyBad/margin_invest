@@ -1312,3 +1312,68 @@ class DrawdownRescreen(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+
+# ---------------------------------------------------------------------------
+# NLP / SEC Filing Text models
+# ---------------------------------------------------------------------------
+
+
+class FilingText(Base):
+    """Extracted text sections from SEC 10-K/10-Q filings."""
+
+    __tablename__ = "filing_texts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    cik: Mapped[str] = mapped_column(String(20), nullable=False)
+    filing_type: Mapped[str] = mapped_column(String(10), nullable=False)  # '10-K' or '10-Q'
+    filing_date: Mapped[date] = mapped_column(nullable=False)
+    period_end: Mapped[date] = mapped_column(nullable=False)
+    business_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risk_factors_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mda_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_html_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    sentiment_caches: Mapped[list[FilingSentimentCache]] = relationship(
+        back_populates="filing_text"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("ticker", "filing_type", "period_end", name="uq_filing_text_ticker_type_period"),
+    )
+
+
+class FilingSentimentCache(Base):
+    """Cached NLP analysis results for a filing text section."""
+
+    __tablename__ = "filing_sentiment_cache"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    filing_text_id: Mapped[int] = mapped_column(
+        ForeignKey("filing_texts.id"), nullable=False, index=True
+    )
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    analysis_version: Mapped[str] = mapped_column(String(10), nullable=False)
+    prompt_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    sentiment_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    moat_signals = mapped_column(JSONVariant, nullable=True)
+    risk_flags = mapped_column(JSONVariant, nullable=True)
+    management_quality = mapped_column(JSONVariant, nullable=True)
+    competitive_position = mapped_column(JSONVariant, nullable=True)
+    segment_revenue = mapped_column(JSONVariant, nullable=True)
+    model_used: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    filing_text: Mapped[FilingText] = relationship(back_populates="sentiment_caches")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "filing_text_id", "analysis_version", name="uq_filing_sentiment_filing_version"
+        ),
+    )
