@@ -1288,3 +1288,27 @@ class InsiderTransactionHistory(Base):
         ),
         Index("ix_insider_hist_insider", "insider_cik", "ticker"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Drawdown Re-Screening models
+# ---------------------------------------------------------------------------
+
+
+class DrawdownRescreen(Base):
+    """Records a drawdown-triggered re-screening event for a ticker."""
+
+    __tablename__ = "drawdown_rescreens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    drawdown_pct: Mapped[float] = mapped_column(Float, nullable=False)
+    high_price: Mapped[float] = mapped_column(Float, nullable=False)
+    current_price: Mapped[float] = mapped_column(Float, nullable=False)
+    trigger_date: Mapped[date] = mapped_column(nullable=False)
+    prior_conviction: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    new_conviction: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
