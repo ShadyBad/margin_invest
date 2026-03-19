@@ -9,6 +9,11 @@ Four signatures detected from multi-year financial data:
 Signatures are weighted by empirical durability:
     operating_leverage=1.5, pricing_power=1.25, scale_economics=1.0, capital_efficiency=0.75
 raw_value = weighted sum normalized to 0-4 scale.
+
+Additional qualitative proxies (not part of _SIGNATURE_WEIGHTS):
+- Switching Costs: high SGA/Revenue + stable revenue retention
+- Regulatory Moat: sector-level regulatory barriers
+- Brand Moat: sustained gross margin premium over sector median
 """
 
 from __future__ import annotations
@@ -16,7 +21,7 @@ from __future__ import annotations
 import statistics
 from decimal import Decimal
 
-from margin_engine.models.financial import FinancialHistory, FinancialPeriod
+from margin_engine.models.financial import FinancialHistory, FinancialPeriod, GICSSector
 from margin_engine.models.scoring import FactorScore
 
 
@@ -98,6 +103,82 @@ def _detect_capital_efficiency(history: FinancialHistory) -> bool:
     return inc_roic >= median_roic and inc_roic > 0
 
 
+def _detect_switching_costs(history: FinancialHistory) -> float:
+    """Switching-costs proxy: high SGA spend + sticky revenue retention.
+
+    Returns confidence 0.0–0.8.
+
+    Conditions (both must hold across 3+ periods):
+    - Average SGA/Revenue > 20%
+    - Minimum period-over-period revenue retention > 95%
+      (i.e. revenue never drops more than 5% in any single year)
+    """
+    periods = history.periods
+    if len(periods) < 3:
+        return 0.0
+
+    # Collect SGA ratios; all periods must have non-None sga_expense
+    sga_ratios: list[float] = []
+    for p in periods:
+        sga = p.current_income.sga_expense
+        rev = p.current_income.revenue
+        if sga is None or rev == 0:
+            return 0.0
+        sga_ratios.append(float(sga / rev))
+
+    avg_sga_ratio = sum(sga_ratios) / len(sga_ratios)
+    if avg_sga_ratio <= 0.20:
+        return 0.0
+
+    # Check minimum revenue retention across consecutive periods
+    revenues = [float(p.current_income.revenue) for p in periods]
+    for i in range(1, len(revenues)):
+        if revenues[i - 1] <= 0:
+            return 0.0
+        retention = revenues[i] / revenues[i - 1]
+        if retention < 0.95:
+            return 0.0
+
+    return 0.8
+
+
+def _detect_regulatory_moat(sector: GICSSector) -> float:
+    """Regulatory-moat proxy: sector-level regulatory barriers.
+
+    Returns:
+        1.0 for Utilities (natural monopoly / rate-regulated)
+        0.7 for Financials and Healthcare (licensing/compliance barriers)
+        0.0 for all other sectors
+    """
+    if sector == GICSSector.UTILITIES:
+        return 1.0
+    if sector in (GICSSector.FINANCIALS, GICSSector.HEALTHCARE):
+        return 0.7
+    return 0.0
+
+
+def _detect_brand_moat(
+    history: FinancialHistory,
+    sector: GICSSector,
+    sector_median_gm: float = 0.30,
+) -> float:
+    """Brand-moat proxy: sustained gross-margin premium above sector median.
+
+    Requires 5+ periods where >= 80% of periods have GM > (sector_median_gm + 0.15).
+
+    Returns 0.7 if conditions met, else 0.0.
+    """
+    periods = history.periods
+    if len(periods) < 5:
+        return 0.0
+
+    threshold = sector_median_gm + 0.15
+    above = sum(1 for p in periods if p.current_income.gross_margin > threshold)
+    if above / len(periods) >= 0.80:
+        return 0.7
+    return 0.0
+
+
 _SIGNATURE_WEIGHTS: dict[str, float] = {
     "operating_leverage": 1.5,
     "pricing_power": 1.25,
@@ -108,11 +189,18 @@ _SIGNATURE_WEIGHTS: dict[str, float] = {
 _MAX_WEIGHTED = sum(_SIGNATURE_WEIGHTS.values())  # 4.5
 
 
-def moat_durability_score(history: FinancialHistory) -> FactorScore:
+def moat_durability_score(
+    history: FinancialHistory,
+    sector: GICSSector | None = None,
+    sector_median_gm: float = 0.30,
+) -> FactorScore:
     """Compute moat durability score (weighted 0-4 scale).
 
     Signatures are weighted by empirical durability, then normalized to
     the 0-4 scale so that downstream thresholds (>= 2, >= 3) remain valid.
+
+    Optional ``sector`` and ``sector_median_gm`` enable moat-source
+    classification metadata without changing the numeric score.
     """
     if len(history.periods) < 2:
         return FactorScore(
@@ -120,6 +208,12 @@ def moat_durability_score(history: FinancialHistory) -> FactorScore:
             raw_value=0.0,
             percentile_rank=0.0,
             detail="Need 2+ periods for moat detection",
+            metadata={
+                "primary_moat": "none",
+                "moat_confidence": 0.0,
+                "secondary_moats": [],
+                "moat_sources_detected": [],
+            },
         )
 
     signatures: list[str] = []
@@ -135,9 +229,40 @@ def moat_durability_score(history: FinancialHistory) -> FactorScore:
     weighted_sum = sum(_SIGNATURE_WEIGHTS[s] for s in signatures)
     normalized = weighted_sum * (4.0 / _MAX_WEIGHTED)
 
+    # --- Moat source classification (does NOT affect numeric score) ---
+    detected: dict[str, float] = {}
+
+    sc_confidence = _detect_switching_costs(history)
+    if sc_confidence > 0.0:
+        detected["switching_costs"] = sc_confidence
+
+    if sector is not None:
+        reg_confidence = _detect_regulatory_moat(sector)
+        if reg_confidence > 0.0:
+            detected["regulatory"] = reg_confidence
+
+        brand_confidence = _detect_brand_moat(history, sector, sector_median_gm)
+        if brand_confidence > 0.0:
+            detected["brand"] = brand_confidence
+
+    if detected:
+        primary = max(detected, key=lambda k: detected[k])
+        confidence = detected[primary]
+    else:
+        primary = "none"
+        confidence = 0.0
+
+    metadata: dict[str, object] = {
+        "primary_moat": primary,
+        "moat_confidence": confidence,
+        "secondary_moats": [k for k in detected if k != primary],
+        "moat_sources_detected": list(detected.keys()),
+    }
+
     return FactorScore(
         name="moat_durability",
         raw_value=normalized,
         percentile_rank=0.0,
         detail=f"signatures={signatures}, count={len(signatures)}",
+        metadata=metadata,
     )

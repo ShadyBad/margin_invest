@@ -8,9 +8,15 @@ from margin_engine.models.financial import (
     CashFlowStatement,
     FinancialHistory,
     FinancialPeriod,
+    GICSSector,
     IncomeStatement,
 )
-from margin_engine.scoring.quantitative.moat_durability import moat_durability_score
+from margin_engine.scoring.quantitative.moat_durability import (
+    _detect_brand_moat,
+    _detect_regulatory_moat,
+    _detect_switching_costs,
+    moat_durability_score,
+)
 
 
 def _make_period(
@@ -415,3 +421,459 @@ class TestWeightedMoatSignatures:
         result = moat_durability_score(history)
         assert "operating_leverage" in result.detail
         assert result.raw_value == pytest.approx(1.5 * 4.0 / 4.5, rel=0.01)
+
+
+# ---------------------------------------------------------------------------
+# Task 13: Switching Costs Proxy
+# ---------------------------------------------------------------------------
+
+
+def _make_switching_costs_period(
+    *,
+    revenue: Decimal,
+    sga_expense: Decimal | None,
+    period_end: str,
+) -> FinancialPeriod:
+    """Minimal period for switching-costs tests."""
+    income = IncomeStatement(
+        revenue=revenue,
+        cost_of_revenue=Decimal("0"),
+        gross_profit=revenue,
+        sga_expense=sga_expense,
+        ebit=Decimal("100"),
+        net_income=Decimal("80"),
+        shares_outstanding=100,
+    )
+    balance = BalanceSheet(
+        total_assets=Decimal("1000"),
+        total_equity=Decimal("500"),
+        short_term_debt=Decimal("0"),
+    )
+    cf = CashFlowStatement(
+        operating_cash_flow=Decimal("100"),
+        capital_expenditures=Decimal("0"),
+    )
+    return FinancialPeriod(
+        period_end=period_end,
+        filing_date="2024-11-01",
+        current_income=income,
+        current_balance=balance,
+        current_cash_flow=cf,
+    )
+
+
+class TestDetectSwitchingCosts:
+    """Tests for _detect_switching_costs proxy."""
+
+    def test_high_sga_stable_revenue_returns_08(self):
+        """High SGA (25%+) with very stable/growing revenue -> confidence 0.8."""
+        # Revenue grows slightly (>95% retention each period)
+        # SGA is ~25% of revenue each period
+        periods = [
+            _make_switching_costs_period(
+                revenue=Decimal("1000"),
+                sga_expense=Decimal("250"),  # 25%
+                period_end="2021-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("1020"),
+                sga_expense=Decimal("255"),  # 25%
+                period_end="2022-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("1040"),
+                sga_expense=Decimal("260"),  # 25%
+                period_end="2023-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="SWCOST", periods=periods)
+        result = _detect_switching_costs(history)
+        assert result == pytest.approx(0.8)
+
+    def test_low_sga_returns_00(self):
+        """Low SGA ratio (5%) -> no switching costs signal -> 0.0."""
+        periods = [
+            _make_switching_costs_period(
+                revenue=Decimal("1000"),
+                sga_expense=Decimal("50"),  # 5%
+                period_end="2021-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("1020"),
+                sga_expense=Decimal("51"),  # 5%
+                period_end="2022-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("1040"),
+                sga_expense=Decimal("52"),  # 5%
+                period_end="2023-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="LOWSGA", periods=periods)
+        result = _detect_switching_costs(history)
+        assert result == pytest.approx(0.0)
+
+    def test_insufficient_periods_returns_00(self):
+        """Fewer than 3 periods -> cannot compute -> 0.0."""
+        periods = [
+            _make_switching_costs_period(
+                revenue=Decimal("1000"),
+                sga_expense=Decimal("250"),
+                period_end="2021-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("1020"),
+                sga_expense=Decimal("255"),
+                period_end="2022-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="INSUF", periods=periods)
+        result = _detect_switching_costs(history)
+        assert result == pytest.approx(0.0)
+
+    def test_none_sga_expense_returns_00(self):
+        """If SGA data is missing (None), cannot compute -> 0.0."""
+        periods = [
+            _make_switching_costs_period(
+                revenue=Decimal("1000"),
+                sga_expense=None,
+                period_end="2021-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("1020"),
+                sga_expense=None,
+                period_end="2022-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("1040"),
+                sga_expense=None,
+                period_end="2023-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="NOSGA", periods=periods)
+        result = _detect_switching_costs(history)
+        assert result == pytest.approx(0.0)
+
+    def test_high_sga_but_revenue_churn_returns_00(self):
+        """High SGA but revenue drops >5% -> fails retention test -> 0.0."""
+        # Revenue drops 10% each period — fails the 95% retention threshold
+        periods = [
+            _make_switching_costs_period(
+                revenue=Decimal("1000"),
+                sga_expense=Decimal("250"),
+                period_end="2021-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("900"),  # -10%
+                sga_expense=Decimal("225"),
+                period_end="2022-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("810"),  # -10%
+                sga_expense=Decimal("202"),
+                period_end="2023-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="CHURN", periods=periods)
+        result = _detect_switching_costs(history)
+        assert result == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# Task 14: Regulatory + Brand Moat Proxies
+# ---------------------------------------------------------------------------
+
+
+class TestDetectRegulatoryMoat:
+    """Tests for _detect_regulatory_moat."""
+
+    def test_utilities_returns_10(self):
+        assert _detect_regulatory_moat(GICSSector.UTILITIES) == pytest.approx(1.0)
+
+    def test_financials_returns_07(self):
+        assert _detect_regulatory_moat(GICSSector.FINANCIALS) == pytest.approx(0.7)
+
+    def test_healthcare_returns_07(self):
+        assert _detect_regulatory_moat(GICSSector.HEALTHCARE) == pytest.approx(0.7)
+
+    def test_technology_returns_00(self):
+        assert _detect_regulatory_moat(GICSSector.TECHNOLOGY) == pytest.approx(0.0)
+
+    def test_energy_returns_00(self):
+        assert _detect_regulatory_moat(GICSSector.ENERGY) == pytest.approx(0.0)
+
+    def test_consumer_staples_returns_00(self):
+        assert _detect_regulatory_moat(GICSSector.CONSUMER_STAPLES) == pytest.approx(0.0)
+
+
+def _make_brand_moat_period(
+    *,
+    revenue: Decimal,
+    gross_profit: Decimal,
+    period_end: str,
+) -> FinancialPeriod:
+    """Minimal period for brand-moat tests."""
+    income = IncomeStatement(
+        revenue=revenue,
+        cost_of_revenue=revenue - gross_profit,
+        gross_profit=gross_profit,
+        ebit=Decimal("100"),
+        net_income=Decimal("80"),
+        shares_outstanding=100,
+    )
+    balance = BalanceSheet(
+        total_assets=Decimal("1000"),
+        total_equity=Decimal("500"),
+        short_term_debt=Decimal("0"),
+    )
+    cf = CashFlowStatement(
+        operating_cash_flow=Decimal("100"),
+        capital_expenditures=Decimal("0"),
+    )
+    return FinancialPeriod(
+        period_end=period_end,
+        filing_date="2024-11-01",
+        current_income=income,
+        current_balance=balance,
+        current_cash_flow=cf,
+    )
+
+
+class TestDetectBrandMoat:
+    """Tests for _detect_brand_moat."""
+
+    def test_sustained_high_gm_above_sector_returns_07(self):
+        """Consumer staples: 50% GM sustained 5+ periods, sector median 35% -> 0.7.
+
+        Threshold: sector_median (0.35) + 0.15 = 0.50 -> need GM > 0.50.
+        50% GM is NOT strictly greater than 50%, so use 51%.
+        """
+        periods = [
+            _make_brand_moat_period(
+                revenue=Decimal("1000"),
+                gross_profit=Decimal("510"),  # 51%
+                period_end=f"202{i}-12-31",
+            )
+            for i in range(5)
+        ]
+        history = FinancialHistory(ticker="BRAND", periods=periods)
+        result = _detect_brand_moat(history, GICSSector.CONSUMER_STAPLES, sector_median_gm=0.35)
+        assert result == pytest.approx(0.7)
+
+    def test_gm_at_sector_median_returns_00(self):
+        """GM equal to sector median -> no brand premium -> 0.0."""
+        periods = [
+            _make_brand_moat_period(
+                revenue=Decimal("1000"),
+                gross_profit=Decimal("350"),  # 35% = median
+                period_end=f"202{i}-12-31",
+            )
+            for i in range(5)
+        ]
+        history = FinancialHistory(ticker="NOBRAND", periods=periods)
+        result = _detect_brand_moat(history, GICSSector.CONSUMER_STAPLES, sector_median_gm=0.35)
+        assert result == pytest.approx(0.0)
+
+    def test_insufficient_periods_returns_00(self):
+        """Fewer than 5 periods -> cannot confirm brand durability -> 0.0."""
+        periods = [
+            _make_brand_moat_period(
+                revenue=Decimal("1000"),
+                gross_profit=Decimal("510"),
+                period_end=f"202{i}-12-31",
+            )
+            for i in range(4)
+        ]
+        history = FinancialHistory(ticker="SHORTBRAND", periods=periods)
+        result = _detect_brand_moat(history, GICSSector.CONSUMER_STAPLES, sector_median_gm=0.35)
+        assert result == pytest.approx(0.0)
+
+    def test_partial_above_threshold_returns_00(self):
+        """Only 3 of 5 periods above threshold (60%) -> fails 80% rule -> 0.0."""
+        # threshold = 0.35 + 0.15 = 0.50; need GM > 0.50
+        gross_profits = [
+            Decimal("510"),  # 51% above
+            Decimal("510"),  # 51% above
+            Decimal("510"),  # 51% above
+            Decimal("400"),  # 40% below
+            Decimal("400"),  # 40% below
+        ]
+        periods = [
+            _make_brand_moat_period(
+                revenue=Decimal("1000"),
+                gross_profit=gp,
+                period_end=f"202{i}-12-31",
+            )
+            for i, gp in enumerate(gross_profits)
+        ]
+        history = FinancialHistory(ticker="PARTBRAND", periods=periods)
+        result = _detect_brand_moat(history, GICSSector.CONSUMER_STAPLES, sector_median_gm=0.35)
+        assert result == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# Task 15: Wire Metadata into moat_durability_score
+# ---------------------------------------------------------------------------
+
+
+class TestMoatDurabilityScoreMetadata:
+    """moat_durability_score now adds metadata when sector is provided."""
+
+    def test_utilities_sector_metadata_regulatory(self):
+        """Utilities sector -> primary_moat='regulatory', confidence=1.0."""
+        periods = [
+            _make_period(period_end="2019-12-31"),
+            _make_period(period_end="2020-12-31"),
+            _make_period(period_end="2021-12-31"),
+        ]
+        history = FinancialHistory(ticker="UTL", periods=periods)
+        result = moat_durability_score(history, sector=GICSSector.UTILITIES)
+        assert result.metadata is not None
+        assert result.metadata["primary_moat"] == "regulatory"
+        assert result.metadata["moat_confidence"] == pytest.approx(1.0)
+        assert "regulatory" in result.metadata["moat_sources_detected"]
+
+    def test_no_sector_metadata_still_present(self):
+        """When sector=None, metadata still populated (switching_costs check only)."""
+        periods = [
+            _make_period(period_end="2019-12-31"),
+            _make_period(period_end="2020-12-31"),
+            _make_period(period_end="2021-12-31"),
+        ]
+        history = FinancialHistory(ticker="NOSEC", periods=periods)
+        result = moat_durability_score(history)  # no sector arg
+        assert result.metadata is not None
+        assert "primary_moat" in result.metadata
+        assert "moat_confidence" in result.metadata
+        assert "secondary_moats" in result.metadata
+        assert "moat_sources_detected" in result.metadata
+
+    def test_numeric_score_unchanged_no_sector(self):
+        """Existing numeric score must NOT change when sector=None (regression)."""
+        # Uses the same data as test_no_moat_signatures (all declining -> 0.0)
+        periods = [
+            _make_period(
+                ebit=Decimal("200"),
+                total_equity=Decimal("400"),
+                gross_profit=Decimal("400"),
+                period_end="2019-12-31",
+            ),
+            _make_period(
+                ebit=Decimal("150"),
+                total_equity=Decimal("500"),
+                gross_profit=Decimal("380"),
+                period_end="2020-12-31",
+            ),
+            _make_period(
+                ebit=Decimal("100"),
+                total_equity=Decimal("600"),
+                gross_profit=Decimal("360"),
+                period_end="2021-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="NOMOAT2", periods=periods)
+        result = moat_durability_score(history)
+        assert result.raw_value == pytest.approx(0.0)
+
+    def test_numeric_score_unchanged_with_sector(self):
+        """Numeric score unchanged even when sector is provided (regression)."""
+        # All 4 signatures -> 4.0 score. Sector just adds metadata.
+        periods = [
+            _make_period(
+                revenue=Decimal("1000"),
+                ebit=Decimal("100"),
+                cost_of_revenue=Decimal("600"),
+                gross_profit=Decimal("400"),
+                total_equity=Decimal("500"),
+                period_end="2019-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1200"),
+                ebit=Decimal("160"),
+                cost_of_revenue=Decimal("680"),
+                gross_profit=Decimal("520"),
+                total_equity=Decimal("600"),
+                period_end="2020-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1400"),
+                ebit=Decimal("240"),
+                cost_of_revenue=Decimal("740"),
+                gross_profit=Decimal("660"),
+                total_equity=Decimal("700"),
+                period_end="2021-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1600"),
+                ebit=Decimal("340"),
+                cost_of_revenue=Decimal("780"),
+                gross_profit=Decimal("820"),
+                total_equity=Decimal("800"),
+                period_end="2022-12-31",
+            ),
+            _make_period(
+                revenue=Decimal("1800"),
+                ebit=Decimal("460"),
+                cost_of_revenue=Decimal("800"),
+                gross_profit=Decimal("1000"),
+                total_equity=Decimal("900"),
+                period_end="2023-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="ALL4META", periods=periods)
+        result = moat_durability_score(history, sector=GICSSector.TECHNOLOGY)
+        assert result.raw_value == pytest.approx(4.0, rel=0.01)
+
+    def test_metadata_primary_moat_none_when_no_signals(self):
+        """No detected moats -> primary_moat='none', confidence=0.0."""
+        periods = [
+            _make_period(
+                ebit=Decimal("200"),
+                total_equity=Decimal("400"),
+                gross_profit=Decimal("400"),
+                period_end="2019-12-31",
+            ),
+            _make_period(
+                ebit=Decimal("150"),
+                total_equity=Decimal("500"),
+                gross_profit=Decimal("380"),
+                period_end="2020-12-31",
+            ),
+            _make_period(
+                ebit=Decimal("100"),
+                total_equity=Decimal("600"),
+                gross_profit=Decimal("360"),
+                period_end="2021-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="NONE3", periods=periods)
+        result = moat_durability_score(history, sector=GICSSector.TECHNOLOGY)
+        assert result.metadata["primary_moat"] == "none"
+        assert result.metadata["moat_confidence"] == pytest.approx(0.0)
+        assert result.metadata["moat_sources_detected"] == []
+
+    def test_metadata_secondary_moats_populated(self):
+        """When both regulatory and switching_costs fire, secondary_moats is populated."""
+        # Utilities sector (regulatory=1.0) + high SGA + stable revenue (switching_costs=0.8)
+        periods = [
+            _make_switching_costs_period(
+                revenue=Decimal("1000"),
+                sga_expense=Decimal("250"),
+                period_end="2021-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("1020"),
+                sga_expense=Decimal("255"),
+                period_end="2022-12-31",
+            ),
+            _make_switching_costs_period(
+                revenue=Decimal("1040"),
+                sga_expense=Decimal("260"),
+                period_end="2023-12-31",
+            ),
+        ]
+        history = FinancialHistory(ticker="MULTI", periods=periods)
+        result = moat_durability_score(history, sector=GICSSector.UTILITIES)
+        # regulatory (1.0) is primary; switching_costs (0.8) is secondary
+        assert result.metadata["primary_moat"] == "regulatory"
+        assert "switching_costs" in result.metadata["secondary_moats"]
