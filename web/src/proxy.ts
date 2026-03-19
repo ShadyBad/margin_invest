@@ -18,8 +18,8 @@ export async function proxy(request: NextRequest) {
   }
 
   // All other matched routes: delegate to NextAuth
-  // auth() overload for middleware use isn't exported with a clean type signature
-  return (auth as (req: NextRequest) => Promise<NextResponse>)(request)
+  // auth() middleware overload doesn't export a clean type — cast through unknown
+  return (auth as unknown as (req: NextRequest) => Promise<NextResponse>)(request)
 }
 
 export const config = {
