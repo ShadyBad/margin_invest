@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from enum import StrEnum
 
 from sqlalchemy import (
     JSON,
@@ -26,6 +27,12 @@ from margin_api.db.base import Base
 
 # Use JSONB on PostgreSQL, fall back to JSON on other backends (e.g. SQLite for tests).
 JSONVariant = JSON().with_variant(JSONB(), "postgresql")
+
+
+class UserRole(StrEnum):
+    USER = "user"
+    ADMIN = "admin"
+    SUPERADMIN = "superadmin"
 
 
 class UniverseSnapshot(Base):
@@ -189,6 +196,7 @@ class User(Base):
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subscription_plan: Mapped[str] = mapped_column(String(20), default="analyst")
+    role: Mapped[str] = mapped_column(String(20), default=UserRole.USER, server_default="user")
     subscription_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     current_period_end: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
