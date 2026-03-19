@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from margin_engine.ml.blend import blend_with_vae
 from margin_engine.models.scoring import CompositeTier
 
@@ -16,6 +18,43 @@ _CONVICTION_ORDER: list[CompositeTier] = [
 _CONVICTION_INDEX: dict[CompositeTier, int] = {
     level: idx for idx, level in enumerate(_CONVICTION_ORDER)
 }
+
+
+class OverrideConfig(BaseModel):
+    """Configuration thresholds for ML conviction override logic."""
+
+    top_1_percentile: float = 85.0
+    bottom_1_percentile: float = 15.0
+    min_confidence_1: float = 0.75
+    top_2_percentile: float = 95.0
+    bottom_2_percentile: float = 5.0
+    min_confidence_2: float = 0.80
+    max_override_levels: int = 2
+    early_exit_confidence: float = 0.60
+
+
+def promote(tier: CompositeTier, levels: int) -> CompositeTier:
+    """Promote *tier* by *levels* steps, capped at EXCEPTIONAL.
+
+    If *tier* is not in the conviction index (unknown tier), it is returned
+    unchanged.
+    """
+    if tier not in _CONVICTION_INDEX:
+        return tier
+    idx = _CONVICTION_INDEX[tier]
+    return _CONVICTION_ORDER[min(idx + levels, len(_CONVICTION_ORDER) - 1)]
+
+
+def demote(tier: CompositeTier, levels: int) -> CompositeTier:
+    """Demote *tier* by *levels* steps, floored at NONE.
+
+    If *tier* is not in the conviction index (unknown tier), it is returned
+    unchanged.
+    """
+    if tier not in _CONVICTION_INDEX:
+        return tier
+    idx = _CONVICTION_INDEX[tier]
+    return _CONVICTION_ORDER[max(idx - levels, 0)]
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:

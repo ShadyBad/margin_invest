@@ -1,6 +1,6 @@
 """Tests for ML ensemble override (promote/demote conviction by one level)."""
 
-from margin_engine.ml.ensemble_override import apply_ml_override
+from margin_engine.ml.ensemble_override import OverrideConfig, apply_ml_override, demote, promote
 from margin_engine.models.scoring import CompositeTier
 
 # Helper: universe where the given value is at a known percentile.
@@ -128,3 +128,60 @@ class TestApplyMlOverride:
         )
         assert conviction == CompositeTier.MEDIUM
         assert override_type == "none"
+
+
+class TestOverrideConfig:
+    """Tests for OverrideConfig dataclass defaults."""
+
+    def test_default_values(self) -> None:
+        """All 8 fields should match their specified defaults."""
+        cfg = OverrideConfig()
+        assert cfg.top_1_percentile == 85.0
+        assert cfg.bottom_1_percentile == 15.0
+        assert cfg.min_confidence_1 == 0.75
+        assert cfg.top_2_percentile == 95.0
+        assert cfg.bottom_2_percentile == 5.0
+        assert cfg.min_confidence_2 == 0.80
+        assert cfg.max_override_levels == 2
+        assert cfg.early_exit_confidence == 0.60
+
+    def test_disable_2_level(self) -> None:
+        """OverrideConfig(max_override_levels=1) should be accepted."""
+        cfg = OverrideConfig(max_override_levels=1)
+        assert cfg.max_override_levels == 1
+
+
+class TestPromoteDemote:
+    """Tests for promote() and demote() helpers."""
+
+    def test_promote_one_level(self) -> None:
+        """MEDIUM + 1 level = HIGH."""
+        assert promote(CompositeTier.MEDIUM, 1) == CompositeTier.HIGH
+
+    def test_promote_two_levels(self) -> None:
+        """MEDIUM + 2 levels = EXCEPTIONAL."""
+        assert promote(CompositeTier.MEDIUM, 2) == CompositeTier.EXCEPTIONAL
+
+    def test_promote_capped_at_exceptional(self) -> None:
+        """HIGH + 2 levels should not go out of bounds — capped at EXCEPTIONAL."""
+        assert promote(CompositeTier.HIGH, 2) == CompositeTier.EXCEPTIONAL
+
+    def test_promote_exceptional_stays(self) -> None:
+        """EXCEPTIONAL + 1 level stays EXCEPTIONAL."""
+        assert promote(CompositeTier.EXCEPTIONAL, 1) == CompositeTier.EXCEPTIONAL
+
+    def test_demote_one_level(self) -> None:
+        """HIGH - 1 level = MEDIUM."""
+        assert demote(CompositeTier.HIGH, 1) == CompositeTier.MEDIUM
+
+    def test_demote_two_levels(self) -> None:
+        """EXCEPTIONAL - 2 levels = MEDIUM."""
+        assert demote(CompositeTier.EXCEPTIONAL, 2) == CompositeTier.MEDIUM
+
+    def test_demote_floored_at_none(self) -> None:
+        """MEDIUM - 2 levels should not go out of bounds — floored at NONE."""
+        assert demote(CompositeTier.MEDIUM, 2) == CompositeTier.NONE
+
+    def test_demote_none_stays(self) -> None:
+        """NONE - 1 level stays NONE."""
+        assert demote(CompositeTier.NONE, 1) == CompositeTier.NONE
