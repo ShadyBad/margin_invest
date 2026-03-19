@@ -1,71 +1,82 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest, NextResponse } from "next/server"
 
-vi.mock("next-auth/jwt", () => ({
-  getToken: vi.fn(),
+// Mock NextAuth auth handler
+vi.mock("@/lib/auth", () => ({
+  auth: vi.fn(),
 }))
 
-import { getToken } from "next-auth/jwt"
-import { middleware, config } from "../middleware"
+import { auth } from "@/lib/auth"
+import { proxy, config } from "../proxy"
 
-const mockedGetToken = vi.mocked(getToken)
+const mockedAuth = vi.mocked(auth)
 
-function createRequest(path: string): NextRequest {
-  return new NextRequest(new URL(`http://localhost:3000${path}`))
+function createRequest(path: string, cookies: Record<string, string> = {}): NextRequest {
+  const req = new NextRequest(new URL(`http://localhost:3000${path}`))
+  for (const [name, value] of Object.entries(cookies)) {
+    req.cookies.set(name, value)
+  }
+  return req
 }
 
-describe("middleware", () => {
+describe("proxy", () => {
   beforeEach(() => {
-    mockedGetToken.mockReset()
+    mockedAuth.mockReset()
+    mockedAuth.mockResolvedValue(NextResponse.next() as never)
   })
 
-  it("redirects unauthenticated users from /dashboard to /login", async () => {
-    mockedGetToken.mockResolvedValue(null)
-    const req = createRequest("/dashboard")
-    const res = await middleware(req)
-    expect(res?.status).toBe(307)
-    expect(res?.headers.get("location")).toContain("/login")
-    expect(res?.headers.get("location")).toContain("callbackUrl=%2Fdashboard")
-  })
-
-  it("redirects unauthenticated users from /smart-money to /login", async () => {
-    mockedGetToken.mockResolvedValue(null)
-    const req = createRequest("/smart-money")
-    const res = await middleware(req)
-    expect(res?.status).toBe(307)
-    expect(res?.headers.get("location")).toContain("/login")
-  })
-
-  it("redirects unauthenticated users from /admin/approvals to /login", async () => {
-    mockedGetToken.mockResolvedValue(null)
+  // Admin route protection
+  it("redirects unauthenticated requests from /admin/approvals to /admin/login", async () => {
     const req = createRequest("/admin/approvals")
-    const res = await middleware(req)
+    const res = await proxy(req)
     expect(res?.status).toBe(307)
-    expect(res?.headers.get("location")).toContain("/login")
+    expect(res?.headers.get("location")).toContain("/admin/login")
   })
 
-  it("allows authenticated users to access /dashboard", async () => {
-    mockedGetToken.mockResolvedValue({ sub: "user-1" } as never)
+  it("redirects unauthenticated requests from /admin to /admin/login", async () => {
+    const req = createRequest("/admin")
+    const res = await proxy(req)
+    expect(res?.status).toBe(307)
+    expect(res?.headers.get("location")).toContain("/admin/login")
+  })
+
+  it("allows requests to /admin/login without a cookie", async () => {
+    const req = createRequest("/admin/login")
+    const res = await proxy(req)
+    expect(res?.status).not.toBe(307)
+  })
+
+  it("allows admin requests with a valid admin_session cookie", async () => {
+    const req = createRequest("/admin/approvals", { admin_session: "valid-token" })
+    const res = await proxy(req)
+    expect(res?.status).not.toBe(307)
+  })
+
+  // Non-admin routes delegate to NextAuth
+  it("delegates /dashboard to the auth handler", async () => {
     const req = createRequest("/dashboard")
-    const res = await middleware(req)
-    expect(res?.headers.get("location")).toBeNull()
+    await proxy(req)
+    expect(mockedAuth).toHaveBeenCalledWith(req)
   })
 
-  it("allows unauthenticated users to access /explore", async () => {
-    mockedGetToken.mockResolvedValue(null)
-    const req = createRequest("/explore")
-    const res = await middleware(req)
-    expect(res?.headers.get("location")).toBeNull()
+  it("delegates /account to the auth handler", async () => {
+    const req = createRequest("/account/settings")
+    await proxy(req)
+    expect(mockedAuth).toHaveBeenCalledWith(req)
   })
 
-  it("allows unauthenticated users to access /methodology", async () => {
-    mockedGetToken.mockResolvedValue(null)
-    const req = createRequest("/methodology")
-    const res = await middleware(req)
-    expect(res?.headers.get("location")).toBeNull()
+  it("delegates /backtesting to the auth handler", async () => {
+    const req = createRequest("/backtesting")
+    await proxy(req)
+    expect(mockedAuth).toHaveBeenCalledWith(req)
   })
 
-  it("exports a matcher config excluding static assets and API routes", () => {
-    expect(config.matcher).toBeDefined()
+  // Config
+  it("exports a matcher config that includes admin routes", () => {
+    expect(config.matcher).toContain("/admin/:path*")
+  })
+
+  it("exports a matcher config that includes dashboard routes", () => {
+    expect(config.matcher).toContain("/dashboard/:path*")
   })
 })
