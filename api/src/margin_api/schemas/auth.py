@@ -316,3 +316,23 @@ class VerifyMfaTokenResponse(BaseModel):
     email: str
     username: str
     avatar_url: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Admin login schemas
+# ---------------------------------------------------------------------------
+
+
+class AdminLoginRequest(BaseModel):
+    """Request body for admin login (step 1 of admin auth flow)."""
+
+    email: str = Field(min_length=5, max_length=320)
+    pw: str
+
+
+class AdminLoginResponse(BaseModel):
+    """Response from admin login — always issues an MFA challenge."""
+
+    mfa_required: bool
+    challenge_str: str | None = None
+    message: str
