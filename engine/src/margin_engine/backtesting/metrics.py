@@ -13,6 +13,8 @@ from margin_engine.backtesting.models import (
     MonthlySnapshot,
     PassThreshold,
     PerformanceMetrics,
+    PositionOutcome,
+    TierStats,
     ValidationResult,
 )
 
@@ -148,6 +150,49 @@ class PerformanceCalculator:
             win_rate_pass=metrics.win_rate >= thresholds.min_win_rate,
             information_ratio_pass=metrics.information_ratio >= thresholds.min_information_ratio,
         )
+
+    @staticmethod
+    def compute_tier_stats(outcomes: list[PositionOutcome]) -> list[TierStats]:
+        """Group completed positions by conviction tier and compute Kelly inputs.
+
+        Args:
+            outcomes: List of completed positions with return data.
+
+        Returns:
+            One TierStats per conviction tier found in outcomes.
+            avg_loser_return is the absolute value of the average losing return.
+            avg_winner_return is 0.0 if there are no winners in the tier.
+            avg_loser_return is 0.0 if there are no losers in the tier.
+        """
+        if not outcomes:
+            return []
+
+        # Group by tier
+        groups: dict[str, list[PositionOutcome]] = {}
+        for outcome in outcomes:
+            groups.setdefault(outcome.conviction_tier, []).append(outcome)
+
+        result: list[TierStats] = []
+        for tier, tier_outcomes in groups.items():
+            n = len(tier_outcomes)
+            winners = [o for o in tier_outcomes if o.is_winner]
+            losers = [o for o in tier_outcomes if not o.is_winner]
+
+            win_rate = len(winners) / n
+            avg_winner = sum(o.return_pct for o in winners) / len(winners) if winners else 0.0
+            avg_loser = sum(abs(o.return_pct) for o in losers) / len(losers) if losers else 0.0
+
+            result.append(
+                TierStats(
+                    tier=tier,
+                    win_rate=win_rate,
+                    avg_winner_return=avg_winner,
+                    avg_loser_return=avg_loser,
+                    n_positions=n,
+                )
+            )
+
+        return result
 
     @staticmethod
     def _cagr(total_return_ratio: float, years: float) -> float:

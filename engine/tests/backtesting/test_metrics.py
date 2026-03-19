@@ -14,6 +14,8 @@ from margin_engine.backtesting.models import (
     MonthlySnapshot,
     PassThreshold,
     PerformanceMetrics,
+    PositionOutcome,
+    TierStats,
 )
 
 # ---------------------------------------------------------------------------
@@ -691,3 +693,148 @@ class TestGrossMetrics:
         calc = PerformanceCalculator()
         m = calc.calculate(snapshots)
         assert m.cost_drag_bps == pytest.approx(0.0, abs=1.0)
+
+
+# ---------------------------------------------------------------------------
+# compute_tier_stats() Static Method
+# ---------------------------------------------------------------------------
+
+
+class TestComputeTierStats:
+    """Tests for PerformanceCalculator.compute_tier_stats().
+
+    Outcome fixtures:
+      exceptional tier:
+        - AAPL: +0.20 (winner)
+        - MSFT: +0.30 (winner)
+        - XYZ:  -0.10 (loser)
+        → win_rate = 2/3 ≈ 0.6667, avg_winner = 0.25, avg_loser = 0.10
+
+      high tier:
+        - GOOG: +0.10 (winner)
+        - META: -0.10 (loser)
+        → win_rate = 0.5, avg_winner = 0.10, avg_loser = 0.10
+    """
+
+    @pytest.fixture()
+    def outcomes(self) -> list[PositionOutcome]:
+        return [
+            PositionOutcome(
+                ticker="AAPL",
+                conviction_tier="exceptional",
+                entry_price=100.0,
+                exit_price=120.0,
+                return_pct=0.20,
+            ),
+            PositionOutcome(
+                ticker="MSFT",
+                conviction_tier="exceptional",
+                entry_price=100.0,
+                exit_price=130.0,
+                return_pct=0.30,
+            ),
+            PositionOutcome(
+                ticker="XYZ",
+                conviction_tier="exceptional",
+                entry_price=100.0,
+                exit_price=90.0,
+                return_pct=-0.10,
+            ),
+            PositionOutcome(
+                ticker="GOOG",
+                conviction_tier="high",
+                entry_price=100.0,
+                exit_price=110.0,
+                return_pct=0.10,
+            ),
+            PositionOutcome(
+                ticker="META",
+                conviction_tier="high",
+                entry_price=100.0,
+                exit_price=90.0,
+                return_pct=-0.10,
+            ),
+        ]
+
+    def test_returns_list_of_tier_stats(self, outcomes: list[PositionOutcome]):
+        result = PerformanceCalculator.compute_tier_stats(outcomes)
+        assert isinstance(result, list)
+        assert all(isinstance(s, TierStats) for s in result)
+
+    def test_correct_number_of_tiers(self, outcomes: list[PositionOutcome]):
+        result = PerformanceCalculator.compute_tier_stats(outcomes)
+        assert len(result) == 2
+
+    def test_exceptional_win_rate(self, outcomes: list[PositionOutcome]):
+        result = PerformanceCalculator.compute_tier_stats(outcomes)
+        exceptional = next(s for s in result if s.tier == "exceptional")
+        assert exceptional.win_rate == pytest.approx(2.0 / 3.0, rel=1e-9)
+
+    def test_exceptional_avg_winner(self, outcomes: list[PositionOutcome]):
+        result = PerformanceCalculator.compute_tier_stats(outcomes)
+        exceptional = next(s for s in result if s.tier == "exceptional")
+        assert exceptional.avg_winner_return == pytest.approx(0.25, rel=1e-9)
+
+    def test_exceptional_avg_loser(self, outcomes: list[PositionOutcome]):
+        result = PerformanceCalculator.compute_tier_stats(outcomes)
+        exceptional = next(s for s in result if s.tier == "exceptional")
+        assert exceptional.avg_loser_return == pytest.approx(0.10, rel=1e-9)
+
+    def test_exceptional_n_positions(self, outcomes: list[PositionOutcome]):
+        result = PerformanceCalculator.compute_tier_stats(outcomes)
+        exceptional = next(s for s in result if s.tier == "exceptional")
+        assert exceptional.n_positions == 3
+
+    def test_high_win_rate(self, outcomes: list[PositionOutcome]):
+        result = PerformanceCalculator.compute_tier_stats(outcomes)
+        high = next(s for s in result if s.tier == "high")
+        assert high.win_rate == pytest.approx(0.5, rel=1e-9)
+
+    def test_high_n_positions(self, outcomes: list[PositionOutcome]):
+        result = PerformanceCalculator.compute_tier_stats(outcomes)
+        high = next(s for s in result if s.tier == "high")
+        assert high.n_positions == 2
+
+    def test_empty_list_returns_empty(self):
+        result = PerformanceCalculator.compute_tier_stats([])
+        assert result == []
+
+    def test_all_winners_avg_loser_is_zero(self):
+        """When all positions in a tier are winners, avg_loser_return = 0.0."""
+        outcomes = [
+            PositionOutcome(
+                ticker="A",
+                conviction_tier="exceptional",
+                entry_price=100.0,
+                exit_price=120.0,
+                return_pct=0.20,
+            ),
+            PositionOutcome(
+                ticker="B",
+                conviction_tier="exceptional",
+                entry_price=100.0,
+                exit_price=115.0,
+                return_pct=0.15,
+            ),
+        ]
+        result = PerformanceCalculator.compute_tier_stats(outcomes)
+        assert len(result) == 1
+        assert result[0].win_rate == 1.0
+        assert result[0].avg_loser_return == 0.0
+
+    def test_all_losers_avg_winner_is_zero(self):
+        """When all positions in a tier are losers, avg_winner_return = 0.0."""
+        outcomes = [
+            PositionOutcome(
+                ticker="X",
+                conviction_tier="high",
+                entry_price=100.0,
+                exit_price=80.0,
+                return_pct=-0.20,
+            ),
+        ]
+        result = PerformanceCalculator.compute_tier_stats(outcomes)
+        assert len(result) == 1
+        assert result[0].win_rate == 0.0
+        assert result[0].avg_winner_return == 0.0
+        assert result[0].avg_loser_return == pytest.approx(0.20, rel=1e-9)
