@@ -22,6 +22,7 @@ select = ["E", "F", "I", "N", "W", "UP"]
 "api/tests/services/test_xbrl_parser.py" = ["E501"]
 "api/src/margin_api/services/edgar/index_builder.py" = ["E501"]
 "api/tests/services/test_edgar_index_builder.py" = ["E501"]
+"api/tests/workers/test_workers_coverage.py" = ["E501"]
 
 [dependency-groups]
 dev = [

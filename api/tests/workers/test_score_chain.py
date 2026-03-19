@@ -420,9 +420,7 @@ async def test_ingest_sweep_complete_high_failure_rate_marks_failed():
             return_value=MagicMock(triggered=False, detail="ok"),
         ),
     ):
-        await ingest_sweep_complete(
-            {"redis": mock_redis}, run_id="456", pipeline_id="pipe-hi-fail"
-        )
+        await ingest_sweep_complete({"redis": mock_redis}, run_id="456", pipeline_id="pipe-hi-fail")
 
     # Run mock should have been mutated to "failed"
     assert run_mock.status == "failed"
