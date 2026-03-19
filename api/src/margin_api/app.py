@@ -15,6 +15,8 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from margin_api import __version__
 from margin_api.config import get_settings
 from margin_api.routes.admin import router as admin_router
+from margin_api.routes.admin_governance_config import router as governance_config_router
+from margin_api.routes.admin_webhooks import router as webhooks_router
 from margin_api.routes.auth import router as auth_router
 from margin_api.routes.avatar import router as avatar_router
 from margin_api.routes.backtest import router as backtest_router
@@ -23,7 +25,6 @@ from margin_api.routes.correlations import router as correlations_router
 from margin_api.routes.dashboard import router as dashboard_router
 from margin_api.routes.dna import router as dna_router
 from margin_api.routes.events import router as events_router
-from margin_api.routes.admin_governance_config import router as governance_config_router
 from margin_api.routes.governance import router as governance_router
 from margin_api.routes.health import router as health_router
 from margin_api.routes.ingestion import router as ingestion_router
@@ -156,6 +157,7 @@ def create_app() -> FastAPI:
     app.include_router(events_router)
     app.include_router(governance_router)
     app.include_router(governance_config_router)
+    app.include_router(webhooks_router)
     app.include_router(model_validation_router)
     app.include_router(ingestion_router)
     app.include_router(jobs_router)
