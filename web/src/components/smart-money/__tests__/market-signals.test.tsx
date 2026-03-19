@@ -18,13 +18,15 @@ const MOCK_OVERLAP = {
     { ticker: "GOOGL", holder_count: 38, curated_count: 8 },
   ],
   crowded_trades: [
-    { ticker: "NVDA", new_position_count: 8, pct_funds_adding: 0.32 },
-    { ticker: "META", new_position_count: 5, pct_funds_adding: 0.2 },
+    { ticker: "NVDA", holder_count: 8, concentration_pct: 0.32, total_value_millions: 1200.5 },
+    { ticker: "META", holder_count: 5, concentration_pct: 0.2, total_value_millions: 850.0 },
   ],
+  total_managers: 25,
 }
 
 const MOCK_NEW_POSITIONS = {
   period_of_report: "2025-09-30",
+  previous_quarter: "2025-06-30",
   new_positions: [
     {
       ticker: "PLTR",
@@ -38,6 +40,7 @@ const MOCK_NEW_POSITIONS = {
 
 const MOCK_EMPTY_NEW_POSITIONS = {
   period_of_report: "2025-09-30",
+  previous_quarter: "2025-06-30",
   new_positions: [],
 }
 
@@ -104,7 +107,7 @@ describe("MarketSignals", () => {
     })
 
     expect(screen.getByText("META")).toBeInTheDocument()
-    // pct_funds_adding displayed as percentage
+    // concentration_pct displayed as percentage
     expect(screen.getByText("32.0%")).toBeInTheDocument()
   })
 

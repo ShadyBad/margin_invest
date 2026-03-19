@@ -91,14 +91,16 @@ class OverlapEntry(BaseModel):
 
 class CrowdedTrade(BaseModel):
     ticker: str
-    new_position_count: int
-    pct_funds_adding: float
+    holder_count: int
+    concentration_pct: float
+    total_value_millions: float
 
 
 class OverlapResponse(BaseModel):
     period_of_report: date
     most_held: list[OverlapEntry]
     crowded_trades: list[CrowdedTrade]
+    total_managers: int | None = None
 
 
 class NewPositionEntry(BaseModel):
@@ -111,6 +113,7 @@ class NewPositionEntry(BaseModel):
 
 class NewPositionResponse(BaseModel):
     period_of_report: date
+    previous_quarter: date
     new_positions: list[NewPositionEntry]
 
 

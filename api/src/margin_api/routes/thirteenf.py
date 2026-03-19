@@ -18,6 +18,11 @@ from margin_api.db.models import (
 )
 from margin_api.db.session import get_db
 from margin_api.deps import require_plan
+from margin_api.services.thirteenf_analytics import (
+    compute_crowded_trades,
+    compute_new_positions,
+    resolve_quarter,
+)
 from margin_api.schemas.thirteenf import (
     ChangesSummary,
     ClonePosition,
@@ -30,6 +35,7 @@ from margin_api.schemas.thirteenf import (
     HoldingsSummary,
     ManagerPortfolioResponse,
     ManagerResponse,
+    NewPositionEntry,
     NewPositionResponse,
     OverlapEntry,
     OverlapResponse,
@@ -336,83 +342,75 @@ async def get_manager_portfolio(
 
 @router.get("/analytics/overlap", response_model=OverlapResponse)
 async def get_overlap(
+    quarter: str | None = Query(None, description="Quarter like 2026-Q1"),
     user_id: int = Depends(require_plan("institutional")),
     db: AsyncSession = Depends(get_db),
 ) -> OverlapResponse:
     """Get most commonly held tickers and crowded trades across all tracked managers."""
-    # Find the latest period
-    latest_q = select(func.max(InstitutionalHolding.period_of_report))
-    result = await db.execute(latest_q)
-    latest_period = result.scalar_one_or_none()
-    if latest_period is None:
-        return OverlapResponse(period_of_report=date.today(), most_held=[], crowded_trades=[])
+    current_q, _prev_q = await resolve_quarter(db, quarter)
 
-    # Most held: count distinct managers per ticker
-    overlap_q = (
-        select(
-            SecurityMaster.ticker,
-            func.count(func.distinct(InstitutionalHolding.manager_id)).label("holder_count"),
-        )
-        .join(SecurityMaster, InstitutionalHolding.security_master_id == SecurityMaster.id)
-        .where(InstitutionalHolding.period_of_report == latest_period)
-        .group_by(SecurityMaster.ticker)
-        .order_by(func.count(func.distinct(InstitutionalHolding.manager_id)).desc())
-        .limit(50)
-    )
-    overlap_result = await db.execute(overlap_q)
-    most_held = []
-    for row in overlap_result.all():
-        if row.ticker is None:
-            continue
-        # Count curated holders
-        curated_q = (
-            select(func.count(func.distinct(InstitutionalHolding.manager_id)))
-            .join(Manager, InstitutionalHolding.manager_id == Manager.id)
-            .join(SecurityMaster, InstitutionalHolding.security_master_id == SecurityMaster.id)
-            .where(
-                SecurityMaster.ticker == row.ticker,
-                InstitutionalHolding.period_of_report == latest_period,
-                Manager.tier == "curated",
-            )
-        )
-        curated_result = await db.execute(curated_q)
-        curated_count = curated_result.scalar() or 0
-        most_held.append(
-            OverlapEntry(
-                ticker=row.ticker,
-                holder_count=row.holder_count,
-                curated_count=curated_count,
-            )
-        )
+    most_held_dicts, crowded_dicts = await compute_crowded_trades(db, current_q)
 
-    # Crowded trades: tickers with most new positions (holders not present in previous quarter)
-    # For now, return empty -- requires prev quarter comparison
-    crowded_trades: list[CrowdedTrade] = []
+    most_held = [
+        OverlapEntry(
+            ticker=d["ticker"],
+            holder_count=d["holder_count"],
+            curated_count=d["curated_count"],
+        )
+        for d in most_held_dicts
+    ]
+
+    crowded_trades = [
+        CrowdedTrade(
+            ticker=d["ticker"],
+            holder_count=d["holder_count"],
+            concentration_pct=d["concentration_pct"],
+            total_value_millions=d["total_value_millions"],
+        )
+        for d in crowded_dicts
+    ]
+
+    # Derive total_managers from concentration data (holder_count / concentration_pct)
+    total_managers: int | None = None
+    if crowded_dicts:
+        first = crowded_dicts[0]
+        if first["concentration_pct"] > 0:
+            total_managers = round(first["holder_count"] / first["concentration_pct"])
 
     return OverlapResponse(
-        period_of_report=latest_period,
+        period_of_report=current_q,
         most_held=most_held,
         crowded_trades=crowded_trades,
+        total_managers=total_managers,
     )
 
 
 @router.get("/analytics/new-positions", response_model=NewPositionResponse)
 async def get_new_positions(
+    quarter: str | None = Query(None, description="Quarter like 2026-Q1"),
     user_id: int = Depends(require_plan("institutional")),
     db: AsyncSession = Depends(get_db),
 ) -> NewPositionResponse:
     """Get tickers with the most new institutional positions this quarter."""
-    latest_q = select(func.max(InstitutionalHolding.period_of_report))
-    result = await db.execute(latest_q)
-    latest_period = result.scalar_one_or_none()
-    if latest_period is None:
-        return NewPositionResponse(period_of_report=date.today(), new_positions=[])
+    current_q, prev_q = await resolve_quarter(db, quarter)
 
-    # For now return empty list -- proper new position detection requires
-    # comparing current quarter holdings to previous quarter
+    raw = await compute_new_positions(db, current_q, prev_q)
+
+    new_positions = [
+        NewPositionEntry(
+            ticker=d["ticker"],
+            managers=d["managers"],
+            total_new_funds=d["total_new_funds"],
+            curated_new_funds=d["curated_new_funds"],
+            total_value_millions=d["total_value_millions"],
+        )
+        for d in raw
+    ]
+
     return NewPositionResponse(
-        period_of_report=latest_period,
-        new_positions=[],
+        period_of_report=current_q,
+        previous_quarter=prev_q,
+        new_positions=new_positions,
     )
 
 

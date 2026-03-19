@@ -119,7 +119,9 @@ def test_manager_portfolio_response():
 def test_overlap_response():
     """OverlapResponse with OverlapEntry and CrowdedTrade."""
     overlap = OverlapEntry(ticker="AAPL", holder_count=30, curated_count=8)
-    crowded = CrowdedTrade(ticker="PLTR", new_position_count=5, pct_funds_adding=0.25)
+    crowded = CrowdedTrade(
+        ticker="PLTR", holder_count=5, concentration_pct=0.25, total_value_millions=300.0
+    )
     resp = OverlapResponse(
         period_of_report=date(2025, 12, 31),
         most_held=[overlap],
@@ -128,8 +130,10 @@ def test_overlap_response():
     data = resp.model_dump()
     assert data["most_held"][0]["ticker"] == "AAPL"
     assert data["most_held"][0]["curated_count"] == 8
-    assert data["crowded_trades"][0]["pct_funds_adding"] == 0.25
-    assert data["crowded_trades"][0]["new_position_count"] == 5
+    assert data["crowded_trades"][0]["concentration_pct"] == 0.25
+    assert data["crowded_trades"][0]["holder_count"] == 5
+    assert data["crowded_trades"][0]["total_value_millions"] == 300.0
+    assert data["total_managers"] is None
 
 
 def test_new_position_response():
@@ -143,6 +147,7 @@ def test_new_position_response():
     )
     resp = NewPositionResponse(
         period_of_report=date(2025, 12, 31),
+        previous_quarter=date(2025, 9, 30),
         new_positions=[entry],
     )
     data = resp.model_dump()
@@ -151,6 +156,7 @@ def test_new_position_response():
     assert data["new_positions"][0]["managers"] == ["Soros Fund Management", "Tiger Global"]
     assert data["new_positions"][0]["curated_new_funds"] == 3
     assert data["new_positions"][0]["total_value_millions"] == 450.0
+    assert data["previous_quarter"] == date(2025, 9, 30)
 
 
 def test_clone_response():

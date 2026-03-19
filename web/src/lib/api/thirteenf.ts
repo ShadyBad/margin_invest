@@ -91,14 +91,16 @@ export interface OverlapEntry {
 
 export interface CrowdedTrade {
   ticker: string
-  new_position_count: number
-  pct_funds_adding: number
+  holder_count: number
+  concentration_pct: number
+  total_value_millions: number
 }
 
 export interface OverlapResponse {
   period_of_report: string
   most_held: OverlapEntry[]
   crowded_trades: CrowdedTrade[]
+  total_managers: number | null
 }
 
 export interface NewPositionEntry {
@@ -111,6 +113,7 @@ export interface NewPositionEntry {
 
 export interface NewPositionResponse {
   period_of_report: string
+  previous_quarter: string
   new_positions: NewPositionEntry[]
 }
 

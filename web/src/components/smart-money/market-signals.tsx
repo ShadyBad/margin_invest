@@ -192,10 +192,13 @@ export function MarketSignals() {
                     Ticker
                   </th>
                   <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
-                    New Positions
+                    Holders
                   </th>
                   <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
-                    % Funds Adding
+                    Concentration
+                  </th>
+                  <th className="px-4 py-2 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
+                    Value ($M)
                   </th>
                 </tr>
               </thead>
@@ -209,10 +212,13 @@ export function MarketSignals() {
                       {trade.ticker}
                     </td>
                     <td className="px-4 py-2.5 text-sm font-mono text-text-secondary text-right">
-                      {trade.new_position_count}
+                      {trade.holder_count}
                     </td>
                     <td className="px-4 py-2.5 text-sm font-mono text-warning text-right">
-                      {(trade.pct_funds_adding * 100).toFixed(1)}%
+                      {(trade.concentration_pct * 100).toFixed(1)}%
+                    </td>
+                    <td className="px-4 py-2.5 text-sm font-mono text-text-secondary text-right">
+                      {trade.total_value_millions.toFixed(1)}
                     </td>
                   </tr>
                 ))}
