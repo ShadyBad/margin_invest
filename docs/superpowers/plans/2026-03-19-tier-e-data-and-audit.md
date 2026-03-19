@@ -4,7 +4,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-18-tier-e-known-gaps-design.md` (Tracks B and C)
 
-**Schema note:** E5 replaces 5 schemas in `schemas/thirteenf.py`. Breaking change but safe (old schemas returned empty arrays).
+**Schema note:** E5 replaces 5 schemas in `schemas/thirteenf.py`. `CrowdedTrade` and `NewPositionEntry` fields change. `OverlapResponse` adds `total_managers`. **CAUTION:** `most_held` (using `OverlapEntry`) already returns real data from the overlap endpoint — only `crowded_trades` is empty. Before changing schemas, audit `web/src/components/smart-money/` for consumers of `most_held` and update them atomically. Consider adding `total_managers` as `int | None = None` for backward safety.
 
 ---
 
@@ -33,19 +33,18 @@
 - [ ] Tests: endpoints return data, quarter param works, plan gating preserved
 - [ ] Update 5 schemas per spec E5
 - [ ] Replace stubs, add quarter Query param, preserve require_plan
-- [ ] Update frontend types in smart-money components
+- [ ] **Audit frontend consumers FIRST:** check `web/src/components/smart-money/` for components consuming `OverlapResponse.most_held` or `CrowdedTrade` types. Update TypeScript types and component props atomically with schema changes.
 - [ ] Commit: `"feat(13f): wire analytics, update schemas"`
 
 ---
 
 ## E7: Sector Endpoints
 
-### Task 5: Verify market_cap wiring
-- Audit: `routes/scores.py` response construction
-- [ ] Check if market_cap (schema line 165) is populated from AssetProfile
-- [ ] Wire if missing (single line change)
-- [ ] Test ScoreResponse includes market_cap
-- [ ] Commit: `"fix(scores): wire market_cap from AssetProfile"`
+### Task 5: Verify market_cap wiring (likely no-op)
+- Audit: `routes/scores.py` lines 566, 601, 629-632
+- [ ] **Confirm** market_cap is already wired: `Asset.market_cap.label("asset_market_cap")` at lines 566/601, populated at line 632. If confirmed, mark task complete without code changes.
+- [ ] Write a regression test that ScoreResponse includes market_cap when AssetProfile has it
+- [ ] Commit: `"test(scores): add regression test for market_cap on ScoreResponse"`
 
 ### Task 6: Sector list and champion endpoints
 - Create: `routes/sectors.py`, `schemas/sectors.py`

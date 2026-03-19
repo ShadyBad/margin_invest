@@ -32,7 +32,7 @@
 | `web/src/app/admin/login/page.tsx` | Create | Admin login form (client component) |
 | `web/src/app/admin/approvals/page.tsx` | Modify | Convert to server component |
 | `web/src/app/admin/model-validation/page.tsx` | Modify | Convert to server component |
-| `web/src/app/admin/governance-events/page.tsx` | Modify | Convert to server component |
+| `web/src/app/admin/events/page.tsx` | Modify | Convert to server component |
 
 ### E1: Governance Config CRUD
 
@@ -101,7 +101,7 @@ Run: `uv run pytest api/tests/test_admin_deps.py -v` — FAIL expected
 
 - [ ] **Step 3: Implement _verify_admin_jwt**
 
-Add to `deps.py` after `_verify_jwt_token()`. Takes `(jwt_str, signing_key_str)`, returns `tuple[int, str]` (user_id, role). Uses `pyjwt.decode()` with `settings.jwt_secret` (NOT `service_auth_secret`). Requires claims: sub, exp, iat, role.
+Add to `deps.py` after `_verify_jwt_token()`. Signature: `_verify_admin_jwt(token: str, settings: Settings) -> tuple[int, str]`. Reads `settings.jwt_secret` internally (NOT `service_auth_secret`). Requires JWT claims: sub, exp, iat, role. Tests should create a `Settings` instance with a known `jwt_secret` value.
 
 - [ ] **Step 4: Verify tests pass**
 
@@ -134,7 +134,7 @@ Run: `uv run pytest api/tests/routes/test_admin_auth.py -v`
 
 - [ ] **Step 3: Add schemas and implement endpoint**
 
-Add `AdminLoginRequest` and `AdminLoginResponse` schemas. Implement `POST /api/v1/auth/admin-login`: lookup user by email, verify with argon2, check role is admin/superadmin (403 if not), if MFA enabled return challenge JWT, if not issue session JWT directly. Set httpOnly cookie `admin_session`. Rate limit 5/min.
+Add `AdminLoginRequest` and `AdminLoginResponse` schemas. Implement `POST /api/v1/auth/admin-login`: lookup user by email, verify with argon2, check role is admin/superadmin (403 if not). MFA is **mandatory** for admin roles per spec — always return challenge JWT requiring MFA completion. No bypass path for non-MFA admins (enforce MFA enrollment at account setup). After MFA completion, set httpOnly cookie `admin_session`. Rate limit 5/min. Add test for full two-step flow: admin-login -> challenge -> mfa-complete -> cookie set.
 
 - [ ] **Step 4: Verify tests pass**
 
@@ -281,6 +281,8 @@ CRUD tests: list returns defaults, get shows `is_default=True`, upsert creates a
 
 Prefix `/api/v1/admin/governance-config`. All use `Depends(get_superadmin_user)`. GET list merges DB with registry. PUT validates then upserts + logs `config.updated` governance event. DELETE removes override + logs `config.deleted`.
 
+**Note:** This creates `admin_governance_config.py` which is a SEPARATE router from the existing `governance.py` (which handles approvals/events). When registering in `app.py`, import as `governance_config_router` to avoid collision with existing `governance_router`.
+
 - [ ] **Step 4: Register router in app.py**
 
 - [ ] **Step 5: Verify tests pass**
@@ -399,7 +401,7 @@ Calls `dispatcher.deliver()`, on failure enqueues retry with backoff.
 
 - [ ] **Step 3: Wire dispatch into governance workers**
 
-In `_stage_scores_impl`: dispatch `"score.staged"` after approval creation. In `publish_scores`: dispatch `"score.published"`. In `promote_ml_model`: dispatch `"model.promoted"`. Pattern: create dispatcher, call dispatch(), enqueue deliver jobs via redis.
+In `_stage_scores_impl`: dispatch `"score.staged"` after approval creation. In `publish_scores`: dispatch `"score.published"`. In `promote_ml_model`: dispatch `"model.promoted"`. At each circuit breaker trip point (where `check_score_drift`, `check_ingestion_failure_rate`, or `check_ml_regression` returns `triggered=True`): dispatch `"circuit_breaker.tripped"`. Pattern: create dispatcher, call dispatch(), enqueue deliver jobs via redis.
 
 - [ ] **Step 4: Run worker tests**
 
