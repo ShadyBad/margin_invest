@@ -578,13 +578,9 @@ async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dic
                 _redis: ArqRedis | None = ctx.get("redis")
                 if _redis and _cb_delivery_ids:
                     for _did in _cb_delivery_ids:
-                        await _redis.enqueue_job(
-                            "deliver_webhook", _did, _job_id=f"webhook:{_did}"
-                        )
+                        await _redis.enqueue_job("deliver_webhook", _did, _job_id=f"webhook:{_did}")
             except Exception:
-                logger.exception(
-                    "%s Ingestion CB webhook dispatch failed (non-blocking)", label
-                )
+                logger.exception("%s Ingestion CB webhook dispatch failed (non-blocking)", label)
     except Exception:
         logger.exception("%s Ingestion failure circuit breaker check failed (non-blocking)", label)
 
@@ -1094,9 +1090,7 @@ async def stage_scores(
             redis_for_wh: ArqRedis | None = ctx.get("redis")
             if redis_for_wh:
                 for did in webhook_delivery_ids:
-                    await redis_for_wh.enqueue_job(
-                        "deliver_webhook", did, _job_id=f"webhook:{did}"
-                    )
+                    await redis_for_wh.enqueue_job("deliver_webhook", did, _job_id=f"webhook:{did}")
             else:
                 logger.warning(
                     "[stage_scores] No redis — cannot enqueue %d webhook deliveries",
@@ -1509,9 +1503,7 @@ async def publish_scores(
             redis_for_wh: ArqRedis | None = ctx.get("redis")
             if redis_for_wh:
                 for did in publish_webhook_ids:
-                    await redis_for_wh.enqueue_job(
-                        "deliver_webhook", did, _job_id=f"webhook:{did}"
-                    )
+                    await redis_for_wh.enqueue_job("deliver_webhook", did, _job_id=f"webhook:{did}")
             else:
                 logger.warning(
                     "[publish_scores] No redis — cannot enqueue %d webhook deliveries",
