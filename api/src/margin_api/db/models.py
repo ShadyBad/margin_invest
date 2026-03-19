@@ -1343,7 +1343,9 @@ class FilingText(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("ticker", "filing_type", "period_end", name="uq_filing_text_ticker_type_period"),
+        UniqueConstraint(
+            "ticker", "filing_type", "period_end", name="uq_filing_text_ticker_type_period"
+        ),
     )
 
 
@@ -1375,5 +1377,40 @@ class FilingSentimentCache(Base):
     __table_args__ = (
         UniqueConstraint(
             "filing_text_id", "analysis_version", name="uq_filing_sentiment_filing_version"
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# TAM Expansion — Segment Revenue History
+# ---------------------------------------------------------------------------
+
+
+class SegmentRevenueHistory(Base):
+    """Per-segment revenue history extracted from SEC filings.
+
+    Used by the TAM expansion velocity factor to compute company-level
+    segment CAGR for comparison against industry growth benchmarks.
+    """
+
+    __tablename__ = "segment_revenue_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    filing_date: Mapped[date] = mapped_column(nullable=False)
+    segment_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    segment_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'product', 'geo', etc.
+    revenue: Mapped[float] = mapped_column(Float, nullable=False)
+    source: Mapped[str] = mapped_column(String(10), nullable=False)  # 'xbrl' or 'nlp'
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "ticker",
+            "filing_date",
+            "segment_name",
+            name="uq_segment_revenue_ticker_date_segment",
         ),
     )
