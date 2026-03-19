@@ -9,13 +9,13 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from margin_api.db.models import JobRun, PipelineApproval
 
-UTC = timezone.utc
+UTC = UTC
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -187,9 +187,7 @@ class TestStageScoresImpl:
         for p in prev_scores:
             effects.append({"scalar_one_or_none": p})
 
-        factory, session, added = _mock_session_factory(
-            execute_side_effects=effects
-        )
+        factory, session, added = _mock_session_factory(execute_side_effects=effects)
 
         drift_not_triggered = _make_drift_result(triggered=False)
 
@@ -1197,7 +1195,9 @@ class TestExpireStaleApprovalsWorker:
         from margin_api.workers import expire_stale_approvals
 
         mock_redis_client = AsyncMock()
-        mock_redis_client.set = AsyncMock(return_value=None)  # lock NOT acquired (None = already set)
+        mock_redis_client.set = AsyncMock(
+            return_value=None
+        )  # lock NOT acquired (None = already set)
         mock_redis_client.aclose = AsyncMock()
 
         with (
