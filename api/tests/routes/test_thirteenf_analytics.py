@@ -9,8 +9,6 @@ from unittest.mock import patch
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.app import create_app
 from margin_api.config import get_settings
 from margin_api.db.base import Base
@@ -23,7 +21,7 @@ from margin_api.db.models import (
 )
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
-
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ---------------------------------------------------------------------------
 # Async fixtures
@@ -104,9 +102,7 @@ async def _seed_manager(
     return mgr
 
 
-async def _seed_security(
-    session: AsyncSession, cusip: str, ticker: str
-) -> SecurityMaster:
+async def _seed_security(session: AsyncSession, cusip: str, ticker: str) -> SecurityMaster:
     sec = SecurityMaster(cusip=cusip, ticker=ticker, issuer_name=ticker)
     session.add(sec)
     await session.flush()
@@ -214,9 +210,7 @@ async def test_new_positions_no_new_entries_when_ticker_in_both_quarters(
 
 
 @pytest.mark.asyncio
-async def test_new_positions_404_when_no_data(
-    session_factory, db_session, institutional_user_id
-):
+async def test_new_positions_404_when_no_data(session_factory, db_session, institutional_user_id):
     """Returns 404 when fewer than 2 quarters are available."""
     await db_session.commit()
     client = _make_client(session_factory, institutional_user_id)
@@ -241,9 +235,7 @@ async def test_new_positions_invalid_quarter_format(
 
 
 @pytest.mark.asyncio
-async def test_overlap_returns_most_held(
-    session_factory, db_session, institutional_user_id
-):
+async def test_overlap_returns_most_held(session_factory, db_session, institutional_user_id):
     """Returns most held tickers for the latest quarter."""
     mgr_a = await _seed_manager(db_session, "0002001", "Fund Alpha")
     mgr_b = await _seed_manager(db_session, "0002002", "Fund Beta")
@@ -283,9 +275,7 @@ async def test_overlap_returns_most_held(
 
 
 @pytest.mark.asyncio
-async def test_overlap_crowded_trades_fields(
-    session_factory, db_session, institutional_user_id
-):
+async def test_overlap_crowded_trades_fields(session_factory, db_session, institutional_user_id):
     """Crowded trades are populated with concentration_pct and total_value_millions."""
     mgr = await _seed_manager(db_session, "0003001", "Fund Gamma")
     sec = await _seed_security(db_session, "111111111", "NVDA")
@@ -316,9 +306,7 @@ async def test_overlap_crowded_trades_fields(
 
 
 @pytest.mark.asyncio
-async def test_overlap_explicit_quarter(
-    session_factory, db_session, institutional_user_id
-):
+async def test_overlap_explicit_quarter(session_factory, db_session, institutional_user_id):
     """Explicit quarter parameter is respected."""
     mgr = await _seed_manager(db_session, "0004001", "Fund Delta")
     sec = await _seed_security(db_session, "222222222", "TSLA")
@@ -341,9 +329,7 @@ async def test_overlap_explicit_quarter(
 
 
 @pytest.mark.asyncio
-async def test_overlap_404_when_no_data(
-    session_factory, db_session, institutional_user_id
-):
+async def test_overlap_404_when_no_data(session_factory, db_session, institutional_user_id):
     """Returns 404 when no holdings data is present."""
     await db_session.commit()
     client = _make_client(session_factory, institutional_user_id)

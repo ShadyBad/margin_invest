@@ -18,11 +18,6 @@ from margin_api.db.models import (
 )
 from margin_api.db.session import get_db
 from margin_api.deps import require_plan
-from margin_api.services.thirteenf_analytics import (
-    compute_crowded_trades,
-    compute_new_positions,
-    resolve_quarter,
-)
 from margin_api.schemas.thirteenf import (
     ChangesSummary,
     ClonePosition,
@@ -40,6 +35,11 @@ from margin_api.schemas.thirteenf import (
     OverlapEntry,
     OverlapResponse,
     PortfolioHolding,
+)
+from margin_api.services.thirteenf_analytics import (
+    compute_crowded_trades,
+    compute_new_positions,
+    resolve_quarter,
 )
 
 router = APIRouter(prefix="/api/v1/13f", tags=["13f"])
