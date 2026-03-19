@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from sqlalchemy import select
@@ -33,6 +34,9 @@ from margin_api.services.edgar.universe_assembly import (
     assemble_universe,
     fill_last_known_prices,
 )
+
+if TYPE_CHECKING:
+    from arq.connections import ArqRedis
 
 logger = logging.getLogger(__name__)
 
@@ -71,16 +75,20 @@ def _current_quarter(today: date) -> tuple[int, int]:
 async def check_new_filings(
     session_factory: async_sessionmaker[AsyncSession],
     lookback_days: int = 2,
+    redis: ArqRedis | None = None,
 ) -> dict[str, int]:
     """Check EDGAR for new 10-K/10-Q filings and ingest them.
 
     Fetches the current quarter's EDGAR index, filters to filings with known
     tickers, skips those already in the database, and inserts new ones.
+    If *redis* is provided, enqueues an ``analyze_filing_text`` ARQ job for
+    each newly inserted filing.
 
     Args:
         session_factory: Async SQLAlchemy session factory.
         lookback_days: Not currently used (kept for API consistency). The
             function checks the entire current quarter's index.
+        redis: Optional ARQ redis connection for enqueueing NLP analysis jobs.
 
     Returns:
         Dict with keys: new_filings, failed.
@@ -163,6 +171,31 @@ async def check_new_filings(
                 await session.commit()
                 if was_inserted:
                     new_filings += 1
+                    # Enqueue text extraction + NLP analysis if redis is available
+                    if redis is not None:
+                        # Fetch the snapshot id just inserted
+                        from sqlalchemy import select as _select
+
+                        result = await session.execute(
+                            _select(PITFinancialSnapshot).where(
+                                PITFinancialSnapshot.accession_number
+                                == entry.accession_number
+                            )
+                        )
+                        snapshot = result.scalar_one_or_none()
+                        if snapshot is not None:
+                            job_id = f"analyze-filing-{snapshot.id}"
+                            await redis.enqueue_job(
+                                "analyze_filing_text",
+                                ticker,
+                                snapshot.id,
+                                _job_id=job_id,
+                            )
+                            logger.info(
+                                "[daily-update] Enqueued analyze_filing_text for %s (id=%d)",
+                                ticker,
+                                snapshot.id,
+                            )
 
     logger.info(
         "[daily-update] Filing check complete: %d new, %d failed",
@@ -281,6 +314,7 @@ async def refresh_universe_if_quarter_end(
 
 async def run_daily_pit_update(
     session_factory: async_sessionmaker[AsyncSession],
+    redis: ArqRedis | None = None,
 ) -> dict:
     """Run the complete daily PIT data update pipeline.
 
@@ -291,13 +325,14 @@ async def run_daily_pit_update(
 
     Args:
         session_factory: Async SQLAlchemy session factory.
+        redis: Optional ARQ redis connection for enqueueing NLP analysis jobs.
 
     Returns:
         Combined summary dict with filings, prices, and universe results.
     """
     logger.info("[daily-update] Starting daily PIT update pipeline...")
 
-    filings_result = await check_new_filings(session_factory)
+    filings_result = await check_new_filings(session_factory, redis=redis)
     prices_result = await append_daily_prices(session_factory)
     universe_result = await refresh_universe_if_quarter_end(session_factory)
 

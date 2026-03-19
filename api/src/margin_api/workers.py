@@ -36,6 +36,7 @@ from margin_api.db.models import (
     DrawdownRescreen,
     Event,
     FilingMetadata,
+    FilingText,
     FinancialData,
     GovernanceEvent,
     HistoricalScore,
@@ -3656,13 +3657,15 @@ async def daily_pit_update(ctx: dict) -> dict:
 
     Runs daily at 23:00 UTC. Checks EDGAR for new 10-K/10-Q filings,
     appends recent prices for all active universe tickers, and refreshes
-    universe membership near quarter ends.
+    universe membership near quarter ends. Passes the ARQ redis connection
+    so newly inserted filings can have analyze_filing_text jobs enqueued.
     """
     from margin_api.services.edgar.daily_update import run_daily_pit_update
 
     engine = get_engine()
     session_factory = get_session_factory(engine)
-    result = await run_daily_pit_update(session_factory)
+    redis: ArqRedis | None = ctx.get("redis")
+    result = await run_daily_pit_update(session_factory, redis=redis)
     return result
 
 
@@ -4221,6 +4224,147 @@ async def rescore_ticker(
         return {"status": "failed", "ticker": ticker, "error": str(e)}
 
 
+async def analyze_filing_text(
+    ctx: dict,
+    ticker: str,
+    pit_snapshot_id: int,
+) -> dict:
+    """Extract text sections from a PIT filing and run NLP analysis.
+
+    Downloads the filing HTML from SEC EDGAR for the given PITFinancialSnapshot,
+    extracts Business/Risk/MD&A text sections, stores them in filing_texts,
+    and (if MARGIN_NLP_ENABLED=true) runs structured NLP analysis via Claude.
+
+    Args:
+        ctx: ARQ worker context.
+        ticker: Ticker symbol.
+        pit_snapshot_id: PK of the PITFinancialSnapshot row.
+
+    Returns:
+        Dict with status, ticker, pit_snapshot_id, and optional nlp_result.
+    """
+    import httpx
+
+    from margin_api.services.edgar.index_builder import USER_AGENT
+    from margin_api.services.edgar.text_extractor import FilingTextExtractor
+    from margin_api.services.nlp_analyzer import NLPAnalyzer
+
+    label = f"[analyze_filing_text:{ticker}:{pit_snapshot_id}]"
+    logger.info("%s Starting", label)
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Load the PIT snapshot record
+    async with session_factory() as session:
+        result = await session.execute(
+            select(PITFinancialSnapshot).where(PITFinancialSnapshot.id == pit_snapshot_id)
+        )
+        snapshot = result.scalar_one_or_none()
+
+    if snapshot is None:
+        logger.warning("%s PITFinancialSnapshot not found — skipping", label)
+        return {"status": "skipped", "reason": "snapshot_not_found", "ticker": ticker}
+
+    # Build the filing index URL to locate the HTML document
+    cik_int = int(snapshot.cik)
+    accession_clean = snapshot.accession_number.replace("-", "")
+    index_url = (
+        f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
+    )
+
+    filing_html: str | None = None
+    try:
+        async with httpx.AsyncClient(
+            headers={"User-Agent": USER_AGENT},
+            timeout=httpx.Timeout(60.0),
+        ) as client:
+            # Fetch the filing index page to find the main HTML document
+            index_resp = await client.get(index_url + "index.json")
+            if index_resp.status_code == 200:
+                index_data = index_resp.json()
+                # Find the first htm/html document that isn't the index itself
+                for item in index_data.get("directory", {}).get("item", []):
+                    name = item.get("name", "")
+                    if name.endswith((".htm", ".html")) and "index" not in name.lower():
+                        doc_url = index_url + name
+                        doc_resp = await client.get(doc_url)
+                        if doc_resp.status_code == 200:
+                            filing_html = doc_resp.text
+                        break
+    except Exception:
+        logger.warning("%s Failed to download filing HTML — skipping text extraction", label)
+
+    extractor = FilingTextExtractor()
+    if filing_html:
+        sections = extractor.extract_sections(filing_html, snapshot.form_type)
+    else:
+        # No HTML available — nothing to store
+        logger.info("%s No filing HTML — text extraction skipped", label)
+        return {"status": "skipped", "reason": "no_html", "ticker": ticker}
+
+    # Upsert FilingText record
+    async with session_factory() as session:
+        # Check if row already exists
+        existing_result = await session.execute(
+            select(FilingText).where(
+                FilingText.ticker == ticker,
+                FilingText.filing_type == snapshot.form_type,
+                FilingText.period_end == snapshot.period_end,
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+
+        if existing is None:
+            from datetime import UTC, datetime
+
+            filing_text_row = FilingText(
+                ticker=ticker,
+                cik=snapshot.cik,
+                filing_type=snapshot.form_type,
+                filing_date=snapshot.filing_date,
+                period_end=snapshot.period_end,
+                business_text=sections.business,
+                risk_factors_text=sections.risk_factors,
+                mda_text=sections.mda,
+                raw_html_hash=sections.html_hash,
+                created_at=datetime.now(UTC),
+            )
+            session.add(filing_text_row)
+            await session.commit()
+            filing_text_id = filing_text_row.id
+            logger.info("%s Stored filing text (id=%d)", label, filing_text_id)
+        else:
+            filing_text_id = existing.id
+            logger.info("%s Filing text already exists (id=%d)", label, filing_text_id)
+
+    # Run NLP analysis (no-op if MARGIN_NLP_ENABLED=false)
+    nlp_result = None
+    analyzer = NLPAnalyzer()
+    async with session_factory() as session:
+        nlp_result = await analyzer.analyze(
+            session=session,
+            filing_text_id=filing_text_id,
+            ticker=ticker,
+            mda_text=sections.mda,
+            risk_text=sections.risk_factors,
+        )
+
+    logger.info(
+        "%s Completed (filing_text_id=%d, nlp=%s)",
+        label,
+        filing_text_id,
+        "done" if nlp_result else "skipped",
+    )
+    return {
+        "status": "completed",
+        "ticker": ticker,
+        "pit_snapshot_id": pit_snapshot_id,
+        "filing_text_id": filing_text_id,
+        "nlp_result": nlp_result,
+    }
+
+
 async def screen_drawdown_candidates(ctx: dict) -> dict:
     """Daily cron: screen the scored universe for drawdown-triggered rescreening.
 
@@ -4491,6 +4635,7 @@ class WorkerSettings:
         daily_form4_update,
         rescore_ticker,
         screen_drawdown_candidates,
+        analyze_filing_text,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
