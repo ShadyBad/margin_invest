@@ -13,12 +13,14 @@ C6 (Kelly Position Sizing) ── metrics.py enhancement ───┤
 C3p1 (Moat Quantitative) ─── no deps ──────────────────┤── all independent
 C5 (Drawdown Re-Screening) ── existing pit_daily_prices ┘
 C1 (NLP Pipeline) ─────────── Anthropic API key ────────┐
-C2 (TAM Expansion) ────────── C1 Phase 1 ──────────────┤── sequential
+C2 (TAM Expansion) ────────── C1 Phase 2 (fallback) ───┤── sequential
 C3p2 (Moat NLP) ───────────── C1 Phase 2 ──────────────┘
 ```
 
-C4, C6, C3p1, and C5 can be implemented in parallel. C1 must complete Phase 1 before
-C2 begins. C3 Phase 2 requires C1 Phase 2.
+C4, C6, C3p1, and C5 can be implemented in parallel. C2's primary data source is
+XBRL tags (no C1 dependency), but its fallback path uses Claude API segment
+extraction from C1 Phase 2. C2 can ship with XBRL-only and gain the fallback later.
+C3 Phase 2 requires C1 Phase 2.
 
 ---
 
@@ -71,17 +73,21 @@ New `engine/src/margin_engine/scoring/quantitative/inflection_detection.py`:
 }
 ```
 
-**Wiring:** New `inflection_modifier()` function in `score_modifiers.py`, called
-alongside existing anti_consensus, insider, and liquidity modifiers.
+**Wiring:** New `inflection_modifier()` function in `score_modifiers.py`.
+`apply_all_modifiers()` gains a 4th parameter (`inflection_mod: float`). The
+combined product of all 4 modifiers remains clamped to [0.75, 1.25] — the clamp
+range does NOT widen with more modifiers, which means each individual modifier's
+effective impact decreases slightly. This is intentional: more signals = more
+confidence, but no single modifier should dominate.
 
 ### Files to Create/Modify
 
 | File | Change |
 |------|--------|
 | `engine/src/margin_engine/scoring/quantitative/inflection_detection.py` | New: three signal functions + composite |
-| `engine/src/margin_engine/scoring/score_modifiers.py` | Add `inflection_modifier()` |
-| `engine/src/margin_engine/scoring/v3_pipeline.py` | Wire modifier into pipeline |
-| `engine/src/margin_engine/scoring/v4_pipeline.py` | Wire modifier into pipeline |
+| `engine/src/margin_engine/scoring/score_modifiers.py` | Add `inflection_modifier()`, update `apply_all_modifiers()` signature to accept 4th param |
+| `engine/src/margin_engine/scoring/v3_pipeline.py` | Compute inflection modifier, pass to `apply_all_modifiers()` |
+| `engine/src/margin_engine/scoring/v4_pipeline.py` | Compute inflection modifier, pass to `apply_all_modifiers()` |
 
 ### Data Dependencies
 
@@ -121,6 +127,19 @@ beating benchmark). For Kelly to work, we need per-position stats:
 - Group by conviction tier
 - Compute `avg_winner_return` and `avg_loser_return` per tier
 
+**Data model changes required in `backtesting/models.py`:**
+- `HoldingRecord`: Add `conviction_tier: str | None`, `exit_price: float | None`,
+  `position_return: float | None` fields
+- New `PositionOutcome` model: `ticker`, `conviction_tier`, `entry_date`, `exit_date`,
+  `entry_price`, `exit_price`, `return_pct`, `is_winner: bool`
+- New `TierStats` model: `tier`, `win_rate`, `avg_winner_return`, `avg_loser_return`,
+  `n_positions`
+- `PerformanceMetrics`: Add `tier_stats: list[TierStats] | None`
+
+The `simulator.py` must populate `conviction_tier` on `HoldingRecord` at entry time
+and compute `position_return` at exit time. This data feeds `metrics.py` to compute
+per-tier Kelly inputs.
+
 New `engine/src/margin_engine/scoring/kelly_position_sizing.py`:
 
 ```python
@@ -154,6 +173,8 @@ back to existing fixed tier-based sizing in `v3_position_sizing.py`.
 | File | Change |
 |------|--------|
 | `engine/src/margin_engine/scoring/kelly_position_sizing.py` | New: Kelly formula + constraints |
+| `engine/src/margin_engine/backtesting/models.py` | Add `conviction_tier`, `exit_price`, `position_return` to HoldingRecord; new PositionOutcome, TierStats models; extend PerformanceMetrics |
+| `engine/src/margin_engine/backtesting/simulator.py` | Populate conviction_tier at entry, compute position_return at exit |
 | `engine/src/margin_engine/backtesting/metrics.py` | Add per-position outcome tracking, avg_winner/loser per tier |
 | `engine/src/margin_engine/scoring/v3_position_sizing.py` | Delegate to Kelly when stats available |
 
@@ -168,7 +189,8 @@ back to existing fixed tier-based sizing in `v3_position_sizing.py`.
 - Kelly formula with known inputs (p=0.6, b=2.0 → expected f*)
 - Constraints enforcement: cap at 15%, sector at 30%, top-3 at 50%
 - kelly_fraction=0.25 produces 25% of full Kelly
-- Negative edge (win_probability < 0.5) → position size 0
+- Negative edge (p*b < q, e.g. p=0.3, b=1.5 → f* < 0) → position size 0
+- Positive edge with low win rate (p=0.45, b=3.0 → f* > 0) → valid positive size
 - No backtest stats → fallback to fixed sizing
 - Backtest comparison: Kelly vs fixed sizing, measure Sharpe difference
 
@@ -187,8 +209,15 @@ durability prediction.
 
 ### Phase 1: Quantitative Moat Proxies (No Dependencies)
 
-Add three new proxy detectors to existing `moat_durability.py`. These become
-additional signatures alongside the existing 4, integrated into `_SIGNATURE_WEIGHTS`.
+Add three new proxy detectors to existing `moat_durability.py`. These are scored
+**separately** from the existing 4 signatures in `_SIGNATURE_WEIGHTS` — they do NOT
+get added to `_SIGNATURE_WEIGHTS` (which would change the normalization denominator
+`_MAX_WEIGHTED` and silently shift all existing gate thresholds).
+
+Instead, new proxies produce a `moat_classification` dict in `FactorScore.metadata`.
+The existing 0-4 quantitative score from `_SIGNATURE_WEIGHTS` is unchanged. The
+classification metadata is informational (for frontend display and C3 Phase 2
+enrichment) and does not affect the numeric moat score or gate pass rates.
 
 **Switching Costs Proxy:**
 - High SGA/Revenue ratio (support-intensive) + low revenue churn
@@ -288,9 +317,23 @@ first). Prevents flooding the ARQ queue during broad market selloffs.
 **Circuit breaker:** >15 candidates/day triggers admin alert via governance event
 (unusual market event, likely VIX spike).
 
-**`force_recount_gates` parameter:** New optional param threaded through
-`full_score` → `full_score_v3` → `full_score_v4` chain. Forces conviction gates
-to re-evaluate from scratch rather than using cached results.
+**Per-ticker scoring worker (new):** The existing `full_score_v3`/`v4` workers
+score the entire universe via `run_scoring_v3()` — they cannot target individual
+tickers. Drawdown re-screening requires a new per-ticker worker:
+
+```python
+async def rescore_ticker(ctx: dict, ticker: str, trigger_reason: str = "drawdown"):
+    """Score a single ticker through v3 + v4 pipeline.
+
+    Extracts the per-ticker scoring logic from run_scoring_v3/v4 into a
+    reusable function. Forces full gate re-evaluation (no cached results).
+    Records governance event with trigger_reason.
+    """
+```
+
+This worker is enqueued by `trigger_rescreening()` instead of `full_score`.
+The per-ticker function also benefits future use cases (manual re-score,
+post-filing re-score, etc.).
 
 **New tracking table:**
 ```sql
@@ -318,10 +361,10 @@ the trigger reason field.
 | File | Change |
 |------|--------|
 | `api/src/margin_api/services/drawdown_screener.py` | New service |
-| `api/src/margin_api/workers.py` | New cron job `screen_drawdown_candidates`, new worker function |
+| `api/src/margin_api/workers.py` | New cron job `screen_drawdown_candidates`, new `rescore_ticker` worker function |
+| `api/src/margin_api/services/scoring.py` | Extract per-ticker scoring logic from `run_scoring_v3`/`v4` into reusable function |
 | `api/src/margin_api/db/models.py` | New `DrawdownRescreen` ORM model |
 | `api/alembic/versions/xxx_add_drawdown_rescreens.py` | Migration |
-| `api/src/margin_api/workers.py` | Add `force_recount_gates` param to full_score chain |
 
 ### Config
 
@@ -439,13 +482,28 @@ CREATE TABLE filing_sentiment_cache (
 - `MARGIN_NLP_ENABLED = false` — off by default, opt-in
 - `MARGIN_NLP_MODEL = "claude-haiku"` — configurable
 - `MARGIN_NLP_MAX_FILINGS_PER_DAY = 50` — hard cap on daily spend
+- `MARGIN_NLP_RATE_LIMIT = 10` — max API calls per minute (Anthropic rate limits)
 - `MARGIN_NLP_TEMPERATURE = 0` — determinism
 
 ### Phase 3: Scoring Integration
 
 NLP-derived sentiment feeds into the **existing `anti_consensus_modifier`** as a
-4th signal component (alongside short interest, analyst divergence, and revision
-strength). This avoids two separate subsystems both expressing "sentiment."
+4th signal component. The current weights (40% short interest, 30% analyst
+divergence, 30% EPS revision) redistribute to (30% short, 25% analyst, 25% EPS,
+20% NLP sentiment). The `fundamental_trajectory` gating applies to all 4 signals
+uniformly — NLP sentiment is not exempt.
+
+The `anti_consensus_modifier` function signature gains a new optional parameter:
+`nlp_sentiment: float | None = None`. When None (NLP not available), weights
+revert to the existing 40/30/30 split. This preserves backward compatibility.
+
+**Relationship to existing `sentiment_score.py`:** The existing
+`scoring/quantitative/sentiment_score.py` accepts a pre-computed sentiment value
+(-5 to +5) and normalizes it. C1's Claude API output produces exactly this range.
+Rather than creating a parallel path, C1's `sentiment_value` feeds through
+`anti_consensus_modifier` (which already gates on fundamental trajectory). The
+standalone `sentiment_score.py` remains available for direct use but is not wired
+into the modifier pipeline — it serves as a utility function.
 
 Moat signals feed into C3 Phase 2 enrichment of `moat_durability.py`.
 
@@ -488,7 +546,7 @@ EDGAR daily_update → text extraction → filing_texts table
 
 ## C2: TAM Expansion Velocity
 
-**Effort: Medium | Architecture: Standalone factor in v3 cascade**
+**Effort: Medium | Architecture: Score modifier**
 
 ### Problem
 
@@ -496,11 +554,14 @@ No measurement of how fast a company is expanding into its total addressable mar
 Two companies with identical current ROIC can have vastly different futures if one is
 capturing share in a growing market while the other is mature.
 
-### Why Standalone Factor (Not Modifier)
+### Why Score Modifier (Not Cascade Factor)
 
-TAM expansion velocity is a structural quality — how fast the business is growing
-relative to its market. This is comparable to ROIC or moat durability in nature.
-It belongs in the v3 cascade as a primary factor, not as a post-computation modifier.
+While TAM expansion is arguably a structural quality, adding it as a cascade gate
+would change `total_gates` from 4 to 5 in Tracks A/B/C. This cascades through all
+conviction threshold functions (`assess_track_a_conviction`, etc.) which have
+hardcoded logic based on `gates_passed / total_gates` ratios. The blast radius is
+too large for the value delivered. As a modifier, TAM adjusts the composite score
+without touching the gate architecture.
 
 ### Design
 
@@ -564,16 +625,19 @@ CREATE TABLE segment_revenue_history (
 
 | File | Change |
 |------|--------|
-| `engine/src/margin_engine/scoring/quantitative/tam_expansion.py` | New factor |
+| `engine/src/margin_engine/scoring/quantitative/tam_expansion.py` | New: velocity computation |
 | `engine/src/margin_engine/config/industry_growth_rates.py` | New reference data |
 | `api/src/margin_api/db/models.py` | New SegmentRevenueHistory ORM model |
 | `api/alembic/versions/xxx_add_segment_revenue_history.py` | Migration |
-| `engine/src/margin_engine/scoring/v3_cascade.py` | Wire TAM factor into cascade |
+| `engine/src/margin_engine/scoring/score_modifiers.py` | Add `tam_modifier()`, update `apply_all_modifiers()` to accept 5th param |
+| `engine/src/margin_engine/scoring/v3_pipeline.py` | Compute TAM modifier, pass to `apply_all_modifiers()` |
+| `engine/src/margin_engine/scoring/v4_pipeline.py` | Compute TAM modifier, pass to `apply_all_modifiers()` |
 
 ### Data Dependencies
 
-- Segment revenue from XBRL tags (existing EDGAR pipeline) or C1 Phase 2 (Claude API)
-- Depends on C1 Phase 1 for text extraction if XBRL tags are missing
+- Segment revenue from XBRL tags (existing EDGAR pipeline) — primary, no C1 dependency
+- Fallback: Claude API segment extraction from C1 Phase 2 (not Phase 1)
+- C2 can ship with XBRL-only; fallback wired later when C1 Phase 2 is complete
 - Industry growth rates: hardcoded config, no external API
 
 ### Test Strategy
