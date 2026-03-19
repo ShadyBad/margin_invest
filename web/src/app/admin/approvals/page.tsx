@@ -10,8 +10,6 @@ import {
   type Approval,
 } from "@/lib/api/governance"
 
-const ADMIN_KEY = process.env.NEXT_PUBLIC_ADMIN_KEY ?? ""
-
 const FILTER_OPTIONS = [
   { id: "staged", label: "Staged" },
   { id: "approved", label: "Approved" },
@@ -35,7 +33,7 @@ export default function ApprovalsPage() {
     setError(null)
     try {
       const status = filter === "all" ? undefined : filter
-      const data = await getApprovals(ADMIN_KEY, status)
+      const data = await getApprovals(status)
       setApprovals(data.approvals)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch approvals")
@@ -50,7 +48,7 @@ export default function ApprovalsPage() {
 
   const handleApprove = async (id: number) => {
     try {
-      await approveApproval(ADMIN_KEY, id)
+      await approveApproval(id)
       setApprovals((prev) =>
         prev.map((a) => (a.id === id ? { ...a, status: "approved" } : a))
       )
@@ -67,7 +65,7 @@ export default function ApprovalsPage() {
   const handleRejectConfirm = async () => {
     if (rejectTarget === null || !rejectReason.trim()) return
     try {
-      await rejectApproval(ADMIN_KEY, rejectTarget, rejectReason.trim())
+      await rejectApproval(rejectTarget, rejectReason.trim())
       setApprovals((prev) =>
         prev.map((a) =>
           a.id === rejectTarget
@@ -98,7 +96,7 @@ export default function ApprovalsPage() {
       </p>
 
       {/* Pipeline health monitor */}
-      <PipelineStatus adminKey={ADMIN_KEY} />
+      <PipelineStatus />
 
       {/* Filter buttons */}
       <div className="flex gap-2 mb-6 flex-wrap">

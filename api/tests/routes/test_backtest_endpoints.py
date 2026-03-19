@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
 from margin_api.app import create_app
 from margin_api.db.base import Base
-from margin_api.db.models import User
+from margin_api.db.models import User, UserRole
 from margin_api.db.session import get_db
-from margin_api.deps import get_current_user_id
+from margin_api.deps import get_admin_user, get_current_user_id
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+
+def _make_admin_user() -> User:
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.role = UserRole.ADMIN
+    return user
 
 
 @pytest.fixture
@@ -244,11 +253,9 @@ class TestBacktestLatestEndpoint:
                     yield session
 
             app.dependency_overrides[get_db] = override_get_db
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             tc = TestClient(app)
-            response = tc.get(
-                "/api/v1/admin/backtest/latest",
-                headers={"x-admin-key": "test-admin-key"},
-            )
+            response = tc.get("/api/v1/admin/backtest/latest")
         get_settings.cache_clear()
         asyncio.get_event_loop_policy().new_event_loop().run_until_complete(engine.dispose())
         assert response.status_code == 404

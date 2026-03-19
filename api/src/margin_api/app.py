@@ -15,6 +15,8 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from margin_api import __version__
 from margin_api.config import get_settings
 from margin_api.routes.admin import router as admin_router
+from margin_api.routes.admin_governance_config import router as governance_config_router
+from margin_api.routes.admin_webhooks import router as webhooks_router
 from margin_api.routes.auth import router as auth_router
 from margin_api.routes.avatar import router as avatar_router
 from margin_api.routes.backtest import router as backtest_router
@@ -118,7 +120,6 @@ def create_app() -> FastAPI:
             "X-User-Email",
             "X-Auth-Timestamp",
             "X-Auth-Signature",
-            "X-Admin-Key",
         ],
     )
 
@@ -155,6 +156,8 @@ def create_app() -> FastAPI:
     app.include_router(dna_router)
     app.include_router(events_router)
     app.include_router(governance_router)
+    app.include_router(governance_config_router)
+    app.include_router(webhooks_router)
     app.include_router(model_validation_router)
     app.include_router(ingestion_router)
     app.include_router(jobs_router)

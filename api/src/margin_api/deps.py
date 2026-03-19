@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 
 import jwt as pyjwt
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -132,6 +132,88 @@ async def _verify_jwt_token(token: str, settings: Settings) -> int:
         return int(sub)
     except (ValueError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid user ID in token")
+
+
+def _verify_admin_jwt(token_str: str, settings: Settings) -> tuple[int, str]:
+    """Verify an admin session JWT signed with the user-facing jwt_secret.
+
+    Returns (user_id, role) on success.
+    Raises HTTPException(401) for any invalid/expired/missing-claim token.
+    """
+    try:
+        payload = pyjwt.decode(
+            token_str,
+            settings.jwt_secret,
+            algorithms=["HS256"],
+            options={"require": ["sub", "exp", "iat"]},
+        )
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Admin token expired")
+    except pyjwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid admin token")
+
+    sub = payload.get("sub")
+    role = payload.get("role")
+
+    if not sub:
+        raise HTTPException(status_code=401, detail="Missing sub claim")
+    if not role:
+        raise HTTPException(status_code=401, detail="Missing role claim")
+
+    try:
+        user_id = int(sub)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid user ID in token")
+
+    return user_id, role
+
+
+async def get_admin_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> User:
+    """Dependency that requires a valid admin or superadmin session cookie."""
+    cookie = request.cookies.get("admin_session")
+    if not cookie:
+        raise HTTPException(status_code=401, detail="Admin session required")
+
+    user_id, _role = _verify_admin_jwt(cookie, settings)
+
+    stmt = select(User).where(User.id == user_id)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    if user.role not in ("admin", "superadmin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    return user
+
+
+async def get_superadmin_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> User:
+    """Dependency that requires a valid superadmin session cookie."""
+    cookie = request.cookies.get("admin_session")
+    if not cookie:
+        raise HTTPException(status_code=401, detail="Admin session required")
+
+    user_id, _role = _verify_admin_jwt(cookie, settings)
+
+    stmt = select(User).where(User.id == user_id)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    if user.role != "superadmin":
+        raise HTTPException(status_code=403, detail="Superadmin access required")
+
+    return user
 
 
 PLAN_TIERS = {"analyst": 0, "portfolio": 1, "institutional": 2, "operator": 3}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from enum import StrEnum
 
 from sqlalchemy import (
     JSON,
@@ -26,6 +27,12 @@ from margin_api.db.base import Base
 
 # Use JSONB on PostgreSQL, fall back to JSON on other backends (e.g. SQLite for tests).
 JSONVariant = JSON().with_variant(JSONB(), "postgresql")
+
+
+class UserRole(StrEnum):
+    USER = "user"
+    ADMIN = "admin"
+    SUPERADMIN = "superadmin"
 
 
 class UniverseSnapshot(Base):
@@ -189,6 +196,7 @@ class User(Base):
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subscription_plan: Mapped[str] = mapped_column(String(20), default="analyst")
+    role: Mapped[str] = mapped_column(String(20), default=UserRole.USER, server_default="user")
     subscription_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     current_period_end: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -981,6 +989,43 @@ class GovernanceConfig(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+
+
+class WebhookSubscription(Base):
+    """Registered webhook endpoints for event notifications."""
+
+    __tablename__ = "webhook_subscriptions"
+    __table_args__ = (UniqueConstraint("event_type", "url"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(50), index=True)
+    url: Mapped[str] = mapped_column(String(2048))
+    hmac_key_encrypted: Mapped[str] = mapped_column(String(512))
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class WebhookDelivery(Base):
+    """Record of each webhook delivery attempt."""
+
+    __tablename__ = "webhook_deliveries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subscription_id: Mapped[int] = mapped_column(ForeignKey("webhook_subscriptions.id"), index=True)
+    event_type: Mapped[str] = mapped_column(String(50))
+    payload: Mapped[dict] = mapped_column(JSONVariant)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    attempts: Mapped[int] = mapped_column(default=0)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_status_code: Mapped[int | None] = mapped_column(nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class UserProposal(Base):

@@ -10,8 +10,6 @@ import {
   type SeedValidationReport,
 } from "@/lib/api/model-validation"
 
-const ADMIN_KEY = process.env.NEXT_PUBLIC_ADMIN_KEY ?? ""
-
 function formatTimestamp(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleString(undefined, {
@@ -33,7 +31,7 @@ export default function ModelValidationPage() {
     setLoading(true)
     setError(null)
     try {
-      const data = await getLatestValidationReport(ADMIN_KEY)
+      const data = await getLatestValidationReport()
       setReport(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch validation report")

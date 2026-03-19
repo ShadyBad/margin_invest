@@ -156,9 +156,7 @@ class FilingTextExtractor:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _extract_10k(
-        self, plain: str, plain_lower: str, html_hash: str
-    ) -> ExtractedSections:
+    def _extract_10k(self, plain: str, plain_lower: str, html_hash: str) -> ExtractedSections:
         pos = _find_section_boundaries(plain_lower, _10K_SECTION_PATTERNS)
 
         business_start = pos.get("business", -1)
@@ -197,9 +195,7 @@ class FilingTextExtractor:
             html_hash=html_hash,
         )
 
-    def _extract_10q(
-        self, plain: str, plain_lower: str, html_hash: str
-    ) -> ExtractedSections:
+    def _extract_10q(self, plain: str, plain_lower: str, html_hash: str) -> ExtractedSections:
         pos = _find_section_boundaries(plain_lower, _10Q_SECTION_PATTERNS)
 
         mda_start = pos.get("mda", -1)

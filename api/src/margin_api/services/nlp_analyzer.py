@@ -16,7 +16,7 @@ import hashlib
 import json
 import logging
 import os
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import anthropic
 from sqlalchemy import func, select
@@ -185,9 +185,13 @@ class NLPAnalyzer:
     async def _daily_cap_exceeded(self, session: AsyncSession) -> bool:
         cap = _get_max_filings_per_day()
         today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-        stmt = select(func.count()).select_from(FilingSentimentCache).where(
-            FilingSentimentCache.created_at >= today_start,
-            FilingSentimentCache.analysis_version == _ANALYSIS_VERSION,
+        stmt = (
+            select(func.count())
+            .select_from(FilingSentimentCache)
+            .where(
+                FilingSentimentCache.created_at >= today_start,
+                FilingSentimentCache.analysis_version == _ANALYSIS_VERSION,
+            )
         )
         result = await session.execute(stmt)
         count = result.scalar_one_or_none() or 0
@@ -248,7 +252,9 @@ class NLPAnalyzer:
             session.add(row)
             await session.commit()
         except Exception:
-            logger.exception("[nlp] Failed to store cache row for filing_text_id=%d", filing_text_id)
+            logger.exception(
+                "[nlp] Failed to store cache row for filing_text_id=%d", filing_text_id
+            )
             await session.rollback()
 
     @staticmethod

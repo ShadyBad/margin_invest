@@ -60,6 +60,11 @@ from margin_api.db.models import (
 )
 from margin_api.db.session import get_engine, get_session_factory, reset_engine_cache
 from margin_api.routes.events import add_event, add_notification
+from margin_api.services.circuit_breaker import (
+    check_ingestion_failure_rate,
+    check_ml_regression,
+    check_score_drift,
+)
 from margin_api.services.edgar.backfill import run_edgar_backfill
 from margin_api.services.edgar.index_builder import (
     USER_AGENT,
@@ -68,6 +73,7 @@ from margin_api.services.edgar.index_builder import (
 )
 from margin_api.services.edgar.price_backfill import backfill_prices_for_tickers
 from margin_api.services.edgar.universe_assembly import assemble_universe, fill_last_known_prices
+from margin_api.services.governance_config import get_threshold
 from margin_api.services.live_prices import LivePriceService
 from margin_api.services.universe import get_active_snapshot
 from margin_api.ws.scores import ScoreChangeMessage, manager
@@ -538,6 +544,46 @@ async def ingest_sweep_complete(ctx: dict, run_id: str, pipeline_id: str) -> dic
         run.duration_seconds or 0,
     )
 
+    # Check ingestion failure rate circuit breaker with dynamic threshold
+    try:
+        async with session_factory() as session:
+            ingest_threshold_pct = (
+                await get_threshold(session, "circuit_breaker.ingestion_failure") / 100.0
+            )
+        ingest_cb_result = check_ingestion_failure_rate(
+            failed_count=run.tickers_failed or 0,
+            total_count=run.tickers_requested or 0,
+            threshold_pct=ingest_threshold_pct,
+        )
+        if ingest_cb_result.triggered:
+            logger.warning(
+                "%s Ingestion failure circuit breaker triggered: %s",
+                label,
+                ingest_cb_result.detail,
+            )
+            try:
+                from margin_api.services.webhook_dispatcher import WebhookDispatcher
+
+                async with session_factory() as _cb_session:
+                    _cb_dispatcher = WebhookDispatcher()
+                    _cb_delivery_ids = await _cb_dispatcher.dispatch(
+                        _cb_session,
+                        "circuit_breaker.tripped",
+                        {
+                            "breaker": "ingestion_failure",
+                            "detail": ingest_cb_result.detail,
+                            "run_id": run_id,
+                        },
+                    )
+                _redis: ArqRedis | None = ctx.get("redis")
+                if _redis and _cb_delivery_ids:
+                    for _did in _cb_delivery_ids:
+                        await _redis.enqueue_job("deliver_webhook", _did, _job_id=f"webhook:{_did}")
+            except Exception:
+                logger.exception("%s Ingestion CB webhook dispatch failed (non-blocking)", label)
+    except Exception:
+        logger.exception("%s Ingestion failure circuit breaker check failed (non-blocking)", label)
+
     # Run post-ingestion consistency validation (non-blocking)
     try:
         from margin_api.services.consistency import validate_universe_consistency
@@ -856,6 +902,31 @@ async def _stage_scores_impl(
         if prev_score and prev_score.conviction != new_score.conviction:
             conviction_changes += 1
 
+    # Check score drift circuit breaker with dynamic threshold from governance config
+    drift_threshold_pct = await get_threshold(session, "circuit_breaker.score_drift") / 100.0
+    drift_result = await check_score_drift(session, scored_at, threshold_pct=drift_threshold_pct)
+    cb_webhook_ids: list[int] = []
+    if drift_result.triggered:
+        logger.warning(
+            "[stage_scores] Score drift circuit breaker triggered: %s",
+            drift_result.detail,
+        )
+        try:
+            from margin_api.services.webhook_dispatcher import WebhookDispatcher
+
+            dispatcher = WebhookDispatcher()
+            cb_webhook_ids = await dispatcher.dispatch(
+                session,
+                "circuit_breaker.tripped",
+                {
+                    "breaker": "score_drift",
+                    "detail": drift_result.detail,
+                    "scored_at": scored_at.isoformat(),
+                },
+            )
+        except Exception:
+            logger.exception("[stage_scores] CB webhook dispatch failed")
+
     # Create the PipelineApproval
     approval = PipelineApproval(
         gate_type="score_publish",
@@ -914,10 +985,30 @@ async def _stage_scores_impl(
 
     await session.commit()
 
+    # Dispatch webhook for score.staged (non-blocking)
+    try:
+        from margin_api.services.webhook_dispatcher import WebhookDispatcher
+
+        dispatcher = WebhookDispatcher()
+        _webhook_delivery_ids = await dispatcher.dispatch(
+            session,
+            "score.staged",
+            {
+                "approval_id": approval_id,
+                "ticker_count": ticker_count,
+                "status": status,
+                "scored_at": scored_at.isoformat(),
+            },
+        )
+    except Exception:
+        logger.exception("[stage_scores] Webhook dispatch failed (non-blocking)")
+        _webhook_delivery_ids = []
+
     return {
         "status": status,
         "approval_id": approval_id,
         "ticker_count": ticker_count,
+        "_webhook_delivery_ids": _webhook_delivery_ids + cb_webhook_ids,
     }
 
 
@@ -992,6 +1083,19 @@ async def stage_scores(
                 )
             else:
                 logger.warning("[stage_scores] Auto-approved but no redis — cannot chain")
+
+        # Enqueue deliver_webhook jobs for any dispatched deliveries
+        webhook_delivery_ids = result.pop("_webhook_delivery_ids", [])
+        if webhook_delivery_ids:
+            redis_for_wh: ArqRedis | None = ctx.get("redis")
+            if redis_for_wh:
+                for did in webhook_delivery_ids:
+                    await redis_for_wh.enqueue_job("deliver_webhook", did, _job_id=f"webhook:{did}")
+            else:
+                logger.warning(
+                    "[stage_scores] No redis — cannot enqueue %d webhook deliveries",
+                    len(webhook_delivery_ids),
+                )
 
         return result
 
@@ -1304,10 +1408,30 @@ async def _publish_scores_impl(
         decided_by,
     )
 
+    # Dispatch webhook for score.published (non-blocking)
+    webhook_delivery_ids: list[int] = []
+    try:
+        from margin_api.services.webhook_dispatcher import WebhookDispatcher
+
+        dispatcher = WebhookDispatcher()
+        webhook_delivery_ids = await dispatcher.dispatch(
+            session,
+            "score.published",
+            {
+                "approval_id": approval_id,
+                "published_count": published_count,
+                "decided_by": decided_by,
+                "scored_at": scored_at_str,
+            },
+        )
+    except Exception:
+        logger.exception("[publish_scores] Webhook dispatch failed (non-blocking)")
+
     return {
         "status": "published",
         "published_count": published_count,
         "approval_id": approval_id,
+        "_webhook_delivery_ids": webhook_delivery_ids,
     }
 
 
@@ -1372,6 +1496,19 @@ async def publish_scores(
             job.progress = 1.0
             job.completed_at = datetime.now(UTC)
             await session.commit()
+
+        # Enqueue deliver_webhook jobs for any dispatched deliveries
+        publish_webhook_ids = result.pop("_webhook_delivery_ids", [])
+        if publish_webhook_ids:
+            redis_for_wh: ArqRedis | None = ctx.get("redis")
+            if redis_for_wh:
+                for did in publish_webhook_ids:
+                    await redis_for_wh.enqueue_job("deliver_webhook", did, _job_id=f"webhook:{did}")
+            else:
+                logger.warning(
+                    "[publish_scores] No redis — cannot enqueue %d webhook deliveries",
+                    len(publish_webhook_ids),
+                )
 
         logger.info("[publish_scores] Complete: %s", result)
         return result
@@ -2511,12 +2648,26 @@ async def train_ml_models(ctx: dict) -> dict:
 
             # Stage the best model for operator approval
             async with session_factory() as session:
-                await _stage_ml_model_impl(session, best_ml_run_id)
+                stage_result = await _stage_ml_model_impl(session, best_ml_run_id)
                 logger.info(
                     "[train_ml] Gate PASSED. Staged seed %d (run %d) for approval",
                     best_seed_idx,
                     best_ml_run_id,
                 )
+            # Enqueue any circuit-breaker webhook deliveries from staging
+            _stage_cb_ids = stage_result.pop("_cb_webhook_ids", [])
+            if _stage_cb_ids:
+                _train_redis: ArqRedis | None = ctx.get("redis")
+                if _train_redis:
+                    for _did in _stage_cb_ids:
+                        await _train_redis.enqueue_job(
+                            "deliver_webhook", _did, _job_id=f"webhook:{_did}"
+                        )
+                else:
+                    logger.warning(
+                        "[train_ml] No redis — cannot enqueue %d CB webhook deliveries",
+                        len(_stage_cb_ids),
+                    )
         else:
             # Gate failed — reject all seeds, create governance event
             async with session_factory() as session:
@@ -2627,11 +2778,42 @@ async def _stage_ml_model_impl(
     )
     active_model = active_result.scalar_one_or_none()
 
+    _ml_cb_ids: list[int] = []
     if active_model is not None:
         previous_ic = active_model.overall_rank_ic or 0.0
         current_ic = model.overall_rank_ic or 0.0
         impact_summary["previous_rank_ic"] = previous_ic
         impact_summary["rank_ic_delta"] = current_ic - previous_ic
+
+        # Check ML regression circuit breaker with dynamic threshold from governance config
+        ml_threshold_pct = await get_threshold(session, "circuit_breaker.ml_regression") / 100.0
+        ml_cb_result = check_ml_regression(
+            new_rank_ic=current_ic,
+            active_rank_ic=previous_ic,
+            threshold_pct=ml_threshold_pct,
+        )
+        if ml_cb_result.triggered:
+            logger.warning(
+                "[stage_ml] ML regression circuit breaker triggered: %s",
+                ml_cb_result.detail,
+            )
+            try:
+                from margin_api.services.webhook_dispatcher import WebhookDispatcher
+
+                _ml_dispatcher = WebhookDispatcher()
+                _ml_cb_ids = await _ml_dispatcher.dispatch(
+                    session,
+                    "circuit_breaker.tripped",
+                    {
+                        "breaker": "ml_regression",
+                        "detail": ml_cb_result.detail,
+                        "model_run_id": model_run_id,
+                        "current_ic": current_ic,
+                        "previous_ic": previous_ic,
+                    },
+                )
+            except Exception:
+                logger.exception("[stage_ml] CB webhook dispatch failed")
 
     # Create PipelineApproval
     approval = PipelineApproval(
@@ -2653,7 +2835,7 @@ async def _stage_ml_model_impl(
         approval_id,
     )
 
-    return {"status": "staged", "approval_id": approval_id}
+    return {"status": "staged", "approval_id": approval_id, "_cb_webhook_ids": _ml_cb_ids}
 
 
 async def _promote_ml_model_impl(
@@ -2711,7 +2893,30 @@ async def _promote_ml_model_impl(
         decided_by,
     )
 
-    return {"status": "promoted", "model_id": model_id, "approval_id": approval_id}
+    # Dispatch webhook for model.promoted (non-blocking)
+    webhook_delivery_ids: list[int] = []
+    try:
+        from margin_api.services.webhook_dispatcher import WebhookDispatcher
+
+        dispatcher = WebhookDispatcher()
+        webhook_delivery_ids = await dispatcher.dispatch(
+            session,
+            "model.promoted",
+            {
+                "approval_id": approval_id,
+                "model_id": model_id,
+                "decided_by": decided_by,
+            },
+        )
+    except Exception:
+        logger.exception("[promote_ml] Webhook dispatch failed (non-blocking)")
+
+    return {
+        "status": "promoted",
+        "model_id": model_id,
+        "approval_id": approval_id,
+        "_webhook_delivery_ids": webhook_delivery_ids,
+    }
 
 
 async def promote_ml_model(
@@ -2729,7 +2934,22 @@ async def promote_ml_model(
     engine = get_engine()
     session_factory = get_session_factory(engine)
     async with session_factory() as session:
-        return await _promote_ml_model_impl(session, approval_id, decided_by, decision_reason)
+        result = await _promote_ml_model_impl(session, approval_id, decided_by, decision_reason)
+
+    # Enqueue deliver_webhook jobs for any dispatched deliveries
+    promote_webhook_ids = result.pop("_webhook_delivery_ids", [])
+    if promote_webhook_ids:
+        redis_for_wh: ArqRedis | None = ctx.get("redis")
+        if redis_for_wh:
+            for did in promote_webhook_ids:
+                await redis_for_wh.enqueue_job("deliver_webhook", did, _job_id=f"webhook:{did}")
+        else:
+            logger.warning(
+                "[promote_ml_model] No redis — cannot enqueue %d webhook deliveries",
+                len(promote_webhook_ids),
+            )
+
+    return result
 
 
 async def live_price_poll(ctx: dict) -> dict:
@@ -4442,6 +4662,64 @@ async def screen_drawdown_candidates(ctx: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Webhook delivery
+# ---------------------------------------------------------------------------
+
+
+async def deliver_webhook(ctx: dict, delivery_id: int) -> str:
+    """ARQ job: attempt a single webhook delivery with retry logic."""
+    from margin_api.services.webhook_dispatcher import BACKOFF_SECONDS, WebhookDispatcher
+
+    settings = get_settings()
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    dispatcher = WebhookDispatcher()
+
+    async with session_factory() as session:
+        success = await dispatcher.deliver(
+            session, delivery_id, encryption_key_str=settings.mfa_encryption_key
+        )
+
+    if not success:
+        # Reload delivery to check final status
+        async with session_factory() as session:
+            from margin_api.db.models import WebhookDelivery
+
+            delivery = await session.get(WebhookDelivery, delivery_id)
+            if delivery is not None and delivery.status != "dead_letter":
+                # Not dead-lettered yet — schedule a retry with exponential backoff
+                attempts = delivery.attempts
+                backoff = (
+                    BACKOFF_SECONDS[attempts]
+                    if attempts < len(BACKOFF_SECONDS)
+                    else BACKOFF_SECONDS[-1]
+                )
+                redis: ArqRedis | None = ctx.get("redis")
+                if redis:
+                    await redis.enqueue_job(
+                        "deliver_webhook",
+                        delivery_id,
+                        _job_id=f"webhook:{delivery_id}",
+                        _defer_by=timedelta(seconds=backoff),
+                    )
+                    logger.info(
+                        "[deliver_webhook] Retrying delivery %d in %ds (attempt %d)",
+                        delivery_id,
+                        backoff,
+                        attempts,
+                    )
+                else:
+                    logger.warning(
+                        "[deliver_webhook] No redis in ctx — cannot schedule retry for delivery %d",
+                        delivery_id,
+                    )
+        return "retry_scheduled"
+
+    return "delivered"
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -4633,6 +4911,7 @@ class WorkerSettings:
         rescore_ticker,
         screen_drawdown_candidates,
         analyze_filing_text,
+        arq_func(deliver_webhook),
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -10,7 +10,6 @@ import pytest_asyncio
 from margin_api.db.base import Base
 from margin_api.db.models import DrawdownRescreen, PITDailyPrice
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 
 # ---------------------------------------------------------------------------
 # Async DB fixtures (SQLite in-memory for speed)

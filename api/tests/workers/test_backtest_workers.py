@@ -13,7 +13,18 @@ from margin_api.db.models import (
     BacktestRun,
     JobRun,
     ShadowPortfolioSnapshot,
+    User,
+    UserRole,
 )
+from margin_api.deps import get_admin_user
+
+
+def _make_admin_user() -> User:
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.role = UserRole.ADMIN
+    return user
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -579,7 +590,7 @@ class TestPitBackfillEndpoint:
     def teardown_method(self):
         get_settings.cache_clear()
 
-    def test_pit_backfill_requires_admin_key(self):
+    def test_pit_backfill_requires_auth(self):
         from margin_api.app import create_app
 
         get_settings.cache_clear()
@@ -587,7 +598,7 @@ class TestPitBackfillEndpoint:
             app = create_app()
             client = TestClient(app)
             response = client.post("/api/v1/admin/pit/backfill")
-            assert response.status_code == 422
+            assert response.status_code == 401  # No admin session cookie
 
     def test_pit_backfill_enqueues_job(self):
         from margin_api.app import create_app
@@ -605,11 +616,9 @@ class TestPitBackfillEndpoint:
             patch("margin_api.routes.admin.create_pool", return_value=mock_pool),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.post(
-                "/api/v1/admin/pit/backfill",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.post("/api/v1/admin/pit/backfill")
 
         assert response.status_code == 202
         data = response.json()

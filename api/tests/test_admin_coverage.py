@@ -9,6 +9,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 from margin_api.app import create_app
 from margin_api.config import get_settings
+from margin_api.db.models import User, UserRole
+from margin_api.deps import get_admin_user
+
+
+def _make_admin_user() -> User:
+    """Return a mock admin User for dependency override."""
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.role = UserRole.ADMIN
+    return user
 
 
 class TestScoringTrigger:
@@ -33,11 +43,9 @@ class TestScoringTrigger:
             patch("margin_api.routes.admin.create_pool", return_value=mock_pool),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.post(
-                "/api/v1/admin/scoring/trigger",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.post("/api/v1/admin/scoring/trigger")
 
         assert resp.status_code == 202
         data = resp.json()
@@ -48,22 +56,13 @@ class TestScoringTrigger:
         call_args = mock_pool.enqueue_job.call_args
         assert call_args[0][0] == "full_score_v3"
 
-    def test_scoring_trigger_requires_admin_key(self):
+    def test_scoring_trigger_requires_auth(self):
+        """Without admin session cookie, returns 401."""
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             client = TestClient(app)
             resp = client.post("/api/v1/admin/scoring/trigger")
-        assert resp.status_code == 422
-
-    def test_scoring_trigger_rejects_wrong_key(self):
-        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "correct"}):
-            app = create_app()
-            client = TestClient(app)
-            resp = client.post(
-                "/api/v1/admin/scoring/trigger",
-                headers={"X-Admin-Key": "wrong"},
-            )
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_scoring_trigger_redis_failure(self):
         with (
@@ -74,11 +73,9 @@ class TestScoringTrigger:
             ),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.post(
-                "/api/v1/admin/scoring/trigger",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.post("/api/v1/admin/scoring/trigger")
         assert resp.status_code == 503
 
 
@@ -104,11 +101,9 @@ class TestMLTrainingTrigger:
             patch("margin_api.routes.admin.create_pool", return_value=mock_pool),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.post(
-                "/api/v1/admin/ml/train",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.post("/api/v1/admin/ml/train")
 
         assert resp.status_code == 202
         data = resp.json()
@@ -116,12 +111,13 @@ class TestMLTrainingTrigger:
         assert data["job"] == "train_ml_models"
         assert data["job_id"] == "ml-job-789"
 
-    def test_ml_train_requires_admin_key(self):
+    def test_ml_train_requires_auth(self):
+        """Without admin session cookie, returns 401."""
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             client = TestClient(app)
             resp = client.post("/api/v1/admin/ml/train")
-        assert resp.status_code == 422
+        assert resp.status_code == 401
 
     def test_ml_train_redis_failure(self):
         with (
@@ -132,11 +128,9 @@ class TestMLTrainingTrigger:
             ),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.post(
-                "/api/v1/admin/ml/train",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.post("/api/v1/admin/ml/train")
         assert resp.status_code == 503
 
 
@@ -161,11 +155,9 @@ class TestRedisHealth:
             patch("margin_api.routes.admin.aioredis.from_url", return_value=mock_client),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.get(
-                "/api/v1/admin/redis/health",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.get("/api/v1/admin/redis/health")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -182,11 +174,9 @@ class TestRedisHealth:
             ),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.get(
-                "/api/v1/admin/redis/health",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.get("/api/v1/admin/redis/health")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -212,11 +202,9 @@ class TestRedisHealth:
             patch("margin_api.routes.admin.aioredis.from_url", return_value=mock_client),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.get(
-                "/api/v1/admin/redis/health",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.get("/api/v1/admin/redis/health")
 
         data = resp.json()
         # Should not contain the password
@@ -244,11 +232,9 @@ class TestFlushRedisJobs:
             patch("margin_api.routes.admin.aioredis.from_url", return_value=mock_client),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.post(
-                "/api/v1/admin/redis/flush-jobs",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.post("/api/v1/admin/redis/flush-jobs")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -265,22 +251,21 @@ class TestFlushRedisJobs:
             ),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.post(
-                "/api/v1/admin/redis/flush-jobs",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.post("/api/v1/admin/redis/flush-jobs")
 
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "error"
 
-    def test_flush_jobs_requires_admin_key(self):
+    def test_flush_jobs_requires_auth(self):
+        """Without admin session cookie, returns 401."""
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             client = TestClient(app)
             resp = client.post("/api/v1/admin/redis/flush-jobs")
-        assert resp.status_code == 422
+        assert resp.status_code == 401
 
 
 class TestUniverseActivateErrors:
@@ -299,11 +284,9 @@ class TestUniverseActivateErrors:
             patch("pathlib.Path.exists", return_value=False),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.post(
-                "/api/v1/admin/universe/activate",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.post("/api/v1/admin/universe/activate")
         assert resp.status_code == 500
         assert "universe.yaml not found" in resp.json()["detail"]
 
@@ -319,10 +302,8 @@ class TestUniverseActivateErrors:
             ),
         ):
             app = create_app()
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            resp = client.post(
-                "/api/v1/admin/universe/activate",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            resp = client.post("/api/v1/admin/universe/activate")
         assert resp.status_code == 500
         assert "Failed to stage universe activation" in resp.json()["detail"]

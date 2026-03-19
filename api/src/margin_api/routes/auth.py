@@ -15,12 +15,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import Settings, get_settings
-from margin_api.db.models import LinkedProvider, RecoveryCode, TotpSecret, User
+from margin_api.db.models import LinkedProvider, RecoveryCode, TotpSecret, User, UserRole
 from margin_api.db.session import get_db
 from margin_api.deps import get_current_user_id
 from margin_api.middleware.mfa_enforcement import _ensure_utc, require_mfa_dep
 from margin_api.middleware.rate_limit import limiter
 from margin_api.schemas.auth import (
+    AdminLoginRequest,
+    AdminLoginResponse,
     ChangePasswordRequest,
     ChangePasswordResponse,
     ConfirmTotpRequest,
@@ -805,4 +807,73 @@ async def verify_mfa_token(
         email=user.email,
         username=user.name or "",
         avatar_url=user.avatar_url,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Admin login (mandatory MFA challenge)
+# ---------------------------------------------------------------------------
+
+_ADMIN_MFA_CHALLENGE_TTL = 5 * 60  # 5 minutes in seconds
+
+
+@router.post("/admin-login", response_model=AdminLoginResponse)
+@limiter.limit("5/minute")
+async def admin_login(
+    request: Request,
+    body: AdminLoginRequest,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> AdminLoginResponse:
+    """Verify admin credentials and always return an MFA challenge JWT.
+
+    Step 1 of the admin authentication flow:
+    1. Look up user by email.
+    2. Verify password with argon2.
+    3. Require admin or superadmin role (403 otherwise).
+    4. Issue a short-lived (5 min) challenge JWT signed with ``settings.jwt_secret``
+       containing ``sub``, ``role``, ``purpose="admin_mfa_challenge"``, and ``exp``.
+
+    MFA is MANDATORY — a challenge is always returned on success, never skipped.
+    """
+    # Look up user by email — use a generic error to avoid email enumeration
+    stmt = select(User).where(User.email == body.email)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Verify password
+    if not user.password_hash:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    try:
+        _hasher.verify(user.password_hash, body.pw)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Enforce admin/superadmin role
+    if user.role not in (UserRole.ADMIN, UserRole.SUPERADMIN):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Issue MFA challenge JWT — always, no skip path
+    now = int(time.time())
+    challenge_token = pyjwt.encode(
+        {
+            "sub": str(user.id),
+            "role": user.role,
+            "purpose": "admin_mfa_challenge",
+            "iat": now,
+            "exp": now + _ADMIN_MFA_CHALLENGE_TTL,
+        },
+        settings.jwt_secret,
+        algorithm="HS256",
+    )
+
+    await audit_log(db, "admin_login_challenge", request, user_id=user.id)
+    await db.commit()
+
+    return AdminLoginResponse(
+        mfa_required=True,
+        challenge_str=challenge_token,
+        message="MFA challenge issued. Verify with your authenticator app.",
     )

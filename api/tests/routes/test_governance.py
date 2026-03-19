@@ -12,10 +12,24 @@ from fastapi.testclient import TestClient
 from margin_api.app import create_app
 from margin_api.config import get_settings
 from margin_api.db.base import Base
-from margin_api.db.models import GovernanceEvent, PipelineApproval
+from margin_api.db.models import GovernanceEvent, PipelineApproval, User, UserRole
 from margin_api.db.session import get_db
+from margin_api.deps import get_admin_user
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+# ---------------------------------------------------------------------------
+# Shared admin user mock
+# ---------------------------------------------------------------------------
+
+
+def _make_admin_user() -> User:
+    """Return a mock admin User for dependency override."""
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.role = UserRole.ADMIN
+    return user
+
 
 # ---------------------------------------------------------------------------
 # Async DB fixtures (real SQLite, same pattern as test_universe_gate)
@@ -50,16 +64,20 @@ async def db_session(session_factory):
 
 
 def _make_app_and_client(
-    admin_key: str = "test-admin-key",
     db_override=None,
 ) -> tuple:
-    """Create app and client with admin key and optional DB override."""
+    """Create app and client with get_admin_user overridden and optional DB override."""
     get_settings.cache_clear()
-    with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": admin_key}):
+    with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-admin-key"}):
         app = create_app()
-        if db_override is not None:
-            app.dependency_overrides[get_db] = db_override
-        client = TestClient(app)
+
+    async def override_admin():
+        return _make_admin_user()
+
+    app.dependency_overrides[get_admin_user] = override_admin
+    if db_override is not None:
+        app.dependency_overrides[get_db] = db_override
+    client = TestClient(app)
     return app, client
 
 
@@ -158,13 +176,9 @@ class TestListApprovals:
         mock_session = _build_mock_session_with_approvals([approval1, approval2])
 
         _, client = _make_app_and_client(
-            admin_key="test-key",
             db_override=_make_mock_db_override(mock_session),
         )
-        response = client.get(
-            "/api/v1/admin/approvals",
-            headers={"X-Admin-Key": "test-key"},
-        )
+        response = client.get("/api/v1/admin/approvals")
 
         assert response.status_code == 200
         data = response.json()
@@ -193,33 +207,23 @@ class TestListApprovals:
         mock_session = _build_mock_session_with_approvals([staged])
 
         _, client = _make_app_and_client(
-            admin_key="test-key",
             db_override=_make_mock_db_override(mock_session),
         )
-        response = client.get(
-            "/api/v1/admin/approvals?status=staged",
-            headers={"X-Admin-Key": "test-key"},
-        )
+        response = client.get("/api/v1/admin/approvals?status=staged")
 
         assert response.status_code == 200
         data = response.json()
         assert len(data["approvals"]) == 1
         assert data["approvals"][0]["status"] == "staged"
 
-    def test_list_approvals_requires_admin_key(self):
-        """GET /admin/approvals returns 422 without X-Admin-Key header."""
-        _, client = _make_app_and_client(admin_key="test-key")
+    def test_list_approvals_requires_auth(self):
+        """GET /admin/approvals returns 401 without admin session cookie."""
+        get_settings.cache_clear()
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            client = TestClient(app)
         response = client.get("/api/v1/admin/approvals")
-        assert response.status_code == 422
-
-    def test_list_approvals_rejects_wrong_key(self):
-        """GET /admin/approvals returns 403 with wrong admin key."""
-        _, client = _make_app_and_client(admin_key="correct-key")
-        response = client.get(
-            "/api/v1/admin/approvals",
-            headers={"X-Admin-Key": "wrong-key"},
-        )
-        assert response.status_code == 403
+        assert response.status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -260,13 +264,9 @@ class TestGetApproval:
         mock_session.execute = mock_execute
 
         _, client = _make_app_and_client(
-            admin_key="test-key",
             db_override=_make_mock_db_override(mock_session),
         )
-        response = client.get(
-            "/api/v1/admin/approvals/1",
-            headers={"X-Admin-Key": "test-key"},
-        )
+        response = client.get("/api/v1/admin/approvals/1")
 
         assert response.status_code == 200
         data = response.json()
@@ -286,13 +286,9 @@ class TestGetApproval:
         mock_session.execute = mock_execute
 
         _, client = _make_app_and_client(
-            admin_key="test-key",
             db_override=_make_mock_db_override(mock_session),
         )
-        response = client.get(
-            "/api/v1/admin/approvals/999",
-            headers={"X-Admin-Key": "test-key"},
-        )
+        response = client.get("/api/v1/admin/approvals/999")
 
         assert response.status_code == 404
 
@@ -337,7 +333,6 @@ class TestApproveApproval:
         mock_session.refresh = AsyncMock()
 
         _, client = _make_app_and_client(
-            admin_key="test-key",
             db_override=_make_mock_db_override(mock_session),
         )
 
@@ -347,7 +342,6 @@ class TestApproveApproval:
         ) as mock_enqueue:
             response = client.post(
                 "/api/v1/admin/approvals/1/approve",
-                headers={"X-Admin-Key": "test-key"},
                 json={"reason": "LGTM"},
             )
 
@@ -374,12 +368,10 @@ class TestApproveApproval:
         mock_session.execute = mock_execute
 
         _, client = _make_app_and_client(
-            admin_key="test-key",
             db_override=_make_mock_db_override(mock_session),
         )
         response = client.post(
             "/api/v1/admin/approvals/999/approve",
-            headers={"X-Admin-Key": "test-key"},
             json={},
         )
 
@@ -401,27 +393,23 @@ class TestApproveApproval:
         mock_session.execute = mock_execute
 
         _, client = _make_app_and_client(
-            admin_key="test-key",
             db_override=_make_mock_db_override(mock_session),
         )
         response = client.post(
             "/api/v1/admin/approvals/1/approve",
-            headers={"X-Admin-Key": "test-key"},
             json={},
         )
 
         assert response.status_code == 409
 
-    def test_approve_rejects_wrong_key(self):
-        """POST /admin/approvals/1/approve returns 403 with wrong key."""
-        _, client = _make_app_and_client(admin_key="correct-key")
-        response = client.post(
-            "/api/v1/admin/approvals/1/approve",
-            headers={"X-Admin-Key": "wrong-key"},
-            json={},
-        )
-
-        assert response.status_code == 403
+    def test_approve_requires_auth(self):
+        """POST /admin/approvals/1/approve returns 401 without admin session cookie."""
+        get_settings.cache_clear()
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "correct-key"}):
+            app = create_app()
+            client = TestClient(app)
+        response = client.post("/api/v1/admin/approvals/1/approve", json={})
+        assert response.status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -463,12 +451,10 @@ class TestRejectApproval:
         mock_session.commit = AsyncMock()
 
         _, client = _make_app_and_client(
-            admin_key="test-key",
             db_override=_make_mock_db_override(mock_session),
         )
         response = client.post(
             "/api/v1/admin/approvals/1/reject",
-            headers={"X-Admin-Key": "test-key"},
             json={"reason": "Scores look off"},
         )
 
@@ -494,12 +480,10 @@ class TestRejectApproval:
         mock_session.execute = mock_execute
 
         _, client = _make_app_and_client(
-            admin_key="test-key",
             db_override=_make_mock_db_override(mock_session),
         )
         response = client.post(
             "/api/v1/admin/approvals/999/reject",
-            headers={"X-Admin-Key": "test-key"},
             json={},
         )
 
@@ -521,12 +505,10 @@ class TestRejectApproval:
         mock_session.execute = mock_execute
 
         _, client = _make_app_and_client(
-            admin_key="test-key",
             db_override=_make_mock_db_override(mock_session),
         )
         response = client.post(
             "/api/v1/admin/approvals/1/reject",
-            headers={"X-Admin-Key": "test-key"},
             json={},
         )
 
@@ -562,10 +544,10 @@ class TestGovernanceIntegration:
         ):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
             response = client.post(
                 f"/api/v1/admin/approvals/{approval_id}/approve",
-                headers={"X-Admin-Key": "test-key"},
                 json={"reason": "Ship it"},
             )
 
@@ -595,10 +577,10 @@ class TestGovernanceIntegration:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
             response = client.post(
                 f"/api/v1/admin/approvals/{approval_id}/reject",
-                headers={"X-Admin-Key": "test-key"},
                 json={"reason": "Rank IC too low"},
             )
 
@@ -628,11 +610,9 @@ class TestGovernanceIntegration:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/approvals",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/approvals")
 
         assert response.status_code == 200
         data = response.json()
@@ -689,11 +669,9 @@ class TestGovernanceDashboard:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/dashboard",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/governance/dashboard")
 
         assert response.status_code == 200
         data = response.json()
@@ -736,11 +714,9 @@ class TestGovernanceDashboard:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/dashboard",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/governance/dashboard")
 
         assert response.status_code == 200
         data = response.json()
@@ -762,11 +738,9 @@ class TestGovernanceDashboard:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/dashboard",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/governance/dashboard")
 
         assert response.status_code == 200
         data = response.json()
@@ -809,11 +783,9 @@ class TestGovernanceDashboard:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/dashboard",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/governance/dashboard")
 
         assert response.status_code == 200
         data = response.json()
@@ -834,15 +806,30 @@ class TestGovernanceDashboard:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/dashboard",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/governance/dashboard")
 
         assert response.status_code == 200
         data = response.json()
         assert data["rejection_rate"] is None
+
+    @pytest.mark.asyncio
+    async def test_dashboard_requires_auth(self, db_session, session_factory):
+        """Dashboard endpoint requires admin session cookie."""
+        get_settings.cache_clear()
+
+        async def db_override():
+            async with session_factory() as s:
+                yield s
+
+        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
+            app = create_app()
+            app.dependency_overrides[get_db] = db_override
+            client = TestClient(app)
+            response = client.get("/api/v1/admin/governance/dashboard")
+
+        assert response.status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -872,11 +859,9 @@ class TestGovernanceEvents:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/events?limit=3&offset=0",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/governance/events?limit=3&offset=0")
 
         assert response.status_code == 200
         data = response.json()
@@ -902,11 +887,9 @@ class TestGovernanceEvents:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/events?limit=50&offset=3",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/governance/events?limit=50&offset=3")
 
         assert response.status_code == 200
         data = response.json()
@@ -930,11 +913,9 @@ class TestGovernanceEvents:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/events?event_type=score",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/governance/events?event_type=score")
 
         assert response.status_code == 200
         data = response.json()
@@ -962,11 +943,9 @@ class TestGovernanceEvents:
         with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
             app = create_app()
             app.dependency_overrides[get_db] = db_override
+            app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/events",
-                headers={"X-Admin-Key": "test-key"},
-            )
+            response = client.get("/api/v1/admin/governance/events")
 
         assert response.status_code == 200
         data = response.json()
@@ -979,8 +958,8 @@ class TestGovernanceEvents:
         assert "created_at" in event
 
     @pytest.mark.asyncio
-    async def test_events_requires_admin_key(self, db_session, session_factory):
-        """Events endpoint requires admin key."""
+    async def test_events_requires_auth(self, db_session, session_factory):
+        """Events endpoint requires admin session cookie."""
         get_settings.cache_clear()
 
         async def db_override():
@@ -991,29 +970,6 @@ class TestGovernanceEvents:
             app = create_app()
             app.dependency_overrides[get_db] = db_override
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/events",
-                headers={"X-Admin-Key": "wrong-key"},
-            )
+            response = client.get("/api/v1/admin/governance/events")
 
-        assert response.status_code == 403
-
-    @pytest.mark.asyncio
-    async def test_dashboard_requires_admin_key(self, db_session, session_factory):
-        """Dashboard endpoint requires admin key."""
-        get_settings.cache_clear()
-
-        async def db_override():
-            async with session_factory() as s:
-                yield s
-
-        with patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}):
-            app = create_app()
-            app.dependency_overrides[get_db] = db_override
-            client = TestClient(app)
-            response = client.get(
-                "/api/v1/admin/governance/dashboard",
-                headers={"X-Admin-Key": "wrong-key"},
-            )
-
-        assert response.status_code == 403
+        assert response.status_code == 401

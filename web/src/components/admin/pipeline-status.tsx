@@ -8,10 +8,6 @@ import {
   type TransparencyResponse,
 } from "@/lib/api/governance"
 
-interface PipelineStatusProps {
-  adminKey: string
-}
-
 function formatDatetime(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleString(undefined, {
@@ -22,7 +18,7 @@ function formatDatetime(iso: string): string {
   })
 }
 
-export function PipelineStatus({ adminKey }: PipelineStatusProps) {
+export function PipelineStatus() {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null)
   const [transparency, setTransparency] = useState<TransparencyResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -34,7 +30,7 @@ export function PipelineStatus({ adminKey }: PipelineStatusProps) {
       setLoading(true)
       try {
         const [dashData, transData] = await Promise.all([
-          getDashboard(adminKey),
+          getDashboard(),
           getTransparency(),
         ])
         if (!cancelled) {
@@ -54,7 +50,7 @@ export function PipelineStatus({ adminKey }: PipelineStatusProps) {
     return () => {
       cancelled = true
     }
-  }, [adminKey])
+  }, [])
 
   if (loading) {
     return (

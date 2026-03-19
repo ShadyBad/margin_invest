@@ -7,15 +7,15 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from arq.connections import ArqRedis, RedisSettings, create_pool
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
-from margin_api.db.models import GovernanceEvent, PipelineApproval
+from margin_api.db.models import GovernanceEvent, PipelineApproval, User
 from margin_api.db.session import get_db
+from margin_api.deps import get_admin_user
 from margin_api.middleware.rate_limit import limiter
-from margin_api.routes.admin import _verify_admin_key
 from margin_api.schemas.governance import (
     ApprovalDecisionRequest,
     ApprovalListResponse,
@@ -91,13 +91,12 @@ async def _enqueue_publish_job(approval: PipelineApproval) -> None:
 @limiter.limit("30/minute")
 async def list_approvals(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
     status: str | None = None,
     gate_type: str | None = None,
 ) -> ApprovalListResponse:
     """List all pipeline approvals, optionally filtered by status or gate_type."""
-    _verify_admin_key(x_admin_key)
 
     query = select(PipelineApproval).order_by(PipelineApproval.submitted_at.desc())
 
@@ -117,11 +116,10 @@ async def list_approvals(
 async def get_approval(
     approval_id: int,
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> ApprovalSummary:
     """Get a single pipeline approval by ID."""
-    _verify_admin_key(x_admin_key)
 
     result = await session.execute(
         select(PipelineApproval).where(PipelineApproval.id == approval_id)
@@ -139,11 +137,10 @@ async def approve_approval(
     approval_id: int,
     request: Request,
     body: ApprovalDecisionRequest,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Approve a staged pipeline approval and enqueue the publish job."""
-    _verify_admin_key(x_admin_key)
 
     result = await session.execute(
         select(PipelineApproval).where(PipelineApproval.id == approval_id)
@@ -172,11 +169,10 @@ async def reject_approval(
     approval_id: int,
     request: Request,
     body: ApprovalDecisionRequest,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Reject a staged pipeline approval."""
-    _verify_admin_key(x_admin_key)
 
     result = await session.execute(
         select(PipelineApproval).where(PipelineApproval.id == approval_id)
@@ -199,11 +195,10 @@ async def reject_approval(
 @limiter.limit("30/minute")
 async def governance_dashboard(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ) -> GovernanceDashboardResponse:
     """Aggregated governance statistics dashboard."""
-    _verify_admin_key(x_admin_key)
 
     # Count pending (staged) approvals
     pending_result = await session.execute(
@@ -264,14 +259,13 @@ async def governance_dashboard(
 @limiter.limit("30/minute")
 async def list_governance_events(
     request: Request,
-    x_admin_key: str = Header(),
+    admin_user: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
     event_type: str | None = None,
     limit: int = Query(default=50, le=200, ge=1),
     offset: int = Query(default=0, ge=0),
 ) -> GovernanceEventListResponse:
     """Paginated governance event log."""
-    _verify_admin_key(x_admin_key)
 
     # Base query for filtering
     base_filter = []

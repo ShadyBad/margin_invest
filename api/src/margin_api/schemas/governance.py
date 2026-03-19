@@ -53,3 +53,19 @@ class TransparencyResponse(BaseModel):
     oversight_levels: dict
     last_approvals: dict
     pipeline_health: dict
+
+
+class GovernanceConfigResponse(BaseModel):
+    config_key: str
+    config_value: dict
+    description: str
+    is_default: bool
+    updated_at: datetime | None = None
+
+
+class GovernanceConfigUpdate(BaseModel):
+    config_value: dict
+
+
+class GovernanceConfigListResponse(BaseModel):
+    configs: list[GovernanceConfigResponse]

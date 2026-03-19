@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import httpx
 from sqlalchemy import select
@@ -178,8 +178,7 @@ async def check_new_filings(
 
                         result = await session.execute(
                             _select(PITFinancialSnapshot).where(
-                                PITFinancialSnapshot.accession_number
-                                == entry.accession_number
+                                PITFinancialSnapshot.accession_number == entry.accession_number
                             )
                         )
                         snapshot = result.scalar_one_or_none()
