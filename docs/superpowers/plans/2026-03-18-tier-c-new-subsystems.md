@@ -14,7 +14,7 @@
 
 ## Parallelism Note
 
-Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) have **no cross-dependencies** and can be implemented in parallel by separate agents. C1 (Tasks 20-25) and C2 (Tasks 26-30) are sequential.
+Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) [task numbers approximate after fixes] have **no cross-dependencies** and can be implemented in parallel by separate agents. C1 (Tasks 20-25) and C2 (Tasks 26-30) are sequential.
 
 ---
 
@@ -127,7 +127,9 @@ Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) have **no cross-dependencies
 - [ ] **Step 1: Write failing tests** for new fields (optional defaults) and new models.
 - [ ] **Step 2: Add fields and models** to models.py
 - [ ] **Step 3: Run backtesting tests** `uv run pytest engine/tests/backtesting/ -v`
-- [ ] **Step 4: Commit** `feat(engine): extend backtesting models for Kelly tracking`
+- [ ] **Step 4: Update `engine/src/margin_engine/backtesting/simulator.py`** to populate `conviction_tier` from CompositeScore.composite_tier at position entry time, and compute `position_return` = (exit_price - entry_price) / entry_price at exit time. Without this, the new HoldingRecord fields are never populated and per-tier Kelly stats cannot be computed.
+- [ ] **Step 5: Run all backtesting tests** `uv run pytest engine/tests/backtesting/ -v`
+- [ ] **Step 6: Commit** `feat(engine): extend backtesting models and simulator for Kelly tracking`
 
 ### Task 10: Kelly Position Size Formula
 
@@ -206,6 +208,8 @@ Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) have **no cross-dependencies
 - [ ] **Step 3: Run ALL moat tests** (regression: existing tests pass since sector defaults to None)
 - [ ] **Step 4: Commit** `feat(engine): add moat classification metadata`
 
+**Note: C3 Phase 2 (NLP moat enrichment) is deferred** until C1 Phase 2 completes. It will merge NLP keyword confidence from filing analysis into the moat classification metadata. This will be a separate plan after C1 ships.
+
 ---
 
 ## C5: Drawdown Re-Screening
@@ -221,7 +225,8 @@ Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) have **no cross-dependencies
 - [ ] **Step 1: Add ORM model** to models.py
 - [ ] **Step 2: Generate migration** `uv run alembic revision --autogenerate -m "add drawdown_rescreens table"`
 - [ ] **Step 3: Apply** `uv run alembic upgrade head`
-- [ ] **Step 4: Commit** `feat(api): add drawdown_rescreens table`
+- [ ] **Step 4: Verify** table creation works via running `uv run pytest api/tests/ -v --ignore=api/tests/services/test_xbrl_parser.py -x -q` (model is integration-tested via Task 17's DrawdownScreener tests)
+- [ ] **Step 5: Commit** `feat(api): add drawdown_rescreens table`
 
 ### Task 17: DrawdownScreener Service
 
@@ -240,12 +245,14 @@ Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) have **no cross-dependencies
 **Files:**
 - Modify: `api/src/margin_api/workers.py`
 
-**Context:** `rescore_ticker(ctx, ticker, trigger_reason)` per-ticker worker. Creates JobRun, calls per-ticker scoring (extract from run_scoring_v3/v4 or stub with TODO). `screen_drawdown_candidates(ctx)` daily cron 23:30 UTC. Uses DrawdownScreener, circuit breaker (>15 -> governance alert). Register both.
+**Context:** `rescore_ticker(ctx, ticker, trigger_reason)` per-ticker worker. Creates JobRun, calls per-ticker scoring logic. `screen_drawdown_candidates(ctx)` daily cron 23:30 UTC. Uses DrawdownScreener, circuit breaker (>15 -> governance alert). Register both.
 
-- [ ] **Step 1: Add rescore_ticker** following JobRun pattern at line 582
-- [ ] **Step 2: Add screen_drawdown_candidates** cron
-- [ ] **Step 3: Register** in WorkerSettings functions/cron lists
-- [ ] **Step 4: Commit** `feat(api): add drawdown cron and rescore_ticker worker`
+- [ ] **Step 1: Extract per-ticker scoring** into `api/src/margin_api/services/scoring.py`. Add a `score_single_ticker(ticker: str)` async function that runs the v3+v4 pipeline for a single ticker. The existing `run_scoring_v3()` in `api/src/margin_api/cli.py` scores the full universe; this function wraps the same scoring logic but filters to one ticker.
+- [ ] **Step 2: Write test** `api/tests/services/test_rescore_ticker.py` for the per-ticker worker: mock `score_single_ticker`, verify JobRun created and status updated.
+- [ ] **Step 3: Add rescore_ticker worker** to `workers.py` following JobRun pattern at line 582. Calls `score_single_ticker(ticker)`.
+- [ ] **Step 4: Add screen_drawdown_candidates cron** to `workers.py`. Uses DrawdownScreener, circuit breaker (>15 -> governance alert via GovernanceEvent).
+- [ ] **Step 5: Register** both in WorkerSettings functions/cron lists
+- [ ] **Step 6: Run tests, commit** `feat(api): add drawdown cron and rescore_ticker worker`
 
 ### Task 19: Full API Test Suite
 
@@ -271,7 +278,7 @@ Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) have **no cross-dependencies
 
 **Files:**
 - Create: `api/src/margin_api/services/edgar/text_extractor.py`
-- Create: `api/tests/services/edgar/test_text_extractor.py`
+- Create: `api/tests/services/test_text_extractor.py` (flat in services/, matching codebase convention)
 
 **Context:** `FilingTextExtractor.extract_sections(filing_html, filing_type) -> ExtractedSections`. Section mapping: 10-K Items 1/1A/7, 10-Q Part II Item 1A / Part I Item 2. Regex section boundary detection. Returns dataclass with business, risk_factors, mda, html_hash. Cap sections at 50K chars.
 
@@ -299,9 +306,10 @@ Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) have **no cross-dependencies
 
 **Context:** New `analyze_filing_text` worker. After XBRL parsing in daily_update.py, add text extraction and (if NLP enabled) enqueue analysis.
 
-- [ ] **Step 1: Add** analyze_filing_text worker
-- [ ] **Step 2: Wire** text extraction into daily_update.py
-- [ ] **Step 3: Run tests, commit** `feat(api): wire NLP analysis into EDGAR pipeline`
+- [ ] **Step 1: Add** analyze_filing_text worker to workers.py
+- [ ] **Step 2: Wire** text extraction into daily_update.py (after XBRL parse, call FilingTextExtractor, store in filing_texts, enqueue analysis if MARGIN_NLP_ENABLED)
+- [ ] **Step 3: Write test** `api/tests/services/test_nlp_wiring.py` verifying: text extraction triggered after XBRL parse, filing_text record created, analysis job enqueued when NLP enabled, daily cap (MARGIN_NLP_MAX_FILINGS_PER_DAY) respected
+- [ ] **Step 4: Run tests, commit** `feat(api): wire NLP analysis into EDGAR pipeline`
 
 ### Task 24: Wire NLP into Anti-Consensus Modifier
 
@@ -330,7 +338,7 @@ Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) have **no cross-dependencies
 - Create: `engine/src/margin_engine/config/industry_growth_rates.py`
 - Create: `engine/tests/config/test_industry_growth_rates.py`
 
-**Context:** `IndustryGrowthRate(rate, last_updated)` Pydantic model. Dict of ~20 sub-industries. `get_industry_growth_rate(industry)` returns rate or default 0.05.
+**Context:** `IndustryGrowthRate(rate, last_updated)` Pydantic model. Dict of ~50 sub-industries. `get_industry_growth_rate(industry)` returns rate or default 0.05.
 
 - [ ] **Step 1: Write failing tests** (known industry, unknown fallback, all positive)
 - [ ] **Step 2: Implement** config module
@@ -356,9 +364,9 @@ Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) have **no cross-dependencies
 - Modify: `engine/src/margin_engine/scoring/v4_pipeline.py`
 - Modify: `engine/tests/scoring/test_score_modifiers.py`
 
-**Context:** `tam_modifier(tam_score_value: float | None) -> float`. Maps 0-10 to [0.95, 1.10], center 5->1.0. None->1.0. Update apply_all_modifiers for 5th param `tam: float = 1.0`. Wire into pipelines.
+**Context:** `tam_modifier(tam_score_value: float | None) -> float`. Maps 0-10 to [0.95, 1.10], center 5->1.0. None->1.0. **Important:** After Task 6 adds `inflection`, `apply_all_modifiers` has 5 params. TAM adds a 6th positional param (5th modifier): `tam: float = 1.0`. Multiply into combined product alongside the other 4 modifiers.
 
-- [ ] **Step 1: Write tests** for tam_modifier and 5-param apply_all_modifiers
+- [ ] **Step 1: Write tests** for tam_modifier and 6-param apply_all_modifiers
 - [ ] **Step 2: Implement** tam_modifier, update apply_all_modifiers
 - [ ] **Step 3: Wire** into v3 and v4 pipelines
 - [ ] **Step 4: Run tests, commit** `feat(engine): add TAM modifier and wire into pipelines`
@@ -372,7 +380,8 @@ Tasks 1-8 (C4), 9-12 (C6), 13-15 (C3p1), 16-19 (C5) have **no cross-dependencies
 **Context:** Table: ticker (String 10 indexed), filing_date (Date), segment_name (String 200), segment_type (String 20), revenue (Float), source (String 10), created_at. Unique(ticker, filing_date, segment_name).
 
 - [ ] **Step 1: Add ORM model, generate + apply migration**
-- [ ] **Step 2: Commit** `feat(api): add segment_revenue_history table`
+- [ ] **Step 2: Verify** via API test suite (model is integration-tested via C2 factor tests)
+- [ ] **Step 3: Commit** `feat(api): add segment_revenue_history table`
 
 ### Task 30: Final Verification
 
