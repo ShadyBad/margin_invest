@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+import pytest_asyncio
 from margin_api.services.edgar.backfill import (
     _build_snapshot_row,
     _infer_fiscal_info,
@@ -17,6 +18,7 @@ from margin_api.services.edgar.backfill import (
 )
 from margin_api.services.edgar.index_builder import EdgarIndexEntry
 from margin_api.services.edgar.xbrl_parser import XBRLFinancials
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
 def _make_entry(
@@ -572,3 +574,551 @@ class TestReparseEmptyFilings:
         result = await reparse_empty_filings(mock_factory)
 
         assert result == {"total": 0, "reparsed": 0, "failed": 0, "still_empty": 0}
+
+
+# ---------------------------------------------------------------------------
+# In-memory DB fixtures (backfill needs PITFinancialSnapshot, EdgarNoXBRLCache)
+# ---------------------------------------------------------------------------
+
+
+@pytest_asyncio.fixture
+async def backfill_session_factory():
+    """In-memory SQLite session factory with the full schema."""
+    from margin_api.db.models import Base
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    yield factory
+    await engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# run_edgar_backfill tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunEdgarBackfill:
+    """Tests for the run_edgar_backfill orchestration function."""
+
+    def _make_entry(
+        self,
+        cik: str = "320193",
+        accession: str = "0000320193-24-000001",
+    ):
+        from margin_api.services.edgar.index_builder import EdgarIndexEntry
+
+        return EdgarIndexEntry(
+            company_name="APPLE INC",
+            form_type="10-K",
+            cik=cik,
+            date_filed="2024-01-01",
+            accession_number=accession,
+            filename=f"edgar/data/{cik}/{accession}.txt",
+        )
+
+    def _make_financials(self):
+        from margin_api.services.edgar.xbrl_parser import XBRLFinancials
+
+        return XBRLFinancials(
+            income_statement={"revenue": 94930000000.0, "net_income": 23636000000.0},
+            balance_sheet={"total_assets": 352583000000.0, "total_equity": 56727000000.0},
+            cash_flow={"operating_cash_flow": 26438000000.0},
+            shares_outstanding=15334382000,
+        )
+
+    @pytest.mark.asyncio
+    async def test_dry_run_returns_count_without_inserting(self, backfill_session_factory) -> None:
+        """dry_run=True returns total count without any DB inserts."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.backfill import run_edgar_backfill
+
+        entry = self._make_entry()
+        cik_map = {320193: "AAPL"}
+
+        with patch(
+            "margin_api.services.edgar.backfill.build_full_index",
+            new=AsyncMock(return_value=([entry], cik_map)),
+        ):
+            result = await run_edgar_backfill(
+                start_year=2024,
+                end_year=2024,
+                session_factory=backfill_session_factory,
+                dry_run=True,
+            )
+
+        assert result["total"] == 1
+        assert result["inserted"] == 0
+        assert result["skipped"] == 0
+        assert result["failed"] == 0
+
+    @pytest.mark.asyncio
+    async def test_entries_without_ticker_excluded(self, backfill_session_factory) -> None:
+        """Entries whose CIK is not in cik_map are excluded from total."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.backfill import run_edgar_backfill
+
+        entry_known = self._make_entry(cik="320193", accession="0000320193-24-000001")
+        entry_unknown = self._make_entry(cik="999999", accession="0000999999-24-000001")
+        cik_map = {320193: "AAPL"}  # only AAPL known
+
+        with patch(
+            "margin_api.services.edgar.backfill.build_full_index",
+            new=AsyncMock(return_value=([entry_known, entry_unknown], cik_map)),
+        ):
+            result = await run_edgar_backfill(
+                start_year=2024,
+                end_year=2024,
+                session_factory=backfill_session_factory,
+                dry_run=True,
+            )
+
+        assert result["total"] == 1  # only entry_known
+
+    @pytest.mark.asyncio
+    async def test_skips_already_existing_accessions(self, backfill_session_factory) -> None:
+        """Entries already in PITFinancialSnapshot are skipped (not processed)."""
+        from datetime import date
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.db.models import PITFinancialSnapshot
+        from margin_api.services.edgar.backfill import run_edgar_backfill
+
+        # Pre-insert the accession into DB
+        async with backfill_session_factory() as session:
+            snapshot = PITFinancialSnapshot(
+                accession_number="0000320193-24-000001",
+                cik="320193",
+                ticker="AAPL",
+                form_type="10-K",
+                filing_date=date(2024, 1, 1),
+                period_end=date(2023, 12, 31),
+                income_statement={},
+                balance_sheet={},
+                cash_flow={},
+                fiscal_year=2023,
+                fiscal_quarter=4,
+            )
+            session.add(snapshot)
+            await session.commit()
+
+        entry = self._make_entry(accession="0000320193-24-000001")
+        cik_map = {320193: "AAPL"}
+
+        mock_fetch = AsyncMock(return_value=self._make_financials())
+        with (
+            patch(
+                "margin_api.services.edgar.backfill.build_full_index",
+                new=AsyncMock(return_value=([entry], cik_map)),
+            ),
+            patch(
+                "margin_api.services.edgar.backfill._fetch_filing_with_retry",
+                new=mock_fetch,
+            ),
+        ):
+            result = await run_edgar_backfill(
+                start_year=2024,
+                end_year=2024,
+                session_factory=backfill_session_factory,
+                dry_run=False,
+            )
+
+        # fetch should not have been called (entry was in skip set)
+        mock_fetch.assert_not_called()
+        assert result["total"] == 0
+
+    @pytest.mark.asyncio
+    async def test_inserts_new_filing_successfully(self, backfill_session_factory) -> None:
+        """Happy-path: new entry is fetched, parsed, and inserted."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.backfill import run_edgar_backfill
+
+        entry = self._make_entry()
+        cik_map = {320193: "AAPL"}
+        financials = self._make_financials()
+
+        with (
+            patch(
+                "margin_api.services.edgar.backfill.build_full_index",
+                new=AsyncMock(return_value=([entry], cik_map)),
+            ),
+            patch(
+                "margin_api.services.edgar.backfill._fetch_filing_with_retry",
+                new=AsyncMock(return_value=financials),
+            ),
+            patch(
+                "margin_api.services.edgar.backfill.insert_pit_snapshot",
+                new=AsyncMock(return_value=True),
+            ),
+        ):
+            result = await run_edgar_backfill(
+                start_year=2024,
+                end_year=2024,
+                session_factory=backfill_session_factory,
+                dry_run=False,
+            )
+
+        assert result["total"] == 1
+        assert result["inserted"] == 1
+        assert result["failed"] == 0
+
+    @pytest.mark.asyncio
+    async def test_no_xbrl_increments_skipped(self, backfill_session_factory) -> None:
+        """NoXBRLAvailableError increments skipped counter and caches to no-XBRL table."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.backfill import NoXBRLAvailableError, run_edgar_backfill
+
+        entry = self._make_entry()
+        cik_map = {320193: "AAPL"}
+
+        with (
+            patch(
+                "margin_api.services.edgar.backfill.build_full_index",
+                new=AsyncMock(return_value=([entry], cik_map)),
+            ),
+            patch(
+                "margin_api.services.edgar.backfill._fetch_filing_with_retry",
+                new=AsyncMock(side_effect=NoXBRLAvailableError("no xbrl")),
+            ),
+        ):
+            result = await run_edgar_backfill(
+                start_year=2024,
+                end_year=2024,
+                session_factory=backfill_session_factory,
+                dry_run=False,
+            )
+
+        assert result["skipped"] >= 1
+        assert result["failed"] == 0
+
+    @pytest.mark.asyncio
+    async def test_generic_exception_increments_failed(self, backfill_session_factory) -> None:
+        """Generic exception increments failed counter."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.backfill import run_edgar_backfill
+
+        entry = self._make_entry()
+        cik_map = {320193: "AAPL"}
+
+        with (
+            patch(
+                "margin_api.services.edgar.backfill.build_full_index",
+                new=AsyncMock(return_value=([entry], cik_map)),
+            ),
+            patch(
+                "margin_api.services.edgar.backfill._fetch_filing_with_retry",
+                new=AsyncMock(side_effect=RuntimeError("network error")),
+            ),
+        ):
+            result = await run_edgar_backfill(
+                start_year=2024,
+                end_year=2024,
+                session_factory=backfill_session_factory,
+                dry_run=False,
+            )
+
+        assert result["failed"] == 1
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_file_resumes_after_accession(
+        self, backfill_session_factory, tmp_path
+    ) -> None:
+        """checkpoint_file skips entries up to and including the checkpoint accession."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.backfill import run_edgar_backfill
+
+        e1 = self._make_entry(accession="0000320193-24-000001")
+        e2 = self._make_entry(accession="0000320193-24-000002")
+        cik_map = {320193: "AAPL"}
+
+        # Checkpoint points to e1 — so only e2 should be processed
+        checkpoint = tmp_path / "checkpoint.txt"
+        checkpoint.write_text("0000320193-24-000001")
+
+        mock_fetch = AsyncMock(return_value=self._make_financials())
+        with (
+            patch(
+                "margin_api.services.edgar.backfill.build_full_index",
+                new=AsyncMock(return_value=([e1, e2], cik_map)),
+            ),
+            patch(
+                "margin_api.services.edgar.backfill._fetch_filing_with_retry",
+                new=mock_fetch,
+            ),
+            patch(
+                "margin_api.services.edgar.backfill.insert_pit_snapshot",
+                new=AsyncMock(return_value=True),
+            ),
+        ):
+            await run_edgar_backfill(
+                start_year=2024,
+                end_year=2024,
+                session_factory=backfill_session_factory,
+                checkpoint_file=str(checkpoint),
+                dry_run=False,
+            )
+
+        # Only e2 should have been fetched (e1 was checkpoint, e2 comes after)
+        assert mock_fetch.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_file_written_at_end_of_chunk(
+        self, backfill_session_factory, tmp_path
+    ) -> None:
+        """After processing, checkpoint file is written with last entry accession."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.backfill import run_edgar_backfill
+
+        entry = self._make_entry(accession="0000320193-24-099999")
+        cik_map = {320193: "AAPL"}
+        checkpoint = tmp_path / "checkpoint.txt"
+
+        with (
+            patch(
+                "margin_api.services.edgar.backfill.build_full_index",
+                new=AsyncMock(return_value=([entry], cik_map)),
+            ),
+            patch(
+                "margin_api.services.edgar.backfill._fetch_filing_with_retry",
+                new=AsyncMock(return_value=self._make_financials()),
+            ),
+            patch(
+                "margin_api.services.edgar.backfill.insert_pit_snapshot",
+                new=AsyncMock(return_value=True),
+            ),
+        ):
+            await run_edgar_backfill(
+                start_year=2024,
+                end_year=2024,
+                session_factory=backfill_session_factory,
+                checkpoint_file=str(checkpoint),
+                dry_run=False,
+            )
+
+        assert checkpoint.exists()
+        assert checkpoint.read_text().strip() == "0000320193-24-099999"
+
+    @pytest.mark.asyncio
+    async def test_no_xbrl_cache_skips_entry_on_second_run(self, backfill_session_factory) -> None:
+        """Entries cached in EdgarNoXBRLCache are skipped without HTTP call."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.db.models import EdgarNoXBRLCache
+        from margin_api.services.edgar.backfill import run_edgar_backfill
+
+        # Pre-populate the no-XBRL cache
+        async with backfill_session_factory() as session:
+            session.add(EdgarNoXBRLCache(accession_number="0000320193-24-000001"))
+            await session.commit()
+
+        entry = self._make_entry(accession="0000320193-24-000001")
+        cik_map = {320193: "AAPL"}
+
+        mock_fetch = AsyncMock(return_value=self._make_financials())
+        with (
+            patch(
+                "margin_api.services.edgar.backfill.build_full_index",
+                new=AsyncMock(return_value=([entry], cik_map)),
+            ),
+            patch(
+                "margin_api.services.edgar.backfill._fetch_filing_with_retry",
+                new=mock_fetch,
+            ),
+        ):
+            result = await run_edgar_backfill(
+                start_year=2024,
+                end_year=2024,
+                session_factory=backfill_session_factory,
+                dry_run=False,
+            )
+
+        mock_fetch.assert_not_called()
+        assert result["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# reparse_empty_filings re-fetch loop
+# ---------------------------------------------------------------------------
+
+
+class TestReparseEmptyFilingsLoop:
+    """Tests for the reparse_empty_filings re-fetch loop (lines 709-777)."""
+
+    def _make_mock_factory_with_rows(self, rows):
+        """Create a mock session factory that returns given rows."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_result = MagicMock()
+        mock_result.all.return_value = rows
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        mock_factory = MagicMock()
+        mock_factory.return_value = mock_session
+        return mock_factory
+
+    def _make_pit_row(
+        self,
+        accession: str = "0000320193-24-000001",
+        ticker: str = "AAPL",
+        cik: str = "320193",
+    ):
+        """Create a mock PIT row object as returned by the query."""
+        from datetime import date
+        from unittest.mock import MagicMock
+
+        row = MagicMock()
+        row.accession_number = accession
+        row.ticker = ticker
+        row.cik = cik
+        row.form_type = "10-K"
+        row.filing_date = date(2024, 1, 1)
+        row.fiscal_year = 2023
+        row.fiscal_quarter = 4
+        row.sic_code = 3571
+        return row
+
+    def _make_reparse_row(
+        self,
+        accession: str = "0000320193-24-000001",
+        ticker: str = "AAPL",
+        cik: str = "320193",
+    ):
+        """Create a mock PIT row for reparse tests."""
+        from datetime import date
+        from unittest.mock import MagicMock
+
+        row = MagicMock()
+        row.accession_number = accession
+        row.ticker = ticker
+        row.cik = cik
+        row.form_type = "10-K"
+        row.filing_date = date(2024, 6, 1)
+        row.fiscal_year = 2024
+        row.fiscal_quarter = 1
+        row.sic_code = 3571
+        return row
+
+    def _make_patched_factory(self, rows):
+        """Patch reparse_empty_filings to use a mock session that avoids
+        PostgreSQL-specific SQL (jsonb_typeof is unsupported in SQLite).
+
+        The mock session handles: pre-2011 delete, SELECT for empty rows,
+        and the DELETE for those rows.
+        """
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_session = AsyncMock()
+        mock_session.commit = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        async def execute_side(stmt, *a, **kw):
+            result = MagicMock()
+            stmt_str = str(stmt)
+            if "WHERE" in stmt_str and "income_statement" in stmt_str:
+                # This is the SELECT for empty rows
+                result.all.return_value = rows
+            elif "DELETE" in stmt_str.upper():
+                result.rowcount = 0
+                result.all.return_value = []
+            else:
+                result.all.return_value = []
+                result.rowcount = 0
+            return result
+
+        mock_session.execute = AsyncMock(side_effect=execute_side)
+        mock_factory = MagicMock(return_value=mock_session)
+        return mock_factory
+
+    @pytest.mark.asyncio
+    async def test_reparse_inserts_when_data_found(self) -> None:
+        """When re-fetch returns financials with income_statement, inserts the snapshot."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.backfill import reparse_empty_filings
+        from margin_api.services.edgar.xbrl_parser import XBRLFinancials
+
+        row = self._make_reparse_row()
+        mock_factory = self._make_patched_factory([row])
+
+        financials = XBRLFinancials(
+            income_statement={"revenue": 1000.0},
+            balance_sheet={},
+            cash_flow={},
+            shares_outstanding=None,
+        )
+
+        with (
+            patch(
+                "margin_api.services.edgar.backfill._fetch_filing_with_retry",
+                new=AsyncMock(return_value=financials),
+            ),
+            patch(
+                "margin_api.services.edgar.backfill.insert_pit_snapshot",
+                new=AsyncMock(return_value=True),
+            ),
+        ):
+            result = await reparse_empty_filings(mock_factory)
+
+        assert result["total"] == 1
+        assert result["reparsed"] == 1
+        assert result["failed"] == 0
+
+    @pytest.mark.asyncio
+    async def test_reparse_counts_still_empty_when_no_income_statement(self) -> None:
+        """Financials with empty income_statement increments still_empty."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.backfill import reparse_empty_filings
+        from margin_api.services.edgar.xbrl_parser import XBRLFinancials
+
+        row = self._make_reparse_row()
+        mock_factory = self._make_patched_factory([row])
+
+        # Empty income_statement (falsy dict)
+        financials = XBRLFinancials(
+            income_statement={},
+            balance_sheet={},
+            cash_flow={},
+            shares_outstanding=None,
+        )
+
+        with patch(
+            "margin_api.services.edgar.backfill._fetch_filing_with_retry",
+            new=AsyncMock(return_value=financials),
+        ):
+            result = await reparse_empty_filings(mock_factory)
+
+        assert result["still_empty"] == 1
+        assert result["reparsed"] == 0
+
+    @pytest.mark.asyncio
+    async def test_reparse_counts_failed_on_exception(self) -> None:
+        """Exception during re-fetch increments failed counter."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.backfill import NoXBRLAvailableError, reparse_empty_filings
+
+        row = self._make_reparse_row()
+        mock_factory = self._make_patched_factory([row])
+
+        with patch(
+            "margin_api.services.edgar.backfill._fetch_filing_with_retry",
+            new=AsyncMock(side_effect=NoXBRLAvailableError("no xbrl")),
+        ):
+            result = await reparse_empty_filings(mock_factory)
+
+        assert result["failed"] == 1
+        assert result["reparsed"] == 0

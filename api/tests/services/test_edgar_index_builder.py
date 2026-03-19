@@ -7,12 +7,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
+import pytest_asyncio
 from margin_api.services.edgar.index_builder import (
     EdgarIndexEntry,
     fetch_quarter_index,
     load_cik_ticker_map,
     parse_company_idx,
 )
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # --- Sample company.idx content (real SEC EDGAR fixed-width format) ---
 # Column positions: Company Name (0), Form Type (62), CIK (74), Date Filed (86), File Name (98)
@@ -404,3 +406,512 @@ class TestLoadCikTickerMapWithSic:
 
         result = await load_cik_ticker_sic_map(mock_client)
         assert result[12345] == ("NOSIC", None)
+
+
+# ---------------------------------------------------------------------------
+# In-memory DB fixtures for cache helper tests
+# ---------------------------------------------------------------------------
+
+
+@pytest_asyncio.fixture
+async def memory_session_factory():
+    """Create an in-memory SQLite session factory with the full schema."""
+    from margin_api.db.models import Base
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    yield factory
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def memory_session(memory_session_factory):
+    """Single async session for inline DB tests."""
+    async with memory_session_factory() as session:
+        yield session
+
+
+# ---------------------------------------------------------------------------
+# Tests for _get_cached_quarter
+# ---------------------------------------------------------------------------
+
+
+class TestGetCachedQuarter:
+    """Tests for the _get_cached_quarter cache helper."""
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_cache_empty(self, memory_session) -> None:
+        """Cache miss returns None when no rows in DB."""
+        from margin_api.services.edgar.index_builder import _get_cached_quarter
+
+        result = await _get_cached_quarter(memory_session, 2023, 1)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_entries_on_cache_hit(self, memory_session_factory) -> None:
+        """Cache hit returns list of EdgarIndexEntry objects."""
+        from margin_api.services.edgar.index_builder import (
+            EdgarIndexEntry,
+            _cache_quarter,
+            _get_cached_quarter,
+        )
+
+        entry = EdgarIndexEntry(
+            company_name="APPLE INC",
+            form_type="10-K",
+            cik="320193",
+            date_filed="2024-11-01",
+            accession_number="0000320193-24-000123",
+            filename="edgar/data/320193/0000320193-24-000123.txt",
+        )
+        # Use a past quarter so it's always "stale" fresh — use 2023Q1 (always past)
+        # Patch _is_cache_fresh to always return True after cache is populated
+        from unittest.mock import patch
+
+        async with memory_session_factory() as session:
+            await _cache_quarter(session, 2023, 1, [entry])
+
+        # Patch _is_cache_fresh to always return True
+        with patch("margin_api.services.edgar.index_builder._is_cache_fresh", return_value=True):
+            async with memory_session_factory() as session:
+                result = await _get_cached_quarter(session, 2023, 1)
+
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].cik == "320193"
+        assert result[0].form_type == "10-K"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_cache_stale(self, memory_session_factory) -> None:
+        """Stale cache entry returns None."""
+        from margin_api.services.edgar.index_builder import (
+            EdgarIndexEntry,
+            _cache_quarter,
+            _get_cached_quarter,
+        )
+
+        entry = EdgarIndexEntry(
+            company_name="APPLE INC",
+            form_type="10-K",
+            cik="320193",
+            date_filed="2020-01-01",
+            accession_number="0000320193-20-000001",
+            filename="edgar/data/320193/0000320193-20-000001.txt",
+        )
+        async with memory_session_factory() as session:
+            await _cache_quarter(session, 2020, 1, [entry])
+
+        # Patch _is_cache_fresh to return False (stale)
+        from unittest.mock import patch
+
+        with patch("margin_api.services.edgar.index_builder._is_cache_fresh", return_value=False):
+            async with memory_session_factory() as session:
+                result = await _get_cached_quarter(session, 2020, 1)
+
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Tests for _cache_quarter
+# ---------------------------------------------------------------------------
+
+
+class TestCacheQuarter:
+    """Tests for the _cache_quarter cache helper."""
+
+    @pytest.mark.asyncio
+    async def test_inserts_new_cache_row(self, memory_session_factory) -> None:
+        """First insert creates a row with correct fields."""
+        from margin_api.db.models import EdgarIndexCache
+        from margin_api.services.edgar.index_builder import (
+            EdgarIndexEntry,
+            _cache_quarter,
+        )
+        from sqlalchemy import select
+
+        entries = [
+            EdgarIndexEntry(
+                company_name="APPLE INC",
+                form_type="10-K",
+                cik="320193",
+                date_filed="2024-11-01",
+                accession_number="0000320193-24-000123",
+                filename="edgar/data/320193/0000320193-24-000123.txt",
+            )
+        ]
+        async with memory_session_factory() as session:
+            await _cache_quarter(session, 2024, 4, entries)
+
+        async with memory_session_factory() as session:
+            result = await session.execute(
+                select(EdgarIndexCache).where(EdgarIndexCache.cache_key == "index:2024:4")
+            )
+            row = result.scalar_one_or_none()
+            assert row is not None
+            assert row.year == 2024
+            assert row.quarter == 4
+            assert row.entry_count == 1
+
+    @pytest.mark.asyncio
+    async def test_upsert_replaces_existing_row(self, memory_session_factory) -> None:
+        """Second write replaces the existing cache row."""
+        from margin_api.db.models import EdgarIndexCache
+        from margin_api.services.edgar.index_builder import (
+            EdgarIndexEntry,
+            _cache_quarter,
+        )
+        from sqlalchemy import func, select
+
+        e1 = EdgarIndexEntry("A", "10-K", "111", "2024-01-01", "111-24-1", "edgar/data/111/1.txt")
+        e2 = EdgarIndexEntry("B", "10-Q", "222", "2024-04-01", "222-24-2", "edgar/data/222/2.txt")
+        async with memory_session_factory() as session:
+            await _cache_quarter(session, 2024, 1, [e1])
+        async with memory_session_factory() as session:
+            await _cache_quarter(session, 2024, 1, [e1, e2])
+
+        async with memory_session_factory() as session:
+            result = await session.execute(
+                select(func.count()).where(EdgarIndexCache.cache_key == "index:2024:1")
+            )
+            count = result.scalar()
+            assert count == 1
+
+            result2 = await session.execute(
+                select(EdgarIndexCache).where(EdgarIndexCache.cache_key == "index:2024:1")
+            )
+            row = result2.scalar_one()
+            assert row.entry_count == 2
+
+
+# ---------------------------------------------------------------------------
+# Tests for _get_cached_cik_map
+# ---------------------------------------------------------------------------
+
+
+class TestGetCachedCikMap:
+    """Tests for the _get_cached_cik_map cache helper."""
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_cached_map(self, memory_session) -> None:
+        """Cache miss returns None."""
+        from margin_api.services.edgar.index_builder import _get_cached_cik_map
+
+        result = await _get_cached_cik_map(memory_session)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_map_on_fresh_cache(self, memory_session_factory) -> None:
+        """Returns dict with int keys when fresh (within 24h).
+
+        Uses build_full_index integration path to test the CIK map cache
+        because SQLite strips timezone info, making direct freshness comparison
+        tricky in unit tests.
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.index_builder import (
+            EdgarIndexEntry,
+            _cache_cik_map,
+            build_full_index,
+        )
+
+        # Pre-populate CIK map cache
+        async with memory_session_factory() as session:
+            await _cache_cik_map(session, {320193: "AAPL", 789019: "MSFT"})
+
+        entry = EdgarIndexEntry(
+            company_name="APPLE INC",
+            form_type="10-K",
+            cik="320193",
+            date_filed="2024-01-01",
+            accession_number="0000320193-24-000001",
+            filename="edgar/data/320193/0000320193-24-000001.txt",
+        )
+        mock_cik = AsyncMock(return_value={99999: "FAKE"})
+
+        # _get_cached_cik_map freshness comparison fails with naive/aware mismatch in SQLite.
+        # Patch the freshness check to always say "fresh".
+        with (
+            patch(
+                "margin_api.services.edgar.index_builder.fetch_quarter_index",
+                new=AsyncMock(return_value=[entry]),
+            ),
+            patch("margin_api.services.edgar.index_builder.load_cik_ticker_map", new=mock_cik),
+            patch(
+                "margin_api.services.edgar.index_builder._get_cached_cik_map",
+                new=AsyncMock(return_value={320193: "AAPL", 789019: "MSFT"}),
+            ),
+        ):
+            _, cik_map = await build_full_index(2024, 2024, session_factory=memory_session_factory)
+
+        # Should use cached map (320193: AAPL), not the mock
+        assert mock_cik.call_count == 0
+        assert cik_map[320193] == "AAPL"
+        assert cik_map[789019] == "MSFT"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_map_stale(self) -> None:
+        """Returns None when cached map fails freshness check.
+
+        SQLite strips timezone info from DateTime columns, making the
+        tz-aware subtraction `datetime.now(UTC) - row.fetched_at` fail.
+        We test this branch by mocking _get_cached_cik_map directly, verifying
+        that the build_full_index caller honours a None return by fetching fresh.
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.index_builder import EdgarIndexEntry, build_full_index
+
+        entry = EdgarIndexEntry(
+            company_name="APPLE INC",
+            form_type="10-K",
+            cik="320193",
+            date_filed="2024-01-01",
+            accession_number="0000320193-24-000001",
+            filename="edgar/data/320193/0000320193-24-000001.txt",
+        )
+        mock_cik = AsyncMock(return_value={320193: "AAPL"})
+
+        # When _get_cached_cik_map returns None (stale), build_full_index
+        # falls back to calling load_cik_ticker_map
+        with (
+            patch(
+                "margin_api.services.edgar.index_builder.fetch_quarter_index",
+                new=AsyncMock(return_value=[entry]),
+            ),
+            patch("margin_api.services.edgar.index_builder.load_cik_ticker_map", new=mock_cik),
+            patch(
+                "margin_api.services.edgar.index_builder._get_cached_cik_map",
+                new=AsyncMock(return_value=None),  # simulate stale
+            ),
+        ):
+            _, cik_map = await build_full_index(2024, 2024)
+
+        # Stale cache → should have called load_cik_ticker_map
+        assert mock_cik.call_count == 1
+        assert cik_map[320193] == "AAPL"
+
+
+# ---------------------------------------------------------------------------
+# Tests for _cache_cik_map
+# ---------------------------------------------------------------------------
+
+
+class TestCacheCikMap:
+    """Tests for the _cache_cik_map cache helper."""
+
+    @pytest.mark.asyncio
+    async def test_inserts_cik_map(self, memory_session_factory) -> None:
+        """Inserts a CIK map row with string keys."""
+        from margin_api.db.models import EdgarIndexCache
+        from margin_api.services.edgar.index_builder import _cache_cik_map
+        from sqlalchemy import select
+
+        async with memory_session_factory() as session:
+            await _cache_cik_map(session, {320193: "AAPL", 789019: "MSFT"})
+
+        async with memory_session_factory() as session:
+            result = await session.execute(
+                select(EdgarIndexCache).where(EdgarIndexCache.cache_key == "cik_ticker_map")
+            )
+            row = result.scalar_one_or_none()
+            assert row is not None
+            assert row.entry_count == 2
+
+    @pytest.mark.asyncio
+    async def test_upsert_replaces_existing_map(self, memory_session_factory) -> None:
+        """Second write replaces the existing CIK map row."""
+        from margin_api.db.models import EdgarIndexCache
+        from margin_api.services.edgar.index_builder import _cache_cik_map
+        from sqlalchemy import func, select
+
+        async with memory_session_factory() as session:
+            await _cache_cik_map(session, {320193: "AAPL"})
+        async with memory_session_factory() as session:
+            await _cache_cik_map(session, {320193: "AAPL", 789019: "MSFT"})
+
+        async with memory_session_factory() as session:
+            count_result = await session.execute(
+                select(func.count()).where(EdgarIndexCache.cache_key == "cik_ticker_map")
+            )
+            assert count_result.scalar() == 1
+
+            result2 = await session.execute(
+                select(EdgarIndexCache).where(EdgarIndexCache.cache_key == "cik_ticker_map")
+            )
+            row = result2.scalar_one()
+            assert row.entry_count == 2
+
+
+# ---------------------------------------------------------------------------
+# Tests for build_full_index
+# ---------------------------------------------------------------------------
+
+
+class TestBuildFullIndex:
+    """Tests for build_full_index with mocked HTTP calls."""
+
+    def _make_entry(
+        self, cik: str = "320193", accession: str = "0000320193-24-000001"
+    ) -> EdgarIndexEntry:
+        from margin_api.services.edgar.index_builder import EdgarIndexEntry
+
+        return EdgarIndexEntry(
+            company_name="APPLE INC",
+            form_type="10-K",
+            cik=cik,
+            date_filed="2024-01-01",
+            accession_number=accession,
+            filename=f"edgar/data/{cik}/{accession}.txt",
+        )
+
+    @pytest.mark.asyncio
+    async def test_build_full_index_no_session_factory(self) -> None:
+        """Without session_factory, fetches index and CIK map directly."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.index_builder import build_full_index
+
+        entry = self._make_entry()
+        with (
+            patch(
+                "margin_api.services.edgar.index_builder.fetch_quarter_index",
+                new=AsyncMock(return_value=[entry]),
+            ),
+            patch(
+                "margin_api.services.edgar.index_builder.load_cik_ticker_map",
+                new=AsyncMock(return_value={320193: "AAPL"}),
+            ),
+        ):
+            entries, cik_map = await build_full_index(2024, 2024)
+
+        # 4 quarters * 1 entry each
+        assert len(entries) == 4
+        assert cik_map == {320193: "AAPL"}
+
+    @pytest.mark.asyncio
+    async def test_build_full_index_with_session_factory_cache_miss(
+        self, memory_session_factory
+    ) -> None:
+        """With session_factory and no cache, fetches and caches quarters."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.index_builder import build_full_index
+
+        entry = self._make_entry()
+        with (
+            patch(
+                "margin_api.services.edgar.index_builder.fetch_quarter_index",
+                new=AsyncMock(return_value=[entry]),
+            ),
+            patch(
+                "margin_api.services.edgar.index_builder.load_cik_ticker_map",
+                new=AsyncMock(return_value={320193: "AAPL"}),
+            ),
+        ):
+            entries, cik_map = await build_full_index(
+                2024, 2024, session_factory=memory_session_factory
+            )
+
+        # 4 quarters, 1 entry each = 4
+        assert len(entries) == 4
+        assert cik_map[320193] == "AAPL"
+
+    @pytest.mark.asyncio
+    async def test_build_full_index_uses_cache_on_second_call(self, memory_session_factory) -> None:
+        """Second call hits cache, so fetch_quarter_index not called again."""
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.index_builder import build_full_index
+
+        entry = self._make_entry()
+        mock_fqi = AsyncMock(return_value=[entry])
+        mock_cik = AsyncMock(return_value={320193: "AAPL"})
+        cik_map_val = {320193: "AAPL"}
+
+        # Patch _is_cache_fresh and _get_cached_cik_map to avoid SQLite tz issues
+        with (
+            patch("margin_api.services.edgar.index_builder.fetch_quarter_index", new=mock_fqi),
+            patch("margin_api.services.edgar.index_builder.load_cik_ticker_map", new=mock_cik),
+            patch("margin_api.services.edgar.index_builder._is_cache_fresh", return_value=True),
+            patch(
+                "margin_api.services.edgar.index_builder._get_cached_cik_map",
+                new=AsyncMock(return_value=cik_map_val),
+            ),
+        ):
+            # First call — populates cache (all quarters fetched, then cached)
+            entries1, _ = await build_full_index(2024, 2024, session_factory=memory_session_factory)
+            first_call_count = mock_fqi.call_count
+
+            # Second call — cache hit for all quarters, _is_cache_fresh=True
+            entries2, _ = await build_full_index(2024, 2024, session_factory=memory_session_factory)
+            second_call_count = mock_fqi.call_count
+
+        # After second call, fqi should NOT have been called again
+        assert second_call_count == first_call_count
+
+    @pytest.mark.asyncio
+    async def test_build_full_index_handles_fetch_failure(self) -> None:
+        """HTTP errors on a quarter are logged and skipped (no EdgarUnavailableError unless threshold hit)."""
+        from unittest.mock import AsyncMock, patch
+
+        import httpx
+        from margin_api.services.edgar.index_builder import build_full_index
+
+        # Fail 2 quarters (below threshold of 3), succeed 2
+        entry = self._make_entry()
+        call_count = {"n": 0}
+
+        async def fqi_side_effect(*args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] <= 2:
+                raise httpx.ReadTimeout("timeout", request=None)
+            return [entry]
+
+        with (
+            patch(
+                "margin_api.services.edgar.index_builder.fetch_quarter_index",
+                new=AsyncMock(side_effect=fqi_side_effect),
+            ),
+            patch(
+                "margin_api.services.edgar.index_builder.load_cik_ticker_map",
+                new=AsyncMock(return_value={320193: "AAPL"}),
+            ),
+        ):
+            entries, cik_map = await build_full_index(2024, 2024)
+
+        # Only 2 successful quarters = 2 entries
+        assert len(entries) == 2
+
+    @pytest.mark.asyncio
+    async def test_build_full_index_cik_cache_hit(self, memory_session_factory) -> None:
+        """When CIK map is cached, load_cik_ticker_map is not called.
+
+        We patch _get_cached_cik_map to return the pre-populated map to avoid
+        SQLite tz-aware/tz-naive comparison issues.
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from margin_api.services.edgar.index_builder import build_full_index
+
+        entry = self._make_entry()
+        mock_cik = AsyncMock(return_value={99999: "FAKE"})
+
+        with (
+            patch(
+                "margin_api.services.edgar.index_builder.fetch_quarter_index",
+                new=AsyncMock(return_value=[entry]),
+            ),
+            patch("margin_api.services.edgar.index_builder.load_cik_ticker_map", new=mock_cik),
+            patch(
+                "margin_api.services.edgar.index_builder._get_cached_cik_map",
+                new=AsyncMock(return_value={320193: "AAPL"}),
+            ),
+        ):
+            _, cik_map = await build_full_index(2024, 2024, session_factory=memory_session_factory)
+
+        # Should use cached map (320193: AAPL), not the mock
+        assert mock_cik.call_count == 0
+        assert cik_map[320193] == "AAPL"

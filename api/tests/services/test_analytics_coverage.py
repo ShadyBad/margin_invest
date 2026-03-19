@@ -43,7 +43,7 @@ class TestGetClientInitialization:
                 {"posthog": MagicMock(Posthog=mock_posthog)},
             ):
                 analytics._client = None
-                result = analytics._get_client()
+                analytics._get_client()
 
         # Client should be set (either real or mock)
         # We just need to verify the path was taken; actual Posthog may not be installed

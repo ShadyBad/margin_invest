@@ -196,9 +196,7 @@ async def test_full_13f_ingest_happy_path():
         }
     ]
     mock_edgar.fetch_infotable_xml.return_value = "<xml>data</xml>"
-    mock_edgar.parse_full_infotable.return_value = [
-        {"value_thousands": 1000}
-    ]
+    mock_edgar.parse_full_infotable.return_value = [{"value_thousands": 1000}]
 
     # Build mock service
     mock_mgr = MagicMock()
@@ -216,8 +214,13 @@ async def test_full_13f_ingest_happy_path():
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
         patch("margin_api.workers.reset_engine_cache"),
-        patch("margin_engine.ingestion.providers.edgar_provider.EDGARProvider", return_value=mock_edgar),
-        patch("margin_api.services.thirteenf_ingest.ThirteenFIngestService", return_value=mock_service),
+        patch(
+            "margin_engine.ingestion.providers.edgar_provider.EDGARProvider",
+            return_value=mock_edgar,
+        ),
+        patch(
+            "margin_api.services.thirteenf_ingest.ThirteenFIngestService", return_value=mock_service
+        ),
         patch("margin_api.workers.ThirteenFIngestService", return_value=mock_service, create=True),
     ):
         result = await full_13f_ingest({"redis": mock_redis})
@@ -261,8 +264,13 @@ async def test_full_13f_ingest_no_new_filings():
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
         patch("margin_api.workers.reset_engine_cache"),
-        patch("margin_engine.ingestion.providers.edgar_provider.EDGARProvider", return_value=mock_edgar),
-        patch("margin_api.services.thirteenf_ingest.ThirteenFIngestService", return_value=mock_service),
+        patch(
+            "margin_engine.ingestion.providers.edgar_provider.EDGARProvider",
+            return_value=mock_edgar,
+        ),
+        patch(
+            "margin_api.services.thirteenf_ingest.ThirteenFIngestService", return_value=mock_service
+        ),
         patch("margin_api.workers.ThirteenFIngestService", return_value=mock_service, create=True),
     ):
         result = await full_13f_ingest({"redis": mock_redis})
@@ -285,7 +293,10 @@ async def test_full_13f_ingest_fatal_error():
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
         patch("margin_api.workers.reset_engine_cache"),
-        patch("margin_engine.ingestion.providers.edgar_provider.EDGARProvider", side_effect=RuntimeError("EDGAR down")),
+        patch(
+            "margin_engine.ingestion.providers.edgar_provider.EDGARProvider",
+            side_effect=RuntimeError("EDGAR down"),
+        ),
     ):
         result = await full_13f_ingest({"redis": mock_redis})
 
@@ -319,8 +330,13 @@ async def test_full_13f_ingest_chains_accumulation():
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
         patch("margin_api.workers.reset_engine_cache"),
-        patch("margin_engine.ingestion.providers.edgar_provider.EDGARProvider", return_value=mock_edgar),
-        patch("margin_api.services.thirteenf_ingest.ThirteenFIngestService", return_value=mock_service),
+        patch(
+            "margin_engine.ingestion.providers.edgar_provider.EDGARProvider",
+            return_value=mock_edgar,
+        ),
+        patch(
+            "margin_api.services.thirteenf_ingest.ThirteenFIngestService", return_value=mock_service
+        ),
         patch("margin_api.workers.ThirteenFIngestService", return_value=mock_service, create=True),
     ):
         result = await full_13f_ingest({"redis": mock_redis})
@@ -355,7 +371,10 @@ async def test_compute_accumulation_signals_success():
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
         patch("margin_api.workers.reset_engine_cache"),
-        patch("margin_api.services.accumulation_service.AccumulationService", return_value=mock_service),
+        patch(
+            "margin_api.services.accumulation_service.AccumulationService",
+            return_value=mock_service,
+        ),
         patch("margin_api.workers.AccumulationService", return_value=mock_service, create=True),
     ):
         result = await compute_accumulation_signals({})
@@ -382,7 +401,10 @@ async def test_compute_accumulation_signals_no_periods():
     with (
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
-        patch("margin_api.services.accumulation_service.AccumulationService", return_value=mock_service),
+        patch(
+            "margin_api.services.accumulation_service.AccumulationService",
+            return_value=mock_service,
+        ),
         patch("margin_api.workers.AccumulationService", return_value=mock_service, create=True),
     ):
         result = await compute_accumulation_signals({})
@@ -402,8 +424,15 @@ async def test_compute_accumulation_signals_error_path():
     with (
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
-        patch("margin_api.services.accumulation_service.AccumulationService", side_effect=RuntimeError("DB error")),
-        patch("margin_api.workers.AccumulationService", side_effect=RuntimeError("DB error"), create=True),
+        patch(
+            "margin_api.services.accumulation_service.AccumulationService",
+            side_effect=RuntimeError("DB error"),
+        ),
+        patch(
+            "margin_api.workers.AccumulationService",
+            side_effect=RuntimeError("DB error"),
+            create=True,
+        ),
     ):
         result = await compute_accumulation_signals({})
 
@@ -446,7 +475,7 @@ async def test_precompute_default_backtest_error_path():
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
             {"scalar_one": 100},  # pit_count > 0
-            {"scalar_one": 5},    # SPY already seeded (spy_count > 0)
+            {"scalar_one": 5},  # SPY already seeded (spy_count > 0)
         ]
     )
 
@@ -455,8 +484,15 @@ async def test_precompute_default_backtest_error_path():
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
         patch("margin_api.workers.reset_engine_cache"),
-        patch("margin_api.services.backtest.run_real_backtest", side_effect=RuntimeError("Replay failed")),
-        patch("margin_api.workers.run_real_backtest", side_effect=RuntimeError("Replay failed"), create=True),
+        patch(
+            "margin_api.services.backtest.run_real_backtest",
+            side_effect=RuntimeError("Replay failed"),
+        ),
+        patch(
+            "margin_api.workers.run_real_backtest",
+            side_effect=RuntimeError("Replay failed"),
+            create=True,
+        ),
         patch("margin_api.services.pit_provider.DatabasePITProvider"),
         patch("margin_api.workers.DatabasePITProvider", create=True),
         patch("margin_api.workers.get_active_snapshot", return_value=MagicMock(id=1)),
@@ -480,8 +516,8 @@ async def test_snapshot_shadow_portfolio_no_scores():
 
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
-            {"all": []},                 # no published V4Scores
-            {"scalar_one_or_none": None}, # no existing snapshot for today
+            {"all": []},  # no published V4Scores
+            {"scalar_one_or_none": None},  # no existing snapshot for today
         ]
     )
 
@@ -508,7 +544,7 @@ async def test_snapshot_shadow_portfolio_with_scores():
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
             {"all": [(mock_v4, "AAPL"), (mock_v4, "MSFT")]},  # 2 published scores
-            {"scalar_one_or_none": None},                       # no existing snapshot
+            {"scalar_one_or_none": None},  # no existing snapshot
         ]
     )
 
@@ -532,8 +568,8 @@ async def test_snapshot_shadow_portfolio_already_exists():
 
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
-            {"all": []},                          # no published scores
-            {"scalar_one_or_none": existing_snap}, # snapshot exists already
+            {"all": []},  # no published scores
+            {"scalar_one_or_none": existing_snap},  # snapshot exists already
         ]
     )
 
@@ -970,7 +1006,7 @@ async def test_analyze_filing_text_full_happy_path():
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
             {"scalar_one_or_none": mock_snapshot},  # load snapshot
-            {"scalar_one_or_none": None},            # no existing FilingText
+            {"scalar_one_or_none": None},  # no existing FilingText
         ]
     )
 
@@ -980,9 +1016,7 @@ async def test_analyze_filing_text_full_happy_path():
     # HTTP mocks
     mock_index_resp = MagicMock()
     mock_index_resp.status_code = 200
-    mock_index_resp.json.return_value = {
-        "directory": {"item": [{"name": "report.htm"}]}
-    }
+    mock_index_resp.json.return_value = {"directory": {"item": [{"name": "report.htm"}]}}
 
     mock_doc_resp = MagicMock()
     mock_doc_resp.status_code = 200
@@ -1022,7 +1056,9 @@ async def test_analyze_filing_text_full_happy_path():
         with (
             patch("margin_api.workers.get_engine"),
             patch("margin_api.workers.get_session_factory", return_value=factory),
-            patch("margin_api.workers.FilingTextExtractor", return_value=mock_extractor, create=True),
+            patch(
+                "margin_api.workers.FilingTextExtractor", return_value=mock_extractor, create=True
+            ),
             patch("margin_api.workers.NLPAnalyzer", return_value=mock_nlp, create=True),
         ):
             result = await analyze_filing_text({}, ticker="AAPL", pit_snapshot_id=1)
@@ -1284,7 +1320,9 @@ async def test_backfill_historical_scores_already_scored():
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
         patch("margin_api.workers.reset_engine_cache"),
-        patch("margin_api.workers._generate_quarter_ends", return_value=[]),  # No quarters to process
+        patch(
+            "margin_api.workers._generate_quarter_ends", return_value=[]
+        ),  # No quarters to process
     ):
         result = await backfill_historical_scores({})
 
@@ -1308,8 +1346,8 @@ async def test_backfill_historical_scores_no_memberships():
     # 3. memberships -> empty scalars
     factory, session, added = _mock_session_factory(
         execute_side_effects=[
-            {"all": []},          # SIC map: no entries
-            {"scalar_one": 0},    # not yet scored
+            {"all": []},  # SIC map: no entries
+            {"scalar_one": 0},  # not yet scored
             {"scalars_all": []},  # no memberships
         ]
     )

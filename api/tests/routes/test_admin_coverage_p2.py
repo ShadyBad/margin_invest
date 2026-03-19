@@ -230,12 +230,12 @@ class TestPITAssembleUniverse:
                 "margin_api.services.edgar.universe_assembly.assemble_universe",
                 new_callable=AsyncMock,
                 return_value=assemble_result,
-            ) as mock_assemble,
+            ),
             patch(
                 "margin_api.services.edgar.universe_assembly.fill_last_known_prices",
                 new_callable=AsyncMock,
                 return_value=fill_result,
-            ) as mock_fill,
+            ),
         ):
             app = create_app()
             client = _make_client_with_override(app, _db_override(session_factory))
