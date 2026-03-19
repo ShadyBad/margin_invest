@@ -33,6 +33,7 @@ from margin_api.config import get_settings
 from margin_api.db.models import (
     Asset,
     BacktestRun,
+    DrawdownRescreen,
     Event,
     FilingMetadata,
     FinancialData,
@@ -4137,6 +4138,169 @@ async def daily_form4_update(ctx: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Drawdown re-screening workers
+# ---------------------------------------------------------------------------
+
+
+async def rescore_ticker(
+    ctx: dict,
+    ticker: str,
+    trigger_reason: str = "drawdown",
+) -> dict:
+    """Per-ticker scoring worker — rescores a single ticker after a trigger event.
+
+    Creates a JobRun record, logs the intent, and marks the job completed.
+    Full per-ticker scoring extraction from run_scoring_v3 is deferred as a
+    follow-up; this version serves as the integration point so the queue
+    plumbing is wired and observable.
+
+    Args:
+        ctx: ARQ worker context.
+        ticker: Ticker symbol to rescore.
+        trigger_reason: Human-readable reason (e.g. "drawdown").
+
+    Returns:
+        Dict with status and ticker.
+    """
+    logger.info(
+        "[rescore_ticker] Starting (ticker=%s, reason=%s)",
+        ticker,
+        trigger_reason,
+    )
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    async with session_factory() as session:
+        job = JobRun(
+            job_type="rescore_ticker",
+            status="running",
+            triggered_by="chained",
+            progress_detail=f"ticker={ticker} reason={trigger_reason}",
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.commit()
+        job_id = job.id
+
+    try:
+        # Placeholder: log the rescore intent.
+        # Full per-ticker scoring is a follow-up — the worker wiring is live.
+        logger.info(
+            "[rescore_ticker] Would rescore %s (trigger=%s) — scoring impl deferred",
+            ticker,
+            trigger_reason,
+        )
+
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "completed"
+            job.progress = 1.0
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+
+        logger.info("[rescore_ticker] Completed (ticker=%s)", ticker)
+        return {"status": "completed", "ticker": ticker, "trigger_reason": trigger_reason}
+
+    except Exception as e:
+        logger.exception("[rescore_ticker] Failed for ticker=%s: %s", ticker, e)
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            result = await session.execute(select(JobRun).where(JobRun.id == job_id))
+            job = result.scalar_one()
+            job.status = "failed"
+            job.error_message = str(e)[:500]
+            job.completed_at = datetime.now(UTC)
+            await session.commit()
+        return {"status": "failed", "ticker": ticker, "error": str(e)}
+
+
+async def screen_drawdown_candidates(ctx: dict) -> dict:
+    """Daily cron: screen the scored universe for drawdown-triggered rescreening.
+
+    Finds tickers down >= MARGIN_DRAWDOWN_THRESHOLD from their 52-week high,
+    debounces recent rescreenings, and enqueues rescore_ticker jobs.
+
+    Circuit breaker: if > 15 candidates are found, emits a governance event
+    instead of mass-enqueueing (market-wide crash detection).
+
+    Runs daily at 23:30 UTC.
+    """
+    from margin_api.services.drawdown_screener import DrawdownScreener
+
+    logger.info("[screen_drawdown] Starting drawdown screening")
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    screener = DrawdownScreener()
+
+    CIRCUIT_BREAKER_THRESHOLD = 15
+
+    try:
+        async with session_factory() as session:
+            candidates = await screener.find_candidates(session)
+
+        logger.info(
+            "[screen_drawdown] Found %d candidate(s)",
+            len(candidates),
+        )
+
+        if len(candidates) > CIRCUIT_BREAKER_THRESHOLD:
+            logger.warning(
+                "[screen_drawdown] Circuit breaker: %d candidates exceeds threshold %d — "
+                "emitting governance event instead of mass-enqueueing",
+                len(candidates),
+                CIRCUIT_BREAKER_THRESHOLD,
+            )
+            reset_engine_cache()
+            engine = get_engine()
+            session_factory = get_session_factory(engine)
+            async with session_factory() as session:
+                event = GovernanceEvent(
+                    event_type="drawdown_circuit_breaker",
+                    source="screen_drawdown_candidates",
+                    detail={
+                        "candidate_count": len(candidates),
+                        "circuit_breaker_threshold": CIRCUIT_BREAKER_THRESHOLD,
+                        "tickers": [c.ticker for c in candidates[:50]],
+                    },
+                )
+                session.add(event)
+                await session.commit()
+
+            return {
+                "status": "circuit_breaker",
+                "candidate_count": len(candidates),
+                "circuit_breaker_threshold": CIRCUIT_BREAKER_THRESHOLD,
+            }
+
+        if not candidates:
+            logger.info("[screen_drawdown] No drawdown candidates found")
+            return {"status": "completed", "candidate_count": 0, "rescreened": 0}
+
+        redis: object | None = ctx.get("redis")
+        reset_engine_cache()
+        engine = get_engine()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
+            rescreened = await screener.trigger_rescreening(session, candidates, redis)
+
+        logger.info("[screen_drawdown] Rescreened %d ticker(s)", rescreened)
+        return {"status": "completed", "candidate_count": len(candidates), "rescreened": rescreened}
+
+    except Exception as e:
+        logger.exception("[screen_drawdown] Failed: %s", e)
+        return {"status": "failed", "error": str(e)}
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -4325,6 +4489,8 @@ class WorkerSettings:
         ingest_sentiment_signals,
         backfill_form4_history,
         daily_form4_update,
+        rescore_ticker,
+        screen_drawdown_candidates,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -4359,6 +4525,9 @@ class WorkerSettings:
         cron(
             ingest_sentiment_signals, hour=23, minute=45, run_at_startup=False
         ),  # Daily 11:45 PM UTC
+        cron(
+            screen_drawdown_candidates, hour=23, minute=30, run_at_startup=False
+        ),  # Daily 11:30 PM UTC — drawdown re-screening
     ]
     # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)
     job_timeout = 1200
