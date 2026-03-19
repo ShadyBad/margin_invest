@@ -387,6 +387,28 @@ class TestScoreAssetContext:
         data = response.json()
         assert data["sector"] == "Information Technology"
 
+    async def test_score_includes_market_cap(self, client):
+        """Score response includes the asset's market_cap when set."""
+        response = await client.get("/api/v1/scores/AAPL")
+        assert response.status_code == 200
+        data = response.json()
+        # AAPL was seeded with market_cap of 3500000000000
+        assert data["market_cap"] == 3500000000000.0
+
+    async def test_score_market_cap_different_assets(self, client):
+        """Score response includes market_cap for different assets."""
+        # NVDA was seeded with market_cap of 1500000000000
+        response = await client.get("/api/v1/scores/NVDA")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["market_cap"] == 1500000000000.0
+
+        # LOW was seeded with market_cap of 50000000000
+        response = await client.get("/api/v1/scores/LOW")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["market_cap"] == 50000000000.0
+
     async def test_score_includes_total_scored(self, client):
         """Score response includes total scored count across all assets."""
         response = await client.get("/api/v1/scores/AAPL")
