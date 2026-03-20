@@ -2490,42 +2490,46 @@ def run_weight_tune(
 
 
 async def run_prime_delist() -> None:
-    """Set price_retry_count to 2 for all quarantined tickers.
+    """Mark all DB-quarantined tickers as permanently_skipped.
 
-    Next retry_quarantined cycle will increment to 3, triggering permanent delist.
+    Also cleans up any lingering Redis price_fail keys.
     """
     import redis.asyncio as aioredis
 
     from margin_api.config import get_settings
 
     settings = get_settings()
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # 1. Update DB: quarantined → permanently_skipped
+    db_count = 0
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Asset).where(Asset.ingestion_status == "quarantined")
+        )
+        quarantined = result.scalars().all()
+        for asset in quarantined:
+            print(f"  Delisting {asset.ticker} (quarantined since {asset.quarantined_at})")
+            asset.ingestion_status = "permanently_skipped"
+            asset.last_failure_reason = "Delisted: no price data, bulk cleanup"
+            db_count += 1
+        if db_count:
+            await session.commit()
+
+    # 2. Clean up Redis keys for these tickers
     redis_client = aioredis.from_url(settings.redis_url)
-    max_consecutive_fails = 5
-    primed = 0
-
+    redis_cleaned = 0
     try:
-        cursor = 0
-        while True:
-            cursor, keys = await redis_client.scan(
-                cursor=cursor, match="price_fail:*", count=500
-            )
-            for key in keys:
-                val = await redis_client.get(key)
-                if val and int(val) >= max_consecutive_fails:
-                    key_str = key.decode() if isinstance(key, bytes) else key
-                    ticker = key_str.replace("price_fail:", "")
-                    retry_key = f"price_retry_count:{ticker}"
-                    existing = await redis_client.get(retry_key)
-                    if not existing or int(existing) < 2:
-                        await redis_client.set(retry_key, "2", ex=604800)
-                        primed += 1
-                        print(f"  Primed {ticker} (retry_count → 2)")
-            if cursor == 0:
-                break
-
-        print(f"\nPrimed {primed} tickers. Next retry cycle will permanently delist them.")
+        for asset in quarantined:
+            for prefix in ("price_fail:", "price_retry_count:"):
+                key = f"{prefix}{asset.ticker}"
+                if await redis_client.delete(key):
+                    redis_cleaned += 1
     finally:
         await redis_client.aclose()
+
+    print(f"\nDelisted {db_count} tickers in DB, cleaned {redis_cleaned} Redis keys.")
 
 
 def main() -> None:
