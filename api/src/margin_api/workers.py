@@ -3187,6 +3187,9 @@ async def retry_quarantined(ctx: dict) -> dict:
     Samples up to 50 quarantined tickers, re-tests via yf.download in batches
     of 10. Clears failure counter for recovered tickers; resets inflated
     counters to max_consecutive_fails for still-failing ones.
+
+    Tickers that fail 3+ retry cycles are permanently delisted — their Redis
+    keys are removed and the DB Asset is marked permanently_skipped.
     """
     import random
 
@@ -3195,6 +3198,7 @@ async def retry_quarantined(ctx: dict) -> dict:
     max_consecutive_fails = 5
     max_sample = 50
     retry_batch_size = 10
+    max_retry_cycles = 3  # After this many failed retries, permanently delist
 
     try:
         # Scan for quarantined tickers (price_fail:* with value >= threshold)
@@ -3213,7 +3217,13 @@ async def retry_quarantined(ctx: dict) -> dict:
 
         if not quarantined:
             logger.info("[retry_quarantined] No quarantined tickers found")
-            return {"status": "completed", "tested": 0, "recovered": 0, "still_failing": 0}
+            return {
+                "status": "completed",
+                "tested": 0,
+                "recovered": 0,
+                "still_failing": 0,
+                "permanently_delisted": 0,
+            }
 
         sample = random.sample(quarantined, min(len(quarantined), max_sample))
 
@@ -3225,6 +3235,7 @@ async def retry_quarantined(ctx: dict) -> dict:
 
         recovered = 0
         still_failing = 0
+        permanently_delisted = 0
 
         for i in range(0, len(sample), retry_batch_size):
             batch = sample[i : i + retry_batch_size]
@@ -3259,24 +3270,64 @@ async def retry_quarantined(ctx: dict) -> dict:
                     has_data = False
 
                 key = f"price_fail:{ticker}"
+                retry_key = f"price_retry_count:{ticker}"
                 if has_data:
                     await redis_client.delete(key)
+                    await redis_client.delete(retry_key)
                     recovered += 1
                 else:
-                    await redis_client.set(key, str(max_consecutive_fails), ex=86400)
-                    still_failing += 1
+                    # Increment retry cycle counter
+                    cycle = await redis_client.incr(retry_key)
+                    await redis_client.expire(retry_key, 604800)  # 7-day TTL
+
+                    if cycle >= max_retry_cycles:
+                        # Permanently delist: remove Redis keys, update DB
+                        await redis_client.delete(key)
+                        await redis_client.delete(retry_key)
+                        try:
+                            engine = get_engine()
+                            session_factory = get_session_factory(engine)
+                            async with session_factory() as session:
+                                result = await session.execute(
+                                    select(Asset).where(Asset.ticker == ticker)
+                                )
+                                asset = result.scalar_one_or_none()
+                                if asset and asset.ingestion_status != "permanently_skipped":
+                                    asset.ingestion_status = "permanently_skipped"
+                                    asset.last_failure_reason = (
+                                        "Delisted: no price data after "
+                                        f"{max_retry_cycles} retry cycles"
+                                    )
+                                    await session.commit()
+                            logger.info(
+                                "[retry_quarantined] Permanently delisted %s "
+                                "(no data after %d retry cycles)",
+                                ticker,
+                                max_retry_cycles,
+                            )
+                        except Exception:
+                            logger.exception(
+                                "[retry_quarantined] Failed to update DB for %s", ticker
+                            )
+                        permanently_delisted += 1
+                    else:
+                        await redis_client.set(key, str(max_consecutive_fails), ex=86400)
+                        still_failing += 1
 
         logger.info(
-            "[retry_quarantined] tested=%d, recovered=%d, still_failing=%d",
+            "[retry_quarantined] tested=%d, recovered=%d, still_failing=%d, "
+            "permanently_delisted=%d",
             len(sample),
             recovered,
             still_failing,
+            permanently_delisted,
         )
         return {
             "status": "completed",
             "tested": len(sample),
             "recovered": recovered,
             "still_failing": still_failing,
+            "permanently_delisted": permanently_delisted,
         }
     finally:
         await redis_client.aclose()
@@ -4753,7 +4804,9 @@ class WorkerSettings:
             )
             logger.info("[worker] Sentry initialized")
 
-        # Fix yfinance TzCache permission errors in containers
+        # Fix yfinance TzCache race condition in containers — pre-create the
+        # directory so concurrent download threads don't race on os.makedirs()
+        os.makedirs("/tmp/yfinance-cache", exist_ok=True)
         yf.set_tz_cache_location("/tmp/yfinance-cache")
 
         settings = get_settings()
@@ -4921,7 +4974,7 @@ class WorkerSettings:
             run_at_startup=False,
             timeout=900,  # 15 min — batch yf.download, ~31 batches of 100 tickers
         ),
-        cron(retry_quarantined, hour={0, 6, 12, 18}, minute=0, run_at_startup=False),  # Every 6 hours
+        cron(retry_quarantined, hour={0, 6, 12, 18}, minute=0, run_at_startup=False),  # 4x daily
         cron(
             train_ml_models, weekday=5, hour=2, run_at_startup=False, timeout=7200
         ),  # Saturday 2 AM UTC, 2h

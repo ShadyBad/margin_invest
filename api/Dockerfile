@@ -20,7 +20,8 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # LightGBM requires libgomp (OpenMP runtime)
-RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /tmp/yfinance-cache
 
 # Copy installed packages and source
 COPY --from=builder /app/.venv /app/.venv

@@ -1334,6 +1334,84 @@ class TestRetryQuarantined:
 
         await fake_redis.aclose()
 
+    @pytest.mark.asyncio
+    async def test_permanently_delists_after_max_retry_cycles(self):
+        """Ticker failing 3+ retry cycles gets permanently delisted."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import retry_quarantined
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail:DEAD", "10")
+        # Simulate 2 prior failed retry cycles
+        await fake_redis.set("price_retry_count:DEAD", "2")
+
+        mock_df = pd.DataFrame()
+
+        mock_asset = MagicMock()
+        mock_asset.ingestion_status = "quarantined"
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_asset
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.commit = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        mock_factory = MagicMock(return_value=mock_session)
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", return_value=mock_df),
+            patch("margin_api.workers.get_engine"),
+            patch("margin_api.workers.get_session_factory", return_value=mock_factory),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await retry_quarantined({})
+
+        assert result["permanently_delisted"] >= 1
+        assert result["still_failing"] == 0
+        # Redis keys should be cleaned up
+        assert await fake_redis.get("price_fail:DEAD") is None
+        assert await fake_redis.get("price_retry_count:DEAD") is None
+        # DB should be updated
+        assert mock_asset.ingestion_status == "permanently_skipped"
+
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_recovery_clears_retry_counter(self):
+        """Recovered ticker has retry counter cleaned up."""
+        import fakeredis.aioredis
+        import pandas as pd
+        from margin_api.workers import retry_quarantined
+
+        fake_redis = fakeredis.aioredis.FakeRedis()
+        await fake_redis.set("price_fail:BACK", "10")
+        await fake_redis.set("price_retry_count:BACK", "2")
+
+        mock_df = pd.DataFrame(
+            {"Close": [42.0]},
+            index=pd.DatetimeIndex(["2026-03-17"], name="Date"),
+        )
+
+        with (
+            patch("margin_api.workers.get_settings") as mock_settings,
+            patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
+            patch("margin_api.workers.yf.download", return_value=mock_df),
+        ):
+            mock_settings.return_value.redis_url = "redis://localhost:6379"
+            result = await retry_quarantined({})
+
+        assert result["recovered"] >= 1
+        assert await fake_redis.get("price_fail:BACK") is None
+        assert await fake_redis.get("price_retry_count:BACK") is None
+
+        await fake_redis.aclose()
+
 
 class TestWorkerStartupFixes:
     @pytest.mark.asyncio
