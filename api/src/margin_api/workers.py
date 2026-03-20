@@ -4921,13 +4921,13 @@ class WorkerSettings:
             run_at_startup=False,
             timeout=900,  # 15 min — batch yf.download, ~31 batches of 100 tickers
         ),
-        cron(retry_quarantined, hour={0, 6, 12, 18}, run_at_startup=False),  # Every 6 hours
+        cron(retry_quarantined, hour={0, 6, 12, 18}, minute=0, run_at_startup=False),  # Every 6 hours
         cron(
             train_ml_models, weekday=5, hour=2, run_at_startup=False, timeout=7200
         ),  # Saturday 2 AM UTC, 2h
         cron(full_13f_ingest, hour=22, minute=0, run_at_startup=False),  # 5 PM ET
-        cron(expire_stale_approvals, hour={0, 12}, run_at_startup=False),
-        cron(rollup_governance_events, hour={3, 9, 15, 21}, run_at_startup=False),
+        cron(expire_stale_approvals, hour={0, 12}, minute=0, run_at_startup=False),
+        cron(rollup_governance_events, hour={3, 9, 15, 21}, minute=0, run_at_startup=False),
         cron(
             precompute_default_backtest,
             weekday="sun",
