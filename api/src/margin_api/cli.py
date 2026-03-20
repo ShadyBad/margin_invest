@@ -2489,6 +2489,45 @@ def run_weight_tune(
     print("Current objective is a placeholder (sum of squared weights).")
 
 
+async def run_prime_delist() -> None:
+    """Set price_retry_count to 2 for all quarantined tickers.
+
+    Next retry_quarantined cycle will increment to 3, triggering permanent delist.
+    """
+    import redis.asyncio as aioredis
+
+    from margin_api.config import get_settings
+
+    settings = get_settings()
+    redis_client = aioredis.from_url(settings.redis_url)
+    max_consecutive_fails = 5
+    primed = 0
+
+    try:
+        cursor = 0
+        while True:
+            cursor, keys = await redis_client.scan(
+                cursor=cursor, match="price_fail:*", count=500
+            )
+            for key in keys:
+                val = await redis_client.get(key)
+                if val and int(val) >= max_consecutive_fails:
+                    key_str = key.decode() if isinstance(key, bytes) else key
+                    ticker = key_str.replace("price_fail:", "")
+                    retry_key = f"price_retry_count:{ticker}"
+                    existing = await redis_client.get(retry_key)
+                    if not existing or int(existing) < 2:
+                        await redis_client.set(retry_key, "2", ex=604800)
+                        primed += 1
+                        print(f"  Primed {ticker} (retry_count → 2)")
+            if cursor == 0:
+                break
+
+        print(f"\nPrimed {primed} tickers. Next retry cycle will permanently delist them.")
+    finally:
+        await redis_client.aclose()
+
+
 def main() -> None:
     """CLI entry point with argparse."""
     logging.basicConfig(
@@ -2772,6 +2811,11 @@ def main() -> None:
         help="Print configuration without running optimization",
     )
 
+    subparsers.add_parser(
+        "prime-delist",
+        help="Set retry counters to 2 for all quarantined tickers so next cycle delists them",
+    )
+
     args = parser.parse_args()
 
     if args.command == "universe":
@@ -2850,6 +2894,8 @@ def main() -> None:
             metric=args.metric,
             dry_run=args.dry_run,
         )
+    elif args.command == "prime-delist":
+        asyncio.run(run_prime_delist())
     else:
         parser.print_help()
         sys.exit(1)
