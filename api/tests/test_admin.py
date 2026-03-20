@@ -67,7 +67,7 @@ class TestPipelineTrigger:
 
         with (
             patch.dict(os.environ, {"MARGIN_ADMIN_KEY": "test-key"}),
-            patch("margin_api.routes.admin.create_pool", return_value=mock_pool),
+            patch("margin_api.routes.admin.create_pool", new=AsyncMock(return_value=mock_pool)),
         ):
             app = create_app()
             app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()

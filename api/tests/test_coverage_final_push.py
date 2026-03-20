@@ -27,13 +27,10 @@ import pytest
 import pytest_asyncio
 from cryptography.fernet import Fernet
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.app import create_app
 from margin_api.config import Settings, get_settings
 from margin_api.db.base import Base
 from margin_api.db.models import (
-    GovernanceConfig,
     GovernanceEvent,
     IngestionRun,
     JobRun,
@@ -44,10 +41,10 @@ from margin_api.db.models import (
     User,
     UserRole,
     WebhookDelivery,
-    WebhookSubscription,
 )
 from margin_api.db.session import get_db
 from margin_api.deps import get_admin_user, get_superadmin_user
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -184,9 +181,7 @@ class TestAdminGovernanceConfigAsync:
     async def test_get_known_key_returns_default(self, session_factory):
         app = _make_app(session_factory, superadmin=True)
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(
-                "/api/v1/admin/governance-config/circuit_breaker.score_drift"
-            )
+            resp = await client.get("/api/v1/admin/governance-config/circuit_breaker.score_drift")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -333,9 +328,7 @@ class TestAdminGovernanceConfigAsync:
                 "/api/v1/admin/governance-config/circuit_breaker.ml_regression",
                 json={"config_value": {"threshold": 75.0}},
             )
-            resp = await client.get(
-                "/api/v1/admin/governance-config/circuit_breaker.ml_regression"
-            )
+            resp = await client.get("/api/v1/admin/governance-config/circuit_breaker.ml_regression")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -508,9 +501,7 @@ class TestAdminWebhooksAsync:
             await session.commit()
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(
-                f"/api/v1/admin/webhooks/{sub_id}/deliveries?limit=2&offset=0"
-            )
+            resp = await client.get(f"/api/v1/admin/webhooks/{sub_id}/deliveries?limit=2&offset=0")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -734,9 +725,7 @@ class TestGovernanceRouteAsync:
 
         app = _make_app(session_factory)
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.post(
-                f"/api/v1/admin/approvals/{approval.id}/approve", json={}
-            )
+            resp = await client.post(f"/api/v1/admin/approvals/{approval.id}/approve", json={})
 
         assert resp.status_code == 409
 
@@ -794,9 +783,7 @@ class TestGovernanceRouteAsync:
 
         app = _make_app(session_factory)
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.post(
-                f"/api/v1/admin/approvals/{approval.id}/reject", json={}
-            )
+            resp = await client.post(f"/api/v1/admin/approvals/{approval.id}/reject", json={})
 
         assert resp.status_code == 409
 
@@ -1089,7 +1076,6 @@ class TestBacktestRouteAsync:
     @pytest.mark.asyncio
     async def test_run_backtest_synthetic_fallback(self, session_factory):
         """POST /backtest/run returns result with synthetic metrics when no PIT data."""
-        from datetime import date
 
         app = _make_app(session_factory)
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -1147,6 +1133,8 @@ class TestBacktestRouteAsync:
     @pytest.mark.asyncio
     async def test_get_result_by_id(self, session_factory):
         """GET /backtest/results/{id} returns the stored result."""
+        from datetime import UTC, date, datetime
+
         from margin_api.routes.backtest import _backtest_store
         from margin_api.schemas.backtest import (
             BacktestConfigRequest,
@@ -1154,7 +1142,6 @@ class TestBacktestRouteAsync:
             MetricsResponse,
             ValidationResponse,
         )
-        from datetime import UTC, date, datetime
 
         # Pre-populate the store
         backtest_id = "test-id-123"
@@ -1202,6 +1189,8 @@ class TestBacktestRouteAsync:
     @pytest.mark.asyncio
     async def test_get_metrics_by_id(self, session_factory):
         """GET /backtest/metrics/{id} returns the metrics."""
+        from datetime import UTC, date, datetime
+
         from margin_api.routes.backtest import _backtest_store
         from margin_api.schemas.backtest import (
             BacktestConfigRequest,
@@ -1209,7 +1198,6 @@ class TestBacktestRouteAsync:
             MetricsResponse,
             ValidationResponse,
         )
-        from datetime import UTC, date, datetime
 
         backtest_id = "metrics-test-id"
         config = BacktestConfigRequest(start_date=date(2020, 1, 1), end_date=date(2022, 1, 1))
@@ -1533,7 +1521,18 @@ class TestModelValidationAsync:
                 n_seeds=2,
                 gate_passed=True,
                 selected_seed=i,
-                metric_distributions={"rank_ic": {"mean": 0.15, "std": 0.02, "min": 0.1, "max": 0.2, "median": 0.15, "ci_lower": 0.12, "ci_upper": 0.18, "cv": 0.13}},
+                metric_distributions={
+                    "rank_ic": {
+                        "mean": 0.15,
+                        "std": 0.02,
+                        "min": 0.1,
+                        "max": 0.2,
+                        "median": 0.15,
+                        "ci_lower": 0.12,
+                        "ci_upper": 0.18,
+                        "cv": 0.13,
+                    }
+                },
                 gate_details={"overall": True},
                 environment_snapshot={},
             )
@@ -1561,7 +1560,18 @@ class TestModelValidationAsync:
             n_seeds=1,
             gate_passed=True,
             selected_seed=7,
-            metric_distributions={"rank_ic": {"mean": 0.18, "std": 0.01, "min": 0.17, "max": 0.19, "median": 0.18, "ci_lower": 0.16, "ci_upper": 0.20, "cv": 0.06}},
+            metric_distributions={
+                "rank_ic": {
+                    "mean": 0.18,
+                    "std": 0.01,
+                    "min": 0.17,
+                    "max": 0.19,
+                    "median": 0.18,
+                    "ci_lower": 0.16,
+                    "ci_upper": 0.20,
+                    "cv": 0.06,
+                }
+            },
             gate_details={"overall": True},
             environment_snapshot={},
         )
@@ -1602,7 +1612,18 @@ class TestModelValidationAsync:
             n_seeds=2,
             gate_passed=True,
             selected_seed=None,
-            metric_distributions={"rank_ic": {"mean": 0.20, "std": 0.02, "min": 0.15, "max": 0.25, "median": 0.20, "ci_lower": 0.17, "ci_upper": 0.23, "cv": 0.10}},
+            metric_distributions={
+                "rank_ic": {
+                    "mean": 0.20,
+                    "std": 0.02,
+                    "min": 0.15,
+                    "max": 0.25,
+                    "median": 0.20,
+                    "ci_lower": 0.17,
+                    "ci_upper": 0.23,
+                    "cv": 0.10,
+                }
+            },
             gate_details={"overall": True},
             environment_snapshot={},
             previous_comparison={
@@ -1717,7 +1738,6 @@ class TestSectorsRouteAsync:
     @pytest.mark.asyncio
     async def test_list_sectors_calls_service(self, session_factory):
         """GET /sectors calls list_sector_summaries service."""
-        from margin_api.services.sector_stats import list_sector_summaries
 
         app = _make_app(session_factory)
         with patch(
@@ -1731,7 +1751,7 @@ class TestSectorsRouteAsync:
                     "top_score": 85.0,
                 }
             ],
-        ) as mock_svc:
+        ):
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -1790,8 +1810,9 @@ class TestCorrelationsRouteAsync:
     @pytest.mark.asyncio
     async def test_showcase_uses_redis_cache(self, session_factory):
         """GET /correlations/showcase uses Redis cache when available."""
-        from margin_api.schemas.correlations import CorrelationResponse
         from datetime import UTC, datetime
+
+        from margin_api.schemas.correlations import CorrelationResponse
 
         cached_response = CorrelationResponse(
             tickers=["AAPL", "MSFT", "JNJ", "COST", "V"],
@@ -1820,8 +1841,9 @@ class TestCorrelationsRouteAsync:
     @pytest.mark.asyncio
     async def test_showcase_computes_live_when_cache_miss(self, session_factory):
         """GET /correlations/showcase computes live when cache misses."""
-        from margin_api.schemas.correlations import CorrelationResponse
         from datetime import UTC, datetime
+
+        from margin_api.schemas.correlations import CorrelationResponse
 
         live_response = CorrelationResponse(
             tickers=["AAPL", "MSFT", "AMZN", "GOOG", "META"],

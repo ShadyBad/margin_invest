@@ -185,3 +185,72 @@ class TestWebSocketEndpoint:
 
         # After the context manager exits, the client disconnects
         assert len(manager.active_connections) == 0
+
+    def test_non_ping_message_does_not_echo(self):
+        """Sending non-ping text doesn't cause an error (loop continues)."""
+        app = _create_test_app()
+        client = TestClient(app)
+        with client.websocket_connect("/ws/scores") as ws:
+            # Send a non-ping message; endpoint should not crash
+            ws.send_text("heartbeat")
+            # Follow up with ping to verify connection is still alive
+            ws.send_text("ping")
+            reply = ws.receive_text()
+            assert reply == "pong"
+
+
+class TestBroadcastDisconnectCleanup:
+    """Tests for broadcast removing disconnected clients."""
+
+    def test_broadcast_removes_failed_connection(self):
+        """When send_json raises RuntimeError, the connection is removed."""
+        from margin_api.ws.scores import ConnectionManager, ScoreChangeMessage
+
+        mgr = ConnectionManager()
+        good_ws = AsyncMock()
+        bad_ws = AsyncMock()
+        bad_ws.send_json = AsyncMock(side_effect=RuntimeError("Connection broken"))
+
+        mgr.active_connections = [bad_ws, good_ws]
+
+        msg = ScoreChangeMessage(
+            ticker="AAPL",
+            old_score=70.0,
+            new_score=80.0,
+            delta=10.0,
+            severity="moderate",
+        )
+
+        asyncio.run(mgr.broadcast(msg))
+
+        # Bad connection should have been removed
+        assert bad_ws not in mgr.active_connections
+        assert good_ws in mgr.active_connections
+        # Good connection should still have received the message
+        good_ws.send_json.assert_awaited_once()
+
+    def test_broadcast_removes_websocket_disconnect(self):
+        """When send_json raises WebSocketDisconnect, connection is removed."""
+        from fastapi import WebSocketDisconnect
+        from margin_api.ws.scores import ConnectionManager, ScoreChangeMessage
+
+        mgr = ConnectionManager()
+        disconnected_ws = AsyncMock()
+        disconnected_ws.send_json = AsyncMock(
+            side_effect=WebSocketDisconnect(code=1001, reason="Going away")
+        )
+
+        mgr.active_connections = [disconnected_ws]
+
+        msg = ScoreChangeMessage(
+            ticker="MSFT",
+            old_score=60.0,
+            new_score=75.0,
+            delta=15.0,
+            severity="major",
+        )
+
+        asyncio.run(mgr.broadcast(msg))
+
+        # Disconnected WS should be cleaned up
+        assert disconnected_ws not in mgr.active_connections

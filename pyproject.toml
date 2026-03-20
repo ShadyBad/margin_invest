@@ -11,6 +11,9 @@ members = ["engine", "api"]
 [tool.pytest.ini_options]
 addopts = "-v --tb=short"
 
+[tool.coverage.run]
+source = ["margin_api"]
+
 [tool.ruff]
 target-version = "py313"
 line-length = 100

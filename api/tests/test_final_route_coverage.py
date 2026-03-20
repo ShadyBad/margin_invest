@@ -43,28 +43,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import jwt as pyjwt
 import pytest
 import pytest_asyncio
-from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.app import create_app
 from margin_api.config import get_settings
 from margin_api.db.base import Base
 from margin_api.db.models import (
     Asset,
     BacktestRun,
-    FilingMetadata,
     FinancialData,
-    InstitutionalHolding,
     JobRun,
     LinkedProvider,
     Manager,
-    PITDailyPrice,
-    PITFinancialSnapshot,
-    PITUniverseMembership,
     Score,
-    SecurityMaster,
-    TotpSecret,
     User,
     UserProposal,
     UserRole,
@@ -73,6 +63,7 @@ from margin_api.db.models import (
 from margin_api.db.session import get_db
 from margin_api.deps import get_admin_user, get_current_user_id
 from margin_api.services.auth import AuthService
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -121,9 +112,19 @@ _DEFAULT_V4_DETAIL = {
     # Do NOT include "ticker" or "name" here — the route fills these via
     # detail.setdefault("ticker", ticker) and detail.setdefault("name", asset_name)
     # using values from the DB query. Including them here would override those.
-    "quality": {"factor_name": "quality", "weight": 0.35, "average_percentile": 70.0, "sub_scores": []},
+    "quality": {
+        "factor_name": "quality",
+        "weight": 0.35,
+        "average_percentile": 70.0,
+        "sub_scores": [],
+    },
     "value": {"factor_name": "value", "weight": 0.30, "average_percentile": 65.0, "sub_scores": []},
-    "momentum": {"factor_name": "momentum", "weight": 0.35, "average_percentile": 60.0, "sub_scores": []},
+    "momentum": {
+        "factor_name": "momentum",
+        "weight": 0.35,
+        "average_percentile": 60.0,
+        "sub_scores": [],
+    },
     "filters_passed": [],
     "composite_raw_score": 75.0,
     "composite_percentile": 72.0,
@@ -185,9 +186,7 @@ class TestDashboardEndpoints:
     async def test_get_dashboard_empty_db(self, session_factory):
         """GET /api/v1/dashboard returns 200 with empty picks when DB is empty."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/dashboard")
         assert resp.status_code == 200
         data = resp.json()
@@ -199,9 +198,7 @@ class TestDashboardEndpoints:
     async def test_get_dashboard_status(self, session_factory):
         """GET /api/v1/dashboard/status returns diagnostic info."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/dashboard/status")
         assert resp.status_code == 200
         data = resp.json()
@@ -212,9 +209,7 @@ class TestDashboardEndpoints:
     async def test_audit_dashboard_empty(self, session_factory):
         """GET /api/v1/dashboard/audit returns entries list."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/dashboard/audit")
         assert resp.status_code == 200
         data = resp.json()
@@ -244,9 +239,7 @@ class TestDashboardEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/dashboard")
         assert resp.status_code == 200
         data = resp.json()
@@ -276,9 +269,7 @@ class TestDashboardEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/dashboard")
         assert resp.status_code == 200
         data = resp.json()
@@ -307,9 +298,7 @@ class TestDashboardEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/dashboard/audit")
         assert resp.status_code == 200
         data = resp.json()
@@ -342,9 +331,7 @@ class TestDashboardEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/dashboard/status")
         assert resp.status_code == 200
         data = resp.json()
@@ -361,9 +348,7 @@ class TestAuthEndpoints:
     async def test_register_success(self, session_factory):
         """POST /api/v1/auth/register creates a new user."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/register",
                 json={
@@ -379,11 +364,9 @@ class TestAuthEndpoints:
 
     @pytest.mark.asyncio
     async def test_register_weak_password_returns_422(self, session_factory):
-        """POST /api/v1/auth/register returns 422 for too-short password (pydantic min_length=12)."""
+        """POST /api/v1/auth/register returns 422 for too-short password (min_length=12)."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/register",
                 json={
@@ -403,9 +386,7 @@ class TestAuthEndpoints:
             "email": "dup@example.com",
             "password": "Str0ng!Pass9923",
         }
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             first = await client.post("/api/v1/auth/register", json=payload)
             assert first.status_code == 201
             resp = await client.post("/api/v1/auth/register", json=payload)
@@ -416,9 +397,7 @@ class TestAuthEndpoints:
     async def test_verify_credentials_invalid_returns_401(self, session_factory):
         """POST /api/v1/auth/verify-credentials returns 401 for bad creds."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/verify-credentials",
                 json={"username": "nobody", "password": "badpass"},
@@ -434,16 +413,12 @@ class TestAuthEndpoints:
         """
         # Seed user via AuthService so password_hash is set correctly
         auth_svc = AuthService()
-        await auth_svc.register_user(
-            db_session, "creduser", "cred@example.com", "Str0ng!Pass9923"
-        )
+        await auth_svc.register_user(db_session, "creduser", "cred@example.com", "Str0ng!Pass9923")
         # register_user already commits, but we flush to ensure visibility
         await db_session.flush()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             # The endpoint uses email as the username lookup (User.email == username)
             resp = await client.post(
                 "/api/v1/auth/verify-credentials",
@@ -458,9 +433,7 @@ class TestAuthEndpoints:
     async def test_oauth_sync_creates_new_user(self, session_factory):
         """POST /api/v1/auth/oauth-sync creates user when not exists."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/oauth-sync",
                 json={
@@ -483,9 +456,7 @@ class TestAuthEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/oauth-sync",
                 json={
@@ -502,9 +473,7 @@ class TestAuthEndpoints:
     async def test_session_check_unknown_user(self, session_factory):
         """GET /api/v1/auth/session-check/{user_id} returns valid for unknown user."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/auth/session-check/99999")
         assert resp.status_code == 200
         data = resp.json()
@@ -524,9 +493,7 @@ class TestAuthEndpoints:
 
         app = _make_app_with_db(session_factory)
         old_iat = int((datetime.now(UTC) - timedelta(hours=1)).timestamp())
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get(
                 f"/api/v1/auth/session-check/{user.id}",
                 params={"iat": old_iat},
@@ -539,9 +506,7 @@ class TestAuthEndpoints:
     async def test_forgot_password_always_returns_200(self, session_factory):
         """POST /api/v1/auth/forgot-password always returns 200."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/forgot-password",
                 json={"email": "noone@example.com"},
@@ -554,15 +519,11 @@ class TestAuthEndpoints:
     async def test_forgot_password_for_real_user(self, db_session, session_factory):
         """POST /api/v1/auth/forgot-password triggers email for real user."""
         auth_svc = AuthService()
-        await auth_svc.register_user(
-            db_session, "resetuser", "reset@example.com", "Str0ng!Pass99"
-        )
+        await auth_svc.register_user(db_session, "resetuser", "reset@example.com", "Str0ng!Pass99")
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        with patch(
-            "margin_api.services.email.EmailService.send_password_reset"
-        ) as mock_email:
+        with patch("margin_api.services.email.EmailService.send_password_reset"):
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -582,9 +543,7 @@ class TestAuthEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/reset-password",
                 json={
@@ -680,9 +639,7 @@ class TestAuthEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/mfa/verify-recovery",
                 json={"user_id": user.id, "challenge_token": "bad", "code": "ABCD-1234"},
@@ -759,9 +716,7 @@ class TestAuthEndpoints:
     async def test_verify_mfa_token_invalid_returns_401(self, session_factory):
         """POST /api/v1/auth/verify-mfa-token returns 401 for invalid token."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/verify-mfa-token",
                 json={"token": "invalidsignature"},
@@ -785,9 +740,7 @@ class TestAuthEndpoints:
         )
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/verify-mfa-token",
                 json={"token": token},
@@ -798,9 +751,7 @@ class TestAuthEndpoints:
     async def test_admin_login_invalid_creds(self, session_factory):
         """POST /api/v1/auth/admin-login returns 401 for unknown user."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/admin-login",
                 json={"email": "nobody@example.com", "pw": "badpass"},
@@ -811,15 +762,13 @@ class TestAuthEndpoints:
     async def test_admin_login_non_admin_returns_403(self, db_session, session_factory):
         """POST /api/v1/auth/admin-login returns 403 for non-admin user."""
         auth_svc = AuthService()
-        user = await auth_svc.register_user(
+        await auth_svc.register_user(
             db_session, "regularuser", "regular@example.com", "Str0ng!Pass9923"
         )
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/admin-login",
                 json={"email": "regular@example.com", "pw": "Str0ng!Pass9923"},
@@ -837,9 +786,7 @@ class TestAuthEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/admin-login",
                 json={"email": "admin@example.com", "pw": "Str0ng!Pass9923"},
@@ -857,9 +804,7 @@ class TestAuthEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/link-provider",
                 json={
@@ -888,9 +833,7 @@ class TestAuthEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/link-provider",
                 json={
@@ -909,9 +852,7 @@ class TestAuthEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.delete("/api/v1/auth/unlink-provider/github")
         assert resp.status_code == 404
 
@@ -923,9 +864,7 @@ class TestAuthEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/set-password",
                 json={"new_password": "Str0ng!Pass9923"},  # min 12 chars
@@ -944,9 +883,7 @@ class TestAuthEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/auth/set-password",
                 json={"new_password": "NewStr0ng!Pass99"},
@@ -957,9 +894,7 @@ class TestAuthEndpoints:
     async def test_security_status_no_user_returns_404(self, session_factory):
         """GET /api/v1/auth/security-status returns 404 for nonexistent user."""
         app = _make_app_with_db(session_factory, user_id=99999)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/auth/security-status")
         assert resp.status_code == 404
 
@@ -971,9 +906,7 @@ class TestAuthEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/auth/security-status")
         assert resp.status_code == 200
         data = resp.json()
@@ -992,9 +925,7 @@ class TestThirteenfEndpoints:
     async def test_get_holdings_empty(self, session_factory):
         """GET /api/v1/13f/holdings/{ticker} returns empty holders when no data."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/13f/holdings/AAPL")
         assert resp.status_code == 200
         data = resp.json()
@@ -1007,9 +938,7 @@ class TestThirteenfEndpoints:
     async def test_get_holdings_history_empty(self, session_factory):
         """GET /api/v1/13f/holdings/{ticker}/history returns empty quarters."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/13f/holdings/MSFT/history")
         assert resp.status_code == 200
         data = resp.json()
@@ -1020,9 +949,7 @@ class TestThirteenfEndpoints:
     async def test_list_managers_empty(self, session_factory):
         """GET /api/v1/13f/managers returns empty list when no managers."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/13f/managers")
         assert resp.status_code == 200
         assert resp.json() == []
@@ -1040,9 +967,7 @@ class TestThirteenfEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/13f/managers")
         assert resp.status_code == 200
         data = resp.json()
@@ -1058,9 +983,7 @@ class TestThirteenfEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/13f/managers?tier=curated")
         assert resp.status_code == 200
         data = resp.json()
@@ -1070,49 +993,37 @@ class TestThirteenfEndpoints:
     @pytest.mark.asyncio
     async def test_get_manager_portfolio_not_found(self, db_session, session_factory):
         """GET /api/v1/13f/managers/{id}/portfolio returns 404 when manager missing."""
-        user = User(
-            email="inst@test.com", name="Inst User", subscription_plan="institutional"
-        )
+        user = User(email="inst@test.com", name="Inst User", subscription_plan="institutional")
         db_session.add(user)
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/13f/managers/99999/portfolio")
         assert resp.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_manager_portfolio_no_filing(self, db_session, session_factory):
         """GET /api/v1/13f/managers/{id}/portfolio returns 404 when no filings."""
-        user = User(
-            email="inst2@test.com", name="Inst User 2", subscription_plan="institutional"
-        )
+        user = User(email="inst2@test.com", name="Inst User 2", subscription_plan="institutional")
         mgr = Manager(cik="0009999", name="Empty Fund", short_name="EF", tier="curated")
         db_session.add_all([user, mgr])
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get(f"/api/v1/13f/managers/{mgr.id}/portfolio")
         assert resp.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_overlap_empty_db_returns_404(self, db_session, session_factory):
         """GET /api/v1/13f/analytics/overlap returns 404 when no quarterly data."""
-        user = User(
-            email="inst3@test.com", name="Inst User 3", subscription_plan="institutional"
-        )
+        user = User(email="inst3@test.com", name="Inst User 3", subscription_plan="institutional")
         db_session.add(user)
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/13f/analytics/overlap")
         # resolve_quarter raises 404 when no holdings data exists
         assert resp.status_code == 404
@@ -1120,16 +1031,12 @@ class TestThirteenfEndpoints:
     @pytest.mark.asyncio
     async def test_get_new_positions_empty_db_returns_404(self, db_session, session_factory):
         """GET /api/v1/13f/analytics/new-positions returns 404 when no quarterly data."""
-        user = User(
-            email="inst4@test.com", name="Inst User 4", subscription_plan="institutional"
-        )
+        user = User(email="inst4@test.com", name="Inst User 4", subscription_plan="institutional")
         db_session.add(user)
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/13f/analytics/new-positions")
         # resolve_quarter raises 404 when no holdings data exists
         assert resp.status_code == 404
@@ -1137,33 +1044,25 @@ class TestThirteenfEndpoints:
     @pytest.mark.asyncio
     async def test_get_clone_portfolio_not_found(self, db_session, session_factory):
         """GET /api/v1/13f/analytics/clone/{id} returns 404 when manager missing."""
-        user = User(
-            email="inst5@test.com", name="Inst User 5", subscription_plan="institutional"
-        )
+        user = User(email="inst5@test.com", name="Inst User 5", subscription_plan="institutional")
         db_session.add(user)
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/13f/analytics/clone/99999")
         assert resp.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_clone_portfolio_no_filing(self, db_session, session_factory):
         """GET /api/v1/13f/analytics/clone/{id} returns 404 when no filing."""
-        user = User(
-            email="inst6@test.com", name="Inst User 6", subscription_plan="institutional"
-        )
+        user = User(email="inst6@test.com", name="Inst User 6", subscription_plan="institutional")
         mgr = Manager(cik="0000001", name="Clone Fund", short_name="CF", tier="curated")
         db_session.add_all([user, mgr])
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get(f"/api/v1/13f/analytics/clone/{mgr.id}")
         assert resp.status_code == 404
 
@@ -1175,9 +1074,7 @@ class TestThirteenfEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/13f/holdings/CUSIPTEST")
         assert resp.status_code == 200
         assert resp.json()["ticker"] == "CUSIPTEST"
@@ -1193,9 +1090,7 @@ class TestScoresEndpoints:
     async def test_list_scores_empty(self, session_factory):
         """GET /api/v1/scores returns empty list when no V4 scores."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores")
         assert resp.status_code == 200
         data = resp.json()
@@ -1214,9 +1109,7 @@ class TestScoresEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores")
         assert resp.status_code == 200
         data = resp.json()
@@ -1234,9 +1127,7 @@ class TestScoresEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores?conviction=high")
         assert resp.status_code == 200
 
@@ -1244,9 +1135,7 @@ class TestScoresEndpoints:
     async def test_get_score_not_found(self, session_factory):
         """GET /api/v1/scores/{ticker} returns 404 for unknown ticker."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/ZZZZ")
         assert resp.status_code == 404
 
@@ -1262,9 +1151,7 @@ class TestScoresEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/NVDA")
         assert resp.status_code == 200
         data = resp.json()
@@ -1282,9 +1169,7 @@ class TestScoresEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/STAGED")
         assert resp.status_code == 200
 
@@ -1292,9 +1177,7 @@ class TestScoresEndpoints:
     async def test_get_score_history_not_found(self, session_factory):
         """GET /api/v1/scores/{ticker}/history returns 404 for unknown ticker."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/ZZZZ/history")
         assert resp.status_code == 404
 
@@ -1322,9 +1205,7 @@ class TestScoresEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/HIST/history")
         assert resp.status_code == 200
         data = resp.json()
@@ -1335,9 +1216,7 @@ class TestScoresEndpoints:
     async def test_get_valuation_audit_not_found(self, session_factory):
         """GET /api/v1/scores/{ticker}/valuation-audit returns 404 for unknown ticker."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/ZZZZ/valuation-audit")
         assert resp.status_code == 404
 
@@ -1365,9 +1244,7 @@ class TestScoresEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/NOAUDIT/valuation-audit")
         assert resp.status_code == 404
 
@@ -1383,9 +1260,7 @@ class TestScoresEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/PRICEHIST?include=price_history")
         assert resp.status_code == 200
         data = resp.json()
@@ -1402,9 +1277,7 @@ class TestMetricsEndpoints:
     async def test_get_metrics_not_found(self, session_factory):
         """GET /api/v1/scores/{ticker}/metrics returns 404 for unknown ticker."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/ZZZZ/metrics")
         assert resp.status_code == 404
 
@@ -1431,9 +1304,7 @@ class TestMetricsEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/METRICS/metrics")
         assert resp.status_code == 200
         data = resp.json()
@@ -1498,9 +1369,7 @@ class TestMetricsEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/RICHMETRIC/metrics")
         assert resp.status_code == 200
         data = resp.json()
@@ -1519,9 +1388,7 @@ class TestAdminEndpoints:
     async def test_trigger_pipeline_redis_failure(self, session_factory):
         """POST /api/v1/admin/pipeline/trigger returns 503 when Redis unreachable."""
         app = _make_app_with_db(session_factory, admin=True)
-        with patch(
-            "margin_api.routes.admin.create_pool", side_effect=Exception("no redis")
-        ):
+        with patch("margin_api.routes.admin.create_pool", side_effect=Exception("no redis")):
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -1532,9 +1399,7 @@ class TestAdminEndpoints:
     async def test_trigger_scoring_redis_failure(self, session_factory):
         """POST /api/v1/admin/scoring/trigger returns 503 when Redis unreachable."""
         app = _make_app_with_db(session_factory, admin=True)
-        with patch(
-            "margin_api.routes.admin.create_pool", side_effect=Exception("no redis")
-        ):
+        with patch("margin_api.routes.admin.create_pool", side_effect=Exception("no redis")):
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -1545,9 +1410,7 @@ class TestAdminEndpoints:
     async def test_trigger_ml_training_redis_failure(self, session_factory):
         """POST /api/v1/admin/ml/train returns 503 when Redis unreachable."""
         app = _make_app_with_db(session_factory, admin=True)
-        with patch(
-            "margin_api.routes.admin.create_pool", side_effect=Exception("no redis")
-        ):
+        with patch("margin_api.routes.admin.create_pool", side_effect=Exception("no redis")):
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -1558,9 +1421,7 @@ class TestAdminEndpoints:
     async def test_pit_stats_empty(self, session_factory):
         """GET /api/v1/admin/pit/stats returns zero counts for empty DB."""
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/admin/pit/stats")
         assert resp.status_code == 200
         data = resp.json()
@@ -1572,9 +1433,7 @@ class TestAdminEndpoints:
     async def test_pit_data_quality_empty(self, session_factory):
         """GET /api/v1/admin/pit/data-quality returns zero counts for empty DB."""
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/admin/pit/data-quality")
         assert resp.status_code == 200
         data = resp.json()
@@ -1584,9 +1443,7 @@ class TestAdminEndpoints:
     async def test_historical_stats_empty(self, session_factory):
         """GET /api/v1/admin/historical/stats returns zero count for empty DB."""
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/admin/historical/stats")
         assert resp.status_code == 200
         data = resp.json()
@@ -1596,9 +1453,7 @@ class TestAdminEndpoints:
     async def test_update_job_status_not_found(self, session_factory):
         """PATCH /api/v1/admin/jobs/{id}/status returns 404 for unknown job."""
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.patch(
                 "/api/v1/admin/jobs/99999/status",
                 json={"status": "cancelled"},
@@ -1609,9 +1464,7 @@ class TestAdminEndpoints:
     async def test_update_job_status_invalid_status(self, session_factory):
         """PATCH /api/v1/admin/jobs/{id}/status returns 400 for invalid status."""
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.patch(
                 "/api/v1/admin/jobs/1/status",
                 json={"status": "bogus"},
@@ -1631,9 +1484,7 @@ class TestAdminEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.patch(
                 f"/api/v1/admin/jobs/{job.id}/status",
                 json={"status": "cancelled"},
@@ -1655,9 +1506,7 @@ class TestAdminEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/admin/jobs/cancel-zombies",
                 json={"job_type": "train_ml_models"},
@@ -1671,9 +1520,7 @@ class TestAdminEndpoints:
     async def test_backtest_latest_not_found(self, session_factory):
         """GET /api/v1/admin/backtest/latest returns 404 when no backtests."""
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/admin/backtest/latest")
         assert resp.status_code == 404
 
@@ -1713,9 +1560,7 @@ class TestAdminEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/admin/backtest/latest")
         assert resp.status_code == 200
         data = resp.json()
@@ -1726,9 +1571,7 @@ class TestAdminEndpoints:
     async def test_ingestion_quarantined_empty(self, session_factory):
         """GET /api/v1/admin/ingestion/quarantined returns empty list when none."""
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/admin/ingestion/quarantined")
         assert resp.status_code == 200
         assert resp.json() == []
@@ -1748,9 +1591,7 @@ class TestAdminEndpoints:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/admin/ingestion/quarantined")
         assert resp.status_code == 200
         data = resp.json()
@@ -1777,9 +1618,7 @@ class TestAdminEndpoints:
     async def test_ml_training_dry_run(self, session_factory):
         """GET /api/v1/admin/ml/training-dry-run returns dry run report."""
         app = _make_app_with_db(session_factory, admin=True)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/admin/ml/training-dry-run")
         assert resp.status_code == 200
         data = resp.json()
@@ -1804,9 +1643,7 @@ class TestPublicScoresAdditional:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/scores/SIGH?include=signal_history")
         assert resp.status_code == 200
         data = resp.json()
@@ -1823,9 +1660,7 @@ class TestRarityAdditional:
     async def test_get_rarity_picks_empty_async(self, session_factory):
         """GET /api/v1/rarity/picks returns 200 with empty list."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/rarity/picks")
         assert resp.status_code == 200
         data = resp.json()
@@ -1835,9 +1670,7 @@ class TestRarityAdditional:
     async def test_get_rarity_404_async(self, session_factory):
         """GET /api/v1/rarity/{ticker} returns 404 for unknown ticker."""
         app = _make_app_with_db(session_factory)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/rarity/ZZZMISSING")
         assert resp.status_code == 404
 
@@ -1866,9 +1699,7 @@ class TestProposalsAdditional:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/proposals")
         assert resp.status_code == 200
         data = resp.json()
@@ -1892,9 +1723,7 @@ class TestProposalsAdditional:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(f"/api/v1/proposals/{proposal.id}/accept")
         assert resp.status_code == 200
         data = resp.json()
@@ -1918,9 +1747,7 @@ class TestProposalsAdditional:
         await db_session.commit()
 
         app = _make_app_with_db(session_factory, user_id=user.id)
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(f"/api/v1/proposals/{proposal.id}/dismiss")
         assert resp.status_code == 200
         data = resp.json()

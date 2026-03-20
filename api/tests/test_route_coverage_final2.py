@@ -32,15 +32,12 @@ import json
 import os
 import time
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import jwt as pyjwt
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.app import create_app
 from margin_api.config import get_settings
 from margin_api.db.base import Base
@@ -54,11 +51,9 @@ from margin_api.db.models import (
     JobRun,
     LinkedProvider,
     Manager,
-    PipelineApproval,
     RarityScore,
     Score,
     SecurityMaster,
-    TotpSecret,
     UniverseSnapshot,
     User,
     UserRole,
@@ -66,7 +61,7 @@ from margin_api.db.models import (
 )
 from margin_api.db.session import get_db
 from margin_api.deps import get_admin_user, get_current_user_id
-from margin_api.middleware.mfa_enforcement import require_mfa_dep
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -111,9 +106,19 @@ def _make_admin_user() -> User:
 
 
 _DEFAULT_V4_DETAIL = {
-    "quality": {"factor_name": "quality", "weight": 0.35, "average_percentile": 70.0, "sub_scores": []},
+    "quality": {
+        "factor_name": "quality",
+        "weight": 0.35,
+        "average_percentile": 70.0,
+        "sub_scores": [],
+    },
     "value": {"factor_name": "value", "weight": 0.30, "average_percentile": 65.0, "sub_scores": []},
-    "momentum": {"factor_name": "momentum", "weight": 0.35, "average_percentile": 60.0, "sub_scores": []},
+    "momentum": {
+        "factor_name": "momentum",
+        "weight": 0.35,
+        "average_percentile": 60.0,
+        "sub_scores": [],
+    },
     "filters_passed": [],
     "composite_raw_score": 75.0,
     "composite_percentile": 72.0,
@@ -229,7 +234,9 @@ class TestDashboardUncovered:
             data_coverage=0.95,
         )
         db_session.add(score)
-        v4 = _make_v4_score(asset.id, conviction="exceptional", composite_score=82.0, published=True)
+        v4 = _make_v4_score(
+            asset.id, conviction="exceptional", composite_score=82.0, published=True
+        )
         db_session.add(v4)
         await db_session.commit()
 
@@ -327,9 +334,7 @@ class TestDashboardUncovered:
                 },
                 "momentum": {
                     "factor_name": "momentum",
-                    "sub_scores": [
-                        {"name": "sentiment", "percentile_rank": 70.0}
-                    ],
+                    "sub_scores": [{"name": "sentiment", "percentile_rank": 70.0}],
                 },
             },
         )
@@ -345,7 +350,10 @@ class TestDashboardUncovered:
         assert len(picks) >= 1
         pick = picks[0]
         # growth_percentile and sentiment_percentile should be populated
-        assert pick.get("growth_percentile") is not None or pick.get("sentiment_percentile") is not None
+        assert (
+            pick.get("growth_percentile") is not None
+            or pick.get("sentiment_percentile") is not None
+        )
 
 
 # ===========================================================================
@@ -422,7 +430,9 @@ class TestThirteenfUncovered:
         db_session.add(mgr)
         await db_session.flush()
 
-        sec = SecurityMaster(ticker="MSFT", cusip="594918104", issuer_name="Microsoft Corp", asset_id=asset.id)
+        sec = SecurityMaster(
+            ticker="MSFT", cusip="594918104", issuer_name="Microsoft Corp", asset_id=asset.id
+        )
         db_session.add(sec)
         await db_session.flush()
 
@@ -476,7 +486,9 @@ class TestThirteenfUncovered:
         db_session.add(mgr)
         await db_session.flush()
 
-        sec = SecurityMaster(ticker="GOOG", cusip="02079K305", issuer_name="Alphabet Inc", asset_id=asset.id)
+        sec = SecurityMaster(
+            ticker="GOOG", cusip="02079K305", issuer_name="Alphabet Inc", asset_id=asset.id
+        )
         db_session.add(sec)
         await db_session.flush()
 
@@ -534,7 +546,9 @@ class TestThirteenfUncovered:
         db_session.add(asset)
         await db_session.flush()
 
-        sec = SecurityMaster(ticker="AAPL", cusip="037833100", issuer_name="Apple Inc", asset_id=asset.id)
+        sec = SecurityMaster(
+            ticker="AAPL", cusip="037833100", issuer_name="Apple Inc", asset_id=asset.id
+        )
         db_session.add(sec)
         await db_session.flush()
 
@@ -583,7 +597,9 @@ class TestThirteenfUncovered:
         db_session.add(asset)
         await db_session.flush()
 
-        sec = SecurityMaster(ticker="META", cusip="30303M102", issuer_name="Meta Platforms", asset_id=asset.id)
+        sec = SecurityMaster(
+            ticker="META", cusip="30303M102", issuer_name="Meta Platforms", asset_id=asset.id
+        )
         db_session.add(sec)
         await db_session.flush()
 
@@ -600,7 +616,9 @@ class TestThirteenfUncovered:
         await db_session.commit()
 
         # Create user with institutional plan so require_plan passes
-        inst_user = User(email="instuser@example.com", name="Inst User", subscription_plan="institutional")
+        inst_user = User(
+            email="instuser@example.com", name="Inst User", subscription_plan="institutional"
+        )
         db_session.add(inst_user)
         await db_session.commit()
         await db_session.refresh(inst_user)
@@ -636,7 +654,9 @@ class TestThirteenfUncovered:
         db_session.add(asset)
         await db_session.flush()
 
-        sec = SecurityMaster(ticker="NVDA", cusip="67066G104", issuer_name="Nvidia Corp", asset_id=asset.id)
+        sec = SecurityMaster(
+            ticker="NVDA", cusip="67066G104", issuer_name="Nvidia Corp", asset_id=asset.id
+        )
         db_session.add(sec)
         await db_session.flush()
 
@@ -653,7 +673,9 @@ class TestThirteenfUncovered:
         await db_session.commit()
 
         # Create user with institutional plan so require_plan passes
-        inst_user = User(email="cloneuser@example.com", name="Clone User", subscription_plan="institutional")
+        inst_user = User(
+            email="cloneuser@example.com", name="Clone User", subscription_plan="institutional"
+        )
         db_session.add(inst_user)
         await db_session.commit()
         await db_session.refresh(inst_user)
@@ -705,14 +727,16 @@ class TestMetricsUncovered:
         for i in range(260):
             d = (datetime(2025, 1, 1) + timedelta(days=i)).strftime("%Y-%m-%d")
             p = base_price + (i % 20) - 10  # simple oscillation
-            bars.append({
-                "date": d,
-                "open": p - 0.5,
-                "high": p + 1.0,
-                "low": p - 1.0,
-                "close": p,
-                "volume": 1000000,
-            })
+            bars.append(
+                {
+                    "date": d,
+                    "open": p - 0.5,
+                    "high": p + 1.0,
+                    "low": p - 1.0,
+                    "close": p,
+                    "volume": 1000000,
+                }
+            )
 
         fd = FinancialData(
             asset_id=asset.id,
@@ -871,9 +895,7 @@ class TestPublicScoresUncovered:
         await db_session.flush()
 
         detail = dict(_DEFAULT_V4_DETAIL)
-        detail["filters_passed"] = [
-            {"name": "profitability", "passed": False, "value": -5.0}
-        ]
+        detail["filters_passed"] = [{"name": "profitability", "passed": False, "value": -5.0}]
         v4 = _make_v4_score(asset.id, published=True, detail=detail)
         db_session.add(v4)
         await db_session.commit()
@@ -1009,9 +1031,7 @@ class TestAuthUncovered:
         await db_session.flush()
 
         # Create a challenge token for the user
-        auth_svc = __import__(
-            "margin_api.services.auth", fromlist=["AuthService"]
-        ).AuthService()
+        auth_svc = __import__("margin_api.services.auth", fromlist=["AuthService"]).AuthService()
         token = await auth_svc.create_challenge_token(db_session, user.id)
         await db_session.commit()
 
@@ -1025,6 +1045,7 @@ class TestAuthUncovered:
         )
 
         from margin_api.routes import auth as auth_mod
+
         app.dependency_overrides[auth_mod._get_totp_service] = lambda: mock_totp
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -1061,6 +1082,7 @@ class TestAuthUncovered:
         mock_totp.verify_totp = AsyncMock(return_value=True)
 
         from margin_api.routes import auth as auth_mod
+
         app.dependency_overrides[auth_mod._get_totp_service] = lambda: mock_totp
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -1098,6 +1120,7 @@ class TestAuthUncovered:
         mock_totp.verify_totp = AsyncMock(return_value=True)
 
         from margin_api.routes import auth as auth_mod
+
         app.dependency_overrides[auth_mod._get_totp_service] = lambda: mock_totp
 
         cookie_val = json.dumps({"userId": user.id, "challengeToken": token})
@@ -1139,6 +1162,7 @@ class TestAuthUncovered:
         mock_totp = AsyncMock()  # also needed to avoid Fernet key error at dependency init
 
         from margin_api.routes import auth as auth_mod
+
         app.dependency_overrides[auth_mod._get_recovery_code_service] = lambda: mock_recovery
         app.dependency_overrides[auth_mod._get_totp_service] = lambda: mock_totp
 
@@ -1295,7 +1319,7 @@ class TestAuthUncovered:
 
         app = _make_app_with_db(session_factory, user_id=user.id)
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            # 12 chars but no special character — passes Pydantic min_length but fails _validate_password
+            # 12 chars but no special char — passes Pydantic min_length but fails _validate_password
             resp = await client.post(
                 "/api/v1/auth/set-password",
                 json={"new_password": "allLowercase12"},  # no special char
@@ -1471,6 +1495,7 @@ class TestAdminUncovered:
             app = create_app()
             app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             from fastapi.testclient import TestClient
+
             client = TestClient(app)
             resp = client.post("/api/v1/admin/pipeline/trigger")
 
@@ -1495,6 +1520,7 @@ class TestAdminUncovered:
             app = create_app()
             app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             from fastapi.testclient import TestClient
+
             client = TestClient(app)
             resp = client.post("/api/v1/admin/pit/backfill")
 
@@ -1515,6 +1541,7 @@ class TestAdminUncovered:
             app = create_app()
             app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             from fastapi.testclient import TestClient
+
             client = TestClient(app)
             resp = client.post("/api/v1/admin/pit/backfill")
 
@@ -1536,6 +1563,7 @@ class TestAdminUncovered:
             app = create_app()
             app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             from fastapi.testclient import TestClient
+
             client = TestClient(app)
             resp = client.post("/api/v1/admin/pit/reparse")
 
@@ -1555,6 +1583,7 @@ class TestAdminUncovered:
             app = create_app()
             app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             from fastapi.testclient import TestClient
+
             client = TestClient(app)
             resp = client.post("/api/v1/admin/pit/reparse")
 
@@ -1576,6 +1605,7 @@ class TestAdminUncovered:
             app = create_app()
             app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             from fastapi.testclient import TestClient
+
             client = TestClient(app)
             resp = client.post("/api/v1/admin/historical/backfill")
 
@@ -1595,6 +1625,7 @@ class TestAdminUncovered:
             app = create_app()
             app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             from fastapi.testclient import TestClient
+
             client = TestClient(app)
             resp = client.post("/api/v1/admin/historical/backfill")
 
@@ -1616,6 +1647,7 @@ class TestAdminUncovered:
             app = create_app()
             app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             from fastapi.testclient import TestClient
+
             client = TestClient(app)
             resp = client.post("/api/v1/admin/backtest/precompute")
 
@@ -1635,6 +1667,7 @@ class TestAdminUncovered:
             app = create_app()
             app.dependency_overrides[get_admin_user] = lambda: _make_admin_user()
             from fastapi.testclient import TestClient
+
             client = TestClient(app)
             resp = client.post("/api/v1/admin/backtest/precompute")
 
@@ -1737,7 +1770,12 @@ class TestAdminUncovered:
                 "factor_name": "momentum",
                 "weight": 0.35,
                 "sub_scores": [
-                    {"name": "price_mom", "raw_value": 0.15, "percentile_rank": 75.0, "weight": 0.5},
+                    {
+                        "name": "price_mom",
+                        "raw_value": 0.15,
+                        "percentile_rank": 75.0,
+                        "weight": 0.5,
+                    },
                 ],
             },
             "composite_raw_score": 77.0,
@@ -1775,15 +1813,15 @@ class TestAdminUncovered:
                 return_value=50,
             ),
         ):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 resp = await client.post("/api/v1/admin/pit/assemble-universe")
-        # Either 200 (success) or 500 (any import/DB issue) is acceptable — we want the route covered
+        # Either 200 or 500 is acceptable — we want the route covered
         assert resp.status_code in (200, 500)
 
     @pytest.mark.asyncio
-    async def test_backtest_latest_with_complete_run_and_metrics(
-        self, db_session, session_factory
-    ):
+    async def test_backtest_latest_with_complete_run_and_metrics(self, db_session, session_factory):
         """GET /api/v1/admin/backtest/latest returns validation summary for complete run."""
         snap = UniverseSnapshot(
             version="v1",
