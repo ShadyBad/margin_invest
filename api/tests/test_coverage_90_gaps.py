@@ -12,14 +12,12 @@ Covers small uncovered branches across:
 
 from __future__ import annotations
 
-import asyncio
 import os
-from datetime import date, datetime, UTC
+from datetime import date
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # edgar/universe_assembly.py: _filing_date_to_quarter boundary cases
@@ -32,6 +30,7 @@ class TestFilingDateToQuarter:
 
     def _fn(self):
         from margin_api.services.edgar.universe_assembly import _filing_date_to_quarter
+
         return _filing_date_to_quarter
 
     def test_january_filing_maps_to_prev_year_q4(self):
@@ -329,9 +328,7 @@ class TestMacroDataClient:
 
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {
-            "observations": [{"value": "36.5"}]
-        }
+        mock_resp.json.return_value = {"observations": [{"value": "36.5"}]}
 
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_resp)

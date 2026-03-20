@@ -20,7 +20,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # =============================================================================
 # 1. macro_data_client.py - fetch_yield_curve_slope, fetch_credit_spread, fetch_vix
 # =============================================================================
@@ -32,6 +31,7 @@ class TestFetchYieldCurveSlope:
     @pytest.fixture(autouse=True)
     def _clear_cache(self):
         from margin_api.data import macro_data_client
+
         macro_data_client._cache.clear()
         yield
         macro_data_client._cache.clear()
@@ -56,7 +56,9 @@ class TestFetchYieldCurveSlope:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch.dict(os.environ, {"FRED_API_KEY": "test-key"}):
-            with patch("margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client
+            ):
                 result = await fetch_yield_curve_slope()
 
         assert isinstance(result, float)
@@ -83,7 +85,9 @@ class TestFetchYieldCurveSlope:
         mock_client.get = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
 
         with patch.dict(os.environ, {"FRED_API_KEY": "test-key"}):
-            with patch("margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client
+            ):
                 result = await fetch_yield_curve_slope()
 
         assert result == 1.0
@@ -107,7 +111,9 @@ class TestFetchYieldCurveSlope:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch.dict(os.environ, {"FRED_API_KEY": "test-key"}):
-            with patch("margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client
+            ):
                 r1 = await fetch_yield_curve_slope()
                 r2 = await fetch_yield_curve_slope()
 
@@ -139,7 +145,9 @@ class TestFetchYieldCurveSlope:
         mock_client.get = mock_get
 
         with patch.dict(os.environ, {"FRED_API_KEY": "test-key"}):
-            with patch("margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client
+            ):
                 await fetch_yield_curve_slope()
                 # Expire the cache
                 for key in macro_data_client._cache:
@@ -156,6 +164,7 @@ class TestFetchCreditSpread:
     @pytest.fixture(autouse=True)
     def _clear_cache(self):
         from margin_api.data import macro_data_client
+
         macro_data_client._cache.clear()
         yield
         macro_data_client._cache.clear()
@@ -174,7 +183,9 @@ class TestFetchCreditSpread:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch.dict(os.environ, {"FRED_API_KEY": "test-key"}):
-            with patch("margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client
+            ):
                 result = await fetch_credit_spread()
 
         assert isinstance(result, float)
@@ -192,7 +203,6 @@ class TestFetchCreditSpread:
 
     @pytest.mark.asyncio
     async def test_fallback_on_exception(self):
-        import httpx
         from margin_api.data.macro_data_client import fetch_credit_spread
 
         mock_client = AsyncMock()
@@ -201,7 +211,9 @@ class TestFetchCreditSpread:
         mock_client.get = AsyncMock(side_effect=Exception("API down"))
 
         with patch.dict(os.environ, {"FRED_API_KEY": "test-key"}):
-            with patch("margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client
+            ):
                 result = await fetch_credit_spread()
 
         assert result == 2.0
@@ -220,7 +232,9 @@ class TestFetchCreditSpread:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch.dict(os.environ, {"FRED_API_KEY": "test-key"}):
-            with patch("margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client
+            ):
                 r1 = await fetch_credit_spread()
                 r2 = await fetch_credit_spread()
 
@@ -250,7 +264,9 @@ class TestFetchCreditSpread:
         mock_client.get = mock_get
 
         with patch.dict(os.environ, {"FRED_API_KEY": "test-key"}):
-            with patch("margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "margin_api.data.macro_data_client.httpx.AsyncClient", return_value=mock_client
+            ):
                 await fetch_credit_spread()
                 for key in macro_data_client._cache:
                     val, _ = macro_data_client._cache[key]
@@ -270,12 +286,14 @@ class TestFetchVix:
     @pytest.fixture(autouse=True)
     def _clear_cache(self):
         from margin_api.data import macro_data_client
+
         macro_data_client._cache.clear()
         yield
         macro_data_client._cache.clear()
 
     def _make_mock_yf(self, close_value: float):
         import pandas as pd
+
         mock_yf = MagicMock()
         df = pd.DataFrame({"Close": [close_value]})
         mock_ticker = MagicMock()
@@ -381,10 +399,12 @@ def _make_admin_client(app):
 class TestPipelineTrigger:
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def test_pipeline_trigger_enqueues_job(self):
@@ -440,10 +460,12 @@ class TestPipelineTrigger:
 class TestScoringTrigger:
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def test_scoring_trigger_enqueues_job(self):
@@ -489,10 +511,12 @@ class TestScoringTrigger:
 class TestRedisHealth:
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def test_redis_health_connected(self):
@@ -501,10 +525,12 @@ class TestRedisHealth:
         mock_redis = AsyncMock()
         mock_redis.ping = AsyncMock(return_value=True)
         mock_redis.zrangebyscore = AsyncMock(return_value=[b"job-1", b"job-2"])
-        mock_redis.keys = AsyncMock(side_effect=[
-            [],   # in-progress keys
-            [],   # result keys
-        ])
+        mock_redis.keys = AsyncMock(
+            side_effect=[
+                [],  # in-progress keys
+                [],  # result keys
+            ]
+        )
         mock_redis.aclose = AsyncMock()
 
         with (
@@ -566,10 +592,12 @@ class TestRedisHealth:
         mock_redis = AsyncMock()
         mock_redis.ping = AsyncMock(return_value=True)
         mock_redis.zrangebyscore = AsyncMock(return_value=[])
-        mock_redis.keys = AsyncMock(side_effect=[
-            [b"arq:in-progress:job-999"],  # in-progress
-            [b"arq:result:job-888"],         # results
-        ])
+        mock_redis.keys = AsyncMock(
+            side_effect=[
+                [b"arq:in-progress:job-999"],  # in-progress
+                [b"arq:result:job-888"],  # results
+            ]
+        )
         mock_redis.aclose = AsyncMock()
 
         with (
@@ -588,10 +616,12 @@ class TestRedisHealth:
 class TestRedisFlushJobs:
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def test_flush_jobs_success(self):
@@ -600,10 +630,12 @@ class TestRedisFlushJobs:
         mock_redis = AsyncMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=[b"job-abc", b"job-xyz"])
         mock_redis.delete = AsyncMock(return_value=1)
-        mock_redis.keys = AsyncMock(side_effect=[
-            [b"arq:in-progress:job-abc"],
-            [b"arq:result:job-xyz"],
-        ])
+        mock_redis.keys = AsyncMock(
+            side_effect=[
+                [b"arq:in-progress:job-abc"],
+                [b"arq:result:job-xyz"],
+            ]
+        )
         mock_redis.aclose = AsyncMock()
 
         with (
@@ -664,10 +696,12 @@ class TestRedisFlushJobs:
 class TestMLTrain:
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def test_ml_train_enqueues_job(self):
@@ -1034,7 +1068,9 @@ class TestRunBackfillCountry:
         with patch("margin_api.cli.get_engine", return_value=mock_engine):
             with patch("margin_api.cli.get_session_factory", return_value=session_factory):
                 with patch("margin_api.cli.RateLimiter"):
-                    with patch("margin_api.cli.YFinanceProvider", return_value=mock_provider_instance):
+                    with patch(
+                        "margin_api.cli.YFinanceProvider", return_value=mock_provider_instance
+                    ):
                         _run(run_backfill_country())
 
         assert mock_db_asset.country == "United States"
@@ -1061,7 +1097,9 @@ class TestRunBackfillCountry:
         with patch("margin_api.cli.get_engine", return_value=mock_engine):
             with patch("margin_api.cli.get_session_factory", return_value=session_factory):
                 with patch("margin_api.cli.RateLimiter"):
-                    with patch("margin_api.cli.YFinanceProvider", return_value=mock_provider_instance):
+                    with patch(
+                        "margin_api.cli.YFinanceProvider", return_value=mock_provider_instance
+                    ):
                         _run(run_backfill_country())
 
     def test_skips_when_no_country_in_info(self):
@@ -1088,7 +1126,9 @@ class TestRunBackfillCountry:
         with patch("margin_api.cli.get_engine", return_value=mock_engine):
             with patch("margin_api.cli.get_session_factory", return_value=session_factory):
                 with patch("margin_api.cli.RateLimiter"):
-                    with patch("margin_api.cli.YFinanceProvider", return_value=mock_provider_instance):
+                    with patch(
+                        "margin_api.cli.YFinanceProvider", return_value=mock_provider_instance
+                    ):
                         _run(run_backfill_country())
 
 
@@ -1252,7 +1292,8 @@ class TestMainDispatcher:
         with patch("margin_api.cli.asyncio") as mock_asyncio:
             mock_asyncio.run = MagicMock()
             with patch.object(
-                sys, "argv",
+                sys,
+                "argv",
                 ["margin-cli", "price-backfill", "--start-date", "2020-01-01"],
             ):
                 main()
@@ -1264,7 +1305,8 @@ class TestMainDispatcher:
         with patch("margin_api.cli.asyncio") as mock_asyncio:
             mock_asyncio.run = MagicMock()
             with patch.object(
-                sys, "argv",
+                sys,
+                "argv",
                 ["margin-cli", "edgar-backfill", "--start-year", "2020", "--dry-run"],
             ):
                 main()
@@ -1285,7 +1327,8 @@ class TestMainDispatcher:
         with patch("margin_api.cli.asyncio") as mock_asyncio:
             mock_asyncio.run = MagicMock()
             with patch.object(
-                sys, "argv",
+                sys,
+                "argv",
                 ["margin-cli", "correlations", "--showcase", "--tickers", "AAPL", "MSFT"],
             ):
                 main()
@@ -1312,7 +1355,8 @@ class TestMainDispatcher:
         with patch("margin_api.cli.asyncio") as mock_asyncio:
             mock_asyncio.run = MagicMock()
             with patch.object(
-                sys, "argv",
+                sys,
+                "argv",
                 ["margin-cli", "universe", "activate", "--config", "/fake/universe.yaml"],
             ):
                 main()
@@ -1337,7 +1381,8 @@ class TestMainDispatcher:
 
         with patch("margin_api.cli.run_weight_tune") as mock_tune:
             with patch.object(
-                sys, "argv",
+                sys,
+                "argv",
                 ["margin-cli", "weight-tune", "A", "--n-trials", "5", "--dry-run"],
             ):
                 main()
@@ -1392,6 +1437,7 @@ class TestRunBackfill13F:
 
     def test_curated_funds_list_not_empty(self):
         from margin_api import cli as cli_mod
+
         assert len(cli_mod.CURATED_FUNDS) >= 1
         assert "cik" in cli_mod.CURATED_FUNDS[0]
 

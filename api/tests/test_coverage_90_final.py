@@ -16,10 +16,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
@@ -69,10 +69,12 @@ def _make_async_admin_client_ctx(app):
 class TestPITBackfill:
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
@@ -119,10 +121,12 @@ class TestPITBackfill:
 class TestPITReparse:
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
@@ -169,10 +173,12 @@ class TestPITReparse:
 class TestHistoricalBackfill:
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
@@ -219,10 +225,12 @@ class TestHistoricalBackfill:
 class TestBacktestPrecompute:
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
@@ -271,22 +279,23 @@ class TestBacktestLatest:
 
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
     async def test_backtest_latest_not_found(self):
         import httpx
         from httpx import ASGITransport
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
         from margin_api.app import create_app
         from margin_api.db.models import Base, User, UserRole
         from margin_api.db.session import get_db
         from margin_api.deps import get_admin_user
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
         engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
         async with engine.begin() as conn:
@@ -319,15 +328,15 @@ class TestBacktestLatest:
         """Test that backtest/latest returns a run when one exists."""
         import hashlib
         import json
-        import httpx
         from datetime import UTC, datetime
-        from httpx import ASGITransport
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+        import httpx
+        from httpx import ASGITransport
         from margin_api.app import create_app
-        from margin_api.db.models import Base, BacktestRun, UniverseSnapshot, User, UserRole
+        from margin_api.db.models import BacktestRun, Base, UniverseSnapshot, User, UserRole
         from margin_api.db.session import get_db
         from margin_api.deps import get_admin_user
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
         engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
         async with engine.begin() as conn:
@@ -400,10 +409,12 @@ class TestRedisHealthWithPasswordURL:
 
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
@@ -417,10 +428,13 @@ class TestRedisHealthWithPasswordURL:
         mock_redis.aclose = AsyncMock()
 
         with (
-            patch.dict(os.environ, {
-                "MARGIN_ADMIN_KEY": "test-key",
-                "MARGIN_REDIS_URL": "redis://:secret123@localhost:6379",
-            }),
+            patch.dict(
+                os.environ,
+                {
+                    "MARGIN_ADMIN_KEY": "test-key",
+                    "MARGIN_REDIS_URL": "redis://:secret123@localhost:6379",
+                },
+            ),
             patch("margin_api.routes.admin.aioredis.from_url", return_value=mock_redis),
         ):
             app = create_app()
@@ -445,10 +459,12 @@ class TestAdminEnqueueEndpoints:
 
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
@@ -553,10 +569,12 @@ class TestMLTrainingDryRun:
 
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
@@ -564,12 +582,11 @@ class TestMLTrainingDryRun:
         """Returns NOT_READY when no V4Score rows exist."""
         import httpx
         from httpx import ASGITransport
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
         from margin_api.app import create_app
         from margin_api.db.models import Base, User, UserRole
         from margin_api.db.session import get_db
         from margin_api.deps import get_admin_user
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
         engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
         async with engine.begin() as conn:
@@ -603,15 +620,15 @@ class TestMLTrainingDryRun:
     @pytest.mark.asyncio
     async def test_dry_run_with_empty_detail_skips(self):
         """Scores with empty detail are counted as skipped_empty."""
-        import httpx
         from datetime import UTC, datetime
-        from httpx import ASGITransport
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+        import httpx
+        from httpx import ASGITransport
         from margin_api.app import create_app
         from margin_api.db.models import Asset, Base, User, UserRole, V4Score
         from margin_api.db.session import get_db
         from margin_api.deps import get_admin_user
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
         engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
         async with engine.begin() as conn:
@@ -667,15 +684,15 @@ class TestMLTrainingDryRun:
     @pytest.mark.asyncio
     async def test_dry_run_with_missing_factors_skips(self):
         """Scores with missing quality/value/momentum are skipped_missing_factor."""
-        import httpx
         from datetime import UTC, datetime
-        from httpx import ASGITransport
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+        import httpx
+        from httpx import ASGITransport
         from margin_api.app import create_app
         from margin_api.db.models import Asset, Base, User, UserRole, V4Score
         from margin_api.db.session import get_db
         from margin_api.deps import get_admin_user
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
         engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
         async with engine.begin() as conn:
@@ -991,10 +1008,10 @@ class TestRunScoringMainPath:
 
     def test_scoring_with_financial_data_exercises_pass1(self):
         """Exercise the first pass of scoring (raw factor computation) when data exists."""
+        from datetime import date
+
         from margin_api.cli import run_scoring
         from margin_api.db.models import Asset, FinancialData
-        from datetime import date
-        from decimal import Decimal
 
         mock_engine = MagicMock()
         mock_engine.dispose = AsyncMock()
@@ -1022,6 +1039,7 @@ class TestRunScoringMainPath:
         mock_result_fin.scalars.return_value.all.return_value = [mock_fin]
 
         call_count = [0]
+
         async def mock_execute(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -1067,9 +1085,9 @@ class TestRunScoringV3MainPath:
 
     def test_v3_scoring_with_no_data_builds_empty_list(self):
         """Exercise the v3 scoring path where no tickers can be scored."""
+
         from margin_api.cli import run_scoring_v3
-        from margin_api.db.models import Asset, FinancialData
-        from datetime import date
+        from margin_api.db.models import Asset
 
         mock_engine = MagicMock()
         mock_engine.dispose = AsyncMock()
@@ -1219,6 +1237,7 @@ class TestRunScoringV4Branches:
         mock_result_fin.scalars.return_value.all.return_value = []
 
         call_count = [0]
+
         async def mock_execute(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -1373,7 +1392,7 @@ class TestRunBackfill13FBranches:
 
     def test_respects_curated_funds_default(self):
         """run_backfill_13f uses CURATED_FUNDS as default source."""
-        from margin_api.cli import run_backfill_13f, CURATED_FUNDS
+        from margin_api.cli import CURATED_FUNDS, run_backfill_13f
 
         # Ensure CURATED_FUNDS is not empty
         assert len(CURATED_FUNDS) > 0
@@ -1410,7 +1429,7 @@ class TestRunBackfill13FBranches:
 
 
 # ---------------------------------------------------------------------------
-# CLI run_universe_activate coverage  
+# CLI run_universe_activate coverage
 # ---------------------------------------------------------------------------
 
 
@@ -1443,24 +1462,26 @@ class TestAdminMLDryRunAdditionalBranches:
 
     def setup_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     def teardown_method(self):
         from margin_api.config import get_settings
+
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
     async def test_dry_run_with_parse_fail_skips(self):
         """Score with invalid sub_scores format is counted as skipped_parse_fail."""
-        import httpx
         from datetime import UTC, datetime
-        from httpx import ASGITransport
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+        import httpx
+        from httpx import ASGITransport
         from margin_api.app import create_app
         from margin_api.db.models import Asset, Base, User, UserRole, V4Score
         from margin_api.db.session import get_db
         from margin_api.deps import get_admin_user
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
         engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
         async with engine.begin() as conn:
@@ -1489,7 +1510,9 @@ class TestAdminMLDryRunAdditionalBranches:
                     },
                     "value": {
                         "factor_name": "value",
-                        "sub_scores": [{"name": "ev_fcf", "raw_value": 15.0, "percentile_rank": 70.0}],
+                        "sub_scores": [
+                            {"name": "ev_fcf", "raw_value": 15.0, "percentile_rank": 70.0}
+                        ],
                     },
                     "momentum": {
                         "factor_name": "momentum",
@@ -1526,7 +1549,7 @@ class TestAdminMLDryRunAdditionalBranches:
 
 
 # ---------------------------------------------------------------------------
-# workers.py ingest_batch partial/timeout branches  
+# workers.py ingest_batch partial/timeout branches
 # ---------------------------------------------------------------------------
 
 
@@ -1536,8 +1559,8 @@ class TestIngestBatchBranches:
     @pytest.mark.asyncio
     async def test_partial_result_increments_partial_count(self):
         """Partial seed result increments partial_count in ingest_batch."""
-        from margin_api.workers import ingest_batch
         from margin_api.db.models import Asset
+        from margin_api.workers import ingest_batch
 
         mock_engine = MagicMock()
         mock_engine.dispose = AsyncMock()
