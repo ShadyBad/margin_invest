@@ -1457,6 +1457,7 @@ async def test_ingest_batch_circuit_breaker_skips_ticker():
     mock_settings = MagicMock()
     mock_settings.ingest_rate_limit = 36
     mock_settings.ingest_concurrency = 3
+    mock_settings.worker_max_jobs = 2
     mock_settings.redis_url = "redis://localhost:6379"
 
     mock_raw_redis = AsyncMock()

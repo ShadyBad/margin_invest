@@ -2106,6 +2106,8 @@ async def train_ml_models(ctx: dict) -> dict:
     8. If gate passes: reject non-best seeds, stage best for approval
        If gate fails: reject all seeds, emit governance event
     """
+    import gc
+
     from margin_engine.factors.feature_matrix import build_feature_matrix
     from margin_engine.factors.registry import default_registry
     from margin_engine.ml.clustering import cluster_stocks
@@ -2331,6 +2333,12 @@ async def train_ml_models(ctx: dict) -> dict:
         # --- Step 2: Combine live + historical composites ---
         all_composites = composites + hist_composites
 
+        # Free raw DB data — composites extracted, originals no longer needed.
+        # Note: `rows` and `hist_fwd_returns` are still used below for forward returns.
+        del composites, hist_composites, hist_rows
+        gc.collect()
+        logger.info("[ml] Freed raw DB rows after composite extraction")
+
         # --- Step 3: Build feature matrix from combined data ---
         registry = default_registry()
         features, tickers, feature_names = build_feature_matrix(all_composites, registry)
@@ -2368,6 +2376,13 @@ async def train_ml_models(ctx: dict) -> dict:
 
         # --- Step 5: Merge forward returns (historical + live) ---
         fwd_returns = {**hist_fwd_returns, **live_fwd_returns}
+        n_live_fwd = len(live_fwd_returns)
+        n_hist_fwd = len(hist_fwd_returns)
+
+        # Free price data and raw DB rows — merged into fwd_returns, no longer needed
+        del rows, price_rows, ticker_prices, scored_entries
+        del hist_fwd_returns, live_fwd_returns
+        gc.collect()
 
         # --- Step 6: Filter to valid tickers (THE FIX — no more 0.0 default) ---
         valid_mask = np.array([t in fwd_returns for t in tickers])
@@ -2376,8 +2391,8 @@ async def train_ml_models(ctx: dict) -> dict:
             "[ml] Forward returns: %d/%d tickers have real data (live=%d, historical=%d)",
             n_with_returns,
             len(tickers),
-            len(live_fwd_returns),
-            len(hist_fwd_returns),
+            n_live_fwd,
+            n_hist_fwd,
         )
 
         # --- Step 7: Min samples gate on combined dataset ---
@@ -2385,7 +2400,7 @@ async def train_ml_models(ctx: dict) -> dict:
             msg = (
                 f"Only {n_with_returns} tickers with forward returns "
                 f"(need {settings.ml_train_min_samples}). "
-                f"Live={len(live_fwd_returns)}, Historical={len(hist_fwd_returns)}."
+                f"Live={n_live_fwd}, Historical={n_hist_fwd}."
             )
             logger.warning("[ml] %s", msg)
             async with session_factory() as session:
@@ -2556,7 +2571,6 @@ async def train_ml_models(ctx: dict) -> dict:
             # Free per-seed memory to avoid OOM on constrained containers
             del clusters, cluster_indices, models, cluster_model_data
             del vae_bytes, vae_model_data, all_preds
-            import gc
 
             gc.collect()
 
@@ -4142,6 +4156,8 @@ async def backfill_historical_scores(ctx: dict) -> dict:
 
     Idempotent: skips quarters that already have HistoricalScore rows.
     """
+    import gc
+
     from margin_engine.scoring.historical_scorer import score_universe_at_date
 
     logger.info("[historical] Starting backfill_historical_scores...")
@@ -4342,6 +4358,10 @@ async def backfill_historical_scores(ctx: dict) -> dict:
             scored_count = len(composites)
             total_scored += scored_count
             quarters_done += 1
+
+            # Free per-quarter data to prevent accumulation across 67 quarters
+            del memberships, snapshots, pit_snapshots, price_rows, pit_prices, composites
+            gc.collect()
             logger.info(
                 "[historical] %s: scored %d tickers (total: %d, quarters: %d/%d)",
                 qe.isoformat(),
@@ -4925,7 +4945,7 @@ class WorkerSettings:
         except Exception:
             logger.exception("[worker] Failed to check/enqueue PIT bootstrap")
 
-    max_jobs = get_settings().ingest_concurrency
+    max_jobs = get_settings().worker_max_jobs
 
     functions = [
         orchestrate_ingest,

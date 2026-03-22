@@ -1149,6 +1149,8 @@ def _inject_sector_stats(
 
 async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = None) -> datetime:
     """Score tickers using the v4 pipeline with Track C, style, momentum, and ML."""
+    import gc
+
     from margin_engine.ingestion.normalizer import normalize_earnings_list
     from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod
     from margin_engine.models.scoring import CompositeScore, FactorScore
@@ -1592,6 +1594,15 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
             len(ticker_data_list),
         )
 
+    # Free intermediate data — no longer needed after composite detail computation.
+    # These dicts duplicate data already in ticker_data_list and can use hundreds of MB
+    # across 3000+ tickers.
+    del ticker_profiles, ticker_bars_raw, ticker_earnings_raw
+    del ticker_histories, ticker_latest_periods
+    del sue_raw_scores, momentum_raw, ev_fcf_raw_scores, style_inputs
+    gc.collect()
+    logger.info("[v4] Freed intermediate scoring data")
+
     # Compute sector filter pass rates and sector distributions
     from margin_api.services.sector_stats import (
         compute_all_sector_distributions,
@@ -1612,6 +1623,8 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
 
     # Compute sector distributions (P10/P50/P90 per sub-factor per sector)
     all_sector_distributions = compute_all_sector_distributions(raw_results)
+    del raw_results, filter_data_for_rates
+    gc.collect()
 
     # Run v4 pipeline
     results = score_universe_v4(ticker_data_list, shiller_cape=cape, ml_predictions=ml_predictions)

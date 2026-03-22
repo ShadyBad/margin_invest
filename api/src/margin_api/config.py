@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     ingest_rate_limit: int = 36
     ingest_concurrency: int = 3
 
+    # Worker — lower than ingest_concurrency to prevent OOM from overlapping heavy jobs
+    worker_max_jobs: int = 2
+
     # App
     debug: bool = False
 
