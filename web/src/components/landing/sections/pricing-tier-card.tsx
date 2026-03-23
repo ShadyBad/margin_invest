@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import posthog from "posthog-js"
 
 export interface Tier {
   name: string
@@ -83,6 +84,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
       {tier.highlighted ? (
         <Link
           href="/onboarding"
+          onClick={() => posthog.capture("checkout_started", { plan: tier.name })}
           className="block text-center text-sm font-medium rounded-lg py-2.5 transition-colors bg-accent text-bg-primary border-none hover:bg-accent-hover"
         >
           {CTA_TEXT[tier.name] ?? "Get Started"}
@@ -90,6 +92,7 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
       ) : (
         <Link
           href="/onboarding"
+          onClick={() => posthog.capture("checkout_started", { plan: tier.name })}
           className="block text-center text-sm font-medium text-accent border border-accent/30 rounded-lg py-2.5 hover:bg-accent/5 transition-colors opacity-70"
         >
           {CTA_TEXT[tier.name] ?? "Get Started"}

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import posthog from "posthog-js"
 import { PricingTierCard, type Tier } from "./pricing-tier-card"
 
 interface TierBase {
@@ -101,6 +102,10 @@ export function PricingSection({ totalUniverse }: PricingSectionProps) {
   const contactRef = useRef<HTMLDivElement>(null)
 
   const tiers = buildTiers(annual)
+
+  useEffect(() => {
+    posthog.capture("pricing_page_viewed")
+  }, [])
 
   useEffect(() => {
     if (!sectionRef.current) return

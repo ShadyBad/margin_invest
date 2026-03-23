@@ -2,6 +2,7 @@
 
 import { useState, useRef, type FormEvent } from "react"
 import Link from "next/link"
+import posthog from "posthog-js"
 import { apiFetch, ApiError } from "@/lib/api/client"
 
 interface FactorSummary {
@@ -53,6 +54,7 @@ export function HeroSearch() {
     const ticker = query.trim().toUpperCase()
     if (!ticker) return
 
+    posthog.capture("asset_searched", { query: ticker })
     setState("loading")
     setError("")
     setResult(null)
@@ -146,6 +148,7 @@ export function HeroSearch() {
               key={ticker}
               type="button"
               onClick={() => {
+                posthog.capture("asset_searched", { query: ticker })
                 setQuery(ticker)
                 setState("loading")
                 setError("")

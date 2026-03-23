@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { apiFetch } from "@/lib/api/client"
 import { toast } from "sonner"
+import posthog from "posthog-js"
 import { TickerInput } from "./ticker-input"
 
 type Stage = "input" | "scoring"
@@ -33,6 +34,10 @@ export function OnboardingFlow() {
   const router = useRouter()
   const abortRef = useRef<AbortController | null>(null)
 
+  useEffect(() => {
+    posthog.capture("onboarding_started")
+  }, [])
+
   const handleSubmit = async (inputTickers: string[]) => {
     setTickers(inputTickers)
     setStage("scoring")
@@ -42,6 +47,7 @@ export function OnboardingFlow() {
     const timeout = setTimeout(() => abortRef.current?.abort(), 10000)
 
     try {
+      posthog.capture("onboarding_step_completed", { step: "Data" })
       setCompletedSteps(1)
 
       const results = await Promise.all(
@@ -53,10 +59,13 @@ export function OnboardingFlow() {
         )
       )
 
+      posthog.capture("onboarding_step_completed", { step: "Filter" })
       setCompletedSteps(2)
+      posthog.capture("onboarding_step_completed", { step: "Score" })
       setCompletedSteps(3)
 
       await new Promise((r) => setTimeout(r, 400))
+      posthog.capture("onboarding_step_completed", { step: "Rank" })
       setCompletedSteps(4)
 
       clearTimeout(timeout)

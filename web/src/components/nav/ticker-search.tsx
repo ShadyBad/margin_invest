@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import posthog from "posthog-js"
 import { useKeyboardNav } from "@/hooks/use-keyboard-nav"
 
 function SearchIcon({ size = 16 }: { size?: number }) {
@@ -41,6 +42,7 @@ export function TickerSearch() {
       e.preventDefault()
       const ticker = query.trim().toUpperCase()
       if (ticker) {
+        posthog.capture("asset_searched", { query: ticker })
         router.push(`/asset/${ticker}`)
         setIsOpen(false)
         setQuery("")
