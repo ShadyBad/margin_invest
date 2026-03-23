@@ -119,6 +119,7 @@ async def register(
     body: RegisterRequest,
     db: AsyncSession = Depends(get_db),
     auth: AuthService = Depends(_get_auth_service),
+    email_svc: EmailService = Depends(_get_email_service),
 ) -> RegisterResponse:
     """Register a new user with username/password credentials."""
     try:
@@ -151,7 +152,23 @@ async def register(
         ) from exc
 
     await audit_log(db, "register", request, user_id=user.id)
+    email_svc.send_welcome(user.email, user.name or user.email)
+    track_event(user.email, "user_registered", {"source": "api"})
     await db.commit()
+
+    # Fire-and-forget n8n onboarding webhook
+    settings = get_settings()
+    if settings.n8n_onboarding_webhook_url:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(
+                    settings.n8n_onboarding_webhook_url,
+                    json={"email": user.email, "name": user.name, "plan": "analyst"},
+                )
+        except Exception:
+            logger.warning("Failed to trigger n8n onboarding webhook for %s", user.email)
+
     return RegisterResponse(id=user.id, username=user.name, email=user.email)
 
 
@@ -170,6 +187,12 @@ async def verify_credentials(
 
     challenge_token = await auth.create_challenge_token(db, result["id"])
     mfa_status = "enabled" if result["mfa_enabled"] else "disabled"
+
+    # Update last_login_at
+    stmt_update = select(User).where(User.id == result["id"])
+    user_row = (await db.execute(stmt_update)).scalar_one_or_none()
+    if user_row:
+        user_row.last_login_at = datetime.now(UTC)
 
     await audit_log(db, "login_success", request, user_id=result["id"])
     await db.commit()
