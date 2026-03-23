@@ -546,7 +546,10 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
     """
     from collections import defaultdict
 
-    from margin_api.db.models import FinancialData, Score
+    from sqlalchemy import func as sa_func
+
+    from margin_api.db.models import FilingSentimentCache, FinancialData, Score
+    from margin_api.services.nlp_analyzer import NLP_ANALYSIS_VERSION
     from margin_api.services.scoring import (
         build_asset_profile,
         build_financial_period,
@@ -565,6 +568,34 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
         return
 
     total = len(tickers)
+
+    # --- Pre-load latest NLP sentiment per ticker ---
+    sentiment_by_ticker: dict[str, float] = {}
+    async with session_factory() as session:
+        # Subquery: latest created_at per ticker for the current analysis version
+        latest_sq = (
+            select(
+                FilingSentimentCache.ticker,
+                sa_func.max(FilingSentimentCache.created_at).label("max_created"),
+            )
+            .where(FilingSentimentCache.analysis_version == NLP_ANALYSIS_VERSION)
+            .group_by(FilingSentimentCache.ticker)
+            .subquery()
+        )
+        stmt = (
+            select(FilingSentimentCache.ticker, FilingSentimentCache.sentiment_value)
+            .join(
+                latest_sq,
+                (FilingSentimentCache.ticker == latest_sq.c.ticker)
+                & (FilingSentimentCache.created_at == latest_sq.c.max_created),
+            )
+            .where(FilingSentimentCache.sentiment_value.isnot(None))
+        )
+        rows = (await session.execute(stmt)).all()
+        for row in rows:
+            sentiment_by_ticker[row.ticker] = row.sentiment_value
+    if sentiment_by_ticker:
+        logger.info("Loaded NLP sentiment for %d tickers", len(sentiment_by_ticker))
 
     # --- Pass 1: Compute raw factor scores ---
     raw_results = []
@@ -650,6 +681,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                     profile=profile,
                     price_bars_raw=price_bars,
                     earnings_raw=fin_data.earnings_data or [],
+                    sentiment_value=sentiment_by_ticker.get(ticker),
                 )
                 raw_results.append(raw)
                 asset_ids[ticker] = asset.id
@@ -1158,9 +1190,16 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
     from margin_engine.scoring.quantitative.sue import sue_score
     from margin_engine.scoring.style_classifier import classify_investment_style
     from margin_engine.scoring.v4_pipeline import TickerV4Data, score_universe_v4
+    from sqlalchemy import func as sa_func
 
     from margin_api.data.macro_data_client import fetch_shiller_cape
-    from margin_api.db.models import AccumulationSignal, MlModelRun, V4Score
+    from margin_api.db.models import (
+        AccumulationSignal,
+        FilingSentimentCache,
+        MlModelRun,
+        V4Score,
+    )
+    from margin_api.services.nlp_analyzer import NLP_ANALYSIS_VERSION
     from margin_api.services.scoring import (
         build_asset_profile,
         build_financial_history_from_rows,
@@ -1181,6 +1220,33 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
     if cape is None:
         cape = await fetch_shiller_cape()
     logger.info("V4 scoring — Using Shiller CAPE: %.1f", cape)
+
+    # --- Pre-load latest NLP sentiment per ticker ---
+    sentiment_by_ticker: dict[str, float] = {}
+    async with session_factory() as session:
+        latest_sq = (
+            select(
+                FilingSentimentCache.ticker,
+                sa_func.max(FilingSentimentCache.created_at).label("max_created"),
+            )
+            .where(FilingSentimentCache.analysis_version == NLP_ANALYSIS_VERSION)
+            .group_by(FilingSentimentCache.ticker)
+            .subquery()
+        )
+        stmt = (
+            select(FilingSentimentCache.ticker, FilingSentimentCache.sentiment_value)
+            .join(
+                latest_sq,
+                (FilingSentimentCache.ticker == latest_sq.c.ticker)
+                & (FilingSentimentCache.created_at == latest_sq.c.max_created),
+            )
+            .where(FilingSentimentCache.sentiment_value.isnot(None))
+        )
+        rows = (await session.execute(stmt)).all()
+        for row in rows:
+            sentiment_by_ticker[row.ticker] = row.sentiment_value
+    if sentiment_by_ticker:
+        logger.info("V4: loaded NLP sentiment for %d tickers", len(sentiment_by_ticker))
 
     # Build TickerV4Data for each ticker
     ticker_data_list: list[TickerV4Data] = []
@@ -1580,6 +1646,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                     price_bars_raw=ticker_bars_raw.get(t, []),
                     earnings_raw=ticker_earnings_raw.get(t, []),
                     history=ticker_histories.get(t),
+                    sentiment_value=sentiment_by_ticker.get(t),
                 )
                 raw_results.append(raw)
             except Exception as e:
@@ -2518,9 +2585,7 @@ async def run_prime_delist() -> None:
     # 1. Update DB: quarantined → permanently_skipped
     db_count = 0
     async with session_factory() as session:
-        result = await session.execute(
-            select(Asset).where(Asset.ingestion_status == "quarantined")
-        )
+        result = await session.execute(select(Asset).where(Asset.ingestion_status == "quarantined"))
         quarantined = result.scalars().all()
         for asset in quarantined:
             print(f"  Delisting {asset.ticker} (quarantined since {asset.quarantined_at})")

@@ -199,11 +199,13 @@ class TestFullPipeline:
         assert composite.value.factor_name == "value"
         assert len(composite.value.sub_scores) == 4
 
-        # Momentum factor: 3 sub_scores (multi_horizon_momentum + SUE + sentiment)
+        # Momentum factor: 2 sub_scores (multi_horizon_momentum + SUE)
+        # Sentiment is only included when sentiment_value is explicitly passed.
         assert composite.momentum.factor_name == "momentum"
-        assert len(composite.momentum.sub_scores) == 3
+        assert len(composite.momentum.sub_scores) == 2
         momentum_names = {s.name for s in composite.momentum.sub_scores}
-        assert "sentiment" in momentum_names
+        assert "multi_horizon_momentum" in momentum_names
+        assert "sue" in momentum_names
 
         # Growth factor populated
         assert composite.growth is not None
@@ -235,7 +237,7 @@ class TestFullPipeline:
         assert reconstructed.data_coverage == response.data_coverage
         assert len(reconstructed.quality.sub_scores) == 5
         assert len(reconstructed.value.sub_scores) == 4
-        assert len(reconstructed.momentum.sub_scores) == 3
+        assert len(reconstructed.momentum.sub_scores) == 2
         assert len(reconstructed.filters_passed) == 7
 
     def test_pipeline_with_different_sectors(self):

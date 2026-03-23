@@ -391,7 +391,11 @@ class TestRunScoringPipeline:
         assert "acquirers_multiple" in value_names
 
     def test_momentum_factor_count(self):
-        """Momentum should have 3 sub-factors: multi_horizon_momentum + sue + sentiment."""
+        """Momentum has 2 sub-factors without sentiment (momentum + sue).
+
+        Sentiment is only included when sentiment_value is passed to
+        compute_raw_factor_scores(); the single-ticker pipeline omits it.
+        """
         period = self._build_period_with_priors()
         profile = self._build_profile()
 
@@ -402,11 +406,10 @@ class TestRunScoringPipeline:
             price_bars_raw=_price_bars_raw(),
             earnings_raw=_earnings_raw(),
         )
-        assert len(result.momentum.sub_scores) == 3
+        assert len(result.momentum.sub_scores) == 2
         momentum_names = {s.name for s in result.momentum.sub_scores}
         assert "multi_horizon_momentum" in momentum_names
         assert "sue" in momentum_names
-        assert "sentiment" in momentum_names
 
     def test_filters_populated(self):
         """Elimination filters should be populated with results."""
