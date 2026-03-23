@@ -113,14 +113,16 @@ def _pick_summary_from_v4_row(row) -> PickSummary:
         sell_price,
     )
 
-    composite_score = v4.composite_score
-    composite_pct = float(detail.get("composite_percentile", composite_score))
+    # V4Score.composite_score is a 0-10 track score (geometric mean).
+    # The detail JSONB has composite_raw_score (0-100) which is what the UI expects.
+    composite_raw = float(detail.get("composite_raw_score", v4.composite_score))
+    composite_pct = float(detail.get("composite_percentile", composite_raw))
 
     return PickSummary(
         score_id=v4.id,
         ticker=ticker,
         name=asset_name or "",
-        score=composite_score,
+        score=composite_raw,
         universe_percentile=composite_pct,
         composite_percentile=composite_pct,
         composite_tier=composite_tier,
@@ -173,7 +175,7 @@ def _watchlist_item_from_v4_row(row) -> WatchlistItem:
     return WatchlistItem(
         ticker=row.ticker if hasattr(row, "ticker") else row[1],
         name=row.asset_name if hasattr(row, "asset_name") else row[2],
-        composite_raw_score=v4.composite_score,
+        composite_raw_score=float(detail.get("composite_raw_score", v4.composite_score)),
         composite_tier=v4.conviction,
         sector=row.asset_sector if hasattr(row, "asset_sector") else None,
         actual_price=actual_price,
