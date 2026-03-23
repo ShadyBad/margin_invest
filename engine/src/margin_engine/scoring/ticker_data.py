@@ -36,3 +36,4 @@ class TickerDataBase(BaseModel):
     insider_cluster_detected: bool = False
     insider_total_buy_value: float = 0.0
     insider_has_first_buy: bool = False
+    sentiment_value: float | None = None

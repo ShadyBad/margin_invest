@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 _ANALYSIS_VERSION = "v1"
+NLP_ANALYSIS_VERSION = _ANALYSIS_VERSION
 
 
 def _is_enabled() -> bool:
