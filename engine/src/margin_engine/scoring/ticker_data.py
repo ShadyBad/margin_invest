@@ -37,3 +37,5 @@ class TickerDataBase(BaseModel):
     insider_total_buy_value: float = 0.0
     insider_has_first_buy: bool = False
     sentiment_value: float | None = None
+    revenue_history: list[dict] | None = None  # [{"revenue": float, "year": int}] for TAM
+    sector: str | None = None  # GICS sector for TAM growth rate lookup
