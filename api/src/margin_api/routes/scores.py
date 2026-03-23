@@ -18,6 +18,7 @@ from margin_api.schemas.scores import (
     ScoreResponse,
 )
 from margin_api.schemas.valuation_audit import ValuationAuditResponse
+from margin_api.services.analytics import track_event
 from margin_api.services.freshness import compute_freshness
 
 router = APIRouter(prefix="/api/v1/scores", tags=["scores"])
@@ -849,4 +850,5 @@ async def get_score(
             for t in transitions
         ]
 
+    track_event(ticker, "score_viewed", {"asset_ticker": ticker})
     return response

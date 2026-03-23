@@ -480,6 +480,7 @@ async def get_dashboard(
     endpoints).  Falls back to the legacy Score table when no V4Score data
     exists so the dashboard is never empty for older deployments.
     """
+    track_event("anonymous", "dashboard_viewed")
     latest_v4 = _latest_v4_score_subquery()
     latest_legacy = _latest_score_subquery()
 
