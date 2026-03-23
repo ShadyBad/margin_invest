@@ -72,7 +72,16 @@ async def setup():
             subscription_plan="analyst",
             created_at=now - timedelta(hours=5),
         )
-        session.add_all([u1, u2, u3, u4, u5])
+        # Active subscriber who has never logged in (NULL last_login_at) — churn risk
+        u6 = User(
+            email="nologin@test.com",
+            name="NoLogin",
+            subscription_plan="portfolio",
+            subscription_status="active",
+            last_login_at=None,
+            created_at=now - timedelta(days=20),
+        )
+        session.add_all([u1, u2, u3, u4, u5, u6])
 
         # Active pipeline job
         j1 = JobRun(
@@ -164,16 +173,16 @@ class TestDailySummary:
         assert "signups_24h" in data
         assert "active_pipeline_jobs" in data
         assert "sentry_error_count" in data
-        assert data["total_users"] == 5
-        # u1 (portfolio active) + u2 (institutional active) = 2 active subs
-        assert data["active_subscribers"] == 2
+        assert data["total_users"] == 6
+        # u1 (portfolio active) + u2 (institutional active) + u6 (portfolio active) = 3 active subs
+        assert data["active_subscribers"] == 3
         # u5 signed up within 24h
         assert data["signups_24h"] == 1
         # 1 running job
         assert data["active_pipeline_jobs"] == 1
         assert data["sentry_error_count"] == 42
-        # MRR: portfolio=29 * 1 active + institutional=99 * 1 active
-        assert data["mrr_by_plan"]["portfolio"] == 29.0
+        # MRR: portfolio=29 * 2 active (u1 + u6) + institutional=99 * 1 active (u2)
+        assert data["mrr_by_plan"]["portfolio"] == 58.0
         assert data["mrr_by_plan"]["institutional"] == 99.0
 
 
@@ -196,9 +205,27 @@ class TestChurnRisk:
         data = resp.json()
         assert "users" in data
         assert "total" in data
-        # Only u2 has active sub + no login in 14+ days
-        assert data["total"] == 1
-        assert data["users"][0]["email"] == "churn@test.com"
+        # u2 (active, 20 days ago) + u3 (trialing, NULL last_login_at) + u6 (active, NULL last_login_at) = 3 churn-risk
+        assert data["total"] == 3
+        emails = {u["email"] for u in data["users"]}
+        assert "churn@test.com" in emails
+
+    @pytest.mark.asyncio
+    async def test_churn_risk_includes_null_last_login(self, setup):
+        """Users with NULL last_login_at and active subscription must appear in churn-risk results."""
+        app = setup
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get(
+                "/api/v1/ops/churn-risk-users",
+                headers={"x-admin-key": _TEST_ADMIN_KEY},
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        emails = {u["email"] for u in data["users"]}
+        assert "nologin@test.com" in emails, (
+            "User with NULL last_login_at must be included in churn-risk results"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -222,8 +249,8 @@ class TestRevenueMetrics:
         assert "mrr_by_plan" in data
         assert "trials_expiring_3d" in data
         assert "payment_failed_users" in data
-        # MRR: portfolio=29 * 1 + institutional=99 * 1 = 128
-        assert data["mrr_total"] == 128.0
+        # MRR: portfolio=29 * 2 (u1 + u6) + institutional=99 * 1 (u2) = 157
+        assert data["mrr_total"] == 157.0
         # u3 trial expires within 3 days
         assert data["trials_expiring_3d"] == 1
         # u4 is past_due

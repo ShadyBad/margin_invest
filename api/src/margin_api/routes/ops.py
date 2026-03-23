@@ -8,7 +8,7 @@ import os
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from margin_api.config import get_settings
@@ -151,12 +151,11 @@ async def churn_risk_users(
     """Active subscribers with no login in 14+ days."""
     cutoff = datetime.now(UTC) - timedelta(days=14)
 
-    result = await db.execute(
-        select(User).where(
-            User.subscription_status == "active",
-            User.last_login_at < cutoff,
-        )
+    stmt = select(User).where(
+        User.subscription_status.in_(["active", "trialing"]),
+        or_(User.last_login_at < cutoff, User.last_login_at.is_(None)),
     )
+    result = await db.execute(stmt)
     users = result.scalars().all()
 
     risk_users = [
