@@ -54,9 +54,7 @@ class TestSendOnboardingTips:
         mock_resend = MagicMock()
 
         with patch.dict(sys.modules, {"resend": mock_resend}):
-            result = service.send_onboarding_tips(
-                to_email="user@example.com", name="Bob", day=3
-            )
+            result = service.send_onboarding_tips(to_email="user@example.com", name="Bob", day=3)
 
             mock_resend.Emails.send.assert_called_once()
             call_args = mock_resend.Emails.send.call_args[0][0]
@@ -72,9 +70,7 @@ class TestSendOnboardingTips:
         mock_resend = MagicMock()
 
         with patch.dict(sys.modules, {"resend": mock_resend}):
-            result = service.send_onboarding_tips(
-                to_email="user@example.com", name="Bob", day=3
-            )
+            result = service.send_onboarding_tips(to_email="user@example.com", name="Bob", day=3)
 
             mock_resend.Emails.send.assert_not_called()
             assert result is True
@@ -86,9 +82,7 @@ class TestSendOnboardingTips:
         mock_resend.Emails.send.side_effect = Exception("API error")
 
         with patch.dict(sys.modules, {"resend": mock_resend}):
-            result = service.send_onboarding_tips(
-                to_email="user@example.com", name="Bob", day=3
-            )
+            result = service.send_onboarding_tips(to_email="user@example.com", name="Bob", day=3)
 
             assert result is False
 
@@ -194,9 +188,7 @@ class TestSendTrialEnding:
         mock_resend = MagicMock()
 
         with patch.dict(sys.modules, {"resend": mock_resend}):
-            result = service.send_trial_ending(
-                to_email="user@example.com", days_remaining=3
-            )
+            result = service.send_trial_ending(to_email="user@example.com", days_remaining=3)
 
             mock_resend.Emails.send.assert_called_once()
             call_args = mock_resend.Emails.send.call_args[0][0]
@@ -211,9 +203,7 @@ class TestSendTrialEnding:
         mock_resend = MagicMock()
 
         with patch.dict(sys.modules, {"resend": mock_resend}):
-            result = service.send_trial_ending(
-                to_email="user@example.com", days_remaining=3
-            )
+            result = service.send_trial_ending(to_email="user@example.com", days_remaining=3)
 
             mock_resend.Emails.send.assert_not_called()
             assert result is True
@@ -225,9 +215,7 @@ class TestSendTrialEnding:
         mock_resend.Emails.send.side_effect = Exception("API error")
 
         with patch.dict(sys.modules, {"resend": mock_resend}):
-            result = service.send_trial_ending(
-                to_email="user@example.com", days_remaining=3
-            )
+            result = service.send_trial_ending(to_email="user@example.com", days_remaining=3)
 
             assert result is False
 
@@ -294,9 +282,7 @@ class TestSendWeeklyDigest:
         mock_resend = MagicMock()
 
         with patch.dict(sys.modules, {"resend": mock_resend}):
-            result = service.send_weekly_digest(
-                to_email="user@example.com", digest_data={}
-            )
+            result = service.send_weekly_digest(to_email="user@example.com", digest_data={})
 
             mock_resend.Emails.send.assert_not_called()
             assert result is True
@@ -308,9 +294,7 @@ class TestSendWeeklyDigest:
         mock_resend.Emails.send.side_effect = Exception("API error")
 
         with patch.dict(sys.modules, {"resend": mock_resend}):
-            result = service.send_weekly_digest(
-                to_email="user@example.com", digest_data={}
-            )
+            result = service.send_weekly_digest(to_email="user@example.com", digest_data={})
 
             assert result is False
 

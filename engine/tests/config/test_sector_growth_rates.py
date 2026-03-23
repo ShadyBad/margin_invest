@@ -1,4 +1,5 @@
 """Tests for SECTOR_GROWTH_RATES completeness."""
+
 from margin_engine.config.industry_growth_rates import SECTOR_GROWTH_RATES, get_sector_growth_rate
 from margin_engine.models.financial import GICSSector
 

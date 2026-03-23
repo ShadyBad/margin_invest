@@ -30,6 +30,7 @@ class TestContrarianSignal:
     def test_contrarian_bonus_applied_when_negative_sentiment(self):
         """Negative sentiment + contrarian signal gives higher raw_value."""
         from margin_engine.scoring.quantitative.sentiment_score import sentiment_score
+
         base = sentiment_score(score=-3.0, has_contrarian_signal=False)
         boosted = sentiment_score(score=-3.0, has_contrarian_signal=True)
         assert boosted.raw_value > base.raw_value
@@ -37,6 +38,7 @@ class TestContrarianSignal:
     def test_no_meaningful_contrarian_on_positive_sentiment(self):
         """Positive sentiment: contrarian bonus only applies to negative values."""
         from margin_engine.scoring.quantitative.sentiment_score import sentiment_score
+
         base = sentiment_score(score=3.0, has_contrarian_signal=False)
         with_flag = sentiment_score(score=3.0, has_contrarian_signal=True)
         # Contrarian bonus only triggers on negative sentiment

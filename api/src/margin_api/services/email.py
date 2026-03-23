@@ -86,7 +86,8 @@ class EmailService:
                     "subject": f"Day {day} tip: Getting the most from Margin Invest",
                     "html": (
                         f"<h2>Hi {name}, here's your day {day} tip</h2>"
-                        "<p>Here are some things to try today to get the most out of Margin Invest.</p>"
+                        "<p>Here are some things to try today to get the"
+                        " most out of Margin Invest.</p>"
                         "<p>Happy investing!</p>"
                     ),
                 }
@@ -99,9 +100,7 @@ class EmailService:
     def send_payment_received(self, to_email: str, plan: str, amount: str) -> bool:
         """Send payment received confirmation email. Returns True on success."""
         if self._dev_mode:
-            logger.info(
-                "[dev] Payment received email for %s: %s %s", to_email, plan, amount
-            )
+            logger.info("[dev] Payment received email for %s: %s %s", to_email, plan, amount)
             return True
 
         try:
@@ -115,8 +114,10 @@ class EmailService:
                     "subject": "Payment received — Margin Invest",
                     "html": (
                         "<h2>Payment received</h2>"
-                        f"<p>Thank you! We received your payment of {amount} for the {plan} plan.</p>"
-                        "<p>Your subscription is active and you have full access.</p>"
+                        "<p>Thank you! We received your payment of"
+                        f" {amount} for the {plan} plan.</p>"
+                        "<p>Your subscription is active and you"
+                        " have full access.</p>"
                     ),
                 }
             )
@@ -128,9 +129,7 @@ class EmailService:
     def send_payment_failed(self, to_email: str, update_url: str) -> bool:
         """Send payment failed notification email. Returns True on success."""
         if self._dev_mode:
-            logger.info(
-                "[dev] Payment failed email for %s, update_url: %s", to_email, update_url
-            )
+            logger.info("[dev] Payment failed email for %s, update_url: %s", to_email, update_url)
             return True
 
         try:
@@ -210,9 +209,7 @@ class EmailService:
             )
             return True
         except Exception:
-            logger.exception(
-                "Failed to send subscription cancelled email to %s", to_email
-            )
+            logger.exception("Failed to send subscription cancelled email to %s", to_email)
             return False
 
     def send_weekly_digest(self, to_email: str, digest_data: dict) -> bool:

@@ -158,9 +158,7 @@ class TestDailySummary:
         app = setup
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            with patch(
-                "margin_api.routes.ops._fetch_sentry_error_count", return_value=42
-            ):
+            with patch("margin_api.routes.ops._fetch_sentry_error_count", return_value=42):
                 resp = await client.get(
                     "/api/v1/ops/daily-summary",
                     headers={"x-admin-key": _TEST_ADMIN_KEY},
@@ -205,14 +203,15 @@ class TestChurnRisk:
         data = resp.json()
         assert "users" in data
         assert "total" in data
-        # u2 (active, 20 days ago) + u3 (trialing, NULL last_login_at) + u6 (active, NULL last_login_at) = 3 churn-risk
+        # u2 (active, 20d ago) + u3 (trialing, NULL login)
+        # + u6 (active, NULL login) = 3 churn-risk
         assert data["total"] == 3
         emails = {u["email"] for u in data["users"]}
         assert "churn@test.com" in emails
 
     @pytest.mark.asyncio
     async def test_churn_risk_includes_null_last_login(self, setup):
-        """Users with NULL last_login_at and active subscription must appear in churn-risk results."""
+        """Users with NULL last_login_at and active sub appear in churn-risk."""
         app = setup
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:

@@ -31,8 +31,8 @@ from margin_api.routes.ingestion import router as ingestion_router
 from margin_api.routes.jobs import router as jobs_router
 from margin_api.routes.keys import router as keys_router
 from margin_api.routes.metrics import router as metrics_router
-from margin_api.routes.ops import router as ops_router
 from margin_api.routes.model_validation import router as model_validation_router
+from margin_api.routes.ops import router as ops_router
 from margin_api.routes.proposals import router as proposals_router
 from margin_api.routes.public_scores import router as public_scores_router
 from margin_api.routes.rarity import router as rarity_router

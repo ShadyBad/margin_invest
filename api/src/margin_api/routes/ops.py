@@ -96,24 +96,18 @@ async def daily_summary(
 
     # Active subscribers (status = 'active')
     active_subs = (
-        await db.execute(
-            select(func.count(User.id)).where(User.subscription_status == "active")
-        )
+        await db.execute(select(func.count(User.id)).where(User.subscription_status == "active"))
     ).scalar() or 0
 
     # Signups in last 24h
     signups_24h = (
-        await db.execute(
-            select(func.count(User.id)).where(User.created_at >= day_ago)
-        )
+        await db.execute(select(func.count(User.id)).where(User.created_at >= day_ago))
     ).scalar() or 0
 
     # Active pipeline jobs (status in running, queued)
     active_jobs = (
         await db.execute(
-            select(func.count(JobRun.id)).where(
-                JobRun.status.in_(["running", "queued"])
-            )
+            select(func.count(JobRun.id)).where(JobRun.status.in_(["running", "queued"]))
         )
     ).scalar() or 0
 

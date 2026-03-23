@@ -161,6 +161,7 @@ async def register(
     if settings.n8n_onboarding_webhook_url:
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=5.0) as client:
                 await client.post(
                     settings.n8n_onboarding_webhook_url,

@@ -143,14 +143,25 @@ async def stripe_webhook(
                 plan = user.subscription_plan
                 amount = f"${_PLAN_PRICES.get(plan, 0):.0f}" if plan in _PLAN_PRICES else ""
                 email_svc.send_payment_received(user.email, plan, amount)
-                track_event(user.email, "subscription_created", {"plan": plan, "stripe_customer_id": subscription["customer"]})
+                track_event(
+                    user.email,
+                    "subscription_created",
+                    {"plan": plan, "stripe_customer_id": subscription["customer"]},
+                )
 
         if event.type == "customer.subscription.deleted":
             user_stmt = select(User).where(User.stripe_customer_id == subscription["customer"])
             user = (await db.execute(user_stmt)).scalar_one_or_none()
             if user:
                 email_svc.send_subscription_cancelled(user.email)
-                track_event(user.email, "subscription_cancelled", {"plan": user.subscription_plan, "stripe_customer_id": subscription["customer"]})
+                track_event(
+                    user.email,
+                    "subscription_cancelled",
+                    {
+                        "plan": user.subscription_plan,
+                        "stripe_customer_id": subscription["customer"],
+                    },
+                )
 
     elif event.type == "invoice.payment_failed":
         invoice = event.data.object

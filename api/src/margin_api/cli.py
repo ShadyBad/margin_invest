@@ -704,6 +704,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
     from margin_engine.scoring.quantitative.sentiment_score import (
         sentiment_score as _sentiment_score,
     )
+
     for composite in composites:
         sv = sentiment_by_ticker.get(composite.ticker)
         if sv is not None and sv < 0 and composite.quality.average_percentile >= 70:
@@ -812,10 +813,12 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
             income = row.income_statement or {}
             rev = income.get("revenue")
             if rev is not None:
-                revenue_by_ticker[row.ticker].append({
-                    "revenue": float(rev),
-                    "year": int(row.fiscal_year),
-                })
+                revenue_by_ticker[row.ticker].append(
+                    {
+                        "revenue": float(rev),
+                        "year": int(row.fiscal_year),
+                    }
+                )
     if revenue_by_ticker:
         logger.info("V3: loaded revenue history for %d tickers", len(revenue_by_ticker))
 
@@ -1316,10 +1319,12 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
             income = row.income_statement or {}
             rev = income.get("revenue")
             if rev is not None:
-                revenue_by_ticker[row.ticker].append({
-                    "revenue": float(rev),
-                    "year": int(row.fiscal_year),
-                })
+                revenue_by_ticker[row.ticker].append(
+                    {
+                        "revenue": float(rev),
+                        "year": int(row.fiscal_year),
+                    }
+                )
     if revenue_by_ticker:
         logger.info("V4: loaded revenue history for %d tickers", len(revenue_by_ticker))
 
@@ -1735,6 +1740,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
         from margin_engine.scoring.quantitative.sentiment_score import (
             sentiment_score as _sentiment_score,
         )
+
         for composite in composites:
             sv = sentiment_by_ticker.get(composite.ticker)
             if sv is not None and sv < 0 and composite.quality.average_percentile >= 70:
