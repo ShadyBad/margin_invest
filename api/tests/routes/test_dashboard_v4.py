@@ -1,4 +1,9 @@
-"""Tests for V4Score ML field enrichment on dashboard picks."""
+"""Tests for V4Score as primary dashboard data source with ML fields.
+
+The dashboard now reads from V4Score directly (not legacy Score +
+V4 enrichment).  These tests verify ML fields, factor extraction,
+and the legacy Score fallback.
+"""
 
 from __future__ import annotations
 
@@ -43,6 +48,42 @@ def _make_client(session_factory):
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
+def _v4_detail(ticker: str = "TEST", quality: float = 80.0) -> dict:
+    """Minimal V4Score.detail JSONB matching CompositeScore.model_dump()."""
+    return {
+        "ticker": ticker,
+        "composite_percentile": 85.0,
+        "composite_raw_score": 80.0,
+        "quality": {
+            "factor_name": "quality",
+            "weight": 0.35,
+            "average_percentile": quality,
+            "sub_scores": [
+                {"name": "roic", "raw_value": 18.0, "percentile_rank": quality},
+            ],
+        },
+        "value": {
+            "factor_name": "value",
+            "weight": 0.30,
+            "average_percentile": 75.0,
+            "sub_scores": [
+                {"name": "ev_ebitda", "raw_value": 12.0, "percentile_rank": 75.0},
+            ],
+        },
+        "momentum": {
+            "factor_name": "momentum",
+            "weight": 0.35,
+            "average_percentile": 70.0,
+            "sub_scores": [
+                {"name": "price_momentum", "raw_value": 0.15, "percentile_rank": 70.0},
+            ],
+        },
+        "filters_passed": [],
+        "data_coverage": 0.95,
+        "signal": "strong",
+    }
+
+
 @pytest.mark.asyncio
 class TestDashboardV4Enrichment:
     async def test_dashboard_picks_include_ml_fields(self, session_factory):
@@ -57,22 +98,6 @@ class TestDashboardV4Enrichment:
             session.add(asset)
             await session.flush()
 
-            # Add a Score (v2) for the asset — needed for dashboard query
-            score = Score(
-                asset_id=asset.id,
-                composite_percentile=90.0,
-                composite_raw_score=85.0,
-                conviction_level="exceptional",
-                signal="buy",
-                quality_percentile=80.0,
-                value_percentile=75.0,
-                momentum_percentile=85.0,
-                data_coverage=0.95,
-                scored_at=datetime.now(UTC),
-            )
-            session.add(score)
-
-            # Add a V4Score with ML data
             v4 = V4Score(
                 asset_id=asset.id,
                 scored_at=datetime.now(UTC),
@@ -87,7 +112,7 @@ class TestDashboardV4Enrichment:
                 ml_alpha=0.05,
                 ml_confidence=0.82,
                 ml_override="promoted",
-                published=True,
+                detail=_v4_detail("MLT", quality=80.0),
             )
             session.add(v4)
             await session.commit()
@@ -103,7 +128,7 @@ class TestDashboardV4Enrichment:
             assert pick["style"] == "growth"
 
     async def test_dashboard_picks_without_v4_have_null_ml_fields(self, session_factory):
-        """Dashboard picks with no V4Score should have null ml_override and style."""
+        """Dashboard picks with no V4Score should have null ml_override/style (legacy fallback)."""
         async with session_factory() as session:
             asset = Asset(
                 ticker="OLD",
@@ -139,52 +164,24 @@ class TestDashboardV4Enrichment:
             assert pick["style"] is None
 
     async def test_dashboard_enriches_multiple_picks(self, session_factory):
-        """V4 enrichment works across multiple picks with different V4 states."""
+        """Multiple V4Score picks with different ML states are handled correctly."""
         async with session_factory() as session:
-            # Asset with V4
             a1 = Asset(
                 ticker="V4A",
                 name="V4 Asset",
                 sector="Technology",
                 market_cap=Decimal("100000000000"),
             )
-            # Asset without V4
             a2 = Asset(
-                ticker="NOV4",
-                name="No V4 Asset",
+                ticker="V4B",
+                name="V4 Asset B",
                 sector="Healthcare",
                 market_cap=Decimal("80000000000"),
             )
             session.add_all([a1, a2])
             await session.flush()
 
-            s1 = Score(
-                asset_id=a1.id,
-                composite_percentile=95.0,
-                composite_raw_score=90.0,
-                conviction_level="exceptional",
-                signal="buy",
-                quality_percentile=88.0,
-                value_percentile=85.0,
-                momentum_percentile=92.0,
-                data_coverage=0.95,
-                scored_at=datetime.now(UTC),
-            )
-            s2 = Score(
-                asset_id=a2.id,
-                composite_percentile=91.0,
-                composite_raw_score=86.0,
-                conviction_level="exceptional",
-                signal="buy",
-                quality_percentile=82.0,
-                value_percentile=78.0,
-                momentum_percentile=88.0,
-                data_coverage=0.9,
-                scored_at=datetime.now(UTC),
-            )
-            session.add_all([s1, s2])
-
-            v4 = V4Score(
+            v4a = V4Score(
                 asset_id=a1.id,
                 scored_at=datetime.now(UTC),
                 opportunity_type="compounder",
@@ -198,9 +195,23 @@ class TestDashboardV4Enrichment:
                 ml_alpha=0.07,
                 ml_confidence=0.88,
                 ml_override="none",
-                published=True,
+                detail=_v4_detail("V4A", quality=88.0),
             )
-            session.add(v4)
+            v4b = V4Score(
+                asset_id=a2.id,
+                scored_at=datetime.now(UTC),
+                opportunity_type="mispricing",
+                conviction="high",
+                rules_conviction="high",
+                style="growth",
+                timing_signal="add_on_pullback",
+                max_position_pct=4.0,
+                regime="normal",
+                composite_score=76.0,
+                ml_override="promoted",
+                detail=_v4_detail("V4B", quality=82.0),
+            )
+            session.add_all([v4a, v4b])
             await session.commit()
 
         async with _make_client(session_factory) as client:
@@ -208,12 +219,12 @@ class TestDashboardV4Enrichment:
             assert resp.status_code == 200
             data = resp.json()
 
-            v4_pick = next((p for p in data["picks"] if p["ticker"] == "V4A"), None)
-            assert v4_pick is not None
-            assert v4_pick["ml_override"] == "none"
-            assert v4_pick["style"] == "value"
+            v4a_pick = next((p for p in data["picks"] if p["ticker"] == "V4A"), None)
+            assert v4a_pick is not None
+            assert v4a_pick["ml_override"] == "none"
+            assert v4a_pick["style"] == "value"
 
-            nov4_pick = next((p for p in data["picks"] if p["ticker"] == "NOV4"), None)
-            assert nov4_pick is not None
-            assert nov4_pick["ml_override"] is None
-            assert nov4_pick["style"] is None
+            v4b_pick = next((p for p in data["picks"] if p["ticker"] == "V4B"), None)
+            assert v4b_pick is not None
+            assert v4b_pick["ml_override"] == "promoted"
+            assert v4b_pick["style"] == "growth"

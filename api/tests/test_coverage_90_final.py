@@ -785,6 +785,10 @@ class TestRunScoringBranches:
         mock_asset.market_cap = None
         mock_asset.shares_outstanding = None
 
+        # Sentiment batch query returns empty (no cached NLP data)
+        mock_result_sentiment = MagicMock()
+        mock_result_sentiment.all.return_value = []
+
         mock_result_asset = MagicMock()
         mock_result_asset.scalar_one_or_none.return_value = mock_asset
 
@@ -792,7 +796,9 @@ class TestRunScoringBranches:
         mock_result_fin.scalars.return_value.all.return_value = []  # no financial data
 
         mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(side_effect=[mock_result_asset, mock_result_fin])
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_result_sentiment, mock_result_asset, mock_result_fin]
+        )
         session_factory = _make_session_factory(mock_session)
 
         with patch("margin_api.cli.get_engine", return_value=mock_engine):
@@ -861,8 +867,14 @@ class TestRunScoringV3Branches:
         mock_result_fin = MagicMock()
         mock_result_fin.scalars.return_value.all.return_value = []
 
+        # Revenue pre-load returns empty
+        mock_result_revenue = MagicMock()
+        mock_result_revenue.all.return_value = []
+
         mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(side_effect=[mock_result_asset, mock_result_fin])
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_result_revenue, mock_result_asset, mock_result_fin]
+        )
         session_factory = _make_session_factory(mock_session)
 
         with patch("margin_api.cli.get_engine", return_value=mock_engine):
@@ -1038,11 +1050,17 @@ class TestRunScoringMainPath:
         mock_result_fin = MagicMock()
         mock_result_fin.scalars.return_value.all.return_value = [mock_fin]
 
+        # Sentiment batch query returns empty
+        mock_result_sentiment = MagicMock()
+        mock_result_sentiment.all.return_value = []
+
         call_count = [0]
 
         async def mock_execute(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
+                return mock_result_sentiment  # sentiment batch query
+            elif call_count[0] == 2:
                 return mock_result_asset
             else:
                 return mock_result_fin
@@ -1102,8 +1120,14 @@ class TestRunScoringV3MainPath:
         mock_result_fin = MagicMock()
         mock_result_fin.scalars.return_value.all.return_value = []
 
+        # Revenue pre-load returns empty
+        mock_result_revenue = MagicMock()
+        mock_result_revenue.all.return_value = []
+
         mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(side_effect=[mock_result_asset, mock_result_fin])
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_result_revenue, mock_result_asset, mock_result_fin]
+        )
         session_factory = _make_session_factory(mock_session)
 
         with patch("margin_api.cli.get_engine", return_value=mock_engine):

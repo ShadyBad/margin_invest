@@ -1,4 +1,9 @@
-"""Dashboard endpoint — high-conviction picks and watchlist from DB."""
+"""Dashboard endpoint — high-conviction picks and watchlist from DB.
+
+Uses V4Score as the primary data source (same as /api/v1/scores endpoints)
+to ensure cross-view consistency.  Falls back to the legacy Score table
+only when no V4Score data exists.
+"""
 
 from __future__ import annotations
 
@@ -27,32 +32,173 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
 
-def _pick_summary_from_row(row) -> PickSummary:
-    """Build a PickSummary from a DB query row (Score, ticker, asset_name)."""
+# ---------------------------------------------------------------------------
+# Factor-percentile extraction from JSONB detail
+# ---------------------------------------------------------------------------
+
+
+def _extract_factor_avg(detail: dict, factor_key: str) -> float | None:
+    """Return the average_percentile for a top-level factor in the detail JSONB.
+
+    Handles both pre-computed ``average_percentile`` keys and manual
+    calculation from ``sub_scores``.  Returns *None* when the factor is
+    absent or has no usable sub-scores.
+    """
+    factor = detail.get(factor_key)
+    if not isinstance(factor, dict):
+        return None
+    if "average_percentile" in factor:
+        return round(float(factor["average_percentile"]), 1)
+    subs = factor.get("sub_scores", [])
+    active = [s for s in subs if isinstance(s, dict) and not s.get("stub", False)]
+    if not active:
+        return None
+    total = sum(s.get("percentile_rank", 0) for s in active)
+    return round(total / len(active), 1)
+
+
+def _extract_sentiment_pct(detail: dict) -> float | None:
+    """Extract the sentiment percentile from momentum's sub_scores."""
+    momentum = detail.get("momentum")
+    if not isinstance(momentum, dict):
+        return None
+    for ss in momentum.get("sub_scores", []):
+        if isinstance(ss, dict) and ss.get("name") == "sentiment":
+            return round(ss.get("percentile_rank", 0), 1)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# V4Score → PickSummary  (primary path)
+# ---------------------------------------------------------------------------
+
+
+def _pick_summary_from_v4_row(row) -> PickSummary:
+    """Build a PickSummary from a V4Score DB query row.
+
+    Expected row shape: (V4Score, ticker, asset_name, asset_sector).
+    """
+    v4 = row[0] if hasattr(row[0], "conviction") else row.V4Score
+    ticker = row.ticker if hasattr(row, "ticker") else row[1]
+    asset_name = row.asset_name if hasattr(row, "asset_name") else row[2]
+    sector = row.asset_sector if hasattr(row, "asset_sector") else None
+
+    detail = v4.detail or {}
+
+    # Ensure scored_at is tz-aware
+    scored_at: datetime | None = v4.scored_at
+    if scored_at is not None and scored_at.tzinfo is None:
+        scored_at = scored_at.replace(tzinfo=UTC)
+
+    # Factor percentiles from JSONB detail (same structure as CompositeScore.model_dump)
+    quality_pct = _extract_factor_avg(detail, "quality") or 0.0
+    value_pct = _extract_factor_avg(detail, "value") or 0.0
+    momentum_pct = _extract_factor_avg(detail, "momentum") or 0.0
+    sentiment_pct = _extract_sentiment_pct(detail)
+    growth_pct = _extract_factor_avg(detail, "growth")
+
+    # Price targets from detail JSONB
+    actual_price = detail.get("actual_price")
+    buy_price = detail.get("buy_price")
+    sell_price = detail.get("sell_price")
+    margin_invest_value = detail.get("margin_invest_value")
+    invalid_reason = detail.get("price_target_invalid_reason")
+
+    # Derive signal from conviction + price targets (matches engine logic)
+    composite_tier = v4.conviction
+    signal = detail.get("signal") or _derive_signal(
+        composite_tier,
+        actual_price,
+        buy_price,
+        sell_price,
+    )
+
+    composite_score = v4.composite_score
+    composite_pct = float(detail.get("composite_percentile", composite_score))
+
+    return PickSummary(
+        score_id=v4.id,
+        ticker=ticker,
+        name=asset_name or "",
+        score=composite_score,
+        universe_percentile=composite_pct,
+        composite_percentile=composite_pct,
+        composite_tier=composite_tier,
+        signal=signal,
+        quality_percentile=quality_pct,
+        value_percentile=value_pct,
+        momentum_percentile=momentum_pct,
+        sentiment_percentile=sentiment_pct,
+        growth_percentile=growth_pct,
+        actual_price=actual_price,
+        buy_price=buy_price,
+        sell_price=sell_price,
+        price_upside=(
+            round((margin_invest_value - actual_price) / actual_price, 4)
+            if margin_invest_value and actual_price and not invalid_reason
+            else None
+        ),
+        data_freshness=compute_freshness(scored_at),
+        scored_at=scored_at.isoformat() if scored_at else None,
+        price_source="daily_close",
+        price_updated_at=scored_at.isoformat() if scored_at else None,
+        opportunity_type=v4.opportunity_type,
+        winning_track=detail.get("winning_track"),
+        max_position_pct=v4.max_position_pct,
+        timing_signal=v4.timing_signal,
+        margin_of_safety=(
+            round((margin_invest_value - actual_price) / margin_invest_value, 4)
+            if margin_invest_value
+            and actual_price
+            and actual_price < margin_invest_value
+            and not invalid_reason
+            else None
+        ),
+        sector=sector,
+        price_target_invalid_reason=invalid_reason,
+        ml_override=v4.ml_override,
+        style=v4.style,
+    )
+
+
+def _watchlist_item_from_v4_row(row) -> WatchlistItem:
+    """Build a WatchlistItem from a V4Score DB query row."""
+    v4 = row[0] if hasattr(row[0], "conviction") else row.V4Score
+    detail = v4.detail or {}
+
+    actual_price = detail.get("actual_price")
+    margin_invest_value = detail.get("margin_invest_value")
+    invalid_reason = detail.get("price_target_invalid_reason")
+
+    return WatchlistItem(
+        ticker=row.ticker if hasattr(row, "ticker") else row[1],
+        name=row.asset_name if hasattr(row, "asset_name") else row[2],
+        composite_raw_score=v4.composite_score,
+        composite_tier=v4.conviction,
+        sector=row.asset_sector if hasattr(row, "asset_sector") else None,
+        actual_price=actual_price,
+        price_upside=(
+            round((margin_invest_value - actual_price) / actual_price, 4)
+            if margin_invest_value and actual_price and not invalid_reason
+            else None
+        ),
+        opportunity_type=v4.opportunity_type,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Legacy Score → PickSummary  (fallback when no V4Score data exists)
+# ---------------------------------------------------------------------------
+
+
+def _pick_summary_from_score_row(row) -> PickSummary:
+    """Build a PickSummary from a legacy Score DB query row."""
     s = row.Score
     invalid_reason = getattr(s, "price_target_invalid_reason", None)
 
-    # Extract optional factor percentiles from score_detail JSONB
     detail = s.score_detail or {}
-    sentiment_pct = None
-    growth_pct = None
-
-    # Growth is a top-level FactorBreakdown (like quality/value/momentum)
-    growth_data = detail.get("growth")
-    if isinstance(growth_data, dict):
-        sub_scores = growth_data.get("sub_scores", [])
-        active = [ss for ss in sub_scores if not ss.get("stub", False)]
-        if active:
-            total = sum(ss.get("percentile_rank", 0) for ss in active)
-            growth_pct = round(total / len(active), 1)
-
-    # Sentiment is a sub-factor within momentum's sub_scores
-    momentum_data = detail.get("momentum")
-    if isinstance(momentum_data, dict):
-        for ss in momentum_data.get("sub_scores", []):
-            if isinstance(ss, dict) and ss.get("name") == "sentiment":
-                sentiment_pct = round(ss.get("percentile_rank", 0), 1)
-                break
+    sentiment_pct = _extract_sentiment_pct(detail)
+    growth_pct = _extract_factor_avg(detail, "growth")
 
     return PickSummary(
         score_id=s.id,
@@ -102,8 +248,25 @@ def _pick_summary_from_row(row) -> PickSummary:
     )
 
 
+# ---------------------------------------------------------------------------
+# Subqueries
+# ---------------------------------------------------------------------------
+
+
+def _latest_v4_score_subquery():
+    """Subquery for the most recent V4Score per asset."""
+    return (
+        select(
+            V4Score.asset_id,
+            func.max(V4Score.scored_at).label("max_scored_at"),
+        )
+        .group_by(V4Score.asset_id)
+        .subquery()
+    )
+
+
 def _latest_score_subquery():
-    """Subquery for the most recent score per asset."""
+    """Subquery for the most recent legacy Score per asset."""
     return (
         select(
             Score.asset_id,
@@ -114,84 +277,73 @@ def _latest_score_subquery():
     )
 
 
+# ---------------------------------------------------------------------------
+# Core fetch logic — V4Score primary, Score fallback
+# ---------------------------------------------------------------------------
+
+
 async def _fetch_picks_and_watchlist(
     db: AsyncSession,
-    base,
+    v4_base,
+    score_base,
 ) -> tuple[list[PickSummary], list[WatchlistItem]]:
-    """Run picks + watchlist queries with a top-10 fallback."""
+    """Fetch picks and watchlist from V4Score (primary), Score fallback.
+
+    Args:
+        v4_base: V4Score base query (latest per asset, with universe filter).
+        score_base: Legacy Score base query (only used when V4 yields nothing).
+    """
+    # ── V4Score primary path ──────────────────────────────────────────
     picks_result = await db.execute(
-        base.where(Score.conviction_level.in_(["exceptional", "high"])).order_by(
-            Score.composite_raw_score.desc()
+        v4_base.where(V4Score.conviction.in_(["exceptional", "high"])).order_by(
+            V4Score.composite_score.desc()
         )
     )
-    picks = [_pick_summary_from_row(row) for row in picks_result.all()]
+    picks = [_pick_summary_from_v4_row(row) for row in picks_result.all()]
 
     watchlist_result = await db.execute(
-        base.where(Score.conviction_level.in_(["medium", "watchlist"])).order_by(
-            Score.composite_raw_score.desc()
-        )
+        v4_base.where(V4Score.conviction.in_(["medium"])).order_by(V4Score.composite_score.desc())
     )
-    watchlist = [
-        WatchlistItem(
-            ticker=row.ticker,
-            name=row.asset_name,
-            composite_raw_score=row.Score.composite_raw_score,
-            composite_tier=row.Score.conviction_level,
-            sector=getattr(row, "asset_sector", None),
-            actual_price=getattr(row.Score, "actual_price", None),
-            price_upside=(
-                round(
-                    (row.Score.margin_invest_value - row.Score.actual_price)
-                    / row.Score.actual_price,
-                    4,
-                )
-                if getattr(row.Score, "margin_invest_value", None)
-                and getattr(row.Score, "actual_price", None)
-                and not getattr(row.Score, "price_target_invalid_reason", None)
-                else None
-            ),
-            opportunity_type=getattr(row.Score, "opportunity_type", None),
-        )
-        for row in watchlist_result.all()
-    ]
+    watchlist = [_watchlist_item_from_v4_row(row) for row in watchlist_result.all()]
 
-    # Fallback: when no conviction-based picks exist, show top-ranked tickers.
+    # V4 fallback: show top-ranked if no conviction-based picks
     if not picks and not watchlist:
-        top_result = await db.execute(base.order_by(Score.composite_raw_score.desc()).limit(10))
-        picks = [_pick_summary_from_row(row) for row in top_result.all()]
+        top_result = await db.execute(v4_base.order_by(V4Score.composite_score.desc()).limit(10))
+        picks = [_pick_summary_from_v4_row(row) for row in top_result.all()]
 
-    # Enrich picks with V4 ML fields (ml_override, style)
-    if picks:
-        pick_tickers = [p.ticker for p in picks]
-        v4_latest_subq = (
-            select(
-                V4Score.asset_id,
-                func.max(V4Score.scored_at).label("max_scored_at"),
+    # ── Legacy Score fallback (no V4 data at all) ─────────────────────
+    if not picks and not watchlist and score_base is not None:
+        legacy_picks_result = await db.execute(
+            score_base.where(Score.conviction_level.in_(["exceptional", "high"])).order_by(
+                Score.composite_raw_score.desc()
             )
-            .where(V4Score.published == True)  # noqa: E712
-            .group_by(V4Score.asset_id)
-            .subquery()
         )
-        v4_result = await db.execute(
-            select(V4Score, Asset.ticker)
-            .join(Asset, V4Score.asset_id == Asset.id)
-            .join(
-                v4_latest_subq,
-                (V4Score.asset_id == v4_latest_subq.c.asset_id)
-                & (V4Score.scored_at == v4_latest_subq.c.max_scored_at),
-            )
-            .where(Asset.ticker.in_(pick_tickers))
-            .where(V4Score.published == True)  # noqa: E712
-        )
-        v4_map: dict[str, V4Score] = {}
-        for row in v4_result.all():
-            v4_map[row.ticker] = row[0]  # V4Score object
+        picks = [_pick_summary_from_score_row(row) for row in legacy_picks_result.all()]
 
-        for pick in picks:
-            v4 = v4_map.get(pick.ticker)
-            if v4:
-                pick.ml_override = v4.ml_override
-                pick.style = v4.style
+        legacy_wl_result = await db.execute(
+            score_base.where(Score.conviction_level.in_(["medium", "watchlist"])).order_by(
+                Score.composite_raw_score.desc()
+            )
+        )
+        watchlist = [
+            WatchlistItem(
+                ticker=row.ticker,
+                name=row.asset_name,
+                composite_raw_score=row.Score.composite_raw_score,
+                composite_tier=row.Score.conviction_level,
+                sector=getattr(row, "asset_sector", None),
+                actual_price=getattr(row.Score, "actual_price", None),
+                price_upside=None,
+                opportunity_type=getattr(row.Score, "opportunity_type", None),
+            )
+            for row in legacy_wl_result.all()
+        ]
+
+        if not picks and not watchlist:
+            top_result = await db.execute(
+                score_base.order_by(Score.composite_raw_score.desc()).limit(10)
+            )
+            picks = [_pick_summary_from_score_row(row) for row in top_result.all()]
 
     return picks, watchlist
 
@@ -322,8 +474,14 @@ async def get_dashboard(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> DashboardResponse:
-    """Get dashboard with high-conviction picks and watchlist."""
-    latest = _latest_score_subquery()
+    """Get dashboard with high-conviction picks and watchlist.
+
+    Uses V4Score as the primary data source (consistent with /api/v1/scores
+    endpoints).  Falls back to the legacy Score table when no V4Score data
+    exists so the dashboard is never empty for older deployments.
+    """
+    latest_v4 = _latest_v4_score_subquery()
+    latest_legacy = _latest_score_subquery()
 
     # Only show tickers in the active universe (excludes OTC/foreign stocks
     # from previous scoring runs).
@@ -332,8 +490,24 @@ async def get_dashboard(
     if snapshot and snapshot.tickers:
         active_tickers = snapshot.tickers  # type: ignore[assignment]
 
-    # Base query: latest score per asset joined with asset metadata.
-    base_unfiltered = (
+    # V4Score base query: latest V4 score per asset joined with asset metadata.
+    v4_base_unfiltered = (
+        select(
+            V4Score,
+            Asset.ticker,
+            Asset.name.label("asset_name"),
+            Asset.sector.label("asset_sector"),
+        )
+        .join(Asset, V4Score.asset_id == Asset.id)
+        .join(
+            latest_v4,
+            (V4Score.asset_id == latest_v4.c.asset_id)
+            & (V4Score.scored_at == latest_v4.c.max_scored_at),
+        )
+    )
+
+    # Legacy Score base query (fallback only).
+    score_base_unfiltered = (
         select(
             Score,
             Asset.ticker,
@@ -342,45 +516,63 @@ async def get_dashboard(
         )
         .join(Asset, Score.asset_id == Asset.id)
         .join(
-            latest,
-            (Score.asset_id == latest.c.asset_id) & (Score.scored_at == latest.c.max_scored_at),
+            latest_legacy,
+            (Score.asset_id == latest_legacy.c.asset_id)
+            & (Score.scored_at == latest_legacy.c.max_scored_at),
         )
     )
 
-    # Apply universe filter when an active snapshot exists.
-    base = base_unfiltered
-    if active_tickers is not None:
-        if len(active_tickers) > 500:
-            # Large universe: use a server-side subquery to avoid asyncpg
-            # bind-parameter limits (~3000 tickers as individual $N::VARCHAR
-            # params causes compilation/performance failures).
-            universe_ticker_subq = select(
-                func.jsonb_array_elements_text(UniverseSnapshot.tickers)
-            ).where(UniverseSnapshot.is_active.is_(True))
-            base = base.where(Asset.ticker.in_(universe_ticker_subq))
-        else:
-            base = base.where(Asset.ticker.in_(active_tickers))
+    # Universe ticker subquery (shared between filters).
+    universe_ticker_subq = None
+    if active_tickers is not None and len(active_tickers) > 500:
+        universe_ticker_subq = select(
+            func.jsonb_array_elements_text(UniverseSnapshot.tickers)
+        ).where(UniverseSnapshot.is_active.is_(True))
 
-    picks, watchlist = await _fetch_picks_and_watchlist(db, base)
+    # Apply universe filter when an active snapshot exists.
+    v4_base = v4_base_unfiltered
+    score_base = score_base_unfiltered
+    if active_tickers is not None:
+        if universe_ticker_subq is not None:
+            v4_base = v4_base.where(Asset.ticker.in_(universe_ticker_subq))
+            score_base = score_base.where(Asset.ticker.in_(universe_ticker_subq))
+        else:
+            v4_base = v4_base.where(Asset.ticker.in_(active_tickers))
+            score_base = score_base.where(Asset.ticker.in_(active_tickers))
+
+    picks, watchlist = await _fetch_picks_and_watchlist(db, v4_base, score_base)
 
     # Fallback: if universe filter produced zero results but scores exist
     # in the DB, bypass the filter so the dashboard isn't empty.
     if not picks and not watchlist and active_tickers is not None:
-        picks, watchlist = await _fetch_picks_and_watchlist(db, base_unfiltered)
-
-    # Total scored (universe-aware for accurate coverage calculation)
-    if active_tickers is not None:
-        scored_count_q = select(func.count(func.distinct(Score.asset_id))).join(
-            Asset, Score.asset_id == Asset.id
+        picks, watchlist = await _fetch_picks_and_watchlist(
+            db,
+            v4_base_unfiltered,
+            score_base_unfiltered,
         )
-        if len(active_tickers) > 500:
-            scored_count_q = scored_count_q.where(Asset.ticker.in_(universe_ticker_subq))
+
+    # Total scored — count from V4Score (primary), fall back to Score.
+    v4_count_q = select(func.count(func.distinct(V4Score.asset_id)))
+    if active_tickers is not None:
+        v4_count_q = v4_count_q.join(Asset, V4Score.asset_id == Asset.id)
+        if universe_ticker_subq is not None:
+            v4_count_q = v4_count_q.where(Asset.ticker.in_(universe_ticker_subq))
         else:
-            scored_count_q = scored_count_q.where(Asset.ticker.in_(active_tickers))
-        total_result = await db.execute(scored_count_q)
-    else:
-        total_result = await db.execute(select(func.count(func.distinct(Score.asset_id))))
+            v4_count_q = v4_count_q.where(Asset.ticker.in_(active_tickers))
+    total_result = await db.execute(v4_count_q)
     total_scored = total_result.scalar() or 0
+
+    # If no V4 data, count from legacy Score table.
+    if total_scored == 0:
+        legacy_count_q = select(func.count(func.distinct(Score.asset_id)))
+        if active_tickers is not None:
+            legacy_count_q = legacy_count_q.join(Asset, Score.asset_id == Asset.id)
+            if universe_ticker_subq is not None:
+                legacy_count_q = legacy_count_q.where(Asset.ticker.in_(universe_ticker_subq))
+            else:
+                legacy_count_q = legacy_count_q.where(Asset.ticker.in_(active_tickers))
+        total_result = await db.execute(legacy_count_q)
+        total_scored = total_result.scalar() or 0
 
     # Last updated — use the most recent scored_at across both Score and V4Score tables
     score_ts_result = await db.execute(select(func.max(Score.scored_at)))
@@ -513,17 +705,23 @@ async def get_dashboard_status(
     snapshot = await get_active_snapshot(db)
 
     total_scores = (await db.execute(select(func.count()).select_from(Score))).scalar() or 0
+    total_v4_scores = (await db.execute(select(func.count()).select_from(V4Score))).scalar() or 0
 
     total_assets_scored = (
         await db.execute(select(func.count(func.distinct(Score.asset_id))))
+    ).scalar() or 0
+    total_v4_assets_scored = (
+        await db.execute(select(func.count(func.distinct(V4Score.asset_id))))
     ).scalar() or 0
 
     total_assets = (await db.execute(select(func.count()).select_from(Asset))).scalar() or 0
 
     latest_scored_at = (await db.execute(select(func.max(Score.scored_at)))).scalar()
+    latest_v4_scored_at = (await db.execute(select(func.max(V4Score.scored_at)))).scalar()
 
     # Count scores matching universe tickers
     universe_scored = 0
+    v4_universe_scored = 0
     if snapshot and snapshot.tickers and len(snapshot.tickers) > 0:
         universe_ticker_subq = select(
             func.jsonb_array_elements_text(UniverseSnapshot.tickers)
@@ -535,10 +733,34 @@ async def get_dashboard_status(
                 .where(Asset.ticker.in_(universe_ticker_subq))
             )
         ).scalar() or 0
+        v4_universe_scored = (
+            await db.execute(
+                select(func.count(func.distinct(V4Score.asset_id)))
+                .join(Asset, V4Score.asset_id == Asset.id)
+                .where(Asset.ticker.in_(universe_ticker_subq))
+            )
+        ).scalar() or 0
 
-    # Conviction level breakdown of latest scores
+    # V4 conviction breakdown (primary — what the dashboard now uses)
+    latest_v4 = _latest_v4_score_subquery()
+    v4_conviction_counts: dict[str, int] = {}
+    v4_rows = (
+        await db.execute(
+            select(V4Score.conviction, func.count())
+            .join(
+                latest_v4,
+                (V4Score.asset_id == latest_v4.c.asset_id)
+                & (V4Score.scored_at == latest_v4.c.max_scored_at),
+            )
+            .group_by(V4Score.conviction)
+        )
+    ).all()
+    for row in v4_rows:
+        v4_conviction_counts[row[0]] = row[1]
+
+    # Legacy conviction breakdown
     latest = _latest_score_subquery()
-    conviction_counts = {}
+    legacy_conviction_counts: dict[str, int] = {}
     rows = (
         await db.execute(
             select(Score.conviction_level, func.count())
@@ -550,7 +772,14 @@ async def get_dashboard_status(
         )
     ).all()
     for row in rows:
-        conviction_counts[row[0]] = row[1]
+        legacy_conviction_counts[row[0]] = row[1]
+
+    # Backward-compat: "scores" mirrors whichever source is primary
+    # (V4 if available, legacy otherwise).
+    primary_total = total_v4_scores if total_v4_scores > 0 else total_scores
+    primary_assets = total_v4_assets_scored if total_v4_assets_scored > 0 else total_assets_scored
+    primary_universe = v4_universe_scored if v4_universe_scored > 0 else universe_scored
+    primary_ts = latest_v4_scored_at or latest_scored_at
 
     return {
         "snapshot": {
@@ -559,6 +788,18 @@ async def get_dashboard_status(
             "is_active": snapshot.is_active if snapshot else False,
         },
         "scores": {
+            "total_rows": primary_total,
+            "unique_assets_scored": primary_assets,
+            "universe_assets_scored": primary_universe,
+            "latest_scored_at": primary_ts.isoformat() if primary_ts else None,
+        },
+        "v4_scores": {
+            "total_rows": total_v4_scores,
+            "unique_assets_scored": total_v4_assets_scored,
+            "universe_assets_scored": v4_universe_scored,
+            "latest_scored_at": (latest_v4_scored_at.isoformat() if latest_v4_scored_at else None),
+        },
+        "legacy_scores": {
             "total_rows": total_scores,
             "unique_assets_scored": total_assets_scored,
             "universe_assets_scored": universe_scored,
@@ -567,5 +808,6 @@ async def get_dashboard_status(
         "assets": {
             "total": total_assets,
         },
-        "tier_breakdown": conviction_counts,
+        "tier_breakdown": v4_conviction_counts,
+        "legacy_tier_breakdown": legacy_conviction_counts,
     }

@@ -4440,12 +4440,11 @@ async def rescore_ticker(
     ticker: str,
     trigger_reason: str = "drawdown",
 ) -> dict:
-    """Per-ticker scoring worker — rescores a single ticker after a trigger event.
+    """Per-ticker scoring worker — rescores a single ticker through the v4 pipeline.
 
-    Creates a JobRun record, logs the intent, and marks the job completed.
-    Full per-ticker scoring extraction from run_scoring_v3 is deferred as a
-    follow-up; this version serves as the integration point so the queue
-    plumbing is wired and observable.
+    Called by the DrawdownScreener when a stock drops >=20% from its 52-week high.
+    Runs run_scoring_v4 for the single ticker, then updates the corresponding
+    DrawdownRescreen record with the outcome and new conviction level.
 
     Args:
         ctx: ARQ worker context.
@@ -4453,8 +4452,11 @@ async def rescore_ticker(
         trigger_reason: Human-readable reason (e.g. "drawdown").
 
     Returns:
-        Dict with status and ticker.
+        Dict with status, ticker, and conviction (on success) or error (on failure).
     """
+    from margin_api.cli import run_scoring_v4
+    from margin_api.db.models import DrawdownRescreen
+
     logger.info(
         "[rescore_ticker] Starting (ticker=%s, reason=%s)",
         ticker,
@@ -4477,27 +4479,60 @@ async def rescore_ticker(
         job_id = job.id
 
     try:
-        # Placeholder: log the rescore intent.
-        # Full per-ticker scoring is a follow-up — the worker wiring is live.
-        logger.info(
-            "[rescore_ticker] Would rescore %s (trigger=%s) — scoring impl deferred",
-            ticker,
-            trigger_reason,
-        )
+        # Run the v4 scoring pipeline for this single ticker
+        await run_scoring_v4(tickers=[ticker])
 
         reset_engine_cache()
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
+            # Mark JobRun as completed
             result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = result.scalar_one()
             job.status = "completed"
             job.progress = 1.0
             job.completed_at = datetime.now(UTC)
+
+            # Update the latest unprocessed DrawdownRescreen for this ticker
+            rescreen_result = await session.execute(
+                select(DrawdownRescreen)
+                .where(DrawdownRescreen.ticker == ticker)
+                .where(DrawdownRescreen.outcome.is_(None))
+                .order_by(DrawdownRescreen.created_at.desc())
+                .limit(1)
+            )
+            rescreen = rescreen_result.scalar_one_or_none()
+
+            # Fetch the latest V4Score conviction for this ticker
+            new_conviction = None
+            v4_result = await session.execute(
+                select(V4Score)
+                .join(Asset, V4Score.asset_id == Asset.id)
+                .where(Asset.ticker == ticker)
+                .order_by(V4Score.scored_at.desc())
+                .limit(1)
+            )
+            v4_score = v4_result.scalar_one_or_none()
+            if v4_score is not None:
+                new_conviction = v4_score.conviction
+
+            if rescreen is not None:
+                rescreen.outcome = "rescored"
+                rescreen.new_conviction = new_conviction
+
             await session.commit()
 
-        logger.info("[rescore_ticker] Completed (ticker=%s)", ticker)
-        return {"status": "completed", "ticker": ticker, "trigger_reason": trigger_reason}
+        logger.info(
+            "[rescore_ticker] Completed (ticker=%s, conviction=%s)",
+            ticker,
+            new_conviction,
+        )
+        return {
+            "status": "rescored",
+            "ticker": ticker,
+            "trigger_reason": trigger_reason,
+            "conviction": new_conviction,
+        }
 
     except Exception as e:
         logger.exception("[rescore_ticker] Failed for ticker=%s: %s", ticker, e)
@@ -4505,13 +4540,27 @@ async def rescore_ticker(
         engine = get_engine()
         session_factory = get_session_factory(engine)
         async with session_factory() as session:
+            # Mark JobRun as failed
             result = await session.execute(select(JobRun).where(JobRun.id == job_id))
             job = result.scalar_one()
             job.status = "failed"
             job.error_message = str(e)[:500]
             job.completed_at = datetime.now(UTC)
+
+            # Mark DrawdownRescreen as failed
+            rescreen_result = await session.execute(
+                select(DrawdownRescreen)
+                .where(DrawdownRescreen.ticker == ticker)
+                .where(DrawdownRescreen.outcome.is_(None))
+                .order_by(DrawdownRescreen.created_at.desc())
+                .limit(1)
+            )
+            rescreen = rescreen_result.scalar_one_or_none()
+            if rescreen is not None:
+                rescreen.outcome = "failed"
+
             await session.commit()
-        return {"status": "failed", "ticker": ticker, "error": str(e)}
+        return {"status": "error", "ticker": ticker, "error": str(e)}
 
 
 async def analyze_filing_text(

@@ -69,5 +69,5 @@ def sentiment_score(
         raw_value=normalized,
         percentile_rank=0.0,
         detail=detail,
-        stub=True,
+        stub=False,
     )

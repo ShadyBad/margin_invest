@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # Rate limiting
     rate_limit_enabled: bool = True
 
+    # n8n integration
+    n8n_onboarding_webhook_url: str = ""
+
     # Service-to-service auth
     service_auth_secret: str = ""
     require_signed_auth: bool = False

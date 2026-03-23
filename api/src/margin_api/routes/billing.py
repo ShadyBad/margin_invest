@@ -18,7 +18,9 @@ from margin_api.schemas.billing import (
     CheckoutResponse,
     PortalResponse,
 )
+from margin_api.services.analytics import track_event
 from margin_api.services.billing import BillingService
+from margin_api.services.email import EmailService
 
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
 
@@ -30,6 +32,13 @@ def _get_billing_service(settings: Settings = Depends(get_settings)) -> BillingS
         stripe_institutional_price_id=settings.stripe_institutional_price_id,
         stripe_webhook_secret=settings.stripe_webhook_secret,
     )
+
+
+def _get_email_service(settings: Settings = Depends(get_settings)) -> EmailService:
+    return EmailService(api_key=settings.resend_api_key)
+
+
+_PLAN_PRICES: dict[str, float] = {"portfolio": 29.0, "institutional": 99.0, "operator": 299.0}
 
 
 @router.post("/checkout", response_model=CheckoutResponse)
@@ -77,6 +86,8 @@ async def stripe_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
     billing: BillingService = Depends(_get_billing_service),
+    email_svc: EmailService = Depends(_get_email_service),
+    settings: Settings = Depends(get_settings),
 ) -> dict:
     """Receive and process Stripe webhook events."""
     payload = await request.body()
@@ -124,6 +135,43 @@ async def stripe_webhook(
             price_id=price_id,
             current_period_end=current_period_end,
         )
+
+        if event.type == "customer.subscription.created":
+            user_stmt = select(User).where(User.stripe_customer_id == subscription["customer"])
+            user = (await db.execute(user_stmt)).scalar_one_or_none()
+            if user:
+                plan = user.subscription_plan
+                amount = f"${_PLAN_PRICES.get(plan, 0):.0f}" if plan in _PLAN_PRICES else ""
+                email_svc.send_payment_received(user.email, plan, amount)
+                track_event(
+                    user.email,
+                    "subscription_created",
+                    {"plan": plan, "stripe_customer_id": subscription["customer"]},
+                )
+
+        if event.type == "customer.subscription.deleted":
+            user_stmt = select(User).where(User.stripe_customer_id == subscription["customer"])
+            user = (await db.execute(user_stmt)).scalar_one_or_none()
+            if user:
+                email_svc.send_subscription_cancelled(user.email)
+                track_event(
+                    user.email,
+                    "subscription_cancelled",
+                    {
+                        "plan": user.subscription_plan,
+                        "stripe_customer_id": subscription["customer"],
+                    },
+                )
+
+    elif event.type == "invoice.payment_failed":
+        invoice = event.data.object
+        customer_id = invoice["customer"]
+        user_stmt = select(User).where(User.stripe_customer_id == customer_id)
+        user = (await db.execute(user_stmt)).scalar_one_or_none()
+        if user:
+            origin = settings.cors_origins[0] if settings.cors_origins else "http://localhost:3000"
+            email_svc.send_payment_failed(user.email, f"{origin}/account")
+            track_event(user.email, "payment_failed", {"stripe_customer_id": customer_id})
 
     # Record event as processed for idempotency
     db.add(

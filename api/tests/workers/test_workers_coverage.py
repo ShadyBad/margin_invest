@@ -777,7 +777,7 @@ async def test_bootstrap_pit_data_generic_error():
 
 @pytest.mark.asyncio
 async def test_rescore_ticker_success():
-    """rescore_ticker: happy path creates JobRun and returns completed."""
+    """rescore_ticker: happy path calls run_scoring_v4 and returns rescored."""
     from margin_api.workers import rescore_ticker
 
     factory, session, added = _mock_session_factory()
@@ -786,10 +786,15 @@ async def test_rescore_ticker_success():
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
         patch("margin_api.workers.reset_engine_cache"),
+        patch(
+            "margin_api.cli.run_scoring_v4",
+            new_callable=AsyncMock,
+            return_value=datetime.now(UTC),
+        ),
     ):
         result = await rescore_ticker({}, ticker="AAPL", trigger_reason="drawdown")
 
-    assert result["status"] == "completed"
+    assert result["status"] == "rescored"
     assert result["ticker"] == "AAPL"
     assert result["trigger_reason"] == "drawdown"
 
@@ -805,6 +810,11 @@ async def test_rescore_ticker_default_reason():
         patch("margin_api.workers.get_engine"),
         patch("margin_api.workers.get_session_factory", return_value=factory),
         patch("margin_api.workers.reset_engine_cache"),
+        patch(
+            "margin_api.cli.run_scoring_v4",
+            new_callable=AsyncMock,
+            return_value=datetime.now(UTC),
+        ),
     ):
         result = await rescore_ticker({}, ticker="TSLA")
 
@@ -813,83 +823,29 @@ async def test_rescore_ticker_default_reason():
 
 @pytest.mark.asyncio
 async def test_rescore_ticker_exception_returns_failed():
-    """rescore_ticker: exception path when session execute fails during try block.
+    """rescore_ticker: exception from run_scoring_v4 triggers error path.
 
-    Tests that the except block fires and attempts to record job failure.
-    Since the except block also uses session_factory, it may fail too — just
-    verify the error path code is exercised (coverage goal).
+    Tests that the except block fires and attempts to record job failure
+    when the scoring pipeline raises.
     """
 
     from margin_api.workers import rescore_ticker
 
-    # Build a session that assigns id on add (so job_id is set)
-    # but then raises on the second execute call (inside the try block)
-    session1 = MagicMock()
-    session1.commit = AsyncMock()
-
-    async def _first_execute(stmt):
-        job_mock = MagicMock()
-        job_mock.id = 42
-        return _make_execute_result(scalar_one=job_mock)
-
-    session1.execute = _first_execute
-
-    def _add_with_id(obj):
-        if isinstance(obj, JobRun):
-            obj.id = 42
-
-    session1.add = _add_with_id
-
-    ctx1 = MagicMock()
-    ctx1.__aenter__ = AsyncMock(return_value=session1)
-    ctx1.__aexit__ = AsyncMock(return_value=False)
-    factory1 = MagicMock(return_value=ctx1)
-
-    # Second session: raises during execute (the "complete" update in try block)
-    session2 = MagicMock()
-    session2.commit = AsyncMock()
-    session2.execute = AsyncMock(side_effect=RuntimeError("Scoring exploded"))
-
-    ctx2 = MagicMock()
-    ctx2.__aenter__ = AsyncMock(return_value=session2)
-    ctx2.__aexit__ = AsyncMock(return_value=False)
-    factory2 = MagicMock(return_value=ctx2)
-
-    # Third session: the except block recovery session
-    session3 = MagicMock()
-    session3.commit = AsyncMock()
-
-    async def _third_execute(stmt):
-        job_mock = MagicMock()
-        job_mock.id = 42
-        return _make_execute_result(scalar_one=job_mock)
-
-    session3.execute = _third_execute
-
-    ctx3 = MagicMock()
-    ctx3.__aenter__ = AsyncMock(return_value=session3)
-    ctx3.__aexit__ = AsyncMock(return_value=False)
-    factory3 = MagicMock(return_value=ctx3)
-
-    sf_call = {"n": 0}
-
-    def _multi_factory(engine=None):
-        # Returns the factory callable (not the context manager)
-        sf_call["n"] += 1
-        if sf_call["n"] == 1:
-            return factory1
-        if sf_call["n"] == 2:
-            return factory2
-        return factory3
+    factory, session, added = _mock_session_factory()
 
     with (
         patch("margin_api.workers.get_engine"),
-        patch("margin_api.workers.get_session_factory", side_effect=_multi_factory),
+        patch("margin_api.workers.get_session_factory", return_value=factory),
         patch("margin_api.workers.reset_engine_cache"),
+        patch(
+            "margin_api.cli.run_scoring_v4",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("Scoring exploded"),
+        ),
     ):
         result = await rescore_ticker({}, ticker="MSFT", trigger_reason="test")
 
-    assert result["status"] == "failed"
+    assert result["status"] == "error"
     assert result["ticker"] == "MSFT"
     assert "Scoring exploded" in result["error"]
 

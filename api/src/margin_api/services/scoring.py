@@ -229,6 +229,7 @@ def compute_raw_factor_scores(
     price_bars_raw: list[dict],
     earnings_raw: list[dict],
     history: FinancialHistory | None = None,
+    sentiment_value: float | None = None,
 ) -> RawScoringResult:
     """Compute raw factor scores without percentile ranking.
 
@@ -243,6 +244,8 @@ def compute_raw_factor_scores(
         earnings_raw: List of raw earnings surprise dicts for SUE score.
         history: Optional multi-period history for temporal factors
                  (roic_trend, gross_margin_stability).
+        sentiment_value: Pre-computed NLP sentiment (-5 to +5) from
+                 FilingSentimentCache. None skips the sentiment factor.
 
     Returns:
         A RawScoringResult with unranked factor scores.
@@ -315,8 +318,9 @@ def compute_raw_factor_scores(
     if earnings_raw:
         momentum_scores.append(sue_score(surprises))
 
-    # Sentiment: stub with neutral value (LLM pipeline not yet wired)
-    momentum_scores.append(sentiment_score(score=0.0))
+    # Sentiment: use real NLP value when available, skip when absent
+    if sentiment_value is not None:
+        momentum_scores.append(sentiment_score(score=sentiment_value))
 
     # --- Step 5: Growth factors ---
     growth_scores: list[FactorScore] = []

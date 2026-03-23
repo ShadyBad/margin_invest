@@ -89,3 +89,26 @@ def get_industry_growth_rate(industry: str) -> float:
     if entry is None:
         return _DEFAULT_GROWTH_RATE
     return entry.rate
+
+
+# Sector-level growth rates (GICS sectors).
+# Keyed by GICSSector string values. Used by TAM expansion when
+# sub-industry mapping is unavailable.
+SECTOR_GROWTH_RATES: dict[str, float] = {
+    "Information Technology": 0.12,
+    "Health Care": 0.08,
+    "Financials": 0.05,
+    "Consumer Discretionary": 0.07,
+    "Consumer Staples": 0.03,
+    "Energy": 0.02,
+    "Industrials": 0.05,
+    "Materials": 0.04,
+    "Real Estate": 0.04,
+    "Utilities": 0.03,
+    "Communication Services": 0.06,
+}
+
+
+def get_sector_growth_rate(sector: str) -> float:
+    """Return annual growth rate for a GICS sector. Default 0.05."""
+    return SECTOR_GROWTH_RATES.get(sector, _DEFAULT_GROWTH_RATE)

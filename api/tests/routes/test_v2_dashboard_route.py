@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-from margin_api.routes.dashboard import _pick_summary_from_row
+from margin_api.routes.dashboard import _pick_summary_from_score_row as _pick_summary_from_row
 
 
 class TestV2DashboardRoute:
