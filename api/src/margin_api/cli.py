@@ -2707,6 +2707,36 @@ async def run_prime_delist() -> None:
     print(f"\nDelisted {db_count} tickers in DB, cleaned {redis_cleaned} Redis keys.")
 
 
+async def _run_nlp_cmd() -> None:
+    """Run the daily PIT update which discovers filings and enqueues NLP analysis."""
+    from margin_api.db.session import get_session_factory
+    from margin_api.services.edgar.daily_update import run_daily_pit_update
+
+    nlp_enabled = os.environ.get("MARGIN_NLP_ENABLED", "false").lower() in ("1", "true", "yes")
+
+    if not nlp_enabled:
+        logger.warning("MARGIN_NLP_ENABLED is not set to true — NLP analysis will be skipped")
+
+    session_factory = get_session_factory()
+
+    # Try to connect to Redis for ARQ job enqueuing
+    redis = None
+    redis_url = os.environ.get("REDIS_URL")
+    if redis_url:
+        import redis.asyncio as aioredis
+
+        redis = await aioredis.from_url(redis_url)
+        logger.info("Connected to Redis — NLP jobs will be enqueued for worker processing")
+    else:
+        logger.warning("No REDIS_URL — NLP analysis will run inline (slower)")
+
+    result = await run_daily_pit_update(session_factory, redis=redis)
+    logger.info("run-nlp complete: %s", result)
+
+    if redis:
+        await redis.aclose()
+
+
 def main() -> None:
     """CLI entry point with argparse."""
     logging.basicConfig(
@@ -2995,6 +3025,12 @@ def main() -> None:
         help="Set retry counters to 2 for all quarantined tickers so next cycle delists them",
     )
 
+    # run-nlp
+    subparsers.add_parser(
+        "run-nlp",
+        help="Run daily PIT update + NLP filing analysis (same as 23:00 UTC cron)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "universe":
@@ -3075,6 +3111,8 @@ def main() -> None:
         )
     elif args.command == "prime-delist":
         asyncio.run(run_prime_delist())
+    elif args.command == "run-nlp":
+        asyncio.run(_run_nlp_cmd())
     else:
         parser.print_help()
         sys.exit(1)
