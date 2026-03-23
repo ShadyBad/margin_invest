@@ -698,6 +698,19 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
     logger.info("Ranking %d tickers across sector peers...", len(raw_results))
     composites = rank_and_compute_composites(raw_results)
 
+    # --- Post-ranking contrarian signal fixup ---
+    # quality_percentile is only available after percentile ranking, so this
+    # must happen here rather than inside compute_raw_factor_scores.
+    from margin_engine.scoring.quantitative.sentiment_score import sentiment_score as _sentiment_score
+    for composite in composites:
+        sv = sentiment_by_ticker.get(composite.ticker)
+        if sv is not None and sv < 0 and composite.quality.average_percentile >= 70:
+            updated = _sentiment_score(score=sv, has_contrarian_signal=True)
+            for i, sub in enumerate(composite.momentum.sub_scores):
+                if sub.name == "sentiment":
+                    composite.momentum.sub_scores[i] = updated
+                    break
+
     # --- Pass 3: Persist scores ---
     successes = 0
     async with session_factory() as session:
@@ -1653,6 +1666,18 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                 logger.warning("Failed to compute raw factor scores for %s: %s", t, e)
     if raw_results:
         composites = rank_and_compute_composites(raw_results)
+
+        # Post-ranking contrarian signal fixup — quality_percentile only available here.
+        from margin_engine.scoring.quantitative.sentiment_score import sentiment_score as _sentiment_score
+        for composite in composites:
+            sv = sentiment_by_ticker.get(composite.ticker)
+            if sv is not None and sv < 0 and composite.quality.average_percentile >= 70:
+                updated = _sentiment_score(score=sv, has_contrarian_signal=True)
+                for i, sub in enumerate(composite.momentum.sub_scores):
+                    if sub.name == "sentiment":
+                        composite.momentum.sub_scores[i] = updated
+                        break
+
         for composite in composites:
             composites_by_ticker[composite.ticker] = composite
         logger.info(
