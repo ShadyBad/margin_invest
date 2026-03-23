@@ -701,7 +701,9 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
     # --- Post-ranking contrarian signal fixup ---
     # quality_percentile is only available after percentile ranking, so this
     # must happen here rather than inside compute_raw_factor_scores.
-    from margin_engine.scoring.quantitative.sentiment_score import sentiment_score as _sentiment_score
+    from margin_engine.scoring.quantitative.sentiment_score import (
+        sentiment_score as _sentiment_score,
+    )
     for composite in composites:
         sv = sentiment_by_ticker.get(composite.ticker)
         if sv is not None and sv < 0 and composite.quality.average_percentile >= 70:
@@ -764,6 +766,8 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
 
 async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = None) -> None:
     """Score tickers using the v3 gate cascade pipeline."""
+    from collections import defaultdict
+
     from margin_engine.ingestion.normalizer import normalize_earnings_list
     from margin_engine.models.scoring import FactorScore
     from margin_engine.scoring.normalizer import compute_percentile_ranks
@@ -771,7 +775,7 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
     from margin_engine.scoring.v3_pipeline import TickerV3Data, score_universe_v3
 
     from margin_api.data.macro_data_client import fetch_shiller_cape
-    from margin_api.db.models import V3Score
+    from margin_api.db.models import PITFinancialSnapshot, V3Score
     from margin_api.services.scoring import build_asset_profile, build_financial_history_from_rows
 
     engine = get_engine()
@@ -787,6 +791,33 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
     if cape is None:
         cape = await fetch_shiller_cape()
     logger.info("Using Shiller CAPE: %.1f", cape)
+
+    # --- Pre-load revenue history from PIT snapshots for TAM modifier ---
+    revenue_by_ticker: dict[str, list[dict]] = defaultdict(list)
+    async with session_factory() as session:
+        revenue_q = select(
+            PITFinancialSnapshot.ticker,
+            PITFinancialSnapshot.fiscal_year,
+            PITFinancialSnapshot.income_statement,
+        ).where(PITFinancialSnapshot.ticker.in_(tickers))
+        revenue_rows = (await session.execute(revenue_q)).all()
+        seen_years: set[tuple[str, int]] = set()
+        for row in revenue_rows:
+            if row.fiscal_year is None:
+                continue
+            key = (row.ticker, row.fiscal_year)
+            if key in seen_years:
+                continue
+            seen_years.add(key)
+            income = row.income_statement or {}
+            rev = income.get("revenue")
+            if rev is not None:
+                revenue_by_ticker[row.ticker].append({
+                    "revenue": float(rev),
+                    "year": int(row.fiscal_year),
+                })
+    if revenue_by_ticker:
+        logger.info("V3: loaded revenue history for %d tickers", len(revenue_by_ticker))
 
     # Build TickerV3Data for each ticker
     ticker_data_list: list[TickerV3Data] = []
@@ -933,6 +964,8 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
                     sue_percentile=50.0,
                     momentum_percentile=50.0,
                     dcf_iv=dcf_iv,
+                    revenue_history=revenue_by_ticker.get(ticker),
+                    sector=asset.sector,
                 )
                 ticker_data_list.append(td)
                 asset_ids[ticker] = asset.id
@@ -1195,6 +1228,7 @@ def _inject_sector_stats(
 async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = None) -> datetime:
     """Score tickers using the v4 pipeline with Track C, style, momentum, and ML."""
     import gc
+    from collections import defaultdict
 
     from margin_engine.ingestion.normalizer import normalize_earnings_list
     from margin_engine.models.financial import AssetProfile, FinancialHistory, FinancialPeriod
@@ -1210,6 +1244,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
         AccumulationSignal,
         FilingSentimentCache,
         MlModelRun,
+        PITFinancialSnapshot,
         V4Score,
     )
     from margin_api.services.nlp_analyzer import NLP_ANALYSIS_VERSION
@@ -1260,6 +1295,33 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
             sentiment_by_ticker[row.ticker] = row.sentiment_value
     if sentiment_by_ticker:
         logger.info("V4: loaded NLP sentiment for %d tickers", len(sentiment_by_ticker))
+
+    # --- Pre-load revenue history from PIT snapshots for TAM modifier ---
+    revenue_by_ticker: dict[str, list[dict]] = defaultdict(list)
+    async with session_factory() as session:
+        revenue_q = select(
+            PITFinancialSnapshot.ticker,
+            PITFinancialSnapshot.fiscal_year,
+            PITFinancialSnapshot.income_statement,
+        ).where(PITFinancialSnapshot.ticker.in_(tickers))
+        revenue_rows = (await session.execute(revenue_q)).all()
+        seen_years: set[tuple[str, int]] = set()
+        for row in revenue_rows:
+            if row.fiscal_year is None:
+                continue
+            key = (row.ticker, row.fiscal_year)
+            if key in seen_years:
+                continue
+            seen_years.add(key)
+            income = row.income_statement or {}
+            rev = income.get("revenue")
+            if rev is not None:
+                revenue_by_ticker[row.ticker].append({
+                    "revenue": float(rev),
+                    "year": int(row.fiscal_year),
+                })
+    if revenue_by_ticker:
+        logger.info("V4: loaded revenue history for %d tickers", len(revenue_by_ticker))
 
     # Build TickerV4Data for each ticker
     ticker_data_list: list[TickerV4Data] = []
@@ -1473,6 +1535,8 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                     momentum_percentile=50.0,
                     dcf_iv=dcf_iv,
                     style=style,
+                    revenue_history=revenue_by_ticker.get(ticker),
+                    sector=asset.sector,
                     **track_c_fields,
                 )
                 ticker_data_list.append(td)
@@ -1668,7 +1732,9 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
         composites = rank_and_compute_composites(raw_results)
 
         # Post-ranking contrarian signal fixup — quality_percentile only available here.
-        from margin_engine.scoring.quantitative.sentiment_score import sentiment_score as _sentiment_score
+        from margin_engine.scoring.quantitative.sentiment_score import (
+            sentiment_score as _sentiment_score,
+        )
         for composite in composites:
             sv = sentiment_by_ticker.get(composite.ticker)
             if sv is not None and sv < 0 and composite.quality.average_percentile >= 70:

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from margin_engine.config.industry_growth_rates import get_sector_growth_rate
 from margin_engine.ml.ensemble_override import apply_ml_override
 from margin_engine.models.scoring import CompositeTier, FilterResult, InvestmentStyle
 from margin_engine.scoring.market_regime import detect_regime, regime_adjustments
@@ -20,6 +21,7 @@ from margin_engine.scoring.pipeline_helpers import (
     conditional_multiplier_for_ticker,
 )
 from margin_engine.scoring.quantitative.inflection_detection import inflection_score
+from margin_engine.scoring.quantitative.tam_expansion import tam_expansion_velocity
 from margin_engine.scoring.quantitative.wacc_company import compute_company_wacc
 from margin_engine.scoring.quantitative.wacc_sector import get_sector_wacc
 from margin_engine.scoring.score_modifiers import (
@@ -325,8 +327,14 @@ def score_universe_v4(
         infl_result = inflection_score(td.history)
         infl_mod = inflection_modifier(infl_result.raw_value)
 
-        # TAM data not yet available in pipeline — placeholder
-        tam_mod = tam_modifier(None)
+        # TAM expansion: use revenue history when available
+        tam_score = None
+        if td.revenue_history and len(td.revenue_history) >= 2 and td.sector:
+            industry_rate = get_sector_growth_rate(td.sector)
+            tam_factor = tam_expansion_velocity(td.revenue_history, industry_rate)
+            if tam_factor is not None:
+                tam_score = tam_factor.raw_value
+        tam_mod = tam_modifier(tam_score)
 
         modified_score, modifier_breakdown = apply_all_modifiers(
             composite_score, ac_mod, liq_mod, ins_mod, inflection=infl_mod, tam=tam_mod

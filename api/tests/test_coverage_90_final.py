@@ -867,8 +867,14 @@ class TestRunScoringV3Branches:
         mock_result_fin = MagicMock()
         mock_result_fin.scalars.return_value.all.return_value = []
 
+        # Revenue pre-load returns empty
+        mock_result_revenue = MagicMock()
+        mock_result_revenue.all.return_value = []
+
         mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(side_effect=[mock_result_asset, mock_result_fin])
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_result_revenue, mock_result_asset, mock_result_fin]
+        )
         session_factory = _make_session_factory(mock_session)
 
         with patch("margin_api.cli.get_engine", return_value=mock_engine):
@@ -1114,8 +1120,14 @@ class TestRunScoringV3MainPath:
         mock_result_fin = MagicMock()
         mock_result_fin.scalars.return_value.all.return_value = []
 
+        # Revenue pre-load returns empty
+        mock_result_revenue = MagicMock()
+        mock_result_revenue.all.return_value = []
+
         mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(side_effect=[mock_result_asset, mock_result_fin])
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_result_revenue, mock_result_asset, mock_result_fin]
+        )
         session_factory = _make_session_factory(mock_session)
 
         with patch("margin_api.cli.get_engine", return_value=mock_engine):
