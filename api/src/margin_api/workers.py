@@ -3177,11 +3177,28 @@ async def live_price_poll(ctx: dict) -> dict:
     try:
         updated = 0
         failed = 0
+        consecutive_empty_batches = 0
+        max_consecutive_empty = 3  # Abort if Yahoo appears completely down
         for i in range(0, len(eligible), batch_size):
             batch = eligible[i : i + batch_size]
             batch_ok = await _download_batch(batch)
             updated += batch_ok
             failed += len(batch) - batch_ok
+
+            if batch_ok == 0:
+                consecutive_empty_batches += 1
+                if consecutive_empty_batches >= max_consecutive_empty:
+                    remaining = len(eligible) - (i + batch_size)
+                    logger.warning(
+                        "[prices] Aborting — %d consecutive empty batches, "
+                        "Yahoo Finance appears down (%d tickers remaining)",
+                        max_consecutive_empty,
+                        max(remaining, 0),
+                    )
+                    failed += max(remaining, 0)
+                    break
+            else:
+                consecutive_empty_batches = 0
 
         logger.info(
             "[prices] Updated %d/%d tickers (%d failed, %d skipped)",
@@ -3191,7 +3208,7 @@ async def live_price_poll(ctx: dict) -> dict:
             skipped,
         )
         return {
-            "status": "completed",
+            "status": "completed" if updated > 0 else "yahoo_down",
             "updated": updated,
             "failed": failed,
             "skipped": skipped,
