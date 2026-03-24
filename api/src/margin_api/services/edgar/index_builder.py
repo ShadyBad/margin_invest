@@ -134,7 +134,9 @@ def _is_retryable(exc: BaseException) -> bool:
     """Return True for transient errors worth retrying."""
     if isinstance(exc, (httpx.ReadTimeout, httpx.ConnectTimeout)):
         return True
-    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code >= 500:
+    if isinstance(exc, httpx.HTTPStatusError) and (
+        exc.response.status_code >= 500 or exc.response.status_code == 429
+    ):
         return True
     return False
 
@@ -142,7 +144,7 @@ def _is_retryable(exc: BaseException) -> bool:
 @retry(
     retry=retry_if_exception(_is_retryable),
     stop=stop_after_attempt(5),
-    wait=wait_exponential_jitter(initial=2, max=32, jitter=2),
+    wait=wait_exponential_jitter(initial=5, max=120, jitter=5),
     reraise=True,
 )
 async def fetch_quarter_index(

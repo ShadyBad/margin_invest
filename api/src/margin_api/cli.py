@@ -257,10 +257,22 @@ async def seed_ticker_data(
         market_cap = Decimal(str(info.get("marketCap", 0)))
         shares_outstanding = info.get("sharesOutstanding")
 
-        # Reject non-US assets (foreign or unknown country)
-        if country != "United States":
-            logger.info("  SKIP %s — non-US domicile (%s)", ticker, country or "unknown")
+        # When info fetch failed, fall back to existing country from DB
+        if not info_result.success and country is None:
+            existing = await session.execute(select(Asset).where(Asset.ticker == ticker))
+            existing_asset = existing.scalar_one_or_none()
+            if existing_asset and existing_asset.country:
+                country = existing_asset.country
+                logger.info("  %s: info fetch failed, using DB country=%s", ticker, country)
+
+        # Reject non-US assets — only when we positively know the country
+        if country is not None and country != "United States":
+            logger.info("  SKIP %s — non-US domicile (%s)", ticker, country)
             return SeedResult(status="foreign", error_message=f"Non-US domicile: {country}")
+        if country is None and not info_result.success:
+            # Info fetch failed and no DB record — skip silently (new ticker, can't verify)
+            logger.info("  SKIP %s — country unknown (info fetch failed, no DB record)", ticker)
+            return SeedResult(status="skipped", error_message="Country unknown — info fetch failed")
 
         # Upsert Asset row — uses ON CONFLICT to avoid race conditions
         # between concurrent ingest workers.

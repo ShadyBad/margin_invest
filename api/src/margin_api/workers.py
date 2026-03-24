@@ -97,6 +97,29 @@ AUTO_APPROVE_MAX_CONVICTION_CHANGE_PCT = 0.10  # 10%
 
 
 # ---------------------------------------------------------------------------
+# Stale cron guard
+# ---------------------------------------------------------------------------
+
+# Maximum age (seconds) for a cron invocation to be considered valid.
+# ARQ queues every missed cron tick — if the worker was blocked for an hour,
+# we'd get a burst of stale invocations that compete for threads/memory.
+STALE_CRON_THRESHOLD = 300  # 5 minutes
+
+
+def _is_stale_cron(ctx: dict, job_name: str) -> dict | None:
+    """Return a skip-result dict if the cron invocation is stale, else None."""
+    enqueue_time = ctx.get("enqueue_time")
+    if enqueue_time:
+        staleness = (datetime.now(UTC) - enqueue_time).total_seconds()
+        if staleness > STALE_CRON_THRESHOLD:
+            logger.info(
+                "[%s] Skipping stale cron invocation (%.0fs old)", job_name, staleness
+            )
+            return {"status": "skipped_stale", "staleness_seconds": int(staleness)}
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Alerting helpers
 # ---------------------------------------------------------------------------
 
@@ -2973,6 +2996,10 @@ async def live_price_poll(ctx: dict) -> dict:
     of per-ticker Ticker() calls.  Excludes quarantined assets and tickers that
     have failed price lookups repeatedly (tracked via Redis counter).
     """
+    stale = _is_stale_cron(ctx, "prices")
+    if stale:
+        return stale
+
     settings = get_settings()
 
     engine = get_engine()
@@ -3083,7 +3110,7 @@ async def live_price_poll(ctx: dict) -> dict:
                     tickers_str,
                     period="1d",
                     progress=False,
-                    threads=True,
+                    threads=False,  # Avoid spawning internal threads — prevents exhaustion
                 )
             )
 
@@ -3359,6 +3386,10 @@ async def full_13f_ingest(ctx: dict, pipeline_id: str | None = None) -> dict:
     parses all holdings from each filing, and stores them in the database.
     Chains to ``compute_accumulation_signals`` on success.
     """
+    stale = _is_stale_cron(ctx, "13f_ingest")
+    if stale:
+        return stale
+
     from margin_engine.ingestion.providers.edgar_provider import EDGARProvider
 
     from margin_api.services.thirteenf_ingest import ThirteenFIngestService
@@ -3826,6 +3857,9 @@ async def snapshot_shadow_portfolio(ctx: dict) -> dict:
     builds a portfolio snapshot, and appends to shadow_portfolio_snapshots.
     Uses on_conflict_do_nothing on as_of_date for idempotency.
     """
+    stale = _is_stale_cron(ctx, "shadow_portfolio")
+    if stale:
+        return stale
 
     logger.info("[shadow_portfolio] Starting snapshot_shadow_portfolio...")
 
@@ -3944,6 +3978,10 @@ async def daily_pit_update(ctx: dict) -> dict:
     universe membership near quarter ends. Passes the ARQ redis connection
     so newly inserted filings can have analyze_filing_text jobs enqueued.
     """
+    stale = _is_stale_cron(ctx, "daily_pit_update")
+    if stale:
+        return stale
+
     from margin_api.services.edgar.daily_update import run_daily_pit_update
 
     engine = get_engine()
@@ -4713,6 +4751,10 @@ async def screen_drawdown_candidates(ctx: dict) -> dict:
 
     Runs daily at 23:30 UTC.
     """
+    stale = _is_stale_cron(ctx, "screen_drawdown")
+    if stale:
+        return stale
+
     from margin_api.services.drawdown_screener import DrawdownScreener
 
     logger.info("[screen_drawdown] Starting drawdown screening")
