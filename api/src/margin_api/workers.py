@@ -106,6 +106,7 @@ AUTO_APPROVE_MAX_CONVICTION_CHANGE_PCT = 0.10  # 10%
 # ARQ queues every missed cron tick — if the worker was blocked for an hour,
 # we'd get a burst of stale invocations that compete for threads/memory.
 STALE_CRON_THRESHOLD = 300  # 5 minutes
+MAX_PRICE_FAIL_COUNT = 3  # Quarantine after this many consecutive price poll failures
 
 _ET = ZoneInfo("America/New_York")
 
@@ -3046,10 +3047,10 @@ async def live_price_poll(ctx: dict) -> dict:
     redis_client = aioredis.from_url(settings.redis_url)
     service = LivePriceService(redis_client)
 
-    # Skip tickers that have failed 5+ consecutive price polls (likely delisted).
+    # Skip tickers that have failed MAX_PRICE_FAIL_COUNT+ consecutive price polls (likely delisted).
     # Counter resets on success.  Key expires after 24h so they get retried daily.
     fail_key_prefix = "price_fail:"
-    max_consecutive_fails = 5
+    max_consecutive_fails = MAX_PRICE_FAIL_COUNT
     try:
         pipe = redis_client.pipeline()
         for t in scored_tickers:
@@ -3257,20 +3258,21 @@ async def _record_fail(redis_client, ticker: str) -> None:
     try:
         count = await redis_client.incr(key)
         if count == 1:
-            # First failure in window — start the 24h countdown
             await redis_client.expire(key, 86400)
+            logger.warning("price_fail:%s count=%d", ticker, count)
+        elif count >= MAX_PRICE_FAIL_COUNT:
+            logger.warning("price_fail:%s reached quarantine threshold (count=%d)", ticker, count)
         else:
-            # Safety: if key has no TTL (crash between INCR and EXPIRE), set it
             ttl = await redis_client.ttl(key)
             if ttl == -1:
                 await redis_client.expire(key, 86400)
-        logger.warning("price_fail:%s count=%d", ticker, count)
+            logger.debug("price_fail:%s count=%d", ticker, count)
     except Exception:
         logger.debug("Redis error in _record_fail for %s", ticker, exc_info=True)
 
 
 async def retry_quarantined(ctx: dict) -> dict:
-    """Retry quarantined tickers (5+ consecutive failures).
+    """Retry quarantined tickers (3+ consecutive failures).
 
     Samples up to 50 quarantined tickers, re-tests via yf.download in batches
     of 10. Clears failure counter for recovered tickers; resets inflated
@@ -3283,7 +3285,7 @@ async def retry_quarantined(ctx: dict) -> dict:
 
     settings = get_settings()
     redis_client = aioredis.from_url(settings.redis_url)
-    max_consecutive_fails = 5
+    max_consecutive_fails = MAX_PRICE_FAIL_COUNT
     max_sample = 50
     retry_batch_size = 10
     max_retry_cycles = 3  # After this many failed retries, permanently delist
