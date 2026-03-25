@@ -629,10 +629,10 @@ class TestPublishScoresImpl:
 
     @pytest.mark.asyncio
     async def test_publish_scores_returns_error_when_not_staged(self):
-        """Returns error dict when approval is not in staged status."""
+        """Returns error dict when approval is not in an accepted status."""
         from margin_api.workers import _publish_scores_impl
 
-        approval = _make_mock_approval(status="approved")  # already approved
+        approval = _make_mock_approval(status="expired")  # rejected/expired status
 
         factory, session, added = _mock_session_factory(
             execute_side_effects=[
@@ -643,7 +643,7 @@ class TestPublishScoresImpl:
         result = await _publish_scores_impl(session, approval_id=99)
 
         assert result["status"] == "error"
-        assert "not in staged status" in result["message"]
+        assert "unexpected status" in result["message"]
 
     @pytest.mark.asyncio
     async def test_publish_scores_webhook_failure_is_non_blocking(self):

@@ -328,6 +328,7 @@ class TestLivePricePoll:
         with (
             patch("margin_api.workers.get_engine"),
             patch("margin_api.workers.get_session_factory", return_value=mock_session_factory),
+            patch("margin_api.workers._is_market_hours", return_value=True),
         ):
             result = await live_price_poll({})
 
@@ -370,6 +371,7 @@ class TestLivePricePoll:
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
             patch("margin_api.workers.yf.download", return_value=mock_download_df),
+            patch("margin_api.workers._is_market_hours", return_value=True),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             result = await live_price_poll({})
@@ -423,6 +425,7 @@ class TestLivePricePoll:
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
             patch("margin_api.workers.yf.download", return_value=mock_download_df),
+            patch("margin_api.workers._is_market_hours", return_value=True),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             result = await live_price_poll({})
@@ -469,6 +472,7 @@ class TestLivePricePoll:
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
             patch("margin_api.workers.yf.download", return_value=mock_download_df),
+            patch("margin_api.workers._is_market_hours", return_value=True),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             result = await live_price_poll({})
@@ -534,6 +538,7 @@ class TestLivePricePoll:
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
             patch("margin_api.workers.yf.download", return_value=mock_download_df),
+            patch("margin_api.workers._is_market_hours", return_value=True),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             result = await live_price_poll({})
@@ -1082,7 +1087,8 @@ class TestDownloadBatchAttribution:
 
         fake_redis = fakeredis.aioredis.FakeRedis()
         # Pre-set a failure counter for AAPL that should be cleared on success
-        await fake_redis.set("price_fail:AAPL", "3")
+        # Must be below MAX_PRICE_FAIL_COUNT (3) so AAPL remains eligible
+        await fake_redis.set("price_fail:AAPL", "2")
 
         mock_session = AsyncMock()
         mock_result = MagicMock()
@@ -1113,6 +1119,7 @@ class TestDownloadBatchAttribution:
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
             patch("margin_api.workers.yf.download", return_value=mock_df),
+            patch("margin_api.workers._is_market_hours", return_value=True),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             await live_price_poll({})
@@ -1156,6 +1163,7 @@ class TestDownloadBatchAttribution:
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
             patch("margin_api.workers.yf.download", side_effect=_conn_error),
+            patch("margin_api.workers._is_market_hours", return_value=True),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             await live_price_poll({})
@@ -1212,6 +1220,7 @@ class TestDownloadBatchAttribution:
             patch("margin_api.workers.get_settings") as mock_settings,
             patch("margin_api.workers.aioredis.from_url", return_value=fake_redis),
             patch("margin_api.workers.yf.download", side_effect=_download_side_effect),
+            patch("margin_api.workers._is_market_hours", return_value=True),
         ):
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             result = await live_price_poll({})
@@ -1276,9 +1285,11 @@ class TestRetryQuarantined:
             mock_settings.return_value.redis_url = "redis://localhost:6379"
             result = await retry_quarantined({})
 
+        from margin_api.workers import MAX_PRICE_FAIL_COUNT
+
         assert result["still_failing"] >= 1
         count = int(await fake_redis.get("price_fail:BAD"))
-        assert count == 5
+        assert count == MAX_PRICE_FAIL_COUNT
 
         await fake_redis.aclose()
 
