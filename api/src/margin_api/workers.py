@@ -14,6 +14,7 @@ import json
 import logging
 import math
 import os
+import time as _time
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import TYPE_CHECKING
@@ -3186,12 +3187,29 @@ async def live_price_poll(ctx: dict) -> dict:
 
         return ok
 
+    budget_seconds = 600  # 10 min — leaves 300s headroom before 900s ARQ timeout
+    start_wall = _time.monotonic()
+
     try:
         updated = 0
         failed = 0
         consecutive_empty_batches = 0
         max_consecutive_empty = 3  # Abort if Yahoo appears completely down
         for i in range(0, len(eligible), batch_size):
+            # Time budget check — BEFORE downloading the batch
+            elapsed = _time.monotonic() - start_wall
+            if elapsed >= budget_seconds:
+                remaining = len(eligible) - i
+                logger.warning(
+                    "[prices] Time budget exhausted (%.0fs/%.0fs), "
+                    "aborting with %d tickers remaining",
+                    elapsed,
+                    budget_seconds,
+                    remaining,
+                )
+                failed += remaining
+                break
+
             batch = eligible[i : i + batch_size]
             batch_ok = await _download_batch(batch)
             updated += batch_ok
