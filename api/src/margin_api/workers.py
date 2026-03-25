@@ -1408,8 +1408,8 @@ async def _publish_scores_impl(
     if approval is None:
         return {"status": "error", "message": "not found"}
 
-    if approval.status != "staged":
-        return {"status": "error", "message": "not in staged status"}
+    if approval.status not in ("staged", "approved"):
+        return {"status": "error", "message": f"unexpected status: {approval.status}"}
 
     # Parse scored_at from payload_ref
     scored_at_str = approval.payload_ref["scored_at"]

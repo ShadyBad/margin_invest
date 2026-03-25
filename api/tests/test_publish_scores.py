@@ -160,16 +160,32 @@ class TestPublishScoresImpl:
         assert refreshed.decided_at is not None
 
     @pytest.mark.asyncio
-    async def test_rejects_non_staged_approval(self, db_session):
-        """_publish_scores_impl returns error for already-approved or rejected approvals."""
+    async def test_rejects_unexpected_status(self, db_session):
+        """_publish_scores_impl returns error for approvals with unexpected status."""
         now = datetime.now(UTC)
-        approval = await _create_approval(db_session, scored_at=now, status="approved")
+        approval = await _create_approval(db_session, scored_at=now, status="expired")
         await db_session.commit()
 
         result = await _publish_scores_impl(db_session, approval.id)
 
         assert result["status"] == "error"
-        assert "not in staged status" in result["message"]
+        assert "unexpected status" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_publishes_auto_approved_scores(self, db_session):
+        """_publish_scores_impl publishes scores when approval.status is 'approved'."""
+        now = datetime.now(UTC)
+        asset = await _create_asset(db_session, "AAPL")
+        await _create_v4_score(db_session, asset, scored_at=now, published=False)
+        await db_session.commit()
+
+        approval = await _create_approval(db_session, scored_at=now, status="approved")
+        await db_session.commit()
+
+        result = await _publish_scores_impl(db_session, approval.id)
+
+        assert result["status"] == "published"
+        assert result["published_count"] == 1
 
     @pytest.mark.asyncio
     async def test_returns_error_for_missing_approval(self, db_session):
