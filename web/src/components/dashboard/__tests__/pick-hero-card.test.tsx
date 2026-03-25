@@ -60,7 +60,7 @@ describe("PickHeroCard", () => {
     )
     const scoreEl = container.querySelector(".text-\\[42px\\]")
     expect(scoreEl).toBeInTheDocument()
-    expect(scoreEl?.textContent).toBe("91")
+    expect(scoreEl?.textContent).toBe("91.30")
   })
 
   it("renders rank badge", () => {

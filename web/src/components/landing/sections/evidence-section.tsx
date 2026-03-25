@@ -133,7 +133,7 @@ export function EvidenceSection({
               <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
                 Factor Correlation
               </div>
-              <ProofHeatmap />
+              <ProofHeatmap candidates={candidates} />
             </div>
           </div>
 

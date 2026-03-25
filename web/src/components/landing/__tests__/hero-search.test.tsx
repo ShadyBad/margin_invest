@@ -75,7 +75,7 @@ describe("HeroSearch", () => {
     await waitFor(() => {
       expect(screen.getByText("AAPL")).toBeInTheDocument()
       expect(screen.getByText("Apple Inc")).toBeInTheDocument()
-      expect(screen.getByText("79")).toBeInTheDocument() // Math.round(78.5)
+      expect(screen.getByText("78.50")).toBeInTheDocument() // formatScore(78.5)
     })
   })
 

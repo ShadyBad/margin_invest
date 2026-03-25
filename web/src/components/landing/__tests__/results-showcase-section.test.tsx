@@ -59,9 +59,9 @@ describe("ResultsShowcaseSection", () => {
     expect(screen.getByText("AAPL")).toBeInTheDocument()
     expect(screen.getByText("MSFT")).toBeInTheDocument()
     expect(screen.getByText("JNJ")).toBeInTheDocument()
-    expect(screen.getByText("82.4")).toBeInTheDocument()
-    expect(screen.getByText("79.1")).toBeInTheDocument()
-    expect(screen.getByText("75.6")).toBeInTheDocument()
+    expect(screen.getByText("82.40")).toBeInTheDocument()
+    expect(screen.getByText("79.10")).toBeInTheDocument()
+    expect(screen.getByText("75.60")).toBeInTheDocument()
     // 4th candidate should not be shown
     expect(screen.queryByText("EXTRA")).not.toBeInTheDocument()
   })

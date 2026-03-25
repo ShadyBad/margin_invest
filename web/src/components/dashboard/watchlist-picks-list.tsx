@@ -8,6 +8,7 @@ import { PanelErrorBoundary } from "./panel/panel-error-boundary"
 import { getScore, getMetrics } from "@/lib/api/scores"
 import { ApiError } from "@/lib/api/client"
 import { getSectorColor } from "@/lib/sector-colors"
+import { formatScore } from "@/lib/format"
 import type { WatchlistItem, ScoreResponse, InstitutionalMetricsResponse } from "@/lib/api/types"
 
 interface WatchlistPicksListProps {
@@ -98,7 +99,7 @@ function WatchlistRow({ item }: { item: WatchlistItem }) {
 
         {/* Score */}
         <span className="text-sm font-mono text-text-primary w-8 text-right">
-          {Math.round(item.composite_raw_score)}
+          {formatScore(item.composite_raw_score)}
         </span>
 
         {/* Price + upside */}

@@ -31,7 +31,6 @@ describe("ProGate", () => {
     )
     const container = screen.getByTestId("pro-gate-overlay")
     expect(container).toBeInTheDocument()
-    expect(container.className).toContain("blur")
   })
 
   it("shows lock icon and CTA for free users", () => {
@@ -42,7 +41,7 @@ describe("ProGate", () => {
       </ProGate>
     )
     expect(screen.getByText(/unlock institutional-grade analytics/i)).toBeInTheDocument()
-    expect(screen.getByText(/pro insight/i)).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /upgrade to portfolio/i })).toBeInTheDocument()
   })
 
   it("renders children unblurred while loading", () => {

@@ -1,5 +1,6 @@
 import { SubScoreChips } from "./sub-score-chips"
 import { getPercentileColor } from "./utils"
+import { formatScore } from "@/lib/format"
 
 interface FactorRowProps {
   name: string
@@ -26,7 +27,7 @@ export function FactorRow({ name, weight, score, interpretation, subScores }: Fa
             style={{ color }}
             data-testid="factor-score"
           >
-            {Math.round(score)}
+            {formatScore(score)}
           </span>
         </div>
       </div>

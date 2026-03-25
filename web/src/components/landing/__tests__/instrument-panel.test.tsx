@@ -47,7 +47,7 @@ describe("InstrumentPanel", () => {
 
   it("renders composite score", () => {
     render(<InstrumentPanel candidate={MOCK_CANDIDATE} />)
-    expect(screen.getByText("82")).toBeInTheDocument()
+    expect(screen.getByText("82.00")).toBeInTheDocument()
   })
 
   it("renders Live Score header with ticker", () => {
@@ -63,7 +63,7 @@ describe("InstrumentPanel", () => {
   it("omits sector when null", () => {
     const noSector = { ...MOCK_CANDIDATE, sector: null as unknown as string }
     render(<InstrumentPanel candidate={noSector} />)
-    expect(screen.getByText("82")).toBeInTheDocument()
+    expect(screen.getByText("82.00")).toBeInTheDocument()
   })
 
   it("renders status dot", () => {

@@ -58,7 +58,18 @@ def _extract_factor_avg(detail: dict, factor_key: str) -> float | None:
 
 
 def _extract_sentiment_pct(detail: dict) -> float | None:
-    """Extract the sentiment percentile from momentum's sub_scores."""
+    """Extract the sentiment percentile from the detail JSONB.
+
+    Checks for a top-level "sentiment" factor first (same structure as
+    quality/value/momentum), then falls back to looking for a "sentiment"
+    sub-score inside the momentum factor.
+    """
+    # Top-level sentiment factor (preferred — matches engine output)
+    top_level = _extract_factor_avg(detail, "sentiment")
+    if top_level is not None:
+        return top_level
+
+    # Fallback: sentiment as a sub-score of momentum
     momentum = detail.get("momentum")
     if not isinstance(momentum, dict):
         return None
@@ -115,8 +126,13 @@ def _pick_summary_from_v4_row(row) -> PickSummary:
 
     # V4Score.composite_score is a 0-10 track score (geometric mean).
     # The detail JSONB has composite_raw_score (0-100) which is what the UI expects.
+    # Normalize to 0-100 scale if the value appears to be on 0-10 scale.
     composite_raw = float(detail.get("composite_raw_score", v4.composite_score))
+    if composite_raw <= 10:
+        composite_raw = composite_raw * 10
     composite_pct = float(detail.get("composite_percentile", composite_raw))
+    if composite_pct <= 10:
+        composite_pct = composite_pct * 10
 
     return PickSummary(
         score_id=v4.id,

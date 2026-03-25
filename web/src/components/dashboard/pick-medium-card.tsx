@@ -4,6 +4,7 @@ import Link from "next/link"
 import { FactorSignature } from "@/components/visualizations/factor-signature"
 import { ConvictionBadge } from "@/components/ui"
 import type { PickSummary } from "@/lib/api/types"
+import { formatScore } from "@/lib/format"
 
 function getTierColor(tier: string): string {
   switch (tier) {
@@ -46,7 +47,7 @@ export function PickMediumCard({ pick, rank }: PickMediumCardProps) {
           className="font-mono text-[28px] font-bold leading-none tracking-tight"
           style={{ color: getTierColor(pick.composite_tier) }}
         >
-          {Math.round(pick.score)}
+          {formatScore(pick.score)}
         </span>
       </div>
       <FactorSignature

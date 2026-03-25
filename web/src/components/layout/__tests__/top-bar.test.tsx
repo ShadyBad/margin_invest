@@ -49,17 +49,20 @@ describe("TopBar", () => {
 
   it("renders help button", () => {
     renderTopBar()
-    expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument()
+    expect(screen.getByLabelText("Help")).toBeInTheDocument()
+    expect(screen.getByLabelText("Help").closest("a")).toHaveAttribute("href", "/support")
   })
 
   it("renders settings button", () => {
     renderTopBar()
-    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument()
+    expect(screen.getByLabelText("Settings")).toBeInTheDocument()
+    expect(screen.getByLabelText("Settings").closest("a")).toHaveAttribute("href", "/settings")
   })
 
   it("renders user avatar", () => {
     renderTopBar()
-    expect(screen.getByLabelText("User avatar")).toBeInTheDocument()
+    expect(screen.getByLabelText("Account")).toBeInTheDocument()
+    expect(screen.getByLabelText("Account").closest("a")).toHaveAttribute("href", "/account")
   })
 
   it("renders as a header element", () => {

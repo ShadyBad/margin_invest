@@ -72,7 +72,6 @@ export function FooterSection() {
 
   return (
     <footer id="footer" ref={footerRef}>
-      <hr className="border-border-subtle" />
       <div data-footer-content>
         {/* CTA section */}
         <div className="max-w-3xl mx-auto px-6 pt-16 pb-12 text-center" data-footer-cta>

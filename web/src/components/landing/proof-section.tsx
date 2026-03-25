@@ -94,7 +94,7 @@ export function ProofSection({ candidates = [] }: ProofSectionProps) {
             <ProofSectorChart candidates={candidates} />
           </ProofCard>
           <ProofCard title="Correlation Heatmap">
-            <ProofHeatmap />
+            <ProofHeatmap candidates={candidates} />
           </ProofCard>
         </div>
       </div>

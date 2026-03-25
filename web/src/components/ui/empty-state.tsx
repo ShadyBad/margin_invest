@@ -2,9 +2,10 @@ interface EmptyStateProps {
   title: string
   description?: string
   className?: string
+  children?: React.ReactNode
 }
 
-export function EmptyState({ title, description, className = "" }: EmptyStateProps) {
+export function EmptyState({ title, description, className = "", children }: EmptyStateProps) {
   return (
     <div className={`flex flex-col items-center justify-center py-16 ${className}`}>
       <div className="w-16 h-16 rounded-full bg-bg-elevated border border-border-primary flex items-center justify-center mb-4">
@@ -13,7 +14,8 @@ export function EmptyState({ title, description, className = "" }: EmptyStatePro
         </svg>
       </div>
       <h3 className="text-lg font-medium text-text-primary mb-1">{title}</h3>
-      {description && <p className="text-sm text-text-secondary">{description}</p>}
+      {description && <p className="text-sm text-text-secondary max-w-lg text-center">{description}</p>}
+      {children}
     </div>
   )
 }

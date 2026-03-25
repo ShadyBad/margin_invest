@@ -11,8 +11,8 @@ export interface CandidateCard {
   quality_percentile: number
   value_percentile: number
   momentum_percentile: number
-  sentiment_percentile: number
-  growth_percentile: number
+  sentiment_percentile: number | null
+  growth_percentile: number | null
   scored_at: string
   filters_passed: number
   filters_total: number

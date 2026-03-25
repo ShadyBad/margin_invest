@@ -4,6 +4,7 @@ import Link from "next/link"
 import { FactorSignature } from "@/components/visualizations/factor-signature"
 import { ConvictionBadge } from "@/components/ui"
 import type { PickSummary } from "@/lib/api/types"
+import { formatScore } from "@/lib/format"
 
 function getTierColor(tier: string): string {
   switch (tier) {
@@ -38,7 +39,7 @@ export function PickCompactRow({ pick }: PickCompactRowProps) {
         className="font-mono text-[20px] font-bold w-10 text-right tabular-nums"
         style={{ color: getTierColor(pick.composite_tier) }}
       >
-        {Math.round(pick.score)}
+        {formatScore(pick.score)}
       </span>
       <span className="font-bold text-text-primary w-16">{pick.ticker}</span>
       <span className="text-sm text-text-secondary truncate flex-1 min-w-0">

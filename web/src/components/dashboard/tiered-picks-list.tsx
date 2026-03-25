@@ -34,7 +34,7 @@ export function TieredPicksList({
   universeSize,
 }: TieredPicksListProps) {
   const sorted = [...picks].sort(
-    (a, b) => b.composite_percentile - a.composite_percentile,
+    (a, b) => b.score - a.score,
   )
 
   if (sorted.length === 0) {

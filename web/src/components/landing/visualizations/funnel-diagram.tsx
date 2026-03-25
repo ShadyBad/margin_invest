@@ -1,11 +1,16 @@
 /**
- * FunnelDiagram -- Vertical SVG funnel showing pipeline narrowing stages.
+ * FunnelDiagram -- Vertical funnel showing pipeline narrowing stages.
  *
- * 4 horizontal bars that narrow from top to bottom, connected by angled sides.
- * Each bar labeled with stage name and count.
+ * 4 horizontal bars that narrow from top to bottom, connected by angled
+ * connectors. Gradient fills, scroll-reveal animation, and terminal-card
+ * design language.
  *
  * Used in: Pipeline section (Step 10).
  */
+
+"use client"
+
+import { useEffect, useRef, useState } from "react"
 
 interface FunnelDiagramProps {
   universeCount: number
@@ -19,19 +24,11 @@ interface FunnelStage {
   label: string
   count: number
   widthPct: number
-  opacity: number
 }
 
 function formatCount(n: number): string {
   return n.toLocaleString("en-US")
 }
-
-const SVG_WIDTH = 280
-const SVG_HEIGHT = 260
-const BAR_HEIGHT = 36
-const BAR_GAP = 16
-const CONNECTOR_HEIGHT = 12
-const START_Y = 16
 
 export function FunnelDiagram({
   universeCount,
@@ -40,101 +37,94 @@ export function FunnelDiagram({
   survivingCount,
   className,
 }: FunnelDiagramProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [revealed, setRevealed] = useState(false)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setRevealed(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.3 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   const stages: FunnelStage[] = [
-    { label: "Universe", count: universeCount, widthPct: 1.0, opacity: 1.0 },
-    { label: "Eligible", count: eligibleCount, widthPct: 0.7, opacity: 0.8 },
-    { label: "Scored", count: scoredCount, widthPct: 0.5, opacity: 0.6 },
-    { label: "Survivors", count: survivingCount, widthPct: 0.2, opacity: 0.4 },
+    { label: "Universe", count: universeCount, widthPct: 100 },
+    { label: "Eligible", count: eligibleCount, widthPct: 70 },
+    { label: "Scored", count: scoredCount, widthPct: 45 },
+    { label: "Survivors", count: survivingCount, widthPct: 22 },
   ]
 
-  const maxBarWidth = SVG_WIDTH - 40 // 20px padding each side
-  const centerX = SVG_WIDTH / 2
-
   return (
-    <svg
-      viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-      width={SVG_WIDTH}
-      height={SVG_HEIGHT}
-      className={className}
-      aria-label="Pipeline funnel diagram"
-      role="img"
-    >
-      {stages.map((stage, i) => {
-        const barWidth = maxBarWidth * stage.widthPct
-        const y = START_Y + i * (BAR_HEIGHT + CONNECTOR_HEIGHT + BAR_GAP)
-        const x = centerX - barWidth / 2
+    <div ref={containerRef} className={className}>
+      <div className="flex flex-col items-center gap-0">
+        {stages.map((stage, i) => {
+          const isLast = i === stages.length - 1
 
-        // Connector trapezoid between this bar and the next
-        const nextStage = stages[i + 1]
+          return (
+            <div key={stage.label} className="flex flex-col items-center w-full">
+              {/* Bar */}
+              <div
+                className="relative flex items-center justify-between rounded-lg overflow-hidden transition-all duration-700 ease-out"
+                data-funnel-stage={stage.label}
+                style={{
+                  width: revealed ? `${stage.widthPct}%` : "0%",
+                  transitionDelay: `${i * 150}ms`,
+                  minHeight: 44,
+                  background: `linear-gradient(135deg, color-mix(in srgb, var(--color-accent) ${90 - i * 18}%, transparent) 0%, color-mix(in srgb, var(--color-accent) ${60 - i * 12}%, transparent) 100%)`,
+                  border: "1px solid color-mix(in srgb, var(--color-accent) 20%, transparent)",
+                }}
+              >
+                {/* Label */}
+                <span
+                  className="pl-4 font-mono text-[10px] uppercase tracking-[0.14em] text-text-primary whitespace-nowrap"
+                  style={{
+                    opacity: revealed ? 1 : 0,
+                    transition: "opacity 400ms ease",
+                    transitionDelay: `${i * 150 + 400}ms`,
+                  }}
+                >
+                  {stage.label}
+                </span>
 
-        return (
-          <g key={stage.label} data-funnel-stage={stage.label} className="cursor-default transition-all duration-200 hover:brightness-125 [&:hover_rect]:brightness-125 [&:hover_text]:fill-white">
-            {/* Bar rectangle */}
-            <rect
-              x={x}
-              y={y}
-              width={barWidth}
-              height={BAR_HEIGHT}
-              rx={4}
-              fill="var(--color-accent, #1A7A5A)"
-              fillOpacity={stage.opacity}
-              className="transition-all duration-200"
-            />
+                {/* Count */}
+                <span
+                  className="pr-4 font-mono text-sm font-semibold text-text-primary whitespace-nowrap tabular-nums"
+                  style={{
+                    opacity: revealed ? 1 : 0,
+                    transition: "opacity 400ms ease",
+                    transitionDelay: `${i * 150 + 500}ms`,
+                  }}
+                >
+                  {formatCount(stage.count)}
+                </span>
+              </div>
 
-            {/* Stage label (left-aligned inside bar) */}
-            <text
-              x={centerX}
-              y={y + BAR_HEIGHT / 2 - 6}
-              textAnchor="middle"
-              className="fill-text-primary transition-all duration-200"
-              style={{
-                fontSize: 10,
-                fontFamily: "var(--font-mono, monospace)",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-              }}
-            >
-              {stage.label}
-            </text>
-
-            {/* Count (centered, below label) */}
-            <text
-              x={centerX}
-              y={y + BAR_HEIGHT / 2 + 8}
-              textAnchor="middle"
-              className="fill-text-primary transition-all duration-200"
-              style={{
-                fontSize: 13,
-                fontFamily: "var(--font-mono, monospace)",
-                fontWeight: 600,
-              }}
-            >
-              {formatCount(stage.count)}
-            </text>
-
-            {/* Connector to next stage */}
-            {nextStage && (() => {
-              const nextBarWidth = maxBarWidth * nextStage.widthPct
-              const connectorTopY = y + BAR_HEIGHT
-              const connectorBottomY = connectorTopY + CONNECTOR_HEIGHT + BAR_GAP
-
-              const topLeft = centerX - barWidth / 2
-              const topRight = centerX + barWidth / 2
-              const bottomLeft = centerX - nextBarWidth / 2
-              const bottomRight = centerX + nextBarWidth / 2
-
-              return (
-                <polygon
-                  points={`${topLeft},${connectorTopY} ${topRight},${connectorTopY} ${bottomRight},${connectorBottomY} ${bottomLeft},${connectorBottomY}`}
-                  fill="var(--color-accent, #1A7A5A)"
-                  fillOpacity={0.08}
-                  data-funnel-connector=""
+              {/* Connector */}
+              {!isLast && (
+                <div
+                  className="h-3 border-l border-r border-accent/10"
+                  style={{
+                    width: `${(stage.widthPct + stages[i + 1].widthPct) / 2}%`,
+                    opacity: revealed ? 1 : 0,
+                    transition: "opacity 300ms ease",
+                    transitionDelay: `${i * 150 + 300}ms`,
+                  }}
                 />
-              )
-            })()}
-          </g>
-        )
-      })}
-    </svg>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }

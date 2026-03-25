@@ -1,4 +1,5 @@
 import { FactorSignature } from "@/components/visualizations/factor-signature"
+import { formatScore } from "@/lib/format"
 import type { CandidateCard } from "../shared/types"
 
 interface InstrumentPanelProps {
@@ -87,7 +88,7 @@ export function InstrumentPanel({ candidate }: InstrumentPanelProps) {
                   : "var(--color-text-tertiary)",
               }}
             >
-              {hasCand ? Math.round(candidate.score) : "—"}
+              {hasCand ? formatScore(candidate.score) : "—"}
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-title-1 text-text-primary">

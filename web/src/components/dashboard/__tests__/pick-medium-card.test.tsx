@@ -60,7 +60,7 @@ describe("PickMediumCard", () => {
 
   it("renders score", () => {
     render(<PickMediumCard pick={mediumPickMSFT} rank={2} />)
-    expect(screen.getByText("78")).toBeInTheDocument()
+    expect(screen.getByText("78.20")).toBeInTheDocument()
   })
 
   it("renders tier badge", () => {

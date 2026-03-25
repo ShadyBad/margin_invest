@@ -34,8 +34,15 @@ export interface FactorDistribution {
 }
 
 export function computeDistributions(candidates: CandidateCard[]): FactorDistribution[] {
+  // Filter out candidates with all-zero core percentiles (incomplete data)
+  const validCandidates = candidates.filter((c) =>
+    (c.quality_percentile ?? 0) > 0 ||
+    (c.value_percentile ?? 0) > 0 ||
+    (c.momentum_percentile ?? 0) > 0
+  )
+
   return FACTORS.map((f) => {
-    const values = candidates.map((c) => c[f.key]).filter((v) => v != null)
+    const values = validCandidates.map((c) => c[f.key]).filter((v): v is number => v != null && v > 0)
     if (values.length === 0) {
       return { label: f.label, min: 0, median: 50, max: 100 }
     }

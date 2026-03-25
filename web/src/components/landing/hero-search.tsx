@@ -4,6 +4,7 @@ import { useState, useRef, type FormEvent } from "react"
 import Link from "next/link"
 import posthog from "posthog-js"
 import { apiFetch, ApiError } from "@/lib/api/client"
+import { formatScore } from "@/lib/format"
 
 interface FactorSummary {
   quality_percentile: number
@@ -217,7 +218,7 @@ export function HeroSearch() {
                   color: TIER_COLORS[result.composite_tier] || "var(--color-text-primary)",
                 }}
               >
-                {Math.round(result.composite_score)}
+                {formatScore(result.composite_score)}
               </span>
             </div>
 

@@ -19,48 +19,23 @@ function toCandidateCard(pick: DashboardResponse["picks"][0]): CandidateCard {
     quality_percentile: pick.quality_percentile,
     value_percentile: pick.value_percentile,
     momentum_percentile: pick.momentum_percentile,
-    sentiment_percentile: pick.sentiment_percentile ?? 0,
-    growth_percentile: pick.growth_percentile ?? 0,
+    sentiment_percentile: pick.sentiment_percentile ?? null,
+    growth_percentile: pick.growth_percentile ?? null,
     scored_at: pick.scored_at ?? new Date().toISOString(),
     filters_passed: 8,
     filters_total: 8,
   }
 }
 
-function watchlistToCandidateCard(
-  item: DashboardResponse["watchlist"][0],
-): CandidateCard {
-  return {
-    ticker: item.ticker,
-    name: item.name,
-    sector: item.sector ?? "Unknown",
-    actual_price: item.actual_price ?? 0,
-    buy_price: 0,
-    margin_of_safety: 0,
-    score: item.composite_raw_score,
-    composite_percentile: 0,
-    quality_percentile: 0,
-    value_percentile: 0,
-    momentum_percentile: 0,
-    sentiment_percentile: 0,
-    growth_percentile: 0,
-    scored_at: new Date().toISOString(),
-    composite_tier: item.composite_tier,
-    filters_passed: 0,
-    filters_total: 0,
-  }
-}
 
 async function getHomepageData(): Promise<HomepageData | null> {
   try {
     const data = await serverFetch<DashboardResponse>("/api/v1/dashboard")
     if (!data.picks || data.picks.length === 0) return null
     const pickCards = data.picks.map(toCandidateCard)
-    const watchlistCards = (data.watchlist ?? []).map(watchlistToCandidateCard)
-    const allCards = [...pickCards, ...watchlistCards]
     return {
       candidates: pickCards.slice(0, 5),
-      allPicks: allCards,
+      allPicks: pickCards,
       last_updated: data.last_updated,
       universe_size: data.universe?.size ?? 0,
       eligible_count: data.picks.length,

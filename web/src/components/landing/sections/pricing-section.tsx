@@ -240,33 +240,45 @@ export function PricingSection({ totalUniverse }: PricingSectionProps) {
           ))}
         </div>
 
-        {/* Bottom text */}
-        <div ref={bottomRef} className="text-center space-y-3">
-          <p className="text-sm text-text-secondary">
-            No credit card required &middot; 30-day money-back guarantee on all
-            paid plans.
-          </p>
-          <p className="text-xs font-mono text-accent/70 mt-4">
+        {/* Trust strip — consolidated signals */}
+        <div ref={bottomRef} className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-2">
+          <span className="inline-flex items-center gap-1.5 text-sm text-text-secondary">
+            <svg className="w-4 h-4 text-accent/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            No credit card required
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-sm text-text-secondary">
+            <svg className="w-4 h-4 text-accent/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            30-day money-back guarantee
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-sm text-text-secondary">
+            <svg className="w-4 h-4 text-accent/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <a href="/contact" className="hover:text-text-primary transition-colors">
+              API access available
+            </a>
+          </span>
+        </div>
+
+        {/* Daily scoring stat */}
+        <div ref={contactRef} className="text-center mt-6">
+          <p className="text-xs font-mono text-accent/70">
             Scoring {(totalUniverse ?? 3056).toLocaleString()} US equities daily
           </p>
         </div>
-
-        {/* Contact CTA */}
-        <div
-          ref={contactRef}
-          className="mt-10 pt-6 border-t border-border-subtle text-center"
-        >
-          <p className="text-sm text-text-secondary">
-            Need API access or custom integration?{" "}
-            <a
-              href="/contact"
-              className="text-accent hover:text-accent/80 transition-colors"
-            >
-              Contact us →
-            </a>
-          </p>
-        </div>
       </div>
+
+      {/* Visual transition to footer */}
+      <div
+        className="h-24 mt-8"
+        style={{
+          background: "linear-gradient(to bottom, transparent, var(--color-bg-primary))",
+        }}
+      />
     </section>
   )
 }

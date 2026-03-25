@@ -45,10 +45,10 @@ describe("FooterSection (landing)", () => {
     expect(screen.getByText(/2026 margin invest/i)).toBeInTheDocument()
   })
 
-  it("renders horizontal rule divider", () => {
+  it("renders footer content container", () => {
     const { container } = render(<FooterSection />)
-    const hr = container.querySelector("hr")
-    expect(hr).toBeInTheDocument()
+    const content = container.querySelector("[data-footer-content]")
+    expect(content).toBeInTheDocument()
   })
 
   // FAQ accordion within footer

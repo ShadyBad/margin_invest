@@ -60,7 +60,7 @@ describe("PickCompactRow", () => {
 
   it("renders score", () => {
     render(<PickCompactRow pick={compactPickGOOG} rank={5} />)
-    expect(screen.getByText("72")).toBeInTheDocument()
+    expect(screen.getByText("72.10")).toBeInTheDocument()
   })
 
   it("renders tier badge", () => {

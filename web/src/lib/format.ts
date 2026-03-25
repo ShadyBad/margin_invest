@@ -58,6 +58,15 @@ export function formatScoredAt(isoString: string): string {
   return `${month} ${day}, ${year}, ${hour}:${min} ${ampm}`
 }
 
+/**
+ * Formats a numeric score to exactly 2 decimal places.
+ * Returns "—" for null/undefined values.
+ */
+export function formatScore(value: number | null | undefined): string {
+  if (value == null) return "—"
+  return value.toFixed(2)
+}
+
 export function formatAttributeLabel(key: string): string {
   if (!key) return ""
 

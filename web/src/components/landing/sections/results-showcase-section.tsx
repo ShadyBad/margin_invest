@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import type { HomepageData, CandidateCard } from "../shared/types"
 import { FactorBars } from "../visualizations/factor-bars"
+import { formatScore } from "@/lib/format"
 
 interface ResultsShowcaseSectionProps {
   data: HomepageData | null
@@ -59,7 +60,7 @@ function CandidateCardItem({ candidate }: { candidate: CandidateCard }) {
         className="text-mono-data font-bold transition-transform duration-200 hover:scale-105 origin-left cursor-default"
         style={{ color: getTierColor(candidate.composite_tier) }}
       >
-        {candidate.score}
+        {formatScore(candidate.score)}
       </div>
 
       {/* 5 factor bars (compact) */}

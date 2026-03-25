@@ -230,14 +230,13 @@ describe("Backtesting Page (read-only)", () => {
     render(<BacktestingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText("No validations yet")).toBeInTheDocument()
+      expect(screen.getByText("Backtest validation in progress")).toBeInTheDocument()
     })
 
     expect(
-      screen.getByText(
-        "Validation results will appear here after the next scoring cycle completes.",
-      ),
+      screen.getByText(/scoring engine runs automated backtests weekly/i),
     ).toBeInTheDocument()
+    expect(screen.getByText(/learn about our methodology/i)).toBeInTheDocument()
   })
 
   it("shows error on fetch failure", async () => {

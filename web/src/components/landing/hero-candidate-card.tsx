@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import type { CandidateCard } from "./shared/types"
 import { ENGINE_VERSION } from "./candidate-data"
 import { MicroMetadata } from "./micro-metadata"
+import { formatScore } from "@/lib/format"
 
 interface HeroCandidateCardProps {
   candidates: CandidateCard[]
@@ -101,7 +102,7 @@ function ScoreRing({ score }: { score: number }) {
         />
       </svg>
       <span className="absolute inset-0 flex items-center justify-center font-mono text-2xl font-bold text-text-primary">
-        {Math.round(score)}
+        {formatScore(score)}
       </span>
     </div>
   )
