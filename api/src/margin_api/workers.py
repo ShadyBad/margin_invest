@@ -15,8 +15,9 @@ import logging
 import math
 import os
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import httpx
 import pandas as pd
@@ -105,6 +106,16 @@ AUTO_APPROVE_MAX_CONVICTION_CHANGE_PCT = 0.10  # 10%
 # we'd get a burst of stale invocations that compete for threads/memory.
 STALE_CRON_THRESHOLD = 300  # 5 minutes
 
+_ET = ZoneInfo("America/New_York")
+
+
+def _is_market_hours() -> bool:
+    """Return True if current time is within US equity market hours (ET)."""
+    now_et = datetime.now(_ET)
+    if now_et.weekday() >= 5:
+        return False
+    return time(9, 15) <= now_et.time() <= time(16, 15)
+
 
 def _is_stale_cron(ctx: dict, job_name: str) -> dict | None:
     """Return a skip-result dict if the cron invocation is stale, else None."""
@@ -112,9 +123,7 @@ def _is_stale_cron(ctx: dict, job_name: str) -> dict | None:
     if enqueue_time:
         staleness = (datetime.now(UTC) - enqueue_time).total_seconds()
         if staleness > STALE_CRON_THRESHOLD:
-            logger.info(
-                "[%s] Skipping stale cron invocation (%.0fs old)", job_name, staleness
-            )
+            logger.info("[%s] Skipping stale cron invocation (%.0fs old)", job_name, staleness)
             return {"status": "skipped_stale", "staleness_seconds": int(staleness)}
     return None
 
@@ -2999,6 +3008,9 @@ async def live_price_poll(ctx: dict) -> dict:
     stale = _is_stale_cron(ctx, "prices")
     if stale:
         return stale
+
+    if not _is_market_hours():
+        return {"status": "skipped_market_closed", "updated": 0}
 
     settings = get_settings()
 
