@@ -39,18 +39,43 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 
 def _verify_admin_key(x_admin_key: str = Header()) -> None:
-    """Verify the admin API key from the X-Admin-Key header.
-
-    DEPRECATED: Use get_admin_user from margin_api.deps instead.
-    This function is kept for backward compatibility only.
-    """
+    """Verify the admin API key from the X-Admin-Key header."""
     import hmac
 
     settings = get_settings()
     if not settings.admin_key:
-        raise HTTPException(503, "Admin key not configured")
+        raise HTTPException(503, "Admin key not configured — set MARGIN_ADMIN_KEY env var")
     if not hmac.compare_digest(x_admin_key or "", settings.admin_key):
         raise HTTPException(403, "Invalid admin key")
+
+
+async def _get_admin_user_or_key(
+    request: Request,
+    x_admin_key: str | None = Header(None),
+    db: AsyncSession = Depends(get_db),
+    settings=Depends(get_settings),
+) -> User | None:
+    """Accept either admin session cookie OR X-Admin-Key header.
+
+    Returns the admin User if session-authenticated, or None if key-authenticated.
+    Raises 401/403 if neither method succeeds.
+    """
+    import hmac as hmac_mod
+
+    # Try X-Admin-Key header first (simpler, no session needed)
+    if x_admin_key and settings.admin_key:
+        if hmac_mod.compare_digest(x_admin_key, settings.admin_key):
+            return None  # Key-authenticated, no User object
+        raise HTTPException(403, "Invalid admin key")
+
+    # Fall back to admin session cookie
+    try:
+        return await get_admin_user(request, db, settings)
+    except HTTPException:
+        raise HTTPException(
+            401,
+            "Admin authentication required. Use admin session cookie or X-Admin-Key header.",
+        )
 
 
 @router.post("/pipeline/trigger")
@@ -1090,7 +1115,7 @@ async def ml_training_dry_run(
 @limiter.limit("3/minute")
 async def trigger_13f_ingest(
     request: Request,
-    admin_user: User = Depends(get_admin_user),
+    admin_user: User | None = Depends(_get_admin_user_or_key),
 ) -> JSONResponse:
     """Enqueue a full 13F institutional holdings ingestion."""
     settings = get_settings()
@@ -1116,7 +1141,7 @@ async def trigger_13f_ingest(
             "status": "enqueued",
             "job": "full_13f_ingest",
             "job_id": job.job_id,
-            "message": "13F ingestion enqueued: fetch SEC EDGAR filings → parse holdings → compute signals",
+            "message": "13F ingestion enqueued: fetch EDGAR filings → parse → signals",
         },
     )
 
@@ -1130,7 +1155,7 @@ async def trigger_13f_ingest(
 @limiter.limit("1/hour")
 async def trigger_run_all(
     request: Request,
-    admin_user: User = Depends(get_admin_user),
+    admin_user: User | None = Depends(_get_admin_user_or_key),
 ) -> JSONResponse:
     """Enqueue the full data pipeline: ingest → score → 13F → backtest.
 
@@ -1205,7 +1230,7 @@ async def trigger_run_all(
 @router.get("/pipeline/status")
 async def get_pipeline_status(
     request: Request,
-    admin_user: User = Depends(get_admin_user),
+    admin_user: User | None = Depends(_get_admin_user_or_key),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Return current pipeline health: recent jobs, queue depth, last scored_at."""

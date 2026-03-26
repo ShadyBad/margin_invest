@@ -2719,6 +2719,31 @@ async def run_prime_delist() -> None:
     print(f"\nDelisted {db_count} tickers in DB, cleaned {redis_cleaned} Redis keys.")
 
 
+async def _promote_admin(email: str, role: str) -> None:
+    """Promote a user to admin/superadmin role."""
+    from sqlalchemy import select, update
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    from margin_api.db.models import User
+    from margin_api.db.session import get_engine
+
+    engine = get_engine()
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        if user is None:
+            print(f"ERROR: No user found with email {email}")
+            return
+        old_role = user.role
+        await session.execute(update(User).where(User.id == user.id).values(role=role))
+        await session.commit()
+        print(f"OK: {email} promoted from '{old_role}' to '{role}'")
+
+    await engine.dispose()
+
+
 async def _run_nlp_cmd() -> None:
     """Run the daily PIT update which discovers filings and enqueues NLP analysis."""
     from margin_api.db.session import get_session_factory
@@ -3043,6 +3068,19 @@ def main() -> None:
         help="Run daily PIT update + NLP filing analysis (same as 23:00 UTC cron)",
     )
 
+    # promote-admin
+    promote_parser = subparsers.add_parser(
+        "promote-admin",
+        help="Promote a user to admin or superadmin role",
+    )
+    promote_parser.add_argument("email", help="User email to promote")
+    promote_parser.add_argument(
+        "--role",
+        default="superadmin",
+        choices=["admin", "superadmin"],
+        help="Role to assign (default: superadmin)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "universe":
@@ -3125,6 +3163,8 @@ def main() -> None:
         asyncio.run(run_prime_delist())
     elif args.command == "run-nlp":
         asyncio.run(_run_nlp_cmd())
+    elif args.command == "promote-admin":
+        asyncio.run(_promote_admin(args.email, args.role))
     else:
         parser.print_help()
         sys.exit(1)
