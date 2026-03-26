@@ -28,8 +28,8 @@ function getFactors(candidate: CandidateCard): FactorBar[] {
     { label: "Valuation", value: candidate.value_percentile },
     { label: "Quality", value: candidate.quality_percentile },
     { label: "Momentum", value: candidate.momentum_percentile },
-    { label: "Sentiment", value: candidate.sentiment_percentile },
-    { label: "Growth", value: candidate.growth_percentile },
+    { label: "Sentiment", value: candidate.sentiment_percentile ?? 0 },
+    { label: "Growth", value: candidate.growth_percentile ?? 0 },
   ].filter((f) => f.value > 0)
 }
 

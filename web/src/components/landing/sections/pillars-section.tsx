@@ -267,11 +267,11 @@ export function PillarsSection({ data }: PillarsSectionProps) {
                       />
                       <FactorBar
                         label="Sentiment"
-                        value={topCandidate.sentiment_percentile}
+                        value={topCandidate.sentiment_percentile ?? 0}
                       />
                       <FactorBar
                         label="Growth"
-                        value={topCandidate.growth_percentile}
+                        value={topCandidate.growth_percentile ?? 0}
                       />
                     </div>
                   </div>
