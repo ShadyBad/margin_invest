@@ -1,5 +1,13 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
+
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({
+    data: { user: { name: "Brandon Shay", email: "bpshay13@gmail.com" } },
+    status: "authenticated",
+  }),
+}))
+
 import { TopBar } from "../top-bar"
 
 function renderTopBar(overrides: { sidebarExpanded?: boolean; onMenuToggle?: () => void } = {}) {
@@ -47,22 +55,23 @@ describe("TopBar", () => {
     expect(screen.getByText("K")).toBeInTheDocument()
   })
 
-  it("renders help button", () => {
+  it("renders help link to /support", () => {
     renderTopBar()
     expect(screen.getByLabelText("Help")).toBeInTheDocument()
     expect(screen.getByLabelText("Help").closest("a")).toHaveAttribute("href", "/support")
   })
 
-  it("renders settings button", () => {
+  it("renders settings link to /settings", () => {
     renderTopBar()
     expect(screen.getByLabelText("Settings")).toBeInTheDocument()
     expect(screen.getByLabelText("Settings").closest("a")).toHaveAttribute("href", "/settings")
   })
 
-  it("renders user avatar", () => {
+  it("renders user initials from session", () => {
     renderTopBar()
-    expect(screen.getByLabelText("Account")).toBeInTheDocument()
-    expect(screen.getByLabelText("Account").closest("a")).toHaveAttribute("href", "/account")
+    const avatar = screen.getByLabelText("Account")
+    expect(avatar.closest("a")).toHaveAttribute("href", "/account")
+    expect(avatar.textContent).toBe("BS")
   })
 
   it("renders as a header element", () => {

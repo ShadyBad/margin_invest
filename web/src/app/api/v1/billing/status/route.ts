@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { signServiceToken } from "@/lib/api/service-token"
 
 const API_URL = process.env.API_URL || "http://localhost:8000"
 
 export async function GET() {
   const session = await auth()
-  if (!session) {
+  if (!session?.userId) {
     return NextResponse.json(
       { error_code: "UNAUTHORIZED", message: "Authentication required", status_code: 401 },
       { status: 401 },
@@ -13,12 +14,23 @@ export async function GET() {
   }
 
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    }
+
+    const token = await signServiceToken(
+      session.userId as string,
+      session.user?.email,
+    )
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    } else {
+      headers["X-User-Id"] = session.userId as string
+      headers["X-User-Email"] = session.user?.email || ""
+    }
+
     const response = await fetch(`${API_URL}/api/v1/billing/status`, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Id": (session.userId as string) || "",
-        "X-User-Email": session.user?.email || "",
-      },
+      headers,
       cache: "no-store",
     })
 

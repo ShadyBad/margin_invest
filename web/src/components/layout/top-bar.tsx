@@ -2,6 +2,7 @@
 
 import { forwardRef } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { LogoIcon } from "@/components/ui/logo-icon"
 
 export interface TopBarProps {
@@ -9,8 +10,24 @@ export interface TopBarProps {
   onMenuToggle: () => void
 }
 
+function getUserInitials(session: { user?: { name?: string | null; email?: string | null } } | null): string {
+  if (!session?.user) return "?"
+  const name = session.user.name
+  if (name) {
+    const parts = name.trim().split(/\s+/)
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    return name.slice(0, 2).toUpperCase()
+  }
+  const email = session.user.email
+  if (email) return email.slice(0, 2).toUpperCase()
+  return "?"
+}
+
 export const TopBar = forwardRef<HTMLInputElement, TopBarProps>(
   function TopBar({ sidebarExpanded, onMenuToggle }, ref) {
+    const { data: session } = useSession()
+    const initials = getUserInitials(session)
+
     return (
       <header className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center bg-bg-primary border-b border-border-subtle">
         {/* Left section — matches sidebar width for column alignment */}
@@ -104,7 +121,7 @@ export const TopBar = forwardRef<HTMLInputElement, TopBarProps>(
               className="ml-1 h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-semibold text-accent select-none cursor-pointer hover:bg-accent/30 transition-colors"
               aria-label="Account"
             >
-              MI
+              {initials}
             </Link>
           </div>
         </div>
