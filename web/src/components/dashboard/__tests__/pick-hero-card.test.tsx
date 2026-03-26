@@ -58,7 +58,7 @@ describe("PickHeroCard", () => {
     const { container } = render(
       <PickHeroCard pick={heroPickNVDA} rank={1} />
     )
-    const scoreEl = container.querySelector(".text-\\[42px\\]")
+    const scoreEl = container.querySelector(".text-\\[36px\\]")
     expect(scoreEl).toBeInTheDocument()
     expect(scoreEl?.textContent).toBe("91.30")
   })

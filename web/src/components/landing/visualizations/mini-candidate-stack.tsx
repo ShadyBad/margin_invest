@@ -38,8 +38,8 @@ export function MiniCandidateStack({ candidates, className }: MiniCandidateStack
   return (
     <div className={className}>
       <div
-        className="flex items-end justify-center gap-3"
-        style={{ height: MAX_BAR_HEIGHT + 48 }}
+        className="flex items-end justify-center gap-2 overflow-x-auto px-2"
+        style={{ height: MAX_BAR_HEIGHT + 56 }}
       >
         {sorted.map((card) => {
           const barHeight = Math.max(16, (card.score / maxScore) * MAX_BAR_HEIGHT)
@@ -48,17 +48,18 @@ export function MiniCandidateStack({ candidates, className }: MiniCandidateStack
           return (
             <div
               key={card.ticker}
-              className="flex flex-col items-center gap-1.5"
+              className="flex flex-col items-center gap-1 shrink-0"
+              style={{ minWidth: 44 }}
               data-candidate-card={card.ticker}
             >
               {/* Score above bar */}
-              <span className="font-mono text-[11px] font-semibold text-accent tabular-nums">
+              <span className="font-mono text-[10px] font-semibold text-accent tabular-nums whitespace-nowrap">
                 {formatScore(card.score)}
               </span>
 
               {/* Bar */}
               <div
-                className="w-10 rounded-t transition-all duration-500 ease-out"
+                className="w-9 rounded-t transition-all duration-500 ease-out"
                 style={{
                   height: barHeight,
                   background: `linear-gradient(to top, var(--color-accent) 0%, color-mix(in srgb, var(--color-accent) 60%, transparent) 100%)`,

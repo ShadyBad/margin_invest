@@ -62,7 +62,7 @@ export function PickHeroCard({ pick, rank }: PickHeroCardProps) {
           )}
           <div className="mt-3">
             <span
-              className="font-mono text-[42px] font-bold leading-none tracking-tight"
+              className="font-mono text-[36px] font-bold leading-none tracking-tight"
               style={{ color: getTierColor(pick.composite_tier) }}
             >
               {formatScore(pick.score)}

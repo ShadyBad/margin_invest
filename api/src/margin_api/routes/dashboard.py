@@ -317,24 +317,27 @@ async def _fetch_picks_and_watchlist(
         score_base: Legacy Score base query (only used when V4 yields nothing).
     """
     # ── V4Score primary path ──────────────────────────────────────────
+    # Skip V4 rows with composite_score <= 0 (incomplete/garbage data).
+    v4_valid = v4_base.where(V4Score.composite_score > 0)
+
     picks_result = await db.execute(
-        v4_base.where(V4Score.conviction.in_(["exceptional", "high"])).order_by(
+        v4_valid.where(V4Score.conviction.in_(["exceptional", "high"])).order_by(
             V4Score.composite_score.desc()
         )
     )
     picks = [_pick_summary_from_v4_row(row) for row in picks_result.all()]
 
     watchlist_result = await db.execute(
-        v4_base.where(V4Score.conviction.in_(["medium"])).order_by(V4Score.composite_score.desc())
+        v4_valid.where(V4Score.conviction.in_(["medium"])).order_by(V4Score.composite_score.desc())
     )
     watchlist = [_watchlist_item_from_v4_row(row) for row in watchlist_result.all()]
 
     # V4 fallback: show top-ranked if no conviction-based picks
     if not picks and not watchlist:
-        top_result = await db.execute(v4_base.order_by(V4Score.composite_score.desc()).limit(10))
+        top_result = await db.execute(v4_valid.order_by(V4Score.composite_score.desc()).limit(10))
         picks = [_pick_summary_from_v4_row(row) for row in top_result.all()]
 
-    # ── Legacy Score fallback (no V4 data at all) ─────────────────────
+    # ── Legacy Score fallback (no valid V4 data) ──────────────────────
     if not picks and not watchlist and score_base is not None:
         legacy_picks_result = await db.execute(
             score_base.where(Score.conviction_level.in_(["exceptional", "high"])).order_by(

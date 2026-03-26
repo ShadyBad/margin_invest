@@ -59,9 +59,9 @@ export function FunnelDiagram({
 
   const stages: FunnelStage[] = [
     { label: "Universe", count: universeCount, widthPct: 100 },
-    { label: "Eligible", count: eligibleCount, widthPct: 70 },
-    { label: "Scored", count: scoredCount, widthPct: 45 },
-    { label: "Survivors", count: survivingCount, widthPct: 22 },
+    { label: "Eligible", count: eligibleCount, widthPct: 72 },
+    { label: "Scored", count: scoredCount, widthPct: 48 },
+    { label: "Survivors", count: survivingCount, widthPct: 30 },
   ]
 
   return (
