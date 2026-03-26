@@ -24,6 +24,7 @@ from margin_api.db.models import (
     PITDailyPrice,
     PITFinancialSnapshot,
     PITUniverseMembership,
+    Score,
     UniverseSnapshot,
     User,
     V4Score,
@@ -1078,3 +1079,193 @@ async def ml_training_dry_run(
         }
     except Exception as e:
         return {"error": str(e), "type": type(e).__name__}
+
+
+# ---------------------------------------------------------------------------
+# 13F Institutional Holdings trigger
+# ---------------------------------------------------------------------------
+
+
+@router.post("/13f/trigger")
+@limiter.limit("3/minute")
+async def trigger_13f_ingest(
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+) -> JSONResponse:
+    """Enqueue a full 13F institutional holdings ingestion."""
+    settings = get_settings()
+    from arq.connections import RedisSettings
+
+    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+
+    try:
+        redis: ArqRedis = await create_pool(redis_settings)
+        job = await redis.enqueue_job(
+            "full_13f_ingest",
+            _job_id=f"full_13f_ingest:{uuid.uuid4().hex[:8]}",
+        )
+        await redis.aclose()
+    except Exception as e:
+        logger.exception("Failed to enqueue 13F ingest job")
+        raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
+
+    logger.info("[admin] Enqueued full_13f_ingest job: %s", job.job_id)
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "enqueued",
+            "job": "full_13f_ingest",
+            "job_id": job.job_id,
+            "message": "13F ingestion enqueued: fetch SEC EDGAR filings → parse holdings → compute signals",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Run Everything — triggers the full pipeline chain in the correct order
+# ---------------------------------------------------------------------------
+
+
+@router.post("/run-all")
+@limiter.limit("1/hour")
+async def trigger_run_all(
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+) -> JSONResponse:
+    """Enqueue the full data pipeline: ingest → score → 13F → backtest.
+
+    Jobs are enqueued with delays so they run sequentially:
+    1. orchestrate_ingest (immediate) — ingests universe, chains to scoring
+    2. full_13f_ingest (delayed 2h) — ingests institutional holdings
+    3. precompute_default_backtest (delayed 3h) — runs backtesting
+
+    The scoring chain (v3 → v4 → stage → publish) runs automatically
+    after ingest completes. NLP analysis runs as part of the daily PIT
+    update if MARGIN_NLP_ENABLED=true.
+    """
+    settings = get_settings()
+    from arq.connections import RedisSettings
+
+    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+
+    try:
+        redis: ArqRedis = await create_pool(redis_settings)
+
+        jobs = []
+
+        # 1. Full pipeline (ingest → score chain)
+        j1 = await redis.enqueue_job(
+            "orchestrate_ingest",
+            _job_id=f"orchestrate_ingest:{uuid.uuid4().hex[:8]}",
+        )
+        jobs.append({"job": "orchestrate_ingest", "job_id": j1.job_id, "delay": "immediate"})
+
+        # 2. 13F ingestion (delayed 2h to let scoring finish)
+        j2 = await redis.enqueue_job(
+            "full_13f_ingest",
+            _job_id=f"full_13f_ingest:{uuid.uuid4().hex[:8]}",
+            _defer_by=timedelta(hours=2),
+        )
+        jobs.append({"job": "full_13f_ingest", "job_id": j2.job_id, "delay": "2h"})
+
+        # 3. Backtest precompute (delayed 3h to let scoring + 13F finish)
+        j3 = await redis.enqueue_job(
+            "precompute_default_backtest",
+            _job_id=f"precompute_backtest:{uuid.uuid4().hex[:8]}",
+            _defer_by=timedelta(hours=3),
+        )
+        jobs.append({"job": "precompute_default_backtest", "job_id": j3.job_id, "delay": "3h"})
+
+        await redis.aclose()
+    except Exception as e:
+        logger.exception("Failed to enqueue run-all jobs")
+        raise HTTPException(503, f"Failed to connect to Redis: {e}") from e
+
+    logger.info("[admin] Enqueued run-all: %d jobs", len(jobs))
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "enqueued",
+            "jobs": jobs,
+            "message": (
+                "Full pipeline enqueued. "
+                "Ingest starts immediately (~30 min), scoring chains automatically (~90 min), "
+                "13F starts in 2h, backtesting in 3h. "
+                "Monitor via Railway logs or GET /api/v1/admin/pipeline/status."
+            ),
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pipeline status — monitor running/pending jobs
+# ---------------------------------------------------------------------------
+
+
+@router.get("/pipeline/status")
+async def get_pipeline_status(
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Return current pipeline health: recent jobs, queue depth, last scored_at."""
+
+    # Recent job runs (last 24h)
+    cutoff = datetime.now(UTC) - timedelta(hours=24)
+    recent_jobs = (
+        await session.execute(
+            select(
+                JobRun.job_type,
+                JobRun.status,
+                JobRun.started_at,
+                JobRun.completed_at,
+                JobRun.error_message,
+            )
+            .where(JobRun.started_at >= cutoff)
+            .order_by(JobRun.started_at.desc())
+            .limit(20)
+        )
+    ).all()
+
+    # Last scored_at from both tables
+    v4_latest = (await session.execute(select(func.max(V4Score.scored_at)))).scalar()
+    legacy_latest = (await session.execute(select(func.max(Score.scored_at)))).scalar()
+
+    # Counts
+    v4_count = (
+        await session.execute(select(func.count(func.distinct(V4Score.asset_id))))
+    ).scalar() or 0
+    legacy_count = (
+        await session.execute(select(func.count(func.distinct(Score.asset_id))))
+    ).scalar() or 0
+
+    # Redis queue depth
+    queue_info = {}
+    try:
+        settings = get_settings()
+        r = aioredis.from_url(settings.redis_url)
+        queue_len = await r.zcard("arq:queue")
+        queue_info = {"queue_depth": queue_len}
+        await r.aclose()
+    except Exception:
+        queue_info = {"queue_depth": "unavailable"}
+
+    return {
+        "recent_jobs": [
+            {
+                "type": r.job_type,
+                "status": r.status,
+                "started": r.started_at.isoformat() if r.started_at else None,
+                "completed": r.completed_at.isoformat() if r.completed_at else None,
+                "error": r.error_message[:200] if r.error_message else None,
+            }
+            for r in recent_jobs
+        ],
+        "scoring": {
+            "v4_unique_assets": v4_count,
+            "v4_latest_scored_at": v4_latest.isoformat() if v4_latest else None,
+            "legacy_unique_assets": legacy_count,
+            "legacy_latest_scored_at": legacy_latest.isoformat() if legacy_latest else None,
+        },
+        **queue_info,
+    }

@@ -88,9 +88,9 @@ logger = logging.getLogger(__name__)
 
 # Timeout (seconds) for scoring worker functions.
 # score_v3 typically completes in ~3 min; score_v4 in ~7 min.
-# These generous limits catch hangs without interfering with large universes.
-SCORING_V3_TIMEOUT = 600  # 10 minutes
-SCORING_V4_TIMEOUT = 900  # 15 minutes
+# Scoring ~3000 tickers takes 20-40 min. Allow up to 90 min before considering a hang.
+SCORING_V3_TIMEOUT = 5400  # 90 minutes
+SCORING_V4_TIMEOUT = 5400  # 90 minutes
 
 # Auto-approval threshold: if conviction changes are below this percentage
 # of scored tickers, the approval is auto-approved and published immediately.
