@@ -75,6 +75,11 @@ def _extract_sentiment_pct(detail: dict) -> float | None:
         return None
     for ss in momentum.get("sub_scores", []):
         if isinstance(ss, dict) and ss.get("name") == "sentiment":
+            # When raw_value is present and is 0.0 or 5.0, the NLP pipeline
+            # hasn't produced real data (score=0.0 → normalized=5.0).
+            # Return None so the UI shows "N/A" instead of a misleading 50%.
+            if "raw_value" in ss and ss["raw_value"] in (0.0, 5.0):
+                return None
             return round(ss.get("percentile_rank", 0), 1)
     return None
 
