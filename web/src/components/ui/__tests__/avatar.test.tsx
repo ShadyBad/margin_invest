@@ -52,6 +52,23 @@ describe("Avatar", () => {
     expect(svg).toHaveAttribute("height", "48")
   })
 
+  it("falls back to initials SVG when oauthAvatarUrl onError fires", () => {
+    const { container } = render(
+      <Avatar
+        name="Jane Doe"
+        oauthAvatarUrl="https://oauth.example.com/broken.jpg"
+        size="md"
+      />,
+    )
+    const img = screen.getByRole("img", { name: "Jane Doe's avatar" })
+    fireEvent.error(img)
+
+    const svg = container.querySelector("svg")
+    expect(svg).toBeInTheDocument()
+    const text = container.querySelector("text")
+    expect(text).toHaveTextContent("JD")
+  })
+
   it("prefers avatarUrl over oauthAvatarUrl", () => {
     render(
       <Avatar

@@ -239,6 +239,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               token.linkedProviders = (security.linked_providers ?? []).map(
                 (lp: { provider: string }) => lp.provider
               )
+              if (security.avatar_url && !token.oauthAvatarUrl) {
+                token.oauthAvatarUrl = security.avatar_url
+              }
             }
           } catch {
             // If API is unavailable, keep stale security info

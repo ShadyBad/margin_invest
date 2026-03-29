@@ -73,7 +73,12 @@ export function Avatar({ name, avatarUrl, oauthAvatarUrl, size, className }: Ava
       width={px}
       height={px}
       className={`rounded-full object-cover flex-shrink-0 ${className ?? ""}`}
-      onError={() => setFailedUrls((prev) => new Set(prev).add(activeUrl))}
+      onError={() => {
+        if (process.env.NODE_ENV === "development") {
+          console.warn(`[Avatar] Failed to load image for "${name}": ${activeUrl}`)
+        }
+        setFailedUrls((prev) => new Set(prev).add(activeUrl))
+      }}
     />
   )
 }
