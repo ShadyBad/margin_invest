@@ -283,6 +283,144 @@ class TestNLPEnabled:
 # ---------------------------------------------------------------------------
 
 
+class TestMarkdownFenceStripping:
+    """Verify that JSON wrapped in ```json ... ``` fences is parsed correctly."""
+
+    @pytest.mark.asyncio
+    async def test_strips_json_fence(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MARGIN_NLP_ENABLED", "true")
+
+        fenced_json = '```json\n' + json.dumps(_SAMPLE_RESPONSE_JSON) + '\n```'
+        mock_block = MagicMock()
+        mock_block.type = "text"
+        mock_block.text = fenced_json
+        mock_message = MagicMock()
+        mock_message.content = [mock_block]
+
+        mock_client = AsyncMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        session = _make_mock_session()
+
+        with patch("margin_api.services.nlp_analyzer.anthropic") as mock_anthropic:
+            mock_anthropic.AsyncAnthropic.return_value = mock_client
+            analyzer = NLPAnalyzer()
+            result = await analyzer.analyze(
+                session=session,
+                filing_text_id=1,
+                ticker="AAPL",
+                mda_text="Revenue grew 20%.",
+                risk_text="Some risks.",
+            )
+
+        assert result is not None
+        assert result["sentiment_value"] == 2.5
+
+    @pytest.mark.asyncio
+    async def test_strips_plain_fence(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MARGIN_NLP_ENABLED", "true")
+
+        fenced_json = '```\n' + json.dumps(_SAMPLE_RESPONSE_JSON) + '\n```'
+        mock_block = MagicMock()
+        mock_block.type = "text"
+        mock_block.text = fenced_json
+        mock_message = MagicMock()
+        mock_message.content = [mock_block]
+
+        mock_client = AsyncMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        session = _make_mock_session()
+
+        with patch("margin_api.services.nlp_analyzer.anthropic") as mock_anthropic:
+            mock_anthropic.AsyncAnthropic.return_value = mock_client
+            analyzer = NLPAnalyzer()
+            result = await analyzer.analyze(
+                session=session,
+                filing_text_id=1,
+                ticker="AAPL",
+                mda_text="Revenue grew 20%.",
+                risk_text="Some risks.",
+            )
+
+        assert result is not None
+        assert result["sentiment_value"] == 2.5
+
+
+class TestNoTextGuard:
+    """Verify that API is not called when both mda_text and risk_text are None."""
+
+    @pytest.mark.asyncio
+    async def test_skips_api_when_no_text(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MARGIN_NLP_ENABLED", "true")
+
+        session = _make_mock_session()
+
+        with patch("margin_api.services.nlp_analyzer.anthropic") as mock_anthropic:
+            mock_client = AsyncMock()
+            mock_anthropic.AsyncAnthropic.return_value = mock_client
+            analyzer = NLPAnalyzer()
+            result = await analyzer.analyze(
+                session=session,
+                filing_text_id=1,
+                ticker="AAPL",
+                mda_text=None,
+                risk_text=None,
+            )
+
+        assert result is None
+        # DB session should never have been touched (no cache check needed)
+        session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_proceeds_with_only_mda_text(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MARGIN_NLP_ENABLED", "true")
+
+        mock_message = _make_mock_message(_SAMPLE_RESPONSE_JSON)
+        mock_client = AsyncMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        session = _make_mock_session()
+
+        with patch("margin_api.services.nlp_analyzer.anthropic") as mock_anthropic:
+            mock_anthropic.AsyncAnthropic.return_value = mock_client
+            analyzer = NLPAnalyzer()
+            result = await analyzer.analyze(
+                session=session,
+                filing_text_id=1,
+                ticker="AAPL",
+                mda_text="Revenue grew 20%.",
+                risk_text=None,
+            )
+
+        assert result is not None
+        assert result["sentiment_value"] == 2.5
+
+    @pytest.mark.asyncio
+    async def test_proceeds_with_only_risk_text(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MARGIN_NLP_ENABLED", "true")
+
+        mock_message = _make_mock_message(_SAMPLE_RESPONSE_JSON)
+        mock_client = AsyncMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        session = _make_mock_session()
+
+        with patch("margin_api.services.nlp_analyzer.anthropic") as mock_anthropic:
+            mock_anthropic.AsyncAnthropic.return_value = mock_client
+            analyzer = NLPAnalyzer()
+            result = await analyzer.analyze(
+                session=session,
+                filing_text_id=1,
+                ticker="AAPL",
+                mda_text=None,
+                risk_text="Competition is intense.",
+            )
+
+        assert result is not None
+        assert result["sentiment_value"] == 2.5
+
+
 class TestDailyCapEnforced:
     @pytest.mark.asyncio
     async def test_daily_cap_returns_none_when_exceeded(

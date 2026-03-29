@@ -15,6 +15,80 @@ from dataclasses import dataclass
 MAX_SECTION_CHARS = 50_000
 
 # ---------------------------------------------------------------------------
+# EDGAR index document selection
+# ---------------------------------------------------------------------------
+
+# Patterns that indicate an exhibit or ancillary document, NOT the main filing.
+# Catches: ex31-1.htm, bke20230128-10kex31a.htm, exhibit_31.htm, R1.htm, etc.
+_EXHIBIT_RE = re.compile(
+    r"ex\d{1,4}[^/]*\.htm|exhibit|cert|^R\d+\.htm",
+    re.IGNORECASE,
+)
+
+
+def select_primary_filing(
+    items: list[dict],
+    ticker: str | None = None,
+) -> str | None:
+    """Pick the primary 10-K/10-Q HTML document from an EDGAR index.json item list.
+
+    Args:
+        items: List of dicts from ``index_data["directory"]["item"]``,
+               each with at least ``"name"`` and optionally ``"size"``.
+        ticker: Ticker symbol (used to prefer files matching the ticker name).
+
+    Returns:
+        Filename of the best candidate, or None if no HTML file found.
+    """
+    htm_files: list[dict] = []
+    for item in items:
+        name = item.get("name", "")
+        if not name.endswith((".htm", ".html")):
+            continue
+        if "index" in name.lower():
+            continue
+        htm_files.append(item)
+
+    if not htm_files:
+        return None
+
+    # Score each candidate — higher is better
+    def _score(item: dict) -> tuple[int, int]:
+        name = item.get("name", "").lower()
+        priority = 0
+        is_exhibit = bool(_EXHIBIT_RE.search(name))
+
+        # Strongly penalize exhibits and XBRL viewer stubs
+        if is_exhibit:
+            priority -= 100
+
+        # Prefer files matching the ticker (only boost non-exhibits)
+        if ticker and ticker.lower() in name and not is_exhibit:
+            priority += 20
+
+        # Prefer files with form type in the name (only if not an exhibit)
+        normalized = name.replace("-", "").replace("_", "")
+        if not is_exhibit and ("10q" in normalized or "10k" in normalized):
+            priority += 10
+
+        # Use file size as tiebreaker (actual filings are much larger)
+        try:
+            size = int(item.get("size", "0"))
+        except (ValueError, TypeError):
+            size = 0
+
+        return (priority, size)
+
+    best = max(htm_files, key=_score)
+
+    # Don't return a file that scored very negatively (only exhibits found)
+    score = _score(best)
+    if score[0] < -50 and score[1] < 5000:
+        return None
+
+    return best.get("name")
+
+# ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
 

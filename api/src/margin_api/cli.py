@@ -19,7 +19,8 @@ from typing import Any
 
 from margin_engine.ingestion.providers.yfinance_provider import YFinanceProvider
 from margin_engine.ingestion.rate_limiter import RateLimiter
-from sqlalchemy import select
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from margin_api.db.models import Asset, FinancialData
@@ -2774,6 +2775,256 @@ async def _run_nlp_cmd() -> None:
         await redis.aclose()
 
 
+async def _run_backfill_nlp(
+    batch_size: int = 50,
+    tickers: list[str] | None = None,
+) -> None:
+    """Backfill filing text extraction and NLP analysis for existing PIT snapshots.
+
+    For each PIT snapshot that has no corresponding filing_texts row, enqueues an
+    analyze_filing_text ARQ job (or runs inline if no Redis). Only processes the
+    most recent filing per ticker to avoid blowing through the daily NLP cap.
+    """
+    from sqlalchemy import func as sa_func
+
+    from margin_api.db.models import FilingText, PITFinancialSnapshot
+    from margin_api.db.session import get_session_factory
+    from margin_api.services.nlp_analyzer import NLPAnalyzer
+
+    nlp_enabled = os.environ.get("MARGIN_NLP_ENABLED", "false").lower() in ("1", "true", "yes")
+    if not nlp_enabled:
+        logger.warning("MARGIN_NLP_ENABLED is not set to true — NLP analysis will be skipped")
+        logger.warning("Filing text extraction will still run, but no sentiment scores produced")
+
+    session_factory = get_session_factory()
+
+    # Find PIT snapshots that have no corresponding filing_texts row.
+    # Use the latest filing per ticker (most relevant for current scoring).
+    async with session_factory() as session:
+        # Subquery: latest snapshot per ticker
+        latest_sq = (
+            select(
+                PITFinancialSnapshot.ticker,
+                sa_func.max(PITFinancialSnapshot.id).label("max_id"),
+            )
+            .group_by(PITFinancialSnapshot.ticker)
+            .subquery()
+        )
+
+        # Left join to filing_texts to find gaps
+        stmt = (
+            select(PITFinancialSnapshot)
+            .join(latest_sq, PITFinancialSnapshot.id == latest_sq.c.max_id)
+            .outerjoin(
+                FilingText,
+                (FilingText.ticker == PITFinancialSnapshot.ticker)
+                & (FilingText.period_end == PITFinancialSnapshot.period_end),
+            )
+            .where(FilingText.id.is_(None))
+        )
+
+        if tickers:
+            stmt = stmt.where(PITFinancialSnapshot.ticker.in_(tickers))
+
+        result = await session.execute(stmt)
+        snapshots = result.scalars().all()
+
+    total = len(snapshots)
+    if total == 0:
+        logger.info("[backfill-nlp] All snapshots already have filing text — nothing to do")
+        return
+
+    logger.info("[backfill-nlp] Found %d snapshots needing filing text extraction", total)
+
+    # Import the analyze_filing_text worker logic inline
+    import httpx
+
+    from margin_api.services.edgar.index_builder import USER_AGENT
+    from margin_api.services.edgar.text_extractor import FilingTextExtractor, select_primary_filing
+
+    analyzer = NLPAnalyzer()
+    extractor = FilingTextExtractor()
+    succeeded = 0
+    failed = 0
+
+    for i, snap in enumerate(snapshots, 1):
+        ticker = snap.ticker
+        label = f"[backfill-nlp:{i}/{total}:{ticker}]"
+        logger.info("%s Processing (snapshot_id=%d)", label, snap.id)
+
+        try:
+            # Build filing URL
+            cik_int = int(snap.cik)
+            accession_clean = snap.accession_number.replace("-", "")
+            index_url = (
+                f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
+            )
+
+            # Download filing HTML
+            filing_html: str | None = None
+            async with httpx.AsyncClient(
+                headers={"User-Agent": USER_AGENT},
+                timeout=httpx.Timeout(60.0),
+            ) as client:
+                index_resp = await client.get(index_url + "index.json")
+                if index_resp.status_code == 200:
+                    index_data = index_resp.json()
+                    items = index_data.get("directory", {}).get("item", [])
+                    primary_name = select_primary_filing(items, ticker=ticker)
+                    if primary_name:
+                        doc_resp = await client.get(index_url + primary_name)
+                        if doc_resp.status_code == 200:
+                            filing_html = doc_resp.text
+
+            if not filing_html:
+                logger.warning("%s No filing HTML found — skipping", label)
+                failed += 1
+                continue
+
+            # Extract text sections
+            sections = extractor.extract_sections(filing_html, snap.form_type)
+
+            # Store filing text
+            async with session_factory() as session:
+                existing_result = await session.execute(
+                    select(FilingText).where(
+                        FilingText.ticker == ticker,
+                        FilingText.filing_type == snap.form_type,
+                        FilingText.period_end == snap.period_end,
+                    )
+                )
+                existing = existing_result.scalar_one_or_none()
+
+                if existing is None:
+                    filing_text_row = FilingText(
+                        ticker=ticker,
+                        cik=snap.cik,
+                        filing_type=snap.form_type,
+                        filing_date=snap.filing_date,
+                        period_end=snap.period_end,
+                        business_text=sections.business,
+                        risk_factors_text=sections.risk_factors,
+                        mda_text=sections.mda,
+                        raw_html_hash=sections.html_hash,
+                        created_at=datetime.now(UTC),
+                    )
+                    session.add(filing_text_row)
+                    await session.commit()
+                    filing_text_id = filing_text_row.id
+                    logger.info("%s Stored filing text (id=%d)", label, filing_text_id)
+                else:
+                    filing_text_id = existing.id
+                    logger.info("%s Filing text already exists (id=%d)", label, filing_text_id)
+
+            # Run NLP analysis (no-op if MARGIN_NLP_ENABLED=false)
+            async with session_factory() as session:
+                nlp_result = await analyzer.analyze(
+                    session=session,
+                    filing_text_id=filing_text_id,
+                    ticker=ticker,
+                    mda_text=sections.mda,
+                    risk_text=sections.risk_factors,
+                )
+                if nlp_result:
+                    logger.info(
+                        "%s NLP complete (sentiment=%.1f)",
+                        label,
+                        nlp_result.get("sentiment_value", 0),
+                    )
+
+            succeeded += 1
+
+            # Rate limit: SEC EDGAR asks for max 10 req/sec
+            if i % batch_size == 0:
+                logger.info("%s Pausing after batch of %d...", label, batch_size)
+                await asyncio.sleep(2)
+
+        except Exception:
+            logger.exception("%s Failed", label)
+            failed += 1
+
+    logger.info(
+        "[backfill-nlp] Complete: %d succeeded, %d failed out of %d total",
+        succeeded,
+        failed,
+        total,
+    )
+
+
+async def _purge_bad_filings(dry_run: bool = True, purge_all: bool = False) -> None:
+    """Delete filing_texts rows extracted from wrong EDGAR documents.
+
+    By default, targets rows where MD&A text is missing or suspiciously short
+    (< 500 chars), indicating the source was an exhibit, certification, or
+    XBRL stub rather than the actual 10-K/10-Q filing.
+
+    With --all, deletes ALL filing_texts rows for a full re-extraction.
+    Also deletes any associated filing_sentiment_cache rows.
+    """
+    from sqlalchemy import or_
+
+    from margin_api.db.models import FilingSentimentCache, FilingText
+    from margin_api.db.session import get_session_factory
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    async with session_factory() as session:
+        if purge_all:
+            stmt = select(FilingText)
+        else:
+            # Target rows where MD&A is missing or too short to be a real filing.
+            # Real 10-Q/10-K MD&A sections are typically thousands of characters.
+            stmt = select(FilingText).where(
+                or_(
+                    FilingText.mda_text.is_(None),
+                    func.length(FilingText.mda_text) < 500,
+                )
+            )
+
+        result = await session.execute(stmt)
+        bad_rows = result.scalars().all()
+
+        if not bad_rows:
+            logger.info("[purge] No filing_texts rows matched purge criteria")
+            return
+
+        bad_ids = [r.id for r in bad_rows]
+        tickers = {r.ticker for r in bad_rows}
+        logger.info(
+            "[purge] Found %d filing_texts rows to purge (%d unique tickers, mode=%s)",
+            len(bad_ids),
+            len(tickers),
+            "all" if purge_all else "short-mda",
+        )
+
+        if dry_run:
+            logger.info("[purge] DRY RUN — no rows deleted. Re-run with --execute to delete.")
+            return
+
+        # Delete associated sentiment cache rows first (FK constraint)
+        cache_stmt = select(func.count()).select_from(FilingSentimentCache).where(
+            FilingSentimentCache.filing_text_id.in_(bad_ids)
+        )
+        cache_count = (await session.execute(cache_stmt)).scalar_one_or_none() or 0
+
+        if cache_count > 0:
+            await session.execute(
+                sa_delete(FilingSentimentCache).where(
+                    FilingSentimentCache.filing_text_id.in_(bad_ids)
+                )
+            )
+            logger.info("[purge] Deleted %d filing_sentiment_cache rows", cache_count)
+
+        # Delete the bad filing_texts rows
+        await session.execute(
+            sa_delete(FilingText).where(FilingText.id.in_(bad_ids))
+        )
+        await session.commit()
+        logger.info("[purge] Deleted %d filing_texts rows", len(bad_ids))
+        logger.info("[purge] Re-run 'backfill-nlp' to re-fetch with corrected document selection")
+
+
 def main() -> None:
     """CLI entry point with argparse."""
     logging.basicConfig(
@@ -3068,6 +3319,43 @@ def main() -> None:
         help="Run daily PIT update + NLP filing analysis (same as 23:00 UTC cron)",
     )
 
+    # backfill-nlp
+    backfill_nlp_parser = subparsers.add_parser(
+        "backfill-nlp",
+        help="Backfill filing text extraction + NLP sentiment for existing PIT snapshots",
+    )
+    backfill_nlp_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50,
+        help="Pause after this many filings to respect SEC rate limits (default: 50)",
+    )
+    backfill_nlp_parser.add_argument(
+        "--tickers",
+        nargs="+",
+        default=None,
+        help="Specific tickers to backfill (default: all with missing filing text)",
+    )
+
+    # purge-bad-filings
+    purge_parser = subparsers.add_parser(
+        "purge-bad-filings",
+        help="Delete filing_texts rows with all-NULL text sections (from wrong EDGAR docs)",
+    )
+    purge_parser.add_argument(
+        "--execute",
+        action="store_true",
+        default=False,
+        help="Actually delete rows (default is dry-run)",
+    )
+    purge_parser.add_argument(
+        "--all",
+        action="store_true",
+        default=False,
+        dest="purge_all",
+        help="Delete ALL filing_texts rows (not just short-mda ones)",
+    )
+
     # promote-admin
     promote_parser = subparsers.add_parser(
         "promote-admin",
@@ -3163,6 +3451,10 @@ def main() -> None:
         asyncio.run(run_prime_delist())
     elif args.command == "run-nlp":
         asyncio.run(_run_nlp_cmd())
+    elif args.command == "backfill-nlp":
+        asyncio.run(_run_backfill_nlp(batch_size=args.batch_size, tickers=args.tickers))
+    elif args.command == "purge-bad-filings":
+        asyncio.run(_purge_bad_filings(dry_run=not args.execute, purge_all=args.purge_all))
     elif args.command == "promote-admin":
         asyncio.run(_promote_admin(args.email, args.role))
     else:

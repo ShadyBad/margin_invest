@@ -8,7 +8,11 @@ from __future__ import annotations
 import hashlib
 
 import pytest
-from margin_api.services.edgar.text_extractor import ExtractedSections, FilingTextExtractor
+from margin_api.services.edgar.text_extractor import (
+    ExtractedSections,
+    FilingTextExtractor,
+    select_primary_filing,
+)
 
 
 @pytest.fixture()
@@ -172,3 +176,120 @@ class TestEdgeCases:
         assert result.business is None
         assert result.risk_factors is None
         assert result.mda is None
+
+
+# ---------------------------------------------------------------------------
+# select_primary_filing tests
+# ---------------------------------------------------------------------------
+
+
+class TestSelectPrimaryFiling:
+    def test_prefers_ticker_matching_file(self) -> None:
+        items = [
+            {"name": "ex31-1.htm", "size": "5000"},
+            {"name": "aapl-20250930.htm", "size": "500000"},
+        ]
+        assert select_primary_filing(items, ticker="AAPL") == "aapl-20250930.htm"
+
+    def test_skips_exhibit_files(self) -> None:
+        items = [
+            {"name": "ex31-1.htm", "size": "5000"},
+            {"name": "exhibit_31-1.htm", "size": "5000"},
+            {"name": "msft-20250930.htm", "size": "500000"},
+        ]
+        assert select_primary_filing(items, ticker="MSFT") == "msft-20250930.htm"
+
+    def test_skips_xbrl_viewer_stubs(self) -> None:
+        items = [
+            {"name": "R1.htm", "size": "3000"},
+            {"name": "R2.htm", "size": "2000"},
+            {"name": "fast-20250930.htm", "size": "800000"},
+        ]
+        assert select_primary_filing(items, ticker="FAST") == "fast-20250930.htm"
+
+    def test_skips_certification_files(self) -> None:
+        items = [
+            {"name": "a311-papacert093025.htm", "size": "5000"},
+            {"name": "ebs-20250930.htm", "size": "600000"},
+        ]
+        assert select_primary_filing(items, ticker="EBS") == "ebs-20250930.htm"
+
+    def test_prefers_10q_in_filename(self) -> None:
+        items = [
+            {"name": "someother.htm", "size": "100000"},
+            {"name": "fmbm_10q.htm", "size": "400000"},
+        ]
+        assert select_primary_filing(items, ticker="FMBM") == "fmbm_10q.htm"
+
+    def test_prefers_largest_when_no_ticker_match(self) -> None:
+        items = [
+            {"name": "small-doc.htm", "size": "5000"},
+            {"name": "big-filing.htm", "size": "900000"},
+        ]
+        assert select_primary_filing(items, ticker="XYZ") == "big-filing.htm"
+
+    def test_returns_none_for_empty_list(self) -> None:
+        assert select_primary_filing([], ticker="AAPL") is None
+
+    def test_returns_none_when_only_index_files(self) -> None:
+        items = [
+            {"name": "index.html", "size": "1000"},
+            {"name": "filing-index.htm", "size": "2000"},
+        ]
+        assert select_primary_filing(items, ticker="AAPL") is None
+
+    def test_skips_index_files(self) -> None:
+        items = [
+            {"name": "index.htm", "size": "1000"},
+            {"name": "aapl-20250930.htm", "size": "500000"},
+        ]
+        assert select_primary_filing(items, ticker="AAPL") == "aapl-20250930.htm"
+
+    def test_works_without_ticker(self) -> None:
+        items = [
+            {"name": "ex31-1.htm", "size": "5000"},
+            {"name": "filing-document.htm", "size": "500000"},
+        ]
+        result = select_primary_filing(items, ticker=None)
+        assert result == "filing-document.htm"
+
+    def test_works_without_size_field(self) -> None:
+        items = [
+            {"name": "ex31-1.htm"},
+            {"name": "aapl-20250930.htm"},
+        ]
+        assert select_primary_filing(items, ticker="AAPL") == "aapl-20250930.htm"
+
+    def test_falls_back_to_exhibit_if_only_option(self) -> None:
+        """If only exhibits exist, still return the largest one."""
+        items = [
+            {"name": "ex31-1.htm", "size": "5000"},
+            {"name": "ex10-1.htm", "size": "800000"},
+        ]
+        # The large exhibit (800KB) should still be returned — it might be a
+        # material contract that's actually useful
+        result = select_primary_filing(items, ticker="AAPL")
+        assert result == "ex10-1.htm"
+
+    def test_skips_embedded_exhibit_in_filename(self) -> None:
+        """Exhibits with 'ex' embedded mid-name should be penalized."""
+        items = [
+            {"name": "bke20230128-10kex31a.htm", "size": "5000"},
+            {"name": "bke-20230128.htm", "size": "500000"},
+        ]
+        assert select_primary_filing(items, ticker="BKE") == "bke-20230128.htm"
+
+    def test_skips_10k_exhibit_combo(self) -> None:
+        """Files with both 10k and ex in the name are exhibits, not filings."""
+        items = [
+            {"name": "cns10k-123125ex312.htm", "size": "5000"},
+            {"name": "cns-20251231.htm", "size": "600000"},
+        ]
+        assert select_primary_filing(items, ticker="CNS") == "cns-20251231.htm"
+
+    def test_skips_10q_exhibit_combo(self) -> None:
+        items = [
+            {"name": "otf-20251231x10qex312.htm", "size": "5000"},
+            {"name": "otf-20251231.htm", "size": "700000"},
+        ]
+        assert select_primary_filing(items, ticker="OTF") == "otf-20251231.htm"

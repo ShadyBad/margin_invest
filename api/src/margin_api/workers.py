@@ -4499,10 +4499,123 @@ async def backfill_historical_scores(ctx: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-async def ingest_sentiment_signals(ctx: dict) -> str:
-    """Fetch short interest and analyst recs from Finnhub for scored universe."""
-    logger.info("ingest_sentiment_signals: starting")
-    return "ingest_sentiment_signals: stub complete"
+async def ingest_sentiment_signals(ctx: dict) -> dict:
+    """Fetch short interest and analyst recs from Finnhub for scored universe.
+
+    Populates the sentiment_signals table with daily short interest percentage
+    and analyst consensus data for each ticker in the active universe.
+    Requires FINNHUB_API_KEY environment variable.
+    """
+    stale = _is_stale_cron(ctx, "ingest_sentiment_signals")
+    if stale:
+        return stale
+
+    import os
+
+    from margin_engine.ingestion.providers.finnhub_provider import FinnhubProvider
+    from margin_engine.ingestion.rate_limiter import RateLimiter
+
+    from margin_api.config import get_settings
+    from margin_api.db.models import SentimentSignal
+
+    settings = get_settings()
+    finnhub_key = settings.finnhub_api_key or os.environ.get("FINNHUB_API_KEY", "")
+    if not finnhub_key:
+        logger.warning("[sentiment] FINNHUB_API_KEY not set — skipping sentiment ingestion")
+        return {"status": "skipped", "reason": "no_finnhub_key"}
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Get active universe tickers
+    async with session_factory() as session:
+        snapshot = await get_active_snapshot(session)
+        if snapshot is None:
+            logger.warning("[sentiment] No active universe — skipping")
+            return {"status": "skipped", "reason": "no_universe"}
+        tickers = sorted(snapshot.tickers)
+
+    logger.info("[sentiment] Processing %d tickers", len(tickers))
+
+    # Finnhub free tier: 60 req/min, we need 2 calls/ticker (short interest + analyst)
+    rate_limiter = RateLimiter(requests_per_minute=55)
+    provider = FinnhubProvider(finnhub_key, rate_limiter=rate_limiter)
+
+    succeeded = 0
+    failed = 0
+    today = datetime.now(UTC).date()
+
+    for i, ticker in enumerate(tickers, 1):
+        try:
+            # Fetch short interest
+            si_result = provider.fetch_short_interest(ticker)
+            short_pct: float | None = None
+            if si_result.success and si_result.raw_data.get("short_interest"):
+                latest = si_result.raw_data["short_interest"][0]
+                short_pct = latest.get("shortInterest")
+
+            # Fetch analyst recommendations
+            ar_result = provider.fetch_analyst_recommendations(ticker)
+            consensus: dict | None = None
+            eps_revision: float | None = None
+            if ar_result.success and ar_result.raw_data.get("recommendations"):
+                latest = ar_result.raw_data["recommendations"][0]
+                consensus = {
+                    "buy": latest.get("buy", 0),
+                    "hold": latest.get("hold", 0),
+                    "sell": latest.get("sell", 0),
+                    "strong_buy": latest.get("strongBuy", 0),
+                    "strong_sell": latest.get("strongSell", 0),
+                    "period": latest.get("period"),
+                }
+                # Compute net revision direction: positive = more buys, negative = more sells
+                total = sum(v for k, v in consensus.items() if k != "period" and isinstance(v, int))
+                if total > 0:
+                    buy_weight = (consensus["strong_buy"] * 2 + consensus["buy"]) / total
+                    sell_weight = (consensus["strong_sell"] * 2 + consensus["sell"]) / total
+                    eps_revision = round(buy_weight - sell_weight, 3)
+
+            # Upsert to sentiment_signals
+            async with session_factory() as session:
+                existing = await session.execute(
+                    select(SentimentSignal).where(
+                        SentimentSignal.ticker == ticker,
+                        SentimentSignal.signal_date == today,
+                    )
+                )
+                row = existing.scalar_one_or_none()
+                if row is None:
+                    row = SentimentSignal(
+                        ticker=ticker,
+                        signal_date=today,
+                        short_interest_pct=short_pct,
+                        analyst_consensus=consensus,
+                        eps_revision_direction=eps_revision,
+                        fetched_at=datetime.now(UTC),
+                    )
+                    session.add(row)
+                else:
+                    row.short_interest_pct = short_pct
+                    row.analyst_consensus = consensus
+                    row.eps_revision_direction = eps_revision
+                    row.fetched_at = datetime.now(UTC)
+                await session.commit()
+
+            succeeded += 1
+            if i % 50 == 0:
+                logger.info("[sentiment] Progress: %d/%d", i, len(tickers))
+
+        except Exception:
+            logger.exception("[sentiment] Failed for %s", ticker)
+            failed += 1
+
+    logger.info(
+        "[sentiment] Complete: %d succeeded, %d failed out of %d",
+        succeeded,
+        failed,
+        len(tickers),
+    )
+    return {"status": "completed", "succeeded": succeeded, "failed": failed}
 
 
 async def backfill_form4_history(ctx: dict) -> str:
@@ -4672,7 +4785,7 @@ async def analyze_filing_text(
     import httpx
 
     from margin_api.services.edgar.index_builder import USER_AGENT
-    from margin_api.services.edgar.text_extractor import FilingTextExtractor
+    from margin_api.services.edgar.text_extractor import FilingTextExtractor, select_primary_filing
     from margin_api.services.nlp_analyzer import NLPAnalyzer
 
     label = f"[analyze_filing_text:{ticker}:{pit_snapshot_id}]"
@@ -4707,15 +4820,12 @@ async def analyze_filing_text(
             index_resp = await client.get(index_url + "index.json")
             if index_resp.status_code == 200:
                 index_data = index_resp.json()
-                # Find the first htm/html document that isn't the index itself
-                for item in index_data.get("directory", {}).get("item", []):
-                    name = item.get("name", "")
-                    if name.endswith((".htm", ".html")) and "index" not in name.lower():
-                        doc_url = index_url + name
-                        doc_resp = await client.get(doc_url)
-                        if doc_resp.status_code == 200:
-                            filing_html = doc_resp.text
-                        break
+                items = index_data.get("directory", {}).get("item", [])
+                primary_name = select_primary_filing(items, ticker=ticker)
+                if primary_name:
+                    doc_resp = await client.get(index_url + primary_name)
+                    if doc_resp.status_code == 200:
+                        filing_html = doc_resp.text
     except Exception:
         logger.warning("%s Failed to download filing HTML — skipping text extraction", label)
 

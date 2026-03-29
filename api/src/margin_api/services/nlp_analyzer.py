@@ -135,6 +135,11 @@ class NLPAnalyzer:
         if not _is_enabled():
             return None
 
+        # Skip API call if no text to analyze
+        if not mda_text and not risk_text:
+            logger.debug("[nlp] No mda_text or risk_text for %s — skipping", ticker)
+            return None
+
         model = _get_model()
         user_prompt = _build_user_prompt(mda_text, risk_text)
         p_hash = _prompt_hash(user_prompt, model)
@@ -219,6 +224,17 @@ class NLPAnalyzer:
             return None
 
         raw_text = first_block.text.strip()
+
+        # Strip markdown code fences (```json ... ``` or ``` ... ```)
+        if raw_text.startswith("```"):
+            lines = raw_text.split("\n")
+            # Remove opening fence (```json or ```)
+            lines = lines[1:]
+            # Remove closing fence
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            raw_text = "\n".join(lines).strip()
+
         try:
             return json.loads(raw_text)
         except (json.JSONDecodeError, ValueError):
