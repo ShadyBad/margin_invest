@@ -153,12 +153,12 @@ describe("FactorSignature", () => {
       expect(fills).toHaveLength(4)
     })
 
-    it("still renders 5 tracks even with null factors", () => {
+    it("renders only 4 tracks when one factor is null (filters null factors)", () => {
       const { container } = render(
         <FactorSignature factors={NULL_SENTIMENT} variant="full" />
       )
       const tracks = container.querySelectorAll("[data-track]")
-      expect(tracks).toHaveLength(5)
+      expect(tracks).toHaveLength(4)
     })
 
     it("renders polyline with only non-null dots", () => {
@@ -169,12 +169,14 @@ describe("FactorSignature", () => {
       expect(polyline).toBeInTheDocument()
     })
 
-    it("renders dimmed ring for null factors in inline variant", () => {
+    it("renders no null dots in inline variant (null factors are hidden)", () => {
       const { container } = render(
         <FactorSignature factors={NULL_SENTIMENT} variant="inline" />
       )
       const nullDots = container.querySelectorAll("[data-null-dot]")
-      expect(nullDots).toHaveLength(1)
+      expect(nullDots).toHaveLength(0)
+      const markerDots = container.querySelectorAll("[data-marker-dot]")
+      expect(markerDots).toHaveLength(4) // sentiment null, 4 visible
     })
 
     it("handles all-null factors gracefully", () => {
@@ -182,11 +184,57 @@ describe("FactorSignature", () => {
         <FactorSignature factors={ALL_NULL} variant="full" />
       )
       const tracks = container.querySelectorAll("[data-track]")
-      expect(tracks).toHaveLength(5)
+      expect(tracks).toHaveLength(0) // all filtered out
       const dots = container.querySelectorAll("[data-marker-dot]")
       expect(dots).toHaveLength(0)
       const polyline = container.querySelector("[data-connecting-line]")
       expect(polyline).not.toBeInTheDocument() // no dots to connect
+    })
+  })
+
+  describe("null factor filtering (visible factors only)", () => {
+    it("compact with sentiment=null and growth=null renders 3 [data-track] elements", () => {
+      const { container } = render(
+        <FactorSignature
+          factors={{ quality: 80, value: 60, momentum: 70, sentiment: null, growth: null }}
+          variant="compact"
+        />
+      )
+      const tracks = container.querySelectorAll("[data-track]")
+      expect(tracks).toHaveLength(3)
+    })
+
+    it("all 5 factors present renders 5 [data-track] elements", () => {
+      const { container } = render(
+        <FactorSignature factors={FULL_FACTORS} variant="compact" />
+      )
+      const tracks = container.querySelectorAll("[data-track]")
+      expect(tracks).toHaveLength(5)
+    })
+
+    it("inline with sentiment=null and growth=null renders 3 marker dots and 0 null dots", () => {
+      const { container } = render(
+        <FactorSignature
+          factors={{ quality: 80, value: 60, momentum: 70, sentiment: null, growth: null }}
+          variant="inline"
+        />
+      )
+      const markerDots = container.querySelectorAll("[data-marker-dot]")
+      const nullDots = container.querySelectorAll("[data-null-dot]")
+      expect(markerDots).toHaveLength(3)
+      expect(nullDots).toHaveLength(0)
+    })
+
+    it("SVG height with 3 visible factors is less than compact default height of 110", () => {
+      const { container } = render(
+        <FactorSignature
+          factors={{ quality: 80, value: 60, momentum: 70, sentiment: null, growth: null }}
+          variant="compact"
+        />
+      )
+      const svg = container.querySelector("svg")
+      const height = Number(svg?.getAttribute("height"))
+      expect(height).toBeLessThan(110)
     })
   })
 

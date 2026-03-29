@@ -72,6 +72,10 @@ export function FactorSignature({
 
   const spec = VARIANT_SPEC[variant]
 
+  const visibleFactors = FACTOR_CONFIG.filter(
+    (f) => factors[f.key] !== null && factors[f.key] !== undefined,
+  )
+
   // Animation effect for track-based variants
   useEffect(() => {
     if (variant === "inline") return
@@ -129,36 +133,29 @@ export function FactorSignature({
 
   // Inline variant: render as a simple row of dots
   if (variant === "inline") {
+    const inlineWidth =
+      visibleFactors.length > 1
+        ? spec.width
+        : visibleFactors.length === 1
+          ? 10
+          : 0
     return (
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${spec.width} ${spec.height}`}
+        viewBox={`0 0 ${inlineWidth || spec.width} ${spec.height}`}
         className={className}
-        width={spec.width}
+        width={inlineWidth || spec.width}
         height={spec.height}
         role="img"
         aria-label="Factor signature"
       >
-        {FACTOR_CONFIG.map((factor, i) => {
-          const value = factors[factor.key]
+        {visibleFactors.map((factor, i) => {
+          const value = factors[factor.key]!
           const cx =
-            (i / (FACTOR_CONFIG.length - 1)) * (spec.width - 10) + 5
+            visibleFactors.length > 1
+              ? (i / (visibleFactors.length - 1)) * (inlineWidth - 10) + 5
+              : inlineWidth / 2
           const cy = spec.height / 2
-          if (value === null || value === undefined) {
-            return (
-              <circle
-                key={factor.key}
-                data-null-dot
-                cx={cx}
-                cy={cy}
-                r={3}
-                fill="none"
-                stroke={factor.color}
-                strokeWidth={1}
-                opacity={0.15}
-              />
-            )
-          }
           const clamped = clamp(Math.round(value), 0, 100)
           const dotOpacity =
             clamped >= 80 ? 1 : clamped >= 60 ? 0.7 : clamped >= 40 ? 0.5 : 0.3
@@ -186,18 +183,19 @@ export function FactorSignature({
   const trackRight = spec.width - valueWidth - (valueWidth > 0 ? 8 : 0)
   const trackWidth = trackRight - trackLeft
   const topPadding = variant === "mini" ? 5 : 10
+  const dynamicHeight =
+    topPadding +
+    Math.max(0, visibleFactors.length - 1) * spec.trackSpacing +
+    topPadding
   const polylinePoints: string[] = []
 
-  const trackElements = FACTOR_CONFIG.map((factor, i) => {
-    const value = factors[factor.key]
+  const trackElements = visibleFactors.map((factor, i) => {
+    const value = factors[factor.key]!
     const y = topPadding + i * spec.trackSpacing
-    const isNull = value === null || value === undefined
-    const clamped = isNull ? 0 : clamp(Math.round(value), 0, 100)
+    const clamped = clamp(Math.round(value), 0, 100)
     const dotX = trackLeft + (clamped / 100) * trackWidth
 
-    if (!isNull) {
-      polylinePoints.push(`${dotX},${y}`)
-    }
+    polylinePoints.push(`${dotX},${y}`)
 
     return (
       <g key={factor.key}>
@@ -213,7 +211,7 @@ export function FactorSignature({
         />
 
         {/* Fill bar */}
-        {!isNull && spec.showFill && (
+        {spec.showFill && (
           <rect
             data-fill-bar
             x={trackLeft}
@@ -227,15 +225,13 @@ export function FactorSignature({
         )}
 
         {/* Marker dot */}
-        {!isNull && (
-          <circle
-            data-marker-dot
-            cx={dotX}
-            cy={y}
-            r={variant === "mini" ? 2.5 : 3.5}
-            fill={factor.color}
-          />
-        )}
+        <circle
+          data-marker-dot
+          cx={dotX}
+          cy={y}
+          r={variant === "mini" ? 2.5 : 3.5}
+          fill={factor.color}
+        />
 
         {/* Label */}
         {spec.showLabels && (
@@ -252,7 +248,7 @@ export function FactorSignature({
         )}
 
         {/* Percentile value */}
-        {spec.showValues && !isNull && (
+        {spec.showValues && (
           <text
             x={spec.width}
             y={y}
@@ -272,10 +268,10 @@ export function FactorSignature({
   return (
     <svg
       ref={svgRef}
-      viewBox={`0 0 ${spec.width} ${spec.height}`}
+      viewBox={`0 0 ${spec.width} ${dynamicHeight}`}
       className={className}
       width={spec.width}
-      height={spec.height}
+      height={dynamicHeight}
       role="img"
       aria-label="Factor signature"
     >

@@ -290,7 +290,7 @@ class TestMarkdownFenceStripping:
     async def test_strips_json_fence(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("MARGIN_NLP_ENABLED", "true")
 
-        fenced_json = '```json\n' + json.dumps(_SAMPLE_RESPONSE_JSON) + '\n```'
+        fenced_json = "```json\n" + json.dumps(_SAMPLE_RESPONSE_JSON) + "\n```"
         mock_block = MagicMock()
         mock_block.type = "text"
         mock_block.text = fenced_json
@@ -320,7 +320,7 @@ class TestMarkdownFenceStripping:
     async def test_strips_plain_fence(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("MARGIN_NLP_ENABLED", "true")
 
-        fenced_json = '```\n' + json.dumps(_SAMPLE_RESPONSE_JSON) + '\n```'
+        fenced_json = "```\n" + json.dumps(_SAMPLE_RESPONSE_JSON) + "\n```"
         mock_block = MagicMock()
         mock_block.type = "text"
         mock_block.text = fenced_json

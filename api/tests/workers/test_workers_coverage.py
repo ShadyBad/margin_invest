@@ -1346,12 +1346,13 @@ async def test_backfill_historical_scores_error_path():
 
 
 @pytest.mark.asyncio
-async def test_ingest_sentiment_signals_stub():
-    """ingest_sentiment_signals: stub returns completed message."""
+async def test_ingest_sentiment_signals_no_key():
+    """ingest_sentiment_signals: skips when FINNHUB_API_KEY is not set."""
     from margin_api.workers import ingest_sentiment_signals
 
     result = await ingest_sentiment_signals({})
-    assert "stub" in result.lower() or "ingest_sentiment" in result
+    assert isinstance(result, dict)
+    assert result["status"] == "skipped"
 
 
 @pytest.mark.asyncio
