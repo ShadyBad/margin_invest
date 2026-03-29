@@ -739,6 +739,7 @@ async def security_status(
         mfa_grace_deadline=user.mfa_grace_deadline,
         recovery_codes_remaining=remaining,
         linked_providers=provider_info,
+        avatar_url=user.oauth_avatar_url or user.avatar_url,
     )
 
 

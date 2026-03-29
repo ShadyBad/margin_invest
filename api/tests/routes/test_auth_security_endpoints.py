@@ -710,6 +710,64 @@ class TestSecurityStatus:
         assert resp.status_code == 200
         assert resp.json()["recovery_codes_remaining"] == 8
 
+    @pytest.mark.asyncio
+    async def test_security_status_returns_avatar_url_none_when_not_set(self, credential_user):
+        """avatar_url is None when neither oauth_avatar_url nor avatar_url is set."""
+        engine, factory, user_id = credential_user
+        app = _make_app(factory, user_id)
+        async with await _make_client(app) as client:
+            resp = await client.get("/api/v1/auth/security-status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "avatar_url" in data
+        assert data["avatar_url"] is None
+
+    @pytest.mark.asyncio
+    async def test_security_status_returns_oauth_avatar_url_first(self, db_setup):
+        """oauth_avatar_url takes priority over avatar_url."""
+        engine, factory = db_setup
+        async with factory() as session:
+            user = User(
+                email="avatar@example.com",
+                name="Avatar User",
+                avatar_url="https://example.com/custom.png",
+                oauth_avatar_url="https://provider.com/oauth.png",
+            )
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+            user_id = user.id
+
+        app = _make_app(factory, user_id)
+        async with await _make_client(app) as client:
+            resp = await client.get("/api/v1/auth/security-status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["avatar_url"] == "https://provider.com/oauth.png"
+
+    @pytest.mark.asyncio
+    async def test_security_status_falls_back_to_avatar_url(self, db_setup):
+        """Falls back to avatar_url when oauth_avatar_url is not set."""
+        engine, factory = db_setup
+        async with factory() as session:
+            user = User(
+                email="fallback@example.com",
+                name="Fallback User",
+                avatar_url="https://example.com/custom.png",
+                oauth_avatar_url=None,
+            )
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+            user_id = user.id
+
+        app = _make_app(factory, user_id)
+        async with await _make_client(app) as client:
+            resp = await client.get("/api/v1/auth/security-status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["avatar_url"] == "https://example.com/custom.png"
+
 
 # ---------------------------------------------------------------------------
 # Task 14: TOTP confirm returns recovery codes

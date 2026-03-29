@@ -252,6 +252,7 @@ class SecurityStatusResponse(BaseModel):
     mfa_grace_deadline: datetime | None
     recovery_codes_remaining: int
     linked_providers: list[ProviderInfo]
+    avatar_url: str | None = None
 
 
 # ---------------------------------------------------------------------------
