@@ -2856,9 +2856,7 @@ async def _run_backfill_nlp(
             # Build filing URL
             cik_int = int(snap.cik)
             accession_clean = snap.accession_number.replace("-", "")
-            index_url = (
-                f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
-            )
+            index_url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/"
 
             # Download filing HTML
             filing_html: str | None = None
@@ -3003,8 +3001,10 @@ async def _purge_bad_filings(dry_run: bool = True, purge_all: bool = False) -> N
             return
 
         # Delete associated sentiment cache rows first (FK constraint)
-        cache_stmt = select(func.count()).select_from(FilingSentimentCache).where(
-            FilingSentimentCache.filing_text_id.in_(bad_ids)
+        cache_stmt = (
+            select(func.count())
+            .select_from(FilingSentimentCache)
+            .where(FilingSentimentCache.filing_text_id.in_(bad_ids))
         )
         cache_count = (await session.execute(cache_stmt)).scalar_one_or_none() or 0
 
@@ -3017,12 +3017,98 @@ async def _purge_bad_filings(dry_run: bool = True, purge_all: bool = False) -> N
             logger.info("[purge] Deleted %d filing_sentiment_cache rows", cache_count)
 
         # Delete the bad filing_texts rows
-        await session.execute(
-            sa_delete(FilingText).where(FilingText.id.in_(bad_ids))
-        )
+        await session.execute(sa_delete(FilingText).where(FilingText.id.in_(bad_ids)))
         await session.commit()
         logger.info("[purge] Deleted %d filing_texts rows", len(bad_ids))
         logger.info("[purge] Re-run 'backfill-nlp' to re-fetch with corrected document selection")
+
+
+async def _run_nlp_only_backfill(batch_size: int = 50) -> None:
+    """Run NLP analysis on filing_texts rows that have no sentiment cache entry.
+
+    Unlike backfill-nlp which fetches filing HTML, this only processes rows
+    that already have extracted text but are missing NLP analysis.
+    """
+    from margin_api.db.models import FilingSentimentCache, FilingText
+    from margin_api.db.session import get_session_factory
+    from margin_api.services.nlp_analyzer import NLP_ANALYSIS_VERSION, NLPAnalyzer
+
+    nlp_enabled = os.environ.get("MARGIN_NLP_ENABLED", "false").lower() in ("1", "true", "yes")
+    if not nlp_enabled:
+        logger.error("MARGIN_NLP_ENABLED is not set — aborting. Set MARGIN_NLP_ENABLED=true")
+        return
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+    analyzer = NLPAnalyzer()
+
+    # Find filing_texts with MD&A text but no sentiment cache row
+    async with session_factory() as session:
+        cached_ids_sq = (
+            select(FilingSentimentCache.filing_text_id)
+            .where(FilingSentimentCache.analysis_version == NLP_ANALYSIS_VERSION)
+            .scalar_subquery()
+        )
+        stmt = (
+            select(FilingText)
+            .where(
+                FilingText.id.not_in(cached_ids_sq),
+                FilingText.mda_text.isnot(None),
+                func.length(FilingText.mda_text) >= 500,
+            )
+            .order_by(FilingText.id)
+        )
+        result = await session.execute(stmt)
+        rows = result.scalars().all()
+
+    total = len(rows)
+    if total == 0:
+        logger.info("[nlp-only] All filing_texts already have NLP results — nothing to do")
+        return
+
+    logger.info("[nlp-only] Found %d filing_texts needing NLP analysis", total)
+
+    succeeded = 0
+    failed = 0
+
+    for i, ft in enumerate(rows, 1):
+        label = f"[nlp-only:{i}/{total}:{ft.ticker}]"
+        try:
+            async with session_factory() as session:
+                nlp_result = await analyzer.analyze(
+                    session=session,
+                    filing_text_id=ft.id,
+                    ticker=ft.ticker,
+                    mda_text=ft.mda_text,
+                    risk_text=ft.risk_factors_text,
+                )
+                if nlp_result:
+                    logger.info(
+                        "%s NLP complete (sentiment=%.1f)",
+                        label,
+                        nlp_result.get("sentiment_value", 0),
+                    )
+                    succeeded += 1
+                else:
+                    logger.warning("%s NLP returned None (cap reached?)", label)
+                    # If cap reached, stop early
+                    failed += 1
+                    if "cap" in str(nlp_result):
+                        break
+        except Exception:
+            logger.exception("%s Failed", label)
+            failed += 1
+
+        if i % batch_size == 0:
+            logger.info("%s Pausing after batch of %d...", label, batch_size)
+            await asyncio.sleep(1)
+
+    logger.info(
+        "[nlp-only] Complete: %d succeeded, %d failed/skipped out of %d total",
+        succeeded,
+        failed,
+        total,
+    )
 
 
 def main() -> None:
@@ -3356,6 +3442,18 @@ def main() -> None:
         help="Delete ALL filing_texts rows (not just short-mda ones)",
     )
 
+    # nlp-only
+    nlp_only_parser = subparsers.add_parser(
+        "nlp-only",
+        help="Run NLP analysis on filing_texts that already have text but no sentiment cache",
+    )
+    nlp_only_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50,
+        help="Pause after this many filings (default: 50)",
+    )
+
     # promote-admin
     promote_parser = subparsers.add_parser(
         "promote-admin",
@@ -3455,6 +3553,8 @@ def main() -> None:
         asyncio.run(_run_backfill_nlp(batch_size=args.batch_size, tickers=args.tickers))
     elif args.command == "purge-bad-filings":
         asyncio.run(_purge_bad_filings(dry_run=not args.execute, purge_all=args.purge_all))
+    elif args.command == "nlp-only":
+        asyncio.run(_run_nlp_only_backfill(batch_size=args.batch_size))
     elif args.command == "promote-admin":
         asyncio.run(_promote_admin(args.email, args.role))
     else:
