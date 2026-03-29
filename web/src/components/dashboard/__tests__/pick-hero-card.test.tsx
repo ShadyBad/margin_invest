@@ -47,6 +47,14 @@ const heroPickNVDA: PickSummary = {
   sector: "Technology",
 }
 
+const enrichedPick: PickSummary = {
+  ...heroPickNVDA,
+  margin_of_safety: 0.24,
+  opportunity_type: "compounder",
+  data_freshness: "fresh" as const,
+  scored_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
+}
+
 describe("PickHeroCard", () => {
   it("renders ticker and company name", () => {
     render(<PickHeroCard pick={heroPickNVDA} rank={1} />)
@@ -89,5 +97,41 @@ describe("PickHeroCard", () => {
   it("renders price", () => {
     render(<PickHeroCard pick={heroPickNVDA} rank={1} />)
     expect(screen.getByText("$890.50")).toBeInTheDocument()
+  })
+
+  it("renders margin of safety when present", () => {
+    render(<PickHeroCard pick={enrichedPick} rank={1} />)
+    expect(screen.getByText(/MoS 24%/)).toBeInTheDocument()
+  })
+
+  it("renders price upside when present", () => {
+    render(<PickHeroCard pick={enrichedPick} rank={1} />)
+    expect(screen.getByText(/\+18\.0%/)).toBeInTheDocument()
+  })
+
+  it("renders opportunity type when present", () => {
+    render(<PickHeroCard pick={enrichedPick} rank={1} />)
+    expect(screen.getByText("compounder")).toBeInTheDocument()
+  })
+
+  it("renders freshness indicator", () => {
+    render(<PickHeroCard pick={enrichedPick} rank={1} />)
+    expect(screen.getByTestId("freshness-indicator")).toBeInTheDocument()
+  })
+
+  it("hides margin of safety when null", () => {
+    render(<PickHeroCard pick={{ ...enrichedPick, margin_of_safety: null }} rank={1} />)
+    expect(screen.queryByText(/MoS/)).toBeNull()
+  })
+
+  it("hides opportunity type when null", () => {
+    render(<PickHeroCard pick={{ ...enrichedPick, opportunity_type: null }} rank={1} />)
+    expect(screen.queryByText("compounder")).toBeNull()
+  })
+
+  it("truncates long company names", () => {
+    render(<PickHeroCard pick={enrichedPick} rank={1} />)
+    const nameEl = screen.getByTestId("pick-name")
+    expect(nameEl.className).toContain("truncate")
   })
 })

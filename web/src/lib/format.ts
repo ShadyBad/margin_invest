@@ -67,6 +67,24 @@ export function formatScore(value: number | null | undefined): string {
   return value.toFixed(2)
 }
 
+export function formatRelativeTime(isoString: string): string {
+  const date = new Date(isoString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMinutes = Math.floor(diffMs / 60_000)
+  const diffHours = Math.floor(diffMinutes / 60)
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffDays > 30) {
+    const month = date.toLocaleString("en-US", { month: "short" })
+    return `${month} ${date.getDate()}`
+  }
+  if (diffDays > 0) return `${diffDays}d ago`
+  if (diffHours > 0) return `${diffHours}h ago`
+  if (diffMinutes > 0) return `${diffMinutes}m ago`
+  return "just now"
+}
+
 export function formatAttributeLabel(key: string): string {
   if (!key) return ""
 

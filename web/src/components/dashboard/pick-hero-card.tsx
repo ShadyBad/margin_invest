@@ -4,7 +4,7 @@ import Link from "next/link"
 import { FactorSignature } from "@/components/visualizations/factor-signature"
 import { ConvictionBadge } from "@/components/ui"
 import type { PickSummary } from "@/lib/api/types"
-import { formatScore } from "@/lib/format"
+import { formatScore, formatRelativeTime } from "@/lib/format"
 
 function getTierColor(tier: string): string {
   switch (tier) {
@@ -20,6 +20,21 @@ function getTierColor(tier: string): string {
     default:
       return "var(--color-text-primary)"
   }
+}
+
+function FreshnessIndicator({ freshness }: { freshness: string }) {
+  const dotClass =
+    freshness === "fresh"
+      ? "bg-emerald-500"
+      : freshness === "stale"
+        ? "bg-amber-500"
+        : "bg-red-500"
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-text-tertiary" data-testid="freshness-indicator">
+      <span className={`inline-block w-1.5 h-1.5 rounded-full ${dotClass}`} />
+      {freshness}
+    </span>
+  )
 }
 
 interface PickHeroCardProps {
@@ -54,19 +69,43 @@ export function PickHeroCard({ pick, rank }: PickHeroCardProps) {
             </h3>
             <ConvictionBadge level={pick.composite_tier} />
           </div>
-          <p className="text-sm text-text-secondary mb-1">{pick.name}</p>
+          <p className="text-sm text-text-secondary mb-1 truncate" data-testid="pick-name">{pick.name}</p>
           {pick.sector && (
             <span className="text-caption text-text-tertiary">
               {pick.sector}
             </span>
           )}
-          <div className="mt-3">
+          <div className="mt-4">
             <span
               className="font-mono text-[36px] font-bold leading-none tracking-tight"
               style={{ color: getTierColor(pick.composite_tier) }}
             >
               {formatScore(pick.score)}
             </span>
+          </div>
+          {/* Metadata row */}
+          <div className="flex flex-wrap items-center gap-3 mt-3">
+            {pick.margin_of_safety != null && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 font-mono">
+                MoS {Math.round(pick.margin_of_safety * 100)}%
+              </span>
+            )}
+            {pick.price_upside != null && (
+              <span className={`text-xs font-mono font-medium ${
+                pick.price_upside >= 0 ? "text-emerald-400" : "text-red-400"
+              }`}>
+                {pick.price_upside >= 0 ? "+" : ""}{(pick.price_upside * 100).toFixed(1)}%
+              </span>
+            )}
+            {pick.opportunity_type && (
+              <span className="text-xs text-text-tertiary">{pick.opportunity_type}</span>
+            )}
+            {pick.data_freshness && <FreshnessIndicator freshness={pick.data_freshness} />}
+            {pick.scored_at && (
+              <span className="text-xs text-text-tertiary font-mono">
+                {formatRelativeTime(pick.scored_at)}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4 mt-3 text-sm">
             {pick.actual_price != null && (
