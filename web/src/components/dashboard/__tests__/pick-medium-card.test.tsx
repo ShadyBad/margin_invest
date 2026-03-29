@@ -47,6 +47,13 @@ const mediumPickMSFT: PickSummary = {
   sector: "Technology",
 }
 
+const enrichedMediumPick: PickSummary = {
+  ...mediumPickMSFT,
+  margin_of_safety: 0.15,
+  opportunity_type: "compounder",
+  scored_at: new Date(Date.now() - 3600_000).toISOString(),
+}
+
 describe("PickMediumCard", () => {
   it("renders ticker", () => {
     render(<PickMediumCard pick={mediumPickMSFT} rank={2} />)
@@ -66,5 +73,20 @@ describe("PickMediumCard", () => {
   it("renders tier badge", () => {
     render(<PickMediumCard pick={mediumPickMSFT} rank={2} />)
     expect(screen.getByText("High")).toBeInTheDocument()
+  })
+
+  it("renders margin of safety when present", () => {
+    render(<PickMediumCard pick={enrichedMediumPick} rank={1} />)
+    expect(screen.getByText(/MoS 15%/)).toBeInTheDocument()
+  })
+
+  it("renders opportunity type when present", () => {
+    render(<PickMediumCard pick={enrichedMediumPick} rank={1} />)
+    expect(screen.getByText("compounder")).toBeInTheDocument()
+  })
+
+  it("hides margin of safety when null", () => {
+    render(<PickMediumCard pick={{ ...enrichedMediumPick, margin_of_safety: null }} rank={1} />)
+    expect(screen.queryByText(/MoS/)).toBeNull()
   })
 })

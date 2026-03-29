@@ -4,7 +4,7 @@ import Link from "next/link"
 import { FactorSignature } from "@/components/visualizations/factor-signature"
 import { ConvictionBadge } from "@/components/ui"
 import type { PickSummary } from "@/lib/api/types"
-import { formatScore } from "@/lib/format"
+import { formatScore, formatRelativeTime } from "@/lib/format"
 
 function getTierColor(tier: string): string {
   switch (tier) {
@@ -42,13 +42,29 @@ export function PickMediumCard({ pick, rank }: PickMediumCardProps) {
         </div>
         <ConvictionBadge level={pick.composite_tier} />
       </div>
-      <div className="mb-3">
+      <div className="mb-4">
         <span
           className="font-mono text-[28px] font-bold leading-none tracking-tight"
           style={{ color: getTierColor(pick.composite_tier) }}
         >
           {formatScore(pick.score)}
         </span>
+      </div>
+      {/* Metadata row */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {pick.margin_of_safety != null && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 font-mono">
+            MoS {Math.round(pick.margin_of_safety * 100)}%
+          </span>
+        )}
+        {pick.opportunity_type && (
+          <span className="text-xs text-text-tertiary">{pick.opportunity_type}</span>
+        )}
+        {pick.scored_at && (
+          <span className="text-xs text-text-tertiary font-mono">
+            {formatRelativeTime(pick.scored_at)}
+          </span>
+        )}
       </div>
       <FactorSignature
         factors={{
