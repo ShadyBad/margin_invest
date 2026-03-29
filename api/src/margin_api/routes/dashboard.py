@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
+# Minimum composite_score (0-10 scale) for a pick to appear on the dashboard.
+# 5.0 on 0-10 scale = 50 on the 0-100 UI scale.
+MINIMUM_PICK_SCORE = 5.0
+
 
 # ---------------------------------------------------------------------------
 # Factor-percentile extraction from JSONB detail
@@ -321,9 +325,10 @@ async def _fetch_picks_and_watchlist(
     v4_valid = v4_base.where(V4Score.composite_score > 0)
 
     picks_result = await db.execute(
-        v4_valid.where(V4Score.conviction.in_(["exceptional", "high"])).order_by(
-            V4Score.composite_score.desc()
-        )
+        v4_valid.where(
+            V4Score.conviction.in_(["exceptional", "high"]),
+            V4Score.composite_score >= MINIMUM_PICK_SCORE,
+        ).order_by(V4Score.composite_score.desc())
     )
     picks = [_pick_summary_from_v4_row(row) for row in picks_result.all()]
 
@@ -334,7 +339,11 @@ async def _fetch_picks_and_watchlist(
 
     # V4 fallback: show top-ranked if no conviction-based picks
     if not picks and not watchlist:
-        top_result = await db.execute(v4_valid.order_by(V4Score.composite_score.desc()).limit(10))
+        top_result = await db.execute(
+            v4_valid.where(V4Score.composite_score >= MINIMUM_PICK_SCORE)
+            .order_by(V4Score.composite_score.desc())
+            .limit(10)
+        )
         picks = [_pick_summary_from_v4_row(row) for row in top_result.all()]
 
     # ── Legacy Score fallback (no valid V4 data) ──────────────────────

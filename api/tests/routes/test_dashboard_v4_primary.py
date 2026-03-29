@@ -384,6 +384,39 @@ class TestDashboardV4Primary:
             assert "legacy_scores" in data
             assert "tier_breakdown" in data
 
+    async def test_low_score_excluded_from_picks(self, session_factory):
+        """V4Score with conviction='high' but composite_score below the 5.0 floor should NOT appear in picks."""
+        async with session_factory() as session:
+            asset = Asset(ticker="LOW", name="Low Score Corp", sector="Technology")
+            session.add(asset)
+            await session.flush()
+
+            v4 = V4Score(
+                asset_id=asset.id,
+                scored_at=datetime.now(UTC),
+                opportunity_type="compounder",
+                conviction="high",
+                rules_conviction="high",
+                style="growth",
+                timing_signal="buy_now",
+                max_position_pct=3.0,
+                regime="normal",
+                composite_score=4.5,  # Below 5.0 floor — must be excluded
+                ml_override="none",
+                detail=_make_v4_detail(),
+            )
+            session.add(v4)
+            await session.commit()
+
+        async with _make_client(session_factory) as client:
+            resp = await client.get("/api/v1/dashboard")
+            assert resp.status_code == 200
+            data = resp.json()
+            tickers_in_picks = [p["ticker"] for p in data["picks"]]
+            assert "LOW" not in tickers_in_picks, (
+                f"'LOW' (score=4.5) should be excluded by the 5.0 floor, but appeared in picks: {tickers_in_picks}"
+            )
+
     async def test_v4_detail_none_graceful(self, session_factory):
         """V4Score with detail=None should still produce picks (with zero percentiles)."""
         async with session_factory() as session:
