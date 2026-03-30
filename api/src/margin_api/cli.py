@@ -2195,7 +2195,7 @@ async def run_backfill_13f(start_year: int = 2013, max_managers: int = 300) -> N
         service = ThirteenFIngestService(session)
         await service.upsert_managers(funds_to_process)
 
-    edgar = EDGARProvider()
+    edgar = EDGARProvider(user_agent="margin-invest/1.0 (backfill-13f)")
     total_filings = 0
 
     for i, mgr_data in enumerate(funds_to_process, 1):
