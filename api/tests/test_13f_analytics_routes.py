@@ -281,9 +281,9 @@ async def test_clone_portfolio(client, seeded_db):
     data = resp.json()
     assert data["manager"] == "Berkshire"
     assert len(data["positions"]) > 0
-    # Weights should sum to ~100
+    # Weights are decimal fractions (0-1 scale); should sum to ~1.0
     total = sum(p["target_weight"] for p in data["positions"])
-    assert 99.0 <= total <= 101.0
+    assert 0.99 <= total <= 1.01
 
 
 @pytest.mark.asyncio

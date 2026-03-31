@@ -451,7 +451,7 @@ async def get_clone_portfolio(
     rows = holdings_result.all()
 
     if "equal_weight" in strategy:
-        weight = round(100.0 / len(rows), 2) if rows else 0
+        weight = round(1.0 / len(rows), 4) if rows else 0
         positions = [
             ClonePosition(ticker=row.ticker or "UNKNOWN", target_weight=weight) for row in rows
         ]
@@ -461,7 +461,7 @@ async def get_clone_portfolio(
         positions = [
             ClonePosition(
                 ticker=row.ticker or "UNKNOWN",
-                target_weight=round((row.value_thousands / total) * 100, 2),
+                target_weight=round(row.value_thousands / total, 4),
             )
             for row in rows
         ]

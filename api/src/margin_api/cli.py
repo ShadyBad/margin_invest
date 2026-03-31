@@ -23,7 +23,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from margin_api.db.models import Asset, FinancialData
+from margin_api.db.models import Asset, FinancialData, SecurityMaster
 from margin_api.db.session import get_engine, get_session_factory
 from margin_api.services.ingestion import (
     classify_error,
@@ -3111,6 +3111,394 @@ async def _run_nlp_only_backfill(batch_size: int = 50) -> None:
     )
 
 
+async def run_backfill_security_tickers() -> None:
+    """Backfill security_master.ticker using name-matching against the assets table.
+
+    Strategy:
+    1. Apply a hardcoded CUSIP-to-ticker map for well-known securities.
+    2. For remaining null-ticker rows, attempt case-insensitive name matching
+       against assets.name (normalised: strip punctuation, lowercase).
+    3. Log matches and misses; commit in a single transaction.
+    """
+    import re
+    import unicodedata
+
+    # ---------------------------------------------------------------------------
+    # Hardcoded CUSIP → ticker for the most commonly held securities where
+    # the SEC issuer name diverges enough that fuzzy matching may miss them.
+    # ---------------------------------------------------------------------------
+    cusip_map: dict[str, str] = {
+        # Big caps held by Berkshire / Pershing / Bill Ackman / etc.
+        "037833100": "AAPL",   # APPLE INC
+        "023135106": "AMZN",   # AMAZON COM INC
+        "02079K107": "GOOGL",  # ALPHABET INC (Class A)
+        "02079K305": "GOOG",   # ALPHABET INC (Class C)
+        "025816109": "AXP",    # AMERICAN EXPRESS CO
+        "191216100": "KO",     # COCA COLA CO
+        "060505104": "BAC",    # BANK AMER CORP
+        "76131D103": "QSR",    # RESTAURANT BRANDS INTL INC
+        "166764100": "CVX",    # CHEVRON CORP NEW
+        "169656105": "CMG",    # CHIPOTLE MEXICAN GRILL INC
+        "43300A203": "HLT",    # HILTON WORLDWIDE HLDGS INC
+        "11271J107": "BN",     # BROOKFIELD CORP
+        "44267T102": "HHH",    # HOWARD HUGHES HOLDINGS INC
+        "44267D107": "HHC",    # HOWARD HUGHES CORP
+        "674599105": "OXY",    # OCCIDENTAL PETE CORP
+        "615369105": "MCO",    # MOODYS CORP
+        "90353T100": "UBER",   # UBER TECHNOLOGIES INC
+        "500754106": "KHC",    # KRAFT HEINZ CO
+        "13646K108": "CPKC",   # CANADIAN PACIFIC KANSAS CITY
+        "13645T100": "CP",     # CANADIAN PAC RY LTD
+        "H1467J104": "CB",     # CHUBB LIMITED
+        "548661107": "LOW",    # LOWES COS INC
+        "23918K108": "DVA",    # DAVITA INC
+        "92343E102": "VRSN",   # VERISIGN INC
+        "501044101": "KR",     # KROGER CO
+        "654106103": "NKE",    # NIKE INC
+        "92826C839": "V",      # VISA INC
+        "829933100": "SIRI",   # SIRIUS XM HOLDINGS INC
+        "82968B103": "SIRI",   # SIRIUS XM HLDGS INC (different CUSIP, same co)
+        "57636Q104": "MA",     # MASTERCARD INC
+        "21036P108": "STZ",    # CONSTELLATION BRANDS INC
+        "30303M102": "META",   # META PLATFORMS INC
+        "67066G104": "NVDA",   # NVIDIA CORPORATION
+        "88160R101": "TSLA",   # TESLA INC
+        "458140100": "INTC",   # INTEL CORP
+        "459200101": "IBM",    # INTERNATIONAL BUSINESS MACHS
+        "717081103": "PFE",    # PFIZER INC
+        "742918109": "PG",     # PROCTER & GAMBLE CO (alt CUSIP)
+        "742718109": "PG",     # PROCTER & GAMBLE CO
+        "478160104": "JNJ",    # JOHNSON & JOHNSON
+        "46625H100": "JPM",    # JPMORGAN CHASE & CO
+        "931142103": "WMT",    # WAL MART STORES INC
+        "064058100": "BK",     # BANK OF NEW YORK MELLON CORP
+        "38141G104": "GS",     # GOLDMAN SACHS GROUP INC
+        "172967424": "C",      # CITIGROUP INC
+        "172967226": "C",      # CITIGROUP INC (another series)
+        "949746101": "WFC",    # WELLS FARGO & CO NEW
+        "693475105": "PNC",    # PNC FINL SVCS GROUP INC
+        "883556102": "TMO",    # THERMO FISHER SCIENTIFIC INC
+        "855244109": "SBUX",   # STARBUCKS CORP
+        "22160K105": "COST",   # COSTCO WHSL CORP NEW
+        "110122108": "BMY",    # BRISTOL MYERS SQUIBB CO
+        "031162100": "AMGN",   # AMGEN INC
+        "097023105": "BA",     # BOEING CO
+        "09062X103": "BIIB",   # BIOGEN INC
+        "09260D107": "BX",     # BLACKSTONE GROUP INC
+        "14040H105": "COF",    # CAPITAL ONE FINL CORP
+        "126650100": "CVS",    # CVS HEALTH CORP
+        "125523100": "CI",     # CIGNA CORP NEW
+        "244199105": "DE",     # DEERE & CO
+        "247361702": "DAL",    # DELTA AIR LINES INC DEL
+        "254687106": "DIS",    # DISNEY WALT CO
+        "256677105": "DG",     # DOLLAR GEN CORP NEW
+        "25754A201": "DPZ",    # DOMINOS PIZZA INC
+        "278642103": "EBAY",   # EBAY INC.
+        "31428X106": "FDX",    # FEDEX CORP
+        "337738108": "FI",     # FISERV INC
+        "336433107": "FSLR",   # FIRST SOLAR INC
+        "369550108": "GD",     # GENERAL DYNAMICS CORP
+        "369604103": "GE",     # GENERAL ELECTRIC CO
+        "37045V100": "GM",     # GENERAL MTRS CO
+        "406216101": "HAL",    # HALLIBURTON CO
+        "40412C101": "HCA",    # HCA HEALTHCARE INC
+        "444859102": "HUM",    # HUMANA INC
+        "46982L108": "J",      # JACOBS SOLUTIONS INC
+        "49456B101": "KMI",    # KINDER MORGAN INC DEL
+        "517834107": "LVS",    # LAS VEGAS SANDS CORP
+        "518439104": "EL",     # LAUDER ESTEE COS INC
+        "526057302": "LEN",    # LENNAR CORP
+        "539830109": "LMT",    # LOCKHEED MARTIN CORP
+        "550021109": "LULU",   # LULULEMON ATHLETICA INC
+        "56585A102": "MPC",    # MARATHON PETE CORP
+        "58155Q103": "MCK",    # MCKESSON CORP
+        "58733R102": "MELI",   # MERCADOLIBRE INC
+        "595112103": "MU",     # MICRON TECHNOLOGY INC
+        "609207105": "MDLZ",   # MONDELEZ INTL INC
+        "62944T105": "NVR",    # NVR INC
+        "637071101": "NOV",    # NATIONAL OILWELL VARCO INC
+        "64110L106": "NFLX",   # NETFLIX INC
+        "68389X105": "ORCL",   # ORACLE CORP
+        "70450Y103": "PYPL",   # PAYPAL HLDGS INC
+        "718546104": "PSX",    # PHILLIPS 66
+        "723787107": "PXD",    # PIONEER NAT RES CO
+        "747525103": "QCOM",   # QUALCOMM INC
+        "75886F107": "REGN",   # REGENERON PHARMACEUTICALS
+        "844741108": "LUV",    # SOUTHWEST AIRLS CO
+        "867224107": "SU",     # SUNCOR ENERGY INC NEW
+        "872590104": "TMUS",   # T-MOBILE US INC
+        "881624209": "TEVA",   # TEVA PHARMACEUTICAL INDS LTD
+        "89374L104": "TBIO",   # TRANSLATE BIO INC
+        "89417E109": "TRV",    # TRAVELERS COMPANIES INC
+        "907818108": "UNP",    # UNION PAC CORP
+        "910047109": "UAL",    # UNITED CONTL HLDGS INC
+        "911312106": "UPS",    # UNITED PARCEL SERVICE INC
+        "91324P102": "UNH",    # UNITEDHEALTH GROUP INC
+        "92343V104": "VZ",     # VERIZON COMMUNICATIONS INC
+        "92345Y106": "VRSK",   # VERISK ANALYTICS INC
+        "98978V103": "ZTS",    # ZOETIS INC
+        "053015103": "ADP",    # AUTOMATIC DATA PROCESSING IN
+        "00846U101": "A",      # AGILENT TECHNOLOGIES INC
+        "00206R102": "T",      # AT&T INC
+        "02209S103": "MO",     # ALTRIA GROUP INC
+        "151020104": "CELG",   # CELGENE CORP (now BMY)
+        "N07059210": "ASML",   # ASML HOLDING N V
+        "055622104": "BP",     # BP PLC
+        "056752108": "BIDU",   # BAIDU INC
+        "01609W102": "BABA",   # ALIBABA GROUP HLDG LTD
+        "47215P106": "JD",     # JD.COM INC
+        "83088M102": "SWKS",   # SKYWORKS SOLUTIONS INC
+        "74736K101": "QRVO",   # QORVO INC
+        "874060205": "TAK",    # TAKEDA PHARMACEUTICAL CO LTD
+        "80105N105": "SNY",    # SANOFI
+        "G7997R103": "STX",    # SEAGATE TECHNOLOGY HLDNGS PL
+        "958102105": "WDC",    # WESTERN DIGITAL CORP.
+        "84920Y106": "SPWH",   # SPORTSMANS WHSE HLDGS INC
+        "G96629103": "WTW",    # WILLIS TOWERS WATSON PLC LTD
+        "983134107": "WYNN",   # WYNN RESORTS LTD
+        "983793100": "XPO",    # XPO LOGISTICS INC
+        "G25508105": "CRH",    # CRH PLC
+        "G4412G101": "HLF",    # HERBALIFE LTD
+        "G50871105": "JAZZ",   # JAZZ PHARMACEUTICALS PLC
+        "G0403H108": "AON",    # AON PLC
+        "G1890L107": "CPRI",   # CAPRI HOLDINGS LIMITED
+        "536797103": "LAD",    # LITHIA MTRS INC
+        "546347105": "LPX",    # LOUISIANA PAC CORP
+        "550241103": "LUMN",   # LUMEN TECHNOLOGIES INC
+        "156700106": "LUMN",   # LUMEN TECHNOLOGIES INC (alt CUSIP)
+        "55261F104": "MTB",    # M & T BK CORP
+        "22304C100": "CVET",   # COVETRUS INC
+        "225310101": "CACC",   # CREDIT ACCEP CORP MICH
+        "22410J106": "CBRL",   # CRACKER BARREL OLD CTRY STOR
+        "14149Y108": "CAH",    # CARDINAL HEALTH INC
+        "136385101": "CNQ",    # CANADIAN NAT RES LTD
+        "135086106": "GOOS",   # CANADA GOOSE HLDGS INC
+        "185899101": "CLF",    # CLEVELAND CLIFFS INC
+        "103304101": "BYD",    # BOYD GAMING CORP
+        "N82405106": "STLA",   # STELLANTIS N.V
+        "83444M101": "SOLV",   # SOLVENTUM CORP
+        "836100107": "SOUN",   # SOUNDHOUND AI INC
+        "G8601L102": "SVF",    # SVF INVESTMENT CORP (SPAC)
+        "86771W105": "RUN",    # SUNRUN INC
+        "G8807B106": "TBPH",   # THERAVANCE BIOPHARMA INC
+        "443201108": "HWM",    # HOWMET AEROSPACE INC
+        "40434L105": "HPQ",    # HP INC
+        "78462F103": "SPY",    # SPDR S&P 500 ETF TR
+        "78442P106": "SLM",    # SLM CORP
+        "87165B103": "SYF",    # SYNCHRONY FINL
+        "862121100": "STOR",   # STORE CAP CORP
+        "848574109": "SPR",    # SPIRIT AEROSYSTEMS HLDGS INC
+        "829226109": "SBGI",   # SINCLAIR BROADCAST GROUP INC
+        "344849104": "FL",     # FOOT LOCKER INC
+        "384637104": "GHC",    # GRAHAM HLDGS CO
+        "75737FAC2": "RDFN",   # REDFIN CORP
+        "76131N101": "ROIC",   # RETAIL OPPORTUNITY INVTS COR
+        "74967X103": "RH",     # RH
+        "902973304": "USB",    # US BANCORP DEL
+        "916406307": "USB",    # US BANCORP (alt CUSIP)
+        "918204108": "VFC",    # V F CORP
+        "P31076105": "CPA",    # COPA HOLDINGS SA
+        "G6564A105": "NOMD",   # NOMAD FOODS LTD
+        "47233W109": "JEF",    # JEFFERIES FINL GROUP INC
+        "37253A103": "THRM",   # GENTHERM INC
+        "37940X102": "GPN",    # GLOBAL PMTS INC
+        "37959E102": "GL",     # GLOBE LIFE INC
+        "G4124C109": "GRAB",   # GRAB HOLDINGS LIMITED
+        "G65163100": "JOBY",   # JOBY AVIATION INC
+        "57778K105": "MAXR",   # MAXAR TECHNOLOGIES INC
+        "60855R100": "MOH",    # MOLINA HEALTHCARE INC
+        "60871R209": "TAP",    # MOLSON COORS BEVERAGE CO
+        "608190104": "MHK",    # MOHAWK INDS INC
+        "61166W101": "MON",    # MONSANTO CO NEW (now Bayer)
+        "G5315B107": "KOS",    # KOSMOS ENERGY LTD
+        "73278L105": "POOL",   # POOL CORP
+        "21872L104": "CPLG",   # COREPOINT LODGING INC
+        "21871N101": "CXW",    # CORECIVIC INC
+        "04010L103": "ARCC",   # ARES CAPITAL CORP
+        "09228F103": "BB",     # BLACKBERRY LTD
+        "84860W102": "SRC",    # SPIRIT RLTY CAP INC NEW
+        "G21810109": "CLVT",   # CLARIVATE PLC
+        "N00985106": "AER",    # AERCAP HOLDINGS NV
+        "007800105": "AJRD",   # AEROJET ROCKETDYNE HLDGS INC
+        "009158106": "APD",    # AIR PRODS & CHEMS INC
+        "020002101": "ALL",    # ALLSTATE CORP
+        "02005N100": "ALLY",   # ALLY FINL INC
+        "03073E105": "ABC",    # AMERISOURCEBERGEN CORP
+        "053774105": "CAR",    # AVIS BUDGET GROUP
+        "073730103": "BEAM",   # BEAM INC
+        "07831C103": "BRBR",   # BELLRING BRANDS INC
+        "084670702": "BRK.B",  # BERKSHIRE HATHAWAY INC DEL
+        "G1739V118": "BSN",    # BROADSTONE ACQUISITION CORP
+        "116794207": "BRKR",   # BRUKER CORP
+        "15135U109": "CVE",    # CENOVUS ENERGY INC
+        "16117M305": "CHTR",   # CHARTER COMMUNICATIONS INC
+        "16119P108": "CHTR",   # CHARTER COMMUNICATIONS INC (alt)
+        "16411R208": "LNG",    # CHENIERE ENERGY INC
+        "124857202": "CBS",    # CBS CORP NEW
+        "203668108": "CYH",    # COMMUNITY HEALTH SYS INC NEW
+        "24703L103": "DELL",   # DELL TECHNOLOGIES INC
+        "25243Q205": "DEO",    # DIAGEO P L C
+        "25401T108": "DBRG",   # DIGITALBRIDGE GROUP INC
+        "26210C104": "DBX",    # DROPBOX INC
+        "268648102": "EMC",    # E M C CORP MASS
+        "26969P108": "EXP",    # EAGLE MATLS INC
+        "29261A100": "EHC",    # ENCOMPASS HEALTH CORP
+        "29273V100": "ET",     # ENERGY TRANSFER LP
+        "29332G102": "EHAB",   # ENHABIT INC
+        "31620R303": "FNF",    # FIDELITY NATIONAL FINANCIAL
+        "31620M106": "FIS",    # FIDELITY NATL INFORMATION SV
+        "31773D101": "FNCH",   # FINCH THERAPEUTICS GROUP INC
+        "34986J105": "FWP",    # FORWARD PHARMA A/S
+        "35137L105": "FOX",    # FOX CORP
+        "35137L204": "FOXA",   # FOX CORP (Class A)
+        "35906A207": "FYBR",   # FRONTIER COMMUNICATIONS CORP
+        "36467W109": "GME",    # GAMESTOP CORP NEW
+        "36165L108": "GDS",    # GDS HLDGS LTD
+        "53046P109": "LEXEA",  # LIBERTY EXPEDIA HOLDINGS
+        "531229722": "LSXMA",  # LIBERTY MEDIA CORP DEL
+        "531229748": "LSXMB",  # LIBERTY MEDIA CORP DEL
+        "53224V100": "LOCK",   # LIFELOCK INC
+        "647581206": "EDU",    # NEW ORIENTAL ED & TECHNOLOGY
+        "65336K103": "NXST",   # NEXSTAR MEDIA GROUP INC
+        "66705Y104": "NSAM",   # NORTHSTAR ASSET MGMT GROUP I
+        "668771108": "GEN",    # NORTONLIFELOCK INC
+        "67020Y100": "NUAN",   # NUANCE COMMUNICATIONS INC
+        "69608A108": "PLTR",   # PALANTIR TECHNOLOGIES INC
+        "69002R103": "OB",     # OUTBRAIN INC
+        "69047Q102": "OVV",    # OVINTIV INC
+        "69318G106": "PBF",    # PBF ENERGY INC
+        "722304102": "PDD",    # PDD HOLDINGS INC
+        "71531R109": "PSTH",   # PERSHING SQUARE TONTINE HLDG
+        "756577102": "RHT",    # RED HAT INC
+        "933011108": "WBD",    # WARNER BROS DISCOVERY INC
+        "934423104": "WBD",    # WARNER BROS DISCOVERY INC (alt)
+        "86722A103": "SXC",    # SUNCOKE ENERGY INC
+        "74022D308": "PD",     # PRECISION DRILLING CORP
+        "74139C102": "PVG",    # PRETIUM RES INC
+        "G39637205": "GOGL",   # GOLDEN OCEAN GROUP LTD
+        "466367109": "JACK",   # JACK IN THE BOX INC
+        "457030104": "IMKTA",  # INGLES MKTS INC
+        "424915107": "HOLX",   # HOLOGIC INC
+        "750481103": "RADI",   # RADIUS GLOBAL INFRASTRCTRE I
+        "G6610J209": "NE",     # NOBLE CORP NEW
+        "033924305": "AMTD",   # AMTD IDEA GROUP
+        "G0083B108": "ACT",    # ACTAVIS PLC (now AbbVie/Allergan)
+        "25460G849": "DPST",   # DIREXION SHS ETF TR
+        "G8062D128": "STGW",   # SENTINEL ENERGY SVCS INC (SPAC)
+        "82028K200": "SJR",    # SHAW COMMUNICATIONS INC
+        "52472M109": "LH",     # LABORATORY CORP
+        "G0750C108": "AXTA",   # AXALTA COATING SYS LTD
+        "M5R75Y101": "IS",     # IRONSOURCE LTD
+        "G4771L121": "IIAC",   # INVESTINDUSTRIAL ACQUISITION (SPAC)
+        "N30577113": "ZGN",    # ERMENEGILDO ZEGNA N V
+    }
+
+    def _normalize(name: str) -> str:
+        """Lower-case, strip punctuation/extra spaces for fuzzy matching."""
+        name = name.lower()
+        name = unicodedata.normalize("NFKD", name)
+        name = re.sub(r"[^a-z0-9 ]", " ", name)
+        name = re.sub(r"\s+", " ", name).strip()
+        return name
+
+    # Common suffixes to strip for matching
+    suffixes_to_strip = [
+        "incorporated", "corporation", "company", "limited", "holdings",
+        "inc", "corp", "co", "ltd", "plc", "lp", "llc", "nv", "ag", "sa",
+        "new", "del", "the",
+    ]
+
+    def _strip_suffixes(name: str) -> str:
+        parts = name.split()
+        while parts and parts[-1] in suffixes_to_strip:
+            parts = parts[:-1]
+        return " ".join(parts)
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    async with session_factory() as session:
+        # Load all assets (ticker, name)
+        asset_rows = await session.execute(select(Asset.ticker, Asset.name))
+        assets_list = asset_rows.all()
+
+        # Build lookup structures
+        # exact norm name → ticker
+        exact_map: dict[str, str] = {}
+        # stripped norm name → ticker
+        stripped_map: dict[str, str] = {}
+        for ticker, name in assets_list:
+            n = _normalize(name)
+            exact_map[n] = ticker
+            s = _strip_suffixes(n)
+            if s:
+                stripped_map[s] = ticker
+
+        # Load all security_master rows with null ticker
+        sm_rows = await session.execute(
+            select(SecurityMaster).where(SecurityMaster.ticker.is_(None))
+        )
+        sm_list = sm_rows.scalars().all()
+
+        updated = 0
+        skipped = 0
+
+        for sm in sm_list:
+            ticker: str | None = None
+            method: str = "unresolved"
+
+            # Step 1: hardcoded CUSIP map
+            if sm.cusip in cusip_map:
+                ticker = cusip_map[sm.cusip]
+                method = "cusip_map"
+
+            # Step 2: name-based matching
+            if ticker is None:
+                norm = _normalize(sm.issuer_name)
+                if norm in exact_map:
+                    ticker = exact_map[norm]
+                    method = "name_exact"
+                else:
+                    stripped = _strip_suffixes(norm)
+                    if stripped and stripped in stripped_map:
+                        ticker = stripped_map[stripped]
+                        method = "name_stripped"
+                    else:
+                        # Step 3: startswith match (issuer_name prefix against asset name)
+                        for asset_norm, asset_ticker in exact_map.items():
+                            if asset_norm.startswith(stripped) and stripped:
+                                ticker = asset_ticker
+                                method = "name_prefix"
+                                break
+
+            if ticker is not None:
+                sm.ticker = ticker
+                sm.resolution_method = method
+                updated += 1
+                logger.info(
+                    "[backfill-security-tickers] %s → %s (%s)",
+                    sm.issuer_name,
+                    ticker,
+                    method,
+                )
+            else:
+                skipped += 1
+                logger.debug(
+                    "[backfill-security-tickers] No match for CUSIP=%s name=%s",
+                    sm.cusip,
+                    sm.issuer_name,
+                )
+
+        await session.commit()
+
+    logger.info(
+        "[backfill-security-tickers] Done: %d updated, %d unresolved out of %d total",
+        updated,
+        skipped,
+        updated + skipped,
+    )
+
+
 def main() -> None:
     """CLI entry point with argparse."""
     logging.basicConfig(
@@ -3454,6 +3842,12 @@ def main() -> None:
         help="Pause after this many filings (default: 50)",
     )
 
+    # backfill-security-tickers
+    subparsers.add_parser(
+        "backfill-security-tickers",
+        help="Backfill security_master.ticker using CUSIP map + name matching against assets",
+    )
+
     # promote-admin
     promote_parser = subparsers.add_parser(
         "promote-admin",
@@ -3557,6 +3951,8 @@ def main() -> None:
         asyncio.run(_run_nlp_only_backfill(batch_size=args.batch_size))
     elif args.command == "promote-admin":
         asyncio.run(_promote_admin(args.email, args.role))
+    elif args.command == "backfill-security-tickers":
+        asyncio.run(run_backfill_security_tickers())
     else:
         parser.print_help()
         sys.exit(1)
