@@ -293,7 +293,7 @@ class DatabasePITProvider:
             vol = ticker_volumes.get(ticker)
             profile.avg_daily_volume = Decimal(str(vol or 0))
             earliest = earliest_filings.get(ticker, as_of_date)
-            profile.years_of_history = max(0, (as_of_date - earliest).days // 365)
+            profile.years_of_history = max(0, round((as_of_date - earliest).days / 365))
 
             # Apply market cap filter
             if float(profile.market_cap) < self._min_market_cap:

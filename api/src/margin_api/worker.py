@@ -104,7 +104,7 @@ async def score_ticker(*, ticker: str, session: AsyncSession) -> bool:
                 try:
                     first = datetime.fromisoformat(str(valid_dates[0]))
                     last = datetime.fromisoformat(str(valid_dates[-1]))
-                    years_of_history = max(1, int(abs((last - first).days) / 365))
+                    years_of_history = max(1, round(abs((last - first).days) / 365))
                 except (ValueError, TypeError):
                     pass
 

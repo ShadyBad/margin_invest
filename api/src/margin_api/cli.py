@@ -674,7 +674,7 @@ async def run_scoring(tickers: list[str] | None = None) -> None:
                         try:
                             first = datetime.fromisoformat(str(valid_dates[0]))
                             last = datetime.fromisoformat(str(valid_dates[-1]))
-                            yrs_hist = max(1, int(abs((last - first).days) / 365))
+                            yrs_hist = max(1, round(abs((last - first).days) / 365))
                         except (ValueError, TypeError):
                             pass
 
@@ -902,7 +902,7 @@ async def run_scoring_v3(tickers: list[str] | None = None, cape: float | None = 
                         try:
                             first = datetime.fromisoformat(str(valid_dates[0]))
                             last = datetime.fromisoformat(str(valid_dates[-1]))
-                            yrs_hist = max(1, int(abs((last - first).days) / 365))
+                            yrs_hist = max(1, round(abs((last - first).days) / 365))
                         except (ValueError, TypeError):
                             pass
 
@@ -1417,7 +1417,7 @@ async def run_scoring_v4(tickers: list[str] | None = None, cape: float | None = 
                         try:
                             first = datetime.fromisoformat(str(valid_dates[0]))
                             last = datetime.fromisoformat(str(valid_dates[-1]))
-                            yrs_hist = max(1, int(abs((last - first).days) / 365))
+                            yrs_hist = max(1, round(abs((last - first).days) / 365))
                         except (ValueError, TypeError):
                             pass
 
