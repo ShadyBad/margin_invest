@@ -385,7 +385,11 @@ class TestDashboardV4Primary:
             assert "tier_breakdown" in data
 
     async def test_low_score_excluded_from_picks(self, session_factory):
-        """V4Score with high conviction but score below 5.0 floor excluded."""
+        """V4Score with high conviction but normalized score below 50 excluded."""
+        low_detail = _make_v4_detail()
+        low_detail["composite_raw_score"] = 40.0
+        low_detail["composite_percentile"] = 40.0
+
         async with session_factory() as session:
             asset = Asset(ticker="LOW", name="Low Score Corp", sector="Technology")
             session.add(asset)
@@ -401,9 +405,9 @@ class TestDashboardV4Primary:
                 timing_signal="buy_now",
                 max_position_pct=3.0,
                 regime="normal",
-                composite_score=4.5,  # Below 5.0 floor — must be excluded
+                composite_score=4.0,
                 ml_override="none",
-                detail=_make_v4_detail(),
+                detail=low_detail,
             )
             session.add(v4)
             await session.commit()
@@ -414,7 +418,7 @@ class TestDashboardV4Primary:
             data = resp.json()
             tickers_in_picks = [p["ticker"] for p in data["picks"]]
             assert "LOW" not in tickers_in_picks, (
-                f"LOW (score=4.5) should be excluded by floor: {tickers_in_picks}"
+                f"LOW (score=40) should be excluded: {tickers_in_picks}"
             )
 
     async def test_v4_detail_none_graceful(self, session_factory):
