@@ -2,6 +2,8 @@ import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { AppShell } from "@/components/layout"
 import { PicksGrid, WatchlistPicksList, IngestionBanner, RecentChanges } from "@/components/dashboard"
+import { UserWatchlist } from "@/components/dashboard/user-watchlist"
+import { AlertManager } from "@/components/dashboard/alert-manager"
 import { DashboardGreeting } from "@/components/dashboard/dashboard-greeting"
 import { PortfolioConviction } from "@/components/dashboard/portfolio-conviction"
 import { ProposalBanner } from "@/components/dashboard/proposal-banner"
@@ -177,7 +179,23 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          {/* Watchlist section */}
+          {/* User Watchlist section */}
+          <section className="mb-10">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
+              Your Watchlist
+            </h2>
+            <UserWatchlist />
+          </section>
+
+          {/* Alerts section */}
+          <section className="mb-10">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
+              Score Alerts
+            </h2>
+            <AlertManager />
+          </section>
+
+          {/* System-curated watchlist picks (keep existing) */}
           {(data?.watchlist?.length ?? 0) > 0 && (
             <section>
               <h2 className="text-lg font-semibold text-text-primary mb-4">
