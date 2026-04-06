@@ -1460,3 +1460,53 @@ class SegmentRevenueHistory(Base):
             name="uq_segment_revenue_ticker_date_segment",
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Watchlist & Score Alerts
+# ---------------------------------------------------------------------------
+
+
+class Watchlist(Base):
+    __tablename__ = "watchlists"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False)
+    added_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    user: Mapped[User] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "ticker", name="uq_watchlists_user_ticker"),
+        Index("ix_watchlists_user_id", "user_id"),
+    )
+
+
+class ScoreAlert(Base):
+    __tablename__ = "score_alerts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False)
+    alert_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    threshold: Mapped[Decimal | None] = mapped_column(Float, nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    last_triggered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    user: Mapped[User] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "ticker", "alert_type", name="uq_score_alerts_user_ticker_type"
+        ),
+        Index("ix_score_alerts_user_id", "user_id"),
+        Index("ix_score_alerts_active", "is_active", postgresql_where=text("is_active = true")),
+    )

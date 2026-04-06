@@ -206,6 +206,42 @@ export interface WatchlistItem {
   opportunity_type?: string | null
 }
 
+export interface UserWatchlistItem {
+  ticker: string
+  name: string | null
+  sector: string | null
+  composite_score: number | null
+  composite_tier: string | null
+  signal: string | null
+  added_at: string
+}
+
+export interface UserWatchlistResponse {
+  items: UserWatchlistItem[]
+  count: number
+}
+
+export interface ScoreAlertItem {
+  id: number
+  ticker: string
+  alert_type: 'above' | 'below' | 'survivor'
+  threshold: number | null
+  is_active: boolean
+  last_triggered_at: string | null
+  created_at: string
+}
+
+export interface AlertListResponse {
+  items: ScoreAlertItem[]
+  count: number
+}
+
+export interface AlertCreateRequest {
+  ticker: string
+  alert_type: 'above' | 'below' | 'survivor'
+  threshold?: number | null
+}
+
 export interface UniverseSummary {
   version: string
   size: number

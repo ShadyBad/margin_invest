@@ -53,6 +53,7 @@ from margin_api.db.models import (
     RarityScore,
     ReproducibilityAudit,
     Score,
+    ScoreAlert,
     SeedValidationReport,
     ShadowPortfolioSnapshot,
     SICSectorMap,
@@ -5041,6 +5042,150 @@ async def deliver_webhook(ctx: dict, delivery_id: int) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Score alert evaluation
+# ---------------------------------------------------------------------------
+
+ALERT_COOLDOWN_HOURS = 24
+
+
+async def _evaluate_alerts(
+    session_factory,
+    score_map: dict[str, dict],
+    prev_score_map: dict[str, dict],
+) -> list[dict]:
+    """Evaluate all active alerts against current and previous scores.
+
+    Returns list of dicts with keys: alert_id, user_id, ticker, alert_type, threshold, composite.
+
+    Alert types:
+    - "above": fires when composite crosses ABOVE threshold (was below, now at-or-above)
+    - "below": fires when composite crosses BELOW threshold (was above, now at-or-below)
+    - "survivor": fires when survived status changes (either direction)
+    """
+    triggered: list[dict] = []
+    cooldown_cutoff = datetime.now(UTC) - timedelta(hours=ALERT_COOLDOWN_HOURS)
+
+    async with session_factory() as session:
+        stmt = select(ScoreAlert).where(ScoreAlert.is_active == True)  # noqa: E712
+        result = await session.execute(stmt)
+        alerts = result.scalars().all()
+
+    for alert in alerts:
+        # Skip if within cooldown window.
+        # SQLite returns naive datetimes even for timezone=True columns, so
+        # normalise to UTC-aware before comparing.
+        if alert.last_triggered_at:
+            lta = alert.last_triggered_at
+            if lta.tzinfo is None:
+                lta = lta.replace(tzinfo=UTC)
+            if lta > cooldown_cutoff:
+                continue
+
+        current = score_map.get(alert.ticker)
+        if current is None:
+            continue
+
+        previous = prev_score_map.get(alert.ticker)
+        composite = current["composite"]
+        prev_composite = previous["composite"] if previous else None
+
+        should_fire = False
+
+        if alert.alert_type == "above":
+            crossed = composite >= alert.threshold
+            was_below = prev_composite is None or prev_composite < alert.threshold
+            should_fire = crossed and was_below
+
+        elif alert.alert_type == "below":
+            crossed = composite <= alert.threshold
+            was_above = prev_composite is None or prev_composite > alert.threshold
+            should_fire = crossed and was_above
+
+        elif alert.alert_type == "survivor":
+            current_survived = current.get("survived", False)
+            prev_survived = previous.get("survived", False) if previous else None
+            should_fire = prev_survived is not None and current_survived != prev_survived
+
+        if should_fire:
+            triggered.append(
+                {
+                    "alert_id": alert.id,
+                    "user_id": alert.user_id,
+                    "ticker": alert.ticker,
+                    "alert_type": alert.alert_type,
+                    "threshold": alert.threshold,
+                    "composite": composite,
+                }
+            )
+
+    return triggered
+
+
+async def trigger_score_alerts(ctx: dict) -> str:
+    """Check all active alerts against the latest scoring cycle.
+
+    Runs after each scoring cycle to evaluate score-threshold crossings and
+    survivor-status changes for all active user alerts.  Fires each alert at
+    most once per ALERT_COOLDOWN_HOURS to prevent notification spam.
+    """
+    stale = _is_stale_cron(ctx, "trigger_alerts")
+    if stale:
+        return stale["status"]
+
+    reset_engine_cache()
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    # Build current score map: get the latest V4Score per asset via subquery
+    async with session_factory() as session:
+        # Subquery: max(id) per asset_id to get the most-recent score row
+        latest_sub = (
+            select(func.max(V4Score.id).label("max_id")).group_by(V4Score.asset_id).subquery()
+        )
+        current_stmt = (
+            select(V4Score, Asset.ticker)
+            .join(Asset, Asset.id == V4Score.asset_id)
+            .where(V4Score.id.in_(select(latest_sub.c.max_id)))
+        )
+        current_result = await session.execute(current_stmt)
+
+        score_map: dict[str, dict] = {}
+        for row in current_result.all():
+            v4: V4Score = row[0]
+            ticker: str = row[1]
+            score_map[ticker] = {
+                "composite": float(v4.composite_score) if v4.composite_score else 0.0,
+                "survived": v4.conviction in ("exceptional", "high"),
+            }
+
+    # No previous scores available at this stage; a future enhancement can
+    # query the second-most-recent scores to detect crossings more precisely.
+    prev_score_map: dict[str, dict] = {}
+
+    triggered = await _evaluate_alerts(session_factory, score_map, prev_score_map)
+
+    # Stamp last_triggered_at on fired alerts
+    async with session_factory() as session:
+        for t in triggered:
+            stmt = select(ScoreAlert).where(ScoreAlert.id == t["alert_id"])
+            alert = (await session.execute(stmt)).scalar_one_or_none()
+            if alert:
+                alert.last_triggered_at = datetime.now(UTC)
+        await session.commit()
+
+    for t in triggered:
+        logger.info(
+            "[trigger_alerts] FIRED: user=%d ticker=%s type=%s composite=%.1f",
+            t["user_id"],
+            t["ticker"],
+            t["alert_type"],
+            t["composite"],
+        )
+
+    return f"evaluated:{len(score_map)},triggered:{len(triggered)}"
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -5235,6 +5380,7 @@ class WorkerSettings:
         screen_drawdown_candidates,
         analyze_filing_text,
         arq_func(deliver_webhook),
+        trigger_score_alerts,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
