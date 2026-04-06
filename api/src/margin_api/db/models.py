@@ -1494,7 +1494,9 @@ class ScoreAlert(Base):
     alert_type: Mapped[str] = mapped_column(String(20), nullable=False)
     threshold: Mapped[Decimal | None] = mapped_column(Float, nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_triggered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -1502,7 +1504,9 @@ class ScoreAlert(Base):
     user: Mapped[User] = relationship()
 
     __table_args__ = (
-        UniqueConstraint("user_id", "ticker", "alert_type", name="uq_score_alerts_user_ticker_type"),
+        UniqueConstraint(
+            "user_id", "ticker", "alert_type", name="uq_score_alerts_user_ticker_type"
+        ),
         Index("ix_score_alerts_user_id", "user_id"),
         Index("ix_score_alerts_active", "is_active", postgresql_where=text("is_active = true")),
     )
