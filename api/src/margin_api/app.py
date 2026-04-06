@@ -42,6 +42,7 @@ from margin_api.routes.thirteenf import router as thirteenf_router
 from margin_api.routes.transparency import router as transparency_router
 from margin_api.routes.universe import router as universe_router
 from margin_api.routes.v3_scores import router as v3_scores_router
+from margin_api.routes.watchlist import router as watchlist_router
 from margin_api.schemas.errors import ErrorResponse
 from margin_api.services import analytics
 from margin_api.ws.scores import router as ws_router
@@ -172,6 +173,7 @@ def create_app() -> FastAPI:
     app.include_router(sectors_router)
     app.include_router(universe_router)
     app.include_router(correlations_router)
+    app.include_router(watchlist_router)
     app.include_router(ws_router)
 
     @app.exception_handler(HTTPException)
