@@ -50,8 +50,9 @@ export function CorrelationGrid({
 
   return (
     <div className={className}>
+      <div className="overflow-x-auto">
       <div
-        className="grid gap-px"
+        className="grid gap-px min-w-[400px]"
         style={{ gridTemplateColumns: `auto repeat(${n}, 1fr)` }}
       >
         {/* Empty top-left corner */}
@@ -108,6 +109,11 @@ export function CorrelationGrid({
           </Fragment>
         ))}
       </div>
+      </div>{/* end overflow-x-auto */}
+      {/* Scroll hint — visible on mobile only */}
+      <p className="text-[10px] text-text-tertiary text-center mt-2 sm:hidden" aria-hidden="true">
+        ← scroll →
+      </p>
       {/* Legend */}
       <div className="flex items-center justify-center gap-2 mt-4">
         <span className="text-[9px] text-text-tertiary">-1.0</span>

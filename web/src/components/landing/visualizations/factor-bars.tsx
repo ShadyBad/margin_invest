@@ -20,15 +20,15 @@ interface FactorBarsProps {
 const FACTOR_ORDER = ["quality", "value", "momentum", "sentiment", "growth"] as const
 
 /**
- * Returns a hex color for the given percentile tier.
- * Matches the project's 5-tier encoding from globals.css / panel utils.
+ * Returns a color for the given percentile tier using 3-tier system.
+ * ≥66: bullish (green)
+ * 33-65: warning (amber)
+ * <33: danger (red)
  */
 function getPercentileColor(score: number): string {
-  if (score >= 80) return "#10B981" // exceptional — emerald-500
-  if (score >= 60) return "#1C7A5A" // strong — muted emerald
-  if (score >= 40) return "#6B7280" // average — gray-500
-  if (score >= 20) return "#D97706" // below — amber-600
-  return "#DC2626" // weak — red-600
+  if (score >= 66) return "var(--color-bullish)"
+  if (score >= 33) return "var(--color-warning)"
+  return "var(--color-danger)"
 }
 
 function clamp(value: number, min: number, max: number): number {

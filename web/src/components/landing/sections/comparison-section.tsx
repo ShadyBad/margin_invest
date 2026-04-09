@@ -17,19 +17,19 @@ export function ComparisonSection() {
         <div className="terminal-card overflow-x-auto">
           <table className="w-full text-left min-w-[600px]">
             <caption className="sr-only">
-              Comparison of Margin Invest vs Traditional Screeners vs Black-Box Ratings
+              Comparison of Margin Invest vs Finviz / Screener.co vs Zacks / Morningstar
             </caption>
             <thead>
               <tr className="border-b border-border-subtle">
                 <th scope="col" className="px-6 py-3 text-xs uppercase tracking-wider text-text-tertiary font-medium w-1/6" />
-                <th scope="col" className="px-6 py-3 text-xs uppercase tracking-wider text-accent font-medium w-[28%]">
+                <th scope="col" className="px-6 py-3 text-xs uppercase tracking-wider text-accent font-semibold w-[28%] bg-bg-secondary/50 border-t-2 border-accent">
                   Margin Invest
                 </th>
                 <th scope="col" className="px-6 py-3 text-xs uppercase tracking-wider text-text-tertiary font-medium w-[28%]">
-                  Traditional Screeners
+                  Finviz / Screener.co
                 </th>
                 <th scope="col" className="px-6 py-3 text-xs uppercase tracking-wider text-text-tertiary font-medium w-[28%]">
-                  Black-Box Ratings
+                  Zacks / Morningstar
                 </th>
               </tr>
             </thead>
@@ -39,7 +39,7 @@ export function ComparisonSection() {
                   <th scope="row" className="px-6 py-4 text-sm font-medium text-text-primary">
                     {row.label}
                   </th>
-                  <td className="px-6 py-4 text-sm text-text-primary">{row.us}</td>
+                  <td className="px-6 py-4 text-sm text-text-primary bg-bg-secondary/30">{row.us}</td>
                   <td className="px-6 py-4 text-sm text-text-tertiary">{row.screeners}</td>
                   <td className="px-6 py-4 text-sm text-text-tertiary">{row.blackbox}</td>
                 </tr>
