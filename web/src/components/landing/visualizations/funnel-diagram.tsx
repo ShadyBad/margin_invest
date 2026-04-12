@@ -66,27 +66,17 @@ export function FunnelDiagram({
 
   return (
     <div ref={containerRef} className={className}>
-      <div className="flex flex-col items-center gap-0">
+      <div className="flex flex-col items-center gap-0 w-full max-w-sm mx-auto">
         {stages.map((stage, i) => {
           const isLast = i === stages.length - 1
 
           return (
             <div key={stage.label} className="flex flex-col items-center w-full">
-              {/* Bar */}
-              <div
-                className="relative flex items-center justify-between rounded-lg overflow-hidden transition-all duration-700 ease-out"
-                data-funnel-stage={stage.label}
-                style={{
-                  width: revealed ? `${stage.widthPct}%` : "0%",
-                  transitionDelay: `${i * 150}ms`,
-                  minHeight: 44,
-                  background: `linear-gradient(135deg, color-mix(in srgb, var(--color-accent) ${90 - i * 18}%, transparent) 0%, color-mix(in srgb, var(--color-accent) ${60 - i * 12}%, transparent) 100%)`,
-                  border: "1px solid color-mix(in srgb, var(--color-accent) 20%, transparent)",
-                }}
-              >
-                {/* Label */}
+              {/* Row: label — bar — count */}
+              <div className="flex items-center w-full gap-3">
+                {/* Label (fixed left) */}
                 <span
-                  className="pl-4 font-mono text-[10px] uppercase tracking-[0.14em] text-text-primary whitespace-nowrap"
+                  className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-tertiary whitespace-nowrap w-20 text-right shrink-0"
                   style={{
                     opacity: revealed ? 1 : 0,
                     transition: "opacity 400ms ease",
@@ -96,9 +86,24 @@ export function FunnelDiagram({
                   {stage.label}
                 </span>
 
-                {/* Count */}
+                {/* Bar (scales by percentage) */}
+                <div className="flex-1 flex">
+                  <div
+                    className="rounded-md transition-all duration-700 ease-out"
+                    data-funnel-stage={stage.label}
+                    style={{
+                      width: revealed ? `${stage.widthPct}%` : "0%",
+                      transitionDelay: `${i * 150}ms`,
+                      height: 32,
+                      background: `linear-gradient(135deg, color-mix(in srgb, var(--color-accent) ${90 - i * 18}%, transparent) 0%, color-mix(in srgb, var(--color-accent) ${60 - i * 12}%, transparent) 100%)`,
+                      border: "1px solid color-mix(in srgb, var(--color-accent) 20%, transparent)",
+                    }}
+                  />
+                </div>
+
+                {/* Count (fixed right) */}
                 <span
-                  className="pr-4 font-mono text-sm font-semibold text-text-primary whitespace-nowrap tabular-nums"
+                  className="font-mono text-sm font-semibold text-text-primary whitespace-nowrap tabular-nums w-14 shrink-0"
                   style={{
                     opacity: revealed ? 1 : 0,
                     transition: "opacity 400ms ease",
@@ -109,18 +114,8 @@ export function FunnelDiagram({
                 </span>
               </div>
 
-              {/* Connector */}
-              {!isLast && (
-                <div
-                  className="h-3 border-l border-r border-accent/10"
-                  style={{
-                    width: `${(stage.widthPct + stages[i + 1].widthPct) / 2}%`,
-                    opacity: revealed ? 1 : 0,
-                    transition: "opacity 300ms ease",
-                    transitionDelay: `${i * 150 + 300}ms`,
-                  }}
-                />
-              )}
+              {/* Connector spacer */}
+              {!isLast && <div className="h-2" />}
             </div>
           )
         })}
