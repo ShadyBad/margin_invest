@@ -108,6 +108,8 @@ export function PillarsSection({ data }: PillarsSectionProps) {
     const triggers: { kill: () => void }[] = []
 
     async function animate() {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+
       const gsapModule = await import("gsap")
       const { default: ScrollTrigger } = await import("gsap/ScrollTrigger")
       if (cancelled) return

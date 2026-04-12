@@ -19,6 +19,9 @@ export function HeroSection({ data }: HeroSectionProps) {
     let cancelled = false
 
     async function animate() {
+      // Respect prefers-reduced-motion — skip entrance animations
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+
       const gsapModule = await import("gsap")
       if (cancelled) return
       const gsap = gsapModule.default

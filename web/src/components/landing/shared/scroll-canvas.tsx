@@ -38,6 +38,8 @@ export function ScrollCanvas({ children }: ScrollCanvasProps) {
     let smoother: { kill: () => void } | null = null
 
     async function init() {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+
       const gsapModule = await import("gsap")
       const { default: ScrollTrigger } = await import("gsap/ScrollTrigger")
       const { default: ScrollSmoother } = await import("gsap/ScrollSmoother")
