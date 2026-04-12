@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useRef } from "react"
 import { FAQ_ITEMS, FaqItem } from "./faq-section"
 import { HeroSearch } from "../hero-search"
+import { LogoIcon } from "@/components/ui/logo-icon"
 
 const productLinks = [
   { label: "Dashboard", href: "/dashboard" },
@@ -104,6 +105,7 @@ export function FooterSection() {
             {/* Brand column */}
             <div>
               <div className="flex items-center gap-2 mb-3">
+                <LogoIcon size={20} />
                 <span className="font-display text-lg text-text-primary">Margin Invest</span>
               </div>
               <p className="text-sm text-text-secondary max-w-xs leading-relaxed mb-4">

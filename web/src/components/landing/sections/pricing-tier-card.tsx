@@ -25,36 +25,26 @@ interface PricingTierCardProps {
 export function PricingTierCard({ tier }: PricingTierCardProps) {
   const card = (
     <div
-      className={`terminal-card rounded-xl p-6 md:p-8 flex flex-col h-full relative overflow-hidden focus-visible:outline-2 focus-visible:outline-accent/40 focus-visible:outline-offset-2 hover:-translate-y-0.5 hover:border-[var(--color-accent-medium)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all duration-200${tier.highlighted ? " hover:shadow-[0_0_48px_rgba(201,150,59,0.20),0_8px_24px_rgba(0,0,0,0.3)]" : ""}`}
+      className={`terminal-card rounded-xl flex flex-col h-full relative overflow-hidden focus-visible:outline-2 focus-visible:outline-accent/40 focus-visible:outline-offset-2 hover:-translate-y-0.5 hover:border-[var(--color-accent-medium)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all duration-200${tier.highlighted ? " p-7 md:p-10" : " p-6 md:p-8"}`}
       style={
         tier.highlighted
           ? {
-              borderColor: "color-mix(in srgb, var(--color-accent-warm) 50%, var(--color-border-subtle))",
-              boxShadow: "0 0 40px rgba(201,150,59,0.12), 0 8px 24px rgba(0,0,0,0.3)",
-              transform: "scale(1.02)",
+              borderColor: "var(--color-accent)",
+              borderWidth: "2px",
             }
           : {
               borderColor: "color-mix(in srgb, var(--color-border-subtle) 60%, transparent)",
             }
       }
     >
-      {/* Top accent bar for highlighted card */}
-      {tier.highlighted && (
-        <div
-          className="absolute top-0 left-0 right-0"
-          style={{
-            height: '2px',
-            background: 'linear-gradient(90deg, var(--color-accent-warm), transparent)',
-          }}
-        />
-      )}
+      {/* Top accent bar removed — 2px border handles visual elevation */}
 
       <div className="flex items-center gap-2 mb-4">
         <span className="text-xs uppercase tracking-[0.2em] text-text-tertiary">
           {tier.name}
         </span>
         {tier.highlighted && (
-          <span className="text-xs px-2 py-0.5 rounded" style={{ color: 'var(--color-accent-warm)', background: 'var(--color-accent-warm-muted)' }}>
+          <span className="text-xs px-2 py-0.5 rounded bg-accent/15 text-accent">
             Most Popular
           </span>
         )}

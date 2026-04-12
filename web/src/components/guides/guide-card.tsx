@@ -5,14 +5,20 @@ import { motion } from "framer-motion"
 import type { GuideMetadata } from "@/lib/guides"
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Concepts: "var(--color-accent)",
-  Workflows: "var(--color-accent-warm)",
-  Reference: "var(--color-text-tertiary)",
+  Concepts: "#3B82F6",    // blue per spec
+  Workflows: "#14B8A6",   // teal per spec
+  Reference: "var(--color-text-tertiary)", // gray per spec
+}
+
+const CATEGORY_TEXT: Record<string, string> = {
+  Concepts: "text-[#3B82F6]",
+  Workflows: "text-[#14B8A6]",
+  Reference: "text-text-tertiary",
 }
 
 const CATEGORY_BG: Record<string, string> = {
-  Concepts: "bg-accent/10",
-  Workflows: "bg-[var(--color-accent-warm)]/10",
+  Concepts: "bg-[#3B82F6]/10",
+  Workflows: "bg-[#14B8A6]/10",
   Reference: "bg-text-tertiary/10",
 }
 
@@ -29,6 +35,7 @@ interface GuideCardProps {
 
 export function GuideCard({ guide, index }: GuideCardProps) {
   const accentColor = CATEGORY_COLORS[guide.category] ?? "var(--color-accent)"
+  const textClass = CATEGORY_TEXT[guide.category] ?? "text-accent"
   const bgClass = CATEGORY_BG[guide.category] ?? "bg-accent/10"
 
   return (
@@ -44,7 +51,7 @@ export function GuideCard({ guide, index }: GuideCardProps) {
       >
         <div className="flex items-start justify-between gap-3 mb-3">
           <h3 className="text-[16px] font-semibold text-text-primary flex-1">{guide.title}</h3>
-          <span className={`text-xs font-medium text-text-tertiary ${bgClass} px-2 py-1 rounded shrink-0`}>
+          <span className={`text-xs font-medium ${textClass} ${bgClass} px-2 py-1 rounded shrink-0`}>
             {guide.category}
           </span>
         </div>

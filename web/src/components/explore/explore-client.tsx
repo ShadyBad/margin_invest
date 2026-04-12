@@ -105,7 +105,9 @@ export function ExploreClient({ initialData }: ExploreClientProps) {
           <div className="space-y-3 relative">
             {SAMPLE_SCORES.map((item) => (
               <div key={item.ticker} className="relative">
-                <ScoreCardItem item={item} muted={true} />
+                <div className="blur-[1px]">
+                  <ScoreCardItem item={item} muted={true} />
+                </div>
                 <div className="absolute inset-0 flex items-center justify-center rounded pointer-events-none">
                   <span className="text-xs font-medium text-text-tertiary bg-bg-primary/60 px-2 py-1 rounded">
                     Sample
