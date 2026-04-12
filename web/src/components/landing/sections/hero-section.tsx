@@ -75,7 +75,7 @@ export function HeroSection({ data }: HeroSectionProps) {
     <section
       id="hero"
       ref={sectionRef}
-      className="relative flex items-center justify-center overflow-hidden"
+      className="relative flex items-center justify-center overflow-x-clip"
       style={{
         minHeight: "80svh",
         background:

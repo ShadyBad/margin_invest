@@ -50,7 +50,7 @@ function CandidateCardItem({ candidate }: { candidate: CandidateCard }) {
         <div className="text-title-1 font-bold text-text-primary">
           {candidate.ticker}
         </div>
-        <div className="text-caption text-text-secondary truncate">
+        <div className="text-caption text-text-secondary">
           {candidate.name}
         </div>
       </div>

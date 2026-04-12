@@ -60,7 +60,7 @@ export function FactorDensityCurves({ candidates }: FactorDensityCurvesProps) {
 
   return (
     <div
-      className="grid grid-cols-1 sm:grid-cols-5 gap-4"
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
       aria-label="Factor percentile distributions across all candidates"
     >
       {distributions.map((d) => (

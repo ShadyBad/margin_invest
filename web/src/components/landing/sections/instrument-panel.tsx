@@ -94,7 +94,7 @@ export function InstrumentPanel({ candidate }: InstrumentPanelProps) {
               <span className="text-title-1 text-text-primary">
                 {hasCand ? candidate.ticker : "—"}
               </span>
-              <span className="text-caption text-text-secondary truncate max-w-[140px]">
+              <span className="text-caption text-text-secondary max-w-[200px] break-words">
                 {hasCand ? candidate.name : ""}
               </span>
             </div>

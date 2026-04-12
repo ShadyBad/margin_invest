@@ -64,7 +64,7 @@ function SectorBar({ sector, count, maxCount }: SectorCount & { maxCount: number
   const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
   return (
     <div className="group/sector flex items-center gap-3 cursor-default">
-      <span className="text-xs text-text-tertiary w-28 shrink-0 truncate transition-colors duration-200 group-hover/sector:text-text-secondary">
+      <span className="text-xs text-text-tertiary w-32 shrink-0 transition-colors duration-200 group-hover/sector:text-text-secondary">
         {sector}
       </span>
       <div className="relative flex-1 h-1.5 bg-bg-subtle rounded-full overflow-hidden transition-all duration-200 group-hover/sector:bg-white/10">
@@ -247,7 +247,7 @@ export function PillarsSection({ data }: PillarsSectionProps) {
                       <div className="font-mono text-lg font-bold text-text-primary">
                         {topCandidate.ticker}
                       </div>
-                      <div className="text-xs text-text-secondary truncate">
+                      <div className="text-xs text-text-secondary">
                         {topCandidate.name}
                       </div>
                     </div>
