@@ -1,9 +1,20 @@
+import type { Metadata } from "next"
 import { Navbar } from "@/components/nav/navbar"
 import { serverFetch } from "@/lib/api/server"
 import { HomepageClient } from "@/components/landing/homepage-client"
 import type { DashboardResponse } from "@/lib/api/types"
 import type { HomepageData, CandidateCard } from "@/components/landing/shared/types"
+import { FAQ_ITEMS } from "@/data/faq-items"
 import fallbackSnapshot from "@/data/fallback-scoring-snapshot.json"
+
+export const metadata: Metadata = {
+  title: "Margin Invest — Discipline. Engineered.",
+  description:
+    "3,000+ US equities filtered to the ones worth your capital. Six forensic elimination filters, five-factor scoring, every formula auditable. No opinions, no overrides.",
+  alternates: {
+    canonical: "https://www.margin-invest.com",
+  },
+}
 
 function toCandidateCard(pick: DashboardResponse["picks"][0]): CandidateCard {
   return {
@@ -57,8 +68,72 @@ async function getHomepageData(): Promise<HomepageData | null> {
 export default async function Home() {
   const data = await getHomepageData()
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        name: "Margin Invest",
+        url: "https://www.margin-invest.com",
+        logo: "https://www.margin-invest.com/icon.svg",
+        description:
+          "Deterministic investment analysis platform scoring 3,000+ US equities using forensic elimination filters and multi-factor analysis.",
+        sameAs: [],
+      },
+      {
+        "@type": "WebApplication",
+        name: "Margin Invest",
+        url: "https://www.margin-invest.com",
+        applicationCategory: "FinanceApplication",
+        operatingSystem: "Web",
+        offers: [
+          {
+            "@type": "Offer",
+            name: "Scout",
+            price: "0",
+            priceCurrency: "USD",
+            description: "Free tier with composite scores and 1 forensic report per month",
+          },
+          {
+            "@type": "Offer",
+            name: "Analyst",
+            price: "19",
+            priceCurrency: "USD",
+            priceSpecification: { "@type": "UnitPriceSpecification", billingDuration: "P1M" },
+            description:
+              "Unlimited forensic reports, 90-day history, score alerts, sector comparison",
+          },
+          {
+            "@type": "Offer",
+            name: "Portfolio",
+            price: "49",
+            priceCurrency: "USD",
+            priceSpecification: { "@type": "UnitPriceSpecification", billingDuration: "P1M" },
+            description:
+              "Full history, correlation analysis, 13F tracking, API access, priority support",
+          },
+        ],
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: FAQ_ITEMS.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.answer,
+          },
+        })),
+      },
+    ],
+  }
+
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Navbar />
       <HomepageClient data={data} />
     </main>

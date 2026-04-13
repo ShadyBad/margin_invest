@@ -17,6 +17,6 @@ export default function robots(): MetadataRoute.Robots {
         "/mfa/",
       ],
     },
-    sitemap: "https://margin-invest.com/sitemap.xml",
+    sitemap: "https://www.margin-invest.com/sitemap.xml",
   }
 }

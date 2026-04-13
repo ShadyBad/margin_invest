@@ -17,7 +17,7 @@ import {
 } from "@/components/methodology"
 
 export const metadata: Metadata = {
-  title: "How It Works | Margin Invest",
+  title: "How It Works",
   description:
     "How Margin Invest scores every US-listed equity — a deterministic pipeline of elimination filters, multi-factor scoring across Quality, Value, and Momentum, and dual-track composite scoring.",
 }

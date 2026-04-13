@@ -3,7 +3,7 @@ import { serverFetch } from "@/lib/api/server"
 import { ExploreClient } from "@/components/explore/explore-client"
 
 export const metadata: Metadata = {
-  title: "Explore Top Picks — Margin Invest",
+  title: "Explore Top Picks",
   description:
     "Browse the highest-scoring US equities from this scoring cycle. Every score is sector-neutral, deterministic, and auditable.",
 }

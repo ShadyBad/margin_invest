@@ -6,7 +6,7 @@ import { groupGuidesByCategory } from "@/lib/guides"
 import { getAllGuides } from "@/lib/guides.server"
 
 export const metadata: Metadata = {
-  title: "Guides | Margin Invest",
+  title: "Guides",
   description:
     "Learn how Margin Invest scores equities, interpret conviction ratings, and get the most from the platform.",
 }

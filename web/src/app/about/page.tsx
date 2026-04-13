@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 
 export const metadata: Metadata = {
-  title: "About — Margin Invest",
+  title: "About",
   description:
     "Why we built a deterministic investment analysis system. Our mission, methodology, and the team behind it.",
 }

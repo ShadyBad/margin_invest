@@ -2,11 +2,12 @@
  * TrackRecordStats — Summary statistics for track record page.
  *
  * Shows: Total scores logged | Scoring cycles completed | Days since launch.
+ * Accepts live data from the API when available.
  */
 
-interface StatCard {
-  value: string | number
-  label: string
+interface TrackRecordStatsProps {
+  totalScored?: number
+  totalCycles?: number
 }
 
 const LAUNCH_DATE = new Date("2026-04-01")
@@ -17,13 +18,27 @@ function daysSinceLaunch(): number {
   return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
 }
 
-export function TrackRecordStats() {
+interface StatCard {
+  value: string | number
+  label: string
+}
+
+export function TrackRecordStats({ totalScored, totalCycles }: TrackRecordStatsProps) {
   const days = daysSinceLaunch()
 
   const stats: StatCard[] = [
-    { value: "30,540", label: "Total scores logged" },
-    { value: "247", label: "Scoring cycles completed" },
-    { value: days.toLocaleString(), label: "Days since launch" },
+    {
+      value: totalScored ? totalScored.toLocaleString("en-US") : days > 0 ? "Accumulating" : "—",
+      label: "Total scores logged",
+    },
+    {
+      value: totalCycles ? totalCycles.toLocaleString("en-US") : days > 0 ? "Accumulating" : "—",
+      label: "Scoring cycles completed",
+    },
+    {
+      value: days.toLocaleString(),
+      label: "Days since launch",
+    },
   ]
 
   return (

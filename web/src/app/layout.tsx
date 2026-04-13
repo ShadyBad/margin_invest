@@ -32,9 +32,12 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Margin Invest",
+  title: {
+    default: "Margin Invest — Discipline. Engineered.",
+    template: "%s | Margin Invest",
+  },
   description:
-    "Deterministic investment analysis — quantitative scoring without human bias",
+    "Deterministic investment analysis — quantitative scoring without human bias. 3,000+ US equities filtered to the ones worth your capital.",
   metadataBase: new URL("https://www.margin-invest.com"),
   openGraph: {
     title: "Margin Invest — Discipline. Engineered.",
