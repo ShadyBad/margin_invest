@@ -4,7 +4,6 @@ import { serverFetch } from "@/lib/api/server"
 import { HomepageClient } from "@/components/landing/homepage-client"
 import type { DashboardResponse } from "@/lib/api/types"
 import type { HomepageData, CandidateCard } from "@/components/landing/shared/types"
-import { FAQ_ITEMS } from "@/data/faq-items"
 import fallbackSnapshot from "@/data/fallback-scoring-snapshot.json"
 
 export const metadata: Metadata = {
@@ -113,17 +112,6 @@ export default async function Home() {
               "Full history, correlation analysis, 13F tracking, API access, priority support",
           },
         ],
-      },
-      {
-        "@type": "FAQPage",
-        mainEntity: FAQ_ITEMS.map((item) => ({
-          "@type": "Question",
-          name: item.question,
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: item.answer,
-          },
-        })),
       },
     ],
   }

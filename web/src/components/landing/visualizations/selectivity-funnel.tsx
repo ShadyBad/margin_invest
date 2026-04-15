@@ -138,8 +138,12 @@ export function SelectivityFunnel({
 
   const max = universeCount || 1
   const containerRef = useRef<HTMLDivElement>(null)
-  const [animatedStages, setAnimatedStages] = useState<Set<string>>(new Set())
-  const [allDone, setAllDone] = useState(false)
+  const reducedMotion = typeof window !== "undefined"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  const [animatedStages, setAnimatedStages] = useState<Set<string>>(
+    () => reducedMotion ? new Set(STAGES.map((s) => s.key)) : new Set()
+  )
+  const [allDone, setAllDone] = useState(() => reducedMotion)
 
   const triggerSequence = useCallback(() => {
     STAGES.forEach((stage, idx) => {
@@ -155,15 +159,7 @@ export function SelectivityFunnel({
 
   useEffect(() => {
     const container = containerRef.current
-    if (!container) return
-
-    // Respect prefers-reduced-motion
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    if (prefersReducedMotion) {
-      setAnimatedStages(new Set(STAGES.map((s) => s.key)))
-      setAllDone(true)
-      return
-    }
+    if (!container || reducedMotion) return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -179,7 +175,7 @@ export function SelectivityFunnel({
 
     observer.observe(container)
     return () => observer.unobserve(container)
-  }, [triggerSequence])
+  }, [triggerSequence, reducedMotion])
 
   return (
     <div
