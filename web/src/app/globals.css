@@ -9,53 +9,46 @@
    ============================================================ */
 
 @theme {
-  /* Backgrounds */
-  --color-bg-primary: #0C1A13;
-  --color-bg-elevated: #12221A;
-  --color-bg-subtle: #1A2E22;
+  /* ── Surface Hierarchy (tonal layering, no borders) ── */
+  --color-surface: #08160f;
+  --color-surface-container-lowest: #0a1c12;
+  --color-surface-container-low: #0e2318;
+  --color-surface-container: #122a1c;
+  --color-surface-container-high: #163220;
+  --color-surface-container-highest: #1a3a24;
 
-  /* Text */
-  --color-text-primary: #EDE9E3;
-  --color-text-secondary: #A39E96;
+  /* ── Primary accent — emerald ── */
+  --color-primary: #80d8b2;
+  --color-primary-container: #1A7A5A;
+  --color-on-primary-container: #EDE9E3;
+
+  /* ── Text ── */
+  --color-on-surface: #EDE9E3;
+  --color-on-surface-variant: #A39E96;
   --color-text-tertiary: #6B6660;
 
-  /* Accent — muted emerald */
-  --color-accent: #1A7A5A;
-  --color-accent-hover: #1F8F6A;
-  --color-accent-subtle: rgba(26, 122, 90, 0.08);
-  --color-accent-wash: rgba(26, 122, 90, 0.03);
-  --color-accent-medium: rgba(26, 122, 90, 0.15);
+  /* ── Borders — ghost only ── */
+  --color-outline-variant: #3f4943;
+  --color-ghost-border: rgba(63, 73, 67, 0.15);
 
-  /* Value pillar — teal-blue (distinct from emerald accent/bullish) */
-  --color-value: #3BA5D0;
-  --color-value-hover: #4BB8E0;
-  --color-value-subtle: rgba(59, 165, 208, 0.10);
+  /* ── Surface utilities ── */
+  --color-surface-variant: #3f4943;
+  --color-surface-tint: #80d8b2;
 
-  /* Borders */
-  --color-border-primary: #2A2621;
-  --color-border-subtle: rgba(237, 233, 227, 0.06);
-
-  /* Semantic */
+  /* ── Semantic (unchanged — dashboard use) ── */
   --color-bullish: #22C55E;
   --color-bearish: #D45A5F;
   --color-warning: #D4A843;
   --color-danger: #D45A5F;
 
-  /* Surface overlay (geometric grids) */
-  --color-surface-overlay: rgba(237, 233, 227, 0.03);
-
-  /* Grid & dividers */
-  --color-grid-line: rgba(255, 255, 255, 0.06);
-  --color-divider: rgba(255, 255, 255, 0.08);
-
-  /* 5-tier percentile encoding */
+  /* ── 5-tier percentile (unchanged) ── */
   --color-percentile-exceptional: #10B981;
   --color-percentile-strong: #1C7A5A;
   --color-percentile-average: #6B7280;
   --color-percentile-below: #D97706;
   --color-percentile-weak: #DC2626;
 
-  /* Sector accent colors (card left-bar, DNA blending) */
+  /* ── Sector accents (unchanged) ── */
   --color-sector-tech: #6AB0D4;
   --color-sector-healthcare: #50B88E;
   --color-sector-financials: #5A8EC4;
@@ -68,73 +61,33 @@
   --color-sector-utilities: #60B860;
   --color-sector-comms: #AA72C4;
 
-  /* Gold highlight */
-  --color-gold-highlight: #C9A84C;
+  /* ── Elevation — tonal, not shadow ── */
+  --shadow-ambient: 0 0 32px rgba(237, 233, 227, 0.06);
 
-  /* Warm accent — muted gold */
-  --color-accent-warm: #C9963B;
-  --color-accent-warm-muted: rgba(201, 150, 59, 0.15);
-
-  /* Elevation shadows */
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.06);
-  --shadow-card-hover: 0 4px 16px rgba(0,0,0,0.14);
-  --shadow-modal: 0 8px 32px rgba(0,0,0,0.2);
-
-  /* Warm surface wash */
-  --color-surface-warm: rgba(180, 160, 130, 0.03);
-
-  /* WebGL glow tinting */
-  --color-glow-accent: rgba(26, 122, 90, 0.15);
-
-  /* Depth & surface tokens */
-  --color-bg-deep: #0F0D0B;
-  --color-bg-surface-rgb: 26, 24, 20;
-  --color-accent-glow: rgba(14, 79, 58, 0.15);
-  --color-warm-under: #2A1F14;
-  --color-caustic: rgba(237, 233, 227, 0.12);
-
-  /* Motion tokens */
+  /* ── Motion ── */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-smooth: cubic-bezier(0.45, 0, 0.55, 1);
-  --ease-out-back: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-micro: 150ms;
   --duration-fast: 100ms;
   --duration-normal: 200ms;
   --duration-slow: 300ms;
-  --duration-ambient: calc(10000ms * var(--dna-tempo, 1));
   --stagger-base: 80ms;
-
-  /* DNA slot variables (set per-section for gradient-mesh theming) */
-  --dna-base: ;
-  --dna-mid: ;
-  --dna-accent: ;
-  --dna-density: 0.5;
-  --dna-tempo: 1;
 }
 
-/* Typography Scale — enforced, not suggested */
-.text-display-1 { font-family: var(--font-display); font-size: clamp(44px, 7vw, 72px); line-height: 1.05; font-weight: 400; }
-.text-display-2 { font-family: var(--font-display); font-size: clamp(32px, 5vw, 48px); line-height: 1.1; font-weight: 400; }
-.text-title-1 { font-family: var(--font-sans); font-size: clamp(22px, 2.5vw, 28px); line-height: 1.2; font-weight: 600; }
-.text-title-2 { font-family: var(--font-sans); font-size: clamp(17px, 1.8vw, 20px); line-height: 1.3; font-weight: 600; }
-.text-body { font-family: var(--font-sans); font-size: clamp(16px, 1.2vw, 17px); line-height: 1.6; font-weight: 400; }
-.text-caption { font-family: var(--font-sans); font-size: clamp(13px, 1vw, 14px); line-height: 1.5; font-weight: 400; }
-.text-mono-label { font-family: var(--font-mono); font-size: 11px; line-height: 1.2; letter-spacing: 0.2em; text-transform: uppercase; }
-.text-mono-data { font-family: var(--font-mono); font-size: clamp(24px, 3vw, 32px); line-height: 1.1; }
-
-/* Legacy typography aliases — heading-1 = text-display-1, heading-2 = text-display-2,
-   heading-3 = text-title-1, body-text = text-body, caption-text = text-caption */
-.heading-1 { font-size: clamp(44px, 7vw, 72px); line-height: 1.05; font-weight: 700; }
-.heading-2 { font-size: clamp(32px, 5vw, 48px); line-height: 1.1; font-weight: 700; }
-.heading-3 { font-family: var(--font-sans); font-size: clamp(22px, 2.5vw, 28px); line-height: 1.2; font-weight: 600; }
-.body-text { font-family: var(--font-sans); font-size: clamp(16px, 1.2vw, 17px); line-height: 1.6; font-weight: 400; }
-.caption-text { font-family: var(--font-sans); font-size: clamp(13px, 1vw, 14px); line-height: 1.5; font-weight: 400; }
+/* ── Typography Scale — Digital Horologist ── */
+.text-display-lg  { font-family: var(--font-display); font-size: clamp(44px, 7vw, 72px); line-height: 1.05; font-weight: 400; letter-spacing: -0.02em; }
+.text-headline-md { font-family: var(--font-display); font-size: clamp(28px, 4vw, 40px); line-height: 1.1; font-weight: 400; letter-spacing: -0.02em; }
+.text-title-sm    { font-family: var(--font-sans); font-size: clamp(17px, 1.8vw, 20px); line-height: 1.3; font-weight: 600; }
+.text-body-md     { font-family: var(--font-sans); font-size: clamp(16px, 1.2vw, 17px); line-height: 1.6; font-weight: 400; }
+.text-label-md    { font-family: var(--font-data); font-size: 14px; line-height: 1.4; font-weight: 500; }
+.text-label-sm    { font-family: var(--font-data); font-size: 11px; line-height: 1.2; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
+.text-mono-data   { font-family: var(--font-data); font-size: clamp(24px, 3vw, 32px); line-height: 1.1; font-weight: 700; }
 
 /* Font tokens — set by next/font, consumed via @theme inline */
 @theme inline {
   --font-sans: var(--font-inter-tight);
-  --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-instrument-serif);
+  --font-data: var(--font-space-grotesk);
+  --font-display: var(--font-newsreader);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -173,8 +126,8 @@
 
 /* Base body styles */
 body {
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
   font-family: var(--font-sans);
   background-image: url('/noise.svg');
   background-repeat: repeat;
@@ -239,15 +192,15 @@ body {
 
 /* Terminal card surfaces */
 .terminal-card {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 16px;
+  background: var(--color-surface-container-low);
+  border: 1px solid var(--color-ghost-border);
+  border-radius: 0.5rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .terminal-card:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border-primary));
-  box-shadow: var(--shadow-card-hover);
+  border-color: rgba(63, 73, 67, 0.3);
+  box-shadow: var(--shadow-ambient);
 }
 
 .terminal-card-accent {
@@ -274,36 +227,36 @@ body {
 
 /* shadcn compatibility — minimal variables referenced by @theme inline and components */
 :root {
-  --radius: 0.625rem;
-  --background: var(--color-bg-primary);
-  --foreground: var(--color-text-primary);
-  --card: var(--color-bg-elevated);
-  --card-foreground: var(--color-text-primary);
-  --popover: var(--color-bg-elevated);
-  --popover-foreground: var(--color-text-primary);
-  --primary: var(--color-text-primary);
-  --primary-foreground: var(--color-bg-primary);
-  --secondary: var(--color-bg-subtle);
-  --secondary-foreground: var(--color-text-primary);
-  --muted: var(--color-bg-subtle);
-  --muted-foreground: var(--color-text-secondary);
-  --accent: var(--color-accent);
-  --accent-foreground: var(--color-text-primary);
+  --radius: 0.5rem;
+  --background: var(--color-surface);
+  --foreground: var(--color-on-surface);
+  --card: var(--color-surface-container-low);
+  --card-foreground: var(--color-on-surface);
+  --popover: var(--color-surface-container);
+  --popover-foreground: var(--color-on-surface);
+  --primary: var(--color-on-surface);
+  --primary-foreground: var(--color-surface);
+  --secondary: var(--color-surface-container);
+  --secondary-foreground: var(--color-on-surface);
+  --muted: var(--color-surface-container);
+  --muted-foreground: var(--color-on-surface-variant);
+  --accent: var(--color-primary-container);
+  --accent-foreground: var(--color-on-surface);
   --destructive: var(--color-danger);
-  --border: var(--color-border-primary);
-  --input: var(--color-border-primary);
-  --ring: var(--color-accent);
-  --chart-1: var(--color-accent);
+  --border: var(--color-ghost-border);
+  --input: var(--color-ghost-border);
+  --ring: var(--color-primary-container);
+  --chart-1: var(--color-primary-container);
   --chart-2: var(--color-bullish);
   --chart-3: var(--color-warning);
-  --chart-4: var(--color-value);
+  --chart-4: #3BA5D0;
   --chart-5: var(--color-bearish);
-  --sidebar: var(--color-bg-elevated);
-  --sidebar-foreground: var(--color-text-primary);
-  --sidebar-primary: var(--color-accent);
-  --sidebar-primary-foreground: var(--color-text-primary);
-  --sidebar-accent: var(--color-bg-subtle);
-  --sidebar-accent-foreground: var(--color-text-primary);
-  --sidebar-border: var(--color-border-primary);
-  --sidebar-ring: var(--color-accent);
+  --sidebar: var(--color-surface-container-low);
+  --sidebar-foreground: var(--color-on-surface);
+  --sidebar-primary: var(--color-primary-container);
+  --sidebar-primary-foreground: var(--color-on-surface);
+  --sidebar-accent: var(--color-surface-container);
+  --sidebar-accent-foreground: var(--color-on-surface);
+  --sidebar-border: var(--color-ghost-border);
+  --sidebar-ring: var(--color-primary-container);
 }
