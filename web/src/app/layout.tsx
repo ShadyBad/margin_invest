@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Suspense } from "react";
-import { Inter_Tight, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Inter_Tight, Newsreader, Space_Grotesk } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { PostHogProvider } from "@/lib/posthog/provider";
@@ -19,16 +19,17 @@ const interTight = Inter_Tight({
   weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument-serif",
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin"],
   weight: ["400"],
   style: ["normal", "italic"],
+});
+
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
@@ -64,7 +65,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${interTight.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased text-text-primary`}
+        className={`${interTight.variable} ${newsreader.variable} ${spaceGrotesk.variable} antialiased`}
       >
         {process.env.NEXT_PUBLIC_TERMLY_WEBSITE_UUID && (
           <Script
@@ -79,7 +80,7 @@ export default function RootLayout({
                 <PostHogPageview />
               </Suspense>
               <PostHogIdentify />
-              <div className="min-h-screen bg-bg-primary">
+              <div className="min-h-screen bg-surface">
                 {children}
                 <ConditionalFooter />
                 <MfaRequiredModal />
@@ -89,9 +90,9 @@ export default function RootLayout({
                   position="bottom-right"
                   toastOptions={{
                     style: {
-                      background: "var(--color-bg-elevated)",
-                      border: "1px solid var(--color-border-subtle)",
-                      color: "var(--color-text-primary)",
+                      background: "var(--color-surface-container-low)",
+                      border: "1px solid var(--color-ghost-border)",
+                      color: "var(--color-on-surface)",
                     },
                   }}
                 />
