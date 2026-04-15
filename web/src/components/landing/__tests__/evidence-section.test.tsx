@@ -28,8 +28,30 @@ vi.mock("gsap", () => ({
 vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(() => ({ kill: vi.fn() })), getAll: () => [], refresh: vi.fn() },
 }))
-vi.mock("@/components/ui/correlation-grid", () => ({
-  CorrelationGrid: () => <div data-testid="correlation-grid" />,
+vi.mock("../visualizations/selectivity-funnel", () => ({
+  SelectivityFunnel: (props: Record<string, unknown>) => (
+    <div data-testid="selectivity-funnel">
+      <span>{(props.universeCount as number)?.toLocaleString()}</span>
+      <span>{(props.eligibleCount as number)?.toLocaleString()}</span>
+      <span>{(props.scoredCount as number)?.toLocaleString()}</span>
+      <span>{(props.survivingCount as number)?.toLocaleString()}</span>
+    </div>
+  ),
+}))
+vi.mock("../visualizations/sector-bar-chart", () => ({
+  SectorBarChart: ({ candidates }: { candidates: Array<{ sector: string }> }) => (
+    <div data-testid="sector-bar-chart">
+      {candidates.map((c, i) => (
+        <span key={i} data-testid={`sector-row-${c.sector}`}>{c.sector}</span>
+      ))}
+    </div>
+  ),
+}))
+vi.mock("../visualizations/factor-density-curves", () => ({
+  FactorDensityCurves: () => <div data-testid="factor-density-curves" />,
+}))
+vi.mock("../proof-heatmap", () => ({
+  ProofHeatmap: () => <div data-testid="proof-heatmap" />,
 }))
 
 const mockFetch = vi.fn()
@@ -67,33 +89,21 @@ describe("EvidenceSection", () => {
     mockFetch.mockResolvedValue({ ok: false })
   })
 
-  it("renders the System Panel header with status dot", () => {
+  it("renders The Selection Funnel heading", () => {
     render(<EvidenceSection />)
-    expect(screen.getByTestId("evidence-header")).toHaveTextContent(
-      "System Output — Cycle Results"
-    )
+    expect(screen.getByText("The Selection Funnel")).toBeInTheDocument()
   })
 
-  it("renders all three column labels", () => {
+  it("renders Forensic Analysis heading", () => {
     render(<EvidenceSection />)
-    expect(screen.getByText("Selectivity Funnel")).toBeInTheDocument()
-    expect(screen.getByText("Sector Breakdown")).toBeInTheDocument()
-    expect(screen.getByText("Factor Correlation")).toBeInTheDocument()
+    expect(screen.getByText("Forensic Analysis")).toBeInTheDocument()
   })
 
-  it("renders the factor density curves row", () => {
-    render(
-      <EvidenceSection
-        candidates={[makeCandidate()]}
-        totalUniverse={3056}
-        eligibleCount={1842}
-        totalScored={500}
-        survivingCount={143}
-      />
-    )
-    expect(
-      screen.getByText("Factor Distribution — All Candidates")
-    ).toBeInTheDocument()
+  it("renders three forensic card labels", () => {
+    render(<EvidenceSection />)
+    expect(screen.getByText("SECTOR BREAKDOWN")).toBeInTheDocument()
+    expect(screen.getByText("FACTOR CORRELATION")).toBeInTheDocument()
+    expect(screen.getByText("FACTOR DISTRIBUTIONS")).toBeInTheDocument()
   })
 
   it("renders the methodology link with correct href", () => {
@@ -105,16 +115,22 @@ describe("EvidenceSection", () => {
     expect(link).toHaveAttribute("href", "/methodology")
   })
 
-  it("renders the two-panel grid layout", () => {
+  it("renders data-funnel-block attribute", () => {
     const { container } = render(<EvidenceSection />)
-    const grid = container.querySelector(".grid.grid-cols-1.lg\\:grid-cols-2")
-    expect(grid).toBeInTheDocument()
+    const funnelBlock = container.querySelector("[data-funnel-block]")
+    expect(funnelBlock).toBeInTheDocument()
   })
 
-  it("renders the evidence panel border", () => {
+  it("renders three data-forensic-card attributes", () => {
     const { container } = render(<EvidenceSection />)
-    const panel = container.querySelector(".border.border-border-subtle.rounded-xl")
-    expect(panel).toBeInTheDocument()
+    const cards = container.querySelectorAll("[data-forensic-card]")
+    expect(cards).toHaveLength(3)
+  })
+
+  it("renders the three-column forensic grid", () => {
+    const { container } = render(<EvidenceSection />)
+    const grid = container.querySelector(".grid.grid-cols-1.lg\\:grid-cols-3")
+    expect(grid).toBeInTheDocument()
   })
 
   it("passes pipeline counts to the selectivity funnel", () => {
@@ -126,7 +142,6 @@ describe("EvidenceSection", () => {
         survivingCount={143}
       />
     )
-    // Funnel should display formatted counts
     expect(screen.getByText("3,056")).toBeInTheDocument()
     expect(screen.getByText("1,842")).toBeInTheDocument()
     expect(screen.getByText("143")).toBeInTheDocument()

@@ -1,5 +1,21 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeAll } from "vitest"
 import { render, screen } from "@testing-library/react"
+
+beforeAll(() => {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      onchange: null,
+      dispatchEvent: vi.fn(),
+    })),
+  })
+})
 
 vi.mock("gsap", () => ({
   default: {
@@ -38,38 +54,37 @@ vi.mock("@/lib/api/client", () => ({
 import { HeroSection } from "../sections/hero-section"
 
 describe("HeroSection", () => {
-  it("renders Discipline. and Engineered.", () => {
+  it("renders DISCIPLINE and ENGINEER headline words", () => {
     render(<HeroSection data={null} />)
-    expect(screen.getByText("Discipline.")).toBeInTheDocument()
-    expect(screen.getByText("Engineered.")).toBeInTheDocument()
+    expect(screen.getByText("DISCIPLINE")).toBeInTheDocument()
+    expect(screen.getByText("ENGINEER")).toBeInTheDocument()
   })
 
-  it("renders subheadline about stock filtering", () => {
+  it("renders subtext about forensic scoring engine", () => {
     render(<HeroSection data={null} />)
     expect(
-      screen.getByText(/3,000\+ stocks filtered/)
+      screen.getByText(/forensic scoring engine/i)
     ).toBeInTheDocument()
   })
 
-  it("renders search input", () => {
+  it("renders search input via HeroSearch", () => {
     render(<HeroSection data={null} />)
     expect(
       screen.getByPlaceholderText(/search any ticker/i)
     ).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument()
   })
 
-  it("shows ticker suggestion chips in idle state", () => {
+  it("renders stat labels", () => {
     render(<HeroSection data={null} />)
-    expect(screen.getByText("AAPL")).toBeInTheDocument()
-    expect(screen.getByText("TSLA")).toBeInTheDocument()
-    expect(screen.getByText("Try:")).toBeInTheDocument()
+    expect(screen.getByText("UNIVERSE")).toBeInTheDocument()
+    expect(screen.getByText("SCORED")).toBeInTheDocument()
+    expect(screen.getByText("SURVIVING")).toBeInTheDocument()
+    expect(screen.getByText("LAST CYCLE")).toBeInTheDocument()
   })
 
-  it("renders auditability tagline", () => {
+  it("renders browse top picks link", () => {
     render(<HeroSection data={null} />)
-    expect(
-      screen.getByText(/Every score auditable to the formula\./)
-    ).toBeInTheDocument()
+    const link = screen.getByRole("link", { name: /browse this week.s top picks/i })
+    expect(link).toHaveAttribute("href", "/explore")
   })
 })

@@ -1,5 +1,34 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi, beforeAll } from "vitest"
 import { render, screen } from "@testing-library/react"
+
+beforeAll(() => {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      onchange: null,
+      dispatchEvent: vi.fn(),
+    })),
+  })
+})
+
+vi.mock("gsap", () => ({
+  default: {
+    registerPlugin: vi.fn(),
+    to: vi.fn(),
+    set: vi.fn(),
+    fromTo: vi.fn(),
+  },
+}))
+vi.mock("gsap/ScrollTrigger", () => ({
+  default: { create: vi.fn(), getAll: () => [], refresh: vi.fn() },
+}))
+
 import { ComparisonSection } from "../comparison-section"
 
 describe("ComparisonSection", () => {
@@ -10,9 +39,10 @@ describe("ComparisonSection", () => {
 
   it("renders all three competitor columns", () => {
     render(<ComparisonSection />)
-    expect(screen.getByText("Margin Invest")).toBeInTheDocument()
-    expect(screen.getByText("Traditional Screeners")).toBeInTheDocument()
-    expect(screen.getByText("Black-Box Ratings")).toBeInTheDocument()
+    // Desktop table uses uppercased header labels
+    expect(screen.getAllByText("MARGIN INVEST").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("SCREENERS").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("BLACK BOX").length).toBeGreaterThanOrEqual(1)
   })
 
   it("renders comparison rows", () => {

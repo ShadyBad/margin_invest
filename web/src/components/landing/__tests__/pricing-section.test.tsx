@@ -1,6 +1,22 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeAll } from "vitest"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+
+beforeAll(() => {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      onchange: null,
+      dispatchEvent: vi.fn(),
+    })),
+  })
+})
 
 vi.mock("gsap", () => ({
   default: {
@@ -21,6 +37,9 @@ vi.mock("gsap", () => ({
 vi.mock("gsap/ScrollTrigger", () => ({
   default: { create: vi.fn(() => ({ kill: vi.fn() })), getAll: () => [], refresh: vi.fn() },
 }))
+vi.mock("posthog-js", () => ({
+  default: { capture: vi.fn() },
+}))
 
 import { PricingSection } from "../sections/pricing-section"
 
@@ -28,15 +47,15 @@ describe("PricingSection", () => {
   it("renders headline", () => {
     render(<PricingSection />)
     expect(
-      screen.getByText(/Start free\. Full access/)
+      screen.getByText(/Choose Your Aperture/i)
     ).toBeInTheDocument()
   })
 
   it("renders all 3 tiers", () => {
     render(<PricingSection />)
-    expect(screen.getByText("Scout")).toBeInTheDocument()
-    expect(screen.getByText("Analyst")).toBeInTheDocument()
-    expect(screen.getByText("Portfolio")).toBeInTheDocument()
+    expect(screen.getByText("SCOUT")).toBeInTheDocument()
+    expect(screen.getByText(/ANALYST/)).toBeInTheDocument()
+    expect(screen.getByText("PORTFOLIO")).toBeInTheDocument()
   })
 
   it("renders monthly prices by default", () => {
@@ -48,9 +67,8 @@ describe("PricingSection", () => {
 
   it("does not apply opacity to Scout tier card", () => {
     render(<PricingSection />)
-    // Find the Scout card by its name label
-    const scoutLabel = screen.getByText("Scout")
-    const card = scoutLabel.closest(".terminal-card")
+    const scoutLabel = screen.getByText("SCOUT")
+    const card = scoutLabel.closest(".rounded-lg")
     expect(card).toBeTruthy()
     const style = (card as HTMLElement).style
     expect(style.opacity).not.toBe("0.85")
@@ -101,9 +119,9 @@ describe("PricingSection", () => {
     expect(screen.getByText("$49")).toBeInTheDocument()
   })
 
-  it("shows '2 months free' badge", () => {
+  it("shows '2 FREE' badge on annual toggle", () => {
     render(<PricingSection />)
-    expect(screen.getByText("2 months free")).toBeInTheDocument()
+    expect(screen.getByText("2 FREE")).toBeInTheDocument()
   })
 
   it("uses max-w-6xl container", () => {

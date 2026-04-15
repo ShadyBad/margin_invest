@@ -1,5 +1,21 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeAll } from "vitest"
 import { render, screen } from "@testing-library/react"
+
+beforeAll(() => {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      onchange: null,
+      dispatchEvent: vi.fn(),
+    })),
+  })
+})
 
 vi.mock("gsap", () => ({
   default: {
@@ -62,14 +78,14 @@ const mockData: HomepageData = {
 describe("HeroSection", () => {
   it("renders the headline", () => {
     render(<HeroSection data={mockData} />)
-    expect(screen.getByText("Discipline.")).toBeInTheDocument()
-    expect(screen.getByText("Engineered.")).toBeInTheDocument()
+    expect(screen.getByText("DISCIPLINE")).toBeInTheDocument()
+    expect(screen.getByText("ENGINEER")).toBeInTheDocument()
   })
 
   it("renders the subtext", () => {
     render(<HeroSection data={mockData} />)
     expect(
-      screen.getByText("3,000+ stocks filtered to the ones worth your capital. Every score auditable to the formula.")
+      screen.getByText(/forensic scoring engine/i)
     ).toBeInTheDocument()
   })
 
@@ -99,7 +115,7 @@ describe("HeroSection", () => {
   it("has two-column grid on lg breakpoint", () => {
     const { container } = render(<HeroSection data={mockData} />)
     const grid = container.querySelector(".grid")
-    expect(grid?.classList.contains("lg:grid-cols-[55%_45%]")).toBe(true)
+    expect(grid?.classList.contains("lg:grid-cols-[60%_40%]")).toBe(true)
   })
 
   it("renders data-hero-card attribute for GSAP targeting", () => {

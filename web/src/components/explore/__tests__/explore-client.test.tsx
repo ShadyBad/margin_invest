@@ -46,6 +46,6 @@ describe("ExploreClient", () => {
 
   it("renders empty state when no data", () => {
     render(<ExploreClient initialData={{ scores: [], total: 0, page: 1, page_size: 20 }} />)
-    expect(screen.getByText(/no scored assets/i)).toBeInTheDocument()
+    expect(screen.getByText(/next cycle runs after market close/i)).toBeInTheDocument()
   })
 })

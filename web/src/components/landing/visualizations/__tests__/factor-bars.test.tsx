@@ -41,20 +41,21 @@ describe("FactorBars", () => {
 
   test("applies correct color tiers based on percentile", () => {
     const tieredFactors = {
-      quality: 10, // bearish (0-20)
-      value: 30, // warning (20-40)
-      momentum: 50, // neutral (40-60)
-      sentiment: 70, // bullish (60-80)
-      growth: 90, // exceptional (80-100)
+      quality: 10, // <33 = danger
+      value: 30, // <33 = danger
+      momentum: 50, // 33-65 = warning
+      sentiment: 70, // >=66 = bullish
+      growth: 90, // >=66 = bullish
     }
     const { container } = render(<FactorBars factors={tieredFactors} />)
     const bars = container.querySelectorAll("[data-factor-bar]")
-    // Verify each bar has a background color set via style
-    expect(bars[0]).toHaveStyle({ backgroundColor: "#DC2626" }) // bearish/weak
-    expect(bars[1]).toHaveStyle({ backgroundColor: "#D97706" }) // warning/below
-    expect(bars[2]).toHaveStyle({ backgroundColor: "#6B7280" }) // neutral/average
-    expect(bars[3]).toHaveStyle({ backgroundColor: "#1C7A5A" }) // bullish/strong
-    expect(bars[4]).toHaveStyle({ backgroundColor: "#10B981" }) // exceptional
+    // 3-tier system: danger (<33), warning (33-65), bullish (>=66)
+    // Colors use CSS custom properties, so verify the style attribute contains the right token
+    expect((bars[0] as HTMLElement).style.backgroundColor).toBe("var(--color-danger)")
+    expect((bars[1] as HTMLElement).style.backgroundColor).toBe("var(--color-danger)")
+    expect((bars[2] as HTMLElement).style.backgroundColor).toBe("var(--color-warning)")
+    expect((bars[3] as HTMLElement).style.backgroundColor).toBe("var(--color-bullish)")
+    expect((bars[4] as HTMLElement).style.backgroundColor).toBe("var(--color-bullish)")
   })
 
   test("renders compact variant with smaller bars", () => {

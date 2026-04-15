@@ -52,6 +52,9 @@ vi.mock("gsap/ScrollTrigger", () => ({
 vi.mock("gsap/ScrollSmoother", () => ({
   default: { create: vi.fn(() => ({ kill: vi.fn() })) },
 }))
+vi.mock("posthog-js", () => ({
+  default: { capture: vi.fn() },
+}))
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -75,14 +78,14 @@ describe("Landing page assembly", () => {
     render(jsx)
 
     // Hero
-    expect(screen.getByText("Discipline.")).toBeInTheDocument()
-    expect(screen.getByText("Engineered.")).toBeInTheDocument()
+    expect(screen.getByText("DISCIPLINE")).toBeInTheDocument()
+    expect(screen.getByText("ENGINEER")).toBeInTheDocument()
 
     // Pricing
-    expect(screen.getByText("Scout")).toBeInTheDocument()
-    expect(screen.getByText("Portfolio")).toBeInTheDocument()
+    expect(screen.getByText("SCOUT")).toBeInTheDocument()
+    expect(screen.getByText("PORTFOLIO")).toBeInTheDocument()
 
-    // Hero search (appears in hero + FAQ closing CTA)
+    // Hero search
     const searchInputs = screen.getAllByPlaceholderText(/search any ticker/i)
     expect(searchInputs.length).toBeGreaterThanOrEqual(1)
   })

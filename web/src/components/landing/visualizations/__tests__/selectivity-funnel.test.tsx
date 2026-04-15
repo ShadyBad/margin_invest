@@ -1,5 +1,20 @@
-import { render, screen } from "@testing-library/react"
-import { describe, expect, test } from "vitest"
+import { render, screen, waitFor } from "@testing-library/react"
+import { describe, expect, test, vi, beforeEach } from "vitest"
+
+// Must mock matchMedia before each test since the component calls it during render
+beforeEach(() => {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: query === "(prefers-reduced-motion: reduce)",
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    onchange: null,
+    dispatchEvent: vi.fn(),
+  }))
+})
+
 import { SelectivityFunnel } from "../selectivity-funnel"
 
 describe("SelectivityFunnel", () => {
@@ -18,9 +33,13 @@ describe("SelectivityFunnel", () => {
     expect(screen.getByTestId("funnel-stage-surviving")).toBeInTheDocument()
   })
 
-  test("renders formatted counts with locale separators", () => {
+  test("renders formatted counts with locale separators (reduced motion = immediate)", async () => {
     render(<SelectivityFunnel {...defaultProps} />)
-    expect(screen.getByText("3,056")).toBeInTheDocument()
+    // With prefers-reduced-motion matching, all stages are immediately animated
+    // useCountUp counts from 0 to target via setInterval, so wait for completion
+    await waitFor(() => {
+      expect(screen.getByText("3,056")).toBeInTheDocument()
+    })
     expect(screen.getByText("1,842")).toBeInTheDocument()
     expect(screen.getByText("500")).toBeInTheDocument()
     expect(screen.getByText("143")).toBeInTheDocument()
