@@ -27,10 +27,10 @@ const STAGES = [
 
 /** Map stage index to progressively more intense accent opacity */
 const STAGE_COLORS = [
-  "rgba(26,122,90,0.15)", // universe — subtle
-  "rgba(26,122,90,0.30)", // eligible
-  "rgba(26,122,90,0.55)", // scored
-  "rgba(26,122,90,0.85)", // surviving — strongest
+  "var(--color-surface-container)",
+  "var(--color-surface-container-high)",
+  "var(--color-surface-container-highest)",
+  "var(--color-primary-container)",
 ]
 
 const STAGGER_MS = 375 // per stage
@@ -94,17 +94,17 @@ function FunnelStage({
     <div data-testid={`funnel-stage-${stage.key}`} className="group/funnel cursor-default">
       <div className="flex items-center justify-between mb-0.5">
         <div className="flex-1">
-          <span className="text-mono-label text-text-tertiary transition-colors duration-200 group-hover/funnel:text-text-secondary">
+          <span className="text-label-sm transition-colors duration-200" style={{ color: "var(--color-on-surface-variant)" }}>
             {stage.label}
           </span>
-          <p className="text-xs text-text-tertiary mt-0.5">{stage.description}</p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--color-text-tertiary)" }}>{stage.description}</p>
         </div>
         <span
-          className={`font-mono text-xs tabular-nums transition-colors duration-200 group-hover/funnel:text-text-primary ml-4 ${
-            isFinal && allDone
-              ? "text-accent font-semibold animate-[pulse_1.5s_ease-in-out_2]"
-              : "text-text-secondary"
-          }`}
+          className="text-label-md tabular-nums transition-colors duration-200 ml-4"
+          style={{
+            color: isFinal && allDone ? "var(--color-primary)" : "var(--color-on-surface-variant)",
+            fontWeight: isFinal && allDone ? 700 : 400,
+          }}
         >
           {isAnimated ? displayCount.toLocaleString() : "\u2014"}
         </span>
