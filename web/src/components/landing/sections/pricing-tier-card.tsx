@@ -12,88 +12,50 @@ export interface Tier {
   highlighted?: boolean
 }
 
-const CTA_TEXT: Record<string, string> = {
-  Scout: "Search Any Ticker",
-  Analyst: "Start Analyzing",
-  Portfolio: "Start Building",
-}
+const CTA_TEXT: Record<string, string> = { Scout: "Search Any Ticker", Analyst: "Start Analyzing", Portfolio: "Start Building" }
 
-interface PricingTierCardProps {
-  tier: Tier
-}
+export function PricingTierCard({ tier }: { tier: Tier }) {
+  const bg = tier.highlighted ? "var(--color-surface-container-high)" : "var(--color-surface-container-low)"
 
-export function PricingTierCard({ tier }: PricingTierCardProps) {
-  const card = (
-    <div
-      className={`terminal-card rounded-xl flex flex-col h-full relative overflow-hidden focus-visible:outline-2 focus-visible:outline-accent/40 focus-visible:outline-offset-2 hover:-translate-y-0.5 hover:border-[var(--color-accent-medium)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all duration-200${tier.highlighted ? " p-7 md:p-10" : " p-6 md:p-8"}`}
-      style={
-        tier.highlighted
-          ? {
-              borderColor: "var(--color-accent)",
-              borderWidth: "2px",
-            }
-          : {
-              borderColor: "color-mix(in srgb, var(--color-border-subtle) 60%, transparent)",
-            }
-      }
-    >
-      {/* Top accent bar removed — 2px border handles visual elevation */}
-
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xs uppercase tracking-[0.2em] text-text-tertiary">
-          {tier.name}
-        </span>
+  return (
+    <div className="rounded-lg flex flex-col h-full p-6 md:p-8 transition-all duration-200"
+      style={{ background: bg, border: "1px solid var(--color-ghost-border)" }}>
+      <div className="text-label-sm mb-4" style={{ color: "var(--color-on-surface-variant)" }}>
+        {tier.name.toUpperCase()}
         {tier.highlighted && (
-          <span className="text-xs px-2 py-0.5 rounded bg-accent/15 text-accent">
-            Most Popular
-          </span>
+          <span className="ml-2 text-label-sm px-2 py-0.5 rounded" style={{ color: "var(--color-primary)", background: "rgba(128, 216, 178, 0.1)" }}>POPULAR</span>
         )}
       </div>
+
       <div className="mb-2">
-        <span className="font-mono text-4xl text-text-primary">{tier.price}</span>
-        {tier.period && (
-          <span className="text-sm text-text-tertiary ml-1">{tier.period}</span>
-        )}
+        <span className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{tier.price}</span>
+        {tier.period && <span className="text-sm ml-1" style={{ color: "var(--color-text-tertiary)" }}>{tier.period}</span>}
       </div>
-      <p className="text-sm text-text-secondary mb-1">{tier.description}</p>
+
+      <p className="text-sm mb-1" style={{ color: "var(--color-on-surface-variant)" }}>{tier.description}</p>
       {tier.period ? (
-        <p className="text-xs text-text-tertiary font-mono mb-5">
-          billed {tier.period === "/year" ? "annually" : "monthly"}
-        </p>
-      ) : (
-        <div className="mb-6" />
-      )}
-      <ul className="space-y-2 mb-8 flex-1">
+        <p className="text-label-sm mb-6" style={{ color: "var(--color-text-tertiary)" }}>billed {tier.period === "/year" ? "annually" : "monthly"}</p>
+      ) : <div className="mb-6" />}
+
+      <div className="flex flex-col gap-3 mb-8 flex-1">
         {tier.features.map((feature) => (
-          <li key={feature} className="flex items-start gap-2 text-sm text-text-secondary">
-            <span style={{ color: 'var(--color-accent)' }} className="text-base">&#10003;</span>
+          <div key={feature} className="flex items-start gap-2 text-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+            <span style={{ color: "var(--color-primary)" }}>&#10003;</span>
             <span>{feature}</span>
-          </li>
+          </div>
         ))}
-      </ul>
-      {tier.highlighted ? (
-        <Link
-          href="/onboarding"
-          onClick={() => posthog.capture("checkout_started", { plan: tier.name })}
-          className="block text-center text-sm font-medium rounded-lg py-2.5 transition-colors bg-accent text-bg-primary border-none hover:bg-accent-hover"
-        >
-          {CTA_TEXT[tier.name] ?? "Get Started"}
-        </Link>
-      ) : (
-        <Link
-          href="/onboarding"
-          onClick={() => posthog.capture("checkout_started", { plan: tier.name })}
-          className="block text-center text-sm font-medium text-accent border border-accent/30 rounded-lg py-2.5 hover:bg-accent/5 transition-colors opacity-70"
-        >
-          {CTA_TEXT[tier.name] ?? "Get Started"}
-        </Link>
-      )}
+      </div>
+
+      <Link href="/onboarding" onClick={() => posthog.capture("checkout_started", { plan: tier.name })}
+        className="block text-center text-sm font-medium py-2.5 transition-all duration-200"
+        style={{
+          borderRadius: "0.375rem",
+          background: tier.highlighted ? "var(--color-primary-container)" : "transparent",
+          color: tier.highlighted ? "var(--color-on-primary-container)" : "var(--color-primary)",
+          border: tier.highlighted ? "none" : "1px solid var(--color-ghost-border)",
+        }}>
+        {CTA_TEXT[tier.name] ?? "Get Started"}
+      </Link>
     </div>
   )
-
-  if (tier.highlighted) {
-    return <div className="-mt-2">{card}</div>
-  }
-
-  return card
 }
