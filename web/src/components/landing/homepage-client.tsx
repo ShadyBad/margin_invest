@@ -1,12 +1,7 @@
 "use client"
 
 import { HeroSection } from "./sections/hero-section"
-import { AuthorityStrip } from "./sections/authority-strip"
-import { SocialProofSection } from "./sections/social-proof-section"
-import { TransparencyStrip } from "./sections/transparency-strip"
 import { EvidenceSection } from "./sections/evidence-section"
-import { PipelineSection } from "./sections/pipeline-section"
-import { ResultsShowcaseSection } from "./sections/results-showcase-section"
 import { ComparisonSection } from "./sections/comparison-section"
 import { PricingSection } from "./sections/pricing-section"
 import { FooterSection } from "./sections/footer-section"
@@ -21,9 +16,6 @@ export function HomepageClient({ data }: HomepageClientProps) {
   return (
     <ScrollCanvas>
       <HeroSection data={data} />
-      <AuthorityStrip data={data} />
-      <SocialProofSection data={data} />
-      <TransparencyStrip />
       <EvidenceSection
         candidates={data?.allPicks ?? []}
         totalUniverse={data?.total_universe}
@@ -31,8 +23,6 @@ export function HomepageClient({ data }: HomepageClientProps) {
         totalScored={data?.total_scored}
         survivingCount={data?.surviving_count}
       />
-      <PipelineSection data={data} />
-      <ResultsShowcaseSection data={data} />
       <ComparisonSection />
       <PricingSection totalUniverse={data?.total_universe} />
       <FooterSection />
