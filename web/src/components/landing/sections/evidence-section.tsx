@@ -23,138 +23,87 @@ export function EvidenceSection({
   totalScored = 0,
   survivingCount = 0,
 }: EvidenceSectionProps) {
-  const panelRef = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (!panelRef.current) return
-
+    if (!sectionRef.current) return
     let cancelled = false
-    let trigger: { kill: () => void } | null = null
+    const cleanups: (() => void)[] = []
 
     async function animate() {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-
       const gsapModule = await import("gsap")
       const { default: ScrollTrigger } = await import("gsap/ScrollTrigger")
       if (cancelled) return
-
       const gsap = gsapModule.default
       gsap.registerPlugin(ScrollTrigger)
-
-      const el = panelRef.current
+      const el = sectionRef.current
       if (!el) return
 
-      // Panel border/container fades in
-      gsap.set(el, { opacity: 0 })
-
-      // Content items stagger in
-      const items = el.querySelectorAll("[data-evidence-item]")
-      if (items.length > 0) {
-        gsap.set(items, { opacity: 0, y: 16 })
+      // Funnel block
+      const funnelBlock = el.querySelector("[data-funnel-block]")
+      if (funnelBlock) {
+        gsap.set(funnelBlock, { opacity: 0, y: 24, filter: "blur(6px)" })
+        const st = ScrollTrigger.create({ trigger: funnelBlock, start: "top 88%", once: true,
+          onEnter: () => { gsap.to(funnelBlock, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.6, ease: "power2.out" }) },
+        })
+        cleanups.push(() => st.kill())
       }
 
-      trigger = ScrollTrigger.create({
-        trigger: el,
-        start: "top 85%",
-        once: true,
-        onEnter: () => {
-          gsap.to(el, { opacity: 1, duration: 0.5, ease: "power2.out" })
-          if (items.length > 0) {
-            gsap.to(items, {
-              opacity: 1,
-              y: 0,
-              duration: 0.5,
-              stagger: 0.1,
-              delay: 0.15,
-              ease: "power2.out",
-            })
-          }
-        },
-      })
+      // Forensic cards
+      const cards = el.querySelectorAll("[data-forensic-card]")
+      if (cards.length > 0) {
+        gsap.set(cards, { opacity: 0, y: 24, filter: "blur(6px)" })
+        const st = ScrollTrigger.create({ trigger: cards[0], start: "top 88%", once: true,
+          onEnter: () => { gsap.to(cards, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.6, stagger: 0.1, ease: "power2.out" }) },
+        })
+        cleanups.push(() => st.kill())
+      }
     }
 
     animate().catch(() => {})
-
-    return () => {
-      cancelled = true
-      trigger?.kill()
-    }
+    return () => { cancelled = true; cleanups.forEach((fn) => fn()) }
   }, [])
 
   return (
-    <section id="evidence" className="py-20 px-6">
+    <section id="evidence" ref={sectionRef} className="py-24 px-6">
       <div className="max-w-6xl mx-auto">
-        <div
-          ref={panelRef}
-          className="border border-border-subtle rounded-xl overflow-hidden"
-          style={{ background: "var(--color-bg-elevated)" }}
-        >
-          {/* Monospace header strip */}
-          <div
-            className="px-6 py-3 border-b border-border-subtle flex items-center gap-2"
-            style={{ background: "var(--color-bg-subtle)" }}
-          >
-            <span
-              className="inline-block w-2 h-2 rounded-full bg-accent animate-pulse"
-              aria-hidden="true"
-            />
-            <span
-              className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary"
-              data-testid="evidence-header"
-            >
-              System Output — Cycle Results
-            </span>
+        {/* Block A: THE SELECTION FUNNEL */}
+        <div data-funnel-block className="mb-20">
+          <h2 className="text-headline-md uppercase mb-10" style={{ color: "var(--color-on-surface)" }}>
+            The Selection Funnel
+          </h2>
+          <div className="p-8 rounded-lg" style={{ background: "var(--color-surface-container-low)", border: "1px solid var(--color-ghost-border)" }}>
+            <SelectivityFunnel universeCount={totalUniverse} eligibleCount={eligibleCount} scoredCount={totalScored} survivingCount={survivingCount} />
           </div>
+          <p className="text-label-md mt-6 text-center" style={{ color: "var(--color-on-surface-variant)" }}>
+            {totalUniverse.toLocaleString()} &rarr; {eligibleCount.toLocaleString()} &rarr; {totalScored.toLocaleString()} &rarr; {survivingCount.toLocaleString()}
+          </p>
+        </div>
 
-          {/* Row 1: stacked funnel+sector on left, correlation on right */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border-subtle">
-            {/* Left: Funnel + Sector stacked — each vertically centered in its half */}
-            <div className="divide-y divide-border-subtle flex flex-col">
-              <div className="p-6 flex-1 flex flex-col justify-center" data-evidence-item>
-                <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
-                  Selectivity Funnel
-                </div>
-                <SelectivityFunnel
-                  universeCount={totalUniverse}
-                  eligibleCount={eligibleCount}
-                  scoredCount={totalScored}
-                  survivingCount={survivingCount}
-                />
-              </div>
-
-              <div className="p-6 flex-1 flex flex-col justify-center" data-evidence-item>
-                <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
-                  Sector Breakdown
-                </div>
-                <SectorBarChart candidates={candidates} />
-              </div>
+        {/* Block B: FORENSIC ANALYSIS */}
+        <div>
+          <h2 className="text-headline-md uppercase mb-10" style={{ color: "var(--color-on-surface)" }}>
+            Forensic Analysis
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div data-forensic-card className="p-6 rounded-lg" style={{ background: "var(--color-surface-container-low)", border: "1px solid var(--color-ghost-border)" }}>
+              <div className="text-label-sm mb-4" style={{ color: "var(--color-on-surface-variant)" }}>SECTOR BREAKDOWN</div>
+              <SectorBarChart candidates={candidates} />
             </div>
-
-            {/* Right: Factor Correlation */}
-            <div className="p-6" data-evidence-item>
-              <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
-                Factor Correlation
-              </div>
+            <div data-forensic-card className="p-6 rounded-lg" style={{ background: "var(--color-surface-container-low)", border: "1px solid var(--color-ghost-border)" }}>
+              <div className="text-label-sm mb-4" style={{ color: "var(--color-on-surface-variant)" }}>FACTOR CORRELATION</div>
               <ProofHeatmap candidates={candidates} />
             </div>
-          </div>
-
-          {/* Row 2: Full-width factor density curves */}
-          <div className="px-6 py-5 border-t border-border-subtle" data-evidence-item>
-            <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-tertiary mb-4">
-              Factor Distribution — All Candidates
+            <div data-forensic-card className="p-6 rounded-lg" style={{ background: "var(--color-surface-container-low)", border: "1px solid var(--color-ghost-border)" }}>
+              <div className="text-label-sm mb-4" style={{ color: "var(--color-on-surface-variant)" }}>FACTOR DISTRIBUTIONS</div>
+              <FactorDensityCurves candidates={candidates} />
             </div>
-            <FactorDensityCurves candidates={candidates} />
           </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-border-subtle text-center">
-            <Link
-              href="/methodology"
-              className="text-sm text-text-secondary hover:text-accent transition-colors"
-            >
+          <div className="mt-8 text-center">
+            <Link href="/methodology" className="text-sm transition-colors duration-150" style={{ color: "var(--color-on-surface-variant)" }}>
               Structure replaces intuition with evidence.{" "}
-              <span className="text-accent">See full methodology &rarr;</span>
+              <span style={{ color: "var(--color-primary)" }}>See full methodology &rarr;</span>
             </Link>
           </div>
         </div>
