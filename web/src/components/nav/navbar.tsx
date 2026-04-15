@@ -18,7 +18,7 @@ export function Navbar() {
       className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-[900px]"
       aria-label="Main navigation"
     >
-      <div className="relative flex items-center justify-between bg-bg-elevated border border-border-primary rounded-2xl px-6 py-3 backdrop-blur-md shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+      <div className="relative flex items-center justify-between rounded-xl px-6 py-3 backdrop-blur-[20px]" style={{ background: "rgba(18, 42, 28, 0.7)", border: "1px solid var(--color-ghost-border)" }}>
         <NavLogo href={nav.logoHref} />
 
         <div className="hidden md:flex absolute left-1/2 -translate-x-1/2">
