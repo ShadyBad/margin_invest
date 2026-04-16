@@ -31,18 +31,21 @@ export function PickCompactRow({ pick }: PickCompactRowProps) {
   return (
     <Link
       href={`/asset/${pick.ticker}`}
-      className="flex items-center gap-4 px-4 py-3 rounded-lg bg-bg-elevated transition-colors duration-150 hover:bg-bg-subtle"
-      style={{ border: "1px solid rgba(237,233,227,0.04)" }}
+      className="flex items-center gap-4 px-4 py-3 rounded-lg transition-colors duration-150"
+      style={{
+        background: "var(--color-surface-container-low)",
+        border: "1px solid var(--color-ghost-border)",
+      }}
       data-testid={`pick-compact-${pick.ticker}`}
     >
       <span
-        className="font-mono text-[20px] font-bold w-10 text-right tabular-nums"
-        style={{ color: getTierColor(pick.composite_tier) }}
+        className="text-[20px] font-bold w-14 text-right tabular-nums shrink-0"
+        style={{ color: getTierColor(pick.composite_tier), fontFamily: "var(--font-data)" }}
       >
         {formatScore(pick.score)}
       </span>
-      <span className="font-bold text-text-primary w-16">{pick.ticker}</span>
-      <span className="text-sm text-text-secondary truncate flex-1 min-w-0">
+      <span className="font-bold w-20 shrink-0" style={{ color: "var(--color-on-surface)" }}>{pick.ticker}</span>
+      <span className="text-sm truncate flex-1 min-w-0" style={{ color: "var(--color-on-surface-variant)" }}>
         {pick.name}
       </span>
       <FactorSignature
