@@ -110,7 +110,7 @@ export function EvidenceSection({
           <div className="mt-8 text-center">
             <Link href="/methodology" className="text-sm transition-colors duration-150" style={{ color: "var(--color-on-surface-variant)" }}>
               Structure replaces intuition with evidence.{" "}
-              <span style={{ color: "var(--color-primary)" }}>See full methodology &rarr;</span>
+              <span style={{ color: "var(--color-primary-muted)" }}>See full methodology &rarr;</span>
             </Link>
           </div>
         </div>

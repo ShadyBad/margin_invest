@@ -133,7 +133,7 @@ export function HeroSection({ data }: HeroSectionProps) {
             <span className="block" style={{ color: "var(--color-on-surface)" }}>
               <span data-word style={{ display: "inline-block" }}>DISCIPLINE</span>
             </span>
-            <span className="block" style={{ color: "var(--color-primary)" }}>
+            <span className="block" style={{ color: "var(--color-primary-muted)" }}>
               <span data-word style={{ display: "inline-block" }}>ENGINEERED</span>
             </span>
           </h1>
@@ -174,7 +174,7 @@ export function HeroSection({ data }: HeroSectionProps) {
             <HeroSearch />
             <p className="mt-4 text-sm" style={{ color: "var(--color-on-surface-variant)" }}>
               or{" "}
-              <Link href="/explore" className="underline underline-offset-2 transition-colors duration-150 hover:text-[var(--color-primary)]"
+              <Link href="/explore" className="underline underline-offset-2 transition-colors duration-150 hover:text-[var(--color-primary-muted)]"
                 style={{ color: "var(--color-on-surface-variant)" }}>
                 browse this week&apos;s top picks &rarr;
               </Link>

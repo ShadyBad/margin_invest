@@ -53,7 +53,7 @@ export function ComparisonSection() {
             <thead>
               <tr style={{ background: "var(--color-surface-container)" }}>
                 <th scope="col" className="px-6 py-4 text-label-sm w-1/6" style={{ color: "var(--color-on-surface-variant)" }} />
-                <th scope="col" className="px-6 py-4 text-label-sm w-[28%]" style={{ color: "var(--color-primary)", background: "var(--color-surface-container-high)" }}>MARGIN INVEST</th>
+                <th scope="col" className="px-6 py-4 text-label-sm w-[28%]" style={{ color: "var(--color-primary-muted)", background: "var(--color-surface-container-high)" }}>MARGIN INVEST</th>
                 <th scope="col" className="px-6 py-4 text-label-sm w-[28%]" style={{ color: "var(--color-on-surface-variant)" }}>SCREENERS</th>
                 <th scope="col" className="px-6 py-4 text-label-sm w-[28%]" style={{ color: "var(--color-on-surface-variant)" }}>BLACK BOX</th>
               </tr>
@@ -78,7 +78,7 @@ export function ComparisonSection() {
               <div className="text-label-sm mb-3" style={{ color: "var(--color-on-surface-variant)" }}>{row.label.toUpperCase()}</div>
               <div className="flex flex-col gap-2">
                 <div>
-                  <span className="text-label-sm" style={{ color: "var(--color-primary)" }}>MARGIN INVEST</span>
+                  <span className="text-label-sm" style={{ color: "var(--color-primary-muted)" }}>MARGIN INVEST</span>
                   <p className="text-sm mt-0.5" style={{ color: "var(--color-on-surface)" }}>{row.us}</p>
                 </div>
                 <div>

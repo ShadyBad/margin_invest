@@ -177,7 +177,7 @@ export function HeroSearch() {
               className="text-xs transition-colors px-2 py-1 rounded-sm"
               style={{
                 fontFamily: "var(--font-data)",
-                color: "var(--color-primary)",
+                color: "var(--color-primary-muted)",
                 border: "1px solid var(--color-ghost-border)",
               }}
             >
@@ -278,7 +278,7 @@ export function HeroSearch() {
             <Link
               href={`/asset/${result.ticker}`}
               className="inline-flex items-center gap-1.5 text-sm transition-colors hover:opacity-80"
-              style={{ color: "var(--color-primary)" }}
+              style={{ color: "var(--color-primary-muted)" }}
             >
               View full forensic report
               <svg

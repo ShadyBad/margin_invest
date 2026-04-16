@@ -109,7 +109,7 @@ export function PricingSection({ totalUniverse }: PricingSectionProps) {
         </div>
 
         <div className="text-center mt-6">
-          <p className="text-label-sm" style={{ color: "var(--color-primary)" }}>
+          <p className="text-label-sm" style={{ color: "var(--color-primary-muted)" }}>
             Scoring {(totalUniverse ?? 3056).toLocaleString()} US equities daily
           </p>
         </div>

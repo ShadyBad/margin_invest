@@ -23,7 +23,7 @@ export function PricingTierCard({ tier }: { tier: Tier }) {
       <div className="text-label-sm mb-4" style={{ color: "var(--color-on-surface-variant)" }}>
         {tier.name.toUpperCase()}
         {tier.highlighted && (
-          <span className="ml-2 text-label-sm px-2 py-0.5 rounded" style={{ color: "var(--color-primary)", background: "rgba(128, 216, 178, 0.1)" }}>POPULAR</span>
+          <span className="ml-2 text-label-sm px-2 py-0.5 rounded" style={{ color: "var(--color-primary-muted)", background: "rgba(128, 216, 178, 0.1)" }}>POPULAR</span>
         )}
       </div>
 
@@ -40,7 +40,7 @@ export function PricingTierCard({ tier }: { tier: Tier }) {
       <div className="flex flex-col gap-3 mb-8 flex-1">
         {tier.features.map((feature) => (
           <div key={feature} className="flex items-start gap-2 text-sm" style={{ color: "var(--color-on-surface-variant)" }}>
-            <span style={{ color: "var(--color-primary)" }}>&#10003;</span>
+            <span style={{ color: "var(--color-primary-muted)" }}>&#10003;</span>
             <span>{feature}</span>
           </div>
         ))}
