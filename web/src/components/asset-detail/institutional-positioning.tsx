@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -51,34 +51,44 @@ function formatSharesChange(change: number): string {
   return `${prefix}${change.toLocaleString()}`
 }
 
-function HolderRow({ holder }: { holder: HolderResponse }) {
+function HolderRow({ holder, idx }: { holder: HolderResponse; idx: number }) {
   const changeColor =
     holder.shares_changed > 0
-      ? "text-[var(--color-bullish)]"
+      ? "var(--color-bullish)"
       : holder.shares_changed < 0
-        ? "text-[var(--color-bearish)]"
-        : "text-text-tertiary"
+        ? "var(--color-bearish)"
+        : "var(--color-text-tertiary)"
 
   return (
-    <tr className="border-b border-border-subtle last:border-b-0">
-      <td className="py-2 pr-3 text-sm text-text-primary truncate max-w-[180px]">
+    <tr
+      style={{
+        background: idx % 2 === 0 ? "var(--color-surface)" : "var(--color-surface-container-lowest)",
+      }}
+    >
+      <td className="py-2 pr-3 text-sm truncate max-w-[180px]" style={{ color: "var(--color-on-surface)" }}>
         {holder.manager_name}
         {holder.is_new_position && (
-          <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent font-medium">
+          <span
+            className="ml-1.5 text-xs px-1.5 py-0.5 rounded-sm font-medium"
+            style={{
+              background: "color-mix(in srgb, var(--color-primary-muted) 10%, transparent)",
+              color: "var(--color-primary-muted)",
+            }}
+          >
             NEW
           </span>
         )}
       </td>
-      <td className="py-2 px-3 text-sm font-mono text-text-secondary text-right">
+      <td className="py-2 px-3 text-sm text-right" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}>
         {holder.shares_held.toLocaleString()}
       </td>
-      <td className={`py-2 px-3 text-sm font-mono text-right ${changeColor}`}>
+      <td className="py-2 px-3 text-sm text-right" style={{ fontFamily: "var(--font-data)", color: changeColor }}>
         {formatSharesChange(holder.shares_changed)}
       </td>
-      <td className="py-2 px-3 text-sm font-mono text-text-secondary text-right">
+      <td className="py-2 px-3 text-sm text-right" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}>
         {holder.pct_portfolio != null ? `${holder.pct_portfolio.toFixed(1)}%` : "\u2014"}
       </td>
-      <td className="py-2 pl-3 text-sm font-mono text-text-tertiary text-right">
+      <td className="py-2 pl-3 text-sm text-right" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>
         {holder.quarters_held != null ? holder.quarters_held : "\u2014"}
       </td>
     </tr>
@@ -88,13 +98,51 @@ function HolderRow({ holder }: { holder: HolderResponse }) {
 function LoadingSkeleton() {
   return (
     <div data-testid="institutional-positioning-loading" className="space-y-3 animate-pulse">
-      <div className="h-4 w-48 bg-white/[0.06] rounded" />
+      <div className="h-4 w-48 rounded" style={{ background: "var(--color-surface-container)" }} />
       <div className="grid grid-cols-3 gap-3">
-        <div className="h-20 bg-white/[0.06] rounded-xl" />
-        <div className="h-20 bg-white/[0.06] rounded-xl" />
-        <div className="h-20 bg-white/[0.06] rounded-xl" />
+        <div className="h-20 rounded-lg" style={{ background: "var(--color-surface-container)" }} />
+        <div className="h-20 rounded-lg" style={{ background: "var(--color-surface-container)" }} />
+        <div className="h-20 rounded-lg" style={{ background: "var(--color-surface-container)" }} />
       </div>
-      <div className="h-40 bg-white/[0.06] rounded-xl" />
+      <div className="h-40 rounded-lg" style={{ background: "var(--color-surface-container)" }} />
+    </div>
+  )
+}
+
+function HolderTable({ holders, label }: { holders: HolderResponse[]; label: string }) {
+  return (
+    <div className="space-y-2">
+      <span className="text-label-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+        {label}
+      </span>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr>
+              <th className="pb-2 pr-3 text-label-sm font-medium" style={{ color: "var(--color-text-tertiary)" }}>
+                Fund
+              </th>
+              <th className="pb-2 px-3 text-label-sm font-medium text-right" style={{ color: "var(--color-text-tertiary)" }}>
+                Shares
+              </th>
+              <th className="pb-2 px-3 text-label-sm font-medium text-right" style={{ color: "var(--color-text-tertiary)" }}>
+                Change
+              </th>
+              <th className="pb-2 px-3 text-label-sm font-medium text-right" style={{ color: "var(--color-text-tertiary)" }}>
+                % Portfolio
+              </th>
+              <th className="pb-2 pl-3 text-label-sm font-medium text-right" style={{ color: "var(--color-text-tertiary)" }}>
+                Qtrs Held
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {holders.map((holder, idx) => (
+              <HolderRow key={holder.manager_name} holder={holder} idx={idx} />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -159,18 +207,25 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
   const netChange = holdings?.summary.net_shares_changed ?? 0
 
   return (
-    <section data-testid="institutional-positioning" className="space-y-4">
+    <section
+      data-testid="institutional-positioning"
+      className="rounded-lg p-6 space-y-4"
+      style={{
+        background: "var(--color-surface-container-low)",
+        border: "1px solid var(--color-ghost-border)",
+      }}
+    >
       {loading && <LoadingSkeleton />}
 
       {error && (
-        <div className="terminal-card p-6 text-center">
-          <p className="text-sm text-text-secondary">{error}</p>
+        <div className="text-center py-6">
+          <p className="text-sm" style={{ color: "var(--color-on-surface-variant)" }}>{error}</p>
         </div>
       )}
 
       {isEmpty && (
-        <div className="terminal-card p-6 text-center">
-          <p className="text-sm text-text-secondary">
+        <div className="text-center py-6">
+          <p className="text-sm" style={{ color: "var(--color-on-surface-variant)" }}>
             No institutional holdings data available for {ticker}
           </p>
         </div>
@@ -180,51 +235,62 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
         <>
           {/* Header */}
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-lg font-semibold text-text-primary">
-              Institutional Positioning
+            <h2 className="text-label-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+              INSTITUTIONAL POSITIONING
             </h2>
             {periodLabel && (
-              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-accent/10 text-accent uppercase tracking-wider">
+              <span
+                className="text-label-sm px-2 py-0.5 rounded-sm"
+                style={{
+                  background: "color-mix(in srgb, var(--color-primary-muted) 10%, transparent)",
+                  color: "var(--color-primary-muted)",
+                }}
+              >
                 {periodLabel}
               </span>
             )}
           </div>
 
-          <p className="text-xs text-text-tertiary -mt-2">
+          <p className="text-xs -mt-2" style={{ color: "var(--color-text-tertiary)" }}>
             13F filings have a 45-day reporting lag from the period end date.
           </p>
 
-          {/* Summary bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="terminal-card p-4 space-y-1">
-              <span className="text-xs uppercase tracking-wider text-text-tertiary">
-                Total Holders
+          {/* Summary metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div>
+              <span className="text-label-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+                TOTAL HOLDERS
               </span>
-              <span className="text-2xl font-display text-text-primary block">
+              <span className="text-mono-data block mt-1" style={{ color: "var(--color-on-surface)" }}>
                 {holdings.summary.total_holders}
               </span>
-              <span className="text-xs text-text-tertiary">tracked institutions</span>
+              <span className="text-label-sm" style={{ color: "var(--color-text-tertiary)" }}>
+                tracked institutions
+              </span>
             </div>
 
-            <div className="terminal-card p-4 space-y-1">
-              <span className="text-xs uppercase tracking-wider text-text-tertiary">
-                Curated Holders
+            <div>
+              <span className="text-label-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+                CURATED HOLDERS
               </span>
-              <span className="text-2xl font-display text-text-primary block">
+              <span className="text-mono-data block mt-1" style={{ color: "var(--color-on-surface)" }}>
                 {holdings.summary.curated_holders}
               </span>
-              <span className="text-xs text-text-tertiary">high-conviction managers</span>
+              <span className="text-label-sm" style={{ color: "var(--color-text-tertiary)" }}>
+                high-conviction managers
+              </span>
             </div>
 
-            <div className="terminal-card p-4 space-y-1">
-              <span className="text-xs uppercase tracking-wider text-text-tertiary">
-                Net Accumulation
+            <div>
+              <span className="text-label-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+                NET ACCUMULATION
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mt-1">
                 {netChange >= 0 ? (
                   <span
                     data-testid="net-accumulation-up"
-                    className="text-2xl text-[var(--color-bullish)]"
+                    className="text-2xl"
+                    style={{ color: "var(--color-bullish)" }}
                     aria-label="Accumulating"
                   >
                     &#9650;
@@ -232,23 +298,26 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
                 ) : (
                   <span
                     data-testid="net-accumulation-down"
-                    className="text-2xl text-[var(--color-bearish)]"
+                    className="text-2xl"
+                    style={{ color: "var(--color-bearish)" }}
                     aria-label="Distributing"
                   >
                     &#9660;
                   </span>
                 )}
                 <span
-                  className={`text-lg font-mono ${
-                    netChange >= 0
-                      ? "text-[var(--color-bullish)]"
-                      : "text-[var(--color-bearish)]"
-                  }`}
+                  className="text-lg"
+                  style={{
+                    fontFamily: "var(--font-data)",
+                    color: netChange >= 0 ? "var(--color-bullish)" : "var(--color-bearish)",
+                  }}
                 >
                   {formatSharesChange(netChange)}
                 </span>
               </div>
-              <span className="text-xs text-text-tertiary">net share change</span>
+              <span className="text-label-sm" style={{ color: "var(--color-text-tertiary)" }}>
+                net share change
+              </span>
             </div>
           </div>
 
@@ -256,44 +325,46 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
           <ProGate>
             {/* Holder count trend chart */}
             {chartData.length > 1 && (
-              <div className="terminal-card p-4 space-y-2">
-                <span className="text-xs uppercase tracking-wider text-text-tertiary">
-                  Holder Trend
+              <div className="space-y-2">
+                <span className="text-label-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+                  HOLDER TREND
                 </span>
                 <div className="h-32">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-grid-line)" />
+                    <LineChart data={chartData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--color-surface-container-high)"
+                        strokeOpacity={0.1}
+                      />
                       <XAxis
                         dataKey="period"
-                        tick={{ fontSize: 10 }}
+                        tick={{ fontSize: 10, fontFamily: "var(--font-data)", fill: "var(--color-text-tertiary)" }}
                         stroke="var(--color-text-tertiary)"
                       />
                       <YAxis
-                        tick={{ fontSize: 10 }}
+                        tick={{ fontSize: 10, fontFamily: "var(--font-data)", fill: "var(--color-text-tertiary)" }}
                         stroke="var(--color-text-tertiary)"
                         allowDecimals={false}
                       />
                       <Tooltip />
-                      <Area
+                      <Line
                         type="monotone"
                         dataKey="curated"
-                        stackId="1"
-                        stroke="var(--color-accent)"
-                        fill="var(--color-accent)"
-                        fillOpacity={0.3}
+                        stroke="var(--color-primary-muted)"
+                        strokeWidth={1.5}
+                        dot={false}
                         name="Curated"
                       />
-                      <Area
+                      <Line
                         type="monotone"
                         dataKey="total"
-                        stackId="2"
-                        stroke="var(--color-text-tertiary)"
-                        fill="var(--color-text-tertiary)"
-                        fillOpacity={0.1}
+                        stroke="var(--color-on-surface-variant)"
+                        strokeWidth={1.5}
+                        dot={false}
                         name="Total"
                       />
-                    </AreaChart>
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -301,86 +372,27 @@ export function InstitutionalPositioning({ ticker }: InstitutionalPositioningPro
 
             {/* Curated holders table */}
             {holdings.curated_holders.length > 0 && (
-              <div className="terminal-card p-4 space-y-2">
-                <span className="text-xs uppercase tracking-wider text-text-tertiary">
-                  Curated Holders
-                </span>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="border-b border-border-subtle">
-                        <th className="pb-2 pr-3 text-xs uppercase tracking-wider text-text-tertiary font-medium">
-                          Fund
-                        </th>
-                        <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
-                          Shares
-                        </th>
-                        <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
-                          Change
-                        </th>
-                        <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
-                          % Portfolio
-                        </th>
-                        <th className="pb-2 pl-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
-                          Qtrs Held
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {holdings.curated_holders.map((holder) => (
-                        <HolderRow key={holder.manager_name} holder={holder} />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <HolderTable holders={holdings.curated_holders} label="CURATED HOLDERS" />
             )}
 
             {/* Expandable other holders */}
             {holdings.other_holders.length > 0 && (
-              <div className="terminal-card overflow-hidden">
+              <div>
                 <button
                   type="button"
                   onClick={() => setShowOtherHolders((prev) => !prev)}
-                  className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.02] transition-colors"
+                  className="w-full flex items-center justify-between py-2 text-left transition-opacity hover:opacity-80"
                 >
-                  <span className="text-xs uppercase tracking-wider text-text-tertiary font-medium">
-                    All Tracked Holders ({holdings.other_holders.length})
+                  <span className="text-label-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+                    ALL TRACKED HOLDERS ({holdings.other_holders.length})
                   </span>
-                  <span className="text-text-tertiary text-sm">
+                  <span className="text-sm" style={{ color: "var(--color-text-tertiary)" }}>
                     {showOtherHolders ? "\u25B2" : "\u25BC"}
                   </span>
                 </button>
                 {showOtherHolders && (
-                  <div className="px-4 pb-4">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="border-b border-border-subtle">
-                            <th className="pb-2 pr-3 text-xs uppercase tracking-wider text-text-tertiary font-medium">
-                              Fund
-                            </th>
-                            <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
-                              Shares
-                            </th>
-                            <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
-                              Change
-                            </th>
-                            <th className="pb-2 px-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
-                              % Portfolio
-                            </th>
-                            <th className="pb-2 pl-3 text-xs uppercase tracking-wider text-text-tertiary font-medium text-right">
-                              Qtrs Held
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {holdings.other_holders.map((holder) => (
-                            <HolderRow key={holder.manager_name} holder={holder} />
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                  <div className="mt-2">
+                    <HolderTable holders={holdings.other_holders} label="" />
                   </div>
                 )}
               </div>
