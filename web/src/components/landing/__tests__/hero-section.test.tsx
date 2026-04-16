@@ -57,7 +57,7 @@ describe("HeroSection", () => {
   it("renders DISCIPLINE and ENGINEER headline words", () => {
     render(<HeroSection data={null} />)
     expect(screen.getByText("DISCIPLINE")).toBeInTheDocument()
-    expect(screen.getByText("ENGINEER")).toBeInTheDocument()
+    expect(screen.getByText("ENGINEERED")).toBeInTheDocument()
   })
 
   it("renders subtext about forensic scoring engine", () => {

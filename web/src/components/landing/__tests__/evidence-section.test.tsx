@@ -127,9 +127,9 @@ describe("EvidenceSection", () => {
     expect(cards).toHaveLength(3)
   })
 
-  it("renders the three-column forensic grid", () => {
+  it("renders the forensic grid", () => {
     const { container } = render(<EvidenceSection />)
-    const grid = container.querySelector(".grid.grid-cols-1.lg\\:grid-cols-3")
+    const grid = container.querySelector(".grid.grid-cols-1.md\\:grid-cols-2")
     expect(grid).toBeInTheDocument()
   })
 

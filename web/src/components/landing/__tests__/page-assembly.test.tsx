@@ -79,7 +79,7 @@ describe("Landing page assembly", () => {
 
     // Hero
     expect(screen.getByText("DISCIPLINE")).toBeInTheDocument()
-    expect(screen.getByText("ENGINEER")).toBeInTheDocument()
+    expect(screen.getByText("ENGINEERED")).toBeInTheDocument()
 
     // Pricing
     expect(screen.getByText("SCOUT")).toBeInTheDocument()

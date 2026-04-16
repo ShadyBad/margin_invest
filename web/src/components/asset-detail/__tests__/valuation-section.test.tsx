@@ -116,7 +116,7 @@ describe("ValuationSection", () => {
     )
 
     // Click the audit toggle
-    fireEvent.click(screen.getByText(/Full Valuation Audit/))
+    fireEvent.click(screen.getByText(/VIEW AUDIT TRAIL/))
 
     await waitFor(() => {
       expect(screen.getByText("No audit data available")).toBeInTheDocument()
@@ -152,7 +152,7 @@ describe("ValuationSection", () => {
       />
     )
 
-    fireEvent.click(screen.getByText(/Full Valuation Audit/))
+    fireEvent.click(screen.getByText(/VIEW AUDIT TRAIL/))
 
     await waitFor(() => {
       expect(screen.getByText(/margin_invest_value/)).toBeInTheDocument()

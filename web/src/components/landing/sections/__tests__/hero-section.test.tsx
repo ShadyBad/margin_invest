@@ -79,7 +79,7 @@ describe("HeroSection", () => {
   it("renders the headline", () => {
     render(<HeroSection data={mockData} />)
     expect(screen.getByText("DISCIPLINE")).toBeInTheDocument()
-    expect(screen.getByText("ENGINEER")).toBeInTheDocument()
+    expect(screen.getByText("ENGINEERED")).toBeInTheDocument()
   })
 
   it("renders the subtext", () => {

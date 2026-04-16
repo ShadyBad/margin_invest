@@ -28,23 +28,18 @@ vi.mock("@/lib/api/thirteenf", () => ({
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="responsive-container">{children}</div>,
-  AreaChart: ({ children }: { children: React.ReactNode }) => <div data-testid="area-chart">{children}</div>,
-  Area: () => <div data-testid="area" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  CartesianGrid: () => <div data-testid="cartesian-grid" />,
   RadarChart: ({ children }: { children: React.ReactNode }) => <div data-testid="radar-chart">{children}</div>,
   PolarGrid: () => <div data-testid="polar-grid" />,
   PolarAngleAxis: () => <div data-testid="polar-angle-axis" />,
   Radar: () => <div data-testid="radar" />,
   Legend: () => <div data-testid="legend" />,
+  LineChart: ({ children }: { children: React.ReactNode }) => <div data-testid="line-chart">{children}</div>,
+  Line: () => <div data-testid="line" />,
+  XAxis: () => <div data-testid="x-axis" />,
+  YAxis: () => <div data-testid="y-axis" />,
+  Tooltip: () => <div data-testid="tooltip" />,
+  CartesianGrid: () => <div data-testid="cartesian-grid" />,
 }))
-
-vi.mock("../factor-radar", () => ({ FactorRadar: () => <div data-testid="factor-radar" /> }))
-vi.mock("../determinism-badge", () => ({ DeterminismBadge: () => <div data-testid="determinism-badge" /> }))
-vi.mock("../sector-neutral-banner", () => ({ SectorNeutralBanner: () => <div data-testid="sector-neutral-banner" /> }))
-vi.mock("../failed-comparison", () => ({ FailedComparison: () => <div data-testid="failed-comparison" />, FailedFilterComparison: {} }))
 
 function makeScoreResponse(overrides: Partial<ScoreResponse> = {}): ScoreResponse {
   return {
@@ -99,17 +94,17 @@ describe("AssetDetailView", () => {
         apiError={null}
       />
     )
-    expect(screen.getByTestId("hero-header")).toBeInTheDocument()
+    // New layout components
+    expect(screen.getByTestId("instrument-header")).toBeInTheDocument()
+    expect(screen.getByTestId("vital-signs")).toBeInTheDocument()
+    expect(screen.getByTestId("factor-profile")).toBeInTheDocument()
     expect(screen.getByTestId("elimination-gauntlet")).toBeInTheDocument()
     expect(screen.getByTestId("scoring-pillars")).toBeInTheDocument()
     expect(screen.getByTestId("conviction-engine")).toBeInTheDocument()
     expect(screen.getByTestId("valuation-section")).toBeInTheDocument()
-    // Eliminated-only sections should NOT be present
-    expect(screen.queryByTestId("eliminated-hero")).not.toBeInTheDocument()
-    expect(screen.queryByTestId("hypothetical-scores")).not.toBeInTheDocument()
-    // Backtest teaser appears after async fetch resolves
+    // Model validation appears after async fetch resolves
     await waitFor(() => {
-      expect(screen.getByTestId("backtest-teaser")).toBeInTheDocument()
+      expect(screen.getByTestId("model-validation")).toBeInTheDocument()
     })
   })
 
@@ -135,21 +130,21 @@ describe("AssetDetailView", () => {
         apiError={null}
       />
     )
-    expect(screen.getByTestId("eliminated-hero")).toBeInTheDocument()
+    // Always-present sections
+    expect(screen.getByTestId("instrument-header")).toBeInTheDocument()
+    expect(screen.getByTestId("vital-signs")).toBeInTheDocument()
+    expect(screen.getByTestId("factor-profile")).toBeInTheDocument()
     expect(screen.getByTestId("elimination-gauntlet")).toBeInTheDocument()
-    expect(screen.getByTestId("hypothetical-scores")).toBeInTheDocument()
-    // Backtest teaser only shows for passing stocks
-    expect(screen.queryByTestId("backtest-teaser")).not.toBeInTheDocument()
+    // Explore link should show for eliminated
+    expect(screen.getByText(/View another candidate/)).toBeInTheDocument()
     // Passing-only sections should NOT be present
     expect(screen.queryByTestId("scoring-pillars")).not.toBeInTheDocument()
     expect(screen.queryByTestId("conviction-engine")).not.toBeInTheDocument()
     expect(screen.queryByTestId("valuation-section")).not.toBeInTheDocument()
-    expect(screen.queryByTestId("hero-header")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("model-validation")).not.toBeInTheDocument()
   })
 
   it("renders score view for top-tier ticker with failed filters", () => {
-    // API returns composite_tier "none" for eliminated stocks, but the raw
-    // score (78.3 default) derives to "exceptional" — matches dashboard logic.
     const data = makeScoreResponse({
       composite_tier: "none",
       filters_passed: [
@@ -170,10 +165,10 @@ describe("AssetDetailView", () => {
       />
     )
     // Top-tier shows score view, not eliminated
-    expect(screen.getByTestId("hero-header")).toBeInTheDocument()
+    expect(screen.getByTestId("instrument-header")).toBeInTheDocument()
     expect(screen.getByTestId("scoring-pillars")).toBeInTheDocument()
-    expect(screen.queryByTestId("eliminated-hero")).not.toBeInTheDocument()
-    expect(screen.queryByTestId("hypothetical-scores")).not.toBeInTheDocument()
+    // Explore link should NOT appear for score view
+    expect(screen.queryByText(/View another candidate/)).not.toBeInTheDocument()
     // Filter gauntlet still shows
     expect(screen.getByTestId("elimination-gauntlet")).toBeInTheDocument()
   })
@@ -190,8 +185,7 @@ describe("AssetDetailView", () => {
     expect(screen.getByTestId("error-state")).toBeInTheDocument()
     expect(screen.getByText("Score data unavailable")).toBeInTheDocument()
     // No data sections should render
-    expect(screen.queryByTestId("hero-header")).not.toBeInTheDocument()
-    expect(screen.queryByTestId("eliminated-hero")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("instrument-header")).not.toBeInTheDocument()
     expect(screen.queryByTestId("elimination-gauntlet")).not.toBeInTheDocument()
   })
 
@@ -207,51 +201,23 @@ describe("AssetDetailView", () => {
     expect(screen.getByTestId("error-state")).toBeInTheDocument()
     expect(screen.getByText(/scored in the next cycle/i)).toBeInTheDocument()
   })
-
-  it("renders sector survivor CTA when eliminated and sector provided", () => {
-    const data = makeScoreResponse({
-      score: 40.0,
-      composite_tier: "minimal",
-      signal: "failed",
-      filters_passed: [
-        { name: "liquidity", passed: true, value: 8e11, threshold: 2e8, detail: "", verdict: "pass", missing_fields: null },
-        { name: "altman_z_score", passed: false, value: 1.6, threshold: 1.1, detail: "", verdict: "fail", missing_fields: null },
-        { name: "beneish_m_score", passed: true, value: -2.5, threshold: -1.78, detail: "", verdict: "pass", missing_fields: null },
-        { name: "current_ratio", passed: true, value: 1.5, threshold: 0.8, detail: "", verdict: "pass", missing_fields: null },
-        { name: "fcf_distress", passed: false, value: -2.1e9, threshold: 0, detail: "", verdict: "fail", missing_fields: null },
-        { name: "interest_coverage", passed: true, value: 15, threshold: 3, detail: "", verdict: "pass", missing_fields: null },
-      ],
-    })
-    render(
-      <AssetDetailView
-        ticker="TSLA"
-        scoreData={data}
-        historyData={null}
-        apiError={null}
-        sectorSurvivorCount={5}
-        sectorName="Consumer Discretionary"
-      />
-    )
-    expect(screen.getByText(/5 stocks in Consumer Discretionary/i)).toBeInTheDocument()
-    expect(screen.getByText(/survived the gauntlet/i)).toBeInTheDocument()
-  })
 })
 
 describe("barrel exports", () => {
-  it("exports all 13 components from index", async () => {
+  it("exports all components from index", async () => {
     const barrel = await import("../index")
     expect(barrel.AssetDetailView).toBeDefined()
-    expect(barrel.HeroHeader).toBeDefined()
-    expect(barrel.EliminatedHero).toBeDefined()
+    expect(barrel.InstrumentHeader).toBeDefined()
+    expect(barrel.VitalSigns).toBeDefined()
+    expect(barrel.FactorProfile).toBeDefined()
     expect(barrel.EliminationGauntlet).toBeDefined()
     expect(barrel.FilterCard).toBeDefined()
     expect(barrel.ScoringPillars).toBeDefined()
     expect(barrel.PillarCard).toBeDefined()
     expect(barrel.ConvictionEngine).toBeDefined()
     expect(barrel.ValuationSection).toBeDefined()
-    expect(barrel.HypotheticalScores).toBeDefined()
-    expect(barrel.MLAuditPanel).toBeDefined()
     expect(barrel.InstitutionalPositioning).toBeDefined()
-    expect(barrel.BacktestTeaser).toBeDefined()
+    expect(barrel.ModelValidation).toBeDefined()
+    expect(barrel.WatchlistButton).toBeDefined()
   })
 })

@@ -8,11 +8,11 @@ describe("NavCTA", () => {
     primary: { label: "Dashboard", href: "/login" },
   }
 
-  it("renders primary CTA as a pill button", () => {
+  it("renders primary CTA as a styled button", () => {
     render(<NavCTA cta={cta} />)
     const dashboard = screen.getByText("Dashboard")
     expect(dashboard.closest("a")).toHaveAttribute("href", "/login")
-    expect(dashboard.className).toContain("rounded-full")
+    expect(dashboard.closest("a")).toHaveStyle({ borderRadius: "0.375rem" })
   })
 
   it("renders without secondary CTA", () => {

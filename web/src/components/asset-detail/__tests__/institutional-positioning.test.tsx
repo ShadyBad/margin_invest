@@ -14,6 +14,8 @@ vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="responsive-container">{children}</div>
   ),
+  LineChart: ({ children }: { children: React.ReactNode }) => <div data-testid="line-chart">{children}</div>,
+  Line: () => <div data-testid="line" />,
   AreaChart: ({ children }: { children: React.ReactNode }) => <div data-testid="area-chart">{children}</div>,
   Area: () => <div data-testid="area" />,
   XAxis: () => <div data-testid="x-axis" />,
@@ -106,7 +108,7 @@ describe("InstitutionalPositioning", () => {
     render(<InstitutionalPositioning ticker="AAPL" />)
 
     await waitFor(() => {
-      expect(screen.getByText("Institutional Positioning")).toBeInTheDocument()
+      expect(screen.getByText("INSTITUTIONAL POSITIONING")).toBeInTheDocument()
     })
 
     // Period badge
@@ -183,7 +185,7 @@ describe("InstitutionalPositioning", () => {
     render(<InstitutionalPositioning ticker="AAPL" />)
 
     await waitFor(() => {
-      expect(screen.getByTestId("area-chart")).toBeInTheDocument()
+      expect(screen.getByTestId("line-chart")).toBeInTheDocument()
     })
   })
 
