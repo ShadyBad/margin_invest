@@ -11,14 +11,20 @@ export function NavCTA({ cta }: NavCTAProps) {
       {cta.secondary && (
         <Link
           href={cta.secondary.href}
-          className="text-[13px] text-text-secondary hover:text-text-primary transition-colors duration-200 ease-out"
+          className="text-[13px] transition-colors duration-200 ease-out"
+          style={{ color: "var(--color-on-surface-variant)" }}
         >
           {cta.secondary.label}
         </Link>
       )}
       <Link
         href={cta.primary.href}
-        className="bg-bg-elevated text-text-primary text-[13px] font-semibold rounded-full px-5 py-2 hover:bg-bg-subtle transition-colors duration-200 ease-out"
+        className="text-[13px] font-semibold px-4 py-1.5 transition-colors duration-200 ease-out"
+        style={{
+          background: "var(--color-primary-container)",
+          color: "var(--color-on-primary-container)",
+          borderRadius: "0.375rem",
+        }}
       >
         {cta.primary.label}
       </Link>
