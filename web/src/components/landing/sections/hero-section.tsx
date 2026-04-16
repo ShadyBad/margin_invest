@@ -134,7 +134,7 @@ export function HeroSection({ data }: HeroSectionProps) {
               <span data-word style={{ display: "inline-block" }}>DISCIPLINE</span>
             </span>
             <span className="block" style={{ color: "var(--color-primary)" }}>
-              <span data-word style={{ display: "inline-block" }}>ENGINEER</span>
+              <span data-word style={{ display: "inline-block" }}>ENGINEERED</span>
             </span>
           </h1>
 

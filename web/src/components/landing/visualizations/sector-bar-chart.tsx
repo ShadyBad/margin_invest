@@ -65,30 +65,30 @@ export function SectorBarChart({ candidates }: SectorBarChartProps) {
 
   return (
     <div
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-2"
       aria-label="Sector distribution of surviving candidates"
     >
       {groups.map((g) => {
         const widthPct = Math.max(8, (g.count / maxCount) * 100)
         return (
-          <div key={g.sector} data-testid={`sector-row-${g.sector}`} className="group/sector flex items-center gap-2 cursor-default">
-            <span className="text-label-sm w-[100px] shrink-0 truncate transition-colors duration-200" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }} title={g.sector}>
-              {g.sector}
-            </span>
-            <div className="flex-1 flex items-center gap-2">
-              <div
-                className="h-6 rounded-sm transition-all duration-200 group-hover/sector:brightness-125 group-hover/sector:shadow-[0_0_8px_rgba(128,216,178,0.10)]"
-                data-testid={`sector-bar-${g.sector}`}
-                style={{
-                  width: `${widthPct}%`,
-                  backgroundColor: getSectorColor(g.sector),
-                  opacity: 0.8,
-                }}
-              />
-              <span className="text-xs tabular-nums shrink-0 transition-colors duration-200" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}>
+          <div key={g.sector} data-testid={`sector-row-${g.sector}`} className="group/sector cursor-default">
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-[10px] uppercase tracking-[0.15em] truncate" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }} title={g.sector}>
+                {g.sector}
+              </span>
+              <span className="text-[10px] tabular-nums shrink-0 ml-2" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}>
                 {g.count}
               </span>
             </div>
+            <div
+              className="h-5 rounded-sm transition-all duration-200 group-hover/sector:brightness-125"
+              data-testid={`sector-bar-${g.sector}`}
+              style={{
+                width: `${widthPct}%`,
+                backgroundColor: getSectorColor(g.sector),
+                opacity: 0.8,
+              }}
+            />
           </div>
         )
       })}

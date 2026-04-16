@@ -60,15 +60,15 @@ export function FactorDensityCurves({ candidates }: FactorDensityCurvesProps) {
 
   return (
     <div
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
+      className="flex flex-col gap-3"
       aria-label="Factor percentile distributions across all candidates"
     >
       {distributions.map((d) => (
-        <div key={d.label} data-testid={`density-panel-${d.label}`}>
-          <span className="text-label-sm block mb-2" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>{d.label}</span>
+        <div key={d.label} data-testid={`density-panel-${d.label}`} className="flex items-center gap-3">
+          <span className="text-[10px] uppercase tracking-[0.15em] w-20 shrink-0" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>{d.label}</span>
 
           {/* Horizontal track with min/median/max dots */}
-          <div className="relative h-3 rounded-sm" style={{ background: "color-mix(in srgb, var(--color-surface-variant) 10%, transparent)" }}>
+          <div className="relative h-3 rounded-sm flex-1" style={{ background: "color-mix(in srgb, var(--color-surface-variant) 10%, transparent)" }}>
             {/* Range bar connecting min to max */}
             <div
               className="absolute top-1/2 -translate-y-1/2 h-1 rounded-sm"
@@ -101,12 +101,8 @@ export function FactorDensityCurves({ candidates }: FactorDensityCurvesProps) {
             />
           </div>
 
-          {/* Numeric labels */}
-          <div className="flex justify-between mt-1">
-            <span className="text-[10px] tabular-nums" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>{d.min}</span>
-            <span className="text-[10px] tabular-nums" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}>{d.median}</span>
-            <span className="text-[10px] tabular-nums" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>{d.max}</span>
-          </div>
+          {/* Median value */}
+          <span className="text-[10px] tabular-nums w-6 text-right shrink-0" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}>{d.median}</span>
         </div>
       ))}
     </div>
