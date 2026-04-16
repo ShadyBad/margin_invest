@@ -86,9 +86,9 @@ export function EvidenceSection({
           <h2 className="text-headline-md uppercase mb-10" style={{ color: "var(--color-on-surface)" }}>
             Forensic Analysis
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-6 items-start">
             {/* Left: Sector Breakdown + Factor Distributions stacked */}
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6 min-w-0">
               <div data-forensic-card className="p-6 rounded-lg" style={{ background: "var(--color-surface-container-low)", border: "1px solid var(--color-ghost-border)" }}>
                 <div className="text-label-sm mb-4" style={{ color: "var(--color-on-surface-variant)" }}>SECTOR BREAKDOWN</div>
                 <SectorBarChart candidates={candidates} />
@@ -99,10 +99,12 @@ export function EvidenceSection({
               </div>
             </div>
 
-            {/* Right: Factor Correlation */}
-            <div data-forensic-card className="p-6 rounded-lg" style={{ background: "var(--color-surface-container-low)", border: "1px solid var(--color-ghost-border)" }}>
+            {/* Right: Factor Correlation — stretch to match left height */}
+            <div data-forensic-card className="p-6 rounded-lg flex flex-col min-w-0" style={{ background: "var(--color-surface-container-low)", border: "1px solid var(--color-ghost-border)" }}>
               <div className="text-label-sm mb-4" style={{ color: "var(--color-on-surface-variant)" }}>FACTOR CORRELATION</div>
-              <ProofHeatmap candidates={candidates} />
+              <div className="flex-1 flex items-center justify-center">
+                <ProofHeatmap candidates={candidates} />
+              </div>
             </div>
           </div>
           <div className="mt-8 text-center">
