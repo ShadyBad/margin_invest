@@ -27,8 +27,16 @@ export function ScoringPillars({
   return (
     <section data-testid="scoring-pillars" className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">Scoring Breakdown</h2>
-        <p className="text-xs text-text-tertiary mt-0.5">
+        <h2
+          className="text-label-sm"
+          style={{ color: "var(--color-on-surface-variant)" }}
+        >
+          SCORING BREAKDOWN
+        </h2>
+        <p
+          className="text-body-md mt-1"
+          style={{ color: "var(--color-on-surface-variant)" }}
+        >
           Weighted by growth stage:{" "}
           {growthStage ? formatGrowthStage(growthStage) : "Default"} ({weightLabel})
         </p>
