@@ -129,13 +129,13 @@ export function AssetDetailView({
       <InstrumentHeader
         ticker={scoreData.ticker}
         name={scoreData.name}
-        sector={scoreData.sector}
-        growthStage={scoreData.growth_stage}
-        style={scoreData.style}
+        sector={scoreData.sector ?? null}
+        growthStage={scoreData.growth_stage ?? null}
+        style={scoreData.style ?? null}
         score={scoreData.score}
         tier={derivedTier}
-        signal={scoreData.signal}
-        scoredAt={scoreData.scored_at}
+        signal={scoreData.signal ?? null}
+        scoredAt={scoreData.scored_at ?? null}
         eliminated={!showScoreView}
         eliminationReason={!showScoreView ? scoreData.filters_passed.find(f => !f.passed)?.name : null}
         universePercentile={scoreData.universe_percentile}
@@ -150,7 +150,7 @@ export function AssetDetailView({
         filtersPassed={scoreData.filters_passed.filter(f => f.passed).length}
         filtersTotal={scoreData.filters_passed.length}
         eliminated={!showScoreView}
-        consistencyWarnings={scoreData.consistency_warnings}
+        consistencyWarnings={scoreData.consistency_warnings?.map(w => w.field_name)}
       />
 
       {/* Factor Profile + Elimination Gauntlet -- 2-column */}

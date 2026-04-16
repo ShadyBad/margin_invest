@@ -11,12 +11,7 @@ export interface ModelValidationProps {
   mlModelTrainedAt: string | null
   mlAlpha: number | null
   mlConfidence: number | null
-  mlOverride: {
-    applied: boolean
-    direction: string | null
-    rules_tier: string | null
-    ml_tier: string | null
-  } | null
+  mlOverride: string | null
   rulesTier: string | null
   compositeTier: string | null
   backtestData: {
@@ -78,7 +73,7 @@ export function ModelValidation({
   backtestData,
 }: ModelValidationProps) {
   const isQualified = mlModelQualified === true
-  const hasOverride = mlOverride?.applied === true
+  const hasOverride = mlOverride === "promoted" || mlOverride === "demoted"
 
   return (
     <section
@@ -143,7 +138,7 @@ export function ModelValidation({
                 className="text-label-sm mt-4"
                 style={{ color: "var(--color-on-surface-variant)" }}
               >
-                {mlOverride.direction === "promoted" ? "Promoted" : "Demoted"}{" "}
+                {mlOverride === "promoted" ? "Promoted" : "Demoted"}{" "}
                 <span style={{ fontFamily: "var(--font-data)" }}>
                   {rulesTier.toUpperCase()}
                 </span>
