@@ -45,17 +45,14 @@ export function InstrumentPanel({ candidate }: InstrumentPanelProps) {
   return (
     <div
       data-hero-card
-      className="terminal-card w-full max-w-md transition-shadow duration-300 hover:shadow-[0_0_60px_rgba(26,122,90,0.15)]"
+      className="terminal-card w-full max-w-md transition-shadow duration-300 hover:shadow-[0_0_60px_rgba(128,216,178,0.08)]"
       style={{
-        boxShadow: "0 0 40px rgba(26,122,90,0.08)",
-        borderColor: "rgba(26,122,90,0.2)",
+        boxShadow: "0 0 40px rgba(128,216,178,0.06)",
+        borderColor: "var(--color-ghost-border)",
       }}
     >
       {/* Header strip */}
-      <div
-        className="flex items-center gap-2 px-5 py-3"
-        style={{ borderBottom: "1px solid var(--color-border-subtle)" }}
-      >
+      <div className="flex items-center gap-2 px-5 py-3 pb-3">
         <span
           className="inline-block w-2 h-2 rounded-full shrink-0"
           data-testid="status-dot"
@@ -65,11 +62,11 @@ export function InstrumentPanel({ candidate }: InstrumentPanelProps) {
               : "var(--color-text-tertiary)",
           }}
         />
-        <span className="text-mono-label text-text-tertiary">
+        <span className="text-label-sm" style={{ color: "var(--color-text-tertiary)" }}>
           {hasCand ? `Live Score — ${candidate.ticker}` : "Live Score"}
         </span>
         {hasCand && (
-          <span className="text-mono-label text-text-tertiary ml-auto text-[10px]">
+          <span className="text-label-sm ml-auto text-[10px]" style={{ color: "var(--color-text-tertiary)" }}>
             {formatRelativeTime(candidate.scored_at)}
           </span>
         )}
@@ -81,8 +78,10 @@ export function InstrumentPanel({ candidate }: InstrumentPanelProps) {
         <div className="flex items-start justify-between mb-1">
           <div>
             <span
-              className="font-mono text-[42px] font-bold leading-none tracking-tight inline-block"
+              className="text-[42px] leading-none tracking-tight inline-block"
               style={{
+                fontFamily: "var(--font-data)",
+                fontWeight: 700,
                 color: hasCand
                   ? getTierColor(candidate.composite_tier)
                   : "var(--color-text-tertiary)",
@@ -91,23 +90,24 @@ export function InstrumentPanel({ candidate }: InstrumentPanelProps) {
               {hasCand ? formatScore(candidate.score) : "—"}
             </span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-title-1 text-text-primary">
+              <span className="text-title-sm" style={{ color: "var(--color-on-surface)" }}>
                 {hasCand ? candidate.ticker : "—"}
               </span>
-              <span className="text-caption text-text-secondary max-w-[200px] break-words">
+              <span className="text-sm max-w-[200px] break-words" style={{ color: "var(--color-on-surface-variant)" }}>
                 {hasCand ? candidate.name : ""}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1">
               {hasCand && candidate.sector && (
-                <span className="text-caption text-text-tertiary">
+                <span className="text-sm" style={{ color: "var(--color-text-tertiary)" }}>
                   {candidate.sector}
                 </span>
               )}
               {hasCand && (
                 <span
-                  className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded"
+                  className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm"
                   style={{
+                    fontFamily: "var(--font-data)",
                     color: getTierColor(candidate.composite_tier),
                     backgroundColor: `color-mix(in srgb, ${getTierColor(candidate.composite_tier)} 12%, transparent)`,
                   }}
@@ -134,7 +134,7 @@ export function InstrumentPanel({ candidate }: InstrumentPanelProps) {
             />
           ) : (
             <div className="h-[160px] flex items-center justify-center">
-              <span className="text-caption text-text-tertiary">
+              <span className="text-sm" style={{ color: "var(--color-text-tertiary)" }}>
                 No data available
               </span>
             </div>

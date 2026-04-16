@@ -27,7 +27,7 @@ const SECTOR_COLOR_MAP: Record<string, string> = {
   "COMMUNICATION SERVICES": "var(--color-sector-comms)",
 }
 
-const DEFAULT_COLOR = "var(--color-accent)"
+const DEFAULT_COLOR = "var(--color-primary)"
 
 function getSectorColor(sector: string): string {
   return SECTOR_COLOR_MAP[sector.toUpperCase()] ?? DEFAULT_COLOR
@@ -53,7 +53,7 @@ export function SectorBarChart({ candidates }: SectorBarChartProps) {
   if (candidates.length === 0) {
     return (
       <div className="flex items-center justify-center h-full min-h-[120px]">
-        <p className="text-xs text-text-tertiary font-mono">
+        <p className="text-xs" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>
           Sector data available after scoring cycle
         </p>
       </div>
@@ -72,12 +72,12 @@ export function SectorBarChart({ candidates }: SectorBarChartProps) {
         const widthPct = Math.max(8, (g.count / maxCount) * 100)
         return (
           <div key={g.sector} data-testid={`sector-row-${g.sector}`} className="group/sector flex items-center gap-2 cursor-default">
-            <span className="text-mono-label text-text-tertiary w-[100px] shrink-0 truncate transition-colors duration-200 group-hover/sector:text-text-secondary" title={g.sector}>
+            <span className="text-label-sm w-[100px] shrink-0 truncate transition-colors duration-200" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }} title={g.sector}>
               {g.sector}
             </span>
             <div className="flex-1 flex items-center gap-2">
               <div
-                className="h-6 rounded-sm transition-all duration-200 group-hover/sector:brightness-125 group-hover/sector:shadow-[0_0_8px_rgba(26,122,90,0.15)]"
+                className="h-6 rounded-sm transition-all duration-200 group-hover/sector:brightness-125 group-hover/sector:shadow-[0_0_8px_rgba(128,216,178,0.10)]"
                 data-testid={`sector-bar-${g.sector}`}
                 style={{
                   width: `${widthPct}%`,
@@ -85,7 +85,7 @@ export function SectorBarChart({ candidates }: SectorBarChartProps) {
                   opacity: 0.8,
                 }}
               />
-              <span className="font-mono text-xs text-text-secondary tabular-nums shrink-0 transition-colors duration-200 group-hover/sector:text-text-primary">
+              <span className="text-xs tabular-nums shrink-0 transition-colors duration-200" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}>
                 {g.count}
               </span>
             </div>

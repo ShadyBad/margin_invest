@@ -65,37 +65,37 @@ export function FactorDensityCurves({ candidates }: FactorDensityCurvesProps) {
     >
       {distributions.map((d) => (
         <div key={d.label} data-testid={`density-panel-${d.label}`}>
-          <span className="text-mono-label text-text-tertiary block mb-2">{d.label}</span>
+          <span className="text-label-sm block mb-2" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>{d.label}</span>
 
           {/* Horizontal track with min/median/max dots */}
-          <div className="relative h-3 bg-white/5 rounded-full">
+          <div className="relative h-3 rounded-sm" style={{ background: "color-mix(in srgb, var(--color-surface-variant) 10%, transparent)" }}>
             {/* Range bar connecting min to max */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 h-1 rounded-full bg-accent/30"
-              style={{ left: `${d.min}%`, width: `${Math.max(1, d.max - d.min)}%` }}
+              className="absolute top-1/2 -translate-y-1/2 h-1 rounded-sm"
+              style={{ background: "color-mix(in srgb, var(--color-primary) 30%, transparent)", left: `${d.min}%`, width: `${Math.max(1, d.max - d.min)}%` }}
               data-testid={`density-range-${d.label}`}
             />
 
             {/* Min dot */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-text-tertiary"
-              style={{ left: `${d.min}%` }}
+              className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
+              style={{ left: `${d.min}%`, background: "var(--color-text-tertiary)" }}
               title={`Min: ${d.min}`}
               data-testid={`density-min-${d.label}`}
             />
 
             {/* Median dot */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-accent"
-              style={{ left: `${d.median}%` }}
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full"
+              style={{ left: `${d.median}%`, background: "var(--color-primary)" }}
               title={`Median: ${d.median}`}
               data-testid={`density-median-${d.label}`}
             />
 
             {/* Max dot */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-text-tertiary"
-              style={{ left: `${d.max}%` }}
+              className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
+              style={{ left: `${d.max}%`, background: "var(--color-text-tertiary)" }}
               title={`Max: ${d.max}`}
               data-testid={`density-max-${d.label}`}
             />
@@ -103,9 +103,9 @@ export function FactorDensityCurves({ candidates }: FactorDensityCurvesProps) {
 
           {/* Numeric labels */}
           <div className="flex justify-between mt-1">
-            <span className="font-mono text-[10px] text-text-tertiary tabular-nums">{d.min}</span>
-            <span className="font-mono text-[10px] text-text-secondary tabular-nums">{d.median}</span>
-            <span className="font-mono text-[10px] text-text-tertiary tabular-nums">{d.max}</span>
+            <span className="text-[10px] tabular-nums" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>{d.min}</span>
+            <span className="text-[10px] tabular-nums" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}>{d.median}</span>
+            <span className="text-[10px] tabular-nums" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>{d.max}</span>
           </div>
         </div>
       ))}

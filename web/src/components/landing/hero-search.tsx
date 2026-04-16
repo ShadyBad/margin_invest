@@ -90,11 +90,12 @@ export function HeroSearch() {
         {/* Input container with focus ring */}
         <div
           ref={containerRef}
-          className="flex-1 flex items-center gap-2 px-3 py-3 bg-bg-subtle rounded transition-all"
+          className="flex-1 flex items-center gap-2 px-3 py-3 rounded-md transition-all"
           style={{
-            border: `1px solid ${inputFocused ? "var(--color-accent)" : "var(--color-border-subtle)"}`,
+            background: "var(--color-surface-container-lowest)",
+            border: inputFocused ? "1px solid var(--color-primary)" : "1px solid transparent",
             boxShadow: inputFocused
-              ? "0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent)"
+              ? "0 0 0 3px rgba(128,216,178,0.12)"
               : "none",
           }}
         >
@@ -121,7 +122,8 @@ export function HeroSearch() {
               setQuery((q) => q.toUpperCase())
             }}
             placeholder="Search any ticker..."
-            className="flex-1 bg-transparent text-text-primary font-mono text-sm placeholder:text-text-tertiary focus:outline-none"
+            className="flex-1 bg-transparent text-sm placeholder:text-[var(--color-text-tertiary)] focus:outline-none"
+            style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}
             disabled={state === "loading"}
           />
         </div>
@@ -129,11 +131,15 @@ export function HeroSearch() {
           type="submit"
           disabled={state === "loading" || !query.trim()}
           aria-label="Search"
-          className="px-5 py-3 text-bg-primary font-medium text-sm rounded hover:opacity-90 transition-colors disabled:opacity-50"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-accent) 85%, var(--color-bg-primary))" }}
+          className="px-5 py-3 font-medium text-sm hover:opacity-90 transition-colors disabled:opacity-50"
+          style={{
+            background: "var(--color-primary-container)",
+            color: "var(--color-on-primary-container)",
+            borderRadius: "0.375rem",
+          }}
         >
           {state === "loading" ? (
-            <span data-testid="hero-search-loading" className="inline-block w-4 h-4 border-2 border-bg-primary border-t-transparent rounded-full animate-spin" />
+            <span data-testid="hero-search-loading" className="inline-block w-4 h-4 border-2 border-[var(--color-on-primary-container)] border-t-transparent rounded-full animate-spin" />
           ) : (
             "Search"
           )}
@@ -143,7 +149,7 @@ export function HeroSearch() {
       {/* Ticker suggestion chips */}
       {state === "idle" && (
         <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
-          <span className="text-xs text-text-tertiary">Try:</span>
+          <span className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>Try:</span>
           {["AAPL", "TSLA", "JNJ", "COST", "ETSY"].map((ticker) => (
             <button
               key={ticker}
@@ -168,7 +174,12 @@ export function HeroSearch() {
                     setState("error")
                   })
               }}
-              className="font-mono text-xs text-accent hover:text-accent/80 transition-colors px-2 py-1 rounded border border-border-subtle hover:border-accent/30"
+              className="text-xs transition-colors px-2 py-1 rounded-sm"
+              style={{
+                fontFamily: "var(--font-data)",
+                color: "var(--color-primary)",
+                border: "1px solid var(--color-ghost-border)",
+              }}
             >
               {ticker}
             </button>
@@ -179,33 +190,35 @@ export function HeroSearch() {
       {/* Result card */}
       {state === "result" && result && (
         <div
-          className="relative overflow-hidden rounded-xl bg-bg-elevated mt-4 max-w-md mx-auto animate-in fade-in duration-200"
+          className="relative overflow-hidden rounded-lg mt-4 max-w-md mx-auto animate-in fade-in duration-200"
           style={{
-            border: "1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border-subtle))",
-            boxShadow: "0 0 24px 0 color-mix(in srgb, var(--color-accent) 6%, transparent)",
+            background: "var(--color-surface-container-low)",
+            border: "1px solid var(--color-ghost-border)",
+            boxShadow: "0 0 24px 0 rgba(128,216,178,0.04)",
           }}
         >
-          {/* 2px gradient top bar */}
-          <div
-            className="w-full"
-            style={{
-              height: "2px",
-              background: "linear-gradient(to right, var(--color-accent), transparent)",
-            }}
-          />
-
           <div className="p-5">
             {/* Header: ticker + name (left) + score (right) */}
             <div className="flex items-start justify-between mb-3">
               <div>
-                <span className="font-mono text-lg font-bold text-text-primary">
+                <span
+                  className="text-lg font-bold"
+                  style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}
+                >
                   {result.ticker}
                 </span>
-                <span className="text-sm text-text-secondary ml-2">
+                <span className="text-sm ml-2" style={{ color: "var(--color-on-surface-variant)" }}>
                   {result.company_name}
                 </span>
                 {result.eliminated && (
-                  <span className="ml-2 text-xs font-mono uppercase tracking-wider text-[var(--color-bearish)] bg-[var(--color-bearish)]/10 px-2 py-0.5 rounded">
+                  <span
+                    className="ml-2 text-xs uppercase tracking-wider px-2 py-0.5 rounded-sm"
+                    style={{
+                      fontFamily: "var(--font-data)",
+                      color: "var(--color-bearish)",
+                      background: "color-mix(in srgb, var(--color-bearish) 10%, transparent)",
+                    }}
+                  >
                     Eliminated
                   </span>
                 )}
@@ -213,9 +226,10 @@ export function HeroSearch() {
 
               {/* Large score top-right */}
               <span
-                className="font-mono text-4xl font-bold leading-none"
+                className="text-4xl font-bold leading-none"
                 style={{
-                  color: TIER_COLORS[result.composite_tier] || "var(--color-text-primary)",
+                  fontFamily: "var(--font-data)",
+                  color: TIER_COLORS[result.composite_tier] || "var(--color-on-surface)",
                 }}
               >
                 {formatScore(result.composite_score)}
@@ -224,18 +238,18 @@ export function HeroSearch() {
 
             {/* Tier + signal line */}
             <div className="flex items-center gap-1.5 mb-4">
-              <span className="text-xs uppercase tracking-wider text-text-tertiary">
+              <span className="text-xs uppercase tracking-wider" style={{ color: "var(--color-text-tertiary)" }}>
                 {result.composite_tier}
               </span>
-              <span className="text-xs text-text-tertiary">&middot;</span>
-              <span className="text-xs text-text-secondary">
+              <span className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>&middot;</span>
+              <span className="text-xs" style={{ color: "var(--color-on-surface-variant)" }}>
                 {SIGNAL_LABELS[result.signal] || result.signal}
               </span>
             </div>
 
             {/* Elimination reason */}
             {result.eliminated && result.elimination_reason && (
-              <p className="text-xs text-[var(--color-bearish)] mb-3 font-mono">
+              <p className="text-xs mb-3" style={{ fontFamily: "var(--font-data)", color: "var(--color-bearish)" }}>
                 Failed: {result.elimination_reason}
               </p>
             )}
@@ -244,16 +258,16 @@ export function HeroSearch() {
             <div className="space-y-2 mb-4">
               {factors.map((factor) => (
                 <div key={factor.label} className="flex items-center gap-2">
-                  <span className="text-xs text-text-secondary w-20 shrink-0">
+                  <span className="text-xs w-20 shrink-0" style={{ color: "var(--color-on-surface-variant)" }}>
                     {factor.label}
                   </span>
-                  <div className="flex-1 h-1.5 bg-bg-subtle rounded-full overflow-hidden">
+                  <div className="flex-1 h-1.5 rounded-sm overflow-hidden" style={{ background: "var(--color-surface-container-lowest)" }}>
                     <div
-                      className="h-full bg-accent rounded-full transition-all duration-500"
-                      style={{ width: `${factor.value}%` }}
+                      className="h-full rounded-sm transition-all duration-500"
+                      style={{ width: `${factor.value}%`, background: "var(--color-primary-container)" }}
                     />
                   </div>
-                  <span className="font-mono text-xs text-text-secondary w-8 text-right">
+                  <span className="text-xs w-8 text-right" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}>
                     {Math.round(factor.value)}
                   </span>
                 </div>
@@ -263,7 +277,8 @@ export function HeroSearch() {
             {/* CTA with arrow */}
             <Link
               href={`/asset/${result.ticker}`}
-              className="inline-flex items-center gap-1.5 text-sm text-accent hover:text-accent/80 transition-colors"
+              className="inline-flex items-center gap-1.5 text-sm transition-colors hover:opacity-80"
+              style={{ color: "var(--color-primary)" }}
             >
               View full forensic report
               <svg

@@ -115,7 +115,7 @@ export function ProofHeatmap({ candidates = [] }: ProofHeatmapProps) {
   if (data.tickers.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[120px]">
-        <span className="font-mono text-xs text-text-tertiary">
+        <span className="text-xs" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>
           Correlation data loads after scoring cycle
         </span>
       </div>
@@ -132,11 +132,11 @@ export function ProofHeatmap({ candidates = [] }: ProofHeatmapProps) {
         showTooltip={false}
       />
       {interpretation && (
-        <p className="text-xs text-text-secondary mt-3 text-center font-mono">
+        <p className="text-xs mt-3 text-center" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}>
           {interpretation}
         </p>
       )}
-      <p className="text-[9px] text-text-tertiary mt-1 text-center italic">
+      <p className="text-[9px] mt-1 text-center italic" style={{ color: "var(--color-text-tertiary)" }}>
         Correlations shift during market stress. Past correlation does not guarantee future
         diversification.
       </p>
