@@ -62,14 +62,23 @@ function PriceRuler({
   return (
     <div className="relative py-8 px-4" data-testid="price-ruler">
       {/* Track */}
-      <div className="relative h-1 bg-white/[0.08] rounded-full">
+      <div
+        className="relative h-1 rounded-sm"
+        style={{ background: "var(--color-surface-container-lowest)" }}
+      >
         {/* Buy marker */}
         {buyPrice != null && (
           <div className="absolute -top-6" style={{ left: `${pct(buyPrice)}%` }}>
-            <span className="text-xs font-mono text-bullish block text-center transform -translate-x-1/2">
+            <span
+              className="text-xs block text-center transform -translate-x-1/2"
+              style={{ fontFamily: "var(--font-data)", color: "var(--color-primary-muted)" }}
+            >
               Buy
             </span>
-            <span className="text-xs font-mono text-text-secondary block text-center transform -translate-x-1/2">
+            <span
+              className="text-xs block text-center transform -translate-x-1/2"
+              style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}
+            >
               ${buyPrice.toFixed(0)}
             </span>
           </div>
@@ -78,10 +87,16 @@ function PriceRuler({
         {/* Sell marker */}
         {sellPrice != null && (
           <div className="absolute -top-6" style={{ left: `${pct(sellPrice)}%` }}>
-            <span className="text-xs font-mono text-bearish block text-center transform -translate-x-1/2">
+            <span
+              className="text-xs block text-center transform -translate-x-1/2"
+              style={{ fontFamily: "var(--font-data)", color: "var(--color-bearish)" }}
+            >
               Sell
             </span>
-            <span className="text-xs font-mono text-text-secondary block text-center transform -translate-x-1/2">
+            <span
+              className="text-xs block text-center transform -translate-x-1/2"
+              style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }}
+            >
               ${sellPrice.toFixed(0)}
             </span>
           </div>
@@ -90,13 +105,19 @@ function PriceRuler({
         {/* Intrinsic value marker */}
         {intrinsicValue != null && (
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent"
-            style={{ left: `${pct(intrinsicValue)}%` }}
+            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4"
+            style={{ left: `${pct(intrinsicValue)}%`, background: "var(--color-primary-muted)" }}
           >
-            <span className="absolute top-5 left-1/2 -translate-x-1/2 text-xs text-accent whitespace-nowrap">
+            <span
+              className="absolute top-5 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap"
+              style={{ color: "var(--color-primary-muted)" }}
+            >
               Intrinsic
             </span>
-            <span className="absolute top-8 left-1/2 -translate-x-1/2 text-xs font-mono text-accent whitespace-nowrap">
+            <span
+              className="absolute top-8 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap"
+              style={{ fontFamily: "var(--font-data)", color: "var(--color-primary-muted)" }}
+            >
               ${intrinsicValue.toFixed(2)}
             </span>
           </div>
@@ -105,13 +126,23 @@ function PriceRuler({
         {/* Current price marker */}
         {currentPrice != null && (
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-text-primary border-2 border-bg-primary transform -translate-x-1/2"
-            style={{ left: `${pct(currentPrice)}%` }}
+            className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full transform -translate-x-1/2"
+            style={{
+              left: `${pct(currentPrice)}%`,
+              background: "var(--color-on-surface)",
+              border: "2px solid var(--color-surface-container-low)",
+            }}
           >
-            <span className="absolute top-4 left-1/2 -translate-x-1/2 text-xs text-text-primary whitespace-nowrap">
+            <span
+              className="absolute top-4 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap"
+              style={{ color: "var(--color-on-surface)" }}
+            >
               Current
             </span>
-            <span className="absolute top-7 left-1/2 -translate-x-1/2 text-xs font-mono text-text-primary whitespace-nowrap">
+            <span
+              className="absolute top-7 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap"
+              style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}
+            >
               ${currentPrice.toFixed(2)}
             </span>
           </div>
@@ -157,17 +188,30 @@ export function ValuationSection({
   }
 
   return (
-    <section data-testid="valuation-section" className="space-y-4">
-      <h2 className="text-lg font-semibold text-text-primary">Valuation</h2>
+    <section
+      data-testid="valuation-section"
+      className="rounded-lg p-6 space-y-4"
+      style={{
+        background: "var(--color-surface-container-low)",
+        border: "1px solid var(--color-ghost-border)",
+      }}
+    >
+      <h2 className="text-label-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+        VALUATION EVIDENCE
+      </h2>
 
       {/* Unavailable state */}
       {intrinsicValue == null && (
-        <div className="terminal-card p-4 space-y-2">
-          <p className="text-sm text-text-secondary">Intrinsic value unavailable.</p>
+        <div className="space-y-2">
+          <p className="text-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+            Intrinsic value unavailable.
+          </p>
           {invalidReason && (
-            <p className="text-xs text-text-tertiary">Reason: {invalidReason}</p>
+            <p className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>
+              Reason: {invalidReason}
+            </p>
           )}
-          <p className="text-xs text-text-tertiary">
+          <p className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>
             Score-based assessment is still available above.
           </p>
         </div>
@@ -175,7 +219,7 @@ export function ValuationSection({
 
       {/* Price ruler */}
       {intrinsicValue != null && (
-        <div className="terminal-card p-4">
+        <div>
           <PriceRuler
             buyPrice={buyPrice}
             sellPrice={sellPrice}
@@ -184,13 +228,18 @@ export function ValuationSection({
           />
 
           {/* Metrics */}
-          <div className="flex items-center gap-6 text-sm font-mono mt-2">
+          <div className="flex items-center gap-6 text-sm mt-2">
             {priceUpside != null && (
               <div>
-                <span className="text-xs text-text-tertiary uppercase tracking-wider block">
-                  Price Upside
+                <span className="text-label-sm block" style={{ color: "var(--color-on-surface-variant)" }}>
+                  PRICE UPSIDE
                 </span>
-                <span className={priceUpside >= 0 ? "text-bullish" : "text-bearish"}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-data)",
+                    color: priceUpside >= 0 ? "var(--color-bullish)" : "var(--color-bearish)",
+                  }}
+                >
                   {priceUpside >= 0 ? "+" : ""}
                   {(priceUpside * 100).toFixed(1)}%
                 </span>
@@ -198,10 +247,15 @@ export function ValuationSection({
             )}
             {marginOfSafety != null && (
               <div>
-                <span className="text-xs text-text-tertiary uppercase tracking-wider block">
-                  Margin of Safety
+                <span className="text-label-sm block" style={{ color: "var(--color-on-surface-variant)" }}>
+                  MARGIN OF SAFETY
                 </span>
-                <span className={marginOfSafety >= 0 ? "text-bullish" : "text-bearish"}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-data)",
+                    color: marginOfSafety >= 0 ? "var(--color-bullish)" : "var(--color-bearish)",
+                  }}
+                >
                   {marginOfSafety >= 0 ? "+" : ""}
                   {(marginOfSafety * 100).toFixed(1)}%
                 </span>
@@ -212,12 +266,18 @@ export function ValuationSection({
           {/* Overvalued warning */}
           {isOvervalued && (
             <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2 px-3 py-2 rounded bg-warning/10 border border-warning/20">
-                <span className="text-warning text-sm">
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-sm"
+                style={{
+                  background: "color-mix(in srgb, var(--color-warning) 10%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--color-warning) 20%, transparent)",
+                }}
+              >
+                <span style={{ color: "var(--color-warning)" }} className="text-sm">
                   Currently trading ABOVE intrinsic value
                 </span>
               </div>
-              <p className="text-xs text-text-tertiary px-1">
+              <p className="text-xs px-1" style={{ color: "var(--color-text-tertiary)" }}>
                 The composite score ranks quality, value, and momentum factors relative to the full
                 universe. A stock can rank highly on these dimensions while trading above its
                 intrinsic value estimate.
@@ -229,30 +289,43 @@ export function ValuationSection({
 
       {/* Valuation methods table */}
       {entries.length > 0 && (
-        <div className="terminal-card p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-text-secondary">Valuation Methods</h3>
-          <div className="space-y-2">
-            <div className="grid grid-cols-[1fr_100px_60px] gap-2 text-xs uppercase tracking-wider text-text-tertiary">
+        <div className="space-y-3 mt-4">
+          <h3 className="text-label-sm" style={{ color: "var(--color-on-surface-variant)" }}>
+            VALUATION METHODS
+          </h3>
+          <div className="space-y-0">
+            <div
+              className="grid grid-cols-[1fr_100px_60px] gap-2 text-label-sm py-2 px-2"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
               <span>Method</span>
               <span className="text-right">Implied Value</span>
               <span className="text-right">Status</span>
             </div>
-            {entries.map(([key, val]) => (
+            {entries.map(([key, val], idx) => (
               <div
                 key={key}
-                className="grid grid-cols-[1fr_100px_60px] gap-2 text-xs items-center"
+                className="grid grid-cols-[1fr_100px_60px] gap-2 text-xs items-center px-2 py-1.5 rounded-sm"
+                style={{
+                  background: idx % 2 === 0 ? "var(--color-surface)" : "var(--color-surface-container-lowest)",
+                }}
               >
                 <FormulaTooltip metricKey={METHOD_FORMULA_KEYS[key] ?? key}>
-                  <span className="text-text-primary">{METHOD_LABELS[key] ?? key}</span>
+                  <span style={{ color: "var(--color-on-surface)" }}>{METHOD_LABELS[key] ?? key}</span>
                 </FormulaTooltip>
-                <span className="text-right font-mono text-text-primary">${val.toFixed(2)}</span>
-                <span className="text-right text-bullish">Computed</span>
+                <span className="text-right" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}>
+                  ${val.toFixed(2)}
+                </span>
+                <span className="text-right" style={{ color: "var(--color-bullish)" }}>Computed</span>
               </div>
             ))}
             {intrinsicValue != null && (
-              <div className="grid grid-cols-[1fr_100px_60px] gap-2 text-xs items-center border-t border-white/[0.06] pt-2 mt-2">
-                <span className="text-text-primary font-semibold">Blended Intrinsic Value</span>
-                <span className="text-right font-mono text-text-primary font-semibold">
+              <div
+                className="grid grid-cols-[1fr_100px_60px] gap-2 text-xs items-center px-2 py-2 mt-2 rounded-sm"
+                style={{ background: "var(--color-surface-container)" }}
+              >
+                <span className="font-semibold" style={{ color: "var(--color-on-surface)" }}>Blended Intrinsic Value</span>
+                <span className="text-right font-semibold" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}>
                   ${intrinsicValue.toFixed(2)}
                 </span>
                 <span />
@@ -262,21 +335,29 @@ export function ValuationSection({
 
           {/* Audit toggle */}
           <button
-            className="text-xs text-accent hover:text-accent-hover transition-colors"
+            className="text-label-sm transition-opacity hover:opacity-80"
+            style={{ color: "var(--color-primary-muted)" }}
             onClick={handleAuditClick}
           >
-            {showAudit ? "Hide" : "Full"} Valuation Audit (DCF scenarios, sensitivity analysis)
+            {showAudit ? "HIDE AUDIT TRAIL" : "VIEW AUDIT TRAIL"}
           </button>
           {showAudit && auditLoading && (
-            <p className="text-xs text-text-tertiary">Loading audit data...</p>
+            <p className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>Loading audit data...</p>
           )}
           {showAudit && auditData && (
-            <pre className="text-xs font-mono text-text-tertiary bg-white/[0.02] rounded p-3 overflow-x-auto max-h-64">
+            <pre
+              className="text-xs rounded-sm p-3 overflow-x-auto max-h-64"
+              style={{
+                fontFamily: "var(--font-data)",
+                color: "var(--color-text-tertiary)",
+                background: "var(--color-surface)",
+              }}
+            >
               {JSON.stringify(auditData, null, 2)}
             </pre>
           )}
           {showAudit && !auditLoading && !auditData && (
-            <p className="text-xs text-text-tertiary">No audit data available</p>
+            <p className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>No audit data available</p>
           )}
         </div>
       )}
