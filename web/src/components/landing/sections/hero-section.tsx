@@ -127,7 +127,7 @@ export function HeroSection({ data }: HeroSectionProps) {
       <div ref={gridRef} className="pointer-events-none absolute inset-0"
         style={{ backgroundImage: "linear-gradient(rgba(63,73,67,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(63,73,67,0.05) 1px, transparent 1px)", backgroundSize: "64px 64px", willChange: "transform" }} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-10 lg:gap-6 max-w-7xl w-full items-center pt-16 py-24 px-6 relative z-10">
+      <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-10 lg:gap-6 max-w-7xl w-full items-center pt-32 pb-24 px-6 relative z-10">
         <div className="flex flex-col justify-center">
           <h1 data-hero-headline className="text-display-lg uppercase mb-6">
             <span className="block" style={{ color: "var(--color-on-surface)" }}>
