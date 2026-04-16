@@ -78,45 +78,56 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
   const isInconclusive = filter.verdict === "inconclusive"
 
   const borderColor = isInconclusive
-    ? "border-warning/30"
-    : passed
-      ? "border-white/[0.06]"
-      : "border-bearish/30"
+    ? "var(--color-warning)"
+    : !passed
+      ? "var(--color-bearish)"
+      : "var(--color-ghost-border)"
 
   const bgColor = isInconclusive
-    ? "bg-warning/5"
+    ? "color-mix(in srgb, var(--color-warning) 5%, transparent)"
     : !passed
-      ? "bg-bearish/5"
-      : ""
+      ? "color-mix(in srgb, var(--color-bearish) 5%, transparent)"
+      : "var(--color-surface-container)"
 
   const icon = isInconclusive ? "?" : passed ? "\u2713" : "\u2715"
   const iconColor = isInconclusive
-    ? "text-warning"
+    ? "var(--color-warning)"
     : passed
-      ? "text-bullish"
-      : "text-bearish"
+      ? "var(--color-bullish)"
+      : "var(--color-bearish)"
 
   const metrics = filter.computed_metrics
   const hasMetrics = metrics != null && Object.keys(metrics).length > 0
 
   return (
     <div
-      className={`border rounded-lg ${borderColor} ${bgColor} px-4 py-3 space-y-2`}
+      className="rounded-lg px-4 py-3 space-y-2"
+      style={{
+        background: bgColor,
+        border: `1px solid ${borderColor}`,
+      }}
       data-testid={`filter-card-${filter.name}`}
     >
       {/* Header row */}
       <div className="flex items-center gap-2">
-        <span className={`text-base font-semibold ${iconColor}`}>{icon}</span>
+        <span className="text-base font-semibold" style={{ color: iconColor }}>{icon}</span>
         <FormulaTooltip metricKey={filter.name}>
-          <span className="text-sm font-semibold text-text-primary">
+          <span className="text-sm font-semibold" style={{ color: "var(--color-on-surface)" }}>
             {meta?.displayName ?? filter.name}
           </span>
         </FormulaTooltip>
         {meta?.technicalName && (
-          <span className="text-xs text-text-tertiary">({meta.technicalName})</span>
+          <span className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>({meta.technicalName})</span>
         )}
         {!passed && !isInconclusive && (
-          <span className="ml-auto text-xs font-mono text-bearish bg-bearish/10 px-2 py-0.5 rounded">
+          <span
+            className="ml-auto text-xs px-2 py-0.5 rounded-sm"
+            style={{
+              fontFamily: "var(--font-data)",
+              color: "var(--color-bearish)",
+              background: "color-mix(in srgb, var(--color-bearish) 10%, transparent)",
+            }}
+          >
             FAILED
           </span>
         )}
@@ -127,32 +138,38 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
         <div data-testid={`filter-diagnostics-${filter.name}`}>
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="text-left py-1 pr-2 text-text-tertiary font-medium uppercase tracking-wider">Metric</th>
-                <th className="text-right py-1 px-2 text-text-tertiary font-medium uppercase tracking-wider">Value</th>
-                <th className="text-right py-1 px-2 text-text-tertiary font-medium uppercase tracking-wider">Threshold</th>
-                <th className="text-right py-1 pl-2 text-text-tertiary font-medium uppercase tracking-wider">Result</th>
+              <tr>
+                <th className="text-left py-1 pr-2 text-label-sm font-medium" style={{ color: "var(--color-text-tertiary)" }}>Metric</th>
+                <th className="text-right py-1 px-2 text-label-sm font-medium" style={{ color: "var(--color-text-tertiary)" }}>Value</th>
+                <th className="text-right py-1 px-2 text-label-sm font-medium" style={{ color: "var(--color-text-tertiary)" }}>Threshold</th>
+                <th className="text-right py-1 pl-2 text-label-sm font-medium" style={{ color: "var(--color-text-tertiary)" }}>Result</th>
               </tr>
             </thead>
             <tbody>
               {/* Primary value vs threshold row */}
-              <tr className="border-b border-white/[0.04]">
-                <td className="py-1.5 pr-2 text-text-secondary">{meta?.displayName ?? filter.name}</td>
-                <td className="py-1.5 px-2 text-right font-mono text-text-primary">
+              <tr style={{ background: "var(--color-surface)" }}>
+                <td className="py-1.5 pr-2" style={{ color: "var(--color-on-surface-variant)" }}>{meta?.displayName ?? filter.name}</td>
+                <td className="py-1.5 px-2 text-right" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}>
                   {formatValue(filter.value, filter.name, metrics)}
                 </td>
-                <td className="py-1.5 px-2 text-right font-mono text-text-primary">
+                <td className="py-1.5 px-2 text-right" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}>
                   {formatThreshold(filter.threshold, filter.name, metrics)}
                 </td>
-                <td className={`py-1.5 pl-2 text-right font-mono ${isInconclusive ? "text-warning" : passed ? "text-bullish" : "text-bearish"}`}>
+                <td
+                  className="py-1.5 pl-2 text-right"
+                  style={{
+                    fontFamily: "var(--font-data)",
+                    color: isInconclusive ? "var(--color-warning)" : passed ? "var(--color-bullish)" : "var(--color-bearish)",
+                  }}
+                >
                   {isInconclusive ? "INCONCLUSIVE" : passed ? "PASS" : "FAIL"}
                 </td>
               </tr>
               {/* Additional computed metrics rows */}
-              {Object.entries(metrics!).map(([key, val]) => (
-                <tr key={key} className="border-b border-white/[0.04] last:border-b-0">
-                  <td className="py-1 pr-2 text-text-tertiary">{formatMetricLabel(key)}</td>
-                  <td className="py-1 px-2 text-right font-mono text-text-secondary" colSpan={3}>
+              {Object.entries(metrics!).map(([key, val], idx) => (
+                <tr key={key} style={{ background: idx % 2 === 0 ? "var(--color-surface-container-lowest)" : "var(--color-surface)" }}>
+                  <td className="py-1 pr-2" style={{ color: "var(--color-text-tertiary)" }}>{formatMetricLabel(key)}</td>
+                  <td className="py-1 px-2 text-right" style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface-variant)" }} colSpan={3}>
                     {formatMetricValue(val)}
                   </td>
                 </tr>
@@ -162,18 +179,23 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
         </div>
       ) : (
         /* Fallback: simple value vs threshold display */
-        <div className="flex items-center gap-6 text-sm font-mono">
+        <div className="flex items-center gap-6 text-sm">
           <div>
-            <span className="text-text-tertiary text-xs block">Value</span>
-            <span className="text-text-primary">{formatValue(filter.value, filter.name, filter.computed_metrics)}</span>
+            <span className="text-xs block" style={{ color: "var(--color-text-tertiary)" }}>Value</span>
+            <span style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}>{formatValue(filter.value, filter.name, filter.computed_metrics)}</span>
           </div>
           <div>
-            <span className="text-text-tertiary text-xs block">Threshold</span>
-            <span className="text-text-primary">{formatThreshold(filter.threshold, filter.name, filter.computed_metrics)}</span>
+            <span className="text-xs block" style={{ color: "var(--color-text-tertiary)" }}>Threshold</span>
+            <span style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}>{formatThreshold(filter.threshold, filter.name, filter.computed_metrics)}</span>
           </div>
           <div>
-            <span className="text-text-tertiary text-xs block">Result</span>
-            <span className={`font-mono ${isInconclusive ? "text-warning" : passed ? "text-bullish" : "text-bearish"}`}>
+            <span className="text-xs block" style={{ color: "var(--color-text-tertiary)" }}>Result</span>
+            <span
+              style={{
+                fontFamily: "var(--font-data)",
+                color: isInconclusive ? "var(--color-warning)" : passed ? "var(--color-bullish)" : "var(--color-bearish)",
+              }}
+            >
               {isInconclusive ? "INCONCLUSIVE" : passed ? "PASS" : "FAIL"}
             </span>
           </div>
@@ -182,37 +204,40 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
 
       {/* Sector context — only for failed filters when data available */}
       {!passed && sectorPassRate != null && sectorName && (
-        <p className="text-xs text-tertiary mt-1.5">
+        <p className="text-xs mt-1.5" style={{ color: "var(--color-text-tertiary)" }}>
           {Math.round(sectorPassRate * 100)}% of {sectorName} stocks pass this filter.
         </p>
       )}
 
       {/* Formula (if available) */}
       {meta?.formula && expanded && (
-        <div className="text-xs text-text-tertiary font-mono">
+        <div className="text-xs" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>
           Formula: {meta.formula}
         </div>
       )}
 
       {/* Academic citation */}
       {meta?.citation && expanded && (
-        <p className="text-xs text-text-tertiary italic">
+        <p className="text-xs italic" style={{ color: "var(--color-text-tertiary)" }}>
           Source: {meta.citation}
         </p>
       )}
 
       {/* Detail from API */}
       {filter.detail && (
-        <p className="text-xs text-text-secondary">{filter.detail}</p>
+        <p className="text-xs" style={{ color: "var(--color-on-surface-variant)" }}>{filter.detail}</p>
       )}
 
       {/* WHY THIS MATTERS — only for failed or inconclusive, when expanded */}
       {expanded && !passed && meta?.whyItMatters && (
-        <div className="border-t border-white/[0.06] pt-2 mt-2">
-          <span className="text-xs uppercase tracking-wider text-text-tertiary font-semibold block mb-1">
+        <div className="pt-3 mt-3">
+          <span
+            className="text-label-sm font-semibold block mb-1"
+            style={{ color: "var(--color-text-tertiary)" }}
+          >
             Why This Matters
           </span>
-          <p className="text-xs text-text-secondary leading-relaxed">{meta.whyItMatters}</p>
+          <p className="text-xs leading-relaxed" style={{ color: "var(--color-on-surface-variant)" }}>{meta.whyItMatters}</p>
         </div>
       )}
     </div>
