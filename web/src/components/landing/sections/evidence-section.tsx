@@ -86,7 +86,7 @@ export function EvidenceSection({
           <h2 className="text-headline-md uppercase mb-10" style={{ color: "var(--color-on-surface)" }}>
             Forensic Analysis
           </h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left: Sector Breakdown + Factor Distributions stacked */}
             <div className="flex flex-col gap-6">
               <div data-forensic-card className="p-6 rounded-lg" style={{ background: "var(--color-surface-container-low)", border: "1px solid var(--color-ghost-border)" }}>
