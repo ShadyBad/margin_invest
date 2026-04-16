@@ -39,7 +39,7 @@ export function PickCompactRow({ pick }: PickCompactRowProps) {
       data-testid={`pick-compact-${pick.ticker}`}
     >
       <span
-        className="text-[20px] font-bold w-14 text-right tabular-nums shrink-0"
+        className="text-[17px] font-bold w-12 text-right tabular-nums shrink-0"
         style={{ color: getTierColor(pick.composite_tier), fontFamily: "var(--font-data)" }}
       >
         {formatScore(pick.score)}
