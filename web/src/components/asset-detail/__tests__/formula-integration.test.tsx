@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
-import { FilterCard } from "../filter-card"
+import { FilterDetail } from "../filter-card"
 import { PillarCard } from "../pillar-card"
 import { ConvictionEngine } from "../conviction-engine"
 import { ValuationSection } from "../valuation-section"
@@ -12,10 +12,10 @@ vi.mock("@/lib/api/scores", () => ({
 }))
 
 describe("FormulaTooltip integration", () => {
-  describe("FilterCard", () => {
+  describe("FilterDetail", () => {
     it("shows formula tooltip trigger for beneish_m_score", () => {
       render(
-        <FilterCard
+        <FilterDetail
           filter={{
             name: "beneish_m_score",
             passed: false,
@@ -24,7 +24,6 @@ describe("FormulaTooltip integration", () => {
             detail: "Q3 2025 filing",
             verdict: "fail",
           }}
-          expanded={true}
         />
       )
       expect(screen.getByTestId("formula-trigger-beneish_m_score")).toBeInTheDocument()
@@ -32,7 +31,7 @@ describe("FormulaTooltip integration", () => {
 
     it("shows formula on hover of filter metric", async () => {
       render(
-        <FilterCard
+        <FilterDetail
           filter={{
             name: "beneish_m_score",
             passed: false,
@@ -41,7 +40,6 @@ describe("FormulaTooltip integration", () => {
             detail: "Q3 2025 filing",
             verdict: "fail",
           }}
-          expanded={true}
         />
       )
       fireEvent.mouseEnter(screen.getByTestId("formula-trigger-beneish_m_score"))
@@ -51,16 +49,15 @@ describe("FormulaTooltip integration", () => {
 
     it("shows formula tooltip trigger for altman_z_score", () => {
       render(
-        <FilterCard
+        <FilterDetail
           filter={{
             name: "altman_z_score",
             passed: true,
             value: 5.12,
             threshold: 1.1,
             detail: "Based on Q3 2025 10-Q",
-            verdict: "passed",
+            verdict: "pass",
           }}
-          expanded={false}
         />
       )
       expect(screen.getByTestId("formula-trigger-altman_z_score")).toBeInTheDocument()
