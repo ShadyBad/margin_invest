@@ -1,7 +1,5 @@
 """Tests for shadow portfolio worker including unpublished scores."""
 
-import pytest
-
 
 def test_build_shadow_positions_includes_unpublished():
     """Shadow portfolio should tag unpublished scores as 'staged'."""

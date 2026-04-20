@@ -341,9 +341,7 @@ async def _fetch_picks_and_watchlist(
 
     # V4 fallback: show top-ranked if no conviction-based picks
     if not picks and not watchlist:
-        top_result = await db.execute(
-            v4_valid.order_by(V4Score.composite_score.desc()).limit(10)
-        )
+        top_result = await db.execute(v4_valid.order_by(V4Score.composite_score.desc()).limit(10))
         picks = [_pick_summary_from_v4_row(row) for row in top_result.all()]
         picks = [p for p in picks if p.score >= MINIMUM_PICK_DISPLAY_SCORE]
 

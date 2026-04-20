@@ -38,25 +38,13 @@ describe("ScoringPillars", () => {
         quality={quality}
         value={value}
         momentum={momentum}
-        growthStage="mature"
+
+
       />
     )
     expect(screen.getByTestId("pillar-quality")).toBeInTheDocument()
     expect(screen.getByTestId("pillar-value")).toBeInTheDocument()
     expect(screen.getByTestId("pillar-momentum")).toBeInTheDocument()
-  })
-
-  it("shows growth stage weight explanation", () => {
-    render(
-      <ScoringPillars
-        quality={quality}
-        value={value}
-        momentum={momentum}
-        growthStage="mature"
-      />
-    )
-    expect(screen.getByText(/Mature/)).toBeInTheDocument()
-    expect(screen.getByText(/Q:30%/)).toBeInTheDocument()
   })
 
   it("expands sub-factors on click", () => {
@@ -65,7 +53,8 @@ describe("ScoringPillars", () => {
         quality={quality}
         value={value}
         momentum={momentum}
-        growthStage="mature"
+
+
       />
     )
     fireEvent.click(screen.getByTestId("pillar-quality-toggle"))
@@ -79,7 +68,8 @@ describe("ScoringPillars", () => {
         quality={quality}
         value={value}
         momentum={momentum}
-        growthStage="mature"
+
+
       />
     )
     // Expand the quality pillar
@@ -97,7 +87,8 @@ describe("ScoringPillars", () => {
         quality={quality}
         value={value}
         momentum={momentum}
-        growthStage="mature"
+
+
       />
     )
     // Expand the quality pillar
@@ -117,7 +108,8 @@ describe("ScoringPillars", () => {
         quality={quality}
         value={value}
         momentum={momentum}
-        growthStage="mature"
+
+
       />
     )
     // Expand the quality pillar

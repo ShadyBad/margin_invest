@@ -1,7 +1,5 @@
 """Tests for _recompute_signal() in scores route."""
 
-import pytest
-
 from margin_api.routes.scores import _recompute_signal
 
 
