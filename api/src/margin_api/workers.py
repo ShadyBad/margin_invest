@@ -3900,10 +3900,29 @@ async def precompute_default_backtest(ctx: dict) -> dict:
         return {"status": "error", "message": str(e)}
 
 
+def _build_shadow_positions(
+    rows: list,
+) -> list[dict]:
+    """Build position list from V4Score rows with source tagging."""
+    positions = []
+    for v4_score, ticker in rows:
+        weight = 1.0 / len(rows) if len(rows) > 0 else 0.0
+        positions.append(
+            {
+                "ticker": ticker,
+                "score": v4_score.composite_score,
+                "conviction": v4_score.conviction,
+                "weight": round(weight, 6),
+                "source": "published" if v4_score.published else "staged",
+            }
+        )
+    return positions
+
+
 async def snapshot_shadow_portfolio(ctx: dict) -> dict:
     """Take a daily snapshot of the current scored portfolio.
 
-    Runs daily at 22:30 UTC. Queries the latest published V4Scores,
+    Runs daily at 22:30 UTC. Queries the latest V4Scores (published or staged),
     builds a portfolio snapshot, and appends to shadow_portfolio_snapshots.
     Uses on_conflict_do_nothing on as_of_date for idempotency.
     """
@@ -3930,32 +3949,20 @@ async def snapshot_shadow_portfolio(ctx: dict) -> dict:
 
     try:
         async with session_factory() as session:
-            # Query latest published V4Scores with their assets
+            # Query latest V4Scores with their assets (published or staged)
             result = await session.execute(
                 select(V4Score, Asset.ticker)
                 .join(Asset, V4Score.asset_id == Asset.id)
-                .where(V4Score.published.is_(True))
                 .order_by(V4Score.composite_score.desc())
             )
             rows = result.all()
 
         if not rows:
-            logger.info("[shadow_portfolio] No published V4Scores found, recording empty snapshot")
+            logger.info("[shadow_portfolio] No V4Scores found, recording empty snapshot")
             positions: list[dict] = []
             num_positions = 0
         else:
-            # Build positions list
-            positions = []
-            for v4_score, ticker in rows:
-                weight = 1.0 / len(rows) if len(rows) > 0 else 0.0
-                positions.append(
-                    {
-                        "ticker": ticker,
-                        "score": v4_score.composite_score,
-                        "conviction": v4_score.conviction,
-                        "weight": round(weight, 6),
-                    }
-                )
+            positions = _build_shadow_positions(rows)
             num_positions = len(positions)
 
         portfolio_value = 1_000_000.0
