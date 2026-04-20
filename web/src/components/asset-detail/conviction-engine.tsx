@@ -70,14 +70,31 @@ export function ConvictionEngine({
                 MAX POSITION
               </span>
             </FormulaTooltip>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span
+                className="text-mono-data"
+                style={{ color: "var(--color-on-surface)" }}
+              >
+                {maxPositionPct.toFixed(1)}%
+              </span>
+              <span
+                className="text-label-sm"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                Quarter-Kelly
+              </span>
+            </div>
             <span
-              className="text-mono-data block mt-1"
-              style={{ color: "var(--color-on-surface)" }}
+              className="text-label-sm mt-1 block"
+              style={{ color: "var(--color-text-tertiary)" }}
             >
-              {maxPositionPct.toFixed(1)}%
+              ~${Math.round(maxPositionPct * 500).toLocaleString()} per $50K portfolio
             </span>
-            <span className="text-label-sm mt-1 block" style={{ color: "var(--color-text-tertiary)" }}>
-              Kelly-optimal sizing
+            <span
+              className="text-label-sm mt-0.5 block"
+              style={{ color: "var(--color-text-tertiary)", opacity: 0.7 }}
+            >
+              Based on asymmetry ratio and conviction score
             </span>
           </div>
         )}

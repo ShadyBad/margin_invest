@@ -175,7 +175,6 @@ export function AssetDetailView({
           quality={scoreData.quality}
           value={scoreData.value}
           momentum={scoreData.momentum}
-          growthStage={scoreData.growth_stage}
         />
       )}
 
