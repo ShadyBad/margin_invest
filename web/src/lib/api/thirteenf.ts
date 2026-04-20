@@ -137,6 +137,30 @@ export interface CloneResponse {
   historical_performance: ClonePerformance | null
 }
 
+// Market Pulse types
+
+export interface SectorFlowItem {
+  sector: string
+  net_shares: number
+  direction: "up" | "down" | "flat"
+}
+
+export interface ConsensusPick {
+  ticker: string
+  curated_holders: number
+  agreement_pct: number
+}
+
+export interface MarketPulseResponse {
+  breadth_pct: number
+  breadth_direction: "up" | "down" | "flat"
+  sector_flows: SectorFlowItem[]
+  consensus_picks: ConsensusPick[]
+  flow_trend_pct: number
+  flow_trend_direction: "up" | "down" | "flat"
+  as_of_quarter: string
+}
+
 // ---------------------------------------------------------------------------
 // API functions
 // ---------------------------------------------------------------------------
@@ -181,4 +205,8 @@ export function getClonePortfolio(
   return apiFetch<CloneResponse>(
     `/api/v1/13f/analytics/clone/${managerId}?strategy=${strategy}`,
   )
+}
+
+export async function getMarketPulse(): Promise<MarketPulseResponse> {
+  return apiFetch<MarketPulseResponse>("/api/v1/13f/analytics/market-pulse")
 }
