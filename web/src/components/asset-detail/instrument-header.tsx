@@ -21,6 +21,7 @@ interface InstrumentHeaderProps {
   eliminated: boolean
   eliminationReason?: string | null
   universePercentile: number
+  timingSignal?: string | null
 }
 
 function getTierColor(tier: string): string {
@@ -32,6 +33,12 @@ function getTierColor(tier: string): string {
     none: "var(--color-percentile-weak)",
   }
   return colors[tier] ?? "var(--color-on-surface-variant)"
+}
+
+const TIMING_SIGNAL_CONFIG: Record<string, { label: string; color: string }> = {
+  buy_now: { label: "BUY NOW", color: "var(--color-bullish)" },
+  add_on_pullback: { label: "ADD ON PULLBACK", color: "var(--color-warning)" },
+  wait_for_catalyst: { label: "WAIT FOR CATALYST", color: "var(--color-on-surface-variant)" },
 }
 
 export function InstrumentHeader({
@@ -47,6 +54,7 @@ export function InstrumentHeader({
   eliminated,
   eliminationReason,
   universePercentile,
+  timingSignal,
 }: InstrumentHeaderProps) {
   const tierColor = getTierColor(tier)
   const chips = [sector, growthStage, style].filter(Boolean) as string[]
@@ -140,6 +148,23 @@ export function InstrumentHeader({
                 ? signal.toUpperCase()
                 : "\u2014"}
           </p>
+          {!eliminated && timingSignal && TIMING_SIGNAL_CONFIG[timingSignal] && (
+            <div
+              data-testid="timing-signal-pill"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-sm px-3 py-1"
+              style={{
+                color: TIMING_SIGNAL_CONFIG[timingSignal].color,
+                background: `color-mix(in srgb, ${TIMING_SIGNAL_CONFIG[timingSignal].color} 12%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${TIMING_SIGNAL_CONFIG[timingSignal].color} 25%, transparent)`,
+                fontFamily: "var(--font-data)",
+                fontSize: 14,
+                fontWeight: 600,
+                letterSpacing: "0.05em",
+              }}
+            >
+              {TIMING_SIGNAL_CONFIG[timingSignal].label}
+            </div>
+          )}
         </div>
 
         {/* Right zone — timestamp + determinism */}

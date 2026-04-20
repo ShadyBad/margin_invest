@@ -139,6 +139,7 @@ export function AssetDetailView({
         eliminated={!showScoreView}
         eliminationReason={!showScoreView ? scoreData.filters_passed.find(f => !f.passed)?.name : null}
         universePercentile={scoreData.universe_percentile}
+        timingSignal={scoreData.timing_signal ?? null}
       />
 
       {/* Vital Signs -- full-width metrics */}
@@ -184,7 +185,6 @@ export function AssetDetailView({
           opportunityType={scoreData.opportunity_type ?? null}
           asymmetryRatio={scoreData.asymmetry_ratio ?? null}
           maxPositionPct={scoreData.max_position_pct ?? null}
-          timingSignal={scoreData.timing_signal ?? null}
         />
       )}
 
