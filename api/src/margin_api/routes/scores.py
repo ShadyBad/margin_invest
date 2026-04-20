@@ -24,6 +24,26 @@ from margin_api.services.freshness import compute_freshness
 router = APIRouter(prefix="/api/v1/scores", tags=["scores"])
 
 
+def _recompute_signal(
+    composite_tier: str | None,
+    margin_of_safety: float | None,
+) -> str:
+    """Derive the trading signal from composite tier and margin of safety.
+
+    Mirrors the engine's CompositeScore.signal @property logic.
+    Signal enum values: strong, stable, emerging, neutral.
+    """
+    if composite_tier in ("exceptional", "high"):
+        if margin_of_safety is not None and margin_of_safety > 0:
+            return "strong"
+        if margin_of_safety is not None and margin_of_safety <= 0:
+            return "stable"
+        return "strong"  # no price data -> optimistic default for high-tier
+    if composite_tier == "medium":
+        return "emerging"
+    return "neutral"
+
+
 def _score_response_from_row(
     row,
     live_price_data: dict | None = None,
@@ -226,7 +246,10 @@ def _v4_score_response_from_row(
 
     # Populate computed properties that @property methods would provide
     detail.setdefault("composite_tier", v4.conviction)
-    detail.setdefault("signal", detail.get("signal", "no_action"))
+    detail["signal"] = _recompute_signal(
+        composite_tier=detail.get("composite_tier"),
+        margin_of_safety=detail.get("margin_of_safety"),
+    )
     detail.setdefault("name", asset_name or "")
     detail.setdefault("ticker", ticker)
     detail.setdefault("scored_at", scored_at.isoformat() if scored_at else None)
