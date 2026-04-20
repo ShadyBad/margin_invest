@@ -135,3 +135,25 @@ class CloneResponse(BaseModel):
     period_of_report: date
     positions: list[ClonePosition]
     historical_performance: ClonePerformance | None = None
+
+
+class SectorFlowItem(BaseModel):
+    sector: str
+    net_shares: int
+    direction: str  # "up" | "down" | "flat"
+
+
+class ConsensusPick(BaseModel):
+    ticker: str
+    curated_holders: int
+    agreement_pct: float
+
+
+class MarketPulseResponse(BaseModel):
+    breadth_pct: float
+    breadth_direction: str  # "up" | "down" | "flat"
+    sector_flows: list[SectorFlowItem]
+    consensus_picks: list[ConsensusPick]
+    flow_trend_pct: float
+    flow_trend_direction: str  # "up" | "down" | "flat"
+    as_of_quarter: str
