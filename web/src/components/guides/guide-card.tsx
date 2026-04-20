@@ -5,21 +5,21 @@ import { motion } from "framer-motion"
 import type { GuideMetadata } from "@/lib/guides"
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Concepts: "#3B82F6",    // blue per spec
-  Workflows: "#14B8A6",   // teal per spec
-  Reference: "var(--color-text-tertiary)", // gray per spec
+  Concepts: "#3B82F6",
+  Workflows: "#14B8A6",
+  Reference: "#D4A843",
 }
 
 const CATEGORY_TEXT: Record<string, string> = {
   Concepts: "text-[#3B82F6]",
   Workflows: "text-[#14B8A6]",
-  Reference: "text-text-tertiary",
+  Reference: "text-[#D4A843]",
 }
 
 const CATEGORY_BG: Record<string, string> = {
   Concepts: "bg-[#3B82F6]/10",
   Workflows: "bg-[#14B8A6]/10",
-  Reference: "bg-text-tertiary/10",
+  Reference: "bg-[#D4A843]/10",
 }
 
 function formatDate(iso: string): string {
