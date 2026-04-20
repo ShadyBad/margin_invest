@@ -40,6 +40,15 @@ export function CandidateJourneyChart() {
       <div className="h-[240px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+            <defs>
+              <filter id="journey-glow">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
             <CartesianGrid
               strokeDasharray="3 3"
               stroke="var(--color-border-subtle)"
@@ -80,9 +89,17 @@ export function CandidateJourneyChart() {
               type="monotone"
               dataKey="score"
               stroke="var(--color-accent)"
-              strokeWidth={2}
-              dot={{ r: 4, fill: "var(--color-accent)" }}
-              activeDot={{ r: 6, fill: "var(--color-accent)" }}
+              strokeWidth={3}
+              dot={{ r: 5, fill: "var(--color-accent)", strokeWidth: 2, stroke: "var(--color-bg-elevated)" }}
+              activeDot={{ r: 7, fill: "var(--color-accent)" }}
+              filter="url(#journey-glow)"
+              label={{
+                position: "top",
+                offset: 10,
+                fontSize: 10,
+                fontFamily: "var(--font-data)",
+                fill: "var(--color-text-tertiary)",
+              }}
             />
           </LineChart>
         </ResponsiveContainer>
