@@ -42,6 +42,9 @@
   --color-warning: #D4A843;
   --color-danger: #D45A5F;
 
+  /* -- Factor pillar colors -- */
+  --color-value: #14B8A6;
+
   /* ── 5-tier percentile (unchanged) ── */
   --color-percentile-exceptional: #10B981;
   --color-percentile-strong: #1C7A5A;
