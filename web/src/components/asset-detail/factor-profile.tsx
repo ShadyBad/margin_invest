@@ -79,12 +79,14 @@ function FactorBar({
   isNull,
   p50,
   p90,
+  isSentiment,
 }: {
   label: string
   value: number
   isNull: boolean
   p50?: number
   p90?: number
+  isSentiment?: boolean
 }) {
   const clamped = clamp(Math.round(value), 0, 100)
 
@@ -101,7 +103,16 @@ function FactorBar({
       {/* Track + fill + markers */}
       <div
         className="relative flex-1 rounded-sm overflow-visible"
-        style={{ height: 8, background: "var(--color-surface-container-lowest)" }}
+        style={{
+          height: isNull && isSentiment ? 6 : 8,
+          background: "var(--color-surface-container-lowest)",
+          ...(isNull && isSentiment
+            ? {
+                border: "1px dashed var(--color-text-tertiary)",
+                opacity: 0.3,
+              }
+            : {}),
+        }}
       >
         {!isNull && (
           <div
@@ -146,12 +157,15 @@ function FactorBar({
       <span
         className="text-label-md tabular-nums shrink-0 text-right"
         style={{
-          width: 32,
+          width: isNull && isSentiment ? 64 : 32,
           fontFamily: "var(--font-data)",
           color: isNull ? "var(--color-text-tertiary)" : "var(--color-on-surface)",
+          fontSize: isNull && isSentiment ? 10 : undefined,
+          letterSpacing: isNull && isSentiment ? "0.05em" : undefined,
         }}
+        title={isNull && isSentiment ? "Sentiment analysis available when NLP pipeline is enabled" : undefined}
       >
-        {isNull ? "\u2014" : clamped}
+        {isNull && isSentiment ? "PENDING" : isNull ? "\u2014" : clamped}
       </span>
     </div>
   )
@@ -262,6 +276,7 @@ export function FactorProfile({
               isNull={isNull}
               p50={bench?.p50}
               p90={bench?.p90}
+              isSentiment={key === "sentiment"}
             />
           )
         })}
