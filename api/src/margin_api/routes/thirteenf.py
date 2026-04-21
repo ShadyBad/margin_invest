@@ -22,6 +22,7 @@ from margin_api.schemas.thirteenf import (
     ChangesSummary,
     ClonePosition,
     CloneResponse,
+    ConsensusPick,
     CrowdedTrade,
     HolderResponse,
     HoldingsHistoryQuarter,
@@ -30,11 +31,13 @@ from margin_api.schemas.thirteenf import (
     HoldingsSummary,
     ManagerPortfolioResponse,
     ManagerResponse,
+    MarketPulseResponse,
     NewPositionEntry,
     NewPositionResponse,
     OverlapEntry,
     OverlapResponse,
     PortfolioHolding,
+    SectorFlowItem,
 )
 from margin_api.services.thirteenf_analytics import (
     compute_crowded_trades,
@@ -411,6 +414,128 @@ async def get_new_positions(
         period_of_report=current_q,
         previous_quarter=prev_q,
         new_positions=new_positions,
+    )
+
+
+@router.get("/analytics/market-pulse", response_model=MarketPulseResponse)
+async def get_market_pulse(
+    quarter: str | None = Query(None, description="Quarter like 2026-Q1"),
+    user_id: int = Depends(require_plan("institutional")),
+    db: AsyncSession = Depends(get_db),
+) -> MarketPulseResponse:
+    """Get market-level aggregate signals from institutional data."""
+    current_q, prev_q = await resolve_quarter(db, quarter)
+
+    # Fetch current quarter accumulation signals with asset sectors
+    stmt = (
+        select(
+            AccumulationSignal.curated_net_shares,
+            AccumulationSignal.curated_holders,
+            AccumulationSignal.total_holders,
+            Asset.ticker,
+            Asset.sector,
+        )
+        .join(Asset, AccumulationSignal.asset_id == Asset.id)
+        .where(AccumulationSignal.period_of_report == current_q)
+    )
+    result = await db.execute(stmt)
+    current_rows = result.all()
+
+    if not current_rows:
+        quarter_label = f"Q{(current_q.month - 1) // 3 + 1} {current_q.year}"
+        return MarketPulseResponse(
+            breadth_pct=0.0,
+            breadth_direction="flat",
+            sector_flows=[],
+            consensus_picks=[],
+            flow_trend_pct=0.0,
+            flow_trend_direction="flat",
+            as_of_quarter=quarter_label,
+        )
+
+    # 1. Institutional breadth
+    accumulating = sum(1 for r in current_rows if r.curated_net_shares > 0)
+    breadth_pct = round(accumulating / len(current_rows) * 100, 1)
+
+    # 2. Sector flows
+    sector_net: dict[str, int] = {}
+    for r in current_rows:
+        sector = r.sector or "Unknown"
+        sector_net[sector] = sector_net.get(sector, 0) + r.curated_net_shares
+
+    sector_flows = [
+        SectorFlowItem(
+            sector=sector,
+            net_shares=net,
+            direction="up" if net > 0 else "down" if net < 0 else "flat",
+        )
+        for sector, net in sorted(sector_net.items(), key=lambda x: abs(x[1]), reverse=True)
+    ]
+
+    # 3. Smart money consensus -- top 5 by curated holders
+    total_curated_result = await db.execute(
+        select(func.count()).select_from(Manager).where(Manager.tier == "curated")
+    )
+    total_curated = total_curated_result.scalar_one() or 1
+
+    ticker_holders: dict[str, int] = {}
+    for r in current_rows:
+        ticker_holders[r.ticker] = r.curated_holders
+
+    sorted_by_holders = sorted(ticker_holders.items(), key=lambda x: x[1], reverse=True)[:5]
+    consensus_picks = [
+        ConsensusPick(
+            ticker=ticker,
+            curated_holders=holders,
+            agreement_pct=round(holders / total_curated * 100, 1),
+        )
+        for ticker, holders in sorted_by_holders
+    ]
+
+    # 4. Flow trend -- compare total curated holders vs previous quarter
+    prev_result = await db.execute(
+        select(func.sum(AccumulationSignal.curated_holders)).where(
+            AccumulationSignal.period_of_report == prev_q
+        )
+    )
+    prev_total = prev_result.scalar_one() or 0
+
+    current_total = sum(r.curated_holders for r in current_rows)
+    if prev_total > 0:
+        flow_trend_pct = round((current_total - prev_total) / prev_total * 100, 1)
+    else:
+        flow_trend_pct = 0.0
+
+    flow_direction = "up" if flow_trend_pct > 0 else "down" if flow_trend_pct < 0 else "flat"
+
+    # Breadth direction vs previous quarter
+    prev_breadth_result = await db.execute(
+        select(func.count())
+        .select_from(AccumulationSignal)
+        .where(
+            AccumulationSignal.period_of_report == prev_q,
+            AccumulationSignal.curated_net_shares > 0,
+        )
+    )
+    prev_accumulating = prev_breadth_result.scalar_one() or 0
+    breadth_direction = (
+        "up"
+        if accumulating > prev_accumulating
+        else "down"
+        if accumulating < prev_accumulating
+        else "flat"
+    )
+
+    quarter_label = f"Q{(current_q.month - 1) // 3 + 1} {current_q.year}"
+
+    return MarketPulseResponse(
+        breadth_pct=breadth_pct,
+        breadth_direction=breadth_direction,
+        sector_flows=sector_flows,
+        consensus_picks=consensus_picks,
+        flow_trend_pct=flow_trend_pct,
+        flow_trend_direction=flow_direction,
+        as_of_quarter=quarter_label,
     )
 
 

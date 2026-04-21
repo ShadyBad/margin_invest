@@ -4,13 +4,6 @@ import { FILTER_METADATA } from "@/lib/filter-metadata"
 import { FormulaTooltip } from "@/components/ui/formula-tooltip"
 import type { FilterResultResponse } from "@/lib/api/types"
 
-interface FilterCardProps {
-  filter: FilterResultResponse
-  expanded: boolean
-  sectorPassRate?: number | null
-  sectorName?: string | null
-}
-
 function formatValue(
   value: number | null,
   name: string,
@@ -38,6 +31,27 @@ function formatValue(
   return value.toFixed(2)
 }
 
+function formatPillValue(
+  value: number | null,
+  name: string,
+  metrics?: Record<string, number | string> | null,
+): string {
+  if (value == null) return "N/A"
+  if (name === "fcf_distress" && metrics && "positive_years" in metrics) {
+    const posYears = metrics.positive_years as number
+    const totalYears = metrics.total_years as number
+    return `${posYears}/${totalYears}yrs`
+  }
+  if (name === "liquidity") {
+    if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`
+    if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`
+    if (value >= 1e6) return `$${(value / 1e6).toFixed(0)}M`
+    return `$${value.toLocaleString()}`
+  }
+  if (name === "interest_coverage") return `${value.toFixed(1)}x`
+  return value.toFixed(2)
+}
+
 function formatThreshold(
   threshold: number | null,
   name: string,
@@ -50,7 +64,7 @@ function formatThreshold(
     const floor = metrics.sector_fcf_margin_floor as number
     const sector = metrics.sector_name as string
     const sectorLabel = sector ? ` (${sector})` : ""
-    return `≥ ${required}/${totalYears} years · margin ≥ ${Math.round(floor * 100)}%${sectorLabel}`
+    return `\u2265 ${required}/${totalYears} years \u00b7 margin \u2265 ${Math.round(floor * 100)}%${sectorLabel}`
   }
   if (name === "liquidity") return `$${(threshold / 1e6).toFixed(0)}M`
   if (name === "interest_coverage") return `${threshold.toFixed(1)}x`
@@ -72,22 +86,32 @@ function formatMetricLabel(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: FilterCardProps) {
+function shortName(displayName: string | undefined, filterName: string): string {
+  if (!displayName) return filterName
+  return displayName.replace(/\s+(Score|Ratio)$/, "")
+}
+
+// ─── FilterPill ────────────────────────────────────────────────────────────────
+
+interface FilterPillProps {
+  filter: FilterResultResponse
+  isExpanded: boolean
+  onClick: () => void
+}
+
+export function FilterPill({ filter, isExpanded, onClick }: FilterPillProps) {
   const meta = FILTER_METADATA[filter.name]
-  const passed = filter.passed
   const isInconclusive = filter.verdict === "inconclusive"
+  const passed = filter.passed
 
   const borderColor = isInconclusive
     ? "var(--color-warning)"
     : !passed
       ? "var(--color-bearish)"
-      : "var(--color-ghost-border)"
+      : "var(--color-bullish)"
 
-  const bgColor = isInconclusive
-    ? "color-mix(in srgb, var(--color-warning) 5%, transparent)"
-    : !passed
-      ? "color-mix(in srgb, var(--color-bearish) 5%, transparent)"
-      : "var(--color-surface-container)"
+  const bgOpacity = isExpanded ? "15%" : "8%"
+  const background = `color-mix(in srgb, ${borderColor} ${bgOpacity}, transparent)`
 
   const icon = isInconclusive ? "?" : passed ? "\u2713" : "\u2715"
   const iconColor = isInconclusive
@@ -96,46 +120,70 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
       ? "var(--color-bullish)"
       : "var(--color-bearish)"
 
+  const label = shortName(meta?.displayName, filter.name)
+  const valueStr = formatPillValue(filter.value, filter.name, filter.computed_metrics)
+
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs"
+      style={{
+        background,
+        border: `1px solid ${borderColor}`,
+        cursor: "pointer",
+      }}
+      onClick={onClick}
+      data-testid={`filter-pill-${filter.name}`}
+    >
+      <span style={{ color: iconColor, fontWeight: 600 }}>{icon}</span>
+      <span style={{ color: "var(--color-on-surface)" }}>{label}</span>
+      <span style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>
+        {valueStr}
+      </span>
+    </button>
+  )
+}
+
+// ─── FilterDetail ──────────────────────────────────────────────────────────────
+
+interface FilterDetailProps {
+  filter: FilterResultResponse
+}
+
+export function FilterDetail({ filter }: FilterDetailProps) {
+  const meta = FILTER_METADATA[filter.name]
+  const passed = filter.passed
+  const isInconclusive = filter.verdict === "inconclusive"
+
   const metrics = filter.computed_metrics
   const hasMetrics = metrics != null && Object.keys(metrics).length > 0
 
   return (
     <div
-      className="rounded-lg px-4 py-3 space-y-2"
+      className="rounded-lg px-4 py-3 space-y-3 mt-2"
       style={{
-        background: bgColor,
-        border: `1px solid ${borderColor}`,
+        background: "var(--color-surface-container)",
+        border: "1px solid var(--color-ghost-border)",
       }}
-      data-testid={`filter-card-${filter.name}`}
+      data-testid={`filter-detail-${filter.name}`}
     >
-      {/* Header row */}
+      {/* Header */}
       <div className="flex items-center gap-2">
-        <span className="text-base font-semibold" style={{ color: iconColor }}>{icon}</span>
         <FormulaTooltip metricKey={filter.name}>
           <span className="text-sm font-semibold" style={{ color: "var(--color-on-surface)" }}>
             {meta?.displayName ?? filter.name}
           </span>
         </FormulaTooltip>
         {meta?.technicalName && (
-          <span className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>({meta.technicalName})</span>
-        )}
-        {!passed && !isInconclusive && (
-          <span
-            className="ml-auto text-xs px-2 py-0.5 rounded-sm"
-            style={{
-              fontFamily: "var(--font-data)",
-              color: "var(--color-bearish)",
-              background: "color-mix(in srgb, var(--color-bearish) 10%, transparent)",
-            }}
-          >
-            FAILED
+          <span className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>
+            ({meta.technicalName})
           </span>
         )}
       </div>
 
-      {/* Structured diagnostics table */}
+      {/* Computed metrics table */}
       {hasMetrics ? (
-        <div data-testid={`filter-diagnostics-${filter.name}`}>
+        <div>
           <table className="w-full text-xs">
             <thead>
               <tr>
@@ -182,11 +230,15 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
         <div className="flex items-center gap-6 text-sm">
           <div>
             <span className="text-xs block" style={{ color: "var(--color-text-tertiary)" }}>Value</span>
-            <span style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}>{formatValue(filter.value, filter.name, filter.computed_metrics)}</span>
+            <span style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}>
+              {formatValue(filter.value, filter.name, filter.computed_metrics)}
+            </span>
           </div>
           <div>
             <span className="text-xs block" style={{ color: "var(--color-text-tertiary)" }}>Threshold</span>
-            <span style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}>{formatThreshold(filter.threshold, filter.name, filter.computed_metrics)}</span>
+            <span style={{ fontFamily: "var(--font-data)", color: "var(--color-on-surface)" }}>
+              {formatThreshold(filter.threshold, filter.name, filter.computed_metrics)}
+            </span>
           </div>
           <div>
             <span className="text-xs block" style={{ color: "var(--color-text-tertiary)" }}>Result</span>
@@ -202,42 +254,37 @@ export function FilterCard({ filter, expanded, sectorPassRate, sectorName }: Fil
         </div>
       )}
 
-      {/* Sector context — only for failed filters when data available */}
-      {!passed && sectorPassRate != null && sectorName && (
-        <p className="text-xs mt-1.5" style={{ color: "var(--color-text-tertiary)" }}>
-          {Math.round(sectorPassRate * 100)}% of {sectorName} stocks pass this filter.
-        </p>
+      {/* Detail from API */}
+      {filter.detail && (
+        <p className="text-xs" style={{ color: "var(--color-on-surface-variant)" }}>{filter.detail}</p>
       )}
 
-      {/* Formula (if available) */}
-      {meta?.formula && expanded && (
+      {/* Formula */}
+      {meta?.formula && (
         <div className="text-xs" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-tertiary)" }}>
           Formula: {meta.formula}
         </div>
       )}
 
       {/* Academic citation */}
-      {meta?.citation && expanded && (
+      {meta?.citation && (
         <p className="text-xs italic" style={{ color: "var(--color-text-tertiary)" }}>
           Source: {meta.citation}
         </p>
       )}
 
-      {/* Detail from API */}
-      {filter.detail && (
-        <p className="text-xs" style={{ color: "var(--color-on-surface-variant)" }}>{filter.detail}</p>
-      )}
-
-      {/* WHY THIS MATTERS — only for failed or inconclusive, when expanded */}
-      {expanded && !passed && meta?.whyItMatters && (
-        <div className="pt-3 mt-3">
+      {/* WHY THIS MATTERS — only for failed filters */}
+      {!passed && meta?.whyItMatters && (
+        <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--color-ghost-border)" }}>
           <span
             className="text-label-sm font-semibold block mb-1"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             Why This Matters
           </span>
-          <p className="text-xs leading-relaxed" style={{ color: "var(--color-on-surface-variant)" }}>{meta.whyItMatters}</p>
+          <p className="text-xs leading-relaxed" style={{ color: "var(--color-on-surface-variant)" }}>
+            {meta.whyItMatters}
+          </p>
         </div>
       )}
     </div>

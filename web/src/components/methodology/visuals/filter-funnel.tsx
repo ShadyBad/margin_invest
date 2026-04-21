@@ -40,7 +40,8 @@ export function FilterFunnel() {
                 className="h-7 rounded-sm flex items-center px-3"
                 style={{
                   width: `${widthPct}%`,
-                  backgroundColor: "var(--color-accent-subtle)",
+                  backgroundColor: "rgba(74, 158, 126, 0.25)",
+                  borderLeft: "2px solid var(--color-primary-muted)",
                 }}
               >
                 <span className="text-xs font-mono text-text-primary whitespace-nowrap">

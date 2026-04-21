@@ -227,7 +227,7 @@ class TestGetScore:
         assert data["ticker"] == "AAPL"
         assert data["composite_percentile"] == 99.5
         assert data["composite_tier"] == "exceptional"
-        assert data["signal"] == "buy"
+        assert data["signal"] == "strong"  # recomputed from exceptional tier
 
     async def test_get_score_not_found(self, client):
         response = await client.get("/api/v1/scores/UNKNOWN")

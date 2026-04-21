@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { getOverlap, getNewPositions } from "@/lib/api/thirteenf"
+import { getOverlap, getNewPositions, getMarketPulse } from "@/lib/api/thirteenf"
 import type {
   OverlapResponse,
   NewPositionResponse,
+  MarketPulseResponse,
 } from "@/lib/api/thirteenf"
+import { MarketPulse } from "./market-pulse"
 
 function LoadingSkeleton() {
   return (
@@ -28,6 +30,7 @@ function LoadingSkeleton() {
 export function MarketSignals() {
   const [overlap, setOverlap] = useState<OverlapResponse | null>(null)
   const [newPositions, setNewPositions] = useState<NewPositionResponse | null>(null)
+  const [pulseData, setPulseData] = useState<MarketPulseResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -46,6 +49,7 @@ export function MarketSignals() {
           setOverlap(overlapData)
           setNewPositions(newPosData)
         }
+        getMarketPulse().then(setPulseData).catch(() => {})
       } catch {
         if (!cancelled) setError(true)
       } finally {
@@ -76,6 +80,7 @@ export function MarketSignals() {
 
   return (
     <div data-testid="market-signals" className="space-y-8">
+      {pulseData && <MarketPulse data={pulseData} />}
       {/* Section 1: Most Held Positions */}
       {overlap && overlap.most_held.length > 0 && (
         <section>

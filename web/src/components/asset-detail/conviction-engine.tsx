@@ -4,7 +4,6 @@ interface ConvictionEngineProps {
   opportunityType: string | null
   asymmetryRatio: number | null
   maxPositionPct: number | null
-  timingSignal: string | null
 }
 
 const OPPORTUNITY_DESCRIPTIONS: Record<string, string> = {
@@ -15,27 +14,12 @@ const OPPORTUNITY_DESCRIPTIONS: Record<string, string> = {
   neither: "This stock does not clearly fit either opportunity pattern.",
 }
 
-const TIMING_LABELS: Record<string, { label: string; description: string }> = {
-  buy_now: { label: "BUY NOW", description: "Current price represents a good entry point." },
-  add_on_pullback: {
-    label: "ADD ON PULLBACK",
-    description: "Wait for a 5-10% dip from current levels.",
-  },
-  wait_for_catalyst: {
-    label: "WAIT FOR CATALYST",
-    description: "Hold until a specific catalyst materializes.",
-  },
-}
-
 export function ConvictionEngine({
   opportunityType,
   asymmetryRatio,
   maxPositionPct,
-  timingSignal,
 }: ConvictionEngineProps) {
   if (!opportunityType) return null
-
-  const timing = timingSignal ? TIMING_LABELS[timingSignal] : null
 
   return (
     <section
@@ -56,8 +40,8 @@ export function ConvictionEngine({
         </p>
       </div>
 
-      {/* Bottom zone: 3 metrics inline */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      {/* Bottom zone: 2 metrics inline */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {asymmetryRatio != null && (
           <div>
             <FormulaTooltip metricKey="asymmetry_ratio">
@@ -86,34 +70,35 @@ export function ConvictionEngine({
                 MAX POSITION
               </span>
             </FormulaTooltip>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span
+                className="text-mono-data"
+                style={{ color: "var(--color-on-surface)" }}
+              >
+                {maxPositionPct.toFixed(1)}%
+              </span>
+              <span
+                className="text-label-sm"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                Quarter-Kelly
+              </span>
+            </div>
             <span
-              className="text-mono-data block mt-1"
-              style={{ color: "var(--color-on-surface)" }}
+              className="text-label-sm mt-1 block"
+              style={{ color: "var(--color-text-tertiary)" }}
             >
-              {maxPositionPct.toFixed(1)}%
+              ~${Math.round(maxPositionPct * 500).toLocaleString()} per $50K portfolio
             </span>
-            <span className="text-label-sm mt-1 block" style={{ color: "var(--color-text-tertiary)" }}>
-              Kelly-optimal sizing
+            <span
+              className="text-label-sm mt-0.5 block"
+              style={{ color: "var(--color-text-tertiary)", opacity: 0.7 }}
+            >
+              Based on asymmetry ratio and conviction score
             </span>
           </div>
         )}
 
-        {timing && (
-          <div>
-            <span className="text-label-sm" style={{ color: "var(--color-on-surface-variant)" }}>
-              TIMING SIGNAL
-            </span>
-            <span
-              className="text-mono-data block mt-1"
-              style={{ color: "var(--color-on-surface)" }}
-            >
-              {timing.label}
-            </span>
-            <span className="text-label-sm mt-1 block" style={{ color: "var(--color-text-tertiary)" }}>
-              {timing.description}
-            </span>
-          </div>
-        )}
       </div>
     </section>
   )

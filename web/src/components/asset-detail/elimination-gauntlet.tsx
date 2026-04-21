@@ -1,4 +1,7 @@
-import { FilterCard } from "./filter-card"
+"use client"
+
+import { useState } from "react"
+import { FilterPill, FilterDetail } from "./filter-card"
 import { formatEliminationPct } from "@/lib/format-elimination-pct"
 import type { FilterResultResponse } from "@/lib/api/types"
 
@@ -11,6 +14,8 @@ interface EliminationGauntletProps {
 }
 
 export function EliminationGauntlet({ filters, eliminated, totalScored, filtersSurvivedCount, sectorName }: EliminationGauntletProps) {
+  const [expandedFilter, setExpandedFilter] = useState<string | null>(null)
+
   const passCount = filters.filter((f) => f.passed).length
   const eliminatedPct = totalScored != null && filtersSurvivedCount != null && totalScored > 0
     ? formatEliminationPct(totalScored - filtersSurvivedCount, totalScored)
@@ -25,6 +30,10 @@ export function EliminationGauntlet({ filters, eliminated, totalScored, filtersS
     : filters
 
   const allPassed = passCount === filters.length
+
+  const expandedFilterData = expandedFilter != null
+    ? sortedFilters.find((f) => f.name === expandedFilter) ?? null
+    : null
 
   return (
     <section
@@ -72,15 +81,20 @@ export function EliminationGauntlet({ filters, eliminated, totalScored, filtersS
         </span>
       </div>
 
-      <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
         {sortedFilters.map((filter) => (
-          <FilterCard
+          <FilterPill
             key={filter.name}
             filter={filter}
-            expanded={eliminated ? !filter.passed : false}
+            isExpanded={expandedFilter === filter.name}
+            onClick={() => setExpandedFilter(expandedFilter === filter.name ? null : filter.name)}
           />
         ))}
       </div>
+
+      {expandedFilterData != null && (
+        <FilterDetail filter={expandedFilterData} />
+      )}
 
       {!eliminated && sectorName && (
         <p className="text-label-sm mt-6" style={{ color: "var(--color-text-tertiary)" }}>

@@ -4,10 +4,12 @@ import { MarketSignals } from "../market-signals"
 
 const mockGetOverlap = vi.fn()
 const mockGetNewPositions = vi.fn()
+const mockGetMarketPulse = vi.fn()
 
 vi.mock("@/lib/api/thirteenf", () => ({
   getOverlap: (...args: unknown[]) => mockGetOverlap(...args),
   getNewPositions: (...args: unknown[]) => mockGetNewPositions(...args),
+  getMarketPulse: (...args: unknown[]) => mockGetMarketPulse(...args),
 }))
 
 const MOCK_OVERLAP = {
@@ -47,6 +49,7 @@ const MOCK_EMPTY_NEW_POSITIONS = {
 describe("MarketSignals", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetMarketPulse.mockRejectedValue(new Error("not mocked"))
   })
 
   it("renders most held positions table", async () => {

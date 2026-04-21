@@ -9,7 +9,6 @@ describe("ConvictionEngine", () => {
         opportunityType="compounder"
         asymmetryRatio={4.2}
         maxPositionPct={5.0}
-        timingSignal="add_on_pullback"
       />
     )
     expect(screen.getByText("COMPOUNDER")).toBeInTheDocument()
@@ -24,22 +23,9 @@ describe("ConvictionEngine", () => {
         opportunityType={null}
         asymmetryRatio={null}
         maxPositionPct={null}
-        timingSignal={null}
       />
     )
     expect(container.firstChild).toBeNull()
-  })
-
-  it("renders timing signal for buy_now", () => {
-    render(
-      <ConvictionEngine
-        opportunityType="mispricing"
-        asymmetryRatio={3.1}
-        maxPositionPct={4.0}
-        timingSignal="buy_now"
-      />
-    )
-    expect(screen.getByText("BUY NOW")).toBeInTheDocument()
   })
 
   it("renders mispricing opportunity type", () => {
@@ -48,7 +34,6 @@ describe("ConvictionEngine", () => {
         opportunityType="mispricing"
         asymmetryRatio={2.5}
         maxPositionPct={3.0}
-        timingSignal="add_on_pullback"
       />
     )
     expect(screen.getByText("MISPRICING")).toBeInTheDocument()
@@ -61,11 +46,9 @@ describe("ConvictionEngine", () => {
         opportunityType="compounder"
         asymmetryRatio={null}
         maxPositionPct={null}
-        timingSignal={null}
       />
     )
     expect(screen.getByText("COMPOUNDER")).toBeInTheDocument()
-    // Null values should render dashes
     expect(screen.getByTestId("conviction-engine")).toBeInTheDocument()
   })
 })
