@@ -5,17 +5,18 @@ Revises: a2b3c4d5e6f7
 Create Date: 2026-04-21 21:22:30.440310
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "b8633f3bb979"
-down_revision: Union[str, Sequence[str], None] = "a2b3c4d5e6f7"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "a2b3c4d5e6f7"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 JSONVariant = sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")
 
@@ -111,9 +112,7 @@ def downgrade() -> None:
     """Drop risk_factor_analyses, risk_factor_embeddings, and llm_call_log tables."""
     op.drop_index("ix_llm_call_log_service_version_created", table_name="llm_call_log")
     op.drop_table("llm_call_log")
-    op.drop_index(
-        "ix_risk_factor_embeddings_filing_text_id", table_name="risk_factor_embeddings"
-    )
+    op.drop_index("ix_risk_factor_embeddings_filing_text_id", table_name="risk_factor_embeddings")
     op.drop_table("risk_factor_embeddings")
     op.drop_index("ix_risk_factor_analyses_filing_text_id", table_name="risk_factor_analyses")
     op.drop_index("ix_risk_factor_analyses_ticker", table_name="risk_factor_analyses")
