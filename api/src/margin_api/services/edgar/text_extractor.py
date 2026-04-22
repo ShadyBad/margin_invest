@@ -114,7 +114,7 @@ _10K_SECTION_PATTERNS: list[tuple[str, str]] = [
     # Item 1. Business — must NOT match Item 1A
     ("business", r"item\s*1[.\s]\s*(?!a\b)business"),
     # Item 1A. Risk Factors
-    ("risk_factors", r"item\s*1a[.\s]\s*risk\s*factors"),
+    ("risk_factors", r"item\s*1\s*a[\s.:,\-]+\s*risk\s*factors"),
     # Item 2. Properties — used as *end boundary* for business section implicitly;
     # we keep it here so the splitter knows where risk_factors ends.
     ("properties", r"item\s*2[.\s]\s*properties"),
@@ -164,12 +164,23 @@ def _find_section_boundaries(
     """Find the start position of each named section in *text_lower*.
 
     Returns a dict mapping section_name -> char offset (or -1 if not found).
-    Only the *first* match for each pattern is recorded.
+    Skips matches in the first 10% of the document to avoid Table of Contents
+    false positives.
     """
+    toc_cutoff = len(text_lower) // 10
+
     positions: dict[str, int] = {}
     for name, pat in patterns:
-        m = re.search(pat, text_lower)
-        positions[name] = m.start() if m else -1
+        best_pos = -1
+        for m in re.finditer(pat, text_lower):
+            if m.start() >= toc_cutoff:
+                best_pos = m.start()
+                break
+        if best_pos == -1:
+            m = re.search(pat, text_lower)
+            if m:
+                best_pos = m.start()
+        positions[name] = best_pos
     return positions
 
 
