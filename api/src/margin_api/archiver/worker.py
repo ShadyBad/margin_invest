@@ -172,9 +172,7 @@ async def _publish_to_github(
             publisher="github", success=False, error="ARCHIVE_GITHUB_TOKEN not set"
         )
     if not repo:
-        return PublishResult(
-            publisher="github", success=False, error="ARCHIVE_GITHUB_REPO not set"
-        )
+        return PublishResult(publisher="github", success=False, error="ARCHIVE_GITHUB_REPO not set")
 
     try:
         publisher = GitHubPublisher(credential=token, repo=repo)

@@ -95,7 +95,14 @@ def test_json_all_fields_present() -> None:
     entries = _sample_entries()
     result = generate_manifest_json(entries)
     parsed = json.loads(result)
-    required_fields = {"date", "picks_count", "top_ticker", "top_score", "payload_hash", "previous_hash"}
+    required_fields = {
+        "date",
+        "picks_count",
+        "top_ticker",
+        "top_score",
+        "payload_hash",
+        "previous_hash",
+    }
     for record in parsed:
         assert required_fields.issubset(record.keys()), f"Missing fields in record: {record}"
     # Check genesis entry has null previous_hash

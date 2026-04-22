@@ -19,7 +19,11 @@ _TS = datetime(2026, 4, 21, 20, 30, 0, tzinfo=timezone.utc)
 
 
 def _make_pick(rank: int = 1, *, null_ml: bool = False) -> PickEntry:
-    ml = MLDetail(alpha=None, confidence=None, override="none") if null_ml else MLDetail(alpha=0.12, confidence=0.87, override="none")
+    ml = (
+        MLDetail(alpha=None, confidence=None, override="none")
+        if null_ml
+        else MLDetail(alpha=0.12, confidence=0.87, override="none")
+    )
     return PickEntry(
         rank=rank,
         ticker="AAPL",
@@ -35,7 +39,9 @@ def _make_pick(rank: int = 1, *, null_ml: bool = False) -> PickEntry:
             "quality": PillarDetail(factors={"roic": 0.34, "gm": 0.45}),
             "growth": PillarDetail(factors={"rev_growth": 0.12}),
         },
-        modifiers=ModifierDetail(liquidity=1.0, insider_signal=0.5, inflection=0.0, tam=0.2, anti_consensus=0.0),
+        modifiers=ModifierDetail(
+            liquidity=1.0, insider_signal=0.5, inflection=0.0, tam=0.2, anti_consensus=0.0
+        ),
         ml=ml,
         sector="Technology",
         market_cap_usd=3_000_000_000_000,

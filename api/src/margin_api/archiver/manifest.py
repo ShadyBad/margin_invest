@@ -19,18 +19,23 @@ class ManifestEntry(BaseModel):
 def generate_manifest_md(entries: list[ManifestEntry]) -> str:
     sorted_entries = sorted(entries, key=lambda e: e.date, reverse=True)
     lines = [
-        "# Margin Invest Daily Picks Archive", "",
+        "# Margin Invest Daily Picks Archive",
+        "",
         "Tamper-evident archive of daily scored picks. Each snapshot is SHA-256 hashed",
-        "and linked to the previous day's hash, forming a verifiable chain.", "",
-        "## How to Verify", "",
+        "and linked to the previous day's hash, forming a verifiable chain.",
+        "",
+        "## How to Verify",
+        "",
         "```python",
         "import hashlib, json",
         'snapshot = json.load(open("snapshots/2026/04/21.json"))',
         'payload_hash = snapshot.pop("payload_hash")',
         'canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()',
         "assert hashlib.sha256(canonical).hexdigest() == payload_hash",
-        "```", "",
-        "## Archive Index", "",
+        "```",
+        "",
+        "## Archive Index",
+        "",
         "| Date | Picks | Top Pick | Payload Hash | Chain |",
         "|------|-------|----------|-------------|-------|",
     ]

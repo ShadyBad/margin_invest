@@ -9,9 +9,9 @@ from typing import Any
 
 def canonical_json(data: dict[str, Any]) -> bytes:
     """Serialize dict to deterministic JSON bytes: sorted keys, no whitespace, UTF-8."""
-    return json.dumps(
-        data, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    ).encode("utf-8")
+    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
 
 
 def sha256_hex(data: bytes) -> str:

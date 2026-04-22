@@ -50,8 +50,7 @@ class R2Publisher:
             if existing_hash == payload_hash:
                 return PublishResult(publisher="r2", success=True, skipped=True)
             raise RuntimeError(
-                f"[r2] hash mismatch for {date_str}: "
-                f"existing={existing_hash}, new={payload_hash}"
+                f"[r2] hash mismatch for {date_str}: existing={existing_hash}, new={payload_hash}"
             )
 
         client.put_object(

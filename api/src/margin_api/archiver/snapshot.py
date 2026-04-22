@@ -107,8 +107,7 @@ async def generate(
 
     # Build input_data_hash from all rows (not just included)
     hash_rows = [
-        {"ticker": asset.ticker, "composite_score": score.composite_score}
-        for score, asset in rows
+        {"ticker": asset.ticker, "composite_score": score.composite_score} for score, asset in rows
     ]
     input_data_hash = compute_input_data_hash(hash_rows)
 
