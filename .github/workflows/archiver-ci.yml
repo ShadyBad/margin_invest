@@ -1,0 +1,44 @@
+name: Archiver CI
+
+on:
+  pull_request:
+    paths:
+      - "api/src/margin_api/archiver/**"
+      - "api/tests/archiver/**"
+  push:
+    branches: [main]
+    paths:
+      - "api/src/margin_api/archiver/**"
+      - "api/tests/archiver/**"
+
+concurrency:
+  group: archiver-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint
+        run: |
+          uv run ruff check api/src/margin_api/archiver/
+          uv run ruff format --check api/src/margin_api/archiver/
+
+      - name: Type check
+        run: uv run mypy --strict api/src/margin_api/archiver/
+
+      - name: Test with coverage
+        run: |
+          uv run pytest api/tests/archiver/ -v \
+            --cov=margin_api.archiver \
+            --cov-report=term-missing \
+            --cov-fail-under=90
