@@ -5427,7 +5427,14 @@ class WorkerSettings:
         cron(
             screen_drawdown_candidates, hour=23, minute=30, run_at_startup=False
         ),  # Daily 11:30 PM UTC — drawdown re-screening
-        cron(archive_daily_snapshot, hour=21, minute=30, weekdays={0, 1, 2, 3, 4}, run_at_startup=False, timeout=600),
+        cron(
+            archive_daily_snapshot,
+            hour=21,
+            minute=30,
+            weekday={0, 1, 2, 3, 4},
+            run_at_startup=False,
+            timeout=600,
+        ),
     ]
     # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)
     job_timeout = 1200
