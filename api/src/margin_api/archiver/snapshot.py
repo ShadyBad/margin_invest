@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select
@@ -27,7 +28,7 @@ INCLUDED_CONVICTIONS = {"exceptional", "high", "medium"}
 PILLAR_KEYS = ("quality", "value", "momentum", "growth", "catalyst", "capital_allocation")
 
 
-def _extract_pillars(detail: dict) -> dict[str, PillarDetail]:
+def _extract_pillars(detail: dict[str, Any]) -> dict[str, PillarDetail]:
     """Extract pillar factor scores from the detail JSON, skipping stubs."""
     pillars: dict[str, PillarDetail] = {}
     for key in PILLAR_KEYS:
@@ -65,7 +66,7 @@ def _extract_track_scores(score: V4Score) -> dict[str, TrackScoreDetail]:
     return tracks
 
 
-def _extract_modifiers(detail: dict) -> ModifierDetail:
+def _extract_modifiers(detail: dict[str, Any]) -> ModifierDetail:
     """Extract modifier breakdown from detail JSON."""
     breakdown = detail.get("modifier_breakdown", {})
     return ModifierDetail(
@@ -130,8 +131,9 @@ async def generate(
     # Build picks
     picks: list[PickEntry] = []
     for rank, (score, asset) in enumerate(included, start=1):
-        detail = score.detail
-        price = detail.get("actual_price", 0.0) if detail else 0.0
+        raw_detail = score.detail
+        detail: dict[str, Any] = raw_detail if raw_detail is not None else {}
+        price = detail.get("actual_price", 0.0)
 
         picks.append(
             PickEntry(

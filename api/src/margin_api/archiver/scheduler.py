@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-import pandas_market_calendars as mcal
+import pandas_market_calendars as mcal  # type: ignore[import-untyped]
 
 
 def is_trading_day(d: date) -> bool:

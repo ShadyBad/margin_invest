@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+from typing import Any
 
 import httpx
 
@@ -107,7 +108,7 @@ class GitHubPublisher:
         """PUT the file to the GitHub Contents API, including SHA when updating."""
         url = f"{GITHUB_API}/repos/{self._repo}/contents/{path}"
         encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
-        body: dict = {"message": message, "content": encoded}
+        body: dict[str, Any] = {"message": message, "content": encoded}
 
         existing_sha = await self._get_file_sha(path)
         if existing_sha is not None:

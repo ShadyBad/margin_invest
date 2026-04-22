@@ -7,6 +7,7 @@ import json
 import logging
 import os
 from datetime import date
+from typing import Any
 
 from margin_api.archiver.hasher import compute_payload_hash
 from margin_api.archiver.manifest import ManifestEntry, generate_manifest_json, generate_manifest_md
@@ -22,7 +23,7 @@ from margin_api.services.analytics import track_event
 logger = logging.getLogger(__name__)
 
 
-async def archive_daily_snapshot(ctx: dict, target_date: str | None = None) -> dict:
+async def archive_daily_snapshot(ctx: dict[str, Any], target_date: str | None = None) -> dict[str, Any]:
     """Generate and publish the daily picks snapshot.
 
     This is the ARQ cron entry point that wires together:
@@ -43,7 +44,7 @@ async def archive_daily_snapshot(ctx: dict, target_date: str | None = None) -> d
     # Step 2: Generate snapshot from published scores
     model_hash = os.environ.get("MARGIN_GIT_SHA", "unknown")
     engine = get_engine()
-    session_factory = get_session_factory(engine)
+    session_factory = get_session_factory(engine)  # type: ignore[no-untyped-call]
 
     async with session_factory() as session:
         snapshot = await generate(session=session, snapshot_date=today, model_hash=model_hash)
@@ -202,6 +203,8 @@ async def _publish_to_r2(
     if not all([access_key, secret_key, bucket, endpoint]):
         return PublishResult(publisher="r2", success=False, error="R2 credentials not configured")
 
+    assert access_key and secret_key and bucket and endpoint  # narrowed: guard above ensures non-None
+
     try:
         publisher = R2Publisher(
             access_key_id=access_key,
@@ -219,7 +222,7 @@ async def _publish_to_r2(
         return PublishResult(publisher="r2", success=False, error=str(e))
 
 
-async def _fetch_previous_hash(current_date_str: str) -> dict | None:
+async def _fetch_previous_hash(current_date_str: str) -> dict[str, Any] | None:
     """Fetch the most recent manifest entry from GitHub to chain hashes.
 
     Returns {"date": ..., "hash": ...} or None if no previous manifest exists.

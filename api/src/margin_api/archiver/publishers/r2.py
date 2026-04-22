@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import boto3
+import boto3  # type: ignore[import-untyped]
 
 from margin_api.archiver.publishers import PublishResult
 
@@ -85,7 +85,8 @@ class R2Publisher:
     def _read_object(self, client: Any, key: str) -> str:
         """Read *key* from the bucket and return its content as a UTF-8 string."""
         response = client.get_object(Bucket=self._bucket, Key=key)
-        return response["Body"].read().decode("utf-8")
+        content: str = response["Body"].read().decode("utf-8")
+        return content
 
     @staticmethod
     def _snapshot_key(date_str: str) -> str:
