@@ -83,6 +83,7 @@ class TestAnalyzeMaterialChanges:
         with patch("margin_api.services.risk_diffing.risk_analyzer._get_client") as mc:
             mc.return_value.messages.create = AsyncMock(return_value=mock_message)
             session = AsyncMock()
+            session.add = MagicMock()  # add() is sync in SQLAlchemy
             session.commit = AsyncMock()
             result = await analyze_material_changes(
                 session=session, ticker="AAPL", candidates=candidates
@@ -119,6 +120,7 @@ class TestAnalyzeMaterialChanges:
         with patch("margin_api.services.risk_diffing.risk_analyzer._get_client") as mc:
             mc.return_value.messages.create = AsyncMock(return_value=mock_message)
             session = AsyncMock()
+            session.add = MagicMock()  # add() is sync in SQLAlchemy
             session.commit = AsyncMock()
             await analyze_material_changes(session=session, ticker="TEST", candidates=candidates)
         assert session.add.called
