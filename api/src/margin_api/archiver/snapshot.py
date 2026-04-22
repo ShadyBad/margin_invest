@@ -48,7 +48,12 @@ def _extract_pillars(detail: dict) -> dict[str, PillarDetail]:
 def _extract_track_scores(score: V4Score) -> dict[str, TrackScoreDetail]:
     """Extract track A/B/C scores from the V4Score model columns."""
     tracks: dict[str, TrackScoreDetail] = {}
-    for label, data in [("track_a", score.track_a), ("track_b", score.track_b), ("track_c", score.track_c)]:
+    track_pairs = [
+        ("track_a", score.track_a),
+        ("track_b", score.track_b),
+        ("track_c", score.track_c),
+    ]
+    for label, data in track_pairs:
         if data is None:
             continue
         tracks[label] = TrackScoreDetail(
