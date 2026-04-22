@@ -3876,6 +3876,14 @@ def main() -> None:
         help="Role to assign (default: superadmin)",
     )
 
+    archive_parser = subparsers.add_parser("archive", help="Archive daily picks to public repo")
+    archive_parser.add_argument(
+        "--date",
+        type=str,
+        default=None,
+        help="Date to archive (YYYY-MM-DD, defaults to today)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "universe":
@@ -3968,6 +3976,14 @@ def main() -> None:
         asyncio.run(_promote_admin(args.email, args.role))
     elif args.command == "backfill-security-tickers":
         asyncio.run(run_backfill_security_tickers())
+    elif args.command == "archive":
+        from margin_api.archiver.worker import archive_daily_snapshot
+
+        async def run_archive() -> None:
+            result = await archive_daily_snapshot(ctx={}, target_date=args.date)
+            logger.info("Archive result: %s", result)
+
+        asyncio.run(run_archive())
     else:
         parser.print_help()
         sys.exit(1)

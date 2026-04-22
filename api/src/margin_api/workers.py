@@ -76,6 +76,7 @@ from margin_api.services.edgar.index_builder import (
 )
 from margin_api.services.edgar.price_backfill import backfill_prices_for_tickers
 from margin_api.services.edgar.universe_assembly import assemble_universe, fill_last_known_prices
+from margin_api.archiver.worker import archive_daily_snapshot
 from margin_api.services.governance_config import get_threshold
 from margin_api.services.live_prices import LivePriceService
 from margin_api.services.universe import get_active_snapshot
@@ -5388,6 +5389,7 @@ class WorkerSettings:
         analyze_filing_text,
         arq_func(deliver_webhook),
         trigger_score_alerts,
+        archive_daily_snapshot,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -5425,6 +5427,7 @@ class WorkerSettings:
         cron(
             screen_drawdown_candidates, hour=23, minute=30, run_at_startup=False
         ),  # Daily 11:30 PM UTC — drawdown re-screening
+        cron(archive_daily_snapshot, hour=21, minute=30, weekdays={0, 1, 2, 3, 4}, run_at_startup=False, timeout=600),
     ]
     # Default job timeout: 20 minutes (batch-scale, not pipeline-scale)
     job_timeout = 1200
