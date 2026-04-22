@@ -29,6 +29,7 @@ dependencies = [
     "sentry-sdk[fastapi]>=2.54.0",
     "posthog>=7.9.7",
     "anthropic>=0.86.0",
+    "voyageai>=0.3.7",
 ]
 
 [project.optional-dependencies]

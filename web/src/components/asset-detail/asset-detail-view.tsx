@@ -17,6 +17,7 @@ import { ConvictionEngine } from "./conviction-engine"
 import { ValuationSection } from "./valuation-section"
 import { InstitutionalPositioning } from "./institutional-positioning"
 import { ModelValidation } from "./model-validation"
+import { RiskDeltaCard } from "@/components/risk_delta/RiskDeltaCard"
 
 interface AssetDetailViewProps {
   ticker: string
@@ -219,6 +220,9 @@ export function AssetDetailView({
           />
         </div>
       )}
+
+      {/* Filing Delta */}
+      <RiskDeltaCard ticker={ticker} />
 
       {/* Eliminated: explore link */}
       {!showScoreView && (
