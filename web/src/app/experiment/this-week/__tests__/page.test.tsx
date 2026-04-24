@@ -17,7 +17,9 @@ beforeAll(() => {
   })
 })
 
-const mockCapture = vi.fn()
+const { mockCapture } = vi.hoisted(() => ({
+  mockCapture: vi.fn(),
+}))
 vi.mock("posthog-js", () => ({
   default: { capture: mockCapture },
 }))
