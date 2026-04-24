@@ -1510,3 +1510,18 @@ class ScoreAlert(Base):
         Index("ix_score_alerts_user_id", "user_id"),
         Index("ix_score_alerts_active", "is_active", postgresql_where=text("is_active = true")),
     )
+
+
+class ExperimentSignup(Base):
+    """Tracks $10 list experiment purchases."""
+
+    __tablename__ = "experiment_signups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255))
+    paid_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    amount_cents: Mapped[int] = mapped_column(Integer)
+    stripe_session_id: Mapped[str] = mapped_column(String(255), unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
