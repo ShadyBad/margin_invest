@@ -6,21 +6,18 @@ import hashlib
 import hmac
 import json
 import time
-from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.app import create_app
 from margin_api.config import get_settings
 from margin_api.db.base import Base
 from margin_api.db.models import ExperimentSignup
 from margin_api.db.session import get_db
-
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 _TEST_WEBHOOK_SECRET = "whsec_test_secret"
 
@@ -87,8 +84,10 @@ async def test_checkout_creates_stripe_session(setup):
         mock_stripe.checkout.Session.create.return_value = mock_session
         response = await client.post(
             "/api/v1/experiment/checkout",
-            json={"success_url": "http://localhost:3000/experiment/this-week?success=1",
-                  "cancel_url": "http://localhost:3000/experiment/this-week"},
+            json={
+                "success_url": "http://localhost:3000/experiment/this-week?success=1",
+                "cancel_url": "http://localhost:3000/experiment/this-week",
+            },
         )
 
     assert response.status_code == 200
@@ -148,9 +147,7 @@ async def test_webhook_inserts_signup_and_sends_email(setup):
     # Verify the signup was recorded in the DB
     async with factory() as session:
         result = await session.execute(
-            select(ExperimentSignup).where(
-                ExperimentSignup.stripe_session_id == "cs_test_abc"
-            )
+            select(ExperimentSignup).where(ExperimentSignup.stripe_session_id == "cs_test_abc")
         )
         signup = result.scalar_one()
         assert signup.email == "buyer@example.com"
@@ -220,9 +217,7 @@ async def test_webhook_idempotent_on_duplicate_session(setup):
     # Verify only one signup exists
     async with factory() as session:
         result = await session.execute(
-            select(ExperimentSignup).where(
-                ExperimentSignup.stripe_session_id == "cs_test_dup"
-            )
+            select(ExperimentSignup).where(ExperimentSignup.stripe_session_id == "cs_test_dup")
         )
         signups = result.scalars().all()
         assert len(signups) == 1
