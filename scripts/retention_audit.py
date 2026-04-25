@@ -21,6 +21,7 @@ Limitations:
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import os
 import statistics
@@ -28,7 +29,8 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
 # ---------------------------------------------------------------------------
 # Pure computation helpers (no DB, fully testable)
@@ -158,23 +160,21 @@ def write_csv(metrics: list[UserMetrics], path: str = "/tmp/retention-audit.csv"
 # DB layer
 # ---------------------------------------------------------------------------
 
-_DEFAULT_DSN = "postgresql://margin:margin_dev@localhost:5432/margin_invest"
+_DEFAULT_DSN = "postgresql+asyncpg://margin:margin_dev@localhost:5432/margin_invest"
 
 
 def _get_dsn() -> str:
     dsn = os.environ.get("MARGIN_DATABASE_URL", _DEFAULT_DSN)
-    # Swap async driver prefix if present -- this script uses sync psycopg2
-    return dsn.replace("postgresql+asyncpg://", "postgresql://")
+    # Ensure async driver prefix for asyncpg
+    if dsn.startswith("postgresql://"):
+        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return dsn
 
 
-def fetch_users(cutoff: date | None = None) -> list[UserRow]:
-    """Load users registered before *cutoff* from PostgreSQL."""
-    if cutoff is None:
-        cutoff = date(2026, 4, 1)
-
-    engine = create_engine(_get_dsn())
-    with engine.connect() as conn:
-        rows = conn.execute(
+async def _fetch_users_async(cutoff: date) -> list[UserRow]:
+    engine = create_async_engine(_get_dsn())
+    async with engine.connect() as conn:
+        result = await conn.execute(
             text(
                 "SELECT id, email, created_at, last_login_at "
                 "FROM users "
@@ -182,8 +182,9 @@ def fetch_users(cutoff: date | None = None) -> list[UserRow]:
                 "ORDER BY id"
             ),
             {"cutoff": cutoff},
-        ).fetchall()
-
+        )
+        rows = result.fetchall()
+    await engine.dispose()
     return [
         UserRow(
             user_id=r[0],
@@ -193,6 +194,13 @@ def fetch_users(cutoff: date | None = None) -> list[UserRow]:
         )
         for r in rows
     ]
+
+
+def fetch_users(cutoff: date | None = None) -> list[UserRow]:
+    """Load users registered before *cutoff* from PostgreSQL."""
+    if cutoff is None:
+        cutoff = date(2026, 4, 1)
+    return asyncio.run(_fetch_users_async(cutoff))
 
 
 # ---------------------------------------------------------------------------

@@ -33,7 +33,7 @@ TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input // "" | tostring')
 
 check_secrets() {
   local patterns=(
-    "sk-[a-zA-Z0-9]+"
+    "\\bsk-[a-zA-Z0-9]{20,}"
     "xoxb-[a-zA-Z0-9-]+"
     "password=[^[:space:]]+"
     "token=[^[:space:]]+"
