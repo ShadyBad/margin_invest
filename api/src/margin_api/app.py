@@ -25,6 +25,7 @@ from margin_api.routes.correlations import router as correlations_router
 from margin_api.routes.dashboard import router as dashboard_router
 from margin_api.routes.dna import router as dna_router
 from margin_api.routes.events import router as events_router
+from margin_api.routes.experiment import router as experiment_router
 from margin_api.routes.governance import router as governance_router
 from margin_api.routes.health import router as health_router
 from margin_api.routes.ingestion import router as ingestion_router
@@ -176,6 +177,7 @@ def create_app() -> FastAPI:
     app.include_router(universe_router)
     app.include_router(correlations_router)
     app.include_router(watchlist_router)
+    app.include_router(experiment_router)
     app.include_router(ws_router)
 
     @app.exception_handler(HTTPException)
