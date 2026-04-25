@@ -1428,6 +1428,103 @@ class FilingSentimentCache(Base):
 
 
 # ---------------------------------------------------------------------------
+# Risk Factor Diffing models
+# ---------------------------------------------------------------------------
+
+
+class RiskFactorAnalysis(Base):
+    """Results of semantic diffing between consecutive 10-K risk factor sections."""
+
+    __tablename__ = "risk_factor_analyses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    filing_text_id: Mapped[int] = mapped_column(
+        ForeignKey("filing_texts.id"), nullable=False, index=True
+    )
+    prior_filing_text_id: Mapped[int] = mapped_column(ForeignKey("filing_texts.id"), nullable=False)
+    filing_accession: Mapped[str | None] = mapped_column(String(25), nullable=True)
+    prior_filing_accession: Mapped[str | None] = mapped_column(String(25), nullable=True)
+    material_changes = mapped_column(JSONVariant, nullable=True)
+    overall_risk_delta_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    model_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    analysis_tokens_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    analysis_cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    prompt_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    embedding_model: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    analysis_model: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "ticker",
+            "filing_text_id",
+            "prompt_version",
+            name="uq_risk_analysis_ticker_filing_version",
+        ),
+    )
+
+
+class RiskFactorEmbedding(Base):
+    """Cached chunk embeddings for risk factor paragraphs."""
+
+    __tablename__ = "risk_factor_embeddings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    filing_text_id: Mapped[int] = mapped_column(
+        ForeignKey("filing_texts.id"), nullable=False, index=True
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    chunk_text_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedding = mapped_column(JSONVariant, nullable=False)
+    embedding_model: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "filing_text_id",
+            "chunk_index",
+            name="uq_risk_embedding_filing_chunk",
+        ),
+    )
+
+
+class LLMCallLog(Base):
+    """Observability log for all LLM API calls."""
+
+    __tablename__ = "llm_call_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    service: Mapped[str] = mapped_column(String(50), nullable=False)
+    ticker: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    model: Mapped[str] = mapped_column(String(50), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    response_json = mapped_column(JSONVariant, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_llm_call_log_service_version_created",
+            "service",
+            "prompt_version",
+            "created_at",
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # TAM Expansion — Segment Revenue History
 # ---------------------------------------------------------------------------
 

@@ -5194,6 +5194,116 @@ async def trigger_score_alerts(ctx: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Filing diff pipeline
+# ---------------------------------------------------------------------------
+
+
+async def diff_risk_factors(ctx: dict, tickers: list[str]) -> dict:
+    """Process a batch of tickers through the filing diff pipeline.
+
+    For each ticker, calls diff_single_ticker from the risk_diffing pipeline.
+    Tracks processed/skipped/errors/total_cost and returns a summary dict.
+
+    Enqueued by orchestrate_risk_diffing in batches.
+    """
+    from margin_api.services.risk_diffing.config import is_enabled
+    from margin_api.services.risk_diffing.pipeline import diff_single_ticker
+
+    if not is_enabled():
+        logger.info("[diff_risk_factors] Filing diff pipeline disabled — skipping batch")
+        return {"status": "disabled", "tickers": len(tickers)}
+
+    processed = 0
+    skipped = 0
+    errors = 0
+    total_cost = 0.0
+
+    for ticker in tickers:
+        try:
+            result = await diff_single_ticker(ticker)
+            if result is None:
+                skipped += 1
+            else:
+                processed += 1
+                total_cost += result.get("cost", 0.0) if isinstance(result, dict) else 0.0
+        except Exception:
+            logger.exception("[diff_risk_factors] Error processing ticker %s", ticker)
+            errors += 1
+
+    logger.info(
+        "[diff_risk_factors] Batch complete — processed=%d skipped=%d errors=%d total_cost=%.4f",
+        processed,
+        skipped,
+        errors,
+        total_cost,
+    )
+    return {
+        "status": "completed",
+        "processed": processed,
+        "skipped": skipped,
+        "errors": errors,
+        "total_cost": total_cost,
+    }
+
+
+async def orchestrate_risk_diffing(ctx: dict) -> dict:
+    """Weekly cron: orchestrate filing diff jobs across the active ticker universe.
+
+    Queries all active assets, chunks them into batches, and enqueues
+    diff_risk_factors jobs via ARQ. Batch size is controlled by get_batch_size().
+
+    Runs Sunday 4 AM UTC.
+    """
+    stale = _is_stale_cron(ctx, "orchestrate_risk_diffing")
+    if stale:
+        return stale
+
+    from margin_api.services.risk_diffing.config import get_batch_size, is_enabled
+
+    if not is_enabled():
+        logger.info("[orchestrate_risk_diffing] Filing diff pipeline disabled — skipping run")
+        return {"status": "disabled"}
+
+    engine = get_engine()
+    session_factory = get_session_factory(engine)
+
+    async with session_factory() as session:
+        stmt = select(Asset).where(Asset.is_active == True)  # noqa: E712
+        result = await session.execute(stmt)
+        assets = result.scalars().all()
+
+    tickers = [a.ticker for a in assets]
+    logger.info("[orchestrate_risk_diffing] Active universe: %d tickers", len(tickers))
+
+    batch_size = get_batch_size()
+    batches = [tickers[i : i + batch_size] for i in range(0, len(tickers), batch_size)]
+
+    redis: ArqRedis | None = ctx.get("redis")
+    if not redis:
+        logger.error("[orchestrate_risk_diffing] No redis in worker context")
+        return {"status": "error", "message": "No redis in worker context"}
+
+    for batch_num, batch in enumerate(batches, start=1):
+        await redis.enqueue_job(
+            "diff_risk_factors",
+            batch,
+            _job_id=f"diff-risk-{batch_num}",
+        )
+
+    logger.info(
+        "[orchestrate_risk_diffing] Enqueued %d batch(es) of up to %d tickers",
+        len(batches),
+        batch_size,
+    )
+    return {
+        "status": "dispatched",
+        "total_tickers": len(tickers),
+        "total_batches": len(batches),
+        "batch_size": batch_size,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Worker settings
 # ---------------------------------------------------------------------------
 
@@ -5390,6 +5500,7 @@ class WorkerSettings:
         arq_func(deliver_webhook),
         trigger_score_alerts,
         archive_daily_snapshot,
+        diff_risk_factors,
     ]
     cron_jobs = [
         cron(orchestrate_ingest, hour=21, minute=30, run_at_startup=False),  # 4:30 PM ET
@@ -5414,6 +5525,14 @@ class WorkerSettings:
             run_at_startup=False,
             timeout=14400,  # 4h — 204 months × 5000+ tickers
         ),  # Sunday 3 AM UTC
+        cron(
+            orchestrate_risk_diffing,
+            weekday="sun",
+            hour=4,
+            minute=0,
+            run_at_startup=False,
+            timeout=7200,
+        ),  # Sunday 4 AM UTC
         cron(
             snapshot_shadow_portfolio, hour=22, minute=30, run_at_startup=False
         ),  # Daily 10:30 PM UTC
