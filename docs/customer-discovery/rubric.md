@@ -6,6 +6,8 @@ Score every interview against these six signals. Each signal maps to a specific 
 
 **Why evidence-based:** After a friendly 30-minute conversation, it's natural to feel positive about the prospect. The quote requirement prevents you from inflating scores based on vibes. If you can't point to their exact words, the signal is Weak.
 
+**Pre-scoring gate:** Prospects must have passed the five disqualifier questions in `icp.md` before this rubric is applied. A disqualifier kill (passive-only, professional access, etc.) ends the interview before any signal scoring begins.
+
 ---
 
 ## The Six Signals

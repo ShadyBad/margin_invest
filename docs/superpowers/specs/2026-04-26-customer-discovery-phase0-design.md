@@ -236,8 +236,8 @@ Only respond to objections. Never preempt them.
 
 ### Tracker
 
-| prospect | interview_# | score | ask_sent_date | response_date | outcome | amount | objection_type | objection_verbatim | follow_up_sent | notes |
-|----------|-------------|-------|---------------|---------------|---------|--------|----------------|--------------------|----------------|-------|
+| prospect | interview_# | strong_signals | ask_sent_date | response_date | outcome | amount | objection_type | objection_verbatim | follow_up_sent | notes |
+|----------|-------------|----------------|---------------|---------------|---------|--------|----------------|--------------------|----------------|-------|
 | | | | | | paid / declined / no_response / objection | | price / timing / other / none | | yes / no | |
 
 ---
