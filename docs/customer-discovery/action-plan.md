@@ -7,6 +7,23 @@
 
 **PII retention policy (committed 2026-04-27)**: **Option A** — delete all transcripts, scorecards, and disqualified-log entries 30 days after `decision.md` is committed. Cleanup procedure: `rm -rf docs/customer-discovery/transcripts/ docs/customer-discovery/scores/`; clear disqualified-log.md row data (keep header); commit a "post-decision PII cleanup" marker.
 
+**Pre-flight status (2026-04-27)**: Artifacts complete. User gates pending — Phase 1 does NOT launch until PF.5 and PF.6 are checked off below.
+
+Artifacts (agent-completed, committed):
+- ✓ `beta-deliverable.md` (PF.1)
+- ✓ `recruitment-channel-rules.md` (PF.2)
+- ✓ `interview-guide.md` amendments (PF.3 — consent, anonymization, gift, probe)
+- ✓ `disqualified-log.md` scaffold (PF.4)
+- ✓ Scope tier (FULL) and PII retention policy (Option A) committed (Task 0.2 + PF.7, leading notes above)
+
+Pending user gates (must complete before Phase 1 launches):
+- ☐ **PF.5 Calendar pre-block**: 18 specific 45-min slots over 21 days. Suggested distribution: 4 slots Days 4-7, 8 slots Days 8-14, 6 slots Days 15-21. Each slot needs no engineering conflict, quiet location, working audio. Title each "INTERVIEW SLOT (placeholder)."
+- ☐ **PF.6 Founder-hour commitment**: ≥30 hours blocked over 21 days; realistic estimate 42 hours. List specific blocks (e.g., "weekday evenings 7-9pm + Saturday mornings 9-12").
+
+When PF.5 and PF.6 are complete: replace ☐ with ✓ above, commit with message `docs(discovery): pre-flight gates passed — ready for Phase 1`, then launch Phase 1 by pasting the Phase 1 prompt block from this file into a fresh Claude Code session.
+
+If you cannot complete PF.5 or PF.6: rescope this sprint to HALF (8 interviews / 5 paid asks / ≥18 hours / 10 calendar slots) by editing the leading "Scope tier" note above before launching Phase 1.
+
 > **Changes from v1**: amended thresholds, two-gate GO structure (charge + retention), consent/anonymization protocol, Day-35 deliverable doc requirement, refund-on-NO-GO procedure, realistic founder-hour budget, Day-7 yield gate, new pre-flight phase. See source spec for evidence behind each change.
 
 ---
