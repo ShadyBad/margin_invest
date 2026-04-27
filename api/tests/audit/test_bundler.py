@@ -94,8 +94,7 @@ def test_manifest_content_hash_deterministic() -> None:
     fixed = UUID("00000000-0000-0000-0000-000000000001")
     m1 = build_manifest(artifacts=artifacts, **_common_kwargs(run_id=fixed))
     m2 = build_manifest(artifacts=artifacts, **_common_kwargs(run_id=fixed))
-    assert {k: v.sha256 for k, v in m1.files.items()} == \
-           {k: v.sha256 for k, v in m2.files.items()}
+    assert {k: v.sha256 for k, v in m1.files.items()} == {k: v.sha256 for k, v in m2.files.items()}
 
 
 def test_upload_bundle_puts_seven_objects() -> None:

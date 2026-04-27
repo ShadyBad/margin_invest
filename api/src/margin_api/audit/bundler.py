@@ -1,4 +1,5 @@
 """Audit bundler: deterministic CSV emit + manifest + R2 upload + hash verify."""
+
 from __future__ import annotations
 
 import hashlib

@@ -102,6 +102,7 @@ def holm_bonferroni(p_values: np.ndarray) -> np.ndarray:
 @dataclass(frozen=True)
 class AttributionInputs:
     """Inputs for verdict assignment logic."""
+
     spread: float | None
     rank_ic: float | None
     ci_lo: float

@@ -4,6 +4,7 @@ Stage 1: reads scores + v4_scores + pit_daily_prices server-side, computes
 Part A + Part B + attribution, builds bundle, uploads to R2, prints the manifest
 content hash + bundle URL to stdout.
 """
+
 from __future__ import annotations
 
 import json
@@ -130,8 +131,14 @@ async def run_audit_engine(
     )
     calibration_df = pd.DataFrame(
         columns=[
-            "tier", "n", "mean_alpha_60d", "sharpe", "sortino",
-            "max_drawdown", "anova_p", "monotonic",
+            "tier",
+            "n",
+            "mean_alpha_60d",
+            "sharpe",
+            "sortino",
+            "max_drawdown",
+            "anova_p",
+            "monotonic",
         ]
     )
     metrics_df = pd.DataFrame(columns=["metric", "value"])

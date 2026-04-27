@@ -61,7 +61,7 @@ def test_rank_ic_pure_noise_near_zero() -> None:
 def test_rank_ic_u_shape_returns_low_ic_despite_pattern() -> None:
     rng = np.random.default_rng(42)
     scores = rng.uniform(-1, 1, 300)
-    alphas = scores ** 2 * 0.05 + rng.normal(0, 0.01, 300)
+    alphas = scores**2 * 0.05 + rng.normal(0, 0.01, 300)
     assert abs(compute_rank_ic_attribution(scores, alphas)) < 0.2
 
 
@@ -95,39 +95,64 @@ def test_holm_bonferroni_passthrough_single_test() -> None:
 
 def test_assign_verdict_underpowered_when_n_low() -> None:
     inputs = AttributionInputs(
-        spread=0.05, rank_ic=0.4, ci_lo=0.02, ci_hi=0.08,
-        p_value_holm=0.01, n_top=10, n_bottom=10,
+        spread=0.05,
+        rank_ic=0.4,
+        ci_lo=0.02,
+        ci_hi=0.08,
+        p_value_holm=0.01,
+        n_top=10,
+        n_bottom=10,
     )
     assert assign_verdict(inputs) == AttributionVerdict.UNDERPOWERED
 
 
 def test_assign_verdict_underpowered_when_ci_crosses_zero() -> None:
     inputs = AttributionInputs(
-        spread=0.05, rank_ic=0.4, ci_lo=-0.01, ci_hi=0.11,
-        p_value_holm=0.01, n_top=50, n_bottom=50,
+        spread=0.05,
+        rank_ic=0.4,
+        ci_lo=-0.01,
+        ci_hi=0.11,
+        p_value_holm=0.01,
+        n_top=50,
+        n_bottom=50,
     )
     assert assign_verdict(inputs) == AttributionVerdict.UNDERPOWERED
 
 
 def test_assign_verdict_keep_when_strong_signal() -> None:
     inputs = AttributionInputs(
-        spread=0.05, rank_ic=0.4, ci_lo=0.02, ci_hi=0.08,
-        p_value_holm=0.01, n_top=50, n_bottom=50,
+        spread=0.05,
+        rank_ic=0.4,
+        ci_lo=0.02,
+        ci_hi=0.08,
+        p_value_holm=0.01,
+        n_top=50,
+        n_bottom=50,
     )
     assert assign_verdict(inputs) == AttributionVerdict.KEEP
 
 
 def test_assign_verdict_demote_powered_disagreement() -> None:
     inputs = AttributionInputs(
-        spread=-0.005, rank_ic=0.35, ci_lo=-0.008, ci_hi=-0.002,
-        p_value_holm=0.04, n_top=50, n_bottom=50,
+        spread=-0.005,
+        rank_ic=0.35,
+        ci_lo=-0.008,
+        ci_hi=-0.002,
+        p_value_holm=0.04,
+        n_top=50,
+        n_bottom=50,
     )
     assert assign_verdict(inputs) == AttributionVerdict.DEMOTE
 
 
 def test_assign_verdict_cut_when_negative_significant() -> None:
     inputs = AttributionInputs(
-        spread=-0.04, rank_ic=-0.3, ci_lo=-0.06, ci_hi=-0.02,
-        p_value_holm=0.001, n_top=50, n_bottom=50,
+        spread=-0.04,
+        rank_ic=-0.3,
+        ci_lo=-0.06,
+        ci_hi=-0.02,
+        p_value_holm=0.001,
+        n_top=50,
+        n_bottom=50,
     )
     assert assign_verdict(inputs) == AttributionVerdict.CUT

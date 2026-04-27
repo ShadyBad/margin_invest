@@ -63,19 +63,19 @@ class AuditManifest(BaseModel):
     part_b: PartBStats
 
 
-class AttributionVerdict(str, Enum):
+class AttributionVerdict(str, Enum):  # noqa: UP042 - spec mandates (str, Enum) form
     KEEP = "keep"
     DEMOTE = "demote"
     CUT = "cut"
     UNDERPOWERED = "underpowered"
 
 
-class AttributionMethod(str, Enum):
+class AttributionMethod(str, Enum):  # noqa: UP042 - spec mandates (str, Enum) form
     TERCILE = "tercile"
     RANK_IC = "rank_ic"
 
 
-class DataStatus(str, Enum):
+class DataStatus(str, Enum):  # noqa: UP042 - spec mandates (str, Enum) form
     OK = "ok"
     DATA_UNAVAILABLE = "data_unavailable"
     PARTIAL = "partial"

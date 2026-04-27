@@ -54,9 +54,9 @@ async def _load_prices(
     Returns:
         Dictionary mapping ticker to dict[date -> adj_close].
     """
-    stmt = select(
-        PITDailyPrice.ticker, PITDailyPrice.date, PITDailyPrice.adj_close
-    ).where(PITDailyPrice.ticker.in_(list(tickers)))
+    stmt = select(PITDailyPrice.ticker, PITDailyPrice.date, PITDailyPrice.adj_close).where(
+        PITDailyPrice.ticker.in_(list(tickers))
+    )
     result: dict[str, dict[date, float]] = {}
     for ticker, day, adj_close in (await session.execute(stmt)).all():
         result.setdefault(ticker, {})[day] = float(adj_close)
@@ -146,12 +146,8 @@ async def compute_part_a(
             )
 
         # Determine data status
-        cand_present = sum(
-            1 for w in windows if returns[f"candidate_return_{w}d"] is not None
-        )
-        cand_expected = sum(
-            1 for w in windows if _is_window_closed(scored_at_date, w, report_date)
-        )
+        cand_present = sum(1 for w in windows if returns[f"candidate_return_{w}d"] is not None)
+        cand_expected = sum(1 for w in windows if _is_window_closed(scored_at_date, w, report_date))
         if cand_expected == 0:
             status = DataStatus.OK
         elif cand_present == 0:
@@ -176,9 +172,7 @@ async def compute_part_a(
             },
             **{
                 f"hit_{w}d": (
-                    (returns[f"alpha_{w}d"] > 0)
-                    if returns[f"alpha_{w}d"] is not None
-                    else None
+                    (returns[f"alpha_{w}d"] > 0) if returns[f"alpha_{w}d"] is not None else None
                 )
                 for w in windows
             },

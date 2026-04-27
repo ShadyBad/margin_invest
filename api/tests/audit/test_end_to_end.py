@@ -36,8 +36,10 @@ async def test_audit_engine_deterministic_re_run(
     mock_s3 = MagicMock()
     mock_s3.put_object = MagicMock(return_value={"ETag": '"abc"'})
     fixed_run_id = UUID("00000000-0000-0000-0000-000000000042")
-    with patch("margin_api.audit.cli.build_s3_client", return_value=mock_s3), \
-         patch("margin_api.audit.cli._git_sha", return_value="a" * 40):
+    with (
+        patch("margin_api.audit.cli.build_s3_client", return_value=mock_s3),
+        patch("margin_api.audit.cli._git_sha", return_value="a" * 40),
+    ):
         first = await run_audit_engine(
             session=synthetic_audit_db,
             report_date=date(2026, 4, 27),
@@ -53,5 +55,6 @@ async def test_audit_engine_deterministic_re_run(
             run_id=fixed_run_id,
         )
     assert first.manifest_sha256 == second.manifest_sha256
-    assert {k: v.sha256 for k, v in first.manifest.files.items()} == \
-           {k: v.sha256 for k, v in second.manifest.files.items()}
+    assert {k: v.sha256 for k, v in first.manifest.files.items()} == {
+        k: v.sha256 for k, v in second.manifest.files.items()
+    }
