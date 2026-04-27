@@ -3884,6 +3884,19 @@ def main() -> None:
         help="Date to archive (YYYY-MM-DD, defaults to today)",
     )
 
+    audit_parser = subparsers.add_parser(
+        "audit-engine",
+        help="Run the engine validation audit (spec 2026-04-27).",
+    )
+    audit_parser.add_argument("--report-date", required=True, type=str)
+    audit_parser.add_argument("--r2-prefix", required=True, type=str)
+    audit_parser.add_argument(
+        "--r2-bucket",
+        default=os.environ.get("R2_BUCKET", "margin-audits"),
+        type=str,
+    )
+    audit_parser.add_argument("--with-marginal-attribution", action="store_true")
+
     args = parser.parse_args()
 
     if args.command == "universe":
@@ -3984,6 +3997,25 @@ def main() -> None:
             logger.info("Archive result: %s", result)
 
         asyncio.run(run_archive())
+    elif args.command == "audit-engine":
+        from datetime import date as _date
+
+        from margin_api.audit.cli import run_audit_engine
+        from margin_api.db.session import get_session_factory
+
+        factory = get_session_factory()
+
+        async def _run() -> None:
+            async with factory() as session:
+                await run_audit_engine(
+                    session=session,
+                    report_date=_date.fromisoformat(args.report_date),
+                    r2_prefix=args.r2_prefix,
+                    r2_bucket=args.r2_bucket,
+                    with_marginal_attribution=args.with_marginal_attribution,
+                )
+
+        asyncio.run(_run())
     else:
         parser.print_help()
         sys.exit(1)
