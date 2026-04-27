@@ -8,6 +8,21 @@ This guide scripts a 30-minute customer discovery interview using the Mom Test m
 
 ---
 
+## Anonymization Rules (added 2026-04-27 per pressure-test E2)
+
+Apply at capture time, not later. The transcript file you write during/after the call must be anonymized as you go — not cleaned up post-hoc.
+
+- **First name only** in the transcript filename and content (`transcripts/03-firstname.md`, never the prospect's handle or last name).
+- **Tickers**: replace with `$TICKER_A`, `$TICKER_B`, `$TICKER_C` ... assigned in order of mention. Keep a private mental note of which letter maps to which ticker; never write the mapping to a committed file.
+- **Dollar amounts**: bucket as `($1-5K)`, `($5-20K)`, `($20-100K)`, `($100K+)`. Do not record exact figures.
+- **AUM**: bucket using the same scale.
+- **Brokerage names**: keep generic — "major retail brokerage", "specialty broker", "international broker." Do NOT record Schwab / Fidelity / IBKR / etc. by name.
+- **Real handle**: stays in `pipeline.csv` only. Do NOT reference the handle in the transcript.
+
+The pipeline.csv file is the single document that maps real handle ↔ first name. Per the PII retention policy in `action-plan.md`, transcripts (and pipeline.csv data rows) are deleted 30 days after `decision.md` is committed.
+
+---
+
 ## Before the Call
 
 1. Review the prospect's entry in `pipeline.csv` — know their source, the post that qualified them, and why they matched.
@@ -40,6 +55,18 @@ This guide scripts a 30-minute customer discovery interview using the Mom Test m
 - Don't say "I think there's a gap in the market" — that's leading
 - Don't apologize for taking their time — you're offering $50 for it
 
+### Consent script (added 2026-04-27 per pressure-test E2)
+
+Before the disqualifier check or any of the five questions, say verbatim:
+
+> "Quick housekeeping before we start: I take notes that I store in a private code repository so I can review patterns later. I'll use a first name only and won't store your handle or specific holdings — is that OK?"
+
+**Wait for verbal yes.** Don't interpret silence as consent.
+
+**If the prospect declines**: thank them, end the call politely. Do NOT run the disqualifier check or 5 questions. Mark in `pipeline.csv` as "consent declined." NO gift paid (per gift payout rule below).
+
+**If the prospect asks for clarification**: keep it short. "Just a private working file — you'd be one of about 15 people I'm talking to. I won't share anything with anyone else and I'll delete the notes after I make my decision." If still uncomfortable, end the call.
+
 ---
 
 ## Disqualifier Check (2 minutes)
@@ -57,6 +84,27 @@ If they mention a mix (e.g., "mostly index funds but I actively manage about $15
 If needed, ask: "And roughly, do you know what you paid for your biggest positions?" If they can't answer, they're not engaged enough — end gracefully.
 
 **Do NOT run through all five disqualifiers as a checklist.** Weave them into the conversation. If the opening answer is clearly qualified ("I manage about $200K in individual stocks, mostly value names"), skip the follow-ups and move to questions.
+
+### Disqualified-prospect 5-min probe (added 2026-04-27 per pressure-test V3)
+
+If the disqualifier check fails (passive-only, options/crypto primary, professional analyst, can't name cost basis on top 3):
+
+1. Don't end the call yet. Pivot:
+
+> "Got it — sounds like our usual conversation isn't quite aimed at how you invest. If you have a few more minutes, I'd love a quick read on the tools you DO use and what you wish existed."
+
+2. Run the 3-question probe (5 min max):
+   - "What tools do you currently use to manage or research investments?"
+   - "What's a workflow that frustrates you?"
+   - "What would you pay for if it existed?"
+
+3. Capture answers in `docs/customer-discovery/disqualified-log.md` (one row per disqualified-but-probed call).
+
+4. Pay the $50 gift (kept-promise rule, see gift payout rule below).
+
+5. Thank them, end warmly. Do NOT make the preorder ask.
+
+**Why this matters:** the Phase 4 NO-GO branch wants to identify alternative ICPs from disqualifier patterns. Without the probe, we have no data on who showed up that wasn't Mark. The probe rescues the NO-GO pivot path.
 
 ---
 
@@ -169,6 +217,29 @@ Strong signals: specific loss story with real emotion, $30+/month in tools, 5+ s
 > "This was really helpful — I appreciate you walking me through how you think about this stuff. I'll send over the [gift card / charity donation] today. Thanks again."
 
 End warmly. Do not make the preorder ask. Do not mention what you're building.
+
+---
+
+## $50 Gift Payout Rule (added 2026-04-27 per pressure-test F4)
+
+The gift is paid AFTER the call ends, only if one of:
+
+1. **Qualified-and-completed call**: disqualifier check passed, call ran ≥25 minutes, preorder ask delivered if eligible (or graceful weak-signal close).
+2. **Disqualified-but-probed call**: disqualifier check failed, BUT the 5-min probe (above) was completed and captured in `disqualified-log.md`.
+
+**NO gift paid** for:
+- Consent declined (call ended at consent step)
+- Ghosted (no-show, no rescheduling response within 7 days)
+- Call ended <25 minutes for reasons other than disqualified-and-probed
+- Disqualified-and-no-probe (prospect declined the probe pivot)
+
+**State the rule** in:
+- The recruitment DM template (so the prospect knows the conditions before agreeing to call)
+- The interview opening (so the conditions are reaffirmed before the call starts)
+
+This reframes the gift from "pay for time" to "pay for completed signal." It removes the moral-hazard incentive for a prospect to fake-qualify just to collect.
+
+**Payment mechanism**: prospect's choice — Venmo, PayPal, Stripe transfer, or charity donation in their name. Confirm sent before marking `gift_paid_date` in `pipeline.csv`.
 
 ---
 
