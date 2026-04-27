@@ -26,6 +26,7 @@ select = ["E", "F", "I", "N", "W", "UP"]
 "api/src/margin_api/services/edgar/index_builder.py" = ["E501"]
 "api/tests/services/test_edgar_index_builder.py" = ["E501"]
 "api/tests/workers/test_workers_coverage.py" = ["E501"]
+"scripts/audit/finalize_report.py" = ["N818"]
 
 [dependency-groups]
 dev = [
