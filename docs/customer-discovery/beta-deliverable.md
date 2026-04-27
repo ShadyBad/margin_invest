@@ -13,6 +13,8 @@
 
 The Founder Beta is access to the running Margin Invest application. The build state at Day 35 reflects the platform as it exists today (2026-04-27) plus any exploratory Phase 5 work (Days 21-28) committed before launch.
 
+**Exploratory Phase 5 throughput cap (Days 21-28)**: at most one MICRO change — a small UI surface, a bug-fix, or a minor data-wiring change — may land in time for Day 35. Larger features (new scoring factors, ML changes, new pages) will NOT ship in the founder-beta scope; they land post-retention-gate (Day 51+) under committed Phase 5. This cap exists because the codebase has strict TDD, sector-neutral scoring tests, ML approval gates, and circuit-breaker governance — 7 days is realistic for one MICRO change, not for a STANDARD feature.
+
 ### Authentication and account
 - Email + password sign-up, sign-in, password reset
 - Two-factor authentication (TOTP) — optional, recommended
