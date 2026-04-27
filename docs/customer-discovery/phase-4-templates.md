@@ -199,6 +199,39 @@ Open `/superpowers:brainstorming` on the most promising candidate. Use the new I
 - **What worked**: [...]
 - **What didn't work**: [...]
 - **What I'd change in v3 of this playbook**: [...]
+
+---
+
+## Audit Appendix (de-identified aggregate evidence — preserved post-cleanup)
+
+*Run BEFORE triggering the Day +30 cleanup. Once cleanup runs, the source artifacts (transcripts, scores, pipeline.csv data rows) are deleted; this appendix is the durable evidence trail.*
+
+### Rubric-bucket conversion (Option B only)
+[Duplicate the rubric-bucket conversion table from the main body for permanence.]
+
+### Objection-tag distribution
+| tag | count | % of non-payment |
+|---|---|---|
+| delivery-risk | | |
+| price-objection | | |
+| feature-gap | | |
+| disinterest | | |
+
+### Representative quotes per dominant objection tag
+3-5 quotes per tag, fully de-identified (`$TICKER_X` intact, dollar buckets intact, no first names).
+
+### Cohort sizes by source channel
+| source | recruited | scheduled | completed | strong | paid | retained_d51 |
+|---|---|---|---|---|---|---|
+| Reddit | | | | | | |
+| Twitter | | | | | | |
+| Substack | | | | | | |
+
+### Retention summary (Day 51)
+- Charge cohort size: [N]
+- Retained at Day 51: [N] ([X]%)
+- Churn reasons by Stripe-portal tag: [counts]
+- Churn reasons by founder follow-up email: [counts]
 ```
 
 ---
@@ -303,7 +336,7 @@ Strict order. Do not skip steps or change order.
 7. [ ] Append refund log to `decision.md`
 8. [ ] Send personalized notification email to each refunded customer (Task 4a.4)
 9. [ ] Confirm each email sent
-10. [ ] Read `disqualified-log.md`, surface top-3 alternative ICPs in `decision.md`
+10. [ ] Read `disqualified-log.md`, append the probe data to `decision.md` as anecdote-quality input. Realistic yield is 0-3 entries — do NOT pad to "top 3" if fewer exist. With 0 entries: note that absence of pivot data is itself a finding for the next sprint.
 11. [ ] Commit `decision.md` (full content — verdict + numbers + refund log + pivot candidates)
 12. [ ] Draft `FROZEN.md` from template above
 13. [ ] Commit `FROZEN.md`
