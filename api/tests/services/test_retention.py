@@ -1,4 +1,4 @@
-"""Tests for retention policies — purge_job_runs."""
+"""Tests for DB retention policies."""
 
 from __future__ import annotations
 
@@ -110,33 +110,44 @@ async def test_purge_webhook_deliveries_keeps_failed_deletes_old_success(
     session.add(subscription)
     await session.flush()
 
-    old_success = WebhookDelivery(
+    old_delivered = WebhookDelivery(
         subscription_id=subscription.id,
         event_type="score.published",
         payload={"ticker": "AAPL"},
-        status="success",
+        status="delivered",
+        attempts=1,
         delivered_at=now - timedelta(days=45),
     )
-    old_failed = WebhookDelivery(
+    old_dead_letter = WebhookDelivery(
         subscription_id=subscription.id,
         event_type="score.published",
         payload={"ticker": "MSFT"},
-        status="failed",
+        status="dead_letter",
+        attempts=5,
         delivered_at=now - timedelta(days=45),
     )
-    fresh_success = WebhookDelivery(
+    fresh_delivered = WebhookDelivery(
         subscription_id=subscription.id,
         event_type="score.published",
         payload={"ticker": "GOOG"},
-        status="success",
+        status="delivered",
+        attempts=1,
         delivered_at=now - timedelta(days=5),
     )
-    session.add_all([old_success, old_failed, fresh_success])
+    mid_flight = WebhookDelivery(
+        subscription_id=subscription.id,
+        event_type="score.published",
+        payload={},
+        status="pending",
+        attempts=1,
+        delivered_at=None,
+    )
+    session.add_all([old_delivered, old_dead_letter, fresh_delivered, mid_flight])
     await session.flush()
 
     deleted = await purge_webhook_deliveries(session, days=30)
 
-    assert deleted == 1
+    assert deleted == 1  # only the old "delivered" row
     remaining = (await session.execute(select(WebhookDelivery))).scalars().all()
-    assert len(remaining) == 2
-    assert sorted(d.status for d in remaining) == ["failed", "success"]
+    assert len(remaining) == 3
+    assert sorted(d.status for d in remaining) == ["dead_letter", "delivered", "pending"]

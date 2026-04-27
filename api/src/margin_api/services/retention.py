@@ -26,15 +26,16 @@ async def purge_job_runs(session: AsyncSession, days: int = 30) -> int:
 
 
 async def purge_webhook_deliveries(session: AsyncSession, days: int = 30) -> int:
-    """Delete WebhookDelivery rows with status='success' older than `days`.
+    """Delete WebhookDelivery rows with status='delivered' older than `days`.
 
-    Failed deliveries are retained indefinitely for postmortem.
+    Retains 'pending', 'dead_letter', and any other non-success rows indefinitely
+    so postmortem and replay tooling can inspect them.
     """
     cutoff = datetime.now(UTC) - timedelta(days=days)
     result = await session.execute(
         delete(WebhookDelivery).where(
             WebhookDelivery.delivered_at < cutoff,
-            WebhookDelivery.status == "success",
+            WebhookDelivery.status == "delivered",
         )
     )
     return result.rowcount or 0
