@@ -1,5 +1,7 @@
 # Preorder Test — $49 Founder Beta
 
+> **v2 amendments live in `phase-3-prep.md`. Read `phase-3-prep.md` BEFORE running Phase 3** — thresholds, ask-cohort rules (Option A vs B), and price-arm rules are amended there. The body of this document is preserved as the scope-locked Phase 0 reference and is OVERRIDDEN where it conflicts with `phase-3-prep.md`.
+
 ## Overview
 
 This document defines the exact preorder protocol: when to ask, what to say, how to handle objections, and how to track outcomes. The preorder test is the only signal that matters — everything else (interviews, scores, quotes) is context for interpreting this result.
