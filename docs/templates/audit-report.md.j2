@@ -91,6 +91,41 @@ Mean candidate alpha vs SPY across closed windows:
 
 ## 9. Statistical Power Disclaimer
 
+### Coverage of the V4 scoring engine
+
+This audit reconstructs production V4 inputs from PIT tables. Some inputs are
+NOT PIT-reconstructable and are neutral-defaulted at every cohort date. The
+audit therefore measures the **PIT-reconstructable subset** of V4, not the
+complete production engine. Readers must weigh findings accordingly.
+
+**PIT-sourced fields (audit measures these accurately):**
+ticker, history, latest_period, profile, current_price (adj_close),
+current_fcf_per_share, sustainable_growth_rate, dcf_iv,
+profile.market_cap, profile.avg_daily_volume.
+
+**Neutral-defaulted (audit does NOT measure these — production may behave differently):**
+short_interest_percentile, analyst_divergence, eps_revision_strength,
+momentum_percentile, beta, accumulation_percentile, sue_percentile,
+all insider cluster fields (cluster, total_buy, first_buy, drawdown),
+`shiller_cape` (constant 30.0 stub), buyback_yield, insider_ownership_pct,
+sbc_pct, recent_acquisition_count, fundamental_trajectory, high_52w,
+**all Track C growth fields** (revenue_growth_rate, fcf_margin,
+gross_margin_current/3yr_ago, opex_growth_rate, incremental_roic,
+revenue_deceleration, tam_headroom).
+
+**Implication for findings:**
+- **Track A (compounder cascade):** measured robustly — most inputs are PIT-sourced.
+- **Track B (mispricing cascade):** measured partially — DCF-related inputs PIT-sourced; momentum/beta/short-interest defaulted.
+- **Track C (efficient-growth cascade):** **effectively not measured by this audit.** All growth-trajectory inputs are zeroed. Track C's contribution to `excess_cagr` here represents the engine's behavior when Track C is null, not when production-style Track C inputs are populated.
+
+A v2 proposal that downweights Track C based on this audit alone would be
+unsafe — the audit cannot distinguish "Track C carries no signal" from
+"Track C signal is unmeasurable in this audit." A separate, non-PIT
+audit (or a richer PIT pipeline that captures growth-trajectory inputs)
+is required to make that judgment defensibly.
+
+### Statistical-method disclaimers
+
 - Each component-attribution row required `n ≥ 30` per tercile to publish a
   verdict. Below threshold: verdict = `underpowered`.
 - Bootstrap 95% CI computed with 1000 resamples (deterministic seed=42).
