@@ -5,7 +5,24 @@
 
 **Scope tier (committed 2026-04-27)**: **FULL** — 15 interviews / 10 paid asks / 100+ pipeline target. Founder-hour budget: 40-60 hours over 21 days; minimum 30 hours. Calendar pre-block target: 18 slots.
 
-**PII retention policy (committed 2026-04-27)**: **Option A** — delete all transcripts, scorecards, and disqualified-log entries 30 days after `decision.md` is committed. Cleanup procedure: `rm -rf docs/customer-discovery/transcripts/ docs/customer-discovery/scores/`; clear disqualified-log.md row data (keep header); commit a "post-decision PII cleanup" marker.
+**PII retention policy (committed 2026-04-27)**: **Option A** — delete all transcripts, scorecards, `pipeline.csv` data rows, and disqualified-log entries 30 days after `decision.md` is committed.
+
+Cleanup procedure (run AFTER `decision.md` Audit Appendix is appended; see `phase-4-templates.md`):
+
+```bash
+# 1. Delete transcripts and scorecards
+rm -rf docs/customer-discovery/transcripts/
+rm -rf docs/customer-discovery/scores/
+
+# 2. Clear pipeline.csv data rows (preserve header)
+head -1 docs/customer-discovery/pipeline.csv > /tmp/pipeline_header.csv
+mv /tmp/pipeline_header.csv docs/customer-discovery/pipeline.csv
+
+# 3. Manually clear data rows under the "## Log" table in disqualified-log.md
+#    Keep all markdown structure and column headers; remove only data rows.
+```
+
+Then commit: `docs(discovery): post-decision PII cleanup (Day +30)`.
 
 **Pre-flight status (2026-04-27)**: Artifacts complete. User gates pending — Phase 1 does NOT launch until PF.5 and PF.6 are checked off below.
 
@@ -95,6 +112,9 @@ Phase 0 amendments from v2 land in Pre-flight (additions only — no rewrites of
 - Anonymization rules added to `interview-guide.md` (consent script, ticker pseudonyms, dollar buckets)
 - $50 gift payout rule added to `interview-guide.md` (paid only after qualified completion OR disqualified-but-probed)
 - `docs/customer-discovery/disqualified-log.md` scaffolded
+- **PF.8** Stripe Customer Portal cancellation reasons enabled (Stripe Dashboard → Settings → Billing → Customer Portal → Cancellation reasons), with reason options mapped to objection tags (delivery-risk / price-objection / feature-gap / disinterest / other). Capture screenshot or config-export reference in `phase-3-prep.md`.
+- **PF.9** `preorder-test.md` override banner inserted at top of file pointing to `phase-3-prep.md` for v2 amendments (additions-only; body remains scope-locked).
+- **PF.10** Day-3 capacity checkpoint defined in Phase 1 prompt (separate from Day-7 yield evaluation), so volume vs conversion failure modes are distinguished.
 
 ### Prompt
 
@@ -213,14 +233,33 @@ For each recruitment source in icp.md:
    dm_sent_date, response, scheduled_date, completed_date, gift_paid_date,
    status, notes
 
+Day-3 capacity checkpoint (NEW):
+- After 3 days of recruitment, count personalized DMs sent so far across all
+  active channels.
+- Target: ≥15 DMs sent by Day 3.
+- If <15 DMs sent: bottleneck is volume, not yield. Solutions:
+  (i)   Open additional channels (Substack comment-section outreach, Discord
+        with mod permission)
+  (ii)  Accept that the original 18-scheduled-by-Day-21 trajectory may need a
+        different ratio
+  (iii) Consider whether channel-rules constraints (recruitment-channel-rules.md)
+        make FULL scope unreachable; rescope to HALF before more goodwill
+        is spent
+- If ≥15 DMs sent and yield is poor (<3 responses): bottleneck is conversion.
+  The Day-7 gate logic below applies.
+- Document the conclusion in pipeline.csv notes column.
+
 Day-7 yield gate (NEW):
 - After 7 days of recruitment, count scheduled calls.
 - If ≥8 scheduled: continue as planned.
-- If <8 scheduled: pause and choose:
+- If <8 scheduled AND Day-3 capacity check passed (≥15 DMs sent): bottleneck is
+  conversion. Pause and choose:
   (a) Expand channels (Twitter Lists, paid Discord servers, Substack
       comments on Bearcave/Hindenburg/Kerrisdale)
   (b) Raise gift to $75-100 and re-DM cold prospects with the bump
   (c) Accept reality and rescope sprint to 8 interviews / 5 paid asks
+- If <8 scheduled AND Day-3 capacity check failed: do NOT just send harder. The
+  problem is structural — solve it via Day-3 remediation paths first.
 - Document the choice in pipeline.csv notes column. Do not just send harder.
 
 Rules:
@@ -467,10 +506,16 @@ Step 2 — If NO-GO: REFUND BEFORE FREEZE (NEW):
         product
    3. ONLY THEN draft FROZEN.md at repo root: "Feature work paused 2026-XX-XX
       pending new customer discovery. See docs/customer-discovery/decision.md."
-   4. Read back top 3 alternative ICPs from
-      docs/customer-discovery/disqualified-log.md (the 5-min probe data) —
-      these are candidate pivots.
-   5. Open fresh /superpowers:brainstorming on those.
+   4. Read back the disqualified-log.md probe data. Realistic yield from 15
+      interviews where the goal was qualified prospects: 0-3 entries. Treat
+      this as anecdote-quality input, NOT a finished pivot recommendation.
+      With 1-3 entries: the log feeds a fresh brainstorm — do not skip the
+      brainstorm and treat the log as already telling you which ICP to pivot
+      to. With 0 entries: the absence of pivot data is itself a finding. The
+      next sprint must explicitly recruit for alternative-ICP signal.
+   5. Open fresh /superpowers:brainstorming on candidate pivot ICPs (with
+      log data as raw input where available, or with no scaffolding if the
+      log is empty).
 
 Step 3 — If charge-gate GO: schedule retention gate:
    - Day 51 retention check: ≥4/5 retained through second billing cycle?
@@ -540,11 +585,18 @@ Charge-gate GO. Decision in docs/customer-discovery/decision.md.
 This is exploratory Phase 5 — 1 week of scoped roadmap work, no full
 commitment yet. Retention gate at Day 51 is what unlocks the 90-day commitment.
 
+Realistic Day-21→28 throughput in this codebase: design + scaffold + at most
+one MICRO change merged. Anything classified STANDARD or larger by /flow:triage
+is queued for committed Phase 5 (Day 51+), not promised in the founder beta.
+The Day-35 customer deliverable (see beta-deliverable.md) reflects this cap.
+
 Use /flow:triage to translate the top three feature priorities from
 decision.md into Gold Flow runs. For each:
 - Cite the transcript quotes that justify the feature
 - Lock acceptance criteria that a real interviewed prospect could verify
 - Route to /flow:plan if complexity warrants or /flow:execute if MICRO
+- If /flow:triage classifies the priority as STANDARD or larger: queue for
+  committed Phase 5 — do not attempt to ship inside the Day-21→28 window.
 
 Update web/src/app/pricing (or wherever pricing lives) to reflect the revised
 price from decision.md. Tests first, per CLAUDE.md TDD rule.
