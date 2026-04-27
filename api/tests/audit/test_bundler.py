@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import hashlib
 from datetime import date as _date
+from unittest.mock import MagicMock
 from uuid import UUID
 
 import pandas as pd
-from margin_api.audit.bundler import BundleArtifacts, build_manifest, emit_csv_bytes
+from margin_api.audit.bundler import (
+    BundleArtifacts,
+    build_manifest,
+    emit_csv_bytes,
+    upload_bundle,
+)
 from margin_api.audit.schema import AuditManifest
 
 
@@ -90,3 +96,21 @@ def test_manifest_content_hash_deterministic() -> None:
     m2 = build_manifest(artifacts=artifacts, **_common_kwargs(run_id=fixed))
     assert {k: v.sha256 for k, v in m1.files.items()} == \
            {k: v.sha256 for k, v in m2.files.items()}
+
+
+def test_upload_bundle_puts_seven_objects() -> None:
+    artifacts = _sample_artifacts()
+    manifest = build_manifest(artifacts=artifacts, **_common_kwargs())
+    mock_client = MagicMock()
+    mock_client.put_object = MagicMock(return_value={"ETag": '"abc"'})
+    upload_bundle(
+        s3_client=mock_client,
+        bucket="audit-bucket",
+        prefix="audits/2026-04-27/",
+        artifacts=artifacts,
+        manifest=manifest,
+    )
+    assert mock_client.put_object.call_count == 7
+    keys = [call.kwargs["Key"] for call in mock_client.put_object.call_args_list]
+    assert keys[-1] == "audits/2026-04-27/manifest.json"
+    assert "audits/2026-04-27/candidates_part_a.csv" in keys

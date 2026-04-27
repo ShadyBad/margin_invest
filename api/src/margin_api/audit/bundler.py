@@ -5,6 +5,7 @@ import hashlib
 import io
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 from uuid import UUID, uuid4
 
 import pandas as pd
@@ -104,4 +105,42 @@ def build_manifest(
             max_positions=50,
             selection="exceptional+high",
         ),
+    )
+
+
+def upload_bundle(
+    *,
+    s3_client: Any,
+    bucket: str,
+    prefix: str,
+    artifacts: BundleArtifacts,
+    manifest: AuditManifest,
+) -> None:
+    """Upload all 6 CSVs + manifest.json to R2 under the given prefix.
+
+    Manifest is written LAST so a partial upload is detectable by an absent
+    manifest.json — Stage 2 refuses to consume bundles missing manifest.json.
+    """
+    if not prefix.endswith("/"):
+        prefix = prefix + "/"
+    pairs = [
+        ("candidates_part_a.csv", artifacts.candidates_part_a),
+        ("walk_forward_snapshots.csv", artifacts.walk_forward_snapshots),
+        ("component_attribution.csv", artifacts.component_attribution),
+        ("conviction_calibration.csv", artifacts.conviction_calibration),
+        ("performance_metrics.csv", artifacts.performance_metrics),
+        ("v2_proposal_inputs.csv", artifacts.v2_proposal_inputs),
+    ]
+    for name, df in pairs:
+        s3_client.put_object(
+            Bucket=bucket,
+            Key=f"{prefix}{name}",
+            Body=emit_csv_bytes(df),
+            ContentType="text/csv",
+        )
+    s3_client.put_object(
+        Bucket=bucket,
+        Key=f"{prefix}manifest.json",
+        Body=manifest.model_dump_json(indent=2).encode("utf-8"),
+        ContentType="application/json",
     )
