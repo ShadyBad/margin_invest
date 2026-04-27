@@ -110,6 +110,14 @@ Before sending the first ask:
 - [ ] Success URL: live page confirming "You're in. Beta access in approximately 14 days." (NOT a 404)
 - [ ] Cancel URL: live page that doesn't break the funnel
 - [ ] Customer portal: enabled for self-serve cancellation
+- [ ] **Customer portal cancellation reasons**: enabled in Stripe Dashboard (Settings → Billing → Customer Portal → Cancellation reasons → Configure: include 4-6 reason options + optional comment field). Reasons should map to objection tags:
+  - `delivery-risk` → "Wasn't ready when expected"
+  - `price-objection` → "Too expensive"
+  - `feature-gap` → "Missing key feature"
+  - `disinterest` → "Didn't fit my needs"
+  - other (free-text comment)
+
+  Without this enabled, the Day-51 retention investigation has no Stripe-side churn-reason data and falls back entirely to optional founder-side outreach.
 - [ ] Session metadata template: `prospect_name`, `interview_number`, `source`, `strong_signals`, `price_arm` (if 2-arm)
 
 ### Test-mode verification
