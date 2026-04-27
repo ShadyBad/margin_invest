@@ -12,10 +12,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from margin_api.db.models import JobRun, WebhookDelivery
+from margin_api.db.models import (
+    FilingText,
+    JobRun,
+    RiskFactorAnalysis,
+    WebhookDelivery,
+)
 
 
 async def purge_job_runs(session: AsyncSession, days: int = 30) -> int:
@@ -37,5 +42,27 @@ async def purge_webhook_deliveries(session: AsyncSession, days: int = 30) -> int
             WebhookDelivery.delivered_at < cutoff,
             WebhookDelivery.status == "delivered",
         )
+    )
+    return result.rowcount or 0
+
+
+async def blank_diffed_risk_factor_text(session: AsyncSession) -> int:
+    """Null out `risk_factors_text` for FilingTexts that have a RiskFactorAnalysis row.
+
+    Once a filing has been diffed and the analysis committed, the raw text is
+    redundant — the analysis output captures the material changes. The hash
+    (`raw_html_hash`) is preserved so re-diffing can detect upstream changes.
+
+    No age cutoff: this is the only retention policy that runs purely on
+    completion state, not time. Idempotent via `is_not(None)` predicate.
+    """
+    diffed_ids = select(RiskFactorAnalysis.filing_text_id).distinct().scalar_subquery()
+    result = await session.execute(
+        update(FilingText)
+        .where(
+            FilingText.id.in_(diffed_ids),
+            FilingText.risk_factors_text.is_not(None),
+        )
+        .values(risk_factors_text=None)
     )
     return result.rowcount or 0

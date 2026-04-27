@@ -2,13 +2,24 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 import pytest_asyncio
 from margin_api.db.base import Base
-from margin_api.db.models import JobRun, User, WebhookDelivery, WebhookSubscription
-from margin_api.services.retention import purge_job_runs, purge_webhook_deliveries
+from margin_api.db.models import (
+    FilingText,
+    JobRun,
+    RiskFactorAnalysis,
+    User,
+    WebhookDelivery,
+    WebhookSubscription,
+)
+from margin_api.services.retention import (
+    blank_diffed_risk_factor_text,
+    purge_job_runs,
+    purge_webhook_deliveries,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -151,3 +162,66 @@ async def test_purge_webhook_deliveries_keeps_failed_deletes_old_success(
     remaining = (await session.execute(select(WebhookDelivery))).scalars().all()
     assert len(remaining) == 3
     assert sorted(d.status for d in remaining) == ["dead_letter", "delivered", "pending"]
+
+
+@pytest.mark.asyncio
+async def test_blank_diffed_risk_factor_text_only_blanks_diffed_filings(
+    session: AsyncSession,
+) -> None:
+    diffed_filing = FilingText(
+        ticker="AAPL",
+        cik="0000320193",
+        filing_type="10-K",
+        filing_date=date(2025, 11, 1),
+        period_end=date(2025, 9, 30),
+        risk_factors_text="A very long risk factors blob ...",
+        raw_html_hash="hash_a",
+    )
+    session.add(diffed_filing)
+    await session.flush()
+
+    not_diffed_filing = FilingText(
+        ticker="MSFT",
+        cik="0000789019",
+        filing_type="10-K",
+        filing_date=date(2025, 7, 1),
+        period_end=date(2025, 6, 30),
+        risk_factors_text="A very long risk factors blob ...",
+        raw_html_hash="hash_b",
+    )
+    session.add(not_diffed_filing)
+    await session.flush()
+
+    prior_filing = FilingText(
+        ticker="AAPL",
+        cik="0000320193",
+        filing_type="10-K",
+        filing_date=date(2024, 11, 1),
+        period_end=date(2024, 9, 30),
+        risk_factors_text="prior blob",
+        raw_html_hash="hash_prior",
+    )
+    session.add(prior_filing)
+    await session.flush()
+
+    analysis = RiskFactorAnalysis(
+        ticker="AAPL",
+        filing_text_id=diffed_filing.id,
+        prior_filing_text_id=prior_filing.id,
+        prompt_version="v1",
+    )
+    session.add(analysis)
+    await session.flush()
+
+    blanked = await blank_diffed_risk_factor_text(session)
+
+    assert blanked == 1
+
+    aapl = await session.get(FilingText, diffed_filing.id)
+    assert aapl is not None
+    assert aapl.risk_factors_text is None
+    assert aapl.raw_html_hash == "hash_a"
+
+    msft = await session.get(FilingText, not_diffed_filing.id)
+    assert msft is not None
+    assert msft.risk_factors_text is not None
