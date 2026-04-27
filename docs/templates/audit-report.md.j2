@@ -1,0 +1,114 @@
+# Margin Invest Engine Validation Audit — {{ report_date }}
+
+**Audit run:** {{ manifest.audit_run_id }}
+**Engine git sha:** `{{ manifest.engine_git_sha }}`
+**Engine config sha:** `{{ manifest.engine_config_sha }}`
+**Manifest content hash:** `{{ manifest_sha256 }}`
+**R2 bundle:** `{{ r2_url }}`
+
+---
+
+## 1. Executive Summary
+
+- **Excess CAGR vs SPY (net of frictions):** **{{ "%.2f%%" | format(metrics.excess_cagr * 100) }}**
+- **Sharpe ratio (net):** {{ "%.2f" | format(metrics.sharpe) }}
+- **Maximum drawdown:** {{ "%.1f%%" | format(metrics.max_drawdown * 100) }}
+- **Cohorts evaluated:** {{ manifest.part_b.cohort_count }} (rebalance: {{ manifest.part_b.rebalance }})
+- **Verdict:** {{ verdict_summary }}
+
+## 2. Methodology + Replication Deviations from Production
+
+This audit runs the V4 scoring engine *as it exists at audit run date* against
+PIT financial snapshots and PIT prices, NOT a replay of historical production
+score outputs. See **§10 (Replication Choices)** in the design spec for the
+full deviation table; the most consequential deviations are reproduced here:
+
+| Choice | Audit | Production | Why |
+|---|---|---|---|
+| Score regeneration | Re-run V4 with current code at each cohort date | Production used engine V_T at time T | Critical: this audit measures the *current* engine. |
+| Rebalance frequency | Monthly | Continuous | Standard backtest discipline. |
+| Position cap | {{ manifest.part_b.max_positions }} | Variable (Kelly-bounded) | End-user portfolio constraint. |
+| Selection | {{ manifest.part_b.selection }} | Same | Match. |
+
+## 3. Component Inventory
+
+(See spec §9 for the canonical inventory table.)
+
+## 4. Performance Metrics + Risk-Adjusted Verdict
+
+| Metric | Value |
+|---|---|
+{% for row in metrics_rows -%}
+| {{ row.metric }} | {{ "%.4f" | format(row.value) }} |
+{% endfor %}
+
+## 5. Component Attribution
+
+Sorted descending by walk-forward tercile spread. Both methods reported
+side-by-side; rows where they disagree are flagged.
+
+| Component | Method | Window | n_top | n_bottom | Spread | Rank-IC | CI lo | CI hi | p (Holm) | Verdict |
+|---|---|---|---|---|---|---|---|---|---|---|
+{% for row in attribution_rows -%}
+| {{ row.component }} | {{ row.method }} | {{ row.window }} | {{ row.n_top or "—" }} | {{ row.n_bottom or "—" }} | {{ "%.4f" | format(row.spread) if row.spread is not none else "—" }} | {{ "%.3f" | format(row.rank_ic) if row.rank_ic is not none else "—" }} | {{ "%.4f" | format(row.ci_lo) }} | {{ "%.4f" | format(row.ci_hi) }} | {{ "%.4f" | format(row.p_value_holm) }} | **{{ row.verdict }}** |
+{% endfor %}
+
+## 6. Conviction Calibration
+
+| Tier | n | Mean alpha (60d) | Sharpe | Sortino | Max DD | ANOVA p | Monotonic? |
+|---|---|---|---|---|---|---|---|
+{% for row in calibration_rows -%}
+| {{ row.tier }} | {{ row.n }} | {{ "%.4f" | format(row.mean_alpha_60d) if row.mean_alpha_60d is not none else "—" }} | {{ "%.2f" | format(row.sharpe) if row.sharpe is not none else "—" }} | {{ "%.2f" | format(row.sortino) if row.sortino is not none else "—" }} | {{ "%.2f%%" | format(row.max_drawdown * 100) if row.max_drawdown is not none else "—" }} | {{ "%.4f" | format(row.anova_p) }} | {{ "yes" if row.monotonic else "no" }} |
+{% endfor %}
+
+## 7. Live Forward Track Record (60-day, in-progress)
+
+> **Statistical power note:** The 60-day window is too short to claim
+> validation. These numbers are *operational* (did the live engine ship
+> something?) not *scientific* (does the engine work?). For the latter, see
+> §4 walk-forward results.
+
+Mean candidate alpha vs SPY across closed windows:
+
+- 30-day: {{ "%.4f" | format(part_a_mean_alpha_30d) }} ({{ part_a_n_closed_30d }} candidates)
+- 60-day: {{ "%.4f" | format(part_a_mean_alpha_60d) }} ({{ part_a_n_closed_60d }} candidates)
+
+## 8. Kill List + v2 Scoring Formula Proposal
+
+### Kill List
+
+{% for row in v2_proposal_rows if row.proposed_action == "cut" -%}
+- **{{ row.component }}** — current weight {{ "%.3f" | format(row.current_weight) }}, attribution spread {{ "%.4f" | format(row.attribution_spread) }}, marginal alpha loss when zeroed: {{ "%.4f" | format(row.marginal_alpha_loss_when_zeroed) if row.marginal_alpha_loss_when_zeroed is not none else "not measured" }}.
+{% endfor %}
+
+### v2 Reweight Proposal
+
+| Component | Current weight | Spread | Action | Proposed weight |
+|---|---|---|---|---|
+{% for row in v2_proposal_rows -%}
+| {{ row.component }} | {{ "%.3f" | format(row.current_weight) }} | {{ "%.4f" | format(row.attribution_spread) }} | **{{ row.proposed_action }}** | {{ "%.3f" | format(row.proposed_new_weight) }} |
+{% endfor %}
+
+## 9. Statistical Power Disclaimer
+
+- Each component-attribution row required `n ≥ 30` per tercile to publish a
+  verdict. Below threshold: verdict = `underpowered`.
+- Bootstrap 95% CI computed with 1000 resamples (deterministic seed=42).
+- Holm-Bonferroni multiple-comparisons correction applied across the
+  composite-contributing component family ({{ holm_family_size }} components).
+- Rank-IC reported alongside tercile spread for cross-method check.
+  Disagreement → verdict = `demote`, not `cut`.
+- This audit does NOT validate: regime-conditioned performance, non-SPY
+  benchmarks, conviction-tier threshold accuracy, post-audit engine changes.
+
+## 10. Reproducibility Footer
+
+- **Engine git sha:** `{{ manifest.engine_git_sha }}`
+- **Engine config sha:** `{{ manifest.engine_config_sha }}`
+- **Manifest content hash:** `{{ manifest_sha256 }}`
+- **R2 bundle:** `{{ r2_url }}`
+- **Command line:** `railway run python -m margin_api.cli audit-engine --report-date {{ report_date }} --r2-prefix {{ r2_prefix }}{% if with_marginal_attribution %} --with-marginal-attribution{% endif %}`
+
+To re-verify any number in this report, fetch the bundle from R2, validate
+each CSV's sha256 against `manifest.json`, and recompute. Bundle is
+content-addressable; identical inputs produce identical hashes.
