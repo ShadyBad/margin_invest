@@ -3,6 +3,10 @@
 **Version**: 2.0 (pressure-tested 2026-04-27)
 **Source spec**: [docs/superpowers/specs/2026-04-27-customer-discovery-pressure-test-design.md](../superpowers/specs/2026-04-27-customer-discovery-pressure-test-design.md)
 
+**Scope tier (committed 2026-04-27)**: **FULL** — 15 interviews / 10 paid asks / 100+ pipeline target. Founder-hour budget: 40-60 hours over 21 days; minimum 30 hours. Calendar pre-block target: 18 slots.
+
+**PII retention policy (committed 2026-04-27)**: **Option A** — delete all transcripts, scorecards, and disqualified-log entries 30 days after `decision.md` is committed. Cleanup procedure: `rm -rf docs/customer-discovery/transcripts/ docs/customer-discovery/scores/`; clear disqualified-log.md row data (keep header); commit a "post-decision PII cleanup" marker.
+
 > **Changes from v1**: amended thresholds, two-gate GO structure (charge + retention), consent/anonymization protocol, Day-35 deliverable doc requirement, refund-on-NO-GO procedure, realistic founder-hour budget, Day-7 yield gate, new pre-flight phase. See source spec for evidence behind each change.
 
 ---
