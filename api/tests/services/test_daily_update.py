@@ -134,14 +134,26 @@ class TestRefreshUniverseIfQuarterEnd:
 
 class TestAppendDailyPrices:
     @pytest.mark.asyncio
-    async def test_append_daily_prices_empty_universe(self, session_factory) -> None:
-        """Should handle empty universe gracefully — no active tickers."""
+    async def test_append_daily_prices_empty_universe_still_updates_benchmarks(
+        self, session_factory
+    ) -> None:
+        """Empty universe still updates benchmarks (SPY) — they're not in pit_universe_memberships."""
         from margin_api.services.edgar.daily_update import append_daily_prices
 
-        result = await append_daily_prices(session_factory)
+        mock_backfill = AsyncMock(return_value={"SPY": 3})
 
-        assert result["tickers_updated"] == 0
-        assert result["rows_inserted"] == 0
+        with patch(
+            "margin_api.services.edgar.daily_update.backfill_prices_for_tickers",
+            mock_backfill,
+        ):
+            result = await append_daily_prices(session_factory, lookback_days=3)
+
+        assert result["tickers_updated"] == 1
+        assert result["rows_inserted"] == 3
+        # Benchmarks always passed to backfill, even with empty universe.
+        call_args = mock_backfill.call_args
+        tickers_arg = call_args[0][0] if call_args[0] else call_args[1].get("tickers")
+        assert set(tickers_arg) == {"SPY"}
 
     @pytest.mark.asyncio
     async def test_append_daily_prices_with_active_tickers(self, session, session_factory) -> None:
@@ -183,7 +195,7 @@ class TestAppendDailyPrices:
         )
         await session.commit()
 
-        mock_backfill = AsyncMock(return_value={"AAPL": 3, "MSFT": 3})
+        mock_backfill = AsyncMock(return_value={"AAPL": 3, "MSFT": 3, "SPY": 3})
 
         with patch(
             "margin_api.services.edgar.daily_update.backfill_prices_for_tickers",
@@ -191,13 +203,14 @@ class TestAppendDailyPrices:
         ):
             result = await append_daily_prices(session_factory, lookback_days=3)
 
-        assert result["tickers_updated"] == 2
-        assert result["rows_inserted"] == 6
+        # Universe (2 active) + benchmarks (SPY) = 3 tickers, 9 rows.
+        assert result["tickers_updated"] == 3
+        assert result["rows_inserted"] == 9
 
-        # Verify the correct tickers were passed
+        # Verify universe tickers AND SPY benchmark were passed.
         call_args = mock_backfill.call_args
         tickers_arg = call_args[0][0] if call_args[0] else call_args[1].get("tickers")
-        assert set(tickers_arg) == {"AAPL", "MSFT"}
+        assert set(tickers_arg) == {"AAPL", "MSFT", "SPY"}
 
 
 # ---------------------------------------------------------------------------

@@ -235,6 +235,14 @@ async def append_daily_prices(
         result = await session.execute(stmt)
         tickers = [row[0] for row in result.all()]
 
+    # Benchmarks are NOT in pit_universe_memberships (they're ETFs, not
+    # candidate stocks). The audit and dashboard read benchmark prices from
+    # pit_daily_prices and need them updated daily, same cadence as the universe.
+    # Without this union, benchmark series silently lag by however long it has
+    # been since the last manual price-backfill --tickers BENCH run.
+    benchmarks = {"SPY"}
+    tickers = list(set(tickers) | benchmarks)
+
     if not tickers:
         logger.info("[daily-update] No active tickers in universe — skipping price append")
         return {"tickers_updated": 0, "rows_inserted": 0}
