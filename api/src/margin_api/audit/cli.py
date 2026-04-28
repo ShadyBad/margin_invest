@@ -100,6 +100,7 @@ async def run_audit_engine(
     with_marginal_attribution: bool = False,
     run_id: UUID | None = None,
     start_date: date | None = None,
+    local_bundle_dir: str | None = None,
 ) -> AuditEngineResult:
     # Part A.
     part_a_rows = await compute_part_a(session, report_date)
@@ -182,14 +183,34 @@ async def run_audit_engine(
         part_b_start=walk_forward_start,
     )
 
-    s3 = build_s3_client()
-    upload_bundle(
-        s3_client=s3,
-        bucket=r2_bucket,
-        prefix=r2_prefix,
-        artifacts=artifacts,
-        manifest=manifest,
-    )
+    if local_bundle_dir is not None:
+        # Local-only mode: write bundle to disk, skip R2.
+        bundle_path = Path(local_bundle_dir).expanduser()
+        bundle_path.mkdir(parents=True, exist_ok=True)
+        from margin_api.audit.bundler import emit_csv_bytes
+
+        pairs = [
+            ("candidates_part_a.csv", artifacts.candidates_part_a),
+            ("walk_forward_snapshots.csv", artifacts.walk_forward_snapshots),
+            ("component_attribution.csv", artifacts.component_attribution),
+            ("conviction_calibration.csv", artifacts.conviction_calibration),
+            ("performance_metrics.csv", artifacts.performance_metrics),
+            ("v2_proposal_inputs.csv", artifacts.v2_proposal_inputs),
+        ]
+        for name, df in pairs:
+            (bundle_path / name).write_bytes(emit_csv_bytes(df))
+        (bundle_path / "manifest.json").write_text(
+            manifest.model_dump_json(indent=2)
+        )
+    else:
+        s3 = build_s3_client()
+        upload_bundle(
+            s3_client=s3,
+            bucket=r2_bucket,
+            prefix=r2_prefix,
+            artifacts=artifacts,
+            manifest=manifest,
+        )
 
     manifest_bytes = manifest.model_dump_json(indent=2).encode("utf-8")
     manifest_sha = compute_sha256(manifest_bytes)
@@ -199,6 +220,7 @@ async def run_audit_engine(
                 "manifest_sha256": manifest_sha,
                 "r2_prefix": r2_prefix,
                 "r2_bucket": r2_bucket,
+                "local_bundle_dir": local_bundle_dir,
                 "files": list(manifest.files.keys()),
             },
             indent=2,

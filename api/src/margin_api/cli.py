@@ -3909,6 +3909,15 @@ def main() -> None:
             "PIT data covers back to ~2011-01-31 for tighter-power follow-up audits."
         ),
     )
+    audit_parser.add_argument(
+        "--local-bundle-dir",
+        default=None,
+        type=str,
+        help=(
+            "If set, write bundle to this local directory instead of uploading "
+            "to R2. Useful when R2 creds aren't provisioned, or for dev runs."
+        ),
+    )
     audit_parser.add_argument("--with-marginal-attribution", action="store_true")
 
     args = parser.parse_args()
@@ -4028,6 +4037,7 @@ def main() -> None:
                     r2_bucket=args.r2_bucket,
                     with_marginal_attribution=args.with_marginal_attribution,
                     start_date=_date.fromisoformat(args.start_date),
+                    local_bundle_dir=args.local_bundle_dir,
                 )
 
         asyncio.run(_run())
