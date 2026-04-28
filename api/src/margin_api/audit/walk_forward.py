@@ -54,6 +54,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from margin_engine.backtesting.models import BacktestConfig, RebalanceFrequency, SelectionMode
 from margin_engine.backtesting.simulator import ScoredStock, WalkForwardSimulator
@@ -473,6 +474,17 @@ class RegeneratingUniverseProvider:
 
 
 @dataclass(frozen=True)
+class WalkForwardAuditResult:
+    """Result of run_walk_forward_audit. Carries both flattened cohort rows
+    (for the audit's CSV bundle) and the raw engine MonthlySnapshot list (for
+    PerformanceCalculator post-processing).
+    """
+
+    cohort_rows: list[AuditCohortRow]
+    snapshots: list[Any]  # list[MonthlySnapshot] — engine type, kept loose to avoid extra import surface
+
+
+@dataclass(frozen=True)
 class AuditCohortRow:
     cohort_date: date
     cohort_size: int
@@ -490,7 +502,7 @@ async def run_walk_forward_audit(
     end_date: date,
     max_positions: int = 50,
     selection_tiers: tuple[str, ...] = ("exceptional", "high"),
-) -> list[AuditCohortRow]:
+) -> WalkForwardAuditResult:
     """Run the audit walk-forward against PIT data.
 
     Steps:
@@ -580,7 +592,7 @@ async def run_walk_forward_audit(
             )
         )
 
-    return rows
+    return WalkForwardAuditResult(cohort_rows=rows, snapshots=list(backtest_result.snapshots))
 
 
 def _monthly_cohort_dates(start: date, end: date) -> list[date]:

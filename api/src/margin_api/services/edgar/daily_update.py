@@ -11,6 +11,7 @@ Designed to run daily at 23:00 UTC via the ARQ worker.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
@@ -236,14 +237,21 @@ async def append_daily_prices(
         tickers = [row[0] for row in result.all()]
 
         # Also include any ticker that received a conviction score in the last
-        # 90 days, even if it has since dropped from the active universe.
-        # Without this, candidates that were scored, then de-listed or
-        # rebalanced out, stop getting price updates and break Part A of the
-        # engine validation audit (forward-return alpha measurement) the
-        # moment their drop date passes the audit's measurement window.
+        # SCORED_TICKER_REFRESH_DAYS days, even if it has since dropped from
+        # the active universe. Without this, candidates that were scored, then
+        # de-listed or rebalanced out, stop getting price updates and break
+        # Part A of the engine validation audit (forward-return alpha
+        # measurement) the moment their drop date passes the audit's
+        # measurement window.
+        #
+        # Default 365 days = covers the audit's longest forward-return window
+        # (365d annual horizon) plus margin. Override via env var for tuning:
+        # MARGIN_SCORED_TICKER_REFRESH_DAYS=730 widens to 2 years for deeper
+        # audits at the cost of more daily yfinance calls.
         from margin_api.db.models import Asset, Score
 
-        cutoff = today - timedelta(days=90)
+        refresh_days = int(os.environ.get("MARGIN_SCORED_TICKER_REFRESH_DAYS", "365"))
+        cutoff = today - timedelta(days=refresh_days)
         recent_scores_stmt = (
             select(Asset.ticker)
             .join(Score, Score.asset_id == Asset.id)

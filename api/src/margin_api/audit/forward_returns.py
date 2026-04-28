@@ -4,16 +4,19 @@ Per spec §8.1, all returns use `pit_daily_prices.adj_close` (dividend-adjusted)
 
 Trading-day alignment: scored_at and window endpoints may fall on weekends or
 holidays where pit_daily_prices has no row. We snap to the nearest preceding
-trading day available in the price series (lookback up to 7 days). If no row is
-found within the lookback window, the return is None and the row is flagged
-data_unavailable. This is the realistic semantics — an investor checking on a
-Saturday sees Friday's close.
+NYSE trading day (via pandas_market_calendars), then look up that exact date.
+A 7-day lookback fallback handles the edge case where the calendar says a
+day is a trading day but pit_daily_prices doesn't have a row (e.g., a recent
+ingest gap). This is the realistic semantics — an investor checking on a
+Saturday sees Friday's close — and it's calendar-aware (handles holidays
+correctly, not just weekends).
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date, timedelta
+from functools import lru_cache
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,12 +27,36 @@ from margin_api.db.models import Asset, PITDailyPrice, Score
 _TRADING_DAY_LOOKBACK = 7
 
 
+@lru_cache(maxsize=1)
+def _nyse_calendar():  # type: ignore[no-untyped-def]
+    """Lazy-load the NYSE calendar; importing pandas_market_calendars is slow."""
+    import pandas_market_calendars as mcal
+
+    return mcal.get_calendar("NYSE")
+
+
+def _snap_to_trading_day(target: date) -> date:
+    """Return `target` if it's an NYSE trading day, else the most recent prior one.
+
+    Walks the calendar back up to 14 days; covers weekends + standard holidays.
+    """
+    calendar = _nyse_calendar()
+    days = calendar.valid_days(start_date=target - timedelta(days=14), end_date=target)
+    if len(days) == 0:
+        return target
+    return days[-1].date()
+
+
 def _nearest_preceding_price(
     prices: dict[date, float], target: date, lookback: int = _TRADING_DAY_LOOKBACK
 ) -> float | None:
-    """Return the price on `target` or the nearest preceding date within `lookback` days."""
+    """Return price on the trading day at/before `target`, with PIT-gap fallback."""
+    snapped = _snap_to_trading_day(target)
+    if snapped in prices:
+        return prices[snapped]
+    # Trading day per calendar, but no PIT row — fall back to walk-back.
     for delta in range(lookback + 1):
-        d = target - timedelta(days=delta)
+        d = snapped - timedelta(days=delta)
         if d in prices:
             return prices[d]
     return None
