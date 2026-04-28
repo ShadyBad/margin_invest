@@ -1,7 +1,13 @@
 """Part A: forward-return alpha measurement on legacy `scores` candidates.
 
 Per spec §8.1, all returns use `pit_daily_prices.adj_close` (dividend-adjusted).
-Missing endpoints are NEVER substituted with neighboring days.
+
+Trading-day alignment: scored_at and window endpoints may fall on weekends or
+holidays where pit_daily_prices has no row. We snap to the nearest preceding
+trading day available in the price series (lookback up to 7 days). If no row is
+found within the lookback window, the return is None and the row is flagged
+data_unavailable. This is the realistic semantics — an investor checking on a
+Saturday sees Friday's close.
 """
 
 from __future__ import annotations
@@ -15,13 +21,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from margin_api.audit.schema import CandidatePartARow, DataStatus
 from margin_api.db.models import Asset, PITDailyPrice, Score
 
+_TRADING_DAY_LOOKBACK = 7
+
+
+def _nearest_preceding_price(
+    prices: dict[date, float], target: date, lookback: int = _TRADING_DAY_LOOKBACK
+) -> float | None:
+    """Return the price on `target` or the nearest preceding date within `lookback` days."""
+    for delta in range(lookback + 1):
+        d = target - timedelta(days=delta)
+        if d in prices:
+            return prices[d]
+    return None
+
 
 def compute_total_return(
     prices: dict[date, float],
     start: date,
     end: date,
 ) -> float | None:
-    """Compute total return between two dates.
+    """Compute total return between two dates with trading-day snap-back.
 
     Args:
         prices: Dictionary mapping dates to adjusted closing prices.
@@ -30,11 +49,11 @@ def compute_total_return(
 
     Returns:
         Total return as a float (e.g., 0.10 for 10% return), or None if:
-        - Either endpoint price is missing
+        - Either endpoint has no price within 7 calendar days preceding it
         - Start price is zero (division by zero protection)
     """
-    start_price = prices.get(start)
-    end_price = prices.get(end)
+    start_price = _nearest_preceding_price(prices, start)
+    end_price = _nearest_preceding_price(prices, end)
     if start_price is None or end_price is None:
         return None
     if start_price == 0:
