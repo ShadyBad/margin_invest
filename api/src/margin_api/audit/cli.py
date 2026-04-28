@@ -97,15 +97,17 @@ async def run_audit_engine(
     r2_bucket: str,
     with_marginal_attribution: bool = False,
     run_id: UUID | None = None,
+    start_date: date | None = None,
 ) -> AuditEngineResult:
     # Part A.
     part_a_rows = await compute_part_a(session, report_date)
     candidates_df = pd.DataFrame([r.model_dump() for r in part_a_rows])
 
     # Part B (MVP: synthetic DBs return empty cohorts).
+    walk_forward_start = start_date or date(2015, 1, 31)
     cohort_rows = await run_walk_forward_audit(
         session=session,
-        start_date=date(2015, 1, 31),
+        start_date=walk_forward_start,
         end_date=report_date,
     )
     walk_forward_df = pd.DataFrame([r.__dict__ for r in cohort_rows])
@@ -175,6 +177,7 @@ async def run_audit_engine(
         spy_coverage_days=0,
         cohort_count=len(walk_forward_df),
         run_id=run_id or uuid4(),
+        part_b_start=walk_forward_start,
     )
 
     s3 = build_s3_client()

@@ -78,6 +78,7 @@ def build_manifest(
     spy_coverage_days: int,
     cohort_count: int,
     run_id: UUID | None = None,
+    part_b_start: date | None = None,
 ) -> AuditManifest:
     return AuditManifest(
         audit_version="1.0",
@@ -99,7 +100,7 @@ def build_manifest(
             windows_closed=[30, 60, 63],
         ),
         part_b=PartBStats(
-            start=date(2015, 1, 31),
+            start=part_b_start or date(2015, 1, 31),
             end=report_date,
             cohort_count=cohort_count,
             rebalance="monthly",

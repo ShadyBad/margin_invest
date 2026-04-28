@@ -3895,6 +3895,15 @@ def main() -> None:
         default=os.environ.get("R2_BUCKET", "margin-audits"),
         type=str,
     )
+    audit_parser.add_argument(
+        "--start-date",
+        default="2015-01-31",
+        type=str,
+        help=(
+            "Walk-forward start date (YYYY-MM-DD). Spec default 2015-01-31; "
+            "PIT data covers back to ~2011-01-31 for tighter-power follow-up audits."
+        ),
+    )
     audit_parser.add_argument("--with-marginal-attribution", action="store_true")
 
     args = parser.parse_args()
@@ -4013,6 +4022,7 @@ def main() -> None:
                     r2_prefix=args.r2_prefix,
                     r2_bucket=args.r2_bucket,
                     with_marginal_attribution=args.with_marginal_attribution,
+                    start_date=_date.fromisoformat(args.start_date),
                 )
 
         asyncio.run(_run())
