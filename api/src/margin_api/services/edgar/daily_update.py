@@ -235,6 +235,35 @@ async def append_daily_prices(
         result = await session.execute(stmt)
         tickers = [row[0] for row in result.all()]
 
+        # Also include any ticker that received a conviction score in the last
+        # 90 days, even if it has since dropped from the active universe.
+        # Without this, candidates that were scored, then de-listed or
+        # rebalanced out, stop getting price updates and break Part A of the
+        # engine validation audit (forward-return alpha measurement) the
+        # moment their drop date passes the audit's measurement window.
+        from margin_api.db.models import Asset, Score
+
+        cutoff = today - timedelta(days=90)
+        recent_scores_stmt = (
+            select(Asset.ticker)
+            .join(Score, Score.asset_id == Asset.id)
+            .where(
+                Score.scored_at >= cutoff,
+                Score.conviction_level.in_(["exceptional", "high", "medium"]),
+            )
+            .distinct()
+        )
+        recent_result = await session.execute(recent_scores_stmt)
+        recent_scored = {row[0] for row in recent_result.all()}
+
+    # Benchmarks are NOT in pit_universe_memberships (they're ETFs, not
+    # candidate stocks). The audit and dashboard read benchmark prices from
+    # pit_daily_prices and need them updated daily, same cadence as the universe.
+    # Without this union, benchmark series silently lag by however long it has
+    # been since the last manual price-backfill --tickers BENCH run.
+    benchmarks = {"SPY"}
+    tickers = list(set(tickers) | benchmarks | recent_scored)
+
     if not tickers:
         logger.info("[daily-update] No active tickers in universe — skipping price append")
         return {"tickers_updated": 0, "rows_inserted": 0}

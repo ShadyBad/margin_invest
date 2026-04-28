@@ -80,6 +80,23 @@ check_denylists() {
       echo "BLOCKED: Reading secrets/key files is not permitted." >&2
       exit 2
     fi
+
+    # Block bulk env-var dumps that print secret values to stdout.
+    # Allowed forms must narrow to names only or use grep/jq filtering.
+    # Examples that PASS: `railway variables --json | jq 'keys'`,
+    #                     `railway variables | grep -o '^║ [A-Z_]\+'`,
+    #                     `printenv | grep -E '^[A-Z_]+$'` (just names),
+    #                     `railway run -- <command>` (injection, not dump).
+    # Examples that BLOCK: bare `railway variables`, `printenv`, `env` alone,
+    #                     `vercel env ls` without grep narrowing.
+    if echo "$command" | grep -qE '(^|[[:space:]&|;])(railway variables|printenv|^env$|vercel env ls|fly secrets list)([[:space:]]|$)' 2>/dev/null; then
+      # Allow if a narrowing filter is present anywhere in the command.
+      if ! echo "$command" | grep -qE '(\| *jq|\| *grep|\| *awk|\| *cut|\| *head|--json[[:space:]]*\|)' 2>/dev/null; then
+        log_audit "bulk_env_dump_blocked" "{\"command\": \"[REDACTED]\"}"
+        echo "BLOCKED: Bulk env-var dump would print secret values. Narrow with | jq/grep/awk first, or use 'railway run -- <cmd>' for injection." >&2
+        exit 2
+      fi
+    fi
   fi
 
   # Block writes to sensitive paths
