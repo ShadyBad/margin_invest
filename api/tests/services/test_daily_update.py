@@ -137,7 +137,9 @@ class TestAppendDailyPrices:
     async def test_append_daily_prices_empty_universe_still_updates_benchmarks(
         self, session_factory
     ) -> None:
-        """Empty universe still updates benchmarks (SPY) — they're not in pit_universe_memberships."""
+        """Empty universe still updates benchmarks (SPY).
+
+        Benchmarks aren't in pit_universe_memberships."""
         from margin_api.services.edgar.daily_update import append_daily_prices
 
         mock_backfill = AsyncMock(return_value={"SPY": 3})
@@ -211,6 +213,51 @@ class TestAppendDailyPrices:
         call_args = mock_backfill.call_args
         tickers_arg = call_args[0][0] if call_args[0] else call_args[1].get("tickers")
         assert set(tickers_arg) == {"AAPL", "MSFT", "SPY"}
+
+    @pytest.mark.asyncio
+    async def test_append_daily_prices_includes_recently_scored_dropped_ticker(
+        self, session, session_factory
+    ) -> None:
+        """A ticker scored in the last 90 days but no longer in the active
+        universe should still get daily price updates — required for the
+        engine validation audit's Part A forward-return measurement."""
+        from datetime import UTC, datetime, timedelta
+
+        from margin_api.db.models import Asset, Score
+        from margin_api.services.edgar.daily_update import append_daily_prices
+
+        # Asset that USED to be in the universe but has been dropped (no
+        # PITUniverseMembership row marked is_active=True).
+        dropped = Asset(ticker="DROPPED", name="Dropped Inc", sector="X")
+        session.add(dropped)
+        await session.flush()
+        # Recent conviction score for DROPPED — within the 90-day window.
+        session.add(
+            Score(
+                asset_id=dropped.id,
+                scored_at=datetime.now(UTC) - timedelta(days=30),
+                conviction_level="high",
+                composite_percentile=87.0,
+                signal="strong",
+                opportunity_type="compounder",
+                asymmetry_ratio=2.0,
+            )
+        )
+        await session.commit()
+
+        mock_backfill = AsyncMock(return_value={"DROPPED": 3, "SPY": 3})
+
+        with patch(
+            "margin_api.services.edgar.daily_update.backfill_prices_for_tickers",
+            mock_backfill,
+        ):
+            await append_daily_prices(session_factory, lookback_days=3)
+
+        call_args = mock_backfill.call_args
+        tickers_arg = call_args[0][0] if call_args[0] else call_args[1].get("tickers")
+        # DROPPED is included even though it has no active membership row.
+        assert "DROPPED" in set(tickers_arg)
+        assert "SPY" in set(tickers_arg)
 
 
 # ---------------------------------------------------------------------------
