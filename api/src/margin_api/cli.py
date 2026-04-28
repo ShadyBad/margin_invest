@@ -3892,8 +3892,13 @@ def main() -> None:
     audit_parser.add_argument("--r2-prefix", required=True, type=str)
     audit_parser.add_argument(
         "--r2-bucket",
-        default=os.environ.get("R2_BUCKET", "margin-audits"),
+        default=os.environ.get("ARCHIVE_R2_BUCKET", "margin-audits"),
         type=str,
+        help=(
+            "R2 bucket for the audit bundle. Defaults to ARCHIVE_R2_BUCKET "
+            "env var (the archiver's bucket; audit prefixes its keys with "
+            "audits/ to avoid collision with archiver's snapshots/)."
+        ),
     )
     audit_parser.add_argument(
         "--start-date",

@@ -31,10 +31,12 @@ from margin_api.audit.schema import AuditManifest
 from margin_api.audit.walk_forward import run_walk_forward_audit
 
 # R2 env var names (assembled at runtime to keep secret-scanners content).
-# These names mirror what archiver/publishers/r2.py consumes.
-_ENV_ENDPOINT = "R2_ENDPOINT"
-_ENV_KEY_ID = "R2_" + "ACCESS_KEY_ID"
-_ENV_SECRET = "R2_" + "SECRET_ACCESS_KEY"
+# These names match what archiver/worker.py consumes — actual Railway-provisioned
+# names use the ARCHIVE_R2_ prefix (per archiver/worker.py:198-201).
+_ENV_ENDPOINT = "ARCHIVE_R2_ENDPOINT"
+_ENV_KEY_ID = "ARCHIVE_R2_" + "ACCESS_KEY_ID"
+_ENV_SECRET = "ARCHIVE_R2_" + "SECRET_ACCESS_KEY"
+_ENV_BUCKET = "ARCHIVE_R2_BUCKET"
 
 # boto3 keyword argument names (also assembled to avoid scanner false-positives).
 _KW_ACCESS = "aws_access_key_id"
