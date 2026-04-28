@@ -34,13 +34,15 @@ async def test_regenerating_provider_returns_scored_stocks_at_cohort_date(
 async def test_run_walk_forward_audit_returns_cohort_rows(
     synthetic_audit_db: AsyncSession,
 ) -> None:
-    rows = await run_walk_forward_audit(
+    result = await run_walk_forward_audit(
         session=synthetic_audit_db,
         start_date=date(2026, 1, 31),
         end_date=date(2026, 4, 27),
         max_positions=50,
     )
-    for row in rows:
+    assert hasattr(result, "cohort_rows")
+    assert hasattr(result, "snapshots")
+    for row in result.cohort_rows:
         assert isinstance(row, AuditCohortRow)
         assert row.cohort_date is not None
         assert row.cohort_size >= 0
