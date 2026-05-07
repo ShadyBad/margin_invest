@@ -9,6 +9,8 @@ from enum import StrEnum
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -291,6 +293,9 @@ class V3Score(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
+    # run_id (audit join key, added 2026-05-02). Nullable for pre-migration rows;
+    # NULL is permanent for those — audit window starts at deploy date.
+    run_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     scored_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -313,6 +318,8 @@ class V4Score(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
+    # run_id (audit join key, added 2026-05-02). See V3Score above for semantics.
+    run_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     scored_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -338,6 +345,110 @@ class V4Score(Base):
     __table_args__ = (
         Index("ix_v4_scores_asset_scored", "asset_id", "scored_at"),
         Index("ix_v4_scores_scored_at", "scored_at"),
+    )
+
+
+class ScoreComponent(Base):
+    """Component-level sub-score audit row.
+
+    See docs/superpowers/specs/2026-05-02-component-subscore-logging-design.md.
+
+    One row per (component_type, component_name) per scoring run per ticker.
+    Filter-rejected tickers produce rows with no parent in v3_scores/v4_scores —
+    join on (asset_id, run_id, scoring_version) instead of FK.
+
+    component_type enum is locked at 7 values; CHECK constraint enforces it at
+    the DB level so a typo cannot silently land bad rows.
+    """
+
+    __tablename__ = "score_components"
+
+    # BigInteger on PG (audit table can grow ~65M rows/year), Integer on
+    # SQLite so the PK auto-increments via rowid in test environments.
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer(), "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id", ondelete="CASCADE"), index=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False)
+    run_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    scoring_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    component_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    component_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    threshold: Mapped[float | None] = mapped_column(Float, nullable=True)
+    observed: Mapped[float | None] = mapped_column(Float, nullable=True)
+    metadata_json: Mapped[dict] = mapped_column(JSONVariant, nullable=False, default=dict)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "asset_id",
+            "run_id",
+            "scoring_version",
+            "component_type",
+            "component_name",
+            name="uq_score_components_identity",
+        ),
+        CheckConstraint(
+            "component_type IN ('factor','cascade_gate','conviction_gate',"
+            "'filter','adjustment','ml_contribution','composite_output')",
+            name="ck_score_components_type",
+        ),
+        Index("ix_score_components_run_type", "run_id", "component_type"),
+        Index(
+            "ix_score_components_lookup",
+            "component_type",
+            "component_name",
+            "computed_at",
+        ),
+        Index("ix_score_components_version_name", "scoring_version", "component_name"),
+    )
+
+
+class ScoringRunManifest(Base):
+    """Tracks every (run_id, asset_id, scoring_version) that orchestrate_ingest dispatched.
+
+    Reconciliation cron uses this as the denominator for coverage_ratio. Without
+    a manifest, partial-batch failures are undetectable: dispatching for tickers
+    1-50 succeeds but fails for 51-100 → score_components rows match v3_scores
+    exactly (50/50=100%) and 50 tickers vanish silently.
+
+    run_kind filters reconciliation to orchestrate_ingest runs only — CLI re-runs
+    and manual triggers do not generate alerts on partial coverage.
+    """
+
+    __tablename__ = "scoring_run_manifest"
+
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer(), "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    run_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id", ondelete="CASCADE"), index=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False)
+    scoring_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    dispatched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    run_kind: Mapped[str] = mapped_column(String(20), nullable=False, default="orchestrate_ingest")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "asset_id",
+            "scoring_version",
+            name="uq_scoring_run_manifest_identity",
+        ),
+        CheckConstraint(
+            "run_kind IN ('orchestrate_ingest','cli_rerun','manual')",
+            name="ck_scoring_run_manifest_kind",
+        ),
     )
 
 
