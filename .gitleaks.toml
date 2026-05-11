@@ -1,15 +1,13 @@
 [extend]
+useDefault = true
 
-[[allowlist.paths]]
-description = "Example env files with placeholder values"
+[allowlist]
+description = "Allowlist for known test fixtures and placeholder examples"
 paths = [
-    '''\.env\.example$''',
-    '''\.env\.local\.example$''',
-]
-
-[[allowlist.paths]]
-description = "Test fixtures with fake keys"
-paths = [
-    '''tests/''',
-    '''__tests__/''',
+  '''\.env\.example$''',
+  '''\.env\.local\.example$''',
+  '''^api/tests/''',
+  '''^engine/tests/''',
+  '''^web/.+/__tests__/''',
+  '''^docs/plans/''',
 ]
