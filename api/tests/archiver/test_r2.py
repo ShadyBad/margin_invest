@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from io import BytesIO
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from margin_api.archiver.publishers.r2 import R2Publisher
 
 MOCK_KEY = "MOCK_R2_KEY_FOR_TESTING"  # noqa: S105

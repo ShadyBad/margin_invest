@@ -31,6 +31,7 @@ from arq.connections import ArqRedis, RedisSettings
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from margin_api.archiver.worker import archive_daily_snapshot
 from margin_api.config import get_settings
 from margin_api.db.models import (
     Asset,
@@ -76,7 +77,6 @@ from margin_api.services.edgar.index_builder import (
 )
 from margin_api.services.edgar.price_backfill import backfill_prices_for_tickers
 from margin_api.services.edgar.universe_assembly import assemble_universe, fill_last_known_prices
-from margin_api.archiver.worker import archive_daily_snapshot
 from margin_api.services.governance_config import get_threshold
 from margin_api.services.live_prices import LivePriceService
 from margin_api.services.universe import get_active_snapshot

@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
-import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from margin_api.db.base import Base
 from margin_api.db.models import Asset, V4Score
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-SCORED_AT = datetime(2026, 4, 21, 20, 15, 0, tzinfo=timezone.utc)
+SCORED_AT = datetime(2026, 4, 21, 20, 15, 0, tzinfo=UTC)
 
 DEFAULT_TRACK_A = {
     "score": 87.3,

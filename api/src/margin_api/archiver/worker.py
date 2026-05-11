@@ -23,7 +23,9 @@ from margin_api.services.analytics import track_event
 logger = logging.getLogger(__name__)
 
 
-async def archive_daily_snapshot(ctx: dict[str, Any], target_date: str | None = None) -> dict[str, Any]:
+async def archive_daily_snapshot(
+    ctx: dict[str, Any], target_date: str | None = None
+) -> dict[str, Any]:
     """Generate and publish the daily picks snapshot.
 
     This is the ARQ cron entry point that wires together:
@@ -203,7 +205,9 @@ async def _publish_to_r2(
     if not all([access_key, secret_key, bucket, endpoint]):
         return PublishResult(publisher="r2", success=False, error="R2 credentials not configured")
 
-    assert access_key and secret_key and bucket and endpoint  # narrowed: guard above ensures non-None
+    assert (
+        access_key and secret_key and bucket and endpoint
+    )  # narrowed: guard above ensures non-None
 
     try:
         publisher = R2Publisher(

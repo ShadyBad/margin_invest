@@ -114,8 +114,14 @@ def _compute_conviction_calibration(candidates_df: pd.DataFrame) -> pd.DataFrame
     if candidates_df.empty:
         return pd.DataFrame(
             columns=[
-                "tier", "n", "mean_alpha_60d", "sharpe", "sortino",
-                "max_drawdown", "anova_p", "monotonic",
+                "tier",
+                "n",
+                "mean_alpha_60d",
+                "sharpe",
+                "sortino",
+                "max_drawdown",
+                "anova_p",
+                "monotonic",
             ]
         )
     # ANOVA across tiers on alpha_60d (drop NaN/None).
@@ -145,11 +151,18 @@ def _compute_conviction_calibration(candidates_df: pd.DataFrame) -> pd.DataFrame
     for tier in ("exceptional", "high", "medium"):
         alphas = tier_groups.get(tier, [])
         if not alphas:
-            rows.append({
-                "tier": tier, "n": 0, "mean_alpha_60d": None, "sharpe": None,
-                "sortino": None, "max_drawdown": None, "anova_p": anova_p,
-                "monotonic": monotonic,
-            })
+            rows.append(
+                {
+                    "tier": tier,
+                    "n": 0,
+                    "mean_alpha_60d": None,
+                    "sharpe": None,
+                    "sortino": None,
+                    "max_drawdown": None,
+                    "anova_p": anova_p,
+                    "monotonic": monotonic,
+                }
+            )
             continue
         import numpy as np
 
@@ -161,16 +174,18 @@ def _compute_conviction_calibration(candidates_df: pd.DataFrame) -> pd.DataFrame
         downside_std = float(downside.std(ddof=1)) if len(downside) > 1 else 0.0
         sortino = (mean / downside_std * (252 / 60) ** 0.5) if downside_std > 0 else 0.0
         max_dd = float(arr.min()) if len(arr) else 0.0
-        rows.append({
-            "tier": tier,
-            "n": len(alphas),
-            "mean_alpha_60d": mean,
-            "sharpe": sharpe,
-            "sortino": sortino,
-            "max_drawdown": max_dd,
-            "anova_p": anova_p,
-            "monotonic": monotonic,
-        })
+        rows.append(
+            {
+                "tier": tier,
+                "n": len(alphas),
+                "mean_alpha_60d": mean,
+                "sharpe": sharpe,
+                "sortino": sortino,
+                "max_drawdown": max_dd,
+                "anova_p": anova_p,
+                "monotonic": monotonic,
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -204,17 +219,13 @@ async def _load_data_provenance(session: AsyncSession) -> _DataProvenance:
     """
     v4_count = (await session.execute(select(func.count()).select_from(V4Score))).scalar_one()
     pit_min, pit_max = (
-        await session.execute(
-            select(func.min(PITDailyPrice.date), func.max(PITDailyPrice.date))
-        )
+        await session.execute(select(func.min(PITDailyPrice.date), func.max(PITDailyPrice.date)))
     ).one()
     pit_tickers = (
         await session.execute(select(func.count(func.distinct(PITDailyPrice.ticker))))
     ).scalar_one()
     spy_days = (
-        await session.execute(
-            select(func.count()).where(PITDailyPrice.ticker == "SPY")
-        )
+        await session.execute(select(func.count()).where(PITDailyPrice.ticker == "SPY"))
     ).scalar_one()
     return _DataProvenance(
         v4_scores_count=int(v4_count or 0),
@@ -323,9 +334,7 @@ async def run_audit_engine(
         ]
         for name, df in pairs:
             (bundle_path / name).write_bytes(emit_csv_bytes(df))
-        (bundle_path / "manifest.json").write_text(
-            manifest.model_dump_json(indent=2)
-        )
+        (bundle_path / "manifest.json").write_text(manifest.model_dump_json(indent=2))
     else:
         s3 = build_s3_client()
         upload_bundle(

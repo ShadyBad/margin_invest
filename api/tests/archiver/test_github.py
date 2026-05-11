@@ -6,7 +6,6 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from margin_api.archiver.publishers.github import GitHubPublisher
 
 MOCK_CREDENTIAL = "MOCK_GH_CREDENTIAL_FOR_TESTING"  # noqa: S105

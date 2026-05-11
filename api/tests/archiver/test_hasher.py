@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-
-import pytest
-
 from margin_api.archiver.hasher import (
     canonical_json,
     compute_input_data_hash,

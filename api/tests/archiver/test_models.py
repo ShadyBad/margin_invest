@@ -1,9 +1,8 @@
 """Tests for the daily picks archive Pydantic snapshot models (v1.0.0)."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
 from margin_api.archiver.models import (
     ExclusionSummary,
     HashChain,
@@ -15,7 +14,7 @@ from margin_api.archiver.models import (
     TrackScoreDetail,
 )
 
-_TS = datetime(2026, 4, 21, 20, 30, 0, tzinfo=timezone.utc)
+_TS = datetime(2026, 4, 21, 20, 30, 0, tzinfo=UTC)
 
 
 def _make_pick(rank: int = 1, *, null_ml: bool = False) -> PickEntry:

@@ -151,9 +151,7 @@ def _build_ticker_v4_data(
                 _d(income_data.get("rd_expense")) if income_data.get("rd_expense") else None
             ),
             depreciation=(
-                _d(income_data.get("depreciation"))
-                if income_data.get("depreciation")
-                else None
+                _d(income_data.get("depreciation")) if income_data.get("depreciation") else None
             ),
             interest_expense=(
                 _d(income_data.get("interest_expense"))
@@ -161,9 +159,7 @@ def _build_ticker_v4_data(
                 else None
             ),
             tax_provision=(
-                _d(income_data.get("tax_provision"))
-                if income_data.get("tax_provision")
-                else None
+                _d(income_data.get("tax_provision")) if income_data.get("tax_provision") else None
             ),
         )
 
@@ -183,9 +179,7 @@ def _build_ticker_v4_data(
                 if balance_data.get("cash_and_equivalents")
                 else None
             ),
-            pp_and_e=(
-                _d(balance_data.get("pp_and_e")) if balance_data.get("pp_and_e") else None
-            ),
+            pp_and_e=(_d(balance_data.get("pp_and_e")) if balance_data.get("pp_and_e") else None),
         )
 
         cf = CashFlowStatement(
@@ -481,7 +475,9 @@ class WalkForwardAuditResult:
     """
 
     cohort_rows: list[AuditCohortRow]
-    snapshots: list[Any]  # list[MonthlySnapshot] — engine type, kept loose to avoid extra import surface
+    snapshots: list[
+        Any
+    ]  # list[MonthlySnapshot] — engine type, kept loose to avoid extra import surface
 
 
 @dataclass(frozen=True)
@@ -535,9 +531,7 @@ async def run_walk_forward_audit(
 
     # Step 2: Load SPY prices from pit_daily_prices for the benchmark provider
     spy_stmt = (
-        select(PITDailyPrice)
-        .where(PITDailyPrice.ticker == "SPY")
-        .order_by(PITDailyPrice.date)
+        select(PITDailyPrice).where(PITDailyPrice.ticker == "SPY").order_by(PITDailyPrice.date)
     )
     spy_result = await session.execute(spy_stmt)
     spy_rows = spy_result.scalars().all()
