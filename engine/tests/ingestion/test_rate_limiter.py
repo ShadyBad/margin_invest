@@ -59,19 +59,24 @@ class TestTokensAvailable:
 
 class TestTokenRefill:
     def test_tokens_refill_over_time(self):
-        """Use a high rate so refill is observable over a short sleep."""
-        limiter = RateLimiter(requests_per_minute=6000)
-        # Drain all tokens
-        for _ in range(6000):
-            limiter.acquire()
-        assert limiter.tokens_available == 0
+        """Refill is proportional to elapsed monotonic time.
 
-        # At 6000/min = 100/sec, sleeping 0.15s should refill ~15 tokens
-        time.sleep(0.15)
-        # Access triggers refill calculation
-        available = limiter.tokens_available
-        assert available >= 5  # Allow slack for slow CI runners
-        assert available <= 25  # But not too many
+        Uses a mocked clock so the assertion is deterministic — a wall-clock
+        sleep is unreliable on loaded CI runners, where the drain loop alone
+        can span long enough to refill a token before the check.
+        """
+        with patch("margin_engine.ingestion.rate_limiter.time.monotonic") as mock_mono:
+            mock_mono.return_value = 1000.0
+            limiter = RateLimiter(requests_per_minute=6000)  # 100 tokens/sec
+            # Drain all tokens (clock frozen, so no refill during the loop)
+            for _ in range(6000):
+                limiter.acquire()
+            assert limiter.tokens_available == 0
+
+            # Advance 0.25s → 100/sec * 0.25s = 25 tokens refilled.
+            # 0.25 is exact in binary, so the floored token count is stable.
+            mock_mono.return_value = 1000.25
+            assert limiter.tokens_available == 25
 
     def test_tokens_refill_capped_at_max(self):
         """Tokens should never exceed requests_per_minute."""

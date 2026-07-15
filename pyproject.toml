@@ -18,6 +18,19 @@ source = ["margin_api"]
 target-version = "py313"
 line-length = 100
 
+[tool.mypy]
+python_version = "3.13"
+# Archiver CI runs `mypy --strict` against the archiver package only. Follow
+# imports for type resolution but silence errors raised inside the wider
+# (intentionally un-strict-typed) API so the strict gate scopes to the files
+# explicitly passed on the command line.
+follow_imports = "silent"
+
+# Third-party libraries that ship no type information (no py.typed, no stubs).
+[[tool.mypy.overrides]]
+module = ["pandas_market_calendars.*", "boto3.*"]
+ignore_missing_imports = true
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 
@@ -31,4 +44,11 @@ select = ["E", "F", "I", "N", "W", "UP"]
 [dependency-groups]
 dev = [
     "ruff>=0.15.1",
+    # Archiver CI type-checks with `mypy --strict`; keep it in the default dev
+    # group so a plain sync provides the binary.
+    "mypy>=1.13",
+    # Optuna backs the weight optimizer (engine/tuning). It is an optional
+    # runtime extra, but the engine test suite exercises it, so it must be
+    # present for the coverage gate to see those lines.
+    "optuna>=3.0",
 ]

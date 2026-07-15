@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import boto3  # type: ignore[import-untyped]
+import boto3
 
 from margin_api.archiver.publishers import PublishResult
 

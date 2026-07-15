@@ -1362,8 +1362,10 @@ class TestWorkerStubs:
     async def test_ingest_sentiment_signals_stub(self):
         from margin_api.workers import ingest_sentiment_signals
 
+        # With no FINNHUB_API_KEY configured (the CI/default case) the worker
+        # short-circuits and reports why it skipped rather than doing work.
         result = await ingest_sentiment_signals({})
-        assert "stub complete" in result
+        assert result == {"status": "skipped", "reason": "no_finnhub_key"}
 
     @pytest.mark.asyncio
     async def test_backfill_form4_history_stub(self):
