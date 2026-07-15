@@ -106,7 +106,7 @@ function FunnelStage({
             fontWeight: isFinal && allDone ? 700 : 400,
           }}
         >
-          {isAnimated ? displayCount.toLocaleString() : "\u2014"}
+          {isAnimated ? displayCount.toLocaleString("en-US") : "\u2014"}
         </span>
       </div>
       <div
