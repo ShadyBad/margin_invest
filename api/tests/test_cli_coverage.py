@@ -1275,14 +1275,11 @@ class TestRunWeightTune:
     def test_exits_when_optuna_not_installed(self):
         from margin_api.cli import run_weight_tune
 
-        # Remove optuna from modules to simulate not installed
-        original = sys.modules.pop("optuna", None)
-        try:
+        # Force `import optuna` to raise ImportError even when the package is
+        # installed: a None entry in sys.modules makes the import statement fail.
+        with patch.dict(sys.modules, {"optuna": None}):
             with pytest.raises(SystemExit):
                 run_weight_tune(track="ALL", n_trials=10, metric="sharpe", dry_run=False)
-        finally:
-            if original is not None:
-                sys.modules["optuna"] = original
 
     def test_exits_on_invalid_track(self):
         from margin_api.cli import run_weight_tune
