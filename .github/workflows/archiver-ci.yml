@@ -36,9 +36,6 @@ jobs:
       - name: Type check
         run: uv run mypy --strict api/src/margin_api/archiver/
 
-      - name: Test with coverage
-        run: |
-          uv run pytest api/tests/archiver/ -v \
-            --cov=margin_api.archiver \
-            --cov-report=term-missing \
-            --cov-fail-under=90
+      # The archiver test suite and its coverage are enforced in the main CI
+      # workflow (pytest api/ --cov=margin_api); this workflow scopes to the
+      # strict lint + type gate the archiver package is held to on its own.
