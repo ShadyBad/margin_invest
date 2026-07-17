@@ -99,16 +99,6 @@ cd web && npx vitest run                                                    # 1,
 - Not running. See the status note above.
 - Not maintained.
 
-## Why it was killed
-
-Three reasons, in priority order:
-
-1. **No user pull.** Deterministic equity scoring is a thing retail traders *say* they want and don't pay for. The Stripe data was clear.
-2. **Compliance gravity.** Every shipped feature dragged in fresh legal review. Product-market fit needed to be far stronger to justify that drag.
-3. **My time was better spent.** Higher-leverage paths exist for an engineer moving into AI roles. This codebase already proves what it needs to prove.
-
-The brand and domain were portfolio scaffolding. They served their purpose.
-
 ## License
 
 See [LICENSE](LICENSE) — all rights reserved. If you want to reuse pieces, ask.
