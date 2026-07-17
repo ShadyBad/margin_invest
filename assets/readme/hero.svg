@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="360" viewBox="0 0 1200 360"
+     role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">Margin Invest — deterministic equity scoring</title>
+  <desc id="hero-desc">A decommissioned production equity-scoring platform, kept public as engineering evidence. A universe of 3,056 tickers passes through 7 elimination filters, then four sector-neutral scoring pillars, then a 13F and 10-K risk-diff selection stage — drawn as a narrowing funnel.</desc>
+
+  <rect width="1200" height="360" rx="20" fill="#0D0F12"/>
+  <rect x="0.75" y="0.75" width="1198.5" height="358.5" rx="19.25" fill="none" stroke="#252830" stroke-width="1.5"/>
+
+  <g id="title-block">
+    <text x="64" y="92"
+          font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="13" letter-spacing="1.8" fill="#6B6B68">DECOMMISSIONED — KEPT AS ENGINEERING EVIDENCE</text>
+
+    <text x="64" y="164"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-size="58" font-weight="600" fill="#E8E8E6">Margin Invest</text>
+
+    <text x="64" y="212"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-size="20" fill="#A5A5A3">Deterministic equity research. The same inputs</text>
+    <text x="64" y="240"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-size="20" fill="#A5A5A3">produce the same score, every time.</text>
+
+    <line x1="64" y1="278" x2="104" y2="278" stroke="#1A7A5A" stroke-width="1.5" stroke-linecap="round"/>
+
+    <text x="64" y="308"
+          font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="13" fill="#6B6B68">8,034 tests — engine 3,383 / api 3,079 / web 1,572</text>
+  </g>
+
+  <line x1="540" y1="64" x2="540" y2="296" stroke="#252830" stroke-width="1.5"/>
+
+  <g id="selectivity-funnel">
+    <!-- Row 1: universe -->
+    <text x="644" y="121" text-anchor="end"
+          font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="13" fill="#6B6B68">universe</text>
+    <rect x="660" y="110" width="260" height="12" rx="6" fill="#1A7A5A" opacity="0.34"/>
+    <text x="936" y="121"
+          font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="14" fill="#E8E8E6">3,056 tickers</text>
+
+    <!-- Row 2: elimination filters -->
+    <text x="691" y="177" text-anchor="end"
+          font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="13" fill="#6B6B68">filters</text>
+    <rect x="707" y="166" width="165" height="12" rx="6" fill="#1A7A5A" opacity="0.56"/>
+    <text x="888" y="177"
+          font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="14" fill="#E8E8E6">7 checks, no short-circuit</text>
+
+    <!-- Row 3: scoring -->
+    <text x="726" y="233" text-anchor="end"
+          font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="13" fill="#6B6B68">scoring</text>
+    <rect x="742" y="222" width="95" height="12" rx="6" fill="#1A7A5A" opacity="0.78"/>
+    <text x="853" y="233"
+          font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="14" fill="#E8E8E6">4 sector-neutral pillars</text>
+
+    <!-- Row 4: selection -->
+    <text x="748" y="289" text-anchor="end"
+          font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="13" fill="#6B6B68">selection</text>
+    <rect x="764" y="278" width="52" height="12" rx="6" fill="#1A7A5A"/>
+    <text x="832" y="289"
+          font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="14" fill="#E8E8E6">13F + 10-K risk diff</text>
+  </g>
+</svg>

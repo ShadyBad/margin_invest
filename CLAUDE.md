@@ -16,7 +16,7 @@ Monorepo with three packages:
 Supporting infrastructure:
 - **DB**: PostgreSQL 16 (local Homebrew on port 5432, role `margin`/`margin_dev`/`margin_invest`)
 - **Cache**: Redis (via Docker or local)
-- **Workers**: ARQ (async Redis queue) — 18 registered functions, 7 cron jobs
+- **Workers**: ARQ (async Redis queue) — 34 registered functions, 15 cron jobs (all in `api/src/margin_api/workers.py`)
 - **Migrations**: Alembic (in `api/alembic/`)
 
 ## Package Management
@@ -35,9 +35,9 @@ Use **context7 MCP** to look up documentation for libraries and frameworks befor
 ## Running Tests
 
 ```bash
-uv run pytest engine/tests/ -v              # Engine tests (~2621 tests)
-uv run pytest api/tests/ -v --ignore=api/tests/services/test_xbrl_parser.py  # API tests (~1587)
-cd web && npx vitest run                    # Web tests (~1285 tests)
+uv run pytest engine/tests/ -v              # Engine tests (~3,383 tests)
+uv run pytest api/tests/ -v --ignore=api/tests/services/test_xbrl_parser.py  # API tests (~3,079)
+cd web && npx vitest run                    # Web tests (~1,572 tests)
 uv run pytest -v                            # All Python tests
 uv run pytest --cov=margin_engine engine/   # With coverage
 ```
@@ -52,11 +52,14 @@ cd web && npx eslint --fix .                # TypeScript/JSX lint
 
 ## CLI Commands
 
+Subcommands are `seed score pipeline universe archive activate correlations` — verify against `api/src/margin_api/cli.py` before citing others.
+
 ```bash
-uv run python -m margin_api.cli seed --tickers AAPL MSFT        # Seed asset data
-uv run python -m margin_api.cli score --tickers AAPL MSFT       # Score assets
-uv run python -m margin_api.cli edgar-backfill --start-year 2009 # Backfill EDGAR filings
-uv run python -m margin_api.cli price-backfill --start-date 2009-01-01  # Backfill prices
+uv run python -m margin_api.cli seed --tickers AAPL MSFT     # Seed asset data
+uv run python -m margin_api.cli score --tickers AAPL MSFT    # Score assets
+uv run python -m margin_api.cli pipeline --tickers AAPL MSFT # Full ingest → score pipeline
+uv run python -m margin_api.cli universe                     # Regenerate universe.yaml
+uv run python -m margin_api.cli archive --date 2026-05-01    # Archive a daily snapshot
 ```
 
 ## Development Services
@@ -82,7 +85,9 @@ Python 3.13.5+ (specified in `.python-version`).
 
 ## Key Design Principles
 
-- Elimination filters run BEFORE scoring (fail-fast)
+- Elimination filters run BEFORE scoring. All 7 run regardless of earlier failures (no short-circuit) so an eliminated asset carries a complete diagnostic record of why — see `engine/src/margin_engine/scoring/filters/pipeline.py`
+- Four scoring pillars: quality, value, momentum, growth (growth is v4-only). `profitability` is NOT a pillar — `gross_profitability` is a sub-factor of quality
+- Composite has two paths: default v4 is a weighted arithmetic mean (`scoring/composite.py`); v3 is a weighted geometric mean with a floor (`scoring/v3_composite.py`)
 - All scoring uses percentile ranks (0-100) for cross-factor comparison
 - Sector-neutral scoring: rank within GICS sector first, then combine
 - Growth stage determines factor weight adjustments
